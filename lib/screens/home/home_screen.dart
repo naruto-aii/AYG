@@ -15,8 +15,8 @@ import '../../widgets/home/remaining_macros_section.dart';
 import '../../widgets/home/responsive_summary_grid.dart';
 import '../../widgets/home/today_progress_bar.dart';
 import '../../widgets/summary_card.dart';
+import '../food/food_form_navigation.dart';
 import '../exercise/exercise_form_screen.dart';
-import '../food/food_form_screen.dart';
 import '../weight/weight_record_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -24,10 +24,12 @@ class HomeScreen extends StatelessWidget {
     super.key,
     required this.controller,
     required this.openFoodFactsService,
+    this.foodFormBuilder,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
+  final FoodFormScreenBuilder? foodFormBuilder;
 
   Future<void> _confirmDeleteFood(BuildContext context, FoodEntry entry) async {
     final confirmed = await showDialog<bool>(
@@ -81,14 +83,12 @@ class HomeScreen extends StatelessWidget {
   }
 
   void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => FoodFormScreen(
-          controller: controller,
-          openFoodFactsService: openFoodFactsService,
-          entry: entry,
-        ),
-      ),
+    openFoodFormScreen(
+      context,
+      controller: controller,
+      openFoodFactsService: openFoodFactsService,
+      entry: entry,
+      foodFormBuilder: foodFormBuilder,
     );
   }
 

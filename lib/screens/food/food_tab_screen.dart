@@ -5,17 +5,19 @@ import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/history_grouping.dart';
 import '../../widgets/history/food_history_list.dart';
-import 'food_form_screen.dart';
+import 'food_form_navigation.dart';
 
 class FoodTabScreen extends StatelessWidget {
   const FoodTabScreen({
     super.key,
     required this.controller,
     required this.openFoodFactsService,
+    this.foodFormBuilder,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
+  final FoodFormScreenBuilder? foodFormBuilder;
 
   Future<void> _confirmDeleteFood(BuildContext context, FoodEntry entry) async {
     final confirmed = await showDialog<bool>(
@@ -42,14 +44,12 @@ class FoodTabScreen extends StatelessWidget {
   }
 
   void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => FoodFormScreen(
-          controller: controller,
-          openFoodFactsService: openFoodFactsService,
-          entry: entry,
-        ),
-      ),
+    openFoodFormScreen(
+      context,
+      controller: controller,
+      openFoodFactsService: openFoodFactsService,
+      entry: entry,
+      foodFormBuilder: foodFormBuilder,
     );
   }
 

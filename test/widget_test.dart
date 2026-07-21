@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/app.dart';
 import 'package:ayg/config/open_food_facts_config.dart';
 import 'package:ayg/models/activity_level.dart';
@@ -185,13 +186,13 @@ void main() {
       ),
     );
 
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.text(AppStrings.navHome), findsWidgets);
 
     await controller.logout();
     await tester.pumpAndSettle();
 
     expect(find.text('Googleでログイン'), findsOneWidget);
-    expect(find.text('Home'), findsNothing);
+    expect(find.text(AppStrings.navHome), findsNothing);
 
     await authRepository.dispose();
   });
@@ -241,7 +242,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.text(AppStrings.navHome), findsWidgets);
 
     await authRepository.dispose();
   });

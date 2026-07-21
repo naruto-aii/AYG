@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'repositories/authentication_repository.dart';
 import 'screens/auth/web_login_screen.dart';
 import 'screens/onboarding/web_onboarding_screen.dart';
-import 'screens/shell/main_shell_screen.dart';
+import 'screens/shell/web_main_shell_screen.dart';
 import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
@@ -36,7 +36,7 @@ class AygWebApp extends StatelessWidget {
           }
 
           if (_shouldShowMainShell(controller)) {
-            return MainShellScreen(
+            return WebMainShellScreen(
               controller: controller,
               openFoodFactsService: openFoodFactsService,
               authenticationRepository: authenticationRepository,

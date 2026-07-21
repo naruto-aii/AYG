@@ -14,15 +14,15 @@ import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/data_sync_repository.dart';
-import '../repositories/exercise_repository.dart';
-import '../repositories/food_repository.dart';
+import '../repositories/contracts/exercise_repository_base.dart';
+import '../repositories/contracts/food_repository_base.dart';
+import '../repositories/contracts/settings_repository_base.dart';
+import '../repositories/contracts/user_repository_base.dart';
+import '../repositories/contracts/weight_repository_base.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
-import '../repositories/settings_repository.dart';
-import '../repositories/user_repository.dart';
-import '../repositories/weight_repository.dart';
-import '../services/local_user_data_clearer.dart';
+import '../services/local_user_data_clearer_base.dart';
 import '../services/nutrition_engine.dart';
 
 class AppController extends ChangeNotifier {
@@ -32,12 +32,12 @@ class AppController extends ChangeNotifier {
     AuthenticationRepository? authenticationRepository,
     DataSyncRepository? dataSyncRepository,
     LocalSessionStore? localSessionStore,
-    LocalUserDataClearer? localUserDataClearer,
-    UserRepository? userRepository,
-    SettingsRepository? settingsRepository,
-    FoodRepository? foodRepository,
-    ExerciseRepository? exerciseRepository,
-    WeightRepository? weightRepository,
+    LocalUserDataClearerBase? localUserDataClearer,
+    UserRepositoryBase? userRepository,
+    SettingsRepositoryBase? settingsRepository,
+    FoodRepositoryBase? foodRepository,
+    ExerciseRepositoryBase? exerciseRepository,
+    WeightRepositoryBase? weightRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -55,12 +55,12 @@ class AppController extends ChangeNotifier {
   final AuthenticationRepository? _authenticationRepository;
   final DataSyncRepository? _dataSyncRepository;
   final LocalSessionStore? _localSessionStore;
-  final LocalUserDataClearer? _localUserDataClearer;
-  final UserRepository? _userRepository;
-  final SettingsRepository? _settingsRepository;
-  final FoodRepository? _foodRepository;
-  final ExerciseRepository? _exerciseRepository;
-  final WeightRepository? _weightRepository;
+  final LocalUserDataClearerBase? _localUserDataClearer;
+  final UserRepositoryBase? _userRepository;
+  final SettingsRepositoryBase? _settingsRepository;
+  final FoodRepositoryBase? _foodRepository;
+  final ExerciseRepositoryBase? _exerciseRepository;
+  final WeightRepositoryBase? _weightRepository;
 
   StreamSubscription<AuthUser?>? _authSubscription;
   bool _hasInitialSyncCompleted = false;

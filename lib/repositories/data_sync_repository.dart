@@ -10,11 +10,11 @@ import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
-import 'exercise_repository.dart';
-import 'food_repository.dart';
-import 'settings_repository.dart';
-import 'user_repository.dart';
-import 'weight_repository.dart';
+import 'contracts/exercise_repository_base.dart';
+import 'contracts/food_repository_base.dart';
+import 'contracts/settings_repository_base.dart';
+import 'contracts/user_repository_base.dart';
+import 'contracts/weight_repository_base.dart';
 
 /// Supabase users テーブルの行。
 class RemoteUserProfile {
@@ -54,11 +54,11 @@ abstract class DataSyncRepository {
 /// Supabase 実装。
 class SupabaseDataSyncRepository implements DataSyncRepository {
   SupabaseDataSyncRepository({
-    required UserRepository userRepository,
-    required SettingsRepository settingsRepository,
-    required FoodRepository foodRepository,
-    required ExerciseRepository exerciseRepository,
-    required WeightRepository weightRepository,
+    required UserRepositoryBase userRepository,
+    required SettingsRepositoryBase settingsRepository,
+    required FoodRepositoryBase foodRepository,
+    required ExerciseRepositoryBase exerciseRepository,
+    required WeightRepositoryBase weightRepository,
     SupabaseClient? client,
   }) : _userRepository = userRepository,
        _settingsRepository = settingsRepository,
@@ -67,11 +67,11 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
        _weightRepository = weightRepository,
        _client = client ?? Supabase.instance.client;
 
-  final UserRepository _userRepository;
-  final SettingsRepository _settingsRepository;
-  final FoodRepository _foodRepository;
-  final ExerciseRepository _exerciseRepository;
-  final WeightRepository _weightRepository;
+  final UserRepositoryBase _userRepository;
+  final SettingsRepositoryBase _settingsRepository;
+  final FoodRepositoryBase _foodRepository;
+  final ExerciseRepositoryBase _exerciseRepository;
+  final WeightRepositoryBase _weightRepository;
   final SupabaseClient _client;
 
   @override

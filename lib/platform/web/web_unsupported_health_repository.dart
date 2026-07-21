@@ -1,20 +1,18 @@
-import 'package:isar/isar.dart';
+import '../../../models/health_profile_data.dart';
+import '../../../repositories/health_repository.dart';
+import '../../../repositories/contracts/weight_repository_base.dart';
+import 'web_health_workout_store.dart';
 
-import '../models/health_profile_data.dart';
-import 'health_repository.dart';
-import 'health_workout_local_store.dart';
-import 'contracts/weight_repository_base.dart';
-
-/// Chrome 等 Health 非対応環境。
-class UnsupportedHealthRepository implements HealthRepository {
-  UnsupportedHealthRepository({
+/// Web プレビュー向け Health 非対応 Repository。
+class WebUnsupportedHealthRepository implements HealthRepository {
+  WebUnsupportedHealthRepository({
     required WeightRepositoryBase weightRepository,
-    required Isar isar,
+    WebHealthWorkoutStore? workoutStore,
   }) : _weightRepository = weightRepository,
-       _workoutStore = HealthWorkoutLocalStore(isar);
+       _workoutStore = workoutStore ?? WebHealthWorkoutStore();
 
   final WeightRepositoryBase _weightRepository;
-  final HealthWorkoutLocalStore _workoutStore;
+  final WebHealthWorkoutStore _workoutStore;
 
   @override
   bool get isAvailable => false;

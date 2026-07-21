@@ -5,12 +5,14 @@ import '../database/schemas.dart';
 import '../models/app_settings.dart';
 import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
+import 'contracts/settings_repository_base.dart';
 
-class SettingsRepository {
+class SettingsRepository implements SettingsRepositoryBase {
   SettingsRepository(this._isar);
 
   final Isar _isar;
 
+  @override
   Future<void> saveNutritionSettings(NutritionSettings settings) async {
     await _isar.writeTxn(() async {
       await _isar.nutritionSettingsEntitys.put(
@@ -19,6 +21,7 @@ class SettingsRepository {
     });
   }
 
+  @override
   Future<NutritionSettings?> loadNutritionSettings() async {
     final entity = await _isar.nutritionSettingsEntitys.get(1);
     if (entity == null) {
@@ -27,6 +30,7 @@ class SettingsRepository {
     return EntityMapper.fromNutritionSettingsEntity(entity);
   }
 
+  @override
   Future<void> saveHealthSnapshot(HealthSnapshot snapshot) async {
     await _isar.writeTxn(() async {
       await _isar.healthSnapshotEntitys.put(
@@ -35,6 +39,7 @@ class SettingsRepository {
     });
   }
 
+  @override
   Future<HealthSnapshot?> loadHealthSnapshot() async {
     final entity = await _isar.healthSnapshotEntitys.get(1);
     if (entity == null) {
@@ -43,6 +48,7 @@ class SettingsRepository {
     return EntityMapper.fromHealthSnapshotEntity(entity);
   }
 
+  @override
   Future<void> saveAppSettings(AppSettings settings) async {
     await _isar.writeTxn(() async {
       await _isar.appSettingsEntitys.put(
@@ -51,6 +57,7 @@ class SettingsRepository {
     });
   }
 
+  @override
   Future<AppSettings> loadAppSettings() async {
     final entity = await _isar.appSettingsEntitys.get(1);
     if (entity == null) {
@@ -59,6 +66,7 @@ class SettingsRepository {
     return EntityMapper.fromAppSettingsEntity(entity);
   }
 
+  @override
   Future<void> clearAll() async {
     await _isar.writeTxn(() async {
       await _isar.nutritionSettingsEntitys.clear();

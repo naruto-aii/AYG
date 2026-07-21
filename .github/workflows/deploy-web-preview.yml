@@ -35,14 +35,29 @@ jobs:
         run: flutter pub get
 
       - name: Build web
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          OFF_CONTACT_EMAIL: ${{ secrets.OFF_CONTACT_EMAIL }}
         run: |
+          python3 <<'PY'
+          import json
+          import os
+
+          config = {
+              "SUPABASE_URL": os.environ["SUPABASE_URL"],
+              "SUPABASE_ANON_KEY": os.environ["SUPABASE_PUBLISHABLE_KEY"],
+              "GOOGLE_WEB_CLIENT_ID": os.environ["GOOGLE_WEB_CLIENT_ID"],
+              "OFF_CONTACT_EMAIL": os.environ["OFF_CONTACT_EMAIL"],
+          }
+          with open("dart_defines.ci.json", "w", encoding="utf-8") as handle:
+              json.dump(config, handle)
+          PY
           flutter build web --release \
             --base-href "/AYG/" \
             --target lib/main_web.dart \
-            --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }} \
-            --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_PUBLISHABLE_KEY }} \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=OFF_CONTACT_EMAIL=${{ vars.OFF_CONTACT_EMAIL }}
+            --dart-define-from-file=dart_defines.ci.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

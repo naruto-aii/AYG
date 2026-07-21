@@ -43,6 +43,7 @@ class AygApp extends StatelessWidget {
               controller: controller,
               openFoodFactsService: openFoodFactsService,
               authenticationRepository: authenticationRepository,
+              healthRepository: healthRepository,
             );
           }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../models/activity_level.dart';
 import '../../models/nutrition_settings.dart';
 import '../../repositories/authentication_repository.dart';
@@ -51,7 +52,7 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Activity Level')),
+      appBar: AppBar(title: const Text(AppStrings.activityLevel)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -65,7 +66,7 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
             const SizedBox(height: AppSpacing.lg),
             ...ActivityLevel.values.map(
               (level) => RadioListTile<ActivityLevel>(
-                title: Text(level.label),
+                title: Text(AppStrings.activityLevelLabel(level)),
                 subtitle: Text('係数 ${level.factor}'),
                 value: level,
                 groupValue: _activityLevel,

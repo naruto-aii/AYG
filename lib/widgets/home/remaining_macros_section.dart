@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
@@ -32,7 +33,7 @@ class RemainingKcalHero extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              '食べられます',
+              AppStrings.remainingKcalSuffix,
               style: Theme.of(
                 context,
               ).textTheme.bodyLarge?.copyWith(color: onHero),
@@ -64,22 +65,25 @@ class RemainingMacrosSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('今日あと', style: AppTextStyles.sectionTitle(context)),
+            Text(
+              AppStrings.remainingToday,
+              style: AppTextStyles.sectionTitle(context),
+            ),
             const SizedBox(height: AppSpacing.md),
             _MacroRow(
-              label: 'Protein',
+              label: AppStrings.macroProtein,
               valueG: remainingProteinG,
               color: AppColors.macroProtein,
             ),
             const SizedBox(height: AppSpacing.xs),
             _MacroRow(
-              label: 'Carb',
+              label: AppStrings.macroCarb,
               valueG: remainingCarbG,
               color: AppColors.macroCarb,
             ),
             const SizedBox(height: AppSpacing.xs),
             _MacroRow(
-              label: 'Fat',
+              label: AppStrings.macroFat,
               valueG: remainingFatG,
               color: AppColors.macroFat,
             ),

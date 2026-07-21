@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../constants/app_strings.dart';
 import '../models/app_settings.dart';
+import '../models/activity_level.dart';
 import '../models/daily_summary.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
@@ -82,6 +84,28 @@ class AppController extends ChangeNotifier {
       nutritionSettings?.useHealthIntegration ?? false;
 
   bool get onboardingComplete => appSettings.onboardingComplete;
+
+  bool get isHealthRepositoryAvailable =>
+      _healthRepository?.isAvailable ?? false;
+
+  /// 計算に使用している体重のデータソース。
+  WeightDataSource get weightDataSource {
+    if (!useHealthIntegration) {
+      return WeightDataSource.manual;
+    }
+    if (healthSnapshot.weightKg != null || healthPrefill.weightKg != null) {
+      return WeightDataSource.health;
+    }
+    return WeightDataSource.healthPending;
+  }
+
+  String get weightDataSourceLabel {
+    return switch (weightDataSource) {
+      WeightDataSource.manual => AppStrings.weightSourceManual,
+      WeightDataSource.health => AppStrings.weightSourceHealth,
+      WeightDataSource.healthPending => AppStrings.weightSourceHealthPending,
+    };
+  }
 
   Future<void> initialize() async {
     final authRepository = _authenticationRepository;
@@ -243,17 +267,121 @@ class AppController extends ChangeNotifier {
     _recalculate();
   }
 
-  void updateProfileWeight(double weightKg) {
+  Future<void> updateBasicProfile({
+    required DateTime birthDate,
+    required Gender gender,
+    required double heightCm,
+    double? manualWeightKg,
+  }) async {
     final currentProfile = profile;
     if (currentProfile == null) {
       return;
     }
-    profile = _profileWithPreferredWeight(
-      currentProfile.copyWith(weightKg: weightKg),
+
+    final weightChanged =
+        manualWeightKg != null &&
+        (manualWeightKg - currentProfile.weightKg).abs() > 0.009;
+
+    if (weightChanged && !useHealthIntegration) {
+      await recordManualWeight(manualWeightKg);
+      profile = profile!.copyWith(
+        birthDate: birthDate,
+        gender: gender,
+        heightCm: heightCm,
+      );
+      await _userRepository?.saveProfile(profile!);
+      _scheduleRemoteSync();
+      _recalculate();
+      return;
+    }
+
+    var nextProfile = currentProfile.copyWith(
+      birthDate: birthDate,
+      gender: gender,
+      heightCm: heightCm,
     );
-    _userRepository?.saveProfile(profile!);
+
+    if (weightChanged && useHealthIntegration) {
+      final entry = WeightEntry(
+        id: generateId(),
+        weightKg: manualWeightKg,
+        recordedAt: DateTime.now(),
+        source: WeightSource.manual,
+      );
+      await _weightRepository?.save(entry);
+      nextProfile = nextProfile.copyWith(weightKg: manualWeightKg);
+    }
+
+    profile = _profileWithPreferredWeight(nextProfile);
+    await _userRepository?.saveProfile(profile!);
     _scheduleRemoteSync();
     _recalculate();
+  }
+
+  Future<void> saveGoalSettings(Goal value) async {
+    goal = value;
+    await _userRepository?.saveGoal(value);
+    _scheduleRemoteSync();
+    _recalculate();
+  }
+
+  Future<void> saveNutritionSettingsSettings(NutritionSettings value) async {
+    nutritionSettings = value;
+    await _settingsRepository?.saveNutritionSettings(value);
+    _scheduleRemoteSync();
+    _recalculate();
+  }
+
+  Future<void> updateActivityLevel(ActivityLevel activityLevel) async {
+    await saveNutritionSettingsSettings(
+      NutritionSettings(
+        useHealthIntegration: false,
+        activityLevel: activityLevel,
+      ),
+    );
+  }
+
+  Future<bool> enableHealthIntegration() async {
+    final healthRepository = _healthRepository;
+    if (healthRepository == null || !healthRepository.isAvailable) {
+      return false;
+    }
+
+    final granted = await healthRepository.requestPermissions();
+    final profileData = granted
+        ? await healthRepository.fetchProfileData()
+        : HealthProfileData.empty;
+
+    await saveNutritionSettingsSettings(
+      const NutritionSettings(useHealthIntegration: true),
+    );
+    await applyHealthProfileData(profileData);
+    return granted;
+  }
+
+  Future<void> disableHealthIntegration({ActivityLevel? activityLevel}) async {
+    final fallbackLevel =
+        activityLevel ??
+        nutritionSettings?.activityLevel ??
+        ActivityLevel.moderate;
+    await saveNutritionSettingsSettings(
+      NutritionSettings(
+        useHealthIntegration: false,
+        activityLevel: fallbackLevel,
+      ),
+    );
+  }
+
+  Future<bool> resyncHealthData() async {
+    final healthRepository = _healthRepository;
+    if (healthRepository == null || !useHealthIntegration) {
+      return false;
+    }
+
+    final profileData = await healthRepository.fetchProfileData();
+    await applyHealthProfileData(profileData);
+    return profileData.weightKg != null ||
+        profileData.activeEnergyBurnedKcal != null;
   }
 
   void setGoal(Goal value) {
@@ -386,3 +514,5 @@ class AppController extends ChangeNotifier {
     super.dispose();
   }
 }
+
+enum WeightDataSource { manual, health, healthPending }

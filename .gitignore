@@ -39,7 +39,6 @@ migrate_working_dir/
 build/
 
 # Web related
-lib/generated_plugin_registrant.dart
 
 # Symbolication related
 app.*.symbols
@@ -61,3 +60,8 @@ app.*.map.json
 **/Pods/
 **/DerivedData/
 *.xcuserdata
+ios/Flutter/GoogleSignIn.generated.xcconfig
+tool/dart_defines.local.json
+
+# Local native binaries
+*.dylib

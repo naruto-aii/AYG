@@ -4,7 +4,8 @@ import '../../models/goal.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
-import '../shell/main_shell_screen.dart';
+import '../food/food_form_navigation.dart';
+import '../shell/shell_navigation.dart';
 import 'activity_level_screen.dart';
 
 class GoalSetupScreen extends StatefulWidget {
@@ -13,11 +14,15 @@ class GoalSetupScreen extends StatefulWidget {
     required this.controller,
     required this.openFoodFactsService,
     required this.authenticationRepository,
+    this.mainShellBuilder,
+    this.foodFormBuilder,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final AuthenticationRepository authenticationRepository;
+  final MainShellScreenBuilder? mainShellBuilder;
+  final FoodFormScreenBuilder? foodFormBuilder;
 
   @override
   State<GoalSetupScreen> createState() => _GoalSetupScreenState();
@@ -70,12 +75,15 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
 
     if (widget.controller.useHealthIntegration) {
       widget.controller.completeOnboarding();
+      final shellBuilder =
+          widget.mainShellBuilder ?? defaultMainShellScreenBuilder;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (context) => MainShellScreen(
+          builder: (context) => shellBuilder(
             controller: widget.controller,
             openFoodFactsService: widget.openFoodFactsService,
             authenticationRepository: widget.authenticationRepository,
+            foodFormBuilder: widget.foodFormBuilder,
           ),
         ),
         (route) => false,
@@ -89,6 +97,8 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
+          mainShellBuilder: widget.mainShellBuilder,
+          foodFormBuilder: widget.foodFormBuilder,
         ),
       ),
     );

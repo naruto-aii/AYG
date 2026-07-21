@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
-import '../food/web_food_tab_screen.dart';
+import '../food/food_form_navigation.dart';
+import '../food/food_tab_screen.dart';
+import '../food/web_food_form_screen.dart';
 import '../home/home_screen.dart';
-import '../settings/settings_placeholder_screen.dart';
+import '../settings/settings_screen.dart';
 import '../weight/weight_placeholder_screen.dart';
 import '../workout/workout_tab_screen.dart';
 
@@ -34,16 +38,19 @@ class _WebMainShellScreenState extends State<WebMainShellScreen> {
       HomeScreen(
         controller: widget.controller,
         openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: webFoodFormScreenBuilder,
       ),
-      WebFoodTabScreen(
+      FoodTabScreen(
         controller: widget.controller,
         openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: webFoodFormScreenBuilder,
       ),
       WorkoutTabScreen(controller: widget.controller),
       const WeightPlaceholderScreen(),
-      SettingsPlaceholderScreen(
+      SettingsScreen(
         controller: widget.controller,
         authenticationRepository: widget.authenticationRepository,
+        hideHealthSettings: true,
       ),
     ];
 
@@ -58,30 +65,44 @@ class _WebMainShellScreenState extends State<WebMainShellScreen> {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
-            label: 'Home',
+            label: AppStrings.navHome,
           ),
           NavigationDestination(
             icon: Icon(Icons.restaurant_outlined),
             selectedIcon: Icon(Icons.restaurant),
-            label: 'Food',
+            label: AppStrings.navFood,
           ),
           NavigationDestination(
             icon: Icon(Icons.fitness_center_outlined),
             selectedIcon: Icon(Icons.fitness_center),
-            label: 'Workout',
+            label: AppStrings.navWorkout,
           ),
           NavigationDestination(
             icon: Icon(Icons.monitor_weight_outlined),
             selectedIcon: Icon(Icons.monitor_weight),
-            label: 'Weight',
+            label: AppStrings.navWeight,
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            label: AppStrings.navSettings,
           ),
         ],
       ),
     );
   }
+}
+
+Widget webMainShellScreenBuilder({
+  required AppController controller,
+  required OpenFoodFactsService openFoodFactsService,
+  required AuthenticationRepository authenticationRepository,
+  HealthRepository? healthRepository,
+  FoodFormScreenBuilder? foodFormBuilder,
+}) {
+  return WebMainShellScreen(
+    controller: controller,
+    openFoodFactsService: openFoodFactsService,
+    authenticationRepository: authenticationRepository,
+  );
 }

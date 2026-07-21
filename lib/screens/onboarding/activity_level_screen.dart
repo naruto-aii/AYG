@@ -7,7 +7,8 @@ import '../../repositories/authentication_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
-import '../shell/main_shell_screen.dart';
+import '../food/food_form_navigation.dart';
+import '../shell/shell_navigation.dart';
 
 class ActivityLevelScreen extends StatefulWidget {
   const ActivityLevelScreen({
@@ -15,11 +16,15 @@ class ActivityLevelScreen extends StatefulWidget {
     required this.controller,
     required this.openFoodFactsService,
     required this.authenticationRepository,
+    this.mainShellBuilder,
+    this.foodFormBuilder,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final AuthenticationRepository authenticationRepository;
+  final MainShellScreenBuilder? mainShellBuilder;
+  final FoodFormScreenBuilder? foodFormBuilder;
 
   @override
   State<ActivityLevelScreen> createState() => _ActivityLevelScreenState();
@@ -37,12 +42,15 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
     );
     widget.controller.completeOnboarding();
 
+    final shellBuilder =
+        widget.mainShellBuilder ?? defaultMainShellScreenBuilder;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (context) => MainShellScreen(
+        builder: (context) => shellBuilder(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
+          foodFormBuilder: widget.foodFormBuilder,
         ),
       ),
       (route) => false,

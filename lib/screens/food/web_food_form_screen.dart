@@ -5,6 +5,7 @@ import '../../platform/web/web_barcode_scanner_screen.dart';
 import '../../platform/web/web_barcode_support.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import 'food_form_navigation.dart';
 
 typedef BarcodeScanAvailabilityChecker = bool Function();
 
@@ -467,4 +468,16 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
       ),
     );
   }
+}
+
+Widget webFoodFormScreenBuilder({
+  required AppController controller,
+  required OpenFoodFactsService openFoodFactsService,
+  FoodEntry? entry,
+}) {
+  return WebFoodFormScreen(
+    controller: controller,
+    openFoodFactsService: openFoodFactsService,
+    entry: entry,
+  );
 }

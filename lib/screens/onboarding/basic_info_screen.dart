@@ -5,6 +5,8 @@ import '../../models/user_profile.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../food/food_form_navigation.dart';
+import '../shell/shell_navigation.dart';
 import 'goal_setup_screen.dart';
 
 class BasicInfoScreen extends StatefulWidget {
@@ -14,12 +16,16 @@ class BasicInfoScreen extends StatefulWidget {
     required this.openFoodFactsService,
     required this.healthPrefill,
     required this.authenticationRepository,
+    this.mainShellBuilder,
+    this.foodFormBuilder,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final HealthProfileData healthPrefill;
   final AuthenticationRepository authenticationRepository;
+  final MainShellScreenBuilder? mainShellBuilder;
+  final FoodFormScreenBuilder? foodFormBuilder;
 
   @override
   State<BasicInfoScreen> createState() => _BasicInfoScreenState();
@@ -112,6 +118,8 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
+          mainShellBuilder: widget.mainShellBuilder,
+          foodFormBuilder: widget.foodFormBuilder,
         ),
       ),
     );

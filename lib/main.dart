@@ -12,7 +12,9 @@ import 'repositories/exercise_repository.dart';
 import 'repositories/food_repository.dart';
 import 'repositories/health_repository.dart';
 import 'repositories/local_session_store.dart';
+import 'repositories/meal_template_repository.dart';
 import 'repositories/platform_health_repository.dart';
+import 'repositories/saved_food_repository.dart';
 import 'repositories/settings_repository.dart';
 import 'repositories/supabase_authentication_repository.dart';
 import 'repositories/unsupported_health_repository.dart';
@@ -38,6 +40,8 @@ Future<void> main() async {
   final settingsRepository = SettingsRepository(isar);
   final foodRepository = FoodRepository(isar);
   final exerciseRepository = ExerciseRepository(isar);
+  final savedFoodRepository = SavedFoodRepository(isar);
+  final mealTemplateRepository = MealTemplateRepository(isar);
 
   final openFoodFactsService = OpenFoodFactsService(
     userAgent: OpenFoodFactsConfig.userAgent,
@@ -76,6 +80,8 @@ Future<void> main() async {
     foodRepository: foodRepository,
     exerciseRepository: exerciseRepository,
     weightRepository: weightRepository,
+    savedFoodRepository: savedFoodRepository,
+    mealTemplateRepository: mealTemplateRepository,
   );
 
   final controller = AppController(

@@ -136,6 +136,8 @@ void main() {
       expect(restored.totalKcal, original.totalKcal);
       expect(restored.totalProteinG, original.totalProteinG);
       expect(entity.quantity, 2.25);
+      expect(entity.baseAmount, 1);
+      expect(entity.consumedAmount, 2.25);
     });
 
     test('simulates reading old local DB schema with quantity only', () {

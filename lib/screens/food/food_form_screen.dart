@@ -2,8 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/food_entry.dart';
+import '../../models/macro_field.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/food/macro_nutrition_fields.dart';
+import '../../widgets/food/macro_nutrition_input_controller.dart';
 import 'barcode_scanner_screen.dart';
 
 class FoodFormScreen extends StatefulWidget {
@@ -27,12 +30,9 @@ class FoodFormScreen extends StatefulWidget {
 class _FoodFormScreenState extends State<FoodFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _barcodeController = TextEditingController();
-  late final TextEditingController _nameController;
-  late final TextEditingController _kcalController;
-  late final TextEditingController _proteinController;
-  late final TextEditingController _fatController;
-  late final TextEditingController _carbController;
-  late final TextEditingController _quantityController;
+  final _nameController = TextEditingController();
+  final _quantityController = TextEditingController();
+  late final MacroNutritionInputController _macroInput;
 
   bool _isSearching = false;
   bool _manualInputHighlighted = false;
@@ -48,44 +48,24 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   @override
   void initState() {
     super.initState();
+    _macroInput = MacroNutritionInputController();
     final entry = widget.entry;
-    _nameController = TextEditingController(text: entry?.name ?? '');
-    _kcalController = TextEditingController(
-      text: _textForNullable(entry?.kcalPerUnit),
+    _nameController.text = entry?.name ?? '';
+    _macroInput.initializeFromNullable(
+      kcal: entry?.kcalPerUnit,
+      protein: entry?.proteinPerUnit,
+      fat: entry?.fatPerUnit,
+      carb: entry?.carbPerUnit,
     );
-    _proteinController = TextEditingController(
-      text: _textForNullable(entry?.proteinPerUnit),
-    );
-    _fatController = TextEditingController(
-      text: _textForNullable(entry?.fatPerUnit),
-    );
-    _carbController = TextEditingController(
-      text: _textForNullable(entry?.carbPerUnit),
-    );
-    _quantityController = TextEditingController(
-      text: entry?.quantity.toString() ?? '1',
-    );
-  }
-
-  String _textForNullable(double? value) {
-    if (value == null) {
-      return '';
-    }
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toString();
+    _quantityController.text = entry?.quantity.toString() ?? '1';
   }
 
   @override
   void dispose() {
     _barcodeController.dispose();
     _nameController.dispose();
-    _kcalController.dispose();
-    _proteinController.dispose();
-    _fatController.dispose();
-    _carbController.dispose();
     _quantityController.dispose();
+    _macroInput.dispose();
     super.dispose();
   }
 
@@ -154,18 +134,12 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     if (result.name != null) {
       _nameController.text = result.name!;
     }
-    if (result.kcalPerUnit != null) {
-      _kcalController.text = _textForNullable(result.kcalPerUnit);
-    }
-    if (result.proteinPerUnit != null) {
-      _proteinController.text = _textForNullable(result.proteinPerUnit);
-    }
-    if (result.fatPerUnit != null) {
-      _fatController.text = _textForNullable(result.fatPerUnit);
-    }
-    if (result.carbPerUnit != null) {
-      _carbController.text = _textForNullable(result.carbPerUnit);
-    }
+    _macroInput.applyExternalValues(
+      kcal: result.kcalPerUnit,
+      protein: result.proteinPerUnit,
+      fat: result.fatPerUnit,
+      carb: result.carbPerUnit,
+    );
     setState(() => _manualInputHighlighted = false);
   }
 
@@ -187,14 +161,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  double? _parseOptionalDouble(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      return null;
-    }
-    return double.parse(trimmed);
-  }
-
   double _parseQuantity(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
@@ -211,10 +177,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     return FoodEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
       name: _nameController.text.trim(),
-      kcalPerUnit: _parseOptionalDouble(_kcalController.text),
-      proteinPerUnit: _parseOptionalDouble(_proteinController.text),
-      fatPerUnit: _parseOptionalDouble(_fatController.text),
-      carbPerUnit: _parseOptionalDouble(_carbController.text),
+      kcalPerUnit: _macroInput.parseOptional(MacroField.kcal),
+      proteinPerUnit: _macroInput.parseOptional(MacroField.protein),
+      fatPerUnit: _macroInput.parseOptional(MacroField.fat),
+      carbPerUnit: _macroInput.parseOptional(MacroField.carb),
       quantity: _parseQuantity(_quantityController.text),
       loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
     );
@@ -374,52 +340,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _kcalController,
-                decoration: const InputDecoration(
-                  labelText: 'kcal（1単位あたり・任意）',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: _validateOptionalNonNegativeNumber('kcal'),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _proteinController,
-                decoration: const InputDecoration(
-                  labelText: 'P（1単位あたり g・任意）',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: _validateOptionalNonNegativeNumber('P'),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _fatController,
-                decoration: const InputDecoration(
-                  labelText: 'F（1単位あたり g・任意）',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: _validateOptionalNonNegativeNumber('F'),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _carbController,
-                decoration: const InputDecoration(
-                  labelText: 'C（1単位あたり g・任意）',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: _validateOptionalNonNegativeNumber('C'),
+              MacroNutritionFields(
+                controller: _macroInput,
+                validator: (value, label) =>
+                    _validateOptionalNonNegativeNumber(label)(value),
               ),
               const SizedBox(height: 16),
               TextFormField(

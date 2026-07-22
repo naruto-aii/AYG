@@ -3,6 +3,7 @@ import '../models/activity_level.dart';
 import '../models/app_settings.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
+import '../models/food_unit_type.dart';
 import '../models/goal.dart';
 import '../models/health_profile_data.dart';
 import '../models/health_snapshot.dart';
@@ -68,10 +69,10 @@ class EntityMapper {
     return FoodEntryEntity()
       ..entryId = entry.id
       ..name = entry.name
-      ..kcalPerUnit = entry.kcalPerUnit
-      ..proteinPerUnit = entry.proteinPerUnit
-      ..fatPerUnit = entry.fatPerUnit
-      ..carbPerUnit = entry.carbPerUnit
+      ..kcalPerUnit = entry.kcalPerBase
+      ..proteinPerUnit = entry.proteinPerBase
+      ..fatPerUnit = entry.fatPerBase
+      ..carbPerUnit = entry.carbPerBase
       ..quantity = entry.quantity
       ..loggedAt = entry.loggedAt;
   }
@@ -84,7 +85,9 @@ class EntityMapper {
       proteinPerUnit: entity.proteinPerUnit,
       fatPerUnit: entity.fatPerUnit,
       carbPerUnit: entity.carbPerUnit,
-      quantity: entity.quantity,
+      baseAmount: 1,
+      unitType: FoodUnitType.serving,
+      consumedAmount: entity.quantity,
       loggedAt: entity.loggedAt,
     );
   }

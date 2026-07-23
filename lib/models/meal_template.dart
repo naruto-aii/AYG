@@ -3,13 +3,70 @@ import 'food_visibility.dart';
 
 enum TemplateStatus { active, deleted }
 
+extension TemplateStatusX on TemplateStatus {
+  String get storageValue => name;
+
+  static TemplateStatus? tryParse(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    return switch (raw) {
+      'active' => TemplateStatus.active,
+      'deleted' => TemplateStatus.deleted,
+      _ => null,
+    };
+  }
+}
+
 enum TemplateDependencyStatus { ok, hasUnavailableItems, needsReview }
+
+extension TemplateDependencyStatusX on TemplateDependencyStatus {
+  String get storageValue => switch (this) {
+    TemplateDependencyStatus.ok => 'ok',
+    TemplateDependencyStatus.hasUnavailableItems => 'has_unavailable_items',
+    TemplateDependencyStatus.needsReview => 'needs_review',
+  };
+
+  static TemplateDependencyStatus? tryParse(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    return switch (raw) {
+      'ok' => TemplateDependencyStatus.ok,
+      'has_unavailable_items' => TemplateDependencyStatus.hasUnavailableItems,
+      'needs_review' => TemplateDependencyStatus.needsReview,
+      _ => null,
+    };
+  }
+}
 
 enum ItemDependencyStatus {
   available,
   sourceDeleted,
   sourceHidden,
   sourceChanged,
+}
+
+extension ItemDependencyStatusX on ItemDependencyStatus {
+  String get storageValue => switch (this) {
+    ItemDependencyStatus.available => 'available',
+    ItemDependencyStatus.sourceDeleted => 'source_deleted',
+    ItemDependencyStatus.sourceHidden => 'source_hidden',
+    ItemDependencyStatus.sourceChanged => 'source_changed',
+  };
+
+  static ItemDependencyStatus? tryParse(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    return switch (raw) {
+      'available' => ItemDependencyStatus.available,
+      'source_deleted' => ItemDependencyStatus.sourceDeleted,
+      'source_hidden' => ItemDependencyStatus.sourceHidden,
+      'source_changed' => ItemDependencyStatus.sourceChanged,
+      _ => null,
+    };
+  }
 }
 
 /// Version 1.1 では private のみ。

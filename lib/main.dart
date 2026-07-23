@@ -9,13 +9,19 @@ import 'database/isar_service.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/data_sync_repository.dart';
 import 'repositories/exercise_repository.dart';
+import 'repositories/food_master_repositories.dart';
 import 'repositories/food_repository.dart';
 import 'repositories/health_repository.dart';
+import 'repositories/isar_saved_food_repository.dart';
 import 'repositories/local_session_store.dart';
 import 'repositories/meal_template_repository.dart';
 import 'repositories/platform_health_repository.dart';
-import 'repositories/saved_food_repository.dart';
 import 'repositories/settings_repository.dart';
+import 'repositories/supabase/supabase_blocked_food_creator_repository.dart';
+import 'repositories/supabase/supabase_food_rating_repository.dart';
+import 'repositories/supabase/supabase_food_report_repository.dart';
+import 'repositories/supabase/supabase_meal_template_repository.dart';
+import 'repositories/supabase/supabase_saved_food_repository.dart';
 import 'repositories/supabase_authentication_repository.dart';
 import 'repositories/unsupported_health_repository.dart';
 import 'repositories/user_repository.dart';
@@ -40,8 +46,23 @@ Future<void> main() async {
   final settingsRepository = SettingsRepository(isar);
   final foodRepository = FoodRepository(isar);
   final exerciseRepository = ExerciseRepository(isar);
-  final savedFoodRepository = SavedFoodRepository(isar);
+  final savedFoodRepository = IsarSavedFoodRepository(isar);
   final mealTemplateRepository = MealTemplateRepository(isar);
+
+  final foodMasterRepositories = SupabaseConfig.isConfigured
+      ? FoodMasterRepositories.synced(
+          localSavedFoods: savedFoodRepository,
+          mealTemplates: mealTemplateRepository,
+          remoteSavedFoods: SupabaseSavedFoodRepository(),
+          remoteMealTemplates: SupabaseMealTemplateRepository(),
+          foodRatings: SupabaseFoodRatingRepository(),
+          foodReports: SupabaseFoodReportRepository(),
+          blockedCreators: SupabaseBlockedFoodCreatorRepository(),
+        )
+      : FoodMasterRepositories.localOnly(
+          localSavedFoods: savedFoodRepository,
+          mealTemplates: mealTemplateRepository,
+        );
 
   final openFoodFactsService = OpenFoodFactsService(
     userAgent: OpenFoodFactsConfig.userAgent,
@@ -69,6 +90,7 @@ Future<void> main() async {
           foodRepository: foodRepository,
           exerciseRepository: exerciseRepository,
           weightRepository: weightRepository,
+          foodMaster: foodMasterRepositories,
         )
       : NoOpDataSyncRepository();
 

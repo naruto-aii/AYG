@@ -161,6 +161,16 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
     return entities.map(EntityMapper.fromMealTemplateItemEntity).toList();
   }
 
+  Future<List<MealTemplate>> loadAllOwnIncludingDeleted(
+    String ownerUserId,
+  ) async {
+    final entities = await _isar.mealTemplateEntitys
+        .filter()
+        .ownerUserIdEqualTo(ownerUserId)
+        .findAll();
+    return entities.map(EntityMapper.fromMealTemplateEntity).toList();
+  }
+
   @override
   Future<void> clearAll() async {
     await _isar.writeTxn(() async {

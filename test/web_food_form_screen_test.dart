@@ -1,4 +1,5 @@
 import 'package:ayg/config/open_food_facts_config.dart';
+import 'package:ayg/models/food_entry_source.dart';
 import 'package:ayg/platform/web/web_barcode_support.dart';
 import 'package:ayg/screens/food/web_food_form_screen.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
@@ -89,6 +90,43 @@ void main() {
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('食品名'), findsOneWidget);
   });
+
+  testWidgets('preserves OFF kcal when saving without nutrition edits', (
+    WidgetTester tester,
+  ) async {
+    final controller = AppController(
+      healthRepository: MockHealthRepository(isAvailable: false),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WebFoodFormScreen(
+          controller: controller,
+          openFoodFactsService: createService(),
+          barcodeLookupBuilder: (service) =>
+              WebBarcodeLookup(_NutellaOpenFoodFactsService()),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).first, '3017620422003');
+    await tester.tap(find.text('バーコードで検索'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('表示カロリーとPFC換算値が異なる場合があります'), findsOneWidget);
+
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), 'Nutella');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(controller.foodEntries, hasLength(1));
+    expect(controller.foodEntries.first.kcalPerUnit, 539);
+    expect(
+      controller.foodEntries.first.sourceType.name,
+      FoodEntrySource.openFoodFacts.name,
+    );
+  });
 }
 
 class _FailingOpenFoodFactsService extends OpenFoodFactsService {
@@ -100,5 +138,26 @@ class _FailingOpenFoodFactsService extends OpenFoodFactsService {
     String barcode,
   ) async {
     return (data: null, failure: OffLookupFailure.network);
+  }
+}
+
+class _NutellaOpenFoodFactsService extends OpenFoodFactsService {
+  _NutellaOpenFoodFactsService()
+    : super(userAgent: 'AYG/0.1 (test@example.com)');
+
+  @override
+  Future<({FoodLookupResult? data, OffLookupFailure? failure})> fetchByBarcode(
+    String barcode,
+  ) async {
+    return (
+      data: const FoodLookupResult(
+        name: 'Nutella',
+        kcalPerUnit: 539,
+        proteinPerUnit: 6.3,
+        fatPerUnit: 30.9,
+        carbPerUnit: 57.5,
+      ),
+      failure: null,
+    );
   }
 }

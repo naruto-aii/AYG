@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../models/food_entry.dart';
 import '../../models/food_entry_source.dart';
+import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
+import '../../models/saved_food.dart';
 import '../../platform/web/web_barcode_scanner_screen.dart';
 import '../../platform/web/web_barcode_support.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../utils/nutrition_format.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
+import '../../widgets/saved_food/saved_food_suggestion_list.dart';
 
 typedef BarcodeScanAvailabilityChecker = bool Function();
 
@@ -46,7 +50,16 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
 
   bool _isSearching = false;
   bool _manualInputHighlighted = false;
+  bool _fromSavedFoodSelection = false;
   FoodEntrySource _sourceType = FoodEntrySource.manual;
+  String? _selectedSavedFoodId;
+  String? _sourceFoodOwnerUserId;
+  double _baseAmount = 1;
+  FoodUnitType _unitType = FoodUnitType.serving;
+  List<SavedFood> _savedFoodSuggestions = const [];
+
+  bool get _usesSavedFoodBaseModel =>
+      _fromSavedFoodSelection || _selectedSavedFoodId != null;
 
   @override
   void initState() {
@@ -55,25 +68,77 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
     final entry = widget.entry;
     _sourceType = entry?.sourceType ?? FoodEntrySource.manual;
     _nameController.text = entry?.name ?? '';
+    _selectedSavedFoodId = entry?.savedFoodId;
+    _sourceFoodOwnerUserId = entry?.sourceFoodOwnerUserId;
+    if (entry != null && entry.hasConsumptionModel) {
+      _baseAmount = entry.baseAmount;
+      _unitType = entry.unitType;
+      _fromSavedFoodSelection = entry.savedFoodId != null;
+    }
     _macroInput.initializeFromNullable(
-      kcal: entry?.kcalPerUnit,
-      protein: entry?.proteinPerUnit,
-      fat: entry?.fatPerUnit,
-      carb: entry?.carbPerUnit,
+      kcal: entry?.kcalPerBase ?? entry?.kcalPerUnit,
+      protein: entry?.proteinPerBase ?? entry?.proteinPerUnit,
+      fat: entry?.fatPerBase ?? entry?.fatPerUnit,
+      carb: entry?.carbPerBase ?? entry?.carbPerUnit,
       consistencyMode: MacroNutritionConsistencyPolicy.initialModeFor(
         _sourceType,
       ),
     );
-    _quantityController.text = entry?.quantity.toString() ?? '1';
+    _quantityController.text = entry != null
+        ? entry.consumedAmount.toString()
+        : '1';
+    _nameController.addListener(_onNameChanged);
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _barcodeController.dispose();
     _nameController.dispose();
     _quantityController.dispose();
     _macroInput.dispose();
     super.dispose();
+  }
+
+  Future<void> _onNameChanged() async {
+    if (widget.isEditing || _fromSavedFoodSelection) {
+      return;
+    }
+
+    final query = _nameController.text.trim();
+    if (query.isEmpty) {
+      if (mounted) {
+        setState(() => _savedFoodSuggestions = const []);
+      }
+      return;
+    }
+
+    final results = await widget.controller.searchOwnSavedFoods(query);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _savedFoodSuggestions = results);
+  }
+
+  void _applySavedFoodSelection(SavedFood food) {
+    final selection = widget.controller.selectSavedFoodForEntry(food);
+    setState(() {
+      _fromSavedFoodSelection = true;
+      _selectedSavedFoodId = selection.savedFoodId;
+      _sourceFoodOwnerUserId = selection.sourceFoodOwnerUserId;
+      _baseAmount = selection.baseAmount;
+      _unitType = selection.unitType;
+      _sourceType = selection.entrySourceType;
+      _savedFoodSuggestions = const [];
+      _nameController.text = selection.name;
+      _quantityController.text = selection.baseAmount.toString();
+    });
+    _macroInput.applyExternalValues(
+      kcal: selection.kcalPerBase,
+      protein: selection.proteinPerBase,
+      fat: selection.fatPerBase,
+      carb: selection.carbPerBase,
+    );
   }
 
   Future<void> _openCameraScanner() async {
@@ -151,7 +216,14 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
     if (result.name != null) {
       _nameController.text = result.name!;
     }
-    _sourceType = FoodEntrySource.openFoodFacts;
+    setState(() {
+      _sourceType = FoodEntrySource.openFoodFacts;
+      _fromSavedFoodSelection = false;
+      _selectedSavedFoodId = null;
+      _sourceFoodOwnerUserId = null;
+      _baseAmount = 1;
+      _unitType = FoodUnitType.serving;
+    });
     _macroInput.applyExternalValues(
       kcal: result.kcalPerUnit,
       protein: result.proteinPerUnit,
@@ -180,18 +252,26 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
       return null;
     }
 
+    final consumedAmount = _parseQuantity(_quantityController.text);
+    final baseAmount = _usesSavedFoodBaseModel ? _baseAmount : 1.0;
+    final unitType = _usesSavedFoodBaseModel ? _unitType : FoodUnitType.serving;
+
     return FoodEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
       name: _nameController.text.trim(),
-      kcalPerUnit: _macroInput.parseOptional(MacroField.kcal),
-      proteinPerUnit: _macroInput.parseOptional(MacroField.protein),
-      fatPerUnit: _macroInput.parseOptional(MacroField.fat),
-      carbPerUnit: _macroInput.parseOptional(MacroField.carb),
-      quantity: _parseQuantity(_quantityController.text),
+      kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
+      proteinPerBase: _macroInput.parseOptional(MacroField.protein),
+      fatPerBase: _macroInput.parseOptional(MacroField.fat),
+      carbPerBase: _macroInput.parseOptional(MacroField.carb),
+      baseAmount: baseAmount,
+      unitType: unitType,
+      consumedAmount: consumedAmount,
       sourceType: MacroNutritionConsistencyPolicy.resolveSaveSourceType(
         initialSourceType: _sourceType,
         nutritionEditedByUser: _macroInput.nutritionEditedByUser,
       ),
+      savedFoodId: _selectedSavedFoodId,
+      sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
       loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
     );
   }
@@ -216,7 +296,10 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
     if (widget.isEditing) {
       await widget.controller.updateFood(entry);
     } else {
-      await widget.controller.addFood(entry);
+      await widget.controller.saveFoodEntryWithOptionalSavedFood(
+        entry: entry,
+        saveAsFood: false,
+      );
     }
 
     if (!mounted) {
@@ -273,8 +356,34 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
     };
   }
 
+  Widget? _buildTotalPreview() {
+    if (!_usesSavedFoodBaseModel) {
+      return null;
+    }
+
+    final consumed = double.tryParse(_quantityController.text.trim());
+    if (consumed == null || consumed <= 0 || _baseAmount <= 0) {
+      return null;
+    }
+
+    final multiplier = consumed / _baseAmount;
+    final kcal = (_macroInput.parseOptional(MacroField.kcal) ?? 0) * multiplier;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        '今回の摂取: ${formatNullableNutrient(kcal)}kcal',
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final quantityLabel = _usesSavedFoodBaseModel
+        ? '摂取量（${_unitType.label}）'
+        : '数量（未入力時は1）';
+
     return Scaffold(
       appBar: AppBar(title: Text(widget.isEditing ? '食事を編集' : '食事を追加')),
       resizeToAvoidBottomInset: true,
@@ -361,22 +470,38 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                   return null;
                 },
               ),
+              if (!widget.isEditing && !_fromSavedFoodSelection)
+                SavedFoodSuggestionList(
+                  controller: widget.controller,
+                  foods: _savedFoodSuggestions,
+                  onSelected: _applySavedFoodSelection,
+                ),
+              if (_usesSavedFoodBaseModel) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '基準: ${widget.controller.formatBaseAmountLabel(baseAmount: _baseAmount, unitType: _unitType)} · '
+                  '${formatNullableNutrient(_macroInput.parseOptional(MacroField.kcal))}kcal',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
               const SizedBox(height: 16),
               MacroNutritionFields(
                 controller: _macroInput,
+                readOnly: _fromSavedFoodSelection,
                 validator: (value, label) =>
                     _validateOptionalNonNegativeNumber(label)(value),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _quantityController,
-                decoration: const InputDecoration(
-                  labelText: '数量（未入力時は1）',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: quantityLabel,
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                onChanged: (_) => setState(() {}),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return null;
@@ -388,6 +513,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                   return null;
                 },
               ),
+              if (_buildTotalPreview() != null) _buildTotalPreview()!,
               if (widget.isEditing) ...[
                 const SizedBox(height: 32),
                 OutlinedButton(

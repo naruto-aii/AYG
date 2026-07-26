@@ -9,6 +9,7 @@ import '../platform/web/repositories/web_food_repository.dart';
 import '../platform/web/repositories/web_settings_repository.dart';
 import '../platform/web/repositories/web_supabase_authentication_repository.dart';
 import '../platform/web/repositories/web_user_repository.dart';
+import '../platform/web/repositories/web_saved_food_repository.dart';
 import '../platform/web/repositories/web_weight_repository.dart';
 import '../platform/web/web_health_workout_store.dart';
 import '../platform/web/web_local_user_data_clearer.dart';
@@ -39,6 +40,7 @@ Future<Widget> buildWebApp() async {
   final exerciseRepository = WebExerciseRepository();
   final weightRepository = WebWeightRepository();
   final workoutStore = WebHealthWorkoutStore();
+  final savedFoodRepository = WebSavedFoodRepository();
 
   final openFoodFactsService = OpenFoodFactsService(
     userAgent: OpenFoodFactsConfig.userAgent,
@@ -85,6 +87,7 @@ Future<Widget> buildWebApp() async {
     foodRepository: foodRepository,
     exerciseRepository: exerciseRepository,
     weightRepository: weightRepository,
+    savedFoodRepository: savedFoodRepository,
   );
   await controller.initialize();
 

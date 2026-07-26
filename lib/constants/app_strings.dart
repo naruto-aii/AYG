@@ -17,6 +17,7 @@ class AppStrings {
   static const settingsBasicInfo = '基本情報';
   static const settingsGoal = '目標設定';
   static const settingsHealthActivity = '活動・ヘルスケア';
+  static const settingsFoodMaster = '食品・食事テンプレート';
   static const settingsAccount = 'アカウント';
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';

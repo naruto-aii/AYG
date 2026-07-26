@@ -6,15 +6,25 @@ import '../constants/app_strings.dart';
 import '../models/app_settings.dart';
 import '../models/activity_level.dart';
 import '../models/daily_summary.dart';
+import '../models/duplicate_saved_food_action.dart';
+import '../models/duplicate_saved_food_resolution.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
+import '../models/food_status.dart';
+import '../models/food_visibility.dart';
 import '../models/goal.dart';
 import '../models/health_profile_data.dart';
 import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
+import '../models/food_unit_type.dart';
+import '../models/saved_food.dart';
+import '../models/saved_food_draft.dart';
+import '../models/saved_food_entry_selection.dart';
+import '../models/save_food_entry_result.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
 import '../repositories/authentication_repository.dart';
+import '../repositories/contracts/saved_food_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
 import '../repositories/exercise_repository.dart';
 import '../repositories/food_repository.dart';
@@ -26,6 +36,10 @@ import '../repositories/user_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
 import '../services/nutrition_engine.dart';
+import '../services/saved_food_duplicate_service.dart';
+import '../services/saved_food_entry_builder.dart';
+import '../services/saved_food_search_service.dart';
+import '../utils/food_name_normalizer.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -40,6 +54,7 @@ class AppController extends ChangeNotifier {
     FoodRepository? foodRepository,
     ExerciseRepository? exerciseRepository,
     WeightRepository? weightRepository,
+    SavedFoodRepositoryBase? savedFoodRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -50,7 +65,11 @@ class AppController extends ChangeNotifier {
        _settingsRepository = settingsRepository,
        _foodRepository = foodRepository,
        _exerciseRepository = exerciseRepository,
-       _weightRepository = weightRepository;
+       _weightRepository = weightRepository,
+       _savedFoodRepository = savedFoodRepository,
+       _savedFoodSearchService = const SavedFoodSearchService(),
+       _savedFoodDuplicateService = const SavedFoodDuplicateService(),
+       _savedFoodEntryBuilder = const SavedFoodEntryBuilder();
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
@@ -63,6 +82,13 @@ class AppController extends ChangeNotifier {
   final FoodRepository? _foodRepository;
   final ExerciseRepository? _exerciseRepository;
   final WeightRepository? _weightRepository;
+  final SavedFoodRepositoryBase? _savedFoodRepository;
+  final SavedFoodSearchService _savedFoodSearchService;
+  final SavedFoodDuplicateService _savedFoodDuplicateService;
+  final SavedFoodEntryBuilder _savedFoodEntryBuilder;
+
+  /// 未ログイン時のローカル専用 owner ID。
+  static const localOwnerUserId = 'local-user';
 
   StreamSubscription<AuthUser?>? _authSubscription;
   bool _hasInitialSyncCompleted = false;
@@ -79,6 +105,9 @@ class AppController extends ChangeNotifier {
 
   bool get isAuthenticated =>
       _authenticationRepository?.isAuthenticated ?? false;
+
+  String get currentOwnerUserId =>
+      _authenticationRepository?.currentUser?.id ?? localOwnerUserId;
 
   bool get useHealthIntegration =>
       nutritionSettings?.useHealthIntegration ?? false;
@@ -529,6 +558,261 @@ class AppController extends ChangeNotifier {
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+  }
+
+  // --- Saved food (Phase 6A–6C) ---
+
+  Future<SavedFood> createSavedFood(SavedFoodDraft draft) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      throw StateError('SavedFoodRepository is not configured');
+    }
+    if (draft.visibility != FoodVisibility.private) {
+      throw UnsupportedError('Only private foods can be saved in Phase 6A–6C');
+    }
+
+    final now = DateTime.now();
+    final food = SavedFood(
+      foodId: generateId(),
+      ownerUserId: currentOwnerUserId,
+      name: draft.name.trim(),
+      normalizedName: FoodNameNormalizer.normalize(draft.name),
+      baseAmount: draft.baseAmount,
+      unitType: draft.unitType,
+      kcalPerBase: draft.kcalPerBase,
+      proteinPerBase: draft.proteinPerBase,
+      fatPerBase: draft.fatPerBase,
+      carbPerBase: draft.carbPerBase,
+      brand: draft.brand,
+      barcode: draft.barcode,
+      supplementaryWeight: draft.supplementaryWeight,
+      sourceType: draft.sourceType,
+      visibility: FoodVisibility.private,
+      status: FoodStatus.active,
+      createdAt: now,
+      updatedAt: now,
+    ).normalizedForSave();
+
+    await repository.savePrivate(food);
+    _scheduleRemoteSync();
+    return food;
+  }
+
+  Future<SavedFood> updateSavedFood(SavedFood food) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      throw StateError('SavedFoodRepository is not configured');
+    }
+    if (food.visibility == FoodVisibility.public) {
+      throw UnsupportedError(
+        'Public food update is not enabled in Phase 6A–6C',
+      );
+    }
+
+    final updated = food
+        .copyWith(
+          updatedAt: DateTime.now(),
+          normalizedName: FoodNameNormalizer.normalize(food.name),
+        )
+        .normalizedForSave();
+    await repository.updateOwn(updated);
+    _scheduleRemoteSync();
+    return updated;
+  }
+
+  Future<void> deleteSavedFood(String foodId) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      throw StateError('SavedFoodRepository is not configured');
+    }
+
+    await repository.softDelete(
+      ownerUserId: currentOwnerUserId,
+      foodId: foodId,
+      deletedAt: DateTime.now(),
+    );
+    _scheduleRemoteSync();
+  }
+
+  Future<List<SavedFood>> searchOwnSavedFoods(String query) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      return const [];
+    }
+
+    final results = await repository.searchOwn(
+      ownerUserId: currentOwnerUserId,
+      query: query,
+    );
+    return _savedFoodSearchService.rankOwnResults(foods: results, query: query);
+  }
+
+  Future<SavedFood?> findPrivateDuplicateSavedFood(
+    String name, {
+    String? excludeFoodId,
+  }) async {
+    final ownFoods = await searchOwnSavedFoods('');
+    return _savedFoodDuplicateService.findPrivateDuplicateByName(
+      ownFoods: ownFoods,
+      name: name,
+      excludeFoodId: excludeFoodId,
+    );
+  }
+
+  SavedFoodEntrySelection selectSavedFoodForEntry(SavedFood food) {
+    return SavedFoodEntrySelection.fromSavedFood(food);
+  }
+
+  String formatSavedFoodBaseLabel(SavedFood food) {
+    return _savedFoodEntryBuilder.formatBaseLabel(food);
+  }
+
+  String formatBaseAmountLabel({
+    required double baseAmount,
+    required FoodUnitType unitType,
+  }) {
+    return _savedFoodEntryBuilder.formatBaseAmountLabel(
+      baseAmount: baseAmount,
+      unitType: unitType,
+    );
+  }
+
+  Future<SaveFoodEntryResult> saveFoodEntryWithOptionalSavedFood({
+    required FoodEntry entry,
+    required bool saveAsFood,
+    SavedFoodDraft? savedFoodDraft,
+    DuplicateSavedFoodResolution? duplicateResolution,
+  }) async {
+    var entryToSave = entry;
+
+    if (duplicateResolution?.action == DuplicateSavedFoodAction.useExisting) {
+      final existing = duplicateResolution!.existingFood;
+      if (existing != null) {
+        entryToSave = entry.copyWith(
+          savedFoodId: existing.foodId,
+          sourceFoodOwnerUserId: existing.ownerUserId,
+        );
+      }
+    }
+
+    try {
+      final isUpdate = foodEntries.any((item) => item.id == entryToSave.id);
+      if (isUpdate) {
+        await updateFood(entryToSave);
+      } else {
+        await addFood(entryToSave);
+      }
+    } catch (error) {
+      return SaveFoodEntryResult(
+        foodEntrySaved: false,
+        savedFoodErrorMessage: error.toString(),
+      );
+    }
+
+    if (entryToSave.savedFoodId != null) {
+      await _recordSavedFoodUsage(entryToSave.savedFoodId!);
+    }
+
+    if (!saveAsFood) {
+      return SaveFoodEntryResult(foodEntrySaved: true, entry: entryToSave);
+    }
+
+    try {
+      SavedFood? savedFood;
+      if (duplicateResolution != null) {
+        savedFood = await _resolveSavedFoodFromDuplicateAction(
+          duplicateResolution,
+        );
+      } else if (savedFoodDraft != null) {
+        savedFood = await createSavedFood(savedFoodDraft);
+      }
+
+      if (savedFood != null && entryToSave.savedFoodId == null) {
+        entryToSave = entryToSave.copyWith(
+          savedFoodId: savedFood.foodId,
+          sourceFoodOwnerUserId: savedFood.ownerUserId,
+        );
+        await updateFood(entryToSave);
+        await _recordSavedFoodUsage(savedFood.foodId);
+      }
+
+      return SaveFoodEntryResult(
+        foodEntrySaved: true,
+        entry: entryToSave,
+        savedFood: savedFood,
+        savedFoodSaved: savedFood != null,
+      );
+    } catch (error) {
+      return SaveFoodEntryResult(
+        foodEntrySaved: true,
+        entry: entryToSave,
+        savedFoodSaved: false,
+        savedFoodErrorMessage: error.toString(),
+      );
+    }
+  }
+
+  Future<SavedFood?> _resolveSavedFoodFromDuplicateAction(
+    DuplicateSavedFoodResolution resolution,
+  ) async {
+    return switch (resolution.action) {
+      DuplicateSavedFoodAction.skipSavedFood => null,
+      DuplicateSavedFoodAction.useExisting => null,
+      DuplicateSavedFoodAction.updateExisting => updateSavedFood(
+        resolution.existingFood!.copyWith(
+          name: resolution.draft.name,
+          baseAmount: resolution.draft.baseAmount,
+          unitType: resolution.draft.unitType,
+          kcalPerBase: resolution.draft.kcalPerBase,
+          proteinPerBase: resolution.draft.proteinPerBase,
+          fatPerBase: resolution.draft.fatPerBase,
+          carbPerBase: resolution.draft.carbPerBase,
+          brand: resolution.draft.brand,
+          barcode: resolution.draft.barcode,
+          supplementaryWeight: resolution.draft.supplementaryWeight,
+        ),
+      ),
+      DuplicateSavedFoodAction.saveAsNewName => createSavedFood(
+        SavedFoodDraft(
+          name: resolution.newName ?? resolution.draft.name,
+          baseAmount: resolution.draft.baseAmount,
+          unitType: resolution.draft.unitType,
+          kcalPerBase: resolution.draft.kcalPerBase,
+          proteinPerBase: resolution.draft.proteinPerBase,
+          fatPerBase: resolution.draft.fatPerBase,
+          carbPerBase: resolution.draft.carbPerBase,
+          brand: resolution.draft.brand,
+          barcode: resolution.draft.barcode,
+          supplementaryWeight: resolution.draft.supplementaryWeight,
+          sourceType: resolution.draft.sourceType,
+        ),
+      ),
+    };
+  }
+
+  Future<void> _recordSavedFoodUsage(String savedFoodId) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      return;
+    }
+
+    final food = await repository.getOwn(
+      ownerUserId: currentOwnerUserId,
+      foodId: savedFoodId,
+    );
+    if (food == null || food.status != FoodStatus.active) {
+      return;
+    }
+
+    final now = DateTime.now();
+    await repository.updateOwn(
+      food.copyWith(
+        useCount: food.useCount + 1,
+        lastUsedAt: now,
+        updatedAt: now,
+      ),
+    );
+    _scheduleRemoteSync();
   }
 
   void _scheduleRemoteSync() {

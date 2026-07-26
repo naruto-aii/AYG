@@ -39,7 +39,7 @@ class FoodTabScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
-      controller.deleteFood(entry.id);
+      await controller.deleteFood(entry.id);
     }
   }
 

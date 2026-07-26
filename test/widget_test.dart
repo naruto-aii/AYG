@@ -276,7 +276,7 @@ void main() {
       ),
     );
     controller.setGoal(goal);
-    controller.addFood(
+    await controller.addFood(
       FoodEntry(
         id: 'food-1',
         name: 'テスト食品',
@@ -285,23 +285,12 @@ void main() {
         fatPerUnit: 5,
         carbPerUnit: 40,
         quantity: 1,
-        loggedAt: referenceDate,
+        loggedAt: DateTime.now(),
       ),
     );
 
-    final summary = nutritionEngine.calculateDailySummary(
-      profile: profile,
-      goal: goal,
-      settings: const NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: ActivityLevel.moderate,
-      ),
-      foodEntries: controller.foodEntries,
-      exerciseEntries: controller.exerciseEntries,
-      referenceDate: referenceDate,
-    );
     final expectedRemainingLabel =
-        '${summary.remainingKcal.toStringAsFixed(0)} kcal';
+        '${controller.summary!.remainingKcal.toStringAsFixed(0)} kcal';
 
     await tester.pumpWidget(
       MaterialApp(

@@ -51,7 +51,7 @@ class HomeScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
-      controller.deleteFood(entry.id);
+      await controller.deleteFood(entry.id);
     }
   }
 
@@ -78,7 +78,7 @@ class HomeScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
-      controller.deleteExercise(entry.id);
+      await controller.deleteExercise(entry.id);
     }
   }
 

@@ -1,14 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/duplicate_saved_food_resolution.dart';
 import '../../models/food_entry.dart';
 import '../../models/food_entry_source.dart';
+import '../../models/food_source_type.dart';
+import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
+import '../../models/saved_food.dart';
+import '../../models/saved_food_draft.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../utils/nutrition_format.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
+import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
+import '../../widgets/saved_food/saved_food_suggestion_list.dart';
 import 'barcode_scanner_screen.dart';
 
 class FoodFormScreen extends StatefulWidget {
@@ -38,7 +46,20 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
   bool _isSearching = false;
   bool _manualInputHighlighted = false;
+  bool _saveAsFood = true;
+  bool _fromSavedFoodSelection = false;
   FoodEntrySource _sourceType = FoodEntrySource.manual;
+  String? _selectedSavedFoodId;
+  String? _sourceFoodOwnerUserId;
+  double _baseAmount = 1;
+  FoodUnitType _unitType = FoodUnitType.serving;
+  List<SavedFood> _savedFoodSuggestions = const [];
+
+  bool get _showSaveAsFoodCheckbox =>
+      !widget.isEditing && !_fromSavedFoodSelection;
+
+  bool get _usesSavedFoodBaseModel =>
+      _fromSavedFoodSelection || _selectedSavedFoodId != null;
 
   bool get _isMobilePlatform {
     if (kIsWeb) {
@@ -55,25 +76,78 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     final entry = widget.entry;
     _sourceType = entry?.sourceType ?? FoodEntrySource.manual;
     _nameController.text = entry?.name ?? '';
+    _selectedSavedFoodId = entry?.savedFoodId;
+    _sourceFoodOwnerUserId = entry?.sourceFoodOwnerUserId;
+    if (entry != null && entry.hasConsumptionModel) {
+      _baseAmount = entry.baseAmount;
+      _unitType = entry.unitType;
+      _fromSavedFoodSelection = entry.savedFoodId != null;
+    }
     _macroInput.initializeFromNullable(
-      kcal: entry?.kcalPerUnit,
-      protein: entry?.proteinPerUnit,
-      fat: entry?.fatPerUnit,
-      carb: entry?.carbPerUnit,
+      kcal: entry?.kcalPerBase ?? entry?.kcalPerUnit,
+      protein: entry?.proteinPerBase ?? entry?.proteinPerUnit,
+      fat: entry?.fatPerBase ?? entry?.fatPerUnit,
+      carb: entry?.carbPerBase ?? entry?.carbPerUnit,
       consistencyMode: MacroNutritionConsistencyPolicy.initialModeFor(
         _sourceType,
       ),
     );
-    _quantityController.text = entry?.quantity.toString() ?? '1';
+    _quantityController.text = entry != null
+        ? entry.consumedAmount.toString()
+        : '1';
+    _nameController.addListener(_onNameChanged);
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _barcodeController.dispose();
     _nameController.dispose();
     _quantityController.dispose();
     _macroInput.dispose();
     super.dispose();
+  }
+
+  Future<void> _onNameChanged() async {
+    if (widget.isEditing || _fromSavedFoodSelection) {
+      return;
+    }
+
+    final query = _nameController.text.trim();
+    if (query.isEmpty) {
+      if (mounted) {
+        setState(() => _savedFoodSuggestions = const []);
+      }
+      return;
+    }
+
+    final results = await widget.controller.searchOwnSavedFoods(query);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _savedFoodSuggestions = results);
+  }
+
+  void _applySavedFoodSelection(SavedFood food) {
+    final selection = widget.controller.selectSavedFoodForEntry(food);
+    setState(() {
+      _fromSavedFoodSelection = true;
+      _saveAsFood = false;
+      _selectedSavedFoodId = selection.savedFoodId;
+      _sourceFoodOwnerUserId = selection.sourceFoodOwnerUserId;
+      _baseAmount = selection.baseAmount;
+      _unitType = selection.unitType;
+      _sourceType = selection.entrySourceType;
+      _savedFoodSuggestions = const [];
+      _nameController.text = selection.name;
+      _quantityController.text = selection.baseAmount.toString();
+    });
+    _macroInput.applyExternalValues(
+      kcal: selection.kcalPerBase,
+      protein: selection.proteinPerBase,
+      fat: selection.fatPerBase,
+      carb: selection.carbPerBase,
+    );
   }
 
   Future<void> _openBarcodeScanner() async {
@@ -141,7 +215,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     if (result.name != null) {
       _nameController.text = result.name!;
     }
-    _sourceType = FoodEntrySource.openFoodFacts;
+    setState(() {
+      _sourceType = FoodEntrySource.openFoodFacts;
+      _fromSavedFoodSelection = false;
+      _selectedSavedFoodId = null;
+      _sourceFoodOwnerUserId = null;
+      _baseAmount = 1;
+      _unitType = FoodUnitType.serving;
+    });
     _macroInput.applyExternalValues(
       kcal: result.kcalPerUnit,
       protein: result.proteinPerUnit,
@@ -182,19 +263,70 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       return null;
     }
 
+    final consumedAmount = _parseQuantity(_quantityController.text);
+    final baseAmount = _usesSavedFoodBaseModel ? _baseAmount : 1.0;
+    final unitType = _usesSavedFoodBaseModel ? _unitType : FoodUnitType.serving;
+
     return FoodEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
       name: _nameController.text.trim(),
-      kcalPerUnit: _macroInput.parseOptional(MacroField.kcal),
-      proteinPerUnit: _macroInput.parseOptional(MacroField.protein),
-      fatPerUnit: _macroInput.parseOptional(MacroField.fat),
-      carbPerUnit: _macroInput.parseOptional(MacroField.carb),
-      quantity: _parseQuantity(_quantityController.text),
+      kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
+      proteinPerBase: _macroInput.parseOptional(MacroField.protein),
+      fatPerBase: _macroInput.parseOptional(MacroField.fat),
+      carbPerBase: _macroInput.parseOptional(MacroField.carb),
+      baseAmount: baseAmount,
+      unitType: unitType,
+      consumedAmount: consumedAmount,
       sourceType: MacroNutritionConsistencyPolicy.resolveSaveSourceType(
         initialSourceType: _sourceType,
         nutritionEditedByUser: _macroInput.nutritionEditedByUser,
       ),
+      savedFoodId: _selectedSavedFoodId,
+      sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
       loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
+    );
+  }
+
+  SavedFoodDraft _buildSavedFoodDraft(FoodEntry entry) {
+    return SavedFoodDraft(
+      name: entry.name,
+      baseAmount: entry.baseAmount,
+      unitType: entry.unitType,
+      kcalPerBase: entry.kcalPerBase,
+      proteinPerBase: entry.proteinPerBase,
+      fatPerBase: entry.fatPerBase,
+      carbPerBase: entry.carbPerBase,
+      sourceType: switch (entry.sourceType) {
+        FoodEntrySource.openFoodFacts => FoodSourceType.openFoodFacts,
+        _ => FoodSourceType.manual,
+      },
+    );
+  }
+
+  Future<DuplicateSavedFoodResolution?> _resolveDuplicateIfNeeded(
+    SavedFoodDraft draft,
+  ) async {
+    final duplicate = await widget.controller.findPrivateDuplicateSavedFood(
+      draft.name,
+    );
+    if (duplicate == null) {
+      return null;
+    }
+
+    final dialogResult = await showDuplicateSavedFoodDialog(
+      context: context,
+      existingFood: duplicate,
+      enteredName: draft.name,
+    );
+    if (dialogResult == null || !mounted) {
+      return null;
+    }
+
+    return DuplicateSavedFoodResolution(
+      action: dialogResult.action,
+      draft: draft,
+      existingFood: duplicate,
+      newName: dialogResult.newName,
     );
   }
 
@@ -213,48 +345,48 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
     if (widget.isEditing) {
       await widget.controller.updateFood(entry);
-    } else {
-      await widget.controller.addFood(entry);
-    }
-
-    if (!mounted) {
-      return;
-    }
-    Navigator.of(context).pop();
-  }
-
-  Future<void> _confirmDelete() async {
-    final entry = widget.entry;
-    if (entry == null) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop();
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+    final shouldSaveAsFood = _showSaveAsFoodCheckbox && _saveAsFood;
+    SavedFoodDraft? draft;
+    DuplicateSavedFoodResolution? duplicateResolution;
+
+    if (shouldSaveAsFood) {
+      final foodDraft = _buildSavedFoodDraft(entry);
+      draft = foodDraft;
+      duplicateResolution = await _resolveDuplicateIfNeeded(foodDraft);
+      if (duplicateResolution == null &&
+          await widget.controller.findPrivateDuplicateSavedFood(foodDraft.name) !=
+              null) {
+        return;
+      }
+    }
+
+    final result = await widget.controller.saveFoodEntryWithOptionalSavedFood(
+      entry: entry,
+      saveAsFood: shouldSaveAsFood,
+      savedFoodDraft: duplicateResolution == null ? draft : null,
+      duplicateResolution: duplicateResolution,
     );
 
-    if (confirmed != true) {
-      return;
-    }
-
-    await widget.controller.deleteFood(entry.id);
     if (!mounted) {
       return;
     }
+
+    if (!result.foodEntrySaved) {
+      _showMessage('食事の保存に失敗しました');
+      return;
+    }
+
+    if (result.savedFoodErrorMessage != null) {
+      _showMessage('食事は保存されましたが、食品登録に失敗しました');
+    }
+
     Navigator.of(context).pop();
   }
 
@@ -271,8 +403,41 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     };
   }
 
+  Widget? _buildTotalPreview() {
+    if (!_usesSavedFoodBaseModel) {
+      return null;
+    }
+
+    final consumed = double.tryParse(_quantityController.text.trim());
+    if (consumed == null || consumed <= 0 || _baseAmount <= 0) {
+      return null;
+    }
+
+    final multiplier = consumed / _baseAmount;
+    final kcal = (_macroInput.parseOptional(MacroField.kcal) ?? 0) * multiplier;
+    final protein =
+        (_macroInput.parseOptional(MacroField.protein) ?? 0) * multiplier;
+    final fat = (_macroInput.parseOptional(MacroField.fat) ?? 0) * multiplier;
+    final carb = (_macroInput.parseOptional(MacroField.carb) ?? 0) * multiplier;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        '今回の摂取: ${formatNullableNutrient(kcal)}kcal · '
+        'P${formatNullableNutrient(protein)} '
+        'F${formatNullableNutrient(fat)} '
+        'C${formatNullableNutrient(carb)}',
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final quantityLabel = _usesSavedFoodBaseModel
+        ? '摂取量（${_unitType.label}）'
+        : '数量（未入力時は1）';
+
     return Scaffold(
       appBar: AppBar(title: Text(widget.isEditing ? '食事を編集' : '食事を追加')),
       resizeToAvoidBottomInset: true,
@@ -361,22 +526,38 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                   return null;
                 },
               ),
+              if (!widget.isEditing && !_fromSavedFoodSelection)
+                SavedFoodSuggestionList(
+                  controller: widget.controller,
+                  foods: _savedFoodSuggestions,
+                  onSelected: _applySavedFoodSelection,
+                ),
+              if (_usesSavedFoodBaseModel) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '基準: ${widget.controller.formatBaseAmountLabel(baseAmount: _baseAmount, unitType: _unitType)} · '
+                  '${formatNullableNutrient(_macroInput.parseOptional(MacroField.kcal))}kcal',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
               const SizedBox(height: 16),
               MacroNutritionFields(
                 controller: _macroInput,
+                readOnly: _fromSavedFoodSelection,
                 validator: (value, label) =>
                     _validateOptionalNonNegativeNumber(label)(value),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _quantityController,
-                decoration: const InputDecoration(
-                  labelText: '数量（未入力時は1）',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: quantityLabel,
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                onChanged: (_) => setState(() {}),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return null;
@@ -388,6 +569,17 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                   return null;
                 },
               ),
+              if (_buildTotalPreview() != null) _buildTotalPreview()!,
+              if (_showSaveAsFoodCheckbox) ...[
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('食品として保存'),
+                  subtitle: const Text('次回以降、保存済み食品から再利用できます'),
+                  value: _saveAsFood,
+                  onChanged: (value) => setState(() => _saveAsFood = value),
+                ),
+              ],
               if (widget.isEditing) ...[
                 const SizedBox(height: 32),
                 OutlinedButton(
@@ -412,5 +604,40 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete() async {
+    final entry = widget.entry;
+    if (entry == null) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('削除確認'),
+        content: Text('「${entry.name}」を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    await widget.controller.deleteFood(entry.id);
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
   }
 }

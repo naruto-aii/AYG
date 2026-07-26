@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/food_entry.dart';
+import '../../models/food_entry_source.dart';
 import '../../models/macro_field.dart';
+import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
@@ -36,6 +38,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
   bool _isSearching = false;
   bool _manualInputHighlighted = false;
+  FoodEntrySource _sourceType = FoodEntrySource.manual;
 
   bool get _isMobilePlatform {
     if (kIsWeb) {
@@ -50,12 +53,16 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     super.initState();
     _macroInput = MacroNutritionInputController();
     final entry = widget.entry;
+    _sourceType = entry?.sourceType ?? FoodEntrySource.manual;
     _nameController.text = entry?.name ?? '';
     _macroInput.initializeFromNullable(
       kcal: entry?.kcalPerUnit,
       protein: entry?.proteinPerUnit,
       fat: entry?.fatPerUnit,
       carb: entry?.carbPerUnit,
+      consistencyMode: MacroNutritionConsistencyPolicy.initialModeFor(
+        _sourceType,
+      ),
     );
     _quantityController.text = entry?.quantity.toString() ?? '1';
   }
@@ -134,6 +141,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     if (result.name != null) {
       _nameController.text = result.name!;
     }
+    _sourceType = FoodEntrySource.openFoodFacts;
     _macroInput.applyExternalValues(
       kcal: result.kcalPerUnit,
       protein: result.proteinPerUnit,
@@ -182,6 +190,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       fatPerUnit: _macroInput.parseOptional(MacroField.fat),
       carbPerUnit: _macroInput.parseOptional(MacroField.carb),
       quantity: _parseQuantity(_quantityController.text),
+      sourceType: MacroNutritionConsistencyPolicy.resolveSaveSourceType(
+        initialSourceType: _sourceType,
+        nutritionEditedByUser: _macroInput.nutritionEditedByUser,
+      ),
       loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
     );
   }

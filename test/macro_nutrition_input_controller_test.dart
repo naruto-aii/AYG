@@ -1,4 +1,6 @@
 import 'package:ayg/models/macro_field.dart';
+import 'package:ayg/models/food_entry_source.dart';
+import 'package:ayg/services/macro_nutrition_consistency_policy.dart';
 import 'package:ayg/widgets/food/macro_nutrition_input_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,7 +10,7 @@ void main() {
   MacroNutritionInputController newController() =>
       MacroNutritionInputController();
 
-  group('MacroNutritionInputController', () {
+  group('MacroNutritionInputController manual mode', () {
     test('initializeFromNullable does not auto-calculate missing field', () {
       final controller = newController();
       controller.initializeFromNullable(kcal: 200, protein: 10, fat: 5);
@@ -126,6 +128,77 @@ void main() {
     test('parseOptional returns null for empty field', () {
       final controller = newController();
       expect(controller.parseOptional(MacroField.kcal), isNull);
+      controller.dispose();
+    });
+  });
+
+  group('MacroNutritionInputController external mode', () {
+    test('applyExternalValues preserves OFF kcal without recalculation', () {
+      final controller = newController();
+      controller.applyExternalValues(
+        kcal: 539,
+        protein: 6.3,
+        fat: 30.9,
+        carb: 57.5,
+      );
+
+      expect(controller.kcalController.text, '539');
+      expect(controller.sourceOf(MacroField.kcal), MacroFieldSource.external);
+      expect(
+        controller.consistencyMode,
+        MacroNutritionConsistencyMode.preserveExternal,
+      );
+      expect(controller.canSave, isTrue);
+      expect(controller.showExternalMismatchNotice, isTrue);
+      controller.dispose();
+    });
+
+    test('external mode allows save despite mismatch', () {
+      final controller = newController();
+      controller.applyExternalValues(
+        kcal: 539,
+        protein: 6.3,
+        fat: 30.9,
+        carb: 57.5,
+      );
+
+      expect(controller.prepareForSave(), isTrue);
+      expect(controller.kcalController.text, '539');
+      controller.dispose();
+    });
+
+    test('editing external value switches to manual mode', () {
+      final controller = newController();
+      controller.applyExternalValues(
+        kcal: 539,
+        protein: 6.3,
+        fat: 30.9,
+        carb: 57.5,
+      );
+
+      controller.kcalController.text = '540';
+      controller.onFieldChanged(MacroField.kcal);
+
+      expect(controller.consistencyMode, MacroNutritionConsistencyMode.manual);
+      expect(controller.nutritionEditedByUser, isTrue);
+      controller.dispose();
+    });
+
+    test('copied entry loads without auto calculation', () {
+      final controller = newController();
+      controller.initializeFromNullable(
+        kcal: 539,
+        protein: 6.3,
+        fat: 30.9,
+        carb: 57.5,
+        consistencyMode: MacroNutritionConsistencyPolicy.initialModeFor(
+          FoodEntrySource.savedFood,
+        ),
+      );
+
+      expect(controller.kcalController.text, '539');
+      expect(controller.autoField, isNull);
+      expect(controller.canSave, isTrue);
       controller.dispose();
     });
   });

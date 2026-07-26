@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../models/macro_field.dart';
+import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/nutrition_value_calculator.dart';
 
 /// 食事フォームの kcal / P / F / C 入力状態を管理する。
-///
-/// 常に「手入力 3 項目 + 自動計算 1 項目」を維持する。
 class MacroNutritionInputController extends ChangeNotifier {
   MacroNutritionInputController();
 
@@ -24,6 +23,9 @@ class MacroNutritionInputController extends ChangeNotifier {
   final List<MacroField> _manualOrder = [];
   MacroField? _autoField;
   MacroField? _previousAutoField;
+  MacroNutritionConsistencyMode _consistencyMode =
+      MacroNutritionConsistencyMode.manual;
+  bool _nutritionEditedByUser = false;
   bool _imeComposing = false;
   bool _suppressListener = false;
   MacroField? _activeField;
@@ -33,13 +35,39 @@ class MacroNutritionInputController extends ChangeNotifier {
 
   MacroField? get autoField => _autoField;
 
+  MacroNutritionConsistencyMode get consistencyMode => _consistencyMode;
+
+  bool get nutritionEditedByUser => _nutritionEditedByUser;
+
   String? get negativeMessage => _negativeMessage;
 
   bool get isImeComposing => _imeComposing;
 
+  bool get showExternalMismatchNotice {
+    if (_consistencyMode != MacroNutritionConsistencyMode.preserveExternal) {
+      return false;
+    }
+
+    final parsed = _parseAll();
+    if (_validCount(parsed) < 4) {
+      return false;
+    }
+
+    return NutritionValueCalculator.hasExternalCalorieMismatch(
+      kcal: parsed.kcal.value!,
+      protein: parsed.protein.value!,
+      fat: parsed.fat.value!,
+      carb: parsed.carb.value!,
+    );
+  }
+
   bool get canSave {
     if (_negativeMessage != null) {
       return false;
+    }
+
+    if (_consistencyMode == MacroNutritionConsistencyMode.preserveExternal) {
+      return true;
     }
 
     final parsed = _parseAll();
@@ -73,8 +101,12 @@ class MacroNutritionInputController extends ChangeNotifier {
     double? protein,
     double? fat,
     double? carb,
+    MacroNutritionConsistencyMode consistencyMode =
+        MacroNutritionConsistencyMode.manual,
   }) {
     _suppressListener = true;
+    _consistencyMode = consistencyMode;
+    _nutritionEditedByUser = false;
     _manualOrder.clear();
     _autoField = null;
     _previousAutoField = null;
@@ -94,27 +126,44 @@ class MacroNutritionInputController extends ChangeNotifier {
     double? carb,
   }) {
     _suppressListener = true;
+    _consistencyMode = MacroNutritionConsistencyMode.preserveExternal;
+    _nutritionEditedByUser = false;
     _manualOrder.clear();
     _autoField = null;
     _previousAutoField = null;
+    _negativeMessage = null;
+
     if (kcal != null) {
-      _setUser(MacroField.kcal, kcal);
+      _setExternal(MacroField.kcal, kcal);
+    } else {
+      _clearField(MacroField.kcal);
     }
     if (protein != null) {
-      _setUser(MacroField.protein, protein);
+      _setExternal(MacroField.protein, protein);
+    } else {
+      _clearField(MacroField.protein);
     }
     if (fat != null) {
-      _setUser(MacroField.fat, fat);
+      _setExternal(MacroField.fat, fat);
+    } else {
+      _clearField(MacroField.fat);
     }
     if (carb != null) {
-      _setUser(MacroField.carb, carb);
+      _setExternal(MacroField.carb, carb);
+    } else {
+      _clearField(MacroField.carb);
     }
+
     _suppressListener = false;
-    _recalculate(changedField: null);
+    notifyListeners();
   }
 
   /// 保存直前に最終整合を行う。成功時 true。
   bool prepareForSave() {
+    if (_consistencyMode == MacroNutritionConsistencyMode.preserveExternal) {
+      return canSave;
+    }
+
     _recalculate(changedField: null, force: true);
     return canSave;
   }
@@ -154,9 +203,12 @@ class MacroNutritionInputController extends ChangeNotifier {
       if (_autoField == field) {
         _autoField = null;
       }
+      _activateManualModeIfNeeded();
       _recalculate(changedField: field);
       return;
     }
+
+    _activateManualModeIfNeeded();
 
     if (field == _autoField) {
       _previousAutoField = _autoField;
@@ -204,6 +256,13 @@ class MacroNutritionInputController extends ChangeNotifier {
     ].where((field) => field.isValid).length;
   }
 
+  void _activateManualModeIfNeeded() {
+    if (_consistencyMode == MacroNutritionConsistencyMode.preserveExternal) {
+      _consistencyMode = MacroNutritionConsistencyMode.manual;
+      _nutritionEditedByUser = true;
+    }
+  }
+
   void _registerManual(MacroField field) {
     _manualOrder.remove(field);
     _manualOrder.add(field);
@@ -213,23 +272,28 @@ class MacroNutritionInputController extends ChangeNotifier {
   }
 
   void _setLoaded(MacroField field, double? value) {
-    final controller = controllerFor(field);
     if (value == null) {
-      controller.text = '';
-      _sources[field] = MacroFieldSource.empty;
+      _clearField(field);
       return;
     }
-    controller.text = NutritionValueCalculator.formatForField(field, value);
-    _sources[field] = MacroFieldSource.loaded;
-  }
-
-  void _setUser(MacroField field, double value) {
     controllerFor(field).text = NutritionValueCalculator.formatForField(
       field,
       value,
     );
-    _sources[field] = MacroFieldSource.user;
-    _registerManual(field);
+    _sources[field] = MacroFieldSource.loaded;
+  }
+
+  void _setExternal(MacroField field, double value) {
+    controllerFor(field).text = NutritionValueCalculator.formatForField(
+      field,
+      value,
+    );
+    _sources[field] = MacroFieldSource.external;
+  }
+
+  void _clearField(MacroField field) {
+    controllerFor(field).text = '';
+    _sources[field] = MacroFieldSource.empty;
   }
 
   MacroField? _pickAutoField({
@@ -265,6 +329,12 @@ class MacroNutritionInputController extends ChangeNotifier {
   }
 
   void _recalculate({MacroField? changedField, bool force = false}) {
+    if (_consistencyMode == MacroNutritionConsistencyMode.preserveExternal) {
+      _negativeMessage = null;
+      notifyListeners();
+      return;
+    }
+
     if (_imeComposing && !force) {
       return;
     }

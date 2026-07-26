@@ -23,11 +23,10 @@ void main() {
 
       expect(result, isNotNull);
       expect(result!.name, 'Nutella');
-      expect(result.kcalPerUnit, 533);
+      expect(result.kcalPerUnit, 539);
       expect(result.proteinPerUnit, 6.3);
       expect(result.fatPerUnit, 30.9);
       expect(result.carbPerUnit, 57.5);
-      expect(result.referenceKcalPerUnit, 539);
     });
 
     test('returns null when product is missing', () {

@@ -157,32 +157,29 @@ void main() {
     });
   });
 
-  group('normalizeSnapshot', () {
-    test('uses PFC as truth and recalculates kcal', () {
-      final normalized = NutritionValueCalculator.normalizeSnapshot(
-        kcal: 539,
-        protein: 6.3,
-        fat: 30.9,
-        carb: 57.5,
+  group('hasExternalCalorieMismatch', () {
+    test('detects OFF-style mismatch', () {
+      expect(
+        NutritionValueCalculator.hasExternalCalorieMismatch(
+          kcal: 539,
+          protein: 6.3,
+          fat: 30.9,
+          carb: 57.5,
+        ),
+        isTrue,
       );
-
-      expect(normalized.kcal, 533);
-      expect(normalized.protein, 6.3);
-      expect(normalized.fat, 30.9);
-      expect(normalized.carb, 57.5);
-      expect(normalized.referenceKcal, 539);
     });
 
-    test('keeps partial values when PFC incomplete', () {
-      final normalized = NutritionValueCalculator.normalizeSnapshot(
-        kcal: 100,
-        protein: null,
-        fat: null,
-        carb: null,
+    test('returns false when consistent', () {
+      expect(
+        NutritionValueCalculator.hasExternalCalorieMismatch(
+          kcal: 165,
+          protein: 10,
+          fat: 5,
+          carb: 20,
+        ),
+        isFalse,
       );
-
-      expect(normalized.kcal, 100);
-      expect(normalized.referenceKcal, isNull);
     });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/macro_field.dart';
+import '../../services/nutrition_value_calculator.dart';
 import 'macro_nutrition_input_controller.dart';
 
 /// kcal / P / F / C 入力欄（Mobile / Web 共通）。
@@ -52,6 +53,10 @@ class MacroNutritionFields extends StatelessWidget {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ],
+            if (controller.showExternalMismatchNotice) ...[
+              const SizedBox(height: 12),
+              _ExternalMismatchNotice(controller: controller),
+            ],
           ],
         );
       },
@@ -84,6 +89,65 @@ class MacroNutritionFields extends StatelessWidget {
       validator: (value) => validator(value, label),
       onTap: () => controller.onFieldFocus(field),
       onChanged: (_) => controller.onFieldChanged(field),
+    );
+  }
+}
+
+class _ExternalMismatchNotice extends StatelessWidget {
+  const _ExternalMismatchNotice({required this.controller});
+
+  final MacroNutritionInputController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.tertiary;
+    final parsed = (
+      kcal: controller.parseOptional(MacroField.kcal),
+      protein: controller.parseOptional(MacroField.protein),
+      fat: controller.parseOptional(MacroField.fat),
+      carb: controller.parseOptional(MacroField.carb),
+    );
+
+    final derivedKcal =
+        parsed.protein != null && parsed.fat != null && parsed.carb != null
+        ? NutritionValueCalculator.derivedKcal(
+            protein: parsed.protein!,
+            fat: parsed.fat!,
+            carb: parsed.carb!,
+          )
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '表示カロリーとPFC換算値が異なる場合があります。',
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+          ),
+          if (parsed.kcal != null && derivedKcal != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              '表示カロリー：${NutritionValueCalculator.formatForField(MacroField.kcal, parsed.kcal!)} kcal\n'
+              'PFC換算：${NutritionValueCalculator.formatForField(MacroField.kcal, derivedKcal)} kcal',
+              style: TextStyle(color: color),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            '食物繊維・糖アルコール・有機酸・表示丸め等により一致しない場合があります。',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: color),
+          ),
+        ],
+      ),
     );
   }
 }

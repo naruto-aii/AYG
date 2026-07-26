@@ -164,48 +164,14 @@ class NutritionValueCalculator {
     return (roundedKcal - derived).abs() < _consistencyEpsilon;
   }
 
-  /// 外部食品データを 4/9/4 換算式に正規化する。
-  /// P / F / C を正式値とし、kcal を再計算する。
-  static NormalizedMacroSnapshot normalizeSnapshot({
-    double? kcal,
-    double? protein,
-    double? fat,
-    double? carb,
+  /// 4 項目すべて valid のとき、PFC 換算 kcal と表示 kcal が不一致か。
+  static bool hasExternalCalorieMismatch({
+    required double kcal,
+    required double protein,
+    required double fat,
+    required double carb,
   }) {
-    final hasProtein = protein != null;
-    final hasFat = fat != null;
-    final hasCarb = carb != null;
-
-    if (hasProtein && hasFat && hasCarb) {
-      final roundedProtein = _round(MacroField.protein, protein);
-      final roundedFat = _round(MacroField.fat, fat);
-      final roundedCarb = _round(MacroField.carb, carb);
-      final derivedKcalValue = _round(
-        MacroField.kcal,
-        derivedKcal(
-          protein: roundedProtein,
-          fat: roundedFat,
-          carb: roundedCarb,
-        ),
-      );
-      final originalKcal = kcal == null ? null : _round(MacroField.kcal, kcal);
-      return NormalizedMacroSnapshot(
-        kcal: derivedKcalValue,
-        protein: roundedProtein,
-        fat: roundedFat,
-        carb: roundedCarb,
-        referenceKcal: originalKcal != null && originalKcal != derivedKcalValue
-            ? originalKcal
-            : null,
-      );
-    }
-
-    return NormalizedMacroSnapshot(
-      kcal: kcal == null ? null : _round(MacroField.kcal, kcal),
-      protein: protein == null ? null : _round(MacroField.protein, protein),
-      fat: fat == null ? null : _round(MacroField.fat, fat),
-      carb: carb == null ? null : _round(MacroField.carb, carb),
-    );
+    return !isConsistent(kcal: kcal, protein: protein, fat: fat, carb: carb);
   }
 
   static String formatForField(MacroField field, double value) {
@@ -230,20 +196,4 @@ class MacroCalculationResult {
   final MacroField field;
   final double? value;
   final bool negative;
-}
-
-class NormalizedMacroSnapshot {
-  const NormalizedMacroSnapshot({
-    this.kcal,
-    this.protein,
-    this.fat,
-    this.carb,
-    this.referenceKcal,
-  });
-
-  final double? kcal;
-  final double? protein;
-  final double? fat;
-  final double? carb;
-  final double? referenceKcal;
 }

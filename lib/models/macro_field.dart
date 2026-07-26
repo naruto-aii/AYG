@@ -2,7 +2,7 @@
 enum MacroField { kcal, protein, fat, carb }
 
 /// フィールド値の由来。
-enum MacroFieldSource { empty, loaded, user, auto }
+enum MacroFieldSource { empty, loaded, external, user, auto }
 
 /// パース結果。
 enum MacroParseState { empty, partial, invalid, valid }

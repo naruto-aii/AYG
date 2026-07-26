@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/open_food_facts_config.dart';
-import 'nutrition_value_calculator.dart';
 
 enum OffLookupFailure {
   configurationError,
@@ -22,7 +21,6 @@ class FoodLookupResult {
     this.proteinPerUnit,
     this.fatPerUnit,
     this.carbPerUnit,
-    this.referenceKcalPerUnit,
   });
 
   final String? name;
@@ -30,9 +28,6 @@ class FoodLookupResult {
   final double? proteinPerUnit;
   final double? fatPerUnit;
   final double? carbPerUnit;
-
-  /// OFF 表示カロリー（PFC 正規化前）。不一致時のみ保持。
-  final double? referenceKcalPerUnit;
 }
 
 class OpenFoodFactsService {
@@ -112,7 +107,7 @@ class OpenFoodFactsService {
   }
 
   /// v3 API レスポンスから [FoodLookupResult] を生成する。
-  /// テスト用に public。Prototype 用 OFF 連携（READ のみ）。
+  /// OFF 提供値をそのまま返す（kcal の 4/9/4 再計算は行わない）。
   static FoodLookupResult? parseProductResponse(Map<String, dynamic> json) {
     final product = json['product'];
     if (product is! Map<String, dynamic>) {
@@ -129,31 +124,12 @@ class OpenFoodFactsService {
         ? nutriments
         : <String, dynamic>{};
 
-    final raw = FoodLookupResult(
+    return FoodLookupResult(
       name: name,
       kcalPerUnit: _nutrientValue(nutrimentsMap, 'energy-kcal_100g'),
       proteinPerUnit: _nutrientValue(nutrimentsMap, 'proteins_100g'),
       fatPerUnit: _nutrientValue(nutrimentsMap, 'fat_100g'),
       carbPerUnit: _nutrientValue(nutrimentsMap, 'carbohydrates_100g'),
-    );
-    return _normalizeLookup(raw);
-  }
-
-  static FoodLookupResult _normalizeLookup(FoodLookupResult raw) {
-    final normalized = NutritionValueCalculator.normalizeSnapshot(
-      kcal: raw.kcalPerUnit,
-      protein: raw.proteinPerUnit,
-      fat: raw.fatPerUnit,
-      carb: raw.carbPerUnit,
-    );
-
-    return FoodLookupResult(
-      name: raw.name,
-      kcalPerUnit: normalized.kcal ?? raw.kcalPerUnit,
-      proteinPerUnit: normalized.protein ?? raw.proteinPerUnit,
-      fatPerUnit: normalized.fat ?? raw.fatPerUnit,
-      carbPerUnit: normalized.carb ?? raw.carbPerUnit,
-      referenceKcalPerUnit: normalized.referenceKcal,
     );
   }
 

@@ -38,6 +38,27 @@ void main() {
       expect(parsed.baseAmount, 100);
       expect(parsed.unitType, FoodUnitType.g);
       expect(parsed.visibility, FoodVisibility.private);
+      expect(parsed.version, 1);
+    });
+
+    test('round trip preserves version', () {
+      final food = SavedFood(
+        foodId: 'f2',
+        ownerUserId: 'u1',
+        name: 'Public Rice',
+        normalizedName: 'public rice',
+        baseAmount: 100,
+        unitType: FoodUnitType.g,
+        visibility: FoodVisibility.public,
+        version: 4,
+        createdAt: DateTime.utc(2026, 1, 1),
+        updatedAt: DateTime.utc(2026, 1, 2),
+      );
+
+      final row = FoodMasterRowMapper.savedFoodToRow(food, userId: 'u1');
+      final parsed = FoodMasterRowMapper.savedFoodFromRow(row);
+
+      expect(parsed.version, 4);
     });
   });
 

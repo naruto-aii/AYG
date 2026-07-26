@@ -46,6 +46,7 @@ Version 1.1 の食品マスター・公開食品・食事テンプレート・Go
 - `sourceType`, `barcode`, `brand`, `supplementaryWeight`
 - `copiedFromFoodId`, `copiedFromOwnerUserId`
 - `useCount`, `lastUsedAt`, `reportCount`（キャッシュ）
+- `version`（公開食品の利用者向け内容変更回数。初期値 1。V1.1 は履歴なし）
 - `createdAt`, `updatedAt`, `deletedAt`
 
 **Good/Bad 件数は `saved_foods` に持たない。** `food_rating_stats` を参照。
@@ -126,11 +127,45 @@ V1.1 は **private のみ**。公開食品を構成要素に使用可。依存�
 
 ## 公開済み食品の編集（Version 1.1）
 
+### スナップショット不変
+
+- **FoodEntry** は公開食品の **記録時点スナップショット** を保持する
+- 公開食品を編集しても **過去の FoodEntry は変更しない**
+- 今後その食品を検索・利用するユーザーのみ **新しい内容** を見る
+
+### 確認 Popup（必須）
+
+公開食品で、利用者へ影響する項目（食品名・基準量・単位・kcal・P・F・C）を変更して保存する前に確認 Popup を表示する。
+
+```
+公開食品を更新します。
+すでに記録済みの食事内容は変更されません。
+今後この食品を利用するユーザーには新しい内容が表示されます。
+```
+
+実装: `showConfirmPublicFoodUpdateDialog`（`lib/widgets/saved_food/confirm_public_food_update_dialog.dart`）
+
+### version（`saved_foods.version`）
+
+| 項目 | 内容 |
+|------|------|
+| 型 | `integer NOT NULL DEFAULT 1` |
+| 初期値 | `1` |
+| 増加条件 | 公開食品（`visibility = public`）で、利用者向け項目を更新したときのみ `version++` |
+| 対象項目 | `name`, `normalized_name`, `base_amount`, `unit_type`, `kcal/protein/fat/carb_per_base` |
+| V1.1 スコープ | **履歴管理なし**。現行行の version のみ保持（将来互換用） |
+
+増加しない例: `use_count`, `last_used_at`, `barcode`, `brand`, `moderation_status` のみの変更。
+
+Migration: `20260727120000_add_saved_foods_version.sql`
+
+### DB・RLS
+
 - 作成者は公開済み食品を編集可能
 - 完全重複・必須値・非負値は DB Trigger で再検証
-- PFC 整合性警告は **アプリ UI** で表示
+- PFC 整合性: manual 手入力は 4/9/4 強制、OFF 由来は取得値尊重（別仕様）
 - 他ユーザーは編集不可（RLS）
-- 過去 FoodEntry とテンプレートのスナップショットは **自動更新しない**
+- 過去 FoodEntry とテンプレート item のスナップショットは **自動更新しない**
 
 **主要情報変更時の確認 Popup（アプリ要件）** — 対象: 食品名、baseAmount、unitType、kcal、P、F、C
 

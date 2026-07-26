@@ -5013,8 +5013,9 @@ const SavedFoodEntitySchema = CollectionSchema(
       type: IsarType.dateTime,
     ),
     r'useCount': PropertySchema(id: 23, name: r'useCount', type: IsarType.long),
+    r'version': PropertySchema(id: 24, name: r'version', type: IsarType.long),
     r'visibilityIndex': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'visibilityIndex',
       type: IsarType.long,
     ),
@@ -5146,7 +5147,8 @@ void _savedFoodEntitySerialize(
   writer.writeLong(offsets[21], object.unitTypeIndex);
   writer.writeDateTime(offsets[22], object.updatedAt);
   writer.writeLong(offsets[23], object.useCount);
-  writer.writeLong(offsets[24], object.visibilityIndex);
+  writer.writeLong(offsets[24], object.version);
+  writer.writeLong(offsets[25], object.visibilityIndex);
 }
 
 SavedFoodEntity _savedFoodEntityDeserialize(
@@ -5181,7 +5183,8 @@ SavedFoodEntity _savedFoodEntityDeserialize(
   object.unitTypeIndex = reader.readLong(offsets[21]);
   object.updatedAt = reader.readDateTime(offsets[22]);
   object.useCount = reader.readLong(offsets[23]);
-  object.visibilityIndex = reader.readLong(offsets[24]);
+  object.version = reader.readLong(offsets[24]);
+  object.visibilityIndex = reader.readLong(offsets[25]);
   return object;
 }
 
@@ -5241,6 +5244,8 @@ P _savedFoodEntityDeserializeProp<P>(
     case 23:
       return (reader.readLong(offset)) as P;
     case 24:
+      return (reader.readLong(offset)) as P;
+    case 25:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -8002,6 +8007,61 @@ extension SavedFoodEntityQueryFilter
   }
 
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  versionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  versionGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  versionLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  versionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
   visibilityIndexEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -8397,6 +8457,19 @@ extension SavedFoodEntityQuerySortBy
     });
   }
 
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy> sortByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
+  sortByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
   sortByVisibilityIndex() {
     return QueryBuilder.apply(this, (query) {
@@ -8758,6 +8831,19 @@ extension SavedFoodEntityQuerySortThenBy
     });
   }
 
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy> thenByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
+  thenByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
   thenByVisibilityIndex() {
     return QueryBuilder.apply(this, (query) {
@@ -8960,6 +9046,13 @@ extension SavedFoodEntityQueryWhereDistinct
   }
 
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QDistinct>
+  distinctByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'version');
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QDistinct>
   distinctByVisibilityIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'visibilityIndex');
@@ -9131,6 +9224,12 @@ extension SavedFoodEntityQueryProperty
   QueryBuilder<SavedFoodEntity, int, QQueryOperations> useCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'useCount');
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, int, QQueryOperations> versionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'version');
     });
   }
 

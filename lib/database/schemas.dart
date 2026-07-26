@@ -97,6 +97,8 @@ class SavedFoodEntity {
   DateTime? lastUsedAt;
   late int reportCount;
 
+  int version = 1;
+
   late DateTime createdAt;
   late DateTime updatedAt;
   DateTime? deletedAt;

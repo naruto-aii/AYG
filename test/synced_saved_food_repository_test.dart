@@ -197,5 +197,26 @@ void main() {
         throwsA(isA<FoodMasterNetworkException>()),
       );
     });
+
+    test('updateOwn bumps version for public user-facing changes', () async {
+      final local = _FakeLocalStore()
+        ..stored = _sampleFood('u1', 'f1').copyWith(
+          visibility: FoodVisibility.public,
+          kcalPerBase: 100,
+          version: 2,
+        );
+      final remote = _FakeRemoteStore();
+      final repo = SyncedSavedFoodRepository(local: local, remote: remote);
+
+      await repo.updateOwn(
+        local.stored!.copyWith(
+          kcalPerBase: 110,
+          updatedAt: DateTime.utc(2026, 2, 1),
+        ),
+      );
+
+      expect(local.stored?.kcalPerBase, 110);
+      expect(local.stored?.version, 3);
+    });
   });
 }

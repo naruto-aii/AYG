@@ -1,5 +1,6 @@
 import '../../models/food_visibility.dart';
 import '../../models/saved_food.dart';
+import '../../services/saved_food_version_policy.dart';
 import 'contracts/saved_food_local_store.dart';
 import 'contracts/saved_food_remote_store.dart';
 import 'contracts/saved_food_repository_base.dart';
@@ -28,7 +29,17 @@ class SyncedSavedFoodRepository extends SavedFoodRepositoryBase {
 
   @override
   Future<void> updateOwn(SavedFood food) async {
-    final normalized = food.normalizedForSave();
+    final existing = await _local.getOwn(
+      ownerUserId: food.ownerUserId,
+      foodId: food.foodId,
+    );
+    var normalized = food.normalizedForSave();
+    if (existing != null) {
+      normalized = SavedFoodVersionPolicy.applyVersionOnUpdate(
+        previous: existing,
+        next: normalized,
+      );
+    }
     await _local.updateOwn(normalized);
     if (_remote == null) {
       return;

@@ -149,6 +149,7 @@ class EntityMapper {
       ..useCount = food.useCount
       ..lastUsedAt = food.lastUsedAt
       ..reportCount = food.reportCount
+      ..version = food.version
       ..createdAt = food.createdAt
       ..updatedAt = food.updatedAt
       ..deletedAt = food.deletedAt;
@@ -184,6 +185,7 @@ class EntityMapper {
       useCount: entity.useCount,
       lastUsedAt: entity.lastUsedAt,
       reportCount: entity.reportCount,
+      version: entity.version,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       deletedAt: entity.deletedAt,

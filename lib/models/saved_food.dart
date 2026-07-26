@@ -31,6 +31,7 @@ class SavedFood {
     this.useCount = 0,
     this.lastUsedAt,
     this.reportCount = 0,
+    this.version = 1,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -64,6 +65,9 @@ class SavedFood {
   final int useCount;
   final DateTime? lastUsedAt;
   final int reportCount;
+
+  /// 公開食品の利用者向け内容変更回数（V1.1 は履歴なし・将来互換用）。
+  final int version;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -99,6 +103,7 @@ class SavedFood {
     int? useCount,
     DateTime? lastUsedAt,
     int? reportCount,
+    int? version,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
@@ -127,6 +132,7 @@ class SavedFood {
       useCount: useCount ?? this.useCount,
       lastUsedAt: lastUsedAt ?? this.lastUsedAt,
       reportCount: reportCount ?? this.reportCount,
+      version: version ?? this.version,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/food_visibility.dart';
 import '../../models/saved_food.dart';
 import '../../models/food_source_type.dart';
+import '../../services/saved_food_version_policy.dart';
 import '../../utils/base_amount_normalizer.dart';
 import '../../utils/food_name_normalizer.dart';
 import '../contracts/saved_food_remote_store.dart';
@@ -205,6 +206,7 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
+      version: SavedFoodVersionPolicy.initialVersion,
     );
   }
 }

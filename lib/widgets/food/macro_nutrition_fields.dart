@@ -10,10 +10,12 @@ class MacroNutritionFields extends StatelessWidget {
     super.key,
     required this.controller,
     required this.validator,
+    this.readOnly = false,
   });
 
   final MacroNutritionInputController controller;
   final String? Function(String? value, String label) validator;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +76,7 @@ class MacroNutritionFields extends StatelessWidget {
 
     return TextFormField(
       controller: textController,
+      readOnly: readOnly,
       decoration: InputDecoration(
         labelText: suffix == null ? label : '$label $suffix',
         border: const OutlineInputBorder(),

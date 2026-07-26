@@ -6,6 +6,7 @@ import '../../repositories/health_repository.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import 'settings_basic_info_screen.dart';
+import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
 
@@ -94,6 +95,20 @@ class SettingsScreen extends StatelessWidget {
                   );
                 },
               ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.restaurant_menu_outlined),
+              title: const Text(AppStrings.settingsFoodMaster),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) =>
+                        SettingsFoodMasterScreen(controller: controller),
+                  ),
+                );
+              },
+            ),
             if (hideHealthSettings)
               ListTile(
                 contentPadding: EdgeInsets.zero,

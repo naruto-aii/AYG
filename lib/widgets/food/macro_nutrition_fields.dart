@@ -75,6 +75,7 @@ class MacroNutritionFields extends StatelessWidget {
     final suffix = source == MacroFieldSource.auto ? '（自動）' : null;
 
     return TextFormField(
+      key: ValueKey('macro_field_${field.name}'),
       controller: textController,
       readOnly: readOnly,
       decoration: InputDecoration(

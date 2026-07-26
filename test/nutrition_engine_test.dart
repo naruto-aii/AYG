@@ -235,5 +235,59 @@ void main() {
       expect(summary.targetKcal, closeTo(expectedTarget, 0.01));
       expect(summary.remainingKcal, closeTo(expectedTarget - 500 + 200, 0.01));
     });
+
+    test('ignores entries outside reference local day', () {
+      final today = DateTime(2026, 7, 21, 12);
+      final yesterday = DateTime(2026, 7, 20, 23, 59);
+
+      final summary = engine.calculateDailySummary(
+        profile: maleProfile,
+        goal: Goal(
+          type: GoalType.maintain,
+          targetWeightKg: 75,
+          targetDate: referenceDate.add(const Duration(days: 90)),
+        ),
+        settings: const NutritionSettings(
+          useHealthIntegration: false,
+          activityLevel: ActivityLevel.moderate,
+        ),
+        foodEntries: [
+          FoodEntry(
+            id: 'food-today',
+            name: '今日',
+            kcalPerUnit: 500,
+            quantity: 1,
+            loggedAt: today,
+          ),
+          FoodEntry(
+            id: 'food-yesterday',
+            name: '昨日',
+            kcalPerUnit: 900,
+            quantity: 1,
+            loggedAt: yesterday,
+          ),
+        ],
+        exerciseEntries: [
+          ExerciseEntry(
+            id: 'exercise-today',
+            name: '今日',
+            durationMin: 30,
+            burnedKcal: 200,
+            loggedAt: today,
+          ),
+          ExerciseEntry(
+            id: 'exercise-yesterday',
+            name: '昨日',
+            durationMin: 30,
+            burnedKcal: 400,
+            loggedAt: yesterday,
+          ),
+        ],
+        referenceDate: today,
+      );
+
+      expect(summary.intakeKcal, 500);
+      expect(summary.exerciseBurnKcal, 200);
+    });
   });
 }

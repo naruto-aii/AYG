@@ -56,18 +56,21 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     final entry = _buildEntry();
     if (entry == null) {
       return;
     }
 
     if (widget.isEditing) {
-      widget.controller.updateExercise(entry);
+      await widget.controller.updateExercise(entry);
     } else {
-      widget.controller.addExercise(entry);
+      await widget.controller.addExercise(entry);
     }
 
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).pop();
   }
 
@@ -99,7 +102,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return;
     }
 
-    widget.controller.deleteExercise(entry.id);
+    await widget.controller.deleteExercise(entry.id);
     if (!mounted) {
       return;
     }

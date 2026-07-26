@@ -7,6 +7,7 @@ import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
 import '../models/target_macros.dart';
 import '../models/user_profile.dart';
+import '../utils/local_date.dart';
 
 /// Version 1.1 正式 Nutrition Engine。
 class NutritionEngine {
@@ -176,11 +177,22 @@ class NutritionEngine {
       weightKg: profile.weightKg,
     );
 
-    final intakeKcal = _sumFoodKcal(foodEntries);
-    final intakeProteinG = _sumFoodProtein(foodEntries);
-    final intakeFatG = _sumFoodFat(foodEntries);
-    final intakeCarbG = _sumFoodCarb(foodEntries);
-    final exerciseBurnKcal = _sumExerciseBurn(exerciseEntries);
+    final dayFoodEntries = filterLoggedOnLocalDay(
+      entries: foodEntries,
+      referenceDate: referenceDate ?? DateTime.now(),
+      readLoggedAt: (entry) => entry.loggedAt,
+    );
+    final dayExerciseEntries = filterLoggedOnLocalDay(
+      entries: exerciseEntries,
+      referenceDate: referenceDate ?? DateTime.now(),
+      readLoggedAt: (entry) => entry.loggedAt,
+    );
+
+    final intakeKcal = _sumFoodKcal(dayFoodEntries);
+    final intakeProteinG = _sumFoodProtein(dayFoodEntries);
+    final intakeFatG = _sumFoodFat(dayFoodEntries);
+    final intakeCarbG = _sumFoodCarb(dayFoodEntries);
+    final exerciseBurnKcal = _sumExerciseBurn(dayExerciseEntries);
     final remainingKcal = calculateRemainingCalories(
       targetCalories: targetKcal,
       foodCalories: intakeKcal,

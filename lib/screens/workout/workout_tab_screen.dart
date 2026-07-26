@@ -34,7 +34,7 @@ class WorkoutTabScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
-      controller.deleteExercise(entry.id);
+      await controller.deleteExercise(entry.id);
     }
   }
 

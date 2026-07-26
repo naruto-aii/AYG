@@ -201,7 +201,7 @@ class AppController extends ChangeNotifier {
         ..addAll(await exerciseRepository.loadAll());
     }
 
-    _recalculate();
+    refreshDailySummary();
   }
 
   Future<void> completeOnboarding() async {
@@ -215,7 +215,7 @@ class AppController extends ChangeNotifier {
     profile = _profileWithPreferredWeight(value);
     _userRepository?.saveProfile(profile!);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
   Future<void> applyHealthProfileData(HealthProfileData data) async {
@@ -242,7 +242,7 @@ class AppController extends ChangeNotifier {
     }
 
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
   Future<void> recordManualWeight(double weightKg) async {
@@ -264,7 +264,7 @@ class AppController extends ChangeNotifier {
     );
     await _userRepository?.saveProfile(profile!);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
   Future<void> updateBasicProfile({
@@ -291,7 +291,7 @@ class AppController extends ChangeNotifier {
       );
       await _userRepository?.saveProfile(profile!);
       _scheduleRemoteSync();
-      _recalculate();
+      refreshDailySummary();
       return;
     }
 
@@ -315,21 +315,21 @@ class AppController extends ChangeNotifier {
     profile = _profileWithPreferredWeight(nextProfile);
     await _userRepository?.saveProfile(profile!);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
   Future<void> saveGoalSettings(Goal value) async {
     goal = value;
     await _userRepository?.saveGoal(value);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
   Future<void> saveNutritionSettingsSettings(NutritionSettings value) async {
     nutritionSettings = value;
     await _settingsRepository?.saveNutritionSettings(value);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
   Future<void> updateActivityLevel(ActivityLevel activityLevel) async {
@@ -388,73 +388,147 @@ class AppController extends ChangeNotifier {
     goal = value;
     _userRepository?.saveGoal(value);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
   void setNutritionSettings(NutritionSettings value) {
     nutritionSettings = value;
     _settingsRepository?.saveNutritionSettings(value);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
   void setHealthSnapshot(HealthSnapshot value) {
     healthSnapshot = value;
     _settingsRepository?.saveHealthSnapshot(value);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
+  }
+
+  /// 当日の食事・運動を Repository から再取得し、Nutrition Engine を実行する。
+  void refreshDailySummary({DateTime? referenceDate}) {
+    final currentProfile = profile;
+    final currentGoal = goal;
+    final settings = nutritionSettings;
+
+    if (currentProfile == null || currentGoal == null || settings == null) {
+      summary = null;
+      notifyListeners();
+      return;
+    }
+
+    summary = _nutritionEngine.calculateDailySummary(
+      profile: currentProfile,
+      goal: currentGoal,
+      settings: settings,
+      healthSnapshot: healthSnapshot,
+      foodEntries: List.unmodifiable(foodEntries),
+      exerciseEntries: List.unmodifiable(exerciseEntries),
+      referenceDate: referenceDate ?? DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  Future<void> _reloadFoodEntries() async {
+    final foodRepository = _foodRepository;
+    if (foodRepository == null) {
+      return;
+    }
+    foodEntries
+      ..clear()
+      ..addAll(await foodRepository.loadAll());
+  }
+
+  Future<void> _reloadExerciseEntries() async {
+    final exerciseRepository = _exerciseRepository;
+    if (exerciseRepository == null) {
+      return;
+    }
+    exerciseEntries
+      ..clear()
+      ..addAll(await exerciseRepository.loadAll());
   }
 
   String generateId() => DateTime.now().microsecondsSinceEpoch.toString();
 
-  void addFood(FoodEntry entry) {
-    foodEntries.add(entry);
-    _foodRepository?.save(entry);
-    _scheduleRemoteSync();
-    _recalculate();
-  }
-
-  void updateFood(FoodEntry entry) {
-    final index = foodEntries.indexWhere((item) => item.id == entry.id);
-    if (index == -1) {
-      return;
+  Future<void> addFood(FoodEntry entry) async {
+    final foodRepository = _foodRepository;
+    if (foodRepository != null) {
+      await foodRepository.save(entry);
+      await _reloadFoodEntries();
+    } else {
+      foodEntries.add(entry);
     }
-    foodEntries[index] = entry;
-    _foodRepository?.save(entry);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
-  void deleteFood(String id) {
-    foodEntries.removeWhere((item) => item.id == id);
-    _foodRepository?.delete(id);
-    _scheduleRemoteSync();
-    _recalculate();
-  }
-
-  void addExercise(ExerciseEntry entry) {
-    exerciseEntries.add(entry);
-    _exerciseRepository?.save(entry);
-    _scheduleRemoteSync();
-    _recalculate();
-  }
-
-  void updateExercise(ExerciseEntry entry) {
-    final index = exerciseEntries.indexWhere((item) => item.id == entry.id);
-    if (index == -1) {
-      return;
+  Future<void> updateFood(FoodEntry entry) async {
+    final foodRepository = _foodRepository;
+    if (foodRepository != null) {
+      await foodRepository.save(entry);
+      await _reloadFoodEntries();
+    } else {
+      final index = foodEntries.indexWhere((item) => item.id == entry.id);
+      if (index == -1) {
+        return;
+      }
+      foodEntries[index] = entry;
     }
-    exerciseEntries[index] = entry;
-    _exerciseRepository?.save(entry);
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
   }
 
-  void deleteExercise(String id) {
-    exerciseEntries.removeWhere((item) => item.id == id);
-    _exerciseRepository?.delete(id);
+  Future<void> deleteFood(String id) async {
+    final foodRepository = _foodRepository;
+    if (foodRepository != null) {
+      await foodRepository.delete(id);
+      await _reloadFoodEntries();
+    } else {
+      foodEntries.removeWhere((item) => item.id == id);
+    }
     _scheduleRemoteSync();
-    _recalculate();
+    refreshDailySummary();
+  }
+
+  Future<void> addExercise(ExerciseEntry entry) async {
+    final exerciseRepository = _exerciseRepository;
+    if (exerciseRepository != null) {
+      await exerciseRepository.save(entry);
+      await _reloadExerciseEntries();
+    } else {
+      exerciseEntries.add(entry);
+    }
+    _scheduleRemoteSync();
+    refreshDailySummary();
+  }
+
+  Future<void> updateExercise(ExerciseEntry entry) async {
+    final exerciseRepository = _exerciseRepository;
+    if (exerciseRepository != null) {
+      await exerciseRepository.save(entry);
+      await _reloadExerciseEntries();
+    } else {
+      final index = exerciseEntries.indexWhere((item) => item.id == entry.id);
+      if (index == -1) {
+        return;
+      }
+      exerciseEntries[index] = entry;
+    }
+    _scheduleRemoteSync();
+    refreshDailySummary();
+  }
+
+  Future<void> deleteExercise(String id) async {
+    final exerciseRepository = _exerciseRepository;
+    if (exerciseRepository != null) {
+      await exerciseRepository.delete(id);
+      await _reloadExerciseEntries();
+    } else {
+      exerciseEntries.removeWhere((item) => item.id == id);
+    }
+    _scheduleRemoteSync();
+    refreshDailySummary();
   }
 
   void _scheduleRemoteSync() {
@@ -486,29 +560,6 @@ class AppController extends ChangeNotifier {
     return manualWeightKg;
   }
 
-  void _recalculate() {
-    final currentProfile = profile;
-    final currentGoal = goal;
-    final settings = nutritionSettings;
-
-    if (currentProfile == null || currentGoal == null || settings == null) {
-      summary = null;
-      notifyListeners();
-      return;
-    }
-
-    summary = _nutritionEngine.calculateDailySummary(
-      profile: currentProfile,
-      goal: currentGoal,
-      settings: settings,
-      healthSnapshot: healthSnapshot,
-      foodEntries: List.unmodifiable(foodEntries),
-      exerciseEntries: List.unmodifiable(exerciseEntries),
-    );
-    notifyListeners();
-  }
-
-  @override
   void dispose() {
     _authSubscription?.cancel();
     super.dispose();

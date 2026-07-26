@@ -4,6 +4,8 @@ import '../../models/macro_field.dart';
 import '../../services/nutrition_value_calculator.dart';
 
 /// 食事フォームの kcal / P / F / C 入力状態を管理する。
+///
+/// 常に「手入力 3 項目 + 自動計算 1 項目」を維持する。
 class MacroNutritionInputController extends ChangeNotifier {
   MacroNutritionInputController();
 
@@ -19,20 +21,43 @@ class MacroNutritionInputController extends ChangeNotifier {
     MacroField.carb: MacroFieldSource.empty,
   };
 
-  final Set<MacroField> _locked = {};
+  final List<MacroField> _manualOrder = [];
+  MacroField? _autoField;
+  MacroField? _previousAutoField;
   bool _imeComposing = false;
   bool _suppressListener = false;
   MacroField? _activeField;
   String? _negativeMessage;
-  MacroConsistencyWarning? _consistencyWarning;
 
   MacroFieldSource sourceOf(MacroField field) => _sources[field]!;
 
+  MacroField? get autoField => _autoField;
+
   String? get negativeMessage => _negativeMessage;
 
-  MacroConsistencyWarning? get consistencyWarning => _consistencyWarning;
-
   bool get isImeComposing => _imeComposing;
+
+  bool get canSave {
+    if (_negativeMessage != null) {
+      return false;
+    }
+
+    final parsed = _parseAll();
+    final validCount = _validCount(parsed);
+    if (validCount <= 2) {
+      return true;
+    }
+    if (validCount == 3) {
+      return true;
+    }
+
+    return NutritionValueCalculator.isConsistent(
+      kcal: parsed.kcal.value!,
+      protein: parsed.protein.value!,
+      fat: parsed.fat.value!,
+      carb: parsed.carb.value!,
+    );
+  }
 
   TextEditingController controllerFor(MacroField field) {
     return switch (field) {
@@ -50,13 +75,14 @@ class MacroNutritionInputController extends ChangeNotifier {
     double? carb,
   }) {
     _suppressListener = true;
+    _manualOrder.clear();
+    _autoField = null;
+    _previousAutoField = null;
     _setLoaded(MacroField.kcal, kcal);
     _setLoaded(MacroField.protein, protein);
     _setLoaded(MacroField.fat, fat);
     _setLoaded(MacroField.carb, carb);
-    _locked.clear();
     _negativeMessage = null;
-    _consistencyWarning = null;
     _suppressListener = false;
     notifyListeners();
   }
@@ -68,6 +94,9 @@ class MacroNutritionInputController extends ChangeNotifier {
     double? carb,
   }) {
     _suppressListener = true;
+    _manualOrder.clear();
+    _autoField = null;
+    _previousAutoField = null;
     if (kcal != null) {
       _setUser(MacroField.kcal, kcal);
     }
@@ -82,6 +111,12 @@ class MacroNutritionInputController extends ChangeNotifier {
     }
     _suppressListener = false;
     _recalculate(changedField: null);
+  }
+
+  /// 保存直前に最終整合を行う。成功時 true。
+  bool prepareForSave() {
+    _recalculate(changedField: null, force: true);
+    return canSave;
   }
 
   void setImeComposing(bool composing) {
@@ -111,13 +146,70 @@ class MacroNutritionInputController extends ChangeNotifier {
       return;
     }
     _imeComposing = false;
+
+    final parsed = NutritionValueCalculator.parse(textController.text);
+    if (parsed.state == MacroParseState.empty) {
+      _sources[field] = MacroFieldSource.empty;
+      _manualOrder.remove(field);
+      if (_autoField == field) {
+        _autoField = null;
+      }
+      _recalculate(changedField: field);
+      return;
+    }
+
+    if (field == _autoField) {
+      _previousAutoField = _autoField;
+      _autoField = null;
+    }
+
     _sources[field] = MacroFieldSource.user;
-    _locked.add(field);
+    _registerManual(field);
     _recalculate(changedField: field);
   }
 
   ParsedMacroInput _parseField(MacroField field) {
     return NutritionValueCalculator.parse(controllerFor(field).text);
+  }
+
+  ({
+    ParsedMacroInput kcal,
+    ParsedMacroInput protein,
+    ParsedMacroInput fat,
+    ParsedMacroInput carb,
+  })
+  _parseAll() {
+    return (
+      kcal: _parseField(MacroField.kcal),
+      protein: _parseField(MacroField.protein),
+      fat: _parseField(MacroField.fat),
+      carb: _parseField(MacroField.carb),
+    );
+  }
+
+  int _validCount(
+    ({
+      ParsedMacroInput kcal,
+      ParsedMacroInput protein,
+      ParsedMacroInput fat,
+      ParsedMacroInput carb,
+    })
+    parsed,
+  ) {
+    return [
+      parsed.kcal,
+      parsed.protein,
+      parsed.fat,
+      parsed.carb,
+    ].where((field) => field.isValid).length;
+  }
+
+  void _registerManual(MacroField field) {
+    _manualOrder.remove(field);
+    _manualOrder.add(field);
+    if (_sources[field] == MacroFieldSource.auto) {
+      _sources[field] = MacroFieldSource.user;
+    }
   }
 
   void _setLoaded(MacroField field, double? value) {
@@ -137,39 +229,96 @@ class MacroNutritionInputController extends ChangeNotifier {
       value,
     );
     _sources[field] = MacroFieldSource.user;
-    _locked.add(field);
+    _registerManual(field);
   }
 
-  void _recalculate({MacroField? changedField}) {
-    if (_imeComposing) {
+  MacroField? _pickAutoField({
+    required MacroField? changedField,
+    required int validCount,
+  }) {
+    if (validCount == 3) {
+      for (final field in MacroField.values) {
+        if (!_parseField(field).isValid) {
+          return field;
+        }
+      }
+      return null;
+    }
+
+    if (validCount == 4) {
+      if (_autoField != null) {
+        return _autoField;
+      }
+      if (_previousAutoField != null &&
+          _previousAutoField != changedField &&
+          _parseField(_previousAutoField!).isValid) {
+        return _previousAutoField;
+      }
+      for (final field in _manualOrder) {
+        if (field != changedField && _parseField(field).isValid) {
+          return field;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  void _recalculate({MacroField? changedField, bool force = false}) {
+    if (_imeComposing && !force) {
       return;
     }
     _negativeMessage = null;
-    _consistencyWarning = null;
 
-    final kcal = _parseField(MacroField.kcal);
-    final protein = _parseField(MacroField.protein);
-    final fat = _parseField(MacroField.fat);
-    final carb = _parseField(MacroField.carb);
-
-    final allValid = [kcal, protein, fat, carb].every((f) => f.isValid);
-    if (allValid) {
-      _consistencyWarning = NutritionValueCalculator.checkConsistency(
-        kcal: kcal.value!,
-        protein: protein.value!,
-        fat: fat.value!,
-        carb: carb.value!,
-      );
+    final parsed = _parseAll();
+    final values = [parsed.kcal, parsed.protein, parsed.fat, parsed.carb];
+    if (values.any(
+      (field) =>
+          field.state == MacroParseState.partial ||
+          field.state == MacroParseState.invalid,
+    )) {
       notifyListeners();
       return;
     }
 
-    final result = NutritionValueCalculator.calculateMissing(
-      kcal: kcal,
-      protein: protein,
-      fat: fat,
-      carb: carb,
+    final validCount = _validCount(parsed);
+    if (validCount <= 2) {
+      if (_autoField != null) {
+        _clearAutoField(_autoField!);
+      }
+      notifyListeners();
+      return;
+    }
+
+    final target = _pickAutoField(
+      changedField: changedField,
+      validCount: validCount,
     );
+    if (target == null) {
+      notifyListeners();
+      return;
+    }
+
+    if (_activeField == target && !force) {
+      notifyListeners();
+      return;
+    }
+
+    final result = validCount == 3
+        ? NutritionValueCalculator.calculateMissing(
+            kcal: parsed.kcal,
+            protein: parsed.protein,
+            fat: parsed.fat,
+            carb: parsed.carb,
+            targetField: target,
+          )
+        : NutritionValueCalculator.reconcileField(
+            field: target,
+            kcal: parsed.kcal,
+            protein: parsed.protein,
+            fat: parsed.fat,
+            carb: parsed.carb,
+          );
 
     if (result == null) {
       notifyListeners();
@@ -184,24 +333,36 @@ class MacroNutritionInputController extends ChangeNotifier {
       return;
     }
 
-    final target = result.field;
-    if (_locked.contains(target) && changedField != target) {
-      notifyListeners();
-      return;
-    }
-    if (_activeField == target) {
-      notifyListeners();
-      return;
+    _applyAutoValue(target, result.value!);
+    notifyListeners();
+  }
+
+  void _applyAutoValue(MacroField field, double value) {
+    if (_autoField != null && _autoField != field) {
+      _manualOrder.remove(_autoField);
     }
 
     _suppressListener = true;
-    controllerFor(target).text = NutritionValueCalculator.formatForField(
-      target,
-      result.value!,
+    controllerFor(field).text = NutritionValueCalculator.formatForField(
+      field,
+      value,
     );
-    _sources[target] = MacroFieldSource.auto;
+    _sources[field] = MacroFieldSource.auto;
+    _manualOrder.remove(field);
+    _autoField = field;
+    _previousAutoField = field;
     _suppressListener = false;
-    notifyListeners();
+  }
+
+  void _clearAutoField(MacroField field) {
+    _suppressListener = true;
+    controllerFor(field).text = '';
+    _sources[field] = MacroFieldSource.empty;
+    _manualOrder.remove(field);
+    if (_autoField == field) {
+      _autoField = null;
+    }
+    _suppressListener = false;
   }
 
   String _label(MacroField field) {

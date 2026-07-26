@@ -116,38 +116,73 @@ void main() {
     });
   });
 
-  group('checkConsistency', () {
-    test('within tolerance returns null', () {
+  group('reconcileField', () {
+    test('recalculates kcal from PFC', () {
+      final result = NutritionValueCalculator.reconcileField(
+        field: MacroField.kcal,
+        kcal: v(200),
+        protein: v(10),
+        fat: v(5),
+        carb: v(10),
+      );
+
+      expect(result!.value, 125);
+      expect(result.negative, isFalse);
+    });
+  });
+
+  group('isConsistent', () {
+    test('matches 4/9/4 formula after rounding', () {
       expect(
-        NutritionValueCalculator.checkConsistency(
+        NutritionValueCalculator.isConsistent(
           kcal: 165,
           protein: 10,
           fat: 5,
           carb: 20,
         ),
-        isNull,
+        isTrue,
       );
     });
 
-    test('exceeds max of 5 kcal or 2 percent', () {
-      final warning = NutritionValueCalculator.checkConsistency(
-        kcal: 200,
-        protein: 10,
-        fat: 5,
-        carb: 10,
+    test('rejects inconsistent values', () {
+      expect(
+        NutritionValueCalculator.isConsistent(
+          kcal: 200,
+          protein: 10,
+          fat: 5,
+          carb: 10,
+        ),
+        isFalse,
       );
-      expect(warning, isNotNull);
-      expect(warning!.differenceKcal, greaterThan(5));
+    });
+  });
+
+  group('normalizeSnapshot', () {
+    test('uses PFC as truth and recalculates kcal', () {
+      final normalized = NutritionValueCalculator.normalizeSnapshot(
+        kcal: 539,
+        protein: 6.3,
+        fat: 30.9,
+        carb: 57.5,
+      );
+
+      expect(normalized.kcal, 533);
+      expect(normalized.protein, 6.3);
+      expect(normalized.fat, 30.9);
+      expect(normalized.carb, 57.5);
+      expect(normalized.referenceKcal, 539);
     });
 
-    test('uses 2 percent for large kcal', () {
-      final warning = NutritionValueCalculator.checkConsistency(
-        kcal: 1000,
-        protein: 10,
-        fat: 5,
-        carb: 10,
+    test('keeps partial values when PFC incomplete', () {
+      final normalized = NutritionValueCalculator.normalizeSnapshot(
+        kcal: 100,
+        protein: null,
+        fat: null,
+        carb: null,
       );
-      expect(warning!.toleranceKcal, 20);
+
+      expect(normalized.kcal, 100);
+      expect(normalized.referenceKcal, isNull);
     });
   });
 }

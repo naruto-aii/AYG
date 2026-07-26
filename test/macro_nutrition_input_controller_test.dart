@@ -51,24 +51,28 @@ void main() {
 
       expect(controller.proteinController.text, isEmpty);
       expect(controller.negativeMessage, isNotNull);
+      expect(controller.canSave, isFalse);
       controller.dispose();
     });
 
-    test('does not overwrite when all four fields are valid', () {
+    test('reconciles oldest manual field when all four fields are valid', () {
       final controller = newController();
       controller.kcalController.text = '200';
+      controller.onFieldChanged(MacroField.kcal);
       controller.proteinController.text = '10';
+      controller.onFieldChanged(MacroField.protein);
       controller.fatController.text = '5';
+      controller.onFieldChanged(MacroField.fat);
       controller.carbController.text = '10';
       controller.onFieldChanged(MacroField.carb);
 
-      expect(controller.kcalController.text, '200');
-      expect(controller.proteinController.text, '10');
-      expect(controller.consistencyWarning, isNotNull);
+      expect(controller.kcalController.text, '125');
+      expect(controller.sourceOf(MacroField.kcal), MacroFieldSource.auto);
+      expect(controller.canSave, isTrue);
       controller.dispose();
     });
 
-    test('does not overwrite locked auto field after manual edit', () {
+    test('keeps manually edited auto field and recalculates another field', () {
       final controller = newController();
       controller.proteinController.text = '10';
       controller.fatController.text = '5';
@@ -84,6 +88,23 @@ void main() {
       controller.onFieldChanged(MacroField.protein);
 
       expect(controller.kcalController.text, '170');
+      expect(controller.sourceOf(MacroField.kcal), MacroFieldSource.user);
+      controller.dispose();
+    });
+
+    test('prepareForSave enforces consistency', () {
+      final controller = newController();
+      controller.kcalController.text = '200';
+      controller.onFieldChanged(MacroField.kcal);
+      controller.proteinController.text = '10';
+      controller.onFieldChanged(MacroField.protein);
+      controller.fatController.text = '5';
+      controller.onFieldChanged(MacroField.fat);
+      controller.carbController.text = '10';
+      controller.onFieldChanged(MacroField.carb);
+
+      expect(controller.prepareForSave(), isTrue);
+      expect(controller.kcalController.text, '125');
       controller.dispose();
     });
 

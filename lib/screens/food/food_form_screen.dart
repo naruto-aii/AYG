@@ -186,18 +186,28 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (!_macroInput.prepareForSave()) {
+      _showMessage(
+        _macroInput.negativeMessage ?? '栄養素の値が整合していません。入力を見直してください。',
+      );
+      return;
+    }
+
     final entry = _buildEntry();
     if (entry == null) {
       return;
     }
 
     if (widget.isEditing) {
-      widget.controller.updateFood(entry);
+      await widget.controller.updateFood(entry);
     } else {
-      widget.controller.addFood(entry);
+      await widget.controller.addFood(entry);
     }
 
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).pop();
   }
 
@@ -229,7 +239,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       return;
     }
 
-    widget.controller.deleteFood(entry.id);
+    await widget.controller.deleteFood(entry.id);
     if (!mounted) {
       return;
     }

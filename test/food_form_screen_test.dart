@@ -9,7 +9,7 @@ import 'mocks/mock_health_repository.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('shows consistency warning but still allows save', (
+  testWidgets('reconciles inconsistent values before save', (
     WidgetTester tester,
   ) async {
     final controller = AppController(
@@ -56,17 +56,15 @@ void main() {
     await tester.enterText(fields.at(4), '10');
     await tester.pump();
 
-    expect(find.textContaining('入力カロリーとPFCから計算した値に差があります'), findsOneWidget);
+    expect(find.textContaining('入力カロリーとPFCから計算した値に差があります'), findsNothing);
 
     final saveButton = find.widgetWithText(FilledButton, '保存');
-    expect(saveButton, findsOneWidget);
-
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
     expect(controller.foodEntries, hasLength(1));
     expect(controller.foodEntries.first.name, 'テスト食品');
-    expect(controller.foodEntries.first.kcalPerUnit, 200);
+    expect(controller.foodEntries.first.kcalPerUnit, 125);
     expect(find.text('open form'), findsOneWidget);
   });
 }

@@ -20,10 +20,14 @@ import '../models/food_unit_type.dart';
 import '../models/saved_food.dart';
 import '../models/saved_food_draft.dart';
 import '../models/saved_food_entry_selection.dart';
+import '../models/public_food_publish_match.dart';
+import '../models/saved_food_publish_validation.dart';
 import '../models/save_food_entry_result.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
 import '../repositories/authentication_repository.dart';
+import '../repositories/exceptions/food_master_exceptions.dart';
+import '../repositories/contracts/food_rating_repository_base.dart';
 import '../repositories/contracts/saved_food_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
 import '../repositories/exercise_repository.dart';
@@ -36,9 +40,13 @@ import '../repositories/user_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
 import '../services/nutrition_engine.dart';
+import '../services/public_food_similar_service.dart';
+import '../services/publish_error_messages.dart';
 import '../services/saved_food_duplicate_service.dart';
 import '../services/saved_food_entry_builder.dart';
+import '../services/saved_food_publish_validator.dart';
 import '../services/saved_food_search_service.dart';
+import '../services/saved_food_version_policy.dart';
 import '../utils/food_name_normalizer.dart';
 
 class AppController extends ChangeNotifier {
@@ -55,6 +63,7 @@ class AppController extends ChangeNotifier {
     ExerciseRepository? exerciseRepository,
     WeightRepository? weightRepository,
     SavedFoodRepositoryBase? savedFoodRepository,
+    FoodRatingRepositoryBase? foodRatingRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -67,9 +76,12 @@ class AppController extends ChangeNotifier {
        _exerciseRepository = exerciseRepository,
        _weightRepository = weightRepository,
        _savedFoodRepository = savedFoodRepository,
+       _foodRatingRepository = foodRatingRepository,
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
-       _savedFoodEntryBuilder = const SavedFoodEntryBuilder();
+       _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
+       _savedFoodPublishValidator = const SavedFoodPublishValidator(),
+       _publicFoodSimilarService = const PublicFoodSimilarService();
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
@@ -83,9 +95,16 @@ class AppController extends ChangeNotifier {
   final ExerciseRepository? _exerciseRepository;
   final WeightRepository? _weightRepository;
   final SavedFoodRepositoryBase? _savedFoodRepository;
+  final FoodRatingRepositoryBase? _foodRatingRepository;
   final SavedFoodSearchService _savedFoodSearchService;
   final SavedFoodDuplicateService _savedFoodDuplicateService;
   final SavedFoodEntryBuilder _savedFoodEntryBuilder;
+  final SavedFoodPublishValidator _savedFoodPublishValidator;
+  final PublicFoodSimilarService _publicFoodSimilarService;
+
+  bool _publishOperationInProgress = false;
+
+  bool get isPublishOperationInProgress => _publishOperationInProgress;
 
   /// 未ログイン時のローカル専用 owner ID。
   static const localOwnerUserId = 'local-user';
@@ -599,25 +618,203 @@ class AppController extends ChangeNotifier {
   }
 
   Future<SavedFood> updateSavedFood(SavedFood food) async {
+    if (food.visibility == FoodVisibility.public) {
+      throw StateError('Use updatePublishedSavedFood for public foods');
+    }
+    return _updateOwnSavedFood(food);
+  }
+
+  Future<SavedFood> updatePublishedSavedFood(
+    SavedFood food, {
+    required bool confirmedPublicUpdate,
+  }) async {
+    if (food.visibility != FoodVisibility.public) {
+      return updateSavedFood(food);
+    }
+
     final repository = _savedFoodRepository;
     if (repository == null) {
       throw StateError('SavedFoodRepository is not configured');
     }
-    if (food.visibility == FoodVisibility.public) {
-      throw UnsupportedError(
-        'Public food update is not enabled in Phase 6A–6C',
-      );
+
+    final existing = await repository.getOwn(
+      ownerUserId: currentOwnerUserId,
+      foodId: food.foodId,
+    );
+    if (existing == null) {
+      throw StateError('Saved food not found');
     }
 
-    final updated = food
+    if (SavedFoodVersionPolicy.requiresPublicUpdateConfirmation(
+          existing,
+          food,
+        ) &&
+        !confirmedPublicUpdate) {
+      throw StateError('Public update confirmation is required');
+    }
+
+    return _updateOwnSavedFood(food, previous: existing);
+  }
+
+  Future<SavedFood> _updateOwnSavedFood(
+    SavedFood food, {
+    SavedFood? previous,
+  }) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      throw StateError('SavedFoodRepository is not configured');
+    }
+
+    var updated = food
         .copyWith(
           updatedAt: DateTime.now(),
           normalizedName: FoodNameNormalizer.normalize(food.name),
         )
         .normalizedForSave();
+
+    if (previous != null) {
+      updated = SavedFoodVersionPolicy.applyVersionOnUpdate(
+        previous: previous,
+        next: updated,
+      );
+    }
+
     await repository.updateOwn(updated);
     _scheduleRemoteSync();
     return updated;
+  }
+
+  SavedFoodPublishValidationResult validateSavedFoodForPublish(SavedFood food) {
+    return _savedFoodPublishValidator.validate(
+      food: food,
+      ownerUserId: currentOwnerUserId,
+    );
+  }
+
+  Future<PublicFoodPublishMatch?> checkPublicDuplicate(SavedFood food) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      return null;
+    }
+
+    final duplicate = await repository.findExactPublicDuplicate(
+      normalizedName: food.normalizedName,
+      baseAmount: food.baseAmount,
+      unitType: food.unitType,
+      excludeOwnerUserId: food.ownerUserId,
+      excludeFoodId: food.foodId,
+    );
+    return _toPublishMatch(duplicate);
+  }
+
+  Future<List<PublicFoodSimilarMatch>> findSimilarPublicFoods(
+    SavedFood food,
+  ) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      return const [];
+    }
+
+    final candidates = await repository.findSimilarPublicFoods(food: food);
+    final matches = <PublicFoodSimilarMatch>[];
+    for (final candidate in candidates) {
+      if (_publicFoodSimilarService.isExactDuplicatePublic(
+        candidate: candidate,
+        source: food,
+      )) {
+        continue;
+      }
+      final summary = await _foodRatingRepository?.getSummary(
+        foodOwnerUserId: candidate.ownerUserId,
+        foodId: candidate.foodId,
+      );
+      matches.addAll(
+        _publicFoodSimilarService.classify(
+          candidate: candidate,
+          source: food,
+          goodCount: summary?.goodCount ?? 0,
+          badCount: summary?.badCount ?? 0,
+        ),
+      );
+    }
+    return _publicFoodSimilarService.mergeMatches(matches);
+  }
+
+  Future<SavedFood> publishSavedFood(String foodId) async {
+    if (_publishOperationInProgress) {
+      throw StateError('Publish operation already in progress');
+    }
+
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      throw StateError('SavedFoodRepository is not configured');
+    }
+
+    _publishOperationInProgress = true;
+    notifyListeners();
+    try {
+      final food = await repository.getOwn(
+        ownerUserId: currentOwnerUserId,
+        foodId: foodId,
+      );
+      if (food == null) {
+        throw StateError('Saved food not found');
+      }
+
+      final validation = validateSavedFoodForPublish(food);
+      if (!validation.isValid) {
+        throw FoodMasterValidationException(validation.errors.join('\n'));
+      }
+
+      return await repository.publish(
+        ownerUserId: currentOwnerUserId,
+        foodId: foodId,
+      );
+    } finally {
+      _publishOperationInProgress = false;
+      notifyListeners();
+    }
+  }
+
+  Future<SavedFood> unpublishSavedFood(String foodId) async {
+    if (_publishOperationInProgress) {
+      throw StateError('Publish operation already in progress');
+    }
+
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      throw StateError('SavedFoodRepository is not configured');
+    }
+
+    _publishOperationInProgress = true;
+    notifyListeners();
+    try {
+      return await repository.unpublish(
+        ownerUserId: currentOwnerUserId,
+        foodId: foodId,
+      );
+    } finally {
+      _publishOperationInProgress = false;
+      notifyListeners();
+    }
+  }
+
+  String publishErrorMessage(Object error) =>
+      PublishErrorMessages.messageFor(error);
+
+  Future<PublicFoodPublishMatch?> _toPublishMatch(SavedFood? food) async {
+    if (food == null) {
+      return null;
+    }
+    final summary = await _foodRatingRepository?.getSummary(
+      foodOwnerUserId: food.ownerUserId,
+      foodId: food.foodId,
+    );
+    return PublicFoodPublishMatch(
+      food: food,
+      goodCount: summary?.goodCount ?? 0,
+      badCount: summary?.badCount ?? 0,
+    );
   }
 
   Future<void> deleteSavedFood(String foodId) async {

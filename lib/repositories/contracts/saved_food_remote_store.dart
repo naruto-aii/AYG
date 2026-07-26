@@ -1,3 +1,4 @@
+import '../../models/food_unit_type.dart';
 import '../../models/saved_food.dart';
 
 abstract class SavedFoodRemoteStore {
@@ -24,6 +25,19 @@ abstract class SavedFoodRemoteStore {
   Future<SavedFood?> getPublicById({
     required String ownerUserId,
     required String foodId,
+  });
+
+  Future<SavedFood?> findExactPublicDuplicate({
+    required String normalizedName,
+    required double baseAmount,
+    required FoodUnitType unitType,
+    String? excludeOwnerUserId,
+    String? excludeFoodId,
+  });
+
+  Future<List<SavedFood>> findSimilarPublicFoods({
+    required SavedFood food,
+    int limit = 20,
   });
 
   SavedFood buildPrivateCopy({

@@ -99,6 +99,21 @@ class _FakeRemoteStore implements SavedFoodRemoteStore {
   }) async => null;
 
   @override
+  Future<SavedFood?> findExactPublicDuplicate({
+    required String normalizedName,
+    required double baseAmount,
+    required FoodUnitType unitType,
+    String? excludeOwnerUserId,
+    String? excludeFoodId,
+  }) async => null;
+
+  @override
+  Future<List<SavedFood>> findSimilarPublicFoods({
+    required SavedFood food,
+    int limit = 20,
+  }) async => const [];
+
+  @override
   Future<SavedFood> publish({
     required String userId,
     required String foodId,

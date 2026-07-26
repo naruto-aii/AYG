@@ -4,6 +4,7 @@ import '../database/entity_mapper.dart';
 import '../database/entity_enum_codec.dart';
 import '../database/schemas.dart';
 import '../models/food_status.dart';
+import '../models/food_unit_type.dart';
 import '../models/saved_food.dart';
 import '../utils/food_name_normalizer.dart';
 import 'contracts/saved_food_local_store.dart';
@@ -105,6 +106,29 @@ class IsarSavedFoodRepository extends SavedFoodRepositoryBase
     required String foodId,
   }) {
     throw UnsupportedError('Use SyncedSavedFoodRepository.getPublicById');
+  }
+
+  @override
+  Future<SavedFood?> findExactPublicDuplicate({
+    required String normalizedName,
+    required double baseAmount,
+    required FoodUnitType unitType,
+    String? excludeOwnerUserId,
+    String? excludeFoodId,
+  }) {
+    throw UnsupportedError(
+      'Use SyncedSavedFoodRepository.findExactPublicDuplicate',
+    );
+  }
+
+  @override
+  Future<List<SavedFood>> findSimilarPublicFoods({
+    required SavedFood food,
+    int limit = 20,
+  }) {
+    throw UnsupportedError(
+      'Use SyncedSavedFoodRepository.findSimilarPublicFoods',
+    );
   }
 
   @override

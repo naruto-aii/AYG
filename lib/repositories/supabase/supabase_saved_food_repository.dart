@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../models/food_unit_type.dart';
 import '../../models/food_visibility.dart';
 import '../../models/saved_food.dart';
 import '../../models/food_source_type.dart';
@@ -179,6 +180,101 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
       return FoodMasterRowMapper.savedFoodFromRow(row);
     } catch (error) {
       throw SupabaseErrorMapper.map(error, context: 'saved_foods get public');
+    }
+  }
+
+  Future<SavedFood?> findExactPublicDuplicate({
+    required String normalizedName,
+    required double baseAmount,
+    required FoodUnitType unitType,
+    String? excludeOwnerUserId,
+    String? excludeFoodId,
+  }) async {
+    try {
+      final rows = await _client
+          .from('saved_foods')
+          .select()
+          .eq('visibility', FoodVisibility.public.name)
+          .eq('status', 'active')
+          .eq('normalized_name', normalizedName)
+          .eq('base_amount', baseAmount)
+          .eq('unit_type', unitType.storageValue)
+          .limit(5);
+      for (final row in rows) {
+        final food = FoodMasterRowMapper.savedFoodFromRow(row);
+        if (excludeOwnerUserId != null &&
+            excludeFoodId != null &&
+            food.ownerUserId == excludeOwnerUserId &&
+            food.foodId == excludeFoodId) {
+          continue;
+        }
+        return food;
+      }
+      return null;
+    } catch (error) {
+      throw SupabaseErrorMapper.map(
+        error,
+        context: 'saved_foods find exact duplicate',
+      );
+    }
+  }
+
+  Future<List<SavedFood>> findSimilarPublicFoods({
+    required SavedFood food,
+    int limit = 20,
+  }) async {
+    try {
+      final candidates = <SavedFood>[];
+      final seen = <String>{};
+
+      void addRows(List<dynamic> rows) {
+        for (final row in rows) {
+          final mapped = FoodMasterRowMapper.savedFoodFromRow(row);
+          final key = '${mapped.ownerUserId}:${mapped.foodId}';
+          if (seen.add(key)) {
+            candidates.add(mapped);
+          }
+        }
+      }
+
+      if (food.normalizedName.isNotEmpty) {
+        addRows(
+          await _client
+              .from('saved_foods')
+              .select()
+              .eq('visibility', FoodVisibility.public.name)
+              .eq('status', 'active')
+              .eq('normalized_name', food.normalizedName)
+              .limit(limit),
+        );
+
+        addRows(
+          await _client
+              .from('saved_foods')
+              .select()
+              .eq('visibility', FoodVisibility.public.name)
+              .eq('status', 'active')
+              .ilike('normalized_name', '${food.normalizedName}%')
+              .limit(limit),
+        );
+      }
+
+      final barcode = food.barcode;
+      if (barcode != null && barcode.isNotEmpty) {
+        addRows(
+          await _client
+              .from('saved_foods')
+              .select()
+              .eq('visibility', FoodVisibility.public.name)
+              .eq('status', 'active')
+              .eq('barcode', barcode)
+              .limit(limit),
+        );
+      }
+
+      return candidates.take(limit).toList();
+    } catch (error) {
+      throw SupabaseErrorMapper.map(error, context: 'saved_foods find similar');
     }
   }
 

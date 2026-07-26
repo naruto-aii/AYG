@@ -361,7 +361,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       draft = foodDraft;
       duplicateResolution = await _resolveDuplicateIfNeeded(foodDraft);
       if (duplicateResolution == null &&
-          await widget.controller.findPrivateDuplicateSavedFood(foodDraft.name) !=
+          await widget.controller.findPrivateDuplicateSavedFood(
+                foodDraft.name,
+              ) !=
               null) {
         return;
       }

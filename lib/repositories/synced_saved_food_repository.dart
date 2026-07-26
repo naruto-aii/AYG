@@ -1,4 +1,5 @@
 import '../../models/food_visibility.dart';
+import '../../models/food_unit_type.dart';
 import '../../models/saved_food.dart';
 import '../../services/saved_food_version_policy.dart';
 import 'contracts/saved_food_local_store.dart';
@@ -142,6 +143,39 @@ class SyncedSavedFoodRepository extends SavedFoodRepositoryBase {
       throw const FoodMasterNetworkException('Supabase is not configured.');
     }
     return remote.getPublicById(ownerUserId: ownerUserId, foodId: foodId);
+  }
+
+  @override
+  Future<SavedFood?> findExactPublicDuplicate({
+    required String normalizedName,
+    required double baseAmount,
+    required FoodUnitType unitType,
+    String? excludeOwnerUserId,
+    String? excludeFoodId,
+  }) async {
+    final remote = _remote;
+    if (remote == null) {
+      throw const FoodMasterNetworkException('Supabase is not configured.');
+    }
+    return remote.findExactPublicDuplicate(
+      normalizedName: normalizedName,
+      baseAmount: baseAmount,
+      unitType: unitType,
+      excludeOwnerUserId: excludeOwnerUserId,
+      excludeFoodId: excludeFoodId,
+    );
+  }
+
+  @override
+  Future<List<SavedFood>> findSimilarPublicFoods({
+    required SavedFood food,
+    int limit = 20,
+  }) async {
+    final remote = _remote;
+    if (remote == null) {
+      throw const FoodMasterNetworkException('Supabase is not configured.');
+    }
+    return remote.findSimilarPublicFoods(food: food, limit: limit);
   }
 
   @override

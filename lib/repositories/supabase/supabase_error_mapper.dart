@@ -76,6 +76,13 @@ class SupabaseErrorMapper {
       );
     }
 
+    if (mapped is FoodMasterNetworkException) {
+      return PublishSavedFoodException(
+        kind: PublishFailureKind.network,
+        message: mapped.message,
+      );
+    }
+
     return PublishSavedFoodException(
       kind: PublishFailureKind.unknown,
       message: mapped.message,

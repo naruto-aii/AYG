@@ -131,74 +131,78 @@ void main() {
       expect(results.map((food) => food.foodId), ['food-1']);
     });
 
-    test('saveFoodEntryWithOptionalSavedFood links existing duplicate', () async {
-      final existing = await seedFood(id: 'dup', name: 'Same Name');
-      final entry = sampleEntry();
+    test(
+      'saveFoodEntryWithOptionalSavedFood links existing duplicate',
+      () async {
+        final existing = await seedFood(id: 'dup', name: 'Same Name');
+        final entry = sampleEntry();
 
-      final result = await controller.saveFoodEntryWithOptionalSavedFood(
-        entry: entry,
-        saveAsFood: true,
-        duplicateResolution: DuplicateSavedFoodResolution(
-          action: DuplicateSavedFoodAction.useExisting,
-          draft: SavedFoodDraft(
-            name: existing.name,
-            baseAmount: existing.baseAmount,
-            unitType: existing.unitType,
-            kcalPerBase: existing.kcalPerBase,
-            proteinPerBase: existing.proteinPerBase,
-            fatPerBase: existing.fatPerBase,
-            carbPerBase: existing.carbPerBase,
+        final result = await controller.saveFoodEntryWithOptionalSavedFood(
+          entry: entry,
+          saveAsFood: true,
+          duplicateResolution: DuplicateSavedFoodResolution(
+            action: DuplicateSavedFoodAction.useExisting,
+            draft: SavedFoodDraft(
+              name: existing.name,
+              baseAmount: existing.baseAmount,
+              unitType: existing.unitType,
+              kcalPerBase: existing.kcalPerBase,
+              proteinPerBase: existing.proteinPerBase,
+              fatPerBase: existing.fatPerBase,
+              carbPerBase: existing.carbPerBase,
+            ),
+            existingFood: existing,
           ),
-          existingFood: existing,
-        ),
-      );
+        );
 
-      expect(result.foodEntrySaved, isTrue);
-      expect(result.entry?.savedFoodId, 'dup');
-      expect(
-        await harness.savedFoodRepository.searchOwn(
-          ownerUserId: AppController.localOwnerUserId,
-          query: '',
-        ),
-        hasLength(1),
-      );
-    });
+        expect(result.foodEntrySaved, isTrue);
+        expect(result.entry?.savedFoodId, 'dup');
+        expect(
+          await harness.savedFoodRepository.searchOwn(
+            ownerUserId: AppController.localOwnerUserId,
+            query: '',
+          ),
+          hasLength(1),
+        );
+      },
+    );
 
-    test('saveFoodEntryWithOptionalSavedFood keeps entry when saved food fails',
-        () async {
-      final entry = sampleEntry();
-      final partialController = AppController(
-        healthRepository: MockHealthRepository(isAvailable: false),
-        foodRepository: harness.foodRepository,
-        savedFoodRepository: null,
-      );
-      addTearDown(partialController.dispose);
+    test(
+      'saveFoodEntryWithOptionalSavedFood keeps entry when saved food fails',
+      () async {
+        final entry = sampleEntry();
+        final partialController = AppController(
+          healthRepository: MockHealthRepository(isAvailable: false),
+          foodRepository: harness.foodRepository,
+          savedFoodRepository: null,
+        );
+        addTearDown(partialController.dispose);
 
-      final result = await partialController.saveFoodEntryWithOptionalSavedFood(
-        entry: entry,
-        saveAsFood: true,
-        savedFoodDraft: const SavedFoodDraft(
-          name: 'fail',
-          baseAmount: 100,
-          unitType: FoodUnitType.g,
-          kcalPerBase: 1,
-          proteinPerBase: 1,
-          fatPerBase: 1,
-          carbPerBase: 1,
-        ),
-      );
+        final result = await partialController
+            .saveFoodEntryWithOptionalSavedFood(
+              entry: entry,
+              saveAsFood: true,
+              savedFoodDraft: const SavedFoodDraft(
+                name: 'fail',
+                baseAmount: 100,
+                unitType: FoodUnitType.g,
+                kcalPerBase: 1,
+                proteinPerBase: 1,
+                fatPerBase: 1,
+                carbPerBase: 1,
+              ),
+            );
 
-      expect(result.foodEntrySaved, isTrue);
-      expect(result.savedFoodSaved, isFalse);
-      expect(result.savedFoodErrorMessage, isNotNull);
-      expect(partialController.foodEntries, hasLength(1));
-    });
+        expect(result.foodEntrySaved, isTrue);
+        expect(result.savedFoodSaved, isFalse);
+        expect(result.savedFoodErrorMessage, isNotNull);
+        expect(partialController.foodEntries, hasLength(1));
+      },
+    );
 
     test('updating saved food does not mutate past food entries', () async {
       final food = await seedFood(id: 'food-1', name: 'Original');
-      await controller.addFood(
-        sampleEntry(savedFoodId: food.foodId),
-      );
+      await controller.addFood(sampleEntry(savedFoodId: food.foodId));
 
       await controller.updateSavedFood(food.copyWith(name: 'Updated'));
 
@@ -212,18 +216,12 @@ void main() {
 
     test('deleteFood recalculates daily totals for saved-food entry', () async {
       final food = await seedFood(id: 'food-1', name: 'Food');
-      await controller.addFood(
-        sampleEntry(savedFoodId: food.foodId),
-      );
-      controller.refreshDailySummary(
-        referenceDate: DateTime(2026, 7, 20, 18),
-      );
+      await controller.addFood(sampleEntry(savedFoodId: food.foodId));
+      controller.refreshDailySummary(referenceDate: DateTime(2026, 7, 20, 18));
       expect(controller.summary!.intakeKcal, 300);
 
       await controller.deleteFood('entry-1');
-      controller.refreshDailySummary(
-        referenceDate: DateTime(2026, 7, 20, 18),
-      );
+      controller.refreshDailySummary(referenceDate: DateTime(2026, 7, 20, 18));
       expect(controller.summary!.intakeKcal, 0);
     });
   });

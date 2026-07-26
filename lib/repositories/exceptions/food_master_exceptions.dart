@@ -57,10 +57,8 @@ class FoodMasterRateLimitException extends FoodMasterException {
 }
 
 class PublishSavedFoodException extends FoodMasterException {
-  const PublishSavedFoodException({
-    required this.kind,
-    required String message,
-  }) : super(message);
+  const PublishSavedFoodException({required this.kind, required String message})
+    : super(message);
 
   final PublishFailureKind kind;
 }

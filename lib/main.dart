@@ -118,6 +118,7 @@ Future<void> main() async {
     exerciseRepository: exerciseRepository,
     weightRepository: weightRepository,
     savedFoodRepository: foodMasterRepositories.savedFoods,
+    foodRatingRepository: foodMasterRepositories.foodRatings,
   );
   await controller.initialize();
 

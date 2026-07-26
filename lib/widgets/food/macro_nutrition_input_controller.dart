@@ -186,15 +186,13 @@ class MacroNutritionInputController extends ChangeNotifier {
     if (_suppressListener) {
       return;
     }
-    if (_imeComposing) {
-      return;
-    }
+
     final textController = controllerFor(field);
+    // IME composition中はこの1回だけスキップ（数字キーボードでは通常発生しない）。
+    // composing.isValid を永続フラグにしない（過去の入力が永久にブロックされるのを防ぐ）。
     if (textController.value.composing.isValid) {
-      _imeComposing = true;
       return;
     }
-    _imeComposing = false;
 
     final parsed = NutritionValueCalculator.parse(textController.text);
     if (parsed.state == MacroParseState.empty) {
@@ -202,6 +200,8 @@ class MacroNutritionInputController extends ChangeNotifier {
       _manualOrder.remove(field);
       if (_autoField == field) {
         _autoField = null;
+      } else if (_autoField != null) {
+        _clearAutoField(_autoField!);
       }
       _activateManualModeIfNeeded();
       _recalculate(changedField: field);
@@ -369,7 +369,8 @@ class MacroNutritionInputController extends ChangeNotifier {
       return;
     }
 
-    if (_activeField == target && !force) {
+    // 4項目すべて入力済みの整合時のみ、編集中フィールドの上書きを避ける。
+    if (validCount == 4 && _activeField == target && !force) {
       notifyListeners();
       return;
     }

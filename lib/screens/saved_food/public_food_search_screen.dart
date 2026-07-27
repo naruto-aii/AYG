@@ -94,6 +94,13 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
       match: match,
       selectForMealEntry: widget.selectForMealEntry,
       onUseForMeal: _handleUseForMeal,
+      onBlocked: () {
+        setState(() {
+          _results = _results
+              .where((item) => item.food.ownerUserId != match.food.ownerUserId)
+              .toList();
+        });
+      },
     );
   }
 

@@ -20,7 +20,9 @@ import '../models/food_unit_type.dart';
 import '../models/saved_food.dart';
 import '../models/saved_food_draft.dart';
 import '../models/saved_food_entry_selection.dart';
+import '../models/food_report.dart';
 import '../models/public_food_publish_match.dart';
+import '../models/public_food_rating_view.dart';
 import '../models/public_food_search_match.dart';
 import '../models/saved_food_publish_validation.dart';
 import '../models/save_food_entry_result.dart';
@@ -28,7 +30,9 @@ import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
+import '../repositories/contracts/blocked_food_creator_repository_base.dart';
 import '../repositories/contracts/food_rating_repository_base.dart';
+import '../repositories/contracts/food_report_repository_base.dart';
 import '../repositories/contracts/saved_food_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
 import '../repositories/exercise_repository.dart';
@@ -66,6 +70,8 @@ class AppController extends ChangeNotifier {
     WeightRepository? weightRepository,
     SavedFoodRepositoryBase? savedFoodRepository,
     FoodRatingRepositoryBase? foodRatingRepository,
+    FoodReportRepositoryBase? foodReportRepository,
+    BlockedFoodCreatorRepositoryBase? blockedCreatorRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -79,6 +85,8 @@ class AppController extends ChangeNotifier {
        _weightRepository = weightRepository,
        _savedFoodRepository = savedFoodRepository,
        _foodRatingRepository = foodRatingRepository,
+       _foodReportRepository = foodReportRepository,
+       _blockedCreatorRepository = blockedCreatorRepository,
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -99,6 +107,8 @@ class AppController extends ChangeNotifier {
   final WeightRepository? _weightRepository;
   final SavedFoodRepositoryBase? _savedFoodRepository;
   final FoodRatingRepositoryBase? _foodRatingRepository;
+  final FoodReportRepositoryBase? _foodReportRepository;
+  final BlockedFoodCreatorRepositoryBase? _blockedCreatorRepository;
   final SavedFoodSearchService _savedFoodSearchService;
   final SavedFoodDuplicateService _savedFoodDuplicateService;
   final SavedFoodEntryBuilder _savedFoodEntryBuilder;
@@ -107,6 +117,7 @@ class AppController extends ChangeNotifier {
   final PublicFoodSearchService _publicFoodSearchService;
 
   bool _publishOperationInProgress = false;
+  final Set<String> _ratingOperationsInProgress = {};
 
   bool get isPublishOperationInProgress => _publishOperationInProgress;
 
@@ -917,6 +928,226 @@ class AppController extends ChangeNotifier {
 
   bool canEditSavedFood(SavedFood food) {
     return food.ownerUserId == currentOwnerUserId;
+  }
+
+  String _foodRatingKey(SavedFood food) => '${food.ownerUserId}:${food.foodId}';
+
+  bool _canRatePublicFood(SavedFood food) {
+    return isAuthenticated &&
+        food.ownerUserId != currentOwnerUserId &&
+        _foodRatingRepository != null;
+  }
+
+  Future<PublicFoodRatingView> getPublicFoodRatingView(SavedFood food) async {
+    final summary = await _foodRatingRepository?.getSummary(
+      foodOwnerUserId: food.ownerUserId,
+      foodId: food.foodId,
+    );
+    final myRating = _canRatePublicFood(food)
+        ? await _foodRatingRepository?.getMyRating(
+            foodOwnerUserId: food.ownerUserId,
+            foodId: food.foodId,
+            raterUserId: currentOwnerUserId,
+          )
+        : null;
+
+    return PublicFoodRatingView(
+      goodCount: summary?.goodCount ?? 0,
+      badCount: summary?.badCount ?? 0,
+      myRating: myRating?.ratingType,
+      canRate: _canRatePublicFood(food),
+    );
+  }
+
+  Future<PublicFoodRatingResult> setPublicFoodGood(SavedFood food) =>
+      _mutatePublicFoodRating(
+        food: food,
+        mutate: (ratingId) => _foodRatingRepository!.setGood(
+          foodOwnerUserId: food.ownerUserId,
+          foodId: food.foodId,
+          raterUserId: currentOwnerUserId,
+          ratingId: ratingId,
+        ),
+      );
+
+  Future<PublicFoodRatingResult> setPublicFoodBad(SavedFood food) =>
+      _mutatePublicFoodRating(
+        food: food,
+        mutate: (ratingId) => _foodRatingRepository!.setBad(
+          foodOwnerUserId: food.ownerUserId,
+          foodId: food.foodId,
+          raterUserId: currentOwnerUserId,
+          ratingId: ratingId,
+        ),
+      );
+
+  Future<PublicFoodRatingResult> clearPublicFoodRating(SavedFood food) async {
+    final key = _foodRatingKey(food);
+    if (!_canRatePublicFood(food) ||
+        _ratingOperationsInProgress.contains(key)) {
+      return const PublicFoodRatingResult(
+        success: false,
+        errorMessage: '評価を取消できません',
+      );
+    }
+
+    _ratingOperationsInProgress.add(key);
+    try {
+      await _foodRatingRepository!.clearRating(
+        foodOwnerUserId: food.ownerUserId,
+        foodId: food.foodId,
+        raterUserId: currentOwnerUserId,
+      );
+      final view = await getPublicFoodRatingView(food);
+      return PublicFoodRatingResult(success: true, view: view);
+    } catch (error) {
+      return PublicFoodRatingResult(
+        success: false,
+        errorMessage: error.toString(),
+      );
+    } finally {
+      _ratingOperationsInProgress.remove(key);
+    }
+  }
+
+  Future<PublicFoodRatingResult> _mutatePublicFoodRating({
+    required SavedFood food,
+    required Future<void> Function(String ratingId) mutate,
+  }) async {
+    final key = _foodRatingKey(food);
+    if (!_canRatePublicFood(food)) {
+      return const PublicFoodRatingResult(
+        success: false,
+        errorMessage: '自分の食品には評価できません',
+      );
+    }
+    if (_ratingOperationsInProgress.contains(key)) {
+      return const PublicFoodRatingResult(
+        success: false,
+        errorMessage: '評価処理中です',
+      );
+    }
+
+    _ratingOperationsInProgress.add(key);
+    try {
+      final existing = await _foodRatingRepository!.getMyRating(
+        foodOwnerUserId: food.ownerUserId,
+        foodId: food.foodId,
+        raterUserId: currentOwnerUserId,
+      );
+      final ratingId = existing?.ratingId ?? generateId();
+      await mutate(ratingId);
+      final view = await getPublicFoodRatingView(food);
+      return PublicFoodRatingResult(success: true, view: view);
+    } catch (error) {
+      return PublicFoodRatingResult(
+        success: false,
+        errorMessage: error.toString(),
+      );
+    } finally {
+      _ratingOperationsInProgress.remove(key);
+    }
+  }
+
+  Future<bool> hasReportedPublicFood(SavedFood food) async {
+    final repository = _foodReportRepository;
+    if (repository == null || !isAuthenticated) {
+      return false;
+    }
+
+    final reports = await repository.getMyReports(currentOwnerUserId);
+    return reports.any(
+      (report) =>
+          report.targetFoodId == food.foodId &&
+          report.targetFoodOwnerUserId == food.ownerUserId,
+    );
+  }
+
+  Future<PublicFoodReportResult> submitPublicFoodReport({
+    required SavedFood food,
+    required FoodReportReasonCode reasonCode,
+    String? detailText,
+  }) async {
+    final repository = _foodReportRepository;
+    if (repository == null || !isAuthenticated) {
+      return const PublicFoodReportResult(
+        success: false,
+        errorMessage: 'ログインが必要です',
+      );
+    }
+    if (food.ownerUserId == currentOwnerUserId) {
+      return const PublicFoodReportResult(
+        success: false,
+        errorMessage: '自分の食品は通報できません',
+      );
+    }
+    if (await hasReportedPublicFood(food)) {
+      return const PublicFoodReportResult(
+        success: false,
+        errorMessage: 'この食品はすでに通報済みです',
+      );
+    }
+
+    try {
+      await repository.submitReport(
+        reportId: generateId(),
+        reporterUserId: currentOwnerUserId,
+        targetFoodOwnerUserId: food.ownerUserId,
+        targetFoodId: food.foodId,
+        reasonCode: reasonCode,
+        detailText: detailText,
+      );
+      return const PublicFoodReportResult(success: true);
+    } catch (error) {
+      return PublicFoodReportResult(
+        success: false,
+        errorMessage: error.toString(),
+      );
+    }
+  }
+
+  Future<List<FoodReport>> getMyPublicFoodReports() async {
+    final repository = _foodReportRepository;
+    if (repository == null || !isAuthenticated) {
+      return const [];
+    }
+    return repository.getMyReports(currentOwnerUserId);
+  }
+
+  Future<void> blockFoodCreator(String creatorUserId) async {
+    final repository = _blockedCreatorRepository;
+    if (repository == null || !isAuthenticated) {
+      throw StateError('Blocked creator repository is not configured');
+    }
+    if (creatorUserId == currentOwnerUserId) {
+      throw StateError('Cannot block yourself');
+    }
+    await repository.block(
+      blockerUserId: currentOwnerUserId,
+      blockedUserId: creatorUserId,
+    );
+  }
+
+  Future<void> unblockFoodCreator(String creatorUserId) async {
+    final repository = _blockedCreatorRepository;
+    if (repository == null || !isAuthenticated) {
+      throw StateError('Blocked creator repository is not configured');
+    }
+    await repository.unblock(
+      blockerUserId: currentOwnerUserId,
+      blockedUserId: creatorUserId,
+    );
+  }
+
+  Future<bool> isFoodCreatorBlocked(String creatorUserId) async {
+    final repository = _blockedCreatorRepository;
+    if (repository == null || !isAuthenticated) {
+      return false;
+    }
+    return repository.isBlocked(
+      blockerUserId: currentOwnerUserId,
+      blockedUserId: creatorUserId,
+    );
   }
 
   Future<SavedFood?> findPrivateDuplicateSavedFood(

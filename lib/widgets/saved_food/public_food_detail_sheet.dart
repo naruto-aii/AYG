@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../models/public_food_rating_view.dart';
 import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
 import '../../utils/nutrition_format.dart';
 import '../../utils/saved_food_display_labels.dart';
+import 'block_food_creator_dialog.dart';
+import 'public_food_rating_bar.dart';
+import 'public_food_report_dialog.dart';
 
 Future<void> showPublicFoodDetailSheet({
   required BuildContext context,
@@ -13,6 +17,7 @@ Future<void> showPublicFoodDetailSheet({
   required bool selectForMealEntry,
   ValueChanged<SavedFood>? onUseForMeal,
   VoidCallback? onCopied,
+  VoidCallback? onBlocked,
 }) async {
   await showModalBottomSheet<void>(
     context: context,
@@ -24,6 +29,7 @@ Future<void> showPublicFoodDetailSheet({
         selectForMealEntry: selectForMealEntry,
         onUseForMeal: onUseForMeal,
         onCopied: onCopied,
+        onBlocked: onBlocked,
       );
     },
   );
@@ -36,6 +42,7 @@ class _PublicFoodDetailSheet extends StatefulWidget {
     required this.selectForMealEntry,
     this.onUseForMeal,
     this.onCopied,
+    this.onBlocked,
   });
 
   final AppController controller;
@@ -43,6 +50,7 @@ class _PublicFoodDetailSheet extends StatefulWidget {
   final bool selectForMealEntry;
   final ValueChanged<SavedFood>? onUseForMeal;
   final VoidCallback? onCopied;
+  final VoidCallback? onBlocked;
 
   @override
   State<_PublicFoodDetailSheet> createState() => _PublicFoodDetailSheetState();
@@ -50,8 +58,35 @@ class _PublicFoodDetailSheet extends StatefulWidget {
 
 class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
   bool _isCopying = false;
+  bool _hasReported = false;
+  bool _isCreatorBlocked = false;
+  bool _isLoadingMeta = true;
+  PublicFoodRatingView? _ratingView;
 
   SavedFood get _food => widget.match.food;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMeta();
+  }
+
+  Future<void> _loadMeta() async {
+    final ratingView = await widget.controller.getPublicFoodRatingView(_food);
+    final hasReported = await widget.controller.hasReportedPublicFood(_food);
+    final isBlocked = await widget.controller.isFoodCreatorBlocked(
+      _food.ownerUserId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _ratingView = ratingView;
+      _hasReported = hasReported;
+      _isCreatorBlocked = isBlocked;
+      _isLoadingMeta = false;
+    });
+  }
 
   Future<void> _copyToPrivate() async {
     if (_isCopying) {
@@ -87,10 +122,48 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
     Navigator.of(context).pop();
   }
 
+  Future<void> _report() async {
+    final submitted = await showPublicFoodReportDialog(
+      context: context,
+      controller: widget.controller,
+      food: _food,
+    );
+    if (submitted && mounted) {
+      setState(() => _hasReported = true);
+    }
+  }
+
+  Future<void> _toggleBlock() async {
+    if (_isCreatorBlocked) {
+      final unblocked = await confirmUnblockFoodCreator(
+        context: context,
+        controller: widget.controller,
+        creatorUserId: _food.ownerUserId,
+      );
+      if (unblocked && mounted) {
+        setState(() => _isCreatorBlocked = false);
+      }
+      return;
+    }
+
+    final blocked = await confirmBlockFoodCreator(
+      context: context,
+      controller: widget.controller,
+      creatorUserId: _food.ownerUserId,
+    );
+    if (blocked && mounted) {
+      setState(() => _isCreatorBlocked = true);
+      widget.onBlocked?.call();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final food = _food;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final canModerate =
+        widget.controller.isAuthenticated &&
+        food.ownerUserId != widget.controller.currentOwnerUserId;
 
     return SafeArea(
       child: Padding(
@@ -114,24 +187,19 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
               Text(
                 '登録元: ${SavedFoodDisplayLabels.sourceType(food.sourceType)}',
               ),
-              Text(
-                'Good ${widget.match.goodCount} / Bad ${widget.match.badCount}',
-              ),
               Text('更新: ${food.updatedAt.toLocal()} · v${food.version}'),
               const SizedBox(height: 8),
               const Text('ユーザー登録食品'),
-              const SizedBox(height: 8),
-              const Text(
-                '評価は正確性を保証するものではありません',
-                style: TextStyle(fontSize: 12),
-              ),
-              if (widget.match.hasLowRating) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '低い評価が多い食品です。基準量と栄養情報を確認してから利用してください。',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+              const SizedBox(height: 12),
+              if (_isLoadingMeta)
+                const Center(child: CircularProgressIndicator())
+              else if (_ratingView != null)
+                PublicFoodRatingBar(
+                  controller: widget.controller,
+                  food: food,
+                  initialView: _ratingView!,
+                  onViewChanged: (view) => setState(() => _ratingView = view),
                 ),
-              ],
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _useForMeal,
@@ -148,6 +216,18 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
                       )
                     : const Text('自分用食品としてコピー'),
               ),
+              if (canModerate) ...[
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: _hasReported ? null : _report,
+                  child: Text(_hasReported ? '通報済み' : '通報'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: _toggleBlock,
+                  child: Text(_isCreatorBlocked ? 'ブロック解除' : '作成者をブロック'),
+                ),
+              ],
             ],
           ),
         ),

@@ -119,6 +119,8 @@ Future<void> main() async {
     weightRepository: weightRepository,
     savedFoodRepository: foodMasterRepositories.savedFoods,
     foodRatingRepository: foodMasterRepositories.foodRatings,
+    foodReportRepository: foodMasterRepositories.foodReports,
+    blockedCreatorRepository: foodMasterRepositories.blockedCreators,
   );
   await controller.initialize();
 

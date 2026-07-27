@@ -54,6 +54,7 @@ class FoodEntryEntity {
   int? sourceTypeIndex;
   String? savedFoodId;
   String? sourceFoodOwnerUserId;
+  int? sourceSavedFoodVersion;
   String? mealGroupId;
   String? mealGroupName;
   int? sortOrder;

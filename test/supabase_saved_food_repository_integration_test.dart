@@ -296,5 +296,138 @@ void main() {
         ),
       );
     });
+
+    test('searchPublic returns public foods only', () async {
+      if (!available) {
+        markTestSkipped('Local Supabase not available at $_localUrl');
+      }
+
+      final suffix = DateTime.now().microsecondsSinceEpoch;
+      final ownerClient = await createAuthenticatedClient(
+        service: service,
+        email: 'integration-search-$suffix@test.local',
+        password: 'testpass123',
+      );
+      final viewerClient = await createAuthenticatedClient(
+        service: service,
+        email: 'integration-viewer-$suffix@test.local',
+        password: 'testpass123',
+      );
+      final ownerId = ownerClient.auth.currentUser!.id;
+      final ownerRepo = SupabaseSavedFoodRepository(client: ownerClient);
+      final viewerRepo = SupabaseSavedFoodRepository(client: viewerClient);
+      final normalized = 'search-cabbage-$suffix';
+      const publicFoodId = 'search-pub';
+      const privateFoodId = 'search-priv';
+
+      await ownerRepo.upsertOwnPrivate(
+        userId: ownerId,
+        food: sampleIntegrationFood(
+          userId: ownerId,
+          foodId: publicFoodId,
+          normalizedName: normalized,
+        ),
+      );
+      await ownerRepo.publish(userId: ownerId, foodId: publicFoodId);
+
+      await ownerRepo.upsertOwnPrivate(
+        userId: ownerId,
+        food: sampleIntegrationFood(
+          userId: ownerId,
+          foodId: privateFoodId,
+          normalizedName: normalized,
+        ),
+      );
+
+      final results = await viewerRepo.searchPublic(query: normalized);
+      expect(results.any((food) => food.foodId == publicFoodId), isTrue);
+      expect(results.any((food) => food.foodId == privateFoodId), isFalse);
+    });
+
+    test('searchPublic finds barcode exact match', () async {
+      if (!available) {
+        markTestSkipped('Local Supabase not available at $_localUrl');
+      }
+
+      final suffix = DateTime.now().microsecondsSinceEpoch;
+      final client = await createAuthenticatedClient(
+        service: service,
+        email: 'integration-barcode-$suffix@test.local',
+        password: 'testpass123',
+      );
+      final userId = client.auth.currentUser!.id;
+      final repo = SupabaseSavedFoodRepository(client: client);
+      final barcode = '4900000$suffix'.substring(0, 13);
+      const foodId = 'barcode-food';
+      final normalized = 'barcode-cabbage-$suffix';
+
+      await repo.upsertOwnPrivate(
+        userId: userId,
+        food: sampleIntegrationFood(
+          userId: userId,
+          foodId: foodId,
+          normalizedName: normalized,
+        ).copyWith(barcode: barcode),
+      );
+      await repo.publish(userId: userId, foodId: foodId);
+
+      final results = await repo.searchPublic(query: barcode);
+      expect(results.any((food) => food.foodId == foodId), isTrue);
+    });
+
+    test('copyPublicToPrivate creates own private snapshot', () async {
+      if (!available) {
+        markTestSkipped('Local Supabase not available at $_localUrl');
+      }
+
+      final suffix = DateTime.now().microsecondsSinceEpoch;
+      final ownerClient = await createAuthenticatedClient(
+        service: service,
+        email: 'integration-copy-owner-$suffix@test.local',
+        password: 'testpass123',
+      );
+      final copierClient = await createAuthenticatedClient(
+        service: service,
+        email: 'integration-copy-user-$suffix@test.local',
+        password: 'testpass123',
+      );
+      final ownerId = ownerClient.auth.currentUser!.id;
+      final copierId = copierClient.auth.currentUser!.id;
+      final ownerRepo = SupabaseSavedFoodRepository(client: ownerClient);
+      final copierRepo = SupabaseSavedFoodRepository(client: copierClient);
+      const foodId = 'copy-src';
+      final normalized = 'copy-cabbage-$suffix';
+
+      await ownerRepo.upsertOwnPrivate(
+        userId: ownerId,
+        food: sampleIntegrationFood(
+          userId: ownerId,
+          foodId: foodId,
+          normalizedName: normalized,
+          kcal: 210,
+        ),
+      );
+      final published = await ownerRepo.publish(
+        userId: ownerId,
+        foodId: foodId,
+      );
+
+      final copy = copierRepo.buildPrivateCopy(
+        source: published,
+        newFoodId: 'copy-new-$suffix',
+        ownerUserId: copierId,
+        now: DateTime.now().toUtc(),
+      );
+      final saved = await copierRepo.upsertOwnPrivate(
+        userId: copierId,
+        food: copy,
+      );
+
+      expect(saved.visibility, FoodVisibility.private);
+      expect(saved.sourceType, FoodSourceType.copied);
+      expect(saved.copiedFromFoodId, foodId);
+      expect(saved.kcalPerBase, 210);
+      expect(saved.ownerUserId, copierId);
+    });
   });
 }

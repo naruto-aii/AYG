@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../saved_food/saved_food_list_screen.dart';
 
 class SettingsFoodMasterScreen extends StatelessWidget {
-  const SettingsFoodMasterScreen({super.key, required this.controller});
+  const SettingsFoodMasterScreen({
+    super.key,
+    required this.controller,
+    this.openFoodFactsService,
+  });
 
   final AppController controller;
+  final OpenFoodFactsService? openFoodFactsService;
 
   @override
   Widget build(BuildContext context) {
@@ -25,8 +31,10 @@ class SettingsFoodMasterScreen extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (context) =>
-                        SavedFoodListScreen(controller: controller),
+                    builder: (context) => SavedFoodListScreen(
+                      controller: controller,
+                      openFoodFactsService: openFoodFactsService,
+                    ),
                   ),
                 );
               },

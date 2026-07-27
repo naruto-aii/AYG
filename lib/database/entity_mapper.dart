@@ -89,6 +89,7 @@ class EntityMapper {
       ..sourceTypeIndex = EntityEnumCodec.foodEntrySourceIndex(entry.sourceType)
       ..savedFoodId = entry.savedFoodId
       ..sourceFoodOwnerUserId = entry.sourceFoodOwnerUserId
+      ..sourceSavedFoodVersion = entry.sourceSavedFoodVersion
       ..mealGroupId = entry.mealGroupId
       ..mealGroupName = entry.mealGroupName
       ..sortOrder = entry.sortOrder;
@@ -116,6 +117,7 @@ class EntityMapper {
       ),
       savedFoodId: entity.savedFoodId,
       sourceFoodOwnerUserId: entity.sourceFoodOwnerUserId,
+      sourceSavedFoodVersion: entity.sourceSavedFoodVersion,
       mealGroupId: entity.mealGroupId,
       mealGroupName: entity.mealGroupName,
       sortOrder: entity.sortOrder,

@@ -1916,13 +1916,18 @@ const FoodEntryEntitySchema = CollectionSchema(
       name: r'sourceFoodOwnerUserId',
       type: IsarType.string,
     ),
-    r'sourceTypeIndex': PropertySchema(
+    r'sourceSavedFoodVersion': PropertySchema(
       id: 15,
+      name: r'sourceSavedFoodVersion',
+      type: IsarType.long,
+    ),
+    r'sourceTypeIndex': PropertySchema(
+      id: 16,
       name: r'sourceTypeIndex',
       type: IsarType.long,
     ),
     r'unitTypeIndex': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'unitTypeIndex',
       type: IsarType.long,
     ),
@@ -2011,8 +2016,9 @@ void _foodEntryEntitySerialize(
   writer.writeString(offsets[12], object.savedFoodId);
   writer.writeLong(offsets[13], object.sortOrder);
   writer.writeString(offsets[14], object.sourceFoodOwnerUserId);
-  writer.writeLong(offsets[15], object.sourceTypeIndex);
-  writer.writeLong(offsets[16], object.unitTypeIndex);
+  writer.writeLong(offsets[15], object.sourceSavedFoodVersion);
+  writer.writeLong(offsets[16], object.sourceTypeIndex);
+  writer.writeLong(offsets[17], object.unitTypeIndex);
 }
 
 FoodEntryEntity _foodEntryEntityDeserialize(
@@ -2038,8 +2044,9 @@ FoodEntryEntity _foodEntryEntityDeserialize(
   object.savedFoodId = reader.readStringOrNull(offsets[12]);
   object.sortOrder = reader.readLongOrNull(offsets[13]);
   object.sourceFoodOwnerUserId = reader.readStringOrNull(offsets[14]);
-  object.sourceTypeIndex = reader.readLongOrNull(offsets[15]);
-  object.unitTypeIndex = reader.readLongOrNull(offsets[16]);
+  object.sourceSavedFoodVersion = reader.readLongOrNull(offsets[15]);
+  object.sourceTypeIndex = reader.readLongOrNull(offsets[16]);
+  object.unitTypeIndex = reader.readLongOrNull(offsets[17]);
   return object;
 }
 
@@ -2083,6 +2090,8 @@ P _foodEntryEntityDeserializeProp<P>(
     case 15:
       return (reader.readLongOrNull(offset)) as P;
     case 16:
+      return (reader.readLongOrNull(offset)) as P;
+    case 17:
       return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -4007,6 +4016,82 @@ extension FoodEntryEntityQueryFilter
   }
 
   QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'sourceSavedFoodVersion'),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'sourceSavedFoodVersion'),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'sourceSavedFoodVersion',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceSavedFoodVersion',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceSavedFoodVersion',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceSavedFoodVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
   sourceTypeIndexIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -4370,6 +4455,20 @@ extension FoodEntryEntityQuerySortBy
   }
 
   QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
+  sortBySourceSavedFoodVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceSavedFoodVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
+  sortBySourceSavedFoodVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceSavedFoodVersion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
   sortBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceTypeIndex', Sort.asc);
@@ -4621,6 +4720,20 @@ extension FoodEntryEntityQuerySortThenBy
   }
 
   QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
+  thenBySourceSavedFoodVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceSavedFoodVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
+  thenBySourceSavedFoodVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceSavedFoodVersion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
   thenBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceTypeIndex', Sort.asc);
@@ -4765,6 +4878,13 @@ extension FoodEntryEntityQueryWhereDistinct
   }
 
   QueryBuilder<FoodEntryEntity, FoodEntryEntity, QDistinct>
+  distinctBySourceSavedFoodVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sourceSavedFoodVersion');
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QDistinct>
   distinctBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourceTypeIndex');
@@ -4884,6 +5004,13 @@ extension FoodEntryEntityQueryProperty
   sourceFoodOwnerUserIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'sourceFoodOwnerUserId');
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, int?, QQueryOperations>
+  sourceSavedFoodVersionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sourceSavedFoodVersion');
     });
   }
 

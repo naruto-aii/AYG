@@ -21,6 +21,7 @@ import '../models/saved_food.dart';
 import '../models/saved_food_draft.dart';
 import '../models/saved_food_entry_selection.dart';
 import '../models/public_food_publish_match.dart';
+import '../models/public_food_search_match.dart';
 import '../models/saved_food_publish_validation.dart';
 import '../models/save_food_entry_result.dart';
 import '../models/user_profile.dart';
@@ -40,6 +41,7 @@ import '../repositories/user_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
 import '../services/nutrition_engine.dart';
+import '../services/public_food_search_service.dart';
 import '../services/public_food_similar_service.dart';
 import '../services/publish_error_messages.dart';
 import '../services/saved_food_duplicate_service.dart';
@@ -81,7 +83,8 @@ class AppController extends ChangeNotifier {
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
        _savedFoodPublishValidator = const SavedFoodPublishValidator(),
-       _publicFoodSimilarService = const PublicFoodSimilarService();
+       _publicFoodSimilarService = const PublicFoodSimilarService(),
+       _publicFoodSearchService = const PublicFoodSearchService();
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
@@ -101,6 +104,7 @@ class AppController extends ChangeNotifier {
   final SavedFoodEntryBuilder _savedFoodEntryBuilder;
   final SavedFoodPublishValidator _savedFoodPublishValidator;
   final PublicFoodSimilarService _publicFoodSimilarService;
+  final PublicFoodSearchService _publicFoodSearchService;
 
   bool _publishOperationInProgress = false;
 
@@ -842,6 +846,77 @@ class AppController extends ChangeNotifier {
       query: query,
     );
     return _savedFoodSearchService.rankOwnResults(foods: results, query: query);
+  }
+
+  Future<List<PublicFoodSearchMatch>> searchPublicSavedFoods(
+    String query,
+  ) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      return const [];
+    }
+
+    try {
+      final candidates = await repository.searchPublic(query: query);
+      final ratingsByKey = <String, ({int goodCount, int badCount})>{};
+      for (final food in candidates) {
+        final key = '${food.ownerUserId}:${food.foodId}';
+        final summary = await _foodRatingRepository?.getSummary(
+          foodOwnerUserId: food.ownerUserId,
+          foodId: food.foodId,
+        );
+        ratingsByKey[key] = (
+          goodCount: summary?.goodCount ?? 0,
+          badCount: summary?.badCount ?? 0,
+        );
+      }
+      return _publicFoodSearchService.rankResults(
+        candidates: candidates,
+        query: query,
+        ratingsByKey: ratingsByKey,
+      );
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<SavedFood?> getPublicSavedFood({
+    required String ownerUserId,
+    required String foodId,
+  }) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      return null;
+    }
+
+    try {
+      return await repository.getPublicById(
+        ownerUserId: ownerUserId,
+        foodId: foodId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<SavedFood> copyPublicFoodToPrivate(SavedFood source) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      throw StateError('SavedFoodRepository is not configured');
+    }
+
+    final copy = await repository.copyPublicToPrivate(
+      source: source,
+      newFoodId: generateId(),
+      ownerUserId: currentOwnerUserId,
+      now: DateTime.now(),
+    );
+    _scheduleRemoteSync();
+    return copy;
+  }
+
+  bool canEditSavedFood(SavedFood food) {
+    return food.ownerUserId == currentOwnerUserId;
   }
 
   Future<SavedFood?> findPrivateDuplicateSavedFood(

@@ -54,6 +54,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         controller: widget.controller,
         authenticationRepository: widget.authenticationRepository,
         healthRepository: widget.healthRepository,
+        openFoodFactsService: widget.openFoodFactsService,
       ),
     ];
 

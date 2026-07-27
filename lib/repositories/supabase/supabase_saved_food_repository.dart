@@ -140,20 +140,69 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
     int limit = 50,
   }) async {
     final normalized = FoodNameNormalizer.normalize(query);
-    if (normalized.isEmpty) {
+    final trimmedBarcode = query.trim();
+    if (normalized.isEmpty && trimmedBarcode.isEmpty) {
       return const [];
     }
     try {
-      final rows = await _client
-          .from('saved_foods')
-          .select()
-          .eq('visibility', FoodVisibility.public.name)
-          .eq('status', 'active')
-          .ilike('normalized_name', '%$normalized%')
-          .limit(limit);
-      return rows
-          .map((row) => FoodMasterRowMapper.savedFoodFromRow(row))
-          .toList();
+      final candidates = <SavedFood>[];
+      final seen = <String>{};
+
+      void addRows(List<dynamic> rows) {
+        for (final row in rows) {
+          final mapped = FoodMasterRowMapper.savedFoodFromRow(row);
+          final key = '${mapped.ownerUserId}:${mapped.foodId}';
+          if (seen.add(key)) {
+            candidates.add(mapped);
+          }
+        }
+      }
+
+      if (normalized.isNotEmpty) {
+        addRows(
+          await _client
+              .from('saved_foods')
+              .select()
+              .eq('visibility', FoodVisibility.public.name)
+              .eq('status', 'active')
+              .eq('normalized_name', normalized)
+              .limit(limit),
+        );
+
+        addRows(
+          await _client
+              .from('saved_foods')
+              .select()
+              .eq('visibility', FoodVisibility.public.name)
+              .eq('status', 'active')
+              .ilike('normalized_name', '$normalized%')
+              .limit(limit),
+        );
+
+        addRows(
+          await _client
+              .from('saved_foods')
+              .select()
+              .eq('visibility', FoodVisibility.public.name)
+              .eq('status', 'active')
+              .ilike('normalized_name', '%$normalized%')
+              .limit(limit),
+        );
+      }
+
+      if (trimmedBarcode.isNotEmpty) {
+        addRows(
+          await _client
+              .from('saved_foods')
+              .select()
+              .eq('visibility', FoodVisibility.public.name)
+              .eq('status', 'active')
+              .eq('barcode', trimmedBarcode)
+              .limit(limit),
+        );
+      }
+
+      return candidates.take(limit).toList();
     } catch (error) {
       throw SupabaseErrorMapper.map(
         error,

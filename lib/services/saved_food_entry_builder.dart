@@ -27,6 +27,7 @@ class SavedFoodEntryBuilder {
       sourceType: FoodEntrySource.savedFood,
       savedFoodId: food.foodId,
       sourceFoodOwnerUserId: food.ownerUserId,
+      sourceSavedFoodVersion: food.version,
       loggedAt: loggedAt,
     );
   }

@@ -5,13 +5,20 @@ import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
 import '../../utils/nutrition_format.dart';
 import '../../utils/saved_food_display_labels.dart';
+import '../../services/open_food_facts_service.dart';
+import 'public_food_search_screen.dart';
 import 'saved_food_form_screen.dart';
 import 'saved_food_publish_flow.dart';
 
 class SavedFoodListScreen extends StatefulWidget {
-  const SavedFoodListScreen({super.key, required this.controller});
+  const SavedFoodListScreen({
+    super.key,
+    required this.controller,
+    this.openFoodFactsService,
+  });
 
   final AppController controller;
+  final OpenFoodFactsService? openFoodFactsService;
 
   @override
   State<SavedFoodListScreen> createState() => _SavedFoodListScreenState();
@@ -62,6 +69,17 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _openPublicSearch() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => PublicFoodSearchScreen(
+          controller: widget.controller,
+          openFoodFactsService: widget.openFoodFactsService,
+        ),
+      ),
+    );
   }
 
   Future<void> _openCreate() async {
@@ -150,6 +168,11 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
       appBar: AppBar(
         title: const Text('保存済み食品'),
         actions: [
+          IconButton(
+            onPressed: _openPublicSearch,
+            icon: const Icon(Icons.public),
+            tooltip: '公開食品検索',
+          ),
           IconButton(
             onPressed: _openCreate,
             icon: const Icon(Icons.add),

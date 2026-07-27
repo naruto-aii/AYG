@@ -1,66 +1,7 @@
 -- Publish rate-limit atomicity tests (local Supabase only)
--- Run after: supabase db reset && main test optional
+-- Run:
+--   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/food_master_v1_1_test_helpers.sql
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/food_master_v1_1_rate_limit_test.sql
-
-create schema if not exists ayg_test;
-grant usage on schema ayg_test to authenticated, postgres;
-
-create or replace function ayg_test.set_auth(p_user_id uuid, p_role text default 'authenticated')
-returns void language plpgsql as $$
-begin
-  perform set_config('role', p_role, true);
-  perform set_config('request.jwt.claim.sub', p_user_id::text, true);
-  perform set_config(
-    'request.jwt.claims',
-    json_build_object('sub', p_user_id, 'role', p_role)::text,
-    true
-  );
-  perform set_config(
-    'request.jwt.claim.role',
-    case when p_role = 'service_role' then 'service_role' else 'authenticated' end,
-    true
-  );
-end;
-$$;
-
-create or replace function ayg_test.reset_role()
-returns void language plpgsql as $$
-begin
-  perform set_config('role', 'postgres', true);
-  reset role;
-end;
-$$;
-
-create or replace function ayg_test.set_service_role()
-returns void language plpgsql as $$
-begin
-  perform set_config('role', 'postgres', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-end;
-$$;
-
-create or replace function ayg_test.assert_true(p_condition boolean, p_message text)
-returns void language plpgsql as $$
-begin
-  if not p_condition then
-    raise exception 'ASSERT FAILED: %', p_message;
-  end if;
-end;
-$$;
-
-create or replace function ayg_test.assert_raises(p_sql text, p_like text)
-returns void language plpgsql as $$
-begin
-  begin
-    execute p_sql;
-    raise exception 'ASSERT FAILED: expected error matching %, but succeeded: %', p_like, p_sql;
-  exception when others then
-    if sqlerrm not like p_like then
-      raise exception 'ASSERT FAILED: expected %, got % (sql=%)', p_like, sqlerrm, p_sql;
-    end if;
-  end;
-end;
-$$;
 
 create or replace function ayg_test.publish_as(p_user_id uuid, p_food_id text)
 returns void language plpgsql as $$
@@ -99,7 +40,7 @@ declare
   v_before integer;
   v_after integer;
 begin
-  perform ayg_test.reset_role();
+  perform ayg_test.cleanup_fixtures();
 
   insert into auth.users (
     id, instance_id, aud, role, email, encrypted_password,

@@ -1,67 +1,7 @@
 -- Food Master V1.1 — SQL integration tests (local Supabase only)
--- Run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/food_master_v1_1_test.sql
-
-create schema if not exists ayg_test;
-grant usage on schema ayg_test to authenticated, postgres;
-
-create or replace function ayg_test.set_auth(p_user_id uuid, p_role text default 'authenticated')
-returns void language plpgsql as $$
-begin
-  perform set_config('role', p_role, true);
-  perform set_config('request.jwt.claim.sub', p_user_id::text, true);
-  perform set_config(
-    'request.jwt.claims',
-    json_build_object('sub', p_user_id, 'role', p_role)::text,
-    true
-  );
-  perform set_config(
-    'request.jwt.claim.role',
-    case when p_role = 'service_role' then 'service_role' else 'authenticated' end,
-    true
-  );
-end;
-$$;
-
-create or replace function ayg_test.reset_role()
-returns void language plpgsql as $$
-begin
-  perform set_config('role', 'postgres', true);
-  reset role;
-end;
-$$;
-
-create or replace function ayg_test.set_service_role()
-returns void language plpgsql as $$
-begin
-  perform set_config('role', 'postgres', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-end;
-$$;
-
-create or replace function ayg_test.assert_true(p_condition boolean, p_message text)
-returns void language plpgsql as $$
-begin
-  if not p_condition then
-    raise exception 'ASSERT FAILED: %', p_message;
-  end if;
-end;
-$$;
-
-create or replace function ayg_test.assert_raises(p_sql text, p_like text)
-returns void language plpgsql as $$
-begin
-  begin
-    execute p_sql;
-    raise exception 'ASSERT FAILED: expected error matching %, but succeeded: %', p_like, p_sql;
-  exception when others then
-    if sqlerrm not like p_like then
-      raise exception 'ASSERT FAILED: expected %, got % (sql=%)', p_like, sqlerrm, p_sql;
-    end if;
-  end;
-end;
-$$;
-
-grant execute on all functions in schema ayg_test to authenticated, postgres;
+-- Run:
+--   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/food_master_v1_1_test_helpers.sql
+--   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/food_master_v1_1_test.sql
 
 do $$
 declare
@@ -79,7 +19,7 @@ declare
   v_row record;
   i integer;
 begin
-  perform ayg_test.reset_role();
+  perform ayg_test.cleanup_fixtures();
 
   insert into auth.users (
     id, instance_id, aud, role, email, encrypted_password,
@@ -412,7 +352,7 @@ begin
   where user_id = v_user_a and food_id = 'block-target';
   perform ayg_test.assert_true(v_cnt = 1, 'report_count reconciles from food_reports');
 
-  -- publish rate limit (provisional 10/h — dedicated user)
+  -- publish rate limit (V1.1: 10/hour/user — dedicated user)
   perform ayg_test.set_auth(v_user_d);
   for i in 1..10 loop
     insert into public.saved_foods (

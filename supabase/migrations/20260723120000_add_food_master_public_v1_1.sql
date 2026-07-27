@@ -1041,4 +1041,4 @@ commit;
 
 -- Rating rate limit (V1.1): direct RLS + UI debounce. DB/RPC limits deferred to V1.2 Decision Log.
 
--- Publish rate limit (V1.1): RPC + rate_limit_buckets (provisional limits — Owner approval required).
+-- Publish rate limit (V1.1): RPC + rate_limit_buckets (10/hour/user, 30/day/user; private saves excluded).

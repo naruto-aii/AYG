@@ -15,6 +15,7 @@ class SavedFoodEntrySelection {
     required this.carbPerBase,
     required this.savedFoodId,
     required this.sourceFoodOwnerUserId,
+    required this.sourceSavedFoodVersion,
     required this.sourceType,
     required this.entrySourceType,
   });
@@ -28,6 +29,7 @@ class SavedFoodEntrySelection {
   final double? carbPerBase;
   final String savedFoodId;
   final String sourceFoodOwnerUserId;
+  final int? sourceSavedFoodVersion;
   final FoodSourceType sourceType;
   final FoodEntrySource entrySourceType;
 
@@ -42,6 +44,7 @@ class SavedFoodEntrySelection {
       carbPerBase: food.carbPerBase,
       savedFoodId: food.foodId,
       sourceFoodOwnerUserId: food.ownerUserId,
+      sourceSavedFoodVersion: food.version,
       sourceType: food.sourceType,
       entrySourceType: FoodEntrySource.savedFood,
     );

@@ -3,13 +3,70 @@ import 'food_visibility.dart';
 
 enum TemplateStatus { active, deleted }
 
+extension TemplateStatusX on TemplateStatus {
+  String get storageValue => name;
+
+  static TemplateStatus? tryParse(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    return switch (raw) {
+      'active' => TemplateStatus.active,
+      'deleted' => TemplateStatus.deleted,
+      _ => null,
+    };
+  }
+}
+
 enum TemplateDependencyStatus { ok, hasUnavailableItems, needsReview }
+
+extension TemplateDependencyStatusX on TemplateDependencyStatus {
+  String get storageValue => switch (this) {
+    TemplateDependencyStatus.ok => 'ok',
+    TemplateDependencyStatus.hasUnavailableItems => 'has_unavailable_items',
+    TemplateDependencyStatus.needsReview => 'needs_review',
+  };
+
+  static TemplateDependencyStatus? tryParse(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    return switch (raw) {
+      'ok' => TemplateDependencyStatus.ok,
+      'has_unavailable_items' => TemplateDependencyStatus.hasUnavailableItems,
+      'needs_review' => TemplateDependencyStatus.needsReview,
+      _ => null,
+    };
+  }
+}
 
 enum ItemDependencyStatus {
   available,
   sourceDeleted,
   sourceHidden,
   sourceChanged,
+}
+
+extension ItemDependencyStatusX on ItemDependencyStatus {
+  String get storageValue => switch (this) {
+    ItemDependencyStatus.available => 'available',
+    ItemDependencyStatus.sourceDeleted => 'source_deleted',
+    ItemDependencyStatus.sourceHidden => 'source_hidden',
+    ItemDependencyStatus.sourceChanged => 'source_changed',
+  };
+
+  static ItemDependencyStatus? tryParse(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    return switch (raw) {
+      'available' => ItemDependencyStatus.available,
+      'source_deleted' => ItemDependencyStatus.sourceDeleted,
+      'source_hidden' => ItemDependencyStatus.sourceHidden,
+      'source_changed' => ItemDependencyStatus.sourceChanged,
+      _ => null,
+    };
+  }
 }
 
 /// Version 1.1 では private のみ。
@@ -54,6 +111,46 @@ class MealTemplate {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
+
+  MealTemplate copyWith({
+    String? templateId,
+    String? ownerUserId,
+    String? name,
+    String? normalizedName,
+    FoodVisibility? visibility,
+    TemplateStatus? status,
+    double? totalKcal,
+    double? totalProteinG,
+    double? totalFatG,
+    double? totalCarbG,
+    TemplateDependencyStatus? dependencyStatus,
+    DateTime? lastValidatedAt,
+    int? useCount,
+    DateTime? lastUsedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? deletedAt,
+  }) {
+    return MealTemplate(
+      templateId: templateId ?? this.templateId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      name: name ?? this.name,
+      normalizedName: normalizedName ?? this.normalizedName,
+      visibility: visibility ?? this.visibility,
+      status: status ?? this.status,
+      totalKcal: totalKcal ?? this.totalKcal,
+      totalProteinG: totalProteinG ?? this.totalProteinG,
+      totalFatG: totalFatG ?? this.totalFatG,
+      totalCarbG: totalCarbG ?? this.totalCarbG,
+      dependencyStatus: dependencyStatus ?? this.dependencyStatus,
+      lastValidatedAt: lastValidatedAt ?? this.lastValidatedAt,
+      useCount: useCount ?? this.useCount,
+      lastUsedAt: lastUsedAt ?? this.lastUsedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
 }
 
 class MealTemplateItem {

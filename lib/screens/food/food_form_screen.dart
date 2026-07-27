@@ -17,6 +17,7 @@ import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
 import '../../widgets/saved_food/saved_food_suggestion_list.dart';
+import '../saved_food/public_food_search_screen.dart';
 import 'barcode_scanner_screen.dart';
 
 class FoodFormScreen extends StatefulWidget {
@@ -25,11 +26,13 @@ class FoodFormScreen extends StatefulWidget {
     required this.controller,
     required this.openFoodFactsService,
     this.entry,
+    this.initialPublicFood,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final FoodEntry? entry;
+  final SavedFood? initialPublicFood;
 
   bool get isEditing => entry != null;
 
@@ -51,6 +54,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   FoodEntrySource _sourceType = FoodEntrySource.manual;
   String? _selectedSavedFoodId;
   String? _sourceFoodOwnerUserId;
+  int? _sourceSavedFoodVersion;
   double _baseAmount = 1;
   FoodUnitType _unitType = FoodUnitType.serving;
   List<SavedFood> _savedFoodSuggestions = const [];
@@ -78,6 +82,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     _nameController.text = entry?.name ?? '';
     _selectedSavedFoodId = entry?.savedFoodId;
     _sourceFoodOwnerUserId = entry?.sourceFoodOwnerUserId;
+    _sourceSavedFoodVersion = entry?.sourceSavedFoodVersion;
     if (entry != null && entry.hasConsumptionModel) {
       _baseAmount = entry.baseAmount;
       _unitType = entry.unitType;
@@ -96,6 +101,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         ? entry.consumedAmount.toString()
         : '1';
     _nameController.addListener(_onNameChanged);
+    final initialPublicFood = widget.initialPublicFood;
+    if (initialPublicFood != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _applySavedFoodSelection(initialPublicFood);
+        }
+      });
+    }
   }
 
   @override
@@ -135,6 +148,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       _saveAsFood = false;
       _selectedSavedFoodId = selection.savedFoodId;
       _sourceFoodOwnerUserId = selection.sourceFoodOwnerUserId;
+      _sourceSavedFoodVersion = selection.sourceSavedFoodVersion;
       _baseAmount = selection.baseAmount;
       _unitType = selection.unitType;
       _sourceType = selection.entrySourceType;
@@ -211,6 +225,20 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     _showMessage('商品情報を取得しました。数量を確認して保存してください。');
   }
 
+  Future<void> _openPublicFoodSearch() async {
+    final food = await Navigator.of(context).push<SavedFood>(
+      MaterialPageRoute<SavedFood>(
+        builder: (context) => PublicFoodSearchScreen(
+          controller: widget.controller,
+          selectForMealEntry: true,
+        ),
+      ),
+    );
+    if (food != null && mounted) {
+      _applySavedFoodSelection(food);
+    }
+  }
+
   void _applyLookup(FoodLookupResult result) {
     if (result.name != null) {
       _nameController.text = result.name!;
@@ -283,6 +311,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       ),
       savedFoodId: _selectedSavedFoodId,
       sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
+      sourceSavedFoodVersion: _sourceSavedFoodVersion,
       loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
     );
   }
@@ -361,7 +390,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       draft = foodDraft;
       duplicateResolution = await _resolveDuplicateIfNeeded(foodDraft);
       if (duplicateResolution == null &&
-          await widget.controller.findPrivateDuplicateSavedFood(foodDraft.name) !=
+          await widget.controller.findPrivateDuplicateSavedFood(
+                foodDraft.name,
+              ) !=
               null) {
         return;
       }
@@ -449,6 +480,12 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
               if (!widget.isEditing) ...[
+                OutlinedButton.icon(
+                  onPressed: _openPublicFoodSearch,
+                  icon: const Icon(Icons.public),
+                  label: const Text('公開食品を検索'),
+                ),
+                const SizedBox(height: 12),
                 if (_isMobilePlatform) ...[
                   FilledButton.icon(
                     onPressed: _isSearching ? null : _openBarcodeScanner,

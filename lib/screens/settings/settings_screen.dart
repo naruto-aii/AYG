@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
+import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../food/food_form_navigation.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
@@ -16,12 +18,16 @@ class SettingsScreen extends StatelessWidget {
     required this.controller,
     required this.authenticationRepository,
     this.healthRepository,
+    this.openFoodFactsService,
+    this.foodFormBuilder,
     this.hideHealthSettings = false,
   });
 
   final AppController controller;
   final AuthenticationRepository authenticationRepository;
   final HealthRepository? healthRepository;
+  final OpenFoodFactsService? openFoodFactsService;
+  final FoodFormScreenBuilder? foodFormBuilder;
   final bool hideHealthSettings;
 
   Future<void> _logout(BuildContext context) async {
@@ -103,8 +109,11 @@ class SettingsScreen extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (context) =>
-                        SettingsFoodMasterScreen(controller: controller),
+                    builder: (context) => SettingsFoodMasterScreen(
+                      controller: controller,
+                      openFoodFactsService: openFoodFactsService,
+                      foodFormBuilder: foodFormBuilder,
+                    ),
                   ),
                 );
               },

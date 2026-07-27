@@ -21,6 +21,7 @@ class FoodEntry {
     this.sourceType = FoodEntrySource.manual,
     this.savedFoodId,
     this.sourceFoodOwnerUserId,
+    this.sourceSavedFoodVersion,
     this.mealGroupId,
     this.mealGroupName,
     this.sortOrder,
@@ -51,6 +52,7 @@ class FoodEntry {
   final FoodEntrySource sourceType;
   final String? savedFoodId;
   final String? sourceFoodOwnerUserId;
+  final int? sourceSavedFoodVersion;
 
   final String? mealGroupId;
   final String? mealGroupName;
@@ -92,6 +94,7 @@ class FoodEntry {
     FoodEntrySource? sourceType,
     String? savedFoodId,
     String? sourceFoodOwnerUserId,
+    int? sourceSavedFoodVersion,
     String? mealGroupId,
     String? mealGroupName,
     int? sortOrder,
@@ -111,6 +114,8 @@ class FoodEntry {
       savedFoodId: savedFoodId ?? this.savedFoodId,
       sourceFoodOwnerUserId:
           sourceFoodOwnerUserId ?? this.sourceFoodOwnerUserId,
+      sourceSavedFoodVersion:
+          sourceSavedFoodVersion ?? this.sourceSavedFoodVersion,
       mealGroupId: mealGroupId ?? this.mealGroupId,
       mealGroupName: mealGroupName ?? this.mealGroupName,
       sortOrder: sortOrder ?? this.sortOrder,

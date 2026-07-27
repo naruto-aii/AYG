@@ -82,7 +82,9 @@ void main() {
       expect(find.textContaining('（自動）'), findsOneWidget);
     });
 
-    testWidgets('food tab path: kcal F C -> P 12.0 before save', (tester) async {
+    testWidgets('food tab path: kcal F C -> P 12.0 before save', (
+      tester,
+    ) async {
       await pumpOnboardedApp(tester);
       await openFoodFormFromFoodTab(tester);
 

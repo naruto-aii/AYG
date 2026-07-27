@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 
+import '../../models/food_visibility.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
 import '../../utils/nutrition_format.dart';
 import '../../utils/saved_food_display_labels.dart';
+import '../../services/open_food_facts_service.dart';
+import '../food/food_form_navigation.dart';
+import 'public_food_search_screen.dart';
 import 'saved_food_form_screen.dart';
+import 'saved_food_publish_flow.dart';
 
 class SavedFoodListScreen extends StatefulWidget {
-  const SavedFoodListScreen({super.key, required this.controller});
+  const SavedFoodListScreen({
+    super.key,
+    required this.controller,
+    this.openFoodFactsService,
+    this.foodFormBuilder,
+  });
 
   final AppController controller;
+  final OpenFoodFactsService? openFoodFactsService;
+  final FoodFormScreenBuilder? foodFormBuilder;
 
   @override
   State<SavedFoodListScreen> createState() => _SavedFoodListScreenState();
@@ -62,6 +74,18 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
     }
   }
 
+  Future<void> _openPublicSearch() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => PublicFoodSearchScreen(
+          controller: widget.controller,
+          openFoodFactsService: widget.openFoodFactsService,
+          foodFormBuilder: widget.foodFormBuilder,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openCreate() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -84,6 +108,26 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
     if (saved == true) {
       await _reload();
     }
+  }
+
+  Future<void> _startPublish(SavedFood food) async {
+    final published = await startSavedFoodPublishFlow(
+      context: context,
+      controller: widget.controller,
+      food: food,
+    );
+    if (published) {
+      await _reload();
+    }
+  }
+
+  Future<void> _unpublish(SavedFood food) async {
+    await confirmUnpublishSavedFood(
+      context: context,
+      controller: widget.controller,
+      food: food,
+      onSuccess: _reload,
+    );
   }
 
   Future<void> _confirmDelete(SavedFood food) async {
@@ -128,6 +172,11 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
       appBar: AppBar(
         title: const Text('保存済み食品'),
         actions: [
+          IconButton(
+            onPressed: _openPublicSearch,
+            icon: const Icon(Icons.public),
+            tooltip: '公開食品検索',
+          ),
           IconButton(
             onPressed: _openCreate,
             icon: const Icon(Icons.add),
@@ -187,13 +236,33 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
                               switch (value) {
                                 case 'edit':
                                   _openEdit(food);
+                                case 'publish':
+                                  _startPublish(food);
+                                case 'unpublish':
+                                  _unpublish(food);
                                 case 'delete':
                                   _confirmDelete(food);
                               }
                             },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(value: 'edit', child: Text('編集')),
-                              PopupMenuItem(value: 'delete', child: Text('削除')),
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('編集'),
+                              ),
+                              if (food.visibility == FoodVisibility.private)
+                                const PopupMenuItem(
+                                  value: 'publish',
+                                  child: Text('公開する'),
+                                ),
+                              if (food.visibility == FoodVisibility.public)
+                                const PopupMenuItem(
+                                  value: 'unpublish',
+                                  child: Text('非公開にする'),
+                                ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('削除'),
+                              ),
                             ],
                           ),
                         );

@@ -5,11 +5,13 @@ import '../../models/food_visibility.dart';
 import '../../models/macro_field.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
+import '../../services/saved_food_version_policy.dart';
 import '../../state/app_controller.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/confirm_public_food_update_dialog.dart';
+import 'saved_food_publish_flow.dart';
 
 class SavedFoodFormScreen extends StatefulWidget {
   const SavedFoodFormScreen({super.key, required this.controller, this.food});
@@ -36,6 +38,8 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
   bool _isSaving = false;
 
   bool get _isPublicFood => widget.food?.visibility == FoodVisibility.public;
+  bool get _isPrivateFood =>
+      widget.food == null || widget.food!.visibility == FoodVisibility.private;
 
   @override
   void initState() {
@@ -91,17 +95,31 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
     );
   }
 
+  SavedFood? _buildUpdatedFood(SavedFoodDraft draft) {
+    final existing = widget.food;
+    if (existing == null) {
+      return null;
+    }
+    return existing.copyWith(
+      name: draft.name,
+      baseAmount: draft.baseAmount,
+      unitType: draft.unitType,
+      kcalPerBase: draft.kcalPerBase,
+      proteinPerBase: draft.proteinPerBase,
+      fatPerBase: draft.fatPerBase,
+      carbPerBase: draft.carbPerBase,
+      brand: draft.brand,
+      barcode: draft.barcode,
+      supplementaryWeight: draft.supplementaryWeight,
+    );
+  }
+
   String? _nullableText(String value) {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
 
   Future<void> _save() async {
-    if (_isPublicFood) {
-      _showMessage('公開食品の編集は Phase 6D で対応予定です');
-      return;
-    }
-
     if (!_macroInput.prepareForSave()) {
       _showMessage(
         _macroInput.negativeMessage ?? '栄養素の値が整合していません。入力を見直してください。',
@@ -126,26 +144,28 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
     try {
       if (widget.isEditing) {
         final existing = widget.food!;
-        if (existing.visibility == FoodVisibility.public) {
+        final updated = _buildUpdatedFood(draft)!;
+        if (existing.visibility == FoodVisibility.public &&
+            SavedFoodVersionPolicy.requiresPublicUpdateConfirmation(
+              existing,
+              updated,
+            )) {
           final confirmed = await showConfirmPublicFoodUpdateDialog(context);
           if (!confirmed) {
             return;
           }
+          await widget.controller.updatePublishedSavedFood(
+            updated,
+            confirmedPublicUpdate: true,
+          );
+        } else if (existing.visibility == FoodVisibility.public) {
+          await widget.controller.updatePublishedSavedFood(
+            updated,
+            confirmedPublicUpdate: false,
+          );
+        } else {
+          await widget.controller.updateSavedFood(updated);
         }
-        await widget.controller.updateSavedFood(
-          existing.copyWith(
-            name: draft.name,
-            baseAmount: draft.baseAmount,
-            unitType: draft.unitType,
-            kcalPerBase: draft.kcalPerBase,
-            proteinPerBase: draft.proteinPerBase,
-            fatPerBase: draft.fatPerBase,
-            carbPerBase: draft.carbPerBase,
-            brand: draft.brand,
-            barcode: draft.barcode,
-            supplementaryWeight: draft.supplementaryWeight,
-          ),
-        );
       } else {
         await widget.controller.createSavedFood(draft);
       }
@@ -155,12 +175,77 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
       }
       Navigator.of(context).pop(true);
     } catch (error) {
-      _showMessage('保存に失敗しました: $error');
+      _showMessage(widget.controller.publishErrorMessage(error));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  Future<void> _startPublish() async {
+    final existing = widget.food;
+    if (existing == null || existing.visibility != FoodVisibility.private) {
+      return;
+    }
+
+    if (_formKey.currentState?.validate() != true) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    SavedFood foodToPublish = existing;
+    try {
+      final draft = _buildDraft();
+      if (draft != null &&
+          (draft.name != existing.name ||
+              draft.baseAmount != existing.baseAmount ||
+              draft.unitType != existing.unitType ||
+              draft.kcalPerBase != existing.kcalPerBase)) {
+        foodToPublish = await widget.controller.updateSavedFood(
+          _buildUpdatedFood(draft)!,
+        );
+      }
+    } catch (error) {
+      _showMessage(widget.controller.publishErrorMessage(error));
+      setState(() => _isSaving = false);
+      return;
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final published = await startSavedFoodPublishFlow(
+      context: context,
+      controller: widget.controller,
+      food: foodToPublish,
+    );
+    if (published && mounted) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  Future<void> _unpublish() async {
+    final existing = widget.food;
+    if (existing == null || existing.visibility != FoodVisibility.public) {
+      return;
+    }
+
+    await confirmUnpublishSavedFood(
+      context: context,
+      controller: widget.controller,
+      food: existing,
+      onSuccess: () {
+        if (mounted) {
+          Navigator.of(context).pop(true);
+        }
+      },
+    );
   }
 
   void _showMessage(String message) {
@@ -208,18 +293,14 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
               if (_isPublicFood)
                 Card(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const ListTile(
-                    leading: Icon(Icons.info_outline),
-                    title: Text('公開食品'),
-                    subtitle: Text(
-                      '公開食品の更新は Phase 6D で有効化予定です。'
-                      '現時点では内容の確認のみ可能です。',
-                    ),
+                  child: ListTile(
+                    leading: const Icon(Icons.public),
+                    title: const Text('公開食品'),
+                    subtitle: Text('version ${widget.food!.version}'),
                   ),
                 ),
               TextFormField(
                 controller: _nameController,
-                readOnly: _isPublicFood,
                 decoration: const InputDecoration(
                   labelText: '食品名 *',
                   border: OutlineInputBorder(),
@@ -239,7 +320,6 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
                     flex: 2,
                     child: TextFormField(
                       controller: _baseAmountController,
-                      readOnly: _isPublicFood,
                       decoration: const InputDecoration(
                         labelText: '基準量 *',
                         border: OutlineInputBorder(),
@@ -266,13 +346,11 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
                             ),
                           )
                           .toList(),
-                      onChanged: _isPublicFood
-                          ? null
-                          : (value) {
-                              if (value != null) {
-                                setState(() => _unitType = value);
-                              }
-                            },
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _unitType = value);
+                        }
+                      },
                     ),
                   ),
                 ],
@@ -280,14 +358,12 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
               const SizedBox(height: 16),
               MacroNutritionFields(
                 controller: _macroInput,
-                readOnly: _isPublicFood,
                 validator: (value, label) =>
                     _validateOptionalNonNegativeNumber(label)(value),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _brandController,
-                readOnly: _isPublicFood,
                 decoration: const InputDecoration(
                   labelText: 'ブランド・メーカー',
                   border: OutlineInputBorder(),
@@ -296,7 +372,6 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _barcodeController,
-                readOnly: _isPublicFood,
                 decoration: const InputDecoration(
                   labelText: 'バーコード',
                   border: OutlineInputBorder(),
@@ -306,7 +381,6 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _supplementaryWeightController,
-                readOnly: _isPublicFood,
                 decoration: const InputDecoration(
                   labelText: '補助重量・内容量',
                   border: OutlineInputBorder(),
@@ -318,12 +392,32 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
                   labelText: '保存範囲',
                   border: OutlineInputBorder(),
                 ),
-                child: Text(
-                  widget.food?.visibility == FoodVisibility.public
-                      ? '公開'
-                      : '非公開（private）',
-                ),
+                child: Text(_isPublicFood ? '公開' : '非公開（private）'),
               ),
+              if (_isPrivateFood && widget.isEditing) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed:
+                      _isSaving ||
+                          widget.controller.isPublishOperationInProgress
+                      ? null
+                      : _startPublish,
+                  icon: const Icon(Icons.public),
+                  label: const Text('公開する'),
+                ),
+              ],
+              if (_isPublicFood) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed:
+                      _isSaving ||
+                          widget.controller.isPublishOperationInProgress
+                      ? null
+                      : _unpublish,
+                  icon: const Icon(Icons.lock),
+                  label: const Text('非公開にする'),
+                ),
+              ],
             ],
           ),
         ),
@@ -332,7 +426,7 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton(
-            onPressed: _isSaving || _isPublicFood ? null : _save,
+            onPressed: _isSaving ? null : _save,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Text(_isSaving ? '保存中...' : '保存'),

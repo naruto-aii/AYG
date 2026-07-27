@@ -4,6 +4,7 @@ import '../models/activity_level.dart';
 import '../models/app_settings.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
+import '../models/meal_template.dart';
 import '../models/goal.dart';
 import '../models/health_profile_data.dart';
 import '../models/health_snapshot.dart';
@@ -15,6 +16,8 @@ import 'contracts/food_repository_base.dart';
 import 'contracts/settings_repository_base.dart';
 import 'contracts/user_repository_base.dart';
 import 'contracts/weight_repository_base.dart';
+import 'food_master_repositories.dart';
+import 'supabase/food_master_row_mapper.dart';
 
 /// Supabase users テーブルの行。
 class RemoteUserProfile {
@@ -59,12 +62,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     required FoodRepositoryBase foodRepository,
     required ExerciseRepositoryBase exerciseRepository,
     required WeightRepositoryBase weightRepository,
+    FoodMasterRepositories? foodMaster,
     SupabaseClient? client,
   }) : _userRepository = userRepository,
        _settingsRepository = settingsRepository,
        _foodRepository = foodRepository,
        _exerciseRepository = exerciseRepository,
        _weightRepository = weightRepository,
+       _foodMaster = foodMaster,
        _client = client ?? Supabase.instance.client;
 
   final UserRepositoryBase _userRepository;
@@ -72,6 +77,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   final FoodRepositoryBase _foodRepository;
   final ExerciseRepositoryBase _exerciseRepository;
   final WeightRepositoryBase _weightRepository;
+  final FoodMasterRepositories? _foodMaster;
   final SupabaseClient _client;
 
   @override
@@ -121,6 +127,8 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pullFoodEntries(userId);
     await _pullExerciseEntries(userId);
     await _pullWeightEntries(userId);
+    await _pullSavedFoods(userId);
+    await _pullMealTemplates(userId);
   }
 
   @override
@@ -133,6 +141,8 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pushFoodEntries(userId);
     await _pushExerciseEntries(userId);
     await _pushWeightEntries(userId);
+    await _pushSavedFoods(userId);
+    await _pushMealTemplates(userId);
   }
 
   Future<void> _pullProfile(String userId) async {
@@ -309,20 +319,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    final entries = rows
-        .map(
-          (row) => FoodEntry(
-            id: row['entry_id'] as String,
-            name: row['name'] as String,
-            kcalPerUnit: (row['kcal_per_unit'] as num?)?.toDouble(),
-            proteinPerUnit: (row['protein_per_unit'] as num?)?.toDouble(),
-            fatPerUnit: (row['fat_per_unit'] as num?)?.toDouble(),
-            carbPerUnit: (row['carb_per_unit'] as num?)?.toDouble(),
-            quantity: (row['quantity'] as num).toDouble(),
-            loggedAt: DateTime.parse(row['logged_at'] as String),
-          ),
-        )
-        .toList();
+    final entries = rows.map(FoodMasterRowMapper.foodEntryFromRow).toList();
     await _foodRepository.saveAll(entries);
   }
 
@@ -337,21 +334,78 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         .upsert(
           entries
               .map(
-                (entry) => {
-                  'user_id': userId,
-                  'entry_id': entry.id,
-                  'name': entry.name,
-                  'kcal_per_unit': entry.kcalPerUnit,
-                  'protein_per_unit': entry.proteinPerUnit,
-                  'fat_per_unit': entry.fatPerUnit,
-                  'carb_per_unit': entry.carbPerUnit,
-                  'quantity': entry.quantity,
-                  'logged_at': entry.loggedAt.toIso8601String(),
-                },
+                (entry) =>
+                    FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
               )
               .toList(),
           onConflict: 'user_id,entry_id',
         );
+  }
+
+  Future<void> _pullSavedFoods(String userId) async {
+    final foodMaster = _foodMaster;
+    if (foodMaster?.remoteSavedFoods == null) {
+      return;
+    }
+    final remoteFoods = await foodMaster!.savedFoods.pullAllOwnRemote(userId);
+    await foodMaster.savedFoods.replaceAllOwnLocal(userId, remoteFoods);
+  }
+
+  Future<void> _pushSavedFoods(String userId) async {
+    final foodMaster = _foodMaster;
+    if (foodMaster?.remoteSavedFoods == null) {
+      return;
+    }
+    final localFoods = await foodMaster!.localSavedFoods
+        .loadAllOwnIncludingDeleted(userId);
+    await foodMaster.savedFoods.pushAllOwnRemote(userId, localFoods);
+  }
+
+  Future<void> _pullMealTemplates(String userId) async {
+    final foodMaster = _foodMaster;
+    final remote = foodMaster?.remoteMealTemplates;
+    if (remote == null) {
+      return;
+    }
+
+    final templates = await remote.pullAllOwn(userId);
+    final itemsByTemplate = await remote.pullAllItems(userId);
+
+    await foodMaster!.mealTemplates.clearAll();
+    if (templates.isEmpty) {
+      return;
+    }
+
+    await foodMaster.mealTemplates.saveAll(templates);
+    for (final template in templates) {
+      await foodMaster.mealTemplates.replaceItems(
+        ownerUserId: userId,
+        templateId: template.templateId,
+        items: itemsByTemplate[template.templateId] ?? const [],
+      );
+    }
+  }
+
+  Future<void> _pushMealTemplates(String userId) async {
+    final foodMaster = _foodMaster;
+    final remote = foodMaster?.remoteMealTemplates;
+    if (remote == null) {
+      return;
+    }
+
+    final templates = await foodMaster!.mealTemplates
+        .loadAllOwnIncludingDeleted(userId);
+    final itemsByTemplate = <String, List<MealTemplateItem>>{};
+    for (final template in templates) {
+      itemsByTemplate[template.templateId] = await foodMaster.mealTemplates
+          .getItems(ownerUserId: userId, templateId: template.templateId);
+    }
+
+    await remote.pushAllOwn(
+      userId: userId,
+      templates: templates,
+      itemsByTemplateId: itemsByTemplate,
+    );
   }
 
   Future<void> _pullExerciseEntries(String userId) async {

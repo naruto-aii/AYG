@@ -6,17 +6,24 @@ import '../config/open_food_facts_config.dart';
 import '../config/supabase_config.dart';
 import '../platform/web/repositories/web_exercise_repository.dart';
 import '../platform/web/repositories/web_food_repository.dart';
+import '../platform/web/repositories/web_meal_template_repository.dart';
+import '../platform/web/repositories/web_saved_food_local_store.dart';
 import '../platform/web/repositories/web_settings_repository.dart';
 import '../platform/web/repositories/web_supabase_authentication_repository.dart';
 import '../platform/web/repositories/web_user_repository.dart';
-import '../platform/web/repositories/web_saved_food_repository.dart';
 import '../platform/web/repositories/web_weight_repository.dart';
 import '../platform/web/web_health_workout_store.dart';
 import '../platform/web/web_local_user_data_clearer.dart';
 import '../platform/web/web_unsupported_health_repository.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/data_sync_repository.dart';
+import '../repositories/food_master_repositories.dart';
 import '../repositories/local_session_store.dart';
+import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
+import '../repositories/supabase/supabase_food_rating_repository.dart';
+import '../repositories/supabase/supabase_food_report_repository.dart';
+import '../repositories/supabase/supabase_meal_template_repository.dart';
+import '../repositories/supabase/supabase_saved_food_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../services/open_food_facts_service.dart';
 import '../state/app_controller.dart';
@@ -40,7 +47,20 @@ Future<Widget> buildWebApp() async {
   final exerciseRepository = WebExerciseRepository();
   final weightRepository = WebWeightRepository();
   final workoutStore = WebHealthWorkoutStore();
-  final savedFoodRepository = WebSavedFoodRepository();
+  final savedFoodLocalStore = WebSavedFoodLocalStore();
+  final mealTemplateRepository = WebMealTemplateRepository();
+
+  final foodMasterRepositories = SupabaseConfig.isConfigured
+      ? FoodMasterRepositories.webSynced(
+          localSavedFoods: savedFoodLocalStore,
+          mealTemplates: mealTemplateRepository,
+          remoteSavedFoods: SupabaseSavedFoodRepository(),
+          remoteMealTemplates: SupabaseMealTemplateRepository(),
+          foodRatings: SupabaseFoodRatingRepository(),
+          foodReports: SupabaseFoodReportRepository(),
+          blockedCreators: SupabaseBlockedFoodCreatorRepository(),
+        )
+      : null;
 
   final openFoodFactsService = OpenFoodFactsService(
     userAgent: OpenFoodFactsConfig.userAgent,
@@ -63,6 +83,7 @@ Future<Widget> buildWebApp() async {
           foodRepository: foodRepository,
           exerciseRepository: exerciseRepository,
           weightRepository: weightRepository,
+          foodMaster: foodMasterRepositories,
         )
       : NoOpDataSyncRepository();
 
@@ -74,6 +95,8 @@ Future<Widget> buildWebApp() async {
     exerciseRepository: exerciseRepository,
     weightRepository: weightRepository,
     workoutStore: workoutStore,
+    savedFoodRepository: foodMasterRepositories?.savedFoods,
+    mealTemplateRepository: mealTemplateRepository,
   );
 
   final controller = AppController(
@@ -87,7 +110,11 @@ Future<Widget> buildWebApp() async {
     foodRepository: foodRepository,
     exerciseRepository: exerciseRepository,
     weightRepository: weightRepository,
-    savedFoodRepository: savedFoodRepository,
+    savedFoodRepository: foodMasterRepositories?.savedFoods,
+    foodRatingRepository: foodMasterRepositories?.foodRatings,
+    foodReportRepository: foodMasterRepositories?.foodReports,
+    blockedCreatorRepository: foodMasterRepositories?.blockedCreators,
+    mealTemplateRepository: mealTemplateRepository,
   );
   await controller.initialize();
 

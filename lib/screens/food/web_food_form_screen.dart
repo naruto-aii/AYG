@@ -14,6 +14,7 @@ import '../../utils/nutrition_format.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/saved_food_suggestion_list.dart';
+import '../saved_food/public_food_search_screen.dart';
 
 typedef BarcodeScanAvailabilityChecker = bool Function();
 
@@ -24,6 +25,7 @@ class WebFoodFormScreen extends StatefulWidget {
     required this.controller,
     required this.openFoodFactsService,
     this.entry,
+    this.initialPublicFood,
     this.barcodeScanAvailabilityChecker = isWebBarcodeScanAvailable,
     this.barcodeLookupBuilder = WebBarcodeLookup.new,
   });
@@ -31,6 +33,7 @@ class WebFoodFormScreen extends StatefulWidget {
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final FoodEntry? entry;
+  final SavedFood? initialPublicFood;
   final BarcodeScanAvailabilityChecker barcodeScanAvailabilityChecker;
   final WebBarcodeLookup Function(OpenFoodFactsService service)
   barcodeLookupBuilder;
@@ -54,6 +57,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
   FoodEntrySource _sourceType = FoodEntrySource.manual;
   String? _selectedSavedFoodId;
   String? _sourceFoodOwnerUserId;
+  int? _sourceSavedFoodVersion;
   double _baseAmount = 1;
   FoodUnitType _unitType = FoodUnitType.serving;
   List<SavedFood> _savedFoodSuggestions = const [];
@@ -70,6 +74,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
     _nameController.text = entry?.name ?? '';
     _selectedSavedFoodId = entry?.savedFoodId;
     _sourceFoodOwnerUserId = entry?.sourceFoodOwnerUserId;
+    _sourceSavedFoodVersion = entry?.sourceSavedFoodVersion;
     if (entry != null && entry.hasConsumptionModel) {
       _baseAmount = entry.baseAmount;
       _unitType = entry.unitType;
@@ -88,6 +93,14 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
         ? entry.consumedAmount.toString()
         : '1';
     _nameController.addListener(_onNameChanged);
+    final initialPublicFood = widget.initialPublicFood;
+    if (initialPublicFood != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _applySavedFoodSelection(initialPublicFood);
+        }
+      });
+    }
   }
 
   @override
@@ -126,6 +139,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
       _fromSavedFoodSelection = true;
       _selectedSavedFoodId = selection.savedFoodId;
       _sourceFoodOwnerUserId = selection.sourceFoodOwnerUserId;
+      _sourceSavedFoodVersion = selection.sourceSavedFoodVersion;
       _baseAmount = selection.baseAmount;
       _unitType = selection.unitType;
       _sourceType = selection.entrySourceType;
@@ -221,6 +235,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
       _fromSavedFoodSelection = false;
       _selectedSavedFoodId = null;
       _sourceFoodOwnerUserId = null;
+      _sourceSavedFoodVersion = null;
       _baseAmount = 1;
       _unitType = FoodUnitType.serving;
     });
@@ -272,6 +287,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
       ),
       savedFoodId: _selectedSavedFoodId,
       sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
+      sourceSavedFoodVersion: _sourceSavedFoodVersion,
       loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
     );
   }
@@ -378,6 +394,22 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
     );
   }
 
+  Future<void> _openPublicFoodSearch() async {
+    final food = await Navigator.of(context).push<SavedFood>(
+      MaterialPageRoute<SavedFood>(
+        builder: (context) => PublicFoodSearchScreen(
+          controller: widget.controller,
+          openFoodFactsService: widget.openFoodFactsService,
+          selectForMealEntry: true,
+          foodFormBuilder: webFoodFormScreenBuilder,
+        ),
+      ),
+    );
+    if (food != null && mounted) {
+      _applySavedFoodSelection(food);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final quantityLabel = _usesSavedFoodBaseModel
@@ -395,6 +427,12 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
               if (!widget.isEditing) ...[
+                OutlinedButton.icon(
+                  onPressed: _openPublicFoodSearch,
+                  icon: const Icon(Icons.public),
+                  label: const Text('公開食品を検索'),
+                ),
+                const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: _isSearching ? null : _openCameraScanner,
                   icon: const Icon(Icons.qr_code_scanner, size: 28),
@@ -545,10 +583,12 @@ Widget webFoodFormScreenBuilder({
   required AppController controller,
   required OpenFoodFactsService openFoodFactsService,
   FoodEntry? entry,
+  SavedFood? initialPublicFood,
 }) {
   return WebFoodFormScreen(
     controller: controller,
     openFoodFactsService: openFoodFactsService,
     entry: entry,
+    initialPublicFood: initialPublicFood,
   );
 }

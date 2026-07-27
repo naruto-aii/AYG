@@ -27,6 +27,7 @@ void main() {
       fatPerBase: 5,
       carbPerBase: 20,
       sourceType: FoodSourceType.manual,
+      version: 1,
       createdAt: now,
       updatedAt: now,
     );
@@ -44,6 +45,7 @@ void main() {
       expect(entry.multiplier, 1.5);
       expect(entry.totalKcal, 300);
       expect(entry.savedFoodId, 'food-1');
+      expect(entry.sourceSavedFoodVersion, 1);
       expect(entry.sourceType, FoodEntrySource.savedFood);
     });
 

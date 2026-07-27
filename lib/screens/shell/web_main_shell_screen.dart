@@ -50,6 +50,8 @@ class _WebMainShellScreenState extends State<WebMainShellScreen> {
       SettingsScreen(
         controller: widget.controller,
         authenticationRepository: widget.authenticationRepository,
+        openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: webFoodFormScreenBuilder,
         hideHealthSettings: true,
       ),
     ];

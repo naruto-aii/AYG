@@ -1,5 +1,7 @@
 import '../../../repositories/contracts/exercise_repository_base.dart';
 import '../../../repositories/contracts/food_repository_base.dart';
+import '../../../repositories/contracts/meal_template_repository_base.dart';
+import '../../../repositories/contracts/saved_food_repository_base.dart';
 import '../../../repositories/contracts/settings_repository_base.dart';
 import '../../../repositories/contracts/user_repository_base.dart';
 import '../../../repositories/contracts/weight_repository_base.dart';
@@ -14,12 +16,16 @@ class WebLocalUserDataClearer implements LocalUserDataClearerBase {
     required FoodRepositoryBase foodRepository,
     required ExerciseRepositoryBase exerciseRepository,
     required WeightRepositoryBase weightRepository,
+    SavedFoodRepositoryBase? savedFoodRepository,
+    MealTemplateRepositoryBase? mealTemplateRepository,
     WebHealthWorkoutStore? workoutStore,
   }) : _userRepository = userRepository,
        _settingsRepository = settingsRepository,
        _foodRepository = foodRepository,
        _exerciseRepository = exerciseRepository,
        _weightRepository = weightRepository,
+       _savedFoodRepository = savedFoodRepository,
+       _mealTemplateRepository = mealTemplateRepository,
        _workoutStore = workoutStore ?? WebHealthWorkoutStore();
 
   final UserRepositoryBase _userRepository;
@@ -27,6 +33,8 @@ class WebLocalUserDataClearer implements LocalUserDataClearerBase {
   final FoodRepositoryBase _foodRepository;
   final ExerciseRepositoryBase _exerciseRepository;
   final WeightRepositoryBase _weightRepository;
+  final SavedFoodRepositoryBase? _savedFoodRepository;
+  final MealTemplateRepositoryBase? _mealTemplateRepository;
   final WebHealthWorkoutStore _workoutStore;
 
   @override
@@ -36,6 +44,8 @@ class WebLocalUserDataClearer implements LocalUserDataClearerBase {
     await _foodRepository.clearAll();
     await _exerciseRepository.clearAll();
     await _weightRepository.clearAll();
+    await _savedFoodRepository?.clearAllLocal();
+    await _mealTemplateRepository?.clearAll();
     await _workoutStore.clearAll();
   }
 }

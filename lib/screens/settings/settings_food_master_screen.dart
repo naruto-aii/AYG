@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../meal_template/meal_template_list_screen.dart';
+import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../food/food_form_navigation.dart';
 import '../saved_food/saved_food_list_screen.dart';
 
 class SettingsFoodMasterScreen extends StatelessWidget {
-  const SettingsFoodMasterScreen({super.key, required this.controller});
+  const SettingsFoodMasterScreen({
+    super.key,
+    required this.controller,
+    this.openFoodFactsService,
+    this.foodFormBuilder,
+  });
 
   final AppController controller;
+  final OpenFoodFactsService? openFoodFactsService;
+  final FoodFormScreenBuilder? foodFormBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -25,8 +35,11 @@ class SettingsFoodMasterScreen extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (context) =>
-                        SavedFoodListScreen(controller: controller),
+                    builder: (context) => SavedFoodListScreen(
+                      controller: controller,
+                      openFoodFactsService: openFoodFactsService,
+                      foodFormBuilder: foodFormBuilder,
+                    ),
                   ),
                 );
               },
@@ -35,8 +48,15 @@ class SettingsFoodMasterScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.view_list_outlined),
               title: const Text('食事テンプレート'),
-              subtitle: const Text('Phase 6G で対応予定'),
-              enabled: false,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) =>
+                        MealTemplateListScreen(controller: controller),
+                  ),
+                );
+              },
             ),
           ],
         ),

@@ -10,9 +10,12 @@ import '../models/duplicate_saved_food_action.dart';
 import '../models/duplicate_saved_food_resolution.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
+import '../models/goal.dart';
 import '../models/food_status.dart';
 import '../models/food_visibility.dart';
-import '../models/goal.dart';
+import '../models/meal_template.dart';
+import '../models/meal_template_apply.dart';
+import '../models/meal_template_draft.dart';
 import '../models/health_profile_data.dart';
 import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
@@ -37,12 +40,17 @@ import '../repositories/contracts/saved_food_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
 import '../repositories/exercise_repository.dart';
 import '../repositories/food_repository.dart';
+import '../repositories/contracts/meal_template_repository_base.dart';
+import '../repositories/meal_template_repository.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
 import '../repositories/settings_repository.dart';
 import '../repositories/user_repository.dart';
 import '../repositories/weight_repository.dart';
+import '../services/meal_template_apply_service.dart';
+import '../services/meal_template_dependency_service.dart';
+import '../services/meal_template_totals_service.dart';
 import '../services/local_user_data_clearer.dart';
 import '../services/nutrition_engine.dart';
 import '../services/public_food_search_service.dart';
@@ -72,6 +80,7 @@ class AppController extends ChangeNotifier {
     FoodRatingRepositoryBase? foodRatingRepository,
     FoodReportRepositoryBase? foodReportRepository,
     BlockedFoodCreatorRepositoryBase? blockedCreatorRepository,
+    MealTemplateRepositoryBase? mealTemplateRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -87,12 +96,16 @@ class AppController extends ChangeNotifier {
        _foodRatingRepository = foodRatingRepository,
        _foodReportRepository = foodReportRepository,
        _blockedCreatorRepository = blockedCreatorRepository,
+       _mealTemplateRepository = mealTemplateRepository,
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
        _savedFoodPublishValidator = const SavedFoodPublishValidator(),
        _publicFoodSimilarService = const PublicFoodSimilarService(),
-       _publicFoodSearchService = const PublicFoodSearchService();
+       _publicFoodSearchService = const PublicFoodSearchService(),
+       _mealTemplateTotalsService = const MealTemplateTotalsService(),
+       _mealTemplateDependencyService = const MealTemplateDependencyService(),
+       _mealTemplateApplyService = const MealTemplateApplyService();
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
@@ -109,12 +122,16 @@ class AppController extends ChangeNotifier {
   final FoodRatingRepositoryBase? _foodRatingRepository;
   final FoodReportRepositoryBase? _foodReportRepository;
   final BlockedFoodCreatorRepositoryBase? _blockedCreatorRepository;
+  final MealTemplateRepositoryBase? _mealTemplateRepository;
   final SavedFoodSearchService _savedFoodSearchService;
   final SavedFoodDuplicateService _savedFoodDuplicateService;
   final SavedFoodEntryBuilder _savedFoodEntryBuilder;
   final SavedFoodPublishValidator _savedFoodPublishValidator;
   final PublicFoodSimilarService _publicFoodSimilarService;
   final PublicFoodSearchService _publicFoodSearchService;
+  final MealTemplateTotalsService _mealTemplateTotalsService;
+  final MealTemplateDependencyService _mealTemplateDependencyService;
+  final MealTemplateApplyService _mealTemplateApplyService;
 
   bool _publishOperationInProgress = false;
   final Set<String> _ratingOperationsInProgress = {};
@@ -1161,6 +1178,222 @@ class AppController extends ChangeNotifier {
       excludeFoodId: excludeFoodId,
     );
   }
+
+  Future<void> addFoodEntriesBatch(List<FoodEntry> entries) async {
+    if (entries.isEmpty) {
+      return;
+    }
+    final foodRepository = _foodRepository;
+    if (foodRepository != null) {
+      await foodRepository.saveAll(entries);
+      await _reloadFoodEntries();
+    } else {
+      foodEntries.addAll(entries);
+    }
+    _scheduleRemoteSync();
+    refreshDailySummary();
+  }
+
+  Future<List<MealTemplate>> searchMealTemplates(String query) async {
+    final repository = _mealTemplateRepository;
+    if (repository == null) {
+      return const [];
+    }
+    return repository.search(ownerUserId: currentOwnerUserId, query: query);
+  }
+
+  Future<MealTemplateWithItems?> getMealTemplateWithItems(
+    String templateId,
+  ) async {
+    final repository = _mealTemplateRepository;
+    if (repository == null) {
+      return null;
+    }
+    final template = await repository.getById(
+      ownerUserId: currentOwnerUserId,
+      templateId: templateId,
+    );
+    if (template == null) {
+      return null;
+    }
+    final items = await repository.getItems(
+      ownerUserId: currentOwnerUserId,
+      templateId: templateId,
+    );
+    return MealTemplateWithItems(template: template, items: items);
+  }
+
+  Future<MealTemplate> saveMealTemplate({
+    required MealTemplateDraft draft,
+    String? templateId,
+  }) async {
+    final repository = _mealTemplateRepository;
+    if (repository is! MealTemplateRepository) {
+      throw StateError('MealTemplateRepository is not configured');
+    }
+    if (draft.name.trim().isEmpty) {
+      throw ArgumentError('Template name is required');
+    }
+    if (draft.items.isEmpty) {
+      throw ArgumentError('Template must include at least one item');
+    }
+
+    final now = DateTime.now();
+    final id = templateId ?? generateId();
+    final existing = templateId == null
+        ? null
+        : await repository.getById(
+            ownerUserId: currentOwnerUserId,
+            templateId: id,
+          );
+    final items = draft.items.toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final mappedItems = items
+        .asMap()
+        .entries
+        .map(
+          (entry) => entry.value
+              .copyWithSortOrder(entry.key + 1)
+              .toItem(itemId: entry.value.itemId ?? generateId(), now: now),
+        )
+        .toList();
+    final totals = _mealTemplateTotalsService.totalsFromItems(mappedItems);
+    final template = MealTemplate(
+      templateId: id,
+      ownerUserId: currentOwnerUserId,
+      name: draft.name.trim(),
+      normalizedName: FoodNameNormalizer.normalize(draft.name),
+      totalKcal: totals.kcal,
+      totalProteinG: totals.protein,
+      totalFatG: totals.fat,
+      totalCarbG: totals.carb,
+      useCount: existing?.useCount ?? 0,
+      lastUsedAt: existing?.lastUsedAt,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    );
+
+    await repository.saveWithItems(template: template, items: mappedItems);
+    _scheduleRemoteSync();
+    return template;
+  }
+
+  Future<void> deleteMealTemplate(String templateId) async {
+    final repository = _mealTemplateRepository;
+    if (repository == null) {
+      throw StateError('MealTemplateRepository is not configured');
+    }
+    await repository.softDelete(
+      ownerUserId: currentOwnerUserId,
+      templateId: templateId,
+      deletedAt: DateTime.now(),
+    );
+    _scheduleRemoteSync();
+  }
+
+  Future<List<MealTemplateDependencyIssue>> analyzeMealTemplateDependencies(
+    List<MealTemplateItem> items,
+  ) {
+    return _mealTemplateDependencyService.analyze(
+      items: items,
+      lookupFood:
+          ({
+            required String ownerUserId,
+            required String foodId,
+            required bool isOwn,
+          }) async {
+            final savedFoodRepository = _savedFoodRepository;
+            if (savedFoodRepository == null) {
+              return null;
+            }
+            if (ownerUserId == currentOwnerUserId) {
+              return savedFoodRepository.getOwn(
+                ownerUserId: ownerUserId,
+                foodId: foodId,
+              );
+            }
+            return savedFoodRepository.getPublicById(
+              ownerUserId: ownerUserId,
+              foodId: foodId,
+            );
+          },
+      isCreatorBlocked: isFoodCreatorBlocked,
+    );
+  }
+
+  Future<MealTemplateApplyResult> applyMealTemplate({
+    required String templateId,
+    List<MealTemplateItemResolution> resolutions = const [],
+  }) async {
+    final repository = _mealTemplateRepository;
+    if (repository == null) {
+      return const MealTemplateApplyResult(
+        success: false,
+        errorMessage: 'MealTemplateRepository is not configured',
+      );
+    }
+
+    final bundle = await getMealTemplateWithItems(templateId);
+    if (bundle == null) {
+      return const MealTemplateApplyResult(
+        success: false,
+        errorMessage: 'Template not found',
+      );
+    }
+
+    var items = bundle.items;
+    if (resolutions.isEmpty) {
+      final issues = await analyzeMealTemplateDependencies(items);
+      if (issues.isNotEmpty) {
+        return MealTemplateApplyResult(success: false, issues: issues);
+      }
+    } else {
+      items = _mealTemplateApplyService.resolveItems(
+        originalItems: items,
+        resolutions: resolutions,
+      );
+      if (items.isEmpty) {
+        return const MealTemplateApplyResult(success: false, cancelled: true);
+      }
+    }
+
+    final mealGroupId = generateId();
+    final loggedAt = DateTime.now();
+    final entries = _mealTemplateApplyService.buildEntries(
+      items: items,
+      mealGroupId: mealGroupId,
+      mealGroupName: bundle.template.name,
+      loggedAt: loggedAt,
+      generateEntryId: generateId,
+    );
+
+    try {
+      await addFoodEntriesBatch(entries);
+
+      final now = DateTime.now();
+      await repository.update(
+        bundle.template.copyWith(
+          useCount: bundle.template.useCount + 1,
+          lastUsedAt: now,
+          updatedAt: now,
+        ),
+      );
+      _scheduleRemoteSync();
+
+      return MealTemplateApplyResult(
+        success: true,
+        createdEntryCount: entries.length,
+      );
+    } catch (error) {
+      return MealTemplateApplyResult(
+        success: false,
+        errorMessage: error.toString(),
+      );
+    }
+  }
+
+  Future<SavedFood> copyPublicFoodForTemplateItem(SavedFood source) =>
+      copyPublicFoodToPrivate(source);
 
   SavedFoodEntrySelection selectSavedFoodForEntry(SavedFood food) {
     return SavedFoodEntrySelection.fromSavedFood(food);

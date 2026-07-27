@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../meal_template/meal_template_list_screen.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
@@ -43,8 +44,15 @@ class SettingsFoodMasterScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.view_list_outlined),
               title: const Text('食事テンプレート'),
-              subtitle: const Text('Phase 6G で対応予定'),
-              enabled: false,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) =>
+                        MealTemplateListScreen(controller: controller),
+                  ),
+                );
+              },
             ),
           ],
         ),

@@ -147,6 +147,42 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
     });
   }
 
+  Future<void> saveWithItems({
+    required MealTemplate template,
+    required List<MealTemplateItem> items,
+  }) async {
+    await _isar.writeTxn(() async {
+      await _isar.mealTemplateEntitys.put(
+        EntityMapper.toMealTemplateEntity(template),
+      );
+
+      final existing = await _isar.mealTemplateItemEntitys
+          .filter()
+          .templateIdEqualTo(template.templateId)
+          .ownerUserIdEqualTo(template.ownerUserId)
+          .findAll();
+      if (existing.isNotEmpty) {
+        await _isar.mealTemplateItemEntitys.deleteAll(
+          existing.map((e) => e.id).toList(),
+        );
+      }
+
+      if (items.isNotEmpty) {
+        await _isar.mealTemplateItemEntitys.putAll(
+          items
+              .map(
+                (item) => EntityMapper.toMealTemplateItemEntity(
+                  item: item,
+                  templateId: template.templateId,
+                  ownerUserId: template.ownerUserId,
+                ),
+              )
+              .toList(),
+        );
+      }
+    });
+  }
+
   @override
   Future<List<MealTemplateItem>> getItems({
     required String ownerUserId,

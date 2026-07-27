@@ -111,6 +111,46 @@ class MealTemplate {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
+
+  MealTemplate copyWith({
+    String? templateId,
+    String? ownerUserId,
+    String? name,
+    String? normalizedName,
+    FoodVisibility? visibility,
+    TemplateStatus? status,
+    double? totalKcal,
+    double? totalProteinG,
+    double? totalFatG,
+    double? totalCarbG,
+    TemplateDependencyStatus? dependencyStatus,
+    DateTime? lastValidatedAt,
+    int? useCount,
+    DateTime? lastUsedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? deletedAt,
+  }) {
+    return MealTemplate(
+      templateId: templateId ?? this.templateId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      name: name ?? this.name,
+      normalizedName: normalizedName ?? this.normalizedName,
+      visibility: visibility ?? this.visibility,
+      status: status ?? this.status,
+      totalKcal: totalKcal ?? this.totalKcal,
+      totalProteinG: totalProteinG ?? this.totalProteinG,
+      totalFatG: totalFatG ?? this.totalFatG,
+      totalCarbG: totalCarbG ?? this.totalCarbG,
+      dependencyStatus: dependencyStatus ?? this.dependencyStatus,
+      lastValidatedAt: lastValidatedAt ?? this.lastValidatedAt,
+      useCount: useCount ?? this.useCount,
+      lastUsedAt: lastUsedAt ?? this.lastUsedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
 }
 
 class MealTemplateItem {

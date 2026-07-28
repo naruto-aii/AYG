@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../repositories/exceptions/food_master_exceptions.dart';
+
 /// 初期同期の各ステップ。
 enum SyncStep {
   authRestore('AUTH_RESTORE'),
@@ -60,6 +62,7 @@ class SyncFailure {
       'repository=${repository ?? '-'}',
       'table=${tableName ?? '-'}',
       'operation=${operation ?? '-'}',
+      'cause_type=${cause?.runtimeType ?? '-'}',
       'timestamp=${DateTime.now().toUtc().toIso8601String()}',
     ].join('\n');
   }
@@ -103,6 +106,11 @@ class SyncFailure {
       message = error.message;
       errorCode = _errorCodeForPostgrest(step, error);
       userMessage = _userMessageForPostgrest(error);
+    } else if (error is FoodMasterTableMissingException) {
+      postgresCode = error.postgresCode;
+      message = error.message;
+      errorCode = '${step.code}_TABLE_MISSING';
+      userMessage = 'データを読み込めませんでした';
     } else if (error is AuthException) {
       errorCode = 'AUTH_SESSION_INVALID';
       userMessage = 'ログイン状態を確認できませんでした';

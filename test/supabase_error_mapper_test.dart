@@ -53,5 +53,18 @@ void main() {
       );
       expect(mapped, isA<FoodMasterPermissionException>());
     });
+
+    test('maps missing relation to table missing exception', () {
+      final mapped = SupabaseErrorMapper.map(
+        const PostgrestException(
+          message: 'relation "saved_foods" does not exist',
+          code: '42P01',
+        ),
+        context: 'saved_foods pull',
+      );
+      expect(mapped, isA<FoodMasterTableMissingException>());
+      expect((mapped as FoodMasterTableMissingException).postgresCode, '42P01');
+      expect(mapped.tableName, 'saved_foods');
+    });
   });
 }

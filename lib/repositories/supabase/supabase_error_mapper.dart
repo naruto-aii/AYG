@@ -149,6 +149,16 @@ class SupabaseErrorMapper {
       return FoodMasterPermissionException(error.message);
     }
 
+    if (error.code == '42P01' ||
+        error.code == 'PGRST205' ||
+        combined.contains('does not exist')) {
+      return FoodMasterTableMissingException(
+        postgresCode: error.code ?? '42P01',
+        message: error.message,
+        tableName: _extractRelationName(combined),
+      );
+    }
+
     if (combined.contains('moderation') ||
         combined.contains('not publishable') ||
         combined.contains('already public') ||
@@ -178,5 +188,10 @@ class SupabaseErrorMapper {
     }
 
     return FoodMasterNetworkException('$context failed: ${error.message}');
+  }
+
+  static String? _extractRelationName(String combined) {
+    final match = RegExp(r'relation "([^"]+)"').firstMatch(combined);
+    return match?.group(1);
   }
 }

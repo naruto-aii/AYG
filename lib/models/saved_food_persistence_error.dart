@@ -124,6 +124,7 @@ class SavedFoodPersistenceException implements Exception {
       FoodMasterPermissionException() => SavedFoodErrorCode.permissionDenied,
       FoodMasterValidationException() => SavedFoodErrorCode.validationFailed,
       FoodMasterConflictException() => SavedFoodErrorCode.conflict,
+      FoodMasterTableMissingException() => SavedFoodErrorCode.tableMissing,
       FoodMasterNetworkException() => SavedFoodErrorCode.networkFailed,
       _ => SavedFoodErrorCode.insertFailed,
     };

@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:postgrest/postgrest.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/sync_failure.dart';
+import '../repositories/exceptions/food_master_exceptions.dart';
 
 Future<T> runSyncStep<T>({
   required SyncStep step,
@@ -58,17 +60,29 @@ bool isOptionalTableMissing(SyncFailure failure) {
   if (failure.errorCode.endsWith('_TABLE_MISSING')) {
     return true;
   }
+  if (isOptionalTableMissingError(failure.cause ?? failure)) {
+    return true;
+  }
   final code = failure.postgresCode;
   return code == '42P01' || code == 'PGRST205';
 }
 
 bool isOptionalTableMissingError(Object error) {
+  if (error is FoodMasterTableMissingException) {
+    return true;
+  }
   if (error is PostgrestException) {
     final code = error.code;
     return code == '42P01' || code == 'PGRST205';
   }
   if (error is SyncStepException) {
     return isOptionalTableMissing(error.failure);
+  }
+  if (error is FoodMasterException) {
+    final message = error.message.toLowerCase();
+    if (message.contains('does not exist') && message.contains('relation')) {
+      return true;
+    }
   }
   return false;
 }

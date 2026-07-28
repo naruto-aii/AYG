@@ -645,6 +645,8 @@ class AppController extends ChangeNotifier {
       throw UnsupportedError('Only private foods can be saved in Phase 6A–6C');
     }
 
+    await _ensureAuthenticatedUserProfile();
+
     final now = DateTime.now();
     final food = SavedFood(
       foodId: generateId(),
@@ -719,6 +721,8 @@ class AppController extends ChangeNotifier {
     if (repository == null) {
       throw StateError('SavedFoodRepository is not configured');
     }
+
+    await _ensureAuthenticatedUserProfile();
 
     var updated = food
         .copyWith(
@@ -1547,6 +1551,19 @@ class AppController extends ChangeNotifier {
         ),
       ),
     };
+  }
+
+  Future<void> _ensureAuthenticatedUserProfile() async {
+    final authUser = _authenticationRepository?.currentUser;
+    final dataSyncRepository = _dataSyncRepository;
+    if (authUser == null || dataSyncRepository == null) {
+      return;
+    }
+
+    await dataSyncRepository.ensureUserProfile(
+      userId: authUser.id,
+      email: authUser.email,
+    );
   }
 
   Future<void> _recordSavedFoodUsage(String savedFoodId) async {

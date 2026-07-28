@@ -21,11 +21,16 @@ class SyncedSavedFoodRepository extends SavedFoodRepositoryBase {
   @override
   Future<void> savePrivate(SavedFood food) async {
     final normalized = food.normalizedForSave();
+    final remote = _remote;
+    if (remote != null) {
+      final persisted = await remote.upsertOwnPrivate(
+        userId: normalized.ownerUserId,
+        food: normalized,
+      );
+      await _local.savePrivate(persisted);
+      return;
+    }
     await _local.savePrivate(normalized);
-    await _remote?.upsertOwnPrivate(
-      userId: normalized.ownerUserId,
-      food: normalized,
-    );
   }
 
   @override

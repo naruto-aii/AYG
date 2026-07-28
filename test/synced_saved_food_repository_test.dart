@@ -74,6 +74,9 @@ class _FakeLocalStore implements SavedFoodLocalStore {
 
 class _FakeRemoteStore implements SavedFoodRemoteStore {
   Object? publishError;
+  Object? upsertError;
+
+  bool upsertCalled = false;
 
   @override
   SavedFood buildPrivateCopy({
@@ -156,7 +159,13 @@ class _FakeRemoteStore implements SavedFoodRemoteStore {
   Future<SavedFood> upsertOwnPrivate({
     required String userId,
     required SavedFood food,
-  }) async => food;
+  }) async {
+    upsertCalled = true;
+    if (upsertError != null) {
+      throw upsertError!;
+    }
+    return food;
+  }
 }
 
 SavedFood _sampleFood(String userId, String foodId) {
@@ -211,6 +220,30 @@ void main() {
         repo.searchPublic(query: 'rice'),
         throwsA(isA<FoodMasterNetworkException>()),
       );
+    });
+
+    test('savePrivate writes remote before local', () async {
+      final local = _FakeLocalStore();
+      final remote = _FakeRemoteStore();
+      final repo = SyncedSavedFoodRepository(local: local, remote: remote);
+
+      await repo.savePrivate(_sampleFood('u1', 'f1'));
+
+      expect(remote.upsertCalled, isTrue);
+      expect(local.stored, isNotNull);
+    });
+
+    test('savePrivate remote failure does not persist locally', () async {
+      final local = _FakeLocalStore();
+      final remote = _FakeRemoteStore()
+        ..upsertError = const FoodMasterPermissionException('denied');
+      final repo = SyncedSavedFoodRepository(local: local, remote: remote);
+
+      await expectLater(
+        repo.savePrivate(_sampleFood('u1', 'f1')),
+        throwsA(isA<FoodMasterPermissionException>()),
+      );
+      expect(local.stored, isNull);
     });
 
     test('updateOwn bumps version for public user-facing changes', () async {

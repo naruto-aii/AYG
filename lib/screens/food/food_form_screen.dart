@@ -425,7 +425,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     if (result.savedFoodErrorMessage != null) {
-      _showMessage('食事は保存されましたが、食品登録に失敗しました');
+      _showMessage('食事は記録しましたが、食品としての保存に失敗しました');
     }
 
     Navigator.of(context).pop();

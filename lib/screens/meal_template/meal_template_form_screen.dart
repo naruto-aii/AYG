@@ -5,7 +5,14 @@ import '../../models/meal_template_draft.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_entry_selection.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_loading_state.dart';
+import '../../widgets/common/app_section_header.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/secondary_button.dart';
 import '../saved_food/public_food_search_screen.dart';
 
 class MealTemplateFormScreen extends StatefulWidget {
@@ -166,6 +173,33 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
     }
   }
 
+  double _itemMultiplier(MealTemplateItemDraft item) =>
+      item.consumedAmount / item.baseAmount;
+
+  double _itemTotalKcal(MealTemplateItemDraft item) =>
+      (item.kcalPerBase ?? 0) * _itemMultiplier(item);
+
+  double _itemTotalProtein(MealTemplateItemDraft item) =>
+      (item.proteinPerBase ?? 0) * _itemMultiplier(item);
+
+  double _itemTotalFat(MealTemplateItemDraft item) =>
+      (item.fatPerBase ?? 0) * _itemMultiplier(item);
+
+  double _itemTotalCarb(MealTemplateItemDraft item) =>
+      (item.carbPerBase ?? 0) * _itemMultiplier(item);
+
+  double get _totalKcal =>
+      _items.fold(0, (sum, item) => sum + _itemTotalKcal(item));
+
+  double get _totalProtein =>
+      _items.fold(0, (sum, item) => sum + _itemTotalProtein(item));
+
+  double get _totalFat =>
+      _items.fold(0, (sum, item) => sum + _itemTotalFat(item));
+
+  double get _totalCarb =>
+      _items.fold(0, (sum, item) => sum + _itemTotalCarb(item));
+
   Future<void> _save() async {
     if (_formKey.currentState?.validate() != true) {
       return;
@@ -204,82 +238,145 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
     }
   }
 
+  String _formatItemSubtitle(MealTemplateItemDraft item) {
+    return '${item.consumedAmount}${item.unitType.label} · '
+        '${formatNullableNutrient(_itemTotalKcal(item))} kcal · '
+        'P ${formatNullableNutrient(_itemTotalProtein(item))} '
+        'F ${formatNullableNutrient(_itemTotalFat(item))} '
+        'C ${formatNullableNutrient(_itemTotalCarb(item))}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.isEditing ? 'テンプレート編集' : 'テンプレート作成')),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState()
           : Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  100,
+                ),
                 children: [
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'テンプレート名',
-                      border: OutlineInputBorder(),
+                  AppCard(
+                    child: AppTextField(
+                      controller: _nameController,
+                      label: 'テンプレート名',
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'テンプレート名を入力してください';
+                        }
+                        return null;
+                      },
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'テンプレート名を入力してください';
-                      }
-                      return null;
-                    },
                   ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton(
-                        onPressed: _pickOwnSavedFood,
-                        child: const Text('保存済み食品'),
-                      ),
-                      OutlinedButton(
-                        onPressed: _pickPublicFood,
-                        child: const Text('公開食品'),
-                      ),
-                      OutlinedButton(
-                        onPressed: _addManualItem,
-                        child: const Text('手入力'),
-                      ),
-                    ],
+                  const SizedBox(height: AppSpacing.sm),
+                  AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SecondaryButton(
+                          label: '保存済み食品から追加',
+                          icon: Icons.bookmark,
+                          onPressed: _pickOwnSavedFood,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        SecondaryButton(
+                          label: '公開食品から追加',
+                          icon: Icons.public,
+                          onPressed: _pickPublicFood,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        SecondaryButton(
+                          label: '手入力で追加',
+                          icon: Icons.edit,
+                          onPressed: _addManualItem,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  ..._items.asMap().entries.map((entry) {
-                    final item = entry.value;
-                    return Card(
-                      child: ListTile(
-                        title: Text(item.name),
-                        subtitle: Text(
-                          '${item.consumedAmount}${item.unitType.label} · '
-                          '${formatNullableNutrient((item.kcalPerBase ?? 0) * item.consumedAmount / item.baseAmount)}kcal',
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () =>
-                              setState(() => _items.removeAt(entry.key)),
-                        ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppSectionHeader(
+                    title: '構成食品',
+                    subtitle: _items.isEmpty ? null : '${_items.length} 件',
+                  ),
+                  if (_items.isNotEmpty) ...[
+                    AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm,
                       ),
-                    );
-                  }),
+                      child: Text(
+                        '合計 ${formatNullableNutrient(_totalKcal)} kcal · '
+                        'P ${formatNullableNutrient(_totalProtein)} '
+                        'F ${formatNullableNutrient(_totalFat)} '
+                        'C ${formatNullableNutrient(_totalCarb)}',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  if (_items.isEmpty)
+                    const AppCard(child: Text('食品を追加してください'))
+                  else
+                    ..._items.asMap().entries.map((entry) {
+                      final item = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: AppCard(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.xs,
+                          ),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item.name),
+                            subtitle: Text(_formatItemSubtitle(item)),
+                            trailing: Semantics(
+                              label: '削除',
+                              button: true,
+                              child: IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () =>
+                                    setState(() => _items.removeAt(entry.key)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
                 ],
               ),
             ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: FilledButton(
-            onPressed: _isSaving ? null : _save,
-            child: _isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('保存'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              filledButtonTheme: FilledButtonThemeData(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+              ),
+            ),
+            child: PrimaryButton(
+              label: '保存',
+              loading: _isSaving,
+              onPressed: _isSaving ? null : _save,
+            ),
           ),
         ),
       ),
@@ -320,17 +417,17 @@ class _ManualItemDialogState extends State<_ManualItemDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: '食品名'),
-            ),
-            TextField(
+            AppTextField(controller: _nameController, label: '食品名'),
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(
               controller: _baseController,
-              decoration: const InputDecoration(labelText: '基準量'),
+              label: '基準量',
               keyboardType: TextInputType.number,
             ),
+            const SizedBox(height: AppSpacing.sm),
             DropdownButtonFormField<FoodUnitType>(
               initialValue: _unitType,
+              decoration: const InputDecoration(labelText: '単位'),
               items: FoodUnitType.values
                   .map(
                     (unit) =>
@@ -343,14 +440,16 @@ class _ManualItemDialogState extends State<_ManualItemDialog> {
                 }
               },
             ),
-            TextField(
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(
               controller: _consumedController,
-              decoration: const InputDecoration(labelText: '摂取量'),
+              label: '摂取量',
               keyboardType: TextInputType.number,
             ),
-            TextField(
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(
               controller: _kcalController,
-              decoration: const InputDecoration(labelText: 'kcal（基準量あたり）'),
+              label: 'kcal（基準量あたり）',
               keyboardType: TextInputType.number,
             ),
           ],

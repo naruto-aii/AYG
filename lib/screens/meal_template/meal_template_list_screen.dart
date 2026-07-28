@@ -5,7 +5,6 @@ import '../../models/meal_template_apply.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
-import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -151,45 +150,30 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCreate,
-        icon: const Icon(Icons.add),
-        label: const Text('テンプレート作成'),
+      appBar: AppBar(
+        title: const Text('食事テンプレート'),
+        actions: [
+          Semantics(
+            label: 'テンプレート作成',
+            button: true,
+            child: IconButton(
+              onPressed: _openCreate,
+              icon: const Icon(Icons.add),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenPadding,
-                AppSpacing.screenPadding,
-                AppSpacing.screenPadding,
-                AppSpacing.sm,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const AppLogo(height: 28),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    '食事テンプレート',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
-              ),
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: AppTextField(
                 controller: _searchController,
                 label: 'テンプレート名で検索',
                 suffixIcon: const Icon(Icons.search),
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
             Expanded(
               child: _isLoading
                   ? const AppLoadingState()
@@ -197,7 +181,7 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
                   ? const AppEmptyState(message: '食事テンプレートがありません')
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.screenPadding,
+                        horizontal: AppSpacing.md,
                       ),
                       itemCount: _templates.length,
                       itemBuilder: (context, index) {
@@ -317,10 +301,10 @@ class _MealTemplateDependencyDialogState
           shrinkWrap: true,
           children: [
             const Text('元食品の状態が変わっています。各項目の利用方法を選んでください。'),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             ...widget.issues.map((issue) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

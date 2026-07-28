@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/exercise_entry.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
-import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/history/workout_history_list.dart';
 import '../exercise/exercise_form_screen.dart';
@@ -58,44 +56,24 @@ class WorkoutTabScreen extends StatelessWidget {
             : dateGroups;
 
         return Scaffold(
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _openExerciseForm(context),
-            icon: const Icon(Icons.add),
-            label: const Text('運動追加'),
+          appBar: AppBar(
+            title: const Text('運動'),
+            actions: [
+              Semantics(
+                label: '運動追加',
+                button: true,
+                child: IconButton(
+                  onPressed: () => _openExerciseForm(context),
+                  icon: const Icon(Icons.add),
+                ),
+              ),
+            ],
           ),
           body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenPadding,
-                    AppSpacing.screenPadding,
-                    AppSpacing.screenPadding,
-                    AppSpacing.sm,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppLogo(height: 28),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        '運動',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: WorkoutHistoryList(
-                    dateGroups: displayGroups,
-                    onTapEntry: (entry) =>
-                        _openExerciseForm(context, entry: entry),
-                    onDeleteEntry: (entry) =>
-                        _confirmDeleteExercise(context, entry),
-                  ),
-                ),
-              ],
+            child: WorkoutHistoryList(
+              dateGroups: displayGroups,
+              onTapEntry: (entry) => _openExerciseForm(context, entry: entry),
+              onDeleteEntry: (entry) => _confirmDeleteExercise(context, entry),
             ),
           ),
         );

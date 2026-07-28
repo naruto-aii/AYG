@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../models/exercise_entry.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/secondary_button.dart';
 
 class ExerciseFormScreen extends StatefulWidget {
   const ExerciseFormScreen({super.key, required this.controller, this.entry});
@@ -20,6 +26,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _durationController;
   late final TextEditingController _burnedKcalController;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -62,6 +69,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return;
     }
 
+    setState(() => _isSaving = true);
     if (widget.isEditing) {
       await widget.controller.updateExercise(entry);
     } else {
@@ -80,22 +88,10 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
     );
 
     if (confirmed != true) {
@@ -117,69 +113,96 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              widget.isEditing ? 160 : 100,
+            ),
             children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: '運動名',
-                  border: OutlineInputBorder(),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppTextField(
+                      controller: _nameController,
+                      label: '運動名',
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '運動名を入力してください';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    AppTextField(
+                      controller: _durationController,
+                      label: '実施時間（分）',
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return '実施時間を入力してください';
+                        }
+                        final parsed = int.tryParse(value);
+                        if (parsed == null || parsed <= 0) {
+                          return '1以上の整数を入力してください';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    AppTextField(
+                      controller: _burnedKcalController,
+                      label: '消費 kcal',
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return '消費 kcal を入力してください';
+                        }
+                        final parsed = double.tryParse(value);
+                        if (parsed == null || parsed < 0) {
+                          return '0以上の数値を入力してください';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '運動名を入力してください';
-                  }
-                  return null;
-                },
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _durationController,
-                decoration: const InputDecoration(
-                  labelText: '実施時間（分）',
-                  border: OutlineInputBorder(),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Theme(
+                data: Theme.of(context).copyWith(
+                  filledButtonTheme: FilledButtonThemeData(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
                 ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '実施時間を入力してください';
-                  }
-                  final parsed = int.tryParse(value);
-                  if (parsed == null || parsed <= 0) {
-                    return '1以上の整数を入力してください';
-                  }
-                  return null;
-                },
+                child: PrimaryButton(
+                  label: '保存',
+                  loading: _isSaving,
+                  onPressed: _isSaving ? null : _save,
+                ),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _burnedKcalController,
-                decoration: const InputDecoration(
-                  labelText: '消費 kcal',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '消費 kcal を入力してください';
-                  }
-                  final parsed = double.tryParse(value);
-                  if (parsed == null || parsed < 0) {
-                    return '0以上の数値を入力してください';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 32),
-              FilledButton(onPressed: _save, child: const Text('保存')),
               if (widget.isEditing) ...[
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: _confirmDelete,
-                  child: const Text('削除'),
-                ),
+                const SizedBox(height: AppSpacing.xs),
+                SecondaryButton(label: '削除', onPressed: _confirmDelete),
               ],
             ],
           ),

@@ -8,7 +8,6 @@ import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/settings_list_tile.dart';
 import 'settings_basic_info_screen.dart';
@@ -53,24 +52,18 @@ class SettingsScreen extends StatelessWidget {
     final email = authenticationRepository.currentUser?.email;
 
     return Scaffold(
+      appBar: AppBar(title: const Text('設定')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          padding: const EdgeInsets.all(AppSpacing.md),
           children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: AppLogo(height: 28),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text('設定', style: Theme.of(context).textTheme.headlineMedium),
             if (email != null) ...[
-              const SizedBox(height: AppSpacing.sm),
               Text(
                 '${AppStrings.settingsLoggedInAs}: $email',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
+              const SizedBox(height: AppSpacing.md),
             ],
-            const SizedBox(height: AppSpacing.lg),
             AppCard(
               padding: EdgeInsets.zero,
               child: Column(

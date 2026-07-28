@@ -47,6 +47,7 @@ void main() {
 
     expect(find.text('Googleでログイン'), findsOneWidget);
     expect(find.text('Appleでログイン'), findsOneWidget);
+    expect(find.text(AppStrings.loginTagline), findsOneWidget);
     expect(find.text('利用規約'), findsOneWidget);
     expect(find.text('プライバシーポリシー'), findsOneWidget);
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/supabase_config.dart';
+import '../../constants/app_strings.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../state/app_controller.dart';
@@ -81,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const Center(child: AppLogo(markSize: 72, vertical: true)),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'エネルギー管理をはじめましょう',
+                AppStrings.loginTagline,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.secondaryText,

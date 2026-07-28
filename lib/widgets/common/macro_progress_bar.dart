@@ -12,17 +12,21 @@ class MacroProgressBar extends StatelessWidget {
     required this.intakeG,
     required this.targetG,
     required this.color,
+    this.compact = false,
   });
 
   final String label;
   final double intakeG;
   final double targetG;
   final Color color;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final progress = targetG > 0 ? (intakeG / targetG).clamp(0.0, 1.0) : 0.0;
     final remaining = (targetG - intakeG).clamp(0, double.infinity);
+    final barSpacing = compact ? 2.0 : AppSpacing.xxs;
+    final barHeight = compact ? 8.0 : 10.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,23 +41,25 @@ class MacroProgressBar extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.xxs),
+        SizedBox(height: barSpacing),
         ClipRRect(
           borderRadius: AppRadius.chip,
           child: LinearProgressIndicator(
             value: progress,
-            minHeight: 10,
+            minHeight: barHeight,
             backgroundColor: color.withValues(alpha: 0.15),
             color: color,
           ),
         ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          '${intakeG.toStringAsFixed(0)} / ${targetG.toStringAsFixed(0)} g',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppColors.secondaryText),
-        ),
+        if (!compact) ...[
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            '${intakeG.toStringAsFixed(0)} / ${targetG.toStringAsFixed(0)} g',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.secondaryText),
+          ),
+        ],
       ],
     );
   }

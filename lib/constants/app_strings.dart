@@ -7,6 +7,8 @@ class AppStrings {
 
   static const appTitle = 'カロナビ';
 
+  static const loginTagline = '毎日の食事と運動を、やさしく見える化。';
+
   /// 暫定アプリアイコン内の表示文字（正式アセット確定まで）。
   static const provisionalAppIconText = 'カ';
 

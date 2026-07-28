@@ -63,7 +63,7 @@ class AppLogo extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         mark,
-        SizedBox(width: AppSpacing.sm),
+        SizedBox(width: AppSpacing.xs),
         Flexible(child: title),
       ],
     );

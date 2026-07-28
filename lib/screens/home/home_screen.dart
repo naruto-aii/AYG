@@ -9,7 +9,6 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/nutrition_format.dart';
-import '../../widgets/add_action_sheet.dart';
 import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
@@ -94,16 +93,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _showAddMenu(BuildContext context, {double? currentWeightKg}) {
-    showAddActionSheet(
-      context,
-      onAddFood: () => _openFoodForm(context),
-      onAddWorkout: () => _openExerciseForm(context),
-      onRecordWeight: () =>
-          _openWeightRecord(context, initialWeightKg: currentWeightKg),
-    );
-  }
-
   String _formatTime(DateTime time) {
     final h = time.hour.toString().padLeft(2, '0');
     final m = time.minute.toString().padLeft(2, '0');
@@ -159,12 +148,6 @@ class HomeScreen extends StatelessWidget {
         final todayExercise = _todayExerciseEntries(controller.exerciseEntries);
 
         return Scaffold(
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () =>
-                _showAddMenu(context, currentWeightKg: profile.weightKg),
-            icon: const Icon(Icons.add),
-            label: const Text('追加'),
-          ),
           body: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(AppSpacing.screenPadding),
@@ -173,20 +156,25 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   const Align(
                     alignment: Alignment.centerLeft,
-                    child: AppLogo(height: 32),
+                    child: AppLogo(height: 30),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.md),
                   AppCard(
                     large: true,
-                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm + 2,
+                    ),
                     child: Column(
                       children: [
                         CalorieProgressRing(
                           intakeKcal: summary.intakeKcal,
                           targetKcal: summary.targetKcal,
                           remainingKcal: summary.remainingKcal,
+                          size: 148,
+                          strokeWidth: 11,
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         Text(
                           '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
                           '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal',
@@ -196,8 +184,12 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.sm),
                   AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
                     child: Column(
                       children: [
                         MacroProgressBar(
@@ -205,25 +197,28 @@ class HomeScreen extends StatelessWidget {
                           intakeG: summary.intakeProteinG,
                           targetG: summary.targetProteinG,
                           color: AppColors.macroProtein,
+                          compact: true,
                         ),
-                        const SizedBox(height: AppSpacing.sm),
+                        const SizedBox(height: AppSpacing.xs),
                         MacroProgressBar(
                           label: 'F',
                           intakeG: summary.intakeFatG,
                           targetG: summary.targetFatG,
                           color: AppColors.macroFat,
+                          compact: true,
                         ),
-                        const SizedBox(height: AppSpacing.sm),
+                        const SizedBox(height: AppSpacing.xs),
                         MacroProgressBar(
                           label: 'C',
                           intakeG: summary.intakeCarbG,
                           targetG: summary.targetCarbG,
                           color: AppColors.macroCarb,
+                          compact: true,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.sm),
                   _QuickActionsRow(
                     onAddFood: () => _openFoodForm(context),
                     onAddWorkout: () => _openExerciseForm(context),
@@ -232,7 +227,7 @@ class HomeScreen extends StatelessWidget {
                       initialWeightKg: profile.weightKg,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.md),
                   AppCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,19 +377,26 @@ class _QuickActionButton extends StatelessWidget {
     return AppCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.md,
-        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+        horizontal: AppSpacing.xxs,
       ),
-      child: Column(
-        children: [
-          Icon(icon, color: AppColors.primaryGreen),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge,
-            textAlign: TextAlign.center,
-          ),
-        ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: AppColors.primaryGreen),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }

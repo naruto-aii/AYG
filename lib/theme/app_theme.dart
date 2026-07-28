@@ -100,12 +100,18 @@ abstract final class AppTheme {
         hintStyle: const TextStyle(color: AppColors.secondaryText),
       ),
       navigationBarTheme: NavigationBarThemeData(
+        height: 64,
         backgroundColor: AppColors.cardWhite,
-        indicatorColor: AppColors.softGreen.withValues(alpha: 0.5),
+        indicatorColor: AppColors.softGreen.withValues(alpha: 0.55),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        labelPadding: const EdgeInsets.only(top: 0),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
-            fontSize: 12,
+            fontSize: 11,
+            height: 1.1,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             color: selected ? AppColors.primaryGreen : AppColors.secondaryText,
           );
@@ -113,6 +119,7 @@ abstract final class AppTheme {
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
+            size: 22,
             color: selected ? AppColors.primaryGreen : AppColors.secondaryText,
           );
         }),

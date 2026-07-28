@@ -55,21 +55,21 @@ class AygApp extends StatelessWidget {
             );
           }
 
-          if (_shouldShowMainShell(controller)) {
-            return MainShellScreen(
-              controller: controller,
-              openFoodFactsService: openFoodFactsService,
-              authenticationRepository: authenticationRepository,
-              healthRepository: healthRepository,
-            );
-          }
-
           if (controller.requiresOnboarding) {
             return HealthSetupScreen(
               controller: controller,
               openFoodFactsService: openFoodFactsService,
               healthRepository: healthRepository,
               authenticationRepository: authenticationRepository,
+            );
+          }
+
+          if (_shouldShowMainShell(controller)) {
+            return MainShellScreen(
+              controller: controller,
+              openFoodFactsService: openFoodFactsService,
+              authenticationRepository: authenticationRepository,
+              healthRepository: healthRepository,
             );
           }
 

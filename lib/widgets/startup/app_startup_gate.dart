@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
@@ -38,8 +39,26 @@ class AppSyncRetryScreen extends StatelessWidget {
   final AppController controller;
   final VoidCallback onLogout;
 
+  Future<void> _copyDetails(BuildContext context) async {
+    final failure = controller.syncFailure;
+    if (failure == null) {
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: failure.copyText));
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('詳細をコピーしました')));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final failure = controller.syncFailure;
+    final title = failure?.userMessage ?? 'データの取得に失敗しました';
+    final errorCode = failure?.errorCode ?? 'SYNC_FAILED';
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -49,13 +68,13 @@ class AppSyncRetryScreen extends StatelessWidget {
             children: [
               const Spacer(),
               Text(
-                'データの取得に失敗しました',
+                title,
                 style: Theme.of(context).textTheme.titleLarge,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'ネットワーク接続を確認して、もう一度お試しください。',
+                'エラーコード：$errorCode',
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
@@ -66,6 +85,11 @@ class AppSyncRetryScreen extends StatelessWidget {
                 onPressed: controller.isSyncInProgress
                     ? null
                     : () => controller.retryAuthenticatedSync(),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              OutlinedButton(
+                onPressed: failure == null ? null : () => _copyDetails(context),
+                child: const Text('詳細をコピー'),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextButton(onPressed: onLogout, child: const Text('ログアウト')),

@@ -23,6 +23,7 @@ import '../models/food_unit_type.dart';
 import '../models/saved_food.dart';
 import '../models/saved_food_draft.dart';
 import '../models/saved_food_persistence_error.dart';
+import '../models/sync_failure.dart';
 import '../models/saved_food_entry_selection.dart';
 import '../models/food_report.dart';
 import '../models/public_food_publish_match.dart';
@@ -45,6 +46,7 @@ import '../repositories/contracts/settings_repository_base.dart';
 import '../repositories/contracts/user_repository_base.dart';
 import '../repositories/contracts/weight_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
+import '../repositories/sync_step_runner.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
@@ -146,11 +148,13 @@ class AppController extends ChangeNotifier {
   bool _isSyncInProgress = false;
   bool _lastSyncFailed = false;
   bool _isInitializing = false;
+  SyncFailure? _syncFailure;
 
   bool get hasInitialSyncCompleted => _hasInitialSyncCompleted;
   bool get isSyncInProgress => _isSyncInProgress;
   bool get lastSyncFailed => _lastSyncFailed;
   bool get isInitializing => _isInitializing;
+  SyncFailure? get syncFailure => _syncFailure;
 
   /// 初回同期失敗などでプロフィール未取得のままオンボーディングへ進まない。
   bool get requiresSyncRetry =>
@@ -159,10 +163,8 @@ class AppController extends ChangeNotifier {
   bool get requiresOnboarding =>
       isAuthenticated &&
       _hasInitialSyncCompleted &&
-      !(onboardingComplete &&
-          profile != null &&
-          goal != null &&
-          nutritionSettings != null);
+      !_lastSyncFailed &&
+      !onboardingComplete;
 
   UserProfile? profile;
   Goal? goal;
@@ -241,8 +243,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> _handleAuthStateChanged(AuthUser? user) async {
     if (user == null) {
-      _hasInitialSyncCompleted = false;
-      _lastSyncFailed = false;
+      _resetSyncState();
       _clearInMemoryState();
       notifyListeners();
       return;
@@ -255,6 +256,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> retryAuthenticatedSync() async {
+    if (_isSyncInProgress) {
+      return;
+    }
     await handleAuthenticatedSession(force: true);
   }
 
@@ -271,6 +275,7 @@ class AppController extends ChangeNotifier {
 
     _isSyncInProgress = true;
     _lastSyncFailed = false;
+    _syncFailure = null;
     notifyListeners();
 
     try {
@@ -290,10 +295,33 @@ class AppController extends ChangeNotifier {
         await _localSessionStore?.saveLastUserId(authUser.id);
       }
 
-      await loadPersistedState();
+      await runSyncStep(
+        step: SyncStep.applyRemoteData,
+        repository: 'AppController',
+        tableName: 'local_cache',
+        operation: 'load',
+        action: () => loadPersistedState(),
+      );
       _lastSyncFailed = false;
+      _syncFailure = null;
+    } on SyncStepException catch (error) {
+      _lastSyncFailed = true;
+      _hasInitialSyncCompleted = false;
+      _syncFailure = error.failure;
+      await _localUserDataClearer?.clearAll();
+      _clearInMemoryState();
     } catch (error, stackTrace) {
       _lastSyncFailed = true;
+      _hasInitialSyncCompleted = false;
+      _syncFailure = SyncFailure.from(
+        step: SyncStep.applyRemoteData,
+        error: error,
+        repository: 'AppController',
+        tableName: 'local_cache',
+        operation: 'sync',
+      )..logDebug();
+      await _localUserDataClearer?.clearAll();
+      _clearInMemoryState();
       if (kDebugMode) {
         debugPrint('[AYG] handleAuthenticatedSession failed: $error');
         debugPrintStack(stackTrace: stackTrace);
@@ -305,11 +333,22 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    if (_isSyncInProgress) {
+      return;
+    }
+    _resetSyncState();
+    _clearInMemoryState();
+    await _localUserDataClearer?.clearAll();
+    await _localSessionStore?.clearLastUserId();
     await _authenticationRepository?.logout();
+    notifyListeners();
+  }
+
+  void _resetSyncState() {
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;
-    _clearInMemoryState();
-    notifyListeners();
+    _isSyncInProgress = false;
+    _syncFailure = null;
   }
 
   void _clearInMemoryState() {
@@ -1655,6 +1694,19 @@ class AppController extends ChangeNotifier {
         email: authUser.email,
       );
     } catch (error) {
+      if (error is SyncStepException) {
+        final mapped = SavedFoodPersistenceException(
+          errorCode: SavedFoodErrorCode.userProfileRequired,
+          message: error.failure.message,
+          repositoryStep: 'AppController._ensureAuthenticatedUserProfile',
+          operation: 'ensureUserProfile',
+          postgresCode: error.failure.postgresCode,
+          details: error.failure.details,
+          hint: error.failure.hint,
+          cause: error,
+        )..logDebug();
+        throw mapped;
+      }
       final mapped = SavedFoodPersistenceException.ensureUserProfileFailed(
         error,
       )..logDebug();

@@ -41,14 +41,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('データの取得に失敗しました'), findsOneWidget);
+    expect(find.textContaining('エラーコード：'), findsOneWidget);
+    expect(find.textContaining('FETCH_SAVED_FOODS_FAILED'), findsOneWidget);
     expect(find.text('Health連携'), findsNothing);
 
     await authRepository.dispose();
   });
 
-  testWidgets('authenticated user with incomplete sync does not show login',
-      (tester) async {
+  testWidgets('authenticated user with incomplete sync does not show login', (
+    tester,
+  ) async {
     final authRepository = MockAuthenticationRepository(
       currentUser: const AuthUser(
         id: 'test-user-id',

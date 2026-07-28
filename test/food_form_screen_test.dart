@@ -74,8 +74,11 @@ void main() {
         find.byKey(const ValueKey('macro_field_carb')),
         '10',
       );
-      await tester.pump();
-
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 

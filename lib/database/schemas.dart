@@ -80,6 +80,7 @@ class SavedFoodEntity {
   late String name;
   late double baseAmount;
   late int unitTypeIndex;
+  String? servingUnitLabel;
 
   double? kcalPerBase;
   double? proteinPerBase;

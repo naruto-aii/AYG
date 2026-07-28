@@ -7,6 +7,7 @@ class SavedFoodDraft {
   const SavedFoodDraft({
     required this.name,
     required this.baseAmount,
+    required this.servingUnitLabel,
     required this.unitType,
     required this.kcalPerBase,
     required this.proteinPerBase,
@@ -21,6 +22,7 @@ class SavedFoodDraft {
 
   final String name;
   final double baseAmount;
+  final String servingUnitLabel;
   final FoodUnitType unitType;
   final double? kcalPerBase;
   final double? proteinPerBase;

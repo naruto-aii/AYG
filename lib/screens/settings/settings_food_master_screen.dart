@@ -27,7 +27,7 @@ class SettingsFoodMasterScreen extends StatelessWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.restaurant_menu_outlined),
-              title: const Text('保存済み食品'),
+              title: const Text('マイ食品'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.of(context).push(

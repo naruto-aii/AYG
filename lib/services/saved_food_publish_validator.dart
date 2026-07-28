@@ -39,6 +39,9 @@ class SavedFoodPublishValidator {
     if (food.baseAmount <= 0) {
       errors.add('基準量は0より大きい値を入力してください');
     }
+    if (!food.baseServingDefined) {
+      errors.add('基準数量と基準単位を入力してください');
+    }
 
     final kcal = food.kcalPerBase;
     final protein = food.proteinPerBase;

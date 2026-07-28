@@ -22,6 +22,8 @@ import '../models/nutrition_settings.dart';
 import '../models/food_unit_type.dart';
 import '../models/saved_food.dart';
 import '../models/saved_food_draft.dart';
+import '../models/saved_food_persistence_error.dart';
+import '../models/sync_failure.dart';
 import '../models/saved_food_entry_selection.dart';
 import '../models/food_report.dart';
 import '../models/public_food_publish_match.dart';
@@ -44,6 +46,7 @@ import '../repositories/contracts/settings_repository_base.dart';
 import '../repositories/contracts/user_repository_base.dart';
 import '../repositories/contracts/weight_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
+import '../repositories/sync_step_runner.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
@@ -144,10 +147,24 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
   bool _lastSyncFailed = false;
+  bool _isInitializing = false;
+  SyncFailure? _syncFailure;
 
   bool get hasInitialSyncCompleted => _hasInitialSyncCompleted;
   bool get isSyncInProgress => _isSyncInProgress;
   bool get lastSyncFailed => _lastSyncFailed;
+  bool get isInitializing => _isInitializing;
+  SyncFailure? get syncFailure => _syncFailure;
+
+  /// 初回同期失敗などでプロフィール未取得のままオンボーディングへ進まない。
+  bool get requiresSyncRetry =>
+      isAuthenticated && _lastSyncFailed && !_hasInitialSyncCompleted;
+
+  bool get requiresOnboarding =>
+      isAuthenticated &&
+      _hasInitialSyncCompleted &&
+      !_lastSyncFailed &&
+      !onboardingComplete;
 
   UserProfile? profile;
   Goal? goal;
@@ -193,9 +210,14 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    _isInitializing = true;
+    notifyListeners();
+
     final authRepository = _authenticationRepository;
     if (authRepository == null) {
       await loadPersistedState();
+      _isInitializing = false;
+      notifyListeners();
       return;
     }
 
@@ -205,27 +227,55 @@ class AppController extends ChangeNotifier {
       // セッション復元失敗時は未ログインとして続行する。
     }
 
-    _authSubscription ??= authRepository.authStateChanges.listen((_) {
-      notifyListeners();
+    _authSubscription ??= authRepository.authStateChanges.listen((user) {
+      unawaited(_handleAuthStateChanged(user));
     });
 
     if (authRepository.isAuthenticated) {
       await handleAuthenticatedSession();
+    } else {
+      _clearInMemoryState();
+    }
+
+    _isInitializing = false;
+    notifyListeners();
+  }
+
+  Future<void> _handleAuthStateChanged(AuthUser? user) async {
+    if (user == null) {
+      _resetSyncState();
+      _clearInMemoryState();
+      notifyListeners();
       return;
     }
 
-    _clearInMemoryState();
+    if (!_isSyncInProgress) {
+      await handleAuthenticatedSession();
+    }
+    notifyListeners();
   }
 
-  Future<void> handleAuthenticatedSession() async {
+  Future<void> retryAuthenticatedSync() async {
+    if (_isSyncInProgress) {
+      return;
+    }
+    await handleAuthenticatedSession(force: true);
+  }
+
+  Future<void> handleAuthenticatedSession({bool force = false}) async {
     final authUser = _authenticationRepository?.currentUser;
     final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
       return;
     }
 
+    if (_isSyncInProgress) {
+      return;
+    }
+
     _isSyncInProgress = true;
     _lastSyncFailed = false;
+    _syncFailure = null;
     notifyListeners();
 
     try {
@@ -239,17 +289,43 @@ class AppController extends ChangeNotifier {
         email: authUser.email,
       );
 
-      if (lastUserId != authUser.id || !_hasInitialSyncCompleted) {
+      if (force || lastUserId != authUser.id || !_hasInitialSyncCompleted) {
         await dataSyncRepository.pullRemoteToLocal(authUser.id);
         _hasInitialSyncCompleted = true;
         await _localSessionStore?.saveLastUserId(authUser.id);
       }
 
-      await loadPersistedState();
-    } catch (_) {
+      await runSyncStep(
+        step: SyncStep.applyRemoteData,
+        repository: 'AppController',
+        tableName: 'local_cache',
+        operation: 'load',
+        action: () => loadPersistedState(),
+      );
+      _lastSyncFailed = false;
+      _syncFailure = null;
+    } on SyncStepException catch (error) {
       _lastSyncFailed = true;
       _hasInitialSyncCompleted = false;
+      _syncFailure = error.failure;
+      await _localUserDataClearer?.clearAll();
       _clearInMemoryState();
+    } catch (error, stackTrace) {
+      _lastSyncFailed = true;
+      _hasInitialSyncCompleted = false;
+      _syncFailure = SyncFailure.from(
+        step: SyncStep.applyRemoteData,
+        error: error,
+        repository: 'AppController',
+        tableName: 'local_cache',
+        operation: 'sync',
+      )..logDebug();
+      await _localUserDataClearer?.clearAll();
+      _clearInMemoryState();
+      if (kDebugMode) {
+        debugPrint('[AYG] handleAuthenticatedSession failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
     } finally {
       _isSyncInProgress = false;
       notifyListeners();
@@ -257,11 +333,22 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    if (_isSyncInProgress) {
+      return;
+    }
+    _resetSyncState();
+    _clearInMemoryState();
+    await _localUserDataClearer?.clearAll();
+    await _localSessionStore?.clearLastUserId();
     await _authenticationRepository?.logout();
+    notifyListeners();
+  }
+
+  void _resetSyncState() {
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;
-    _clearInMemoryState();
-    notifyListeners();
+    _isSyncInProgress = false;
+    _syncFailure = null;
   }
 
   void _clearInMemoryState() {
@@ -310,7 +397,7 @@ class AppController extends ChangeNotifier {
   Future<void> completeOnboarding() async {
     appSettings = appSettings.copyWith(onboardingComplete: true);
     await _settingsRepository?.saveAppSettings(appSettings);
-    _scheduleRemoteSync();
+    await _persistToRemoteNow();
     notifyListeners();
   }
 
@@ -641,18 +728,48 @@ class AppController extends ChangeNotifier {
     if (repository == null) {
       throw StateError('SavedFoodRepository is not configured');
     }
-    if (draft.visibility != FoodVisibility.private) {
-      throw UnsupportedError('Only private foods can be saved in Phase 6A–6C');
+
+    final authUser = _authenticationRepository?.currentUser;
+    if (authUser == null) {
+      final error = SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.authRequired,
+        message: 'Authentication required.',
+        repositoryStep: 'AppController.createSavedFood',
+        operation: 'validate',
+      )..logDebug();
+      throw error;
+    }
+
+    await _ensureAuthenticatedUserProfile();
+
+    final unitLabel = draft.servingUnitLabel.trim();
+    if (unitLabel.isEmpty) {
+      throw SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.validationFailed,
+        message: '基準単位を入力してください',
+        repositoryStep: 'AppController.createSavedFood',
+        operation: 'validate',
+      )..logDebug();
+    }
+    if (draft.baseAmount <= 0) {
+      throw SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.validationFailed,
+        message: '基準数量は0より大きい数値で入力してください',
+        repositoryStep: 'AppController.createSavedFood',
+        operation: 'validate',
+      )..logDebug();
     }
 
     final now = DateTime.now();
+    final unitType = FoodUnitTypeX.inferFromUnitLabel(unitLabel);
     final food = SavedFood(
       foodId: generateId(),
-      ownerUserId: currentOwnerUserId,
+      ownerUserId: authUser.id,
       name: draft.name.trim(),
       normalizedName: FoodNameNormalizer.normalize(draft.name),
       baseAmount: draft.baseAmount,
-      unitType: draft.unitType,
+      unitType: unitType,
+      servingUnitLabel: unitLabel,
       kcalPerBase: draft.kcalPerBase,
       proteinPerBase: draft.proteinPerBase,
       fatPerBase: draft.fatPerBase,
@@ -668,6 +785,36 @@ class AppController extends ChangeNotifier {
     ).normalizedForSave();
 
     await repository.savePrivate(food);
+
+    if (draft.visibility == FoodVisibility.public) {
+      final validation = validateSavedFoodForPublish(food);
+      if (!validation.isValid) {
+        throw SavedFoodPersistenceException(
+          errorCode: SavedFoodErrorCode.validationFailed,
+          message: validation.errors.join('\n'),
+          repositoryStep: 'AppController.createSavedFood',
+          operation: 'publish_validate',
+        );
+      }
+
+      final duplicate = await checkPublicDuplicate(food);
+      if (duplicate != null) {
+        throw SavedFoodPersistenceException(
+          errorCode: SavedFoodErrorCode.conflict,
+          message: 'Duplicate public food exists.',
+          repositoryStep: 'AppController.createSavedFood',
+          operation: 'publish_duplicate_check',
+        );
+      }
+
+      final published = await repository.publish(
+        ownerUserId: authUser.id,
+        foodId: food.foodId,
+      );
+      _scheduleRemoteSync();
+      return published;
+    }
+
     _scheduleRemoteSync();
     return food;
   }
@@ -719,6 +866,8 @@ class AppController extends ChangeNotifier {
     if (repository == null) {
       throw StateError('SavedFoodRepository is not configured');
     }
+
+    await _ensureAuthenticatedUserProfile();
 
     var updated = food
         .copyWith(
@@ -1426,6 +1575,31 @@ class AppController extends ChangeNotifier {
     return _savedFoodEntryBuilder.formatBaseLabel(food);
   }
 
+  Future<void> addMealEntryFromSavedFoodMaster({
+    required SavedFood food,
+    required double consumedQuantity,
+    required DateTime loggedAt,
+  }) async {
+    if (!food.baseServingDefined) {
+      throw StateError('Saved food serving spec is not defined.');
+    }
+    if (consumedQuantity <= 0) {
+      throw StateError('Consumed quantity must be positive.');
+    }
+
+    final entry = _savedFoodEntryBuilder.buildFromSavedFood(
+      food: food,
+      entryId: generateId(),
+      consumedAmount: consumedQuantity,
+      loggedAt: loggedAt,
+    );
+    await addFood(entry);
+
+    if (food.ownerUserId == currentOwnerUserId) {
+      await _recordSavedFoodUsage(food.foodId);
+    }
+  }
+
   String formatBaseAmountLabel({
     required double baseAmount,
     required FoodUnitType unitType,
@@ -1502,11 +1676,26 @@ class AppController extends ChangeNotifier {
         savedFoodSaved: savedFood != null,
       );
     } catch (error) {
+      SavedFoodErrorCode? errorCode;
+      String? message;
+      if (error is SavedFoodPersistenceException) {
+        error.logDebug();
+        errorCode = error.errorCode;
+        message = error.userMessage;
+      } else {
+        message = error.toString();
+        if (kDebugMode) {
+          debugPrint(
+            '[AYG SavedFood] saveFoodEntryWithOptionalSavedFood: $error',
+          );
+        }
+      }
       return SaveFoodEntryResult(
         foodEntrySaved: true,
         entry: entryToSave,
         savedFoodSaved: false,
-        savedFoodErrorMessage: error.toString(),
+        savedFoodErrorMessage: message,
+        savedFoodErrorCode: errorCode ?? SavedFoodErrorCode.insertFailed,
       );
     }
   }
@@ -1521,7 +1710,10 @@ class AppController extends ChangeNotifier {
         resolution.existingFood!.copyWith(
           name: resolution.draft.name,
           baseAmount: resolution.draft.baseAmount,
-          unitType: resolution.draft.unitType,
+          unitType: FoodUnitTypeX.inferFromUnitLabel(
+            resolution.draft.servingUnitLabel,
+          ),
+          servingUnitLabel: resolution.draft.servingUnitLabel.trim(),
           kcalPerBase: resolution.draft.kcalPerBase,
           proteinPerBase: resolution.draft.proteinPerBase,
           fatPerBase: resolution.draft.fatPerBase,
@@ -1535,7 +1727,10 @@ class AppController extends ChangeNotifier {
         SavedFoodDraft(
           name: resolution.newName ?? resolution.draft.name,
           baseAmount: resolution.draft.baseAmount,
-          unitType: resolution.draft.unitType,
+          servingUnitLabel: resolution.draft.servingUnitLabel,
+          unitType: FoodUnitTypeX.inferFromUnitLabel(
+            resolution.draft.servingUnitLabel,
+          ),
           kcalPerBase: resolution.draft.kcalPerBase,
           proteinPerBase: resolution.draft.proteinPerBase,
           fatPerBase: resolution.draft.fatPerBase,
@@ -1547,6 +1742,77 @@ class AppController extends ChangeNotifier {
         ),
       ),
     };
+  }
+
+  Future<void> _ensureAuthenticatedUserProfile() async {
+    final authUser = _authenticationRepository?.currentUser;
+    final dataSyncRepository = _dataSyncRepository;
+    if (authUser == null) {
+      final error = SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.authRequired,
+        message: 'Authentication required.',
+        repositoryStep: 'AppController._ensureAuthenticatedUserProfile',
+        operation: 'validate',
+      )..logDebug();
+      throw error;
+    }
+    if (dataSyncRepository == null) {
+      final error = SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.networkFailed,
+        message: 'Remote sync is not configured.',
+        repositoryStep: 'AppController._ensureAuthenticatedUserProfile',
+        operation: 'validate',
+      )..logDebug();
+      throw error;
+    }
+
+    try {
+      await dataSyncRepository.ensureUserProfile(
+        userId: authUser.id,
+        email: authUser.email,
+      );
+    } catch (error) {
+      if (error is SyncStepException) {
+        final mapped = SavedFoodPersistenceException(
+          errorCode: SavedFoodErrorCode.userProfileRequired,
+          message: error.failure.message,
+          repositoryStep: 'AppController._ensureAuthenticatedUserProfile',
+          operation: 'ensureUserProfile',
+          postgresCode: error.failure.postgresCode,
+          details: error.failure.details,
+          hint: error.failure.hint,
+          cause: error,
+        )..logDebug();
+        throw mapped;
+      }
+      final mapped = SavedFoodPersistenceException.ensureUserProfileFailed(
+        error,
+      )..logDebug();
+      throw mapped;
+    }
+  }
+
+  Future<void> refreshSavedFoodsFromRemote() async {
+    final authUser = _authenticationRepository?.currentUser;
+    final dataSyncRepository = _dataSyncRepository;
+    if (authUser == null || dataSyncRepository == null) {
+      return;
+    }
+
+    await dataSyncRepository.pullSavedFoodsRemoteToLocal(authUser.id);
+    notifyListeners();
+  }
+
+  Future<void> _persistToRemoteNow() async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    if (userId == null || dataSyncRepository == null) {
+      throw StateError('Cannot persist without authenticated remote sync.');
+    }
+
+    await dataSyncRepository.pushLocalToRemote(userId);
+    _hasInitialSyncCompleted = true;
+    _lastSyncFailed = false;
   }
 
   Future<void> _recordSavedFoodUsage(String savedFoodId) async {

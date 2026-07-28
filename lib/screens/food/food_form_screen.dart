@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/food_visibility.dart';
 import '../../models/duplicate_saved_food_resolution.dart';
 import '../../models/food_entry.dart';
 import '../../models/food_entry_source.dart';
@@ -9,12 +10,14 @@ import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
+import '../../models/saved_food_persistence_error.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
+import '../../utils/saved_food_base_serving_format.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_text_field.dart';
@@ -26,7 +29,10 @@ import '../../widgets/layout/app_form_constraint.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
 import '../../widgets/saved_food/saved_food_suggestion_list.dart';
+import '../../widgets/saved_food/saved_food_visibility_selector.dart';
+import '../../widgets/saved_food/serving_amount_fields.dart';
 import '../saved_food/public_food_search_screen.dart';
+import '../saved_food/saved_food_list_screen.dart';
 import 'barcode_scanner_screen.dart';
 
 class FoodFormScreen extends StatefulWidget {
@@ -54,11 +60,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   final _barcodeController = TextEditingController();
   final _nameController = TextEditingController();
   final _quantityController = TextEditingController();
+  final _saveServingQuantityController = TextEditingController(text: '100');
+  final _saveServingUnitController = TextEditingController();
   late final MacroNutritionInputController _macroInput;
 
   bool _isSearching = false;
   bool _manualInputHighlighted = false;
   bool _saveAsFood = true;
+  FoodVisibility _saveFoodVisibility = FoodVisibility.private;
   bool _fromSavedFoodSelection = false;
   bool _barcodeSectionExpanded = false;
   FoodEntrySource _sourceType = FoodEntrySource.manual;
@@ -127,6 +136,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     _barcodeController.dispose();
     _nameController.dispose();
     _quantityController.dispose();
+    _saveServingQuantityController.dispose();
+    _saveServingUnitController.dispose();
     _macroInput.dispose();
     super.dispose();
   }
@@ -164,7 +175,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       _sourceType = selection.entrySourceType;
       _savedFoodSuggestions = const [];
       _nameController.text = selection.name;
-      _quantityController.text = selection.baseAmount.toString();
+      _quantityController.text = SavedFoodBaseServingFormat.formatQuantity(
+        selection.baseAmount,
+      );
     });
     _macroInput.applyExternalValues(
       kcal: selection.kcalPerBase,
@@ -236,16 +249,23 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   }
 
   Future<void> _openPublicFoodSearch() async {
-    final food = await Navigator.of(context).push<SavedFood>(
-      MaterialPageRoute<SavedFood>(
+    final result = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
         builder: (context) => PublicFoodSearchScreen(
           controller: widget.controller,
           selectForMealEntry: true,
         ),
       ),
     );
-    if (food != null && mounted) {
-      _applySavedFoodSelection(food);
+    if (!mounted) {
+      return;
+    }
+    if (result == true) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (result is SavedFood) {
+      _applySavedFoodSelection(result);
     }
   }
 
@@ -326,19 +346,42 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
-  SavedFoodDraft _buildSavedFoodDraft(FoodEntry entry) {
+  SavedFoodDraft? _buildSavedFoodDraft() {
+    final quantity = SavedFoodBaseServingFormat.parseQuantity(
+      _saveServingQuantityController.text,
+    );
+    final unit = SavedFoodBaseServingFormat.parseUnit(
+      _saveServingUnitController.text,
+    );
+    if (quantity == null || unit == null) {
+      return null;
+    }
+
     return SavedFoodDraft(
-      name: entry.name,
-      baseAmount: entry.baseAmount,
-      unitType: entry.unitType,
-      kcalPerBase: entry.kcalPerBase,
-      proteinPerBase: entry.proteinPerBase,
-      fatPerBase: entry.fatPerBase,
-      carbPerBase: entry.carbPerBase,
-      sourceType: switch (entry.sourceType) {
+      name: _nameController.text.trim(),
+      baseAmount: quantity,
+      servingUnitLabel: unit,
+      unitType: FoodUnitTypeX.inferFromUnitLabel(unit),
+      kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
+      proteinPerBase: _macroInput.parseOptional(MacroField.protein),
+      fatPerBase: _macroInput.parseOptional(MacroField.fat),
+      carbPerBase: _macroInput.parseOptional(MacroField.carb),
+      sourceType: switch (_sourceType) {
         FoodEntrySource.openFoodFacts => FoodSourceType.openFoodFacts,
         _ => FoodSourceType.manual,
       },
+      visibility: _saveFoodVisibility,
+    );
+  }
+
+  Future<void> _openMyFoods() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => SavedFoodListScreen(
+          controller: widget.controller,
+          openFoodFactsService: widget.openFoodFactsService,
+        ),
+      ),
     );
   }
 
@@ -396,7 +439,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     DuplicateSavedFoodResolution? duplicateResolution;
 
     if (shouldSaveAsFood) {
-      final foodDraft = _buildSavedFoodDraft(entry);
+      final foodDraft = _buildSavedFoodDraft();
+      if (foodDraft == null) {
+        _showMessage('基準数量と基準単位を入力してください');
+        return;
+      }
       draft = foodDraft;
       duplicateResolution = await _resolveDuplicateIfNeeded(foodDraft);
       if (duplicateResolution == null &&
@@ -425,7 +472,12 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     if (result.savedFoodErrorMessage != null) {
-      _showMessage('食事は保存されましたが、食品登録に失敗しました');
+      final userMessage =
+          result.savedFoodErrorCode?.userMessage(
+            detail: result.savedFoodErrorMessage,
+          ) ??
+          result.savedFoodErrorMessage!;
+      _showMessage('食事は記録しましたが、食品としての保存に失敗しました。\n$userMessage');
     }
 
     Navigator.of(context).pop();
@@ -480,7 +532,13 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         : '数量（未入力時は1）';
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? '食事を編集' : '食事を追加')),
+      appBar: AppBar(
+        title: Text(widget.isEditing ? '食事を編集' : '食事を追加'),
+        actions: [
+          if (!widget.isEditing)
+            TextButton(onPressed: _openMyFoods, child: const Text('マイ食品')),
+        ],
+      ),
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: AppFormConstraint(
@@ -629,6 +687,19 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                           onChanged: (value) =>
                               setState(() => _saveAsFood = value),
                         ),
+                        if (_saveAsFood) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          ServingAmountFields(
+                            quantityController: _saveServingQuantityController,
+                            unitController: _saveServingUnitController,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          SavedFoodVisibilitySelector(
+                            value: _saveFoodVisibility,
+                            onChanged: (value) =>
+                                setState(() => _saveFoodVisibility = value),
+                          ),
+                        ],
                       ],
                     ],
                   ),

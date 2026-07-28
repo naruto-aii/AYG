@@ -1,3 +1,4 @@
+import 'package:ayg/models/sync_failure.dart';
 import 'package:ayg/repositories/data_sync_repository.dart';
 
 class MockDataSyncRepository implements DataSyncRepository {
@@ -38,7 +39,23 @@ class MockDataSyncRepository implements DataSyncRepository {
     pullRemoteToLocalCalled = true;
     lastUserId = userId;
     if (failPull) {
-      throw StateError('pull failed');
+      throw SyncStepException(
+        SyncFailure.from(
+          step: SyncStep.fetchSavedFoods,
+          error: StateError('saved foods pull failed'),
+          repository: 'MockDataSyncRepository',
+          tableName: 'saved_foods',
+          operation: 'select',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<void> pullSavedFoodsRemoteToLocal(String userId) async {
+    lastUserId = userId;
+    if (failPull) {
+      throw StateError('pull saved foods failed');
     }
   }
 

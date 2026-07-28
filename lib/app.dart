@@ -9,6 +9,8 @@ import 'screens/shell/main_shell_screen.dart';
 import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
+import 'constants/app_strings.dart';
+import 'widgets/startup/app_startup_gate.dart';
 
 class AygApp extends StatelessWidget {
   const AygApp({
@@ -34,11 +36,32 @@ class AygApp extends StatelessWidget {
       home: ListenableBuilder(
         listenable: controller,
         builder: (context, child) {
+          if (controller.isInitializing ||
+              (controller.isAuthenticated && controller.isSyncInProgress)) {
+            return const AppStartupLoadingScreen();
+          }
+
           if (!controller.isAuthenticated) {
             return LoginScreen(
               controller: controller,
               authenticationRepository: authenticationRepository,
               authStorageAvailable: authStorageAvailable,
+            );
+          }
+
+          if (controller.requiresSyncRetry) {
+            return AppSyncRetryScreen(
+              controller: controller,
+              onLogout: () => controller.logout(),
+            );
+          }
+
+          if (controller.requiresOnboarding) {
+            return HealthSetupScreen(
+              controller: controller,
+              openFoodFactsService: openFoodFactsService,
+              healthRepository: healthRepository,
+              authenticationRepository: authenticationRepository,
             );
           }
 
@@ -51,11 +74,9 @@ class AygApp extends StatelessWidget {
             );
           }
 
-          return HealthSetupScreen(
+          return AppSyncRetryScreen(
             controller: controller,
-            openFoodFactsService: openFoodFactsService,
-            healthRepository: healthRepository,
-            authenticationRepository: authenticationRepository,
+            onLogout: () => controller.logout(),
           );
         },
       ),

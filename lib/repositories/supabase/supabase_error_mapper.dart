@@ -126,7 +126,18 @@ class SupabaseErrorMapper {
       return const FoodMasterAuthenticationException();
     }
 
-    if (combined.contains('not found') || error.code == 'PGRST116') {
+    if (error.code == '42P01' ||
+        error.code == 'PGRST205' ||
+        combined.contains('does not exist') ||
+        combined.contains('schema cache')) {
+      return FoodMasterTableMissingException(
+        postgresCode: error.code ?? '42P01',
+        message: error.message,
+        tableName: _extractRelationName(combined),
+      );
+    }
+
+    if (error.code == 'PGRST116' || message.contains('not found')) {
       return FoodMasterNotFoundException(error.message);
     }
 
@@ -178,5 +189,16 @@ class SupabaseErrorMapper {
     }
 
     return FoodMasterNetworkException('$context failed: ${error.message}');
+  }
+
+  static String? _extractRelationName(String combined) {
+    final quoted = RegExp(r'''(?:relation|table) "([^"]+)"''').firstMatch(
+      combined,
+    );
+    if (quoted != null) {
+      return quoted.group(1);
+    }
+    final publicTable = RegExp(r"public\.(\w+)").firstMatch(combined);
+    return publicTable?.group(1);
   }
 }

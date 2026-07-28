@@ -23,7 +23,7 @@ class PublicFoodSimilarService {
     final reasons = <PublicFoodSimilarReason>{};
     if (candidate.normalizedName == source.normalizedName &&
         (candidate.baseAmount != source.baseAmount ||
-            candidate.unitType != source.unitType)) {
+            candidate.baseUnit != source.baseUnit)) {
       reasons.add(PublicFoodSimilarReason.sameNameDifferentAmount);
     }
     if (candidate.normalizedName.startsWith(source.normalizedName) ||

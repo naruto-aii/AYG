@@ -53,5 +53,35 @@ void main() {
       );
       expect(mapped, isA<FoodMasterPermissionException>());
     });
+
+    test('maps missing relation to table missing exception', () {
+      final mapped = SupabaseErrorMapper.map(
+        const PostgrestException(
+          message: 'relation "saved_foods" does not exist',
+          code: '42P01',
+        ),
+        context: 'saved_foods pull',
+      );
+      expect(mapped, isA<FoodMasterTableMissingException>());
+      expect((mapped as FoodMasterTableMissingException).postgresCode, '42P01');
+      expect(mapped.tableName, 'saved_foods');
+    });
+
+    test('maps PGRST205 schema cache miss to table missing exception', () {
+      final mapped = SupabaseErrorMapper.map(
+        const PostgrestException(
+          message:
+              "Could not find the table 'public.saved_foods' in the schema cache",
+          code: 'PGRST205',
+          details: 'Not Found',
+        ),
+        context: 'saved_foods pull',
+      );
+      expect(mapped, isA<FoodMasterTableMissingException>());
+      expect(
+        (mapped as FoodMasterTableMissingException).postgresCode,
+        'PGRST205',
+      );
+    });
   });
 }

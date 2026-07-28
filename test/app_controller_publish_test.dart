@@ -77,6 +77,7 @@ SavedFood _sampleFood(String userId, String foodId) {
     normalizedName: 'food',
     baseAmount: 100,
     unitType: FoodUnitType.g,
+    servingUnitLabel: 'g',
     kcalPerBase: 165,
     proteinPerBase: 10,
     fatPerBase: 5,

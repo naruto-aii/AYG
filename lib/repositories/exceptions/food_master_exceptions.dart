@@ -27,6 +27,17 @@ class FoodMasterNetworkException extends FoodMasterException {
   const FoodMasterNetworkException([super.message = 'Network request failed.']);
 }
 
+class FoodMasterTableMissingException extends FoodMasterException {
+  const FoodMasterTableMissingException({
+    required this.postgresCode,
+    String message = 'Table does not exist.',
+    this.tableName,
+  }) : super(message);
+
+  final String postgresCode;
+  final String? tableName;
+}
+
 class FoodMasterAuthenticationException extends FoodMasterException {
   const FoodMasterAuthenticationException([
     super.message = 'Authentication required.',

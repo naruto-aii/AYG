@@ -23,6 +23,7 @@ SavedFood _food({String id = 'food-1'}) {
     normalizedName: 'test food',
     baseAmount: 100,
     unitType: FoodUnitType.g,
+    servingUnitLabel: 'g',
     kcalPerBase: 165,
     proteinPerBase: 10,
     fatPerBase: 5,

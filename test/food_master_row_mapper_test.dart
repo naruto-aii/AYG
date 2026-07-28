@@ -21,6 +21,7 @@ void main() {
         normalizedName: 'rice',
         baseAmount: 100,
         unitType: FoodUnitType.g,
+        servingUnitLabel: 'g',
         visibility: FoodVisibility.private,
         status: FoodStatus.active,
         moderationStatus: ModerationStatus.none,
@@ -37,6 +38,7 @@ void main() {
       expect(parsed.ownerUserId, 'u1');
       expect(parsed.baseAmount, 100);
       expect(parsed.unitType, FoodUnitType.g);
+      expect(parsed.servingUnitLabel, 'g');
       expect(parsed.visibility, FoodVisibility.private);
       expect(parsed.version, 1);
     });

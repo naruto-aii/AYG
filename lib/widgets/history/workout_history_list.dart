@@ -36,7 +36,7 @@ class WorkoutHistoryList extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasEntries = dateGroups.any((group) => group.items.isNotEmpty);
     if (!hasEntries) {
-      return AppEmptyState(message: emptyMessage);
+      return AppEmptyState(message: emptyMessage, centered: true);
     }
 
     return ListView(

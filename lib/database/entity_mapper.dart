@@ -138,6 +138,7 @@ class EntityMapper {
       ..name = food.name
       ..baseAmount = food.baseAmount
       ..unitTypeIndex = EntityEnumCodec.foodUnitTypeIndex(food.unitType)
+      ..servingUnitLabel = food.servingUnitLabel
       ..kcalPerBase = food.kcalPerBase
       ..proteinPerBase = food.proteinPerBase
       ..fatPerBase = food.fatPerBase
@@ -172,6 +173,7 @@ class EntityMapper {
       name: entity.name,
       baseAmount: entity.baseAmount,
       unitType: EntityEnumCodec.foodUnitTypeFromIndex(entity.unitTypeIndex),
+      servingUnitLabel: entity.servingUnitLabel,
       kcalPerBase: entity.kcalPerBase,
       proteinPerBase: entity.proteinPerBase,
       fatPerBase: entity.fatPerBase,

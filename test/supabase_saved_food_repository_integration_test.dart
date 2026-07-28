@@ -9,6 +9,7 @@ import 'package:ayg/models/food_status.dart';
 import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/food_visibility.dart';
 import 'package:ayg/models/saved_food.dart';
+import 'package:ayg/models/saved_food_persistence_error.dart';
 import 'package:ayg/repositories/exceptions/food_master_exceptions.dart';
 import 'package:ayg/repositories/supabase/supabase_saved_food_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,6 +54,7 @@ SavedFood sampleIntegrationFood({
     normalizedName: normalizedName,
     baseAmount: baseAmount,
     unitType: unitType,
+    servingUnitLabel: 'g',
     kcalPerBase: kcal,
     proteinPerBase: 10,
     fatPerBase: 5,
@@ -429,5 +431,44 @@ void main() {
       expect(saved.kcalPerBase, 210);
       expect(saved.ownerUserId, copierId);
     });
+    test(
+      'upsert without public.users row fails with userProfileRequired',
+      () async {
+        if (!available) {
+          markTestSkipped('Local Supabase not available at $_localUrl');
+        }
+
+        final suffix = DateTime.now().microsecondsSinceEpoch;
+        final email = 'fk-only-$suffix@test.local';
+        final created = await service.auth.admin.createUser(
+          AdminUserAttributes(
+            email: email,
+            password: 'testpass123',
+            emailConfirm: true,
+          ),
+        );
+        final userId = created.user!.id;
+        final client = SupabaseClient(_localUrl, _anonKey);
+        await client.auth.signInWithPassword(
+          email: email,
+          password: 'testpass123',
+        );
+        final repo = SupabaseSavedFoodRepository(client: client);
+
+        await expectLater(
+          repo.upsertOwnPrivate(
+            userId: userId,
+            food: sampleIntegrationFood(userId: userId, foodId: 'fk-only-food'),
+          ),
+          throwsA(
+            isA<SavedFoodPersistenceException>().having(
+              (error) => error.errorCode,
+              'errorCode',
+              SavedFoodErrorCode.userProfileRequired,
+            ),
+          ),
+        );
+      },
+    );
   });
 }

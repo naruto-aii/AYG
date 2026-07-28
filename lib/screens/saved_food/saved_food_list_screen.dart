@@ -17,6 +17,8 @@ import 'public_food_search_screen.dart';
 import 'saved_food_form_screen.dart';
 import 'saved_food_publish_flow.dart';
 
+enum _MyFoodVisibilityFilter { all, private, public }
+
 class SavedFoodListScreen extends StatefulWidget {
   const SavedFoodListScreen({
     super.key,
@@ -36,6 +38,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
   List<SavedFood> _foods = const [];
   bool _isLoading = true;
   String? _errorMessage;
+  _MyFoodVisibilityFilter _visibilityFilter = _MyFoodVisibilityFilter.all;
 
   @override
   void initState() {
@@ -57,6 +60,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
     });
 
     try {
+      await widget.controller.refreshSavedFoodsFromRemote();
       final foods = await widget.controller.searchOwnSavedFoods(
         _searchController.text.trim(),
       );
@@ -133,11 +137,23 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
     );
   }
 
+  List<SavedFood> get _filteredFoods {
+    return _foods.where((food) {
+      return switch (_visibilityFilter) {
+        _MyFoodVisibilityFilter.all => true,
+        _MyFoodVisibilityFilter.private =>
+          food.visibility == FoodVisibility.private,
+        _MyFoodVisibilityFilter.public =>
+          food.visibility == FoodVisibility.public,
+      };
+    }).toList();
+  }
+
   Future<void> _confirmDelete(SavedFood food) async {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '削除確認',
-      message: '「${food.name}」を削除しますか？\n過去の食事記録は変更されません。',
+      message: 'この食品を削除しますか？\n過去の食事記録は削除されません。',
     );
 
     if (confirmed != true) {
@@ -161,7 +177,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('保存済み食品'),
+        title: const Text('マイ食品'),
         actions: [
           Semantics(
             label: '公開食品検索',
@@ -187,7 +203,35 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                ),
+                child: SegmentedButton<_MyFoodVisibilityFilter>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _MyFoodVisibilityFilter.all,
+                      label: Text('すべて'),
+                    ),
+                    ButtonSegment(
+                      value: _MyFoodVisibilityFilter.private,
+                      label: Text('非公開'),
+                    ),
+                    ButtonSegment(
+                      value: _MyFoodVisibilityFilter.public,
+                      label: Text('公開'),
+                    ),
+                  ],
+                  selected: {_visibilityFilter},
+                  onSelectionChanged: (selection) {
+                    setState(() => _visibilityFilter = selection.first);
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: AppTextField(
                   controller: _searchController,
                   label: '食品名で検索',
@@ -199,15 +243,17 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
                     ? const AppLoadingState()
                     : _errorMessage != null
                     ? AppEmptyState(message: _errorMessage!)
-                    : _foods.isEmpty
-                    ? const AppEmptyState(message: '保存済み食品がありません')
+                    : _filteredFoods.isEmpty
+                    ? AppEmptyState(
+                        message: _foods.isEmpty ? 'マイ食品がありません' : '該当する食品がありません',
+                      )
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.md,
                         ),
-                        itemCount: _foods.length,
+                        itemCount: _filteredFoods.length,
                         itemBuilder: (context, index) {
-                          final food = _foods[index];
+                          final food = _filteredFoods[index];
                           return Padding(
                             padding: const EdgeInsets.only(
                               bottom: AppSpacing.sm,

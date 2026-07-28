@@ -13,6 +13,8 @@ import '../../widgets/common/secondary_button.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../../widgets/saved_food/public_food_search_result_tile.dart';
+import '../../widgets/saved_food/saved_food_meal_quantity_sheet.dart';
+import '../../widgets/saved_food/serving_amount_fields.dart';
 import '../food/food_form_screen.dart';
 import '../../services/open_food_facts_service.dart';
 
@@ -119,29 +121,62 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
     );
   }
 
-  void _handleUseForMeal(SavedFood food) {
+  Future<void> _handleUseForMeal(SavedFood food) async {
     if (widget.selectForMealEntry) {
-      Navigator.of(context).pop(food);
+      if (!food.baseServingDefined) {
+        await showSavedFoodDirectAddBlockedDialog(
+          context: context,
+          onOpenManualForm: () => Navigator.of(context).pop(food),
+        );
+        return;
+      }
+
+      final added = await showSavedFoodMealQuantitySheet(
+        context: context,
+        controller: widget.controller,
+        food: food,
+      );
+      if (added && mounted) {
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('食事に追加しました')),
+        );
+      }
       return;
     }
 
-    final service = widget.openFoodFactsService;
-    if (service == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('食事登録画面を開けませんでした')));
+    if (!food.baseServingDefined) {
+      final service = widget.openFoodFactsService;
+      await showSavedFoodDirectAddBlockedDialog(
+        context: context,
+        onOpenManualForm: service == null
+            ? null
+            : () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => FoodFormScreen(
+                      controller: widget.controller,
+                      openFoodFactsService: service,
+                      initialPublicFood: food,
+                    ),
+                  ),
+                );
+              },
+      );
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => FoodFormScreen(
-          controller: widget.controller,
-          openFoodFactsService: service,
-          initialPublicFood: food,
-        ),
-      ),
+    final added = await showSavedFoodMealQuantitySheet(
+      context: context,
+      controller: widget.controller,
+      food: food,
     );
+    if (added && mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('食事に追加しました')),
+      );
+    }
   }
 
   @override

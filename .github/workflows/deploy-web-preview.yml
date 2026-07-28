@@ -1,0 +1,82 @@
+name: Deploy Web Preview
+
+on:
+  push:
+    branches:
+      - web-preview
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-web-preview
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Validate secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "Missing required GitHub Secrets: SUPABASE_URL and/or SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+      - name: Build web
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          OFF_CONTACT_EMAIL: ${{ secrets.OFF_CONTACT_EMAIL }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+
+          config = {
+              "SUPABASE_URL": os.environ["SUPABASE_URL"],
+              "SUPABASE_ANON_KEY": os.environ["SUPABASE_PUBLISHABLE_KEY"],
+              "GOOGLE_WEB_CLIENT_ID": os.environ.get("GOOGLE_WEB_CLIENT_ID", ""),
+              "OFF_CONTACT_EMAIL": os.environ.get("OFF_CONTACT_EMAIL", ""),
+          }
+          with open("dart_defines.ci.json", "w", encoding="utf-8") as handle:
+              json.dump(config, handle)
+          PY
+          flutter build web --release \
+            --base-href "/AYG/" \
+            --target lib/main_web.dart \
+            --dart-define-from-file=dart_defines.ci.json
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

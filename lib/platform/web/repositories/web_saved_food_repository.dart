@@ -1,39 +1,30 @@
-import 'package:isar/isar.dart';
+import '../../../models/food_status.dart';
+import '../../../models/food_unit_type.dart';
+import '../../../models/saved_food.dart';
+import '../../../repositories/contracts/saved_food_local_store.dart';
+import '../../../repositories/contracts/saved_food_repository_base.dart';
+import '../../../utils/food_name_normalizer.dart';
 
-import '../database/entity_mapper.dart';
-import '../database/entity_enum_codec.dart';
-import '../database/schemas.dart';
-import '../models/food_status.dart';
-import '../models/food_unit_type.dart';
-import '../models/saved_food.dart';
-import '../utils/food_name_normalizer.dart';
-import 'contracts/saved_food_local_store.dart';
-import 'contracts/saved_food_repository_base.dart';
-
-/// Isar 上の saved_foods（Local First）。
+/// Web向けインメモリ saved_foods ローカルストア。
 class IsarSavedFoodRepository extends SavedFoodRepositoryBase
     implements SavedFoodLocalStore {
-  IsarSavedFoodRepository(this._isar);
-
-  final Isar _isar;
+  final List<SavedFood> _foods = [];
 
   @override
   Future<void> savePrivate(SavedFood food) async {
-    await _isar.writeTxn(() async {
-      await _isar.savedFoodEntitys.put(EntityMapper.toSavedFoodEntity(food));
-    });
+    _foods.removeWhere(
+      (item) =>
+          item.foodId == food.foodId && item.ownerUserId == food.ownerUserId,
+    );
+    _foods.add(food);
   }
 
+  @override
   Future<void> saveAllPrivate(List<SavedFood> foods) async {
-    await _isar.writeTxn(() async {
-      await _isar.savedFoodEntitys.putAll(
-        foods.map(EntityMapper.toSavedFoodEntity).toList(),
-      );
-    });
+    for (final food in foods) {
+      await savePrivate(food);
+    }
   }
-
-  @Deprecated('Use saveAllPrivate')
-  Future<void> saveAll(List<SavedFood> foods) => saveAllPrivate(foods);
 
   @override
   Future<void> updateOwn(SavedFood food) async {
@@ -61,15 +52,12 @@ class IsarSavedFoodRepository extends SavedFoodRepositoryBase
     required String ownerUserId,
     required String foodId,
   }) async {
-    final entity = await _isar.savedFoodEntitys
-        .filter()
-        .foodIdEqualTo(foodId)
-        .ownerUserIdEqualTo(ownerUserId)
-        .findFirst();
-    if (entity == null) {
-      return null;
+    for (final food in _foods) {
+      if (food.foodId == foodId && food.ownerUserId == ownerUserId) {
+        return food;
+      }
     }
-    return EntityMapper.fromSavedFoodEntity(entity);
+    return null;
   }
 
   @override
@@ -78,18 +66,18 @@ class IsarSavedFoodRepository extends SavedFoodRepositoryBase
     required String query,
   }) async {
     final normalizedQuery = FoodNameNormalizer.normalize(query);
-    final queryBuilder = _isar.savedFoodEntitys
-        .filter()
-        .ownerUserIdEqualTo(ownerUserId)
-        .statusIndexEqualTo(EntityEnumCodec.foodStatusIndex(FoodStatus.active));
-
-    final entities = normalizedQuery.isEmpty
-        ? await queryBuilder.findAll()
-        : await queryBuilder
-              .normalizedNameContains(normalizedQuery, caseSensitive: false)
-              .findAll();
-    entities.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    return entities.map(EntityMapper.fromSavedFoodEntity).toList();
+    final foods =
+        _foods
+            .where(
+              (food) =>
+                  food.ownerUserId == ownerUserId &&
+                  food.status == FoodStatus.active &&
+                  (normalizedQuery.isEmpty ||
+                      food.normalizedName.contains(normalizedQuery)),
+            )
+            .toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return foods;
   }
 
   @override
@@ -147,21 +135,17 @@ class IsarSavedFoodRepository extends SavedFoodRepositoryBase
     required String foodId,
     required DateTime deletedAt,
   }) async {
-    await _isar.writeTxn(() async {
-      final entity = await _isar.savedFoodEntitys
-          .filter()
-          .foodIdEqualTo(foodId)
-          .ownerUserIdEqualTo(ownerUserId)
-          .findFirst();
-      if (entity == null) {
+    for (var i = 0; i < _foods.length; i++) {
+      final food = _foods[i];
+      if (food.foodId == foodId && food.ownerUserId == ownerUserId) {
+        _foods[i] = food.copyWith(
+          status: FoodStatus.deleted,
+          deletedAt: deletedAt,
+          updatedAt: deletedAt,
+        );
         return;
       }
-      entity
-        ..statusIndex = EntityEnumCodec.foodStatusIndex(FoodStatus.deleted)
-        ..deletedAt = deletedAt
-        ..updatedAt = deletedAt;
-      await _isar.savedFoodEntitys.put(entity);
-    });
+    }
   }
 
   @override
@@ -169,7 +153,7 @@ class IsarSavedFoodRepository extends SavedFoodRepositoryBase
     String ownerUserId,
     List<SavedFood> foods,
   ) async {
-    await clearAllLocal();
+    _foods.removeWhere((food) => food.ownerUserId == ownerUserId);
     await saveAllPrivate(foods);
   }
 
@@ -185,20 +169,13 @@ class IsarSavedFoodRepository extends SavedFoodRepositoryBase
 
   @override
   Future<void> clearAllLocal() async {
-    await _isar.writeTxn(() async {
-      await _isar.savedFoodEntitys.clear();
-    });
+    _foods.clear();
   }
 
-  /// 同期 pull 用: active + deleted 含む全行。
+  @override
   Future<List<SavedFood>> loadAllOwnIncludingDeleted(String ownerUserId) async {
-    final entities = await _isar.savedFoodEntitys
-        .filter()
-        .ownerUserIdEqualTo(ownerUserId)
-        .findAll();
-    return entities.map(EntityMapper.fromSavedFoodEntity).toList();
+    return _foods.where((food) => food.ownerUserId == ownerUserId).toList();
   }
 }
 
-/// 後方互換 alias。
 typedef SavedFoodRepository = IsarSavedFoodRepository;

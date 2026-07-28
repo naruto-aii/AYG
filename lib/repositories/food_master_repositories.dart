@@ -2,8 +2,9 @@ import 'contracts/blocked_food_creator_repository_base.dart';
 import 'contracts/food_rating_repository_base.dart';
 import 'contracts/food_report_repository_base.dart';
 import 'contracts/saved_food_remote_store.dart';
+import 'contracts/meal_template_repository_base.dart';
+import 'contracts/saved_food_local_store.dart';
 import 'contracts/saved_food_repository_base.dart';
-import 'isar_saved_food_repository.dart';
 import 'meal_template_repository.dart';
 import 'supabase/supabase_blocked_food_creator_repository.dart';
 import 'supabase/supabase_food_rating_repository.dart';
@@ -26,8 +27,8 @@ class FoodMasterRepositories {
   });
 
   final SavedFoodRepositoryBase savedFoods;
-  final IsarSavedFoodRepository localSavedFoods;
-  final MealTemplateRepository mealTemplates;
+  final SavedFoodLocalStore localSavedFoods;
+  final MealTemplateRepositoryBase mealTemplates;
   final FoodRatingRepositoryBase? foodRatings;
   final FoodReportRepositoryBase? foodReports;
   final BlockedFoodCreatorRepositoryBase? blockedCreators;
@@ -35,8 +36,8 @@ class FoodMasterRepositories {
   final SavedFoodRemoteStore? remoteSavedFoods;
 
   factory FoodMasterRepositories.localOnly({
-    required IsarSavedFoodRepository localSavedFoods,
-    required MealTemplateRepository mealTemplates,
+    required SavedFoodLocalStore localSavedFoods,
+    required MealTemplateRepositoryBase mealTemplates,
   }) {
     return FoodMasterRepositories._(
       savedFoods: SyncedSavedFoodRepository(local: localSavedFoods),
@@ -46,8 +47,8 @@ class FoodMasterRepositories {
   }
 
   factory FoodMasterRepositories.synced({
-    required IsarSavedFoodRepository localSavedFoods,
-    required MealTemplateRepository mealTemplates,
+    required SavedFoodLocalStore localSavedFoods,
+    required MealTemplateRepositoryBase mealTemplates,
     required SupabaseSavedFoodRepository remoteSavedFoods,
     required SupabaseMealTemplateRepository remoteMealTemplates,
     required SupabaseFoodRatingRepository foodRatings,

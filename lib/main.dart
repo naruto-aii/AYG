@@ -12,7 +12,7 @@ import 'repositories/exercise_repository.dart';
 import 'repositories/food_master_repositories.dart';
 import 'repositories/food_repository.dart';
 import 'repositories/health_repository.dart';
-import 'repositories/isar_saved_food_repository.dart';
+import 'repositories/saved_food_repository.dart';
 import 'repositories/local_session_store.dart';
 import 'repositories/meal_template_repository.dart';
 import 'repositories/platform_health_repository.dart';

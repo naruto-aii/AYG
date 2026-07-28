@@ -4,6 +4,7 @@ class MockDataSyncRepository implements DataSyncRepository {
   bool ensureUserProfileCalled = false;
   bool pullRemoteToLocalCalled = false;
   bool pushLocalToRemoteCalled = false;
+  bool failPull = false;
 
   String? lastUserId;
   String? lastEmail;
@@ -36,6 +37,9 @@ class MockDataSyncRepository implements DataSyncRepository {
   Future<void> pullRemoteToLocal(String userId) async {
     pullRemoteToLocalCalled = true;
     lastUserId = userId;
+    if (failPull) {
+      throw StateError('pull failed');
+    }
   }
 
   @override

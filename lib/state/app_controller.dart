@@ -142,6 +142,12 @@ class AppController extends ChangeNotifier {
 
   StreamSubscription<AuthUser?>? _authSubscription;
   bool _hasInitialSyncCompleted = false;
+  bool _isSyncInProgress = false;
+  bool _lastSyncFailed = false;
+
+  bool get hasInitialSyncCompleted => _hasInitialSyncCompleted;
+  bool get isSyncInProgress => _isSyncInProgress;
+  bool get lastSyncFailed => _lastSyncFailed;
 
   UserProfile? profile;
   Goal? goal;
@@ -193,7 +199,12 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    await authRepository.restoreSession();
+    try {
+      await authRepository.restoreSession();
+    } catch (_) {
+      // セッション復元失敗時は未ログインとして続行する。
+    }
+
     _authSubscription ??= authRepository.authStateChanges.listen((_) {
       notifyListeners();
     });
@@ -213,29 +224,42 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    final lastUserId = await _localSessionStore?.loadLastUserId();
-    if (lastUserId != null && lastUserId != authUser.id) {
-      await _localUserDataClearer?.clearAll();
-    }
-
-    await dataSyncRepository.ensureUserProfile(
-      userId: authUser.id,
-      email: authUser.email,
-    );
-
-    if (lastUserId != authUser.id || !_hasInitialSyncCompleted) {
-      await dataSyncRepository.pullRemoteToLocal(authUser.id);
-      _hasInitialSyncCompleted = true;
-      await _localSessionStore?.saveLastUserId(authUser.id);
-    }
-
-    await loadPersistedState();
+    _isSyncInProgress = true;
+    _lastSyncFailed = false;
     notifyListeners();
+
+    try {
+      final lastUserId = await _localSessionStore?.loadLastUserId();
+      if (lastUserId != null && lastUserId != authUser.id) {
+        await _localUserDataClearer?.clearAll();
+      }
+
+      await dataSyncRepository.ensureUserProfile(
+        userId: authUser.id,
+        email: authUser.email,
+      );
+
+      if (lastUserId != authUser.id || !_hasInitialSyncCompleted) {
+        await dataSyncRepository.pullRemoteToLocal(authUser.id);
+        _hasInitialSyncCompleted = true;
+        await _localSessionStore?.saveLastUserId(authUser.id);
+      }
+
+      await loadPersistedState();
+    } catch (_) {
+      _lastSyncFailed = true;
+      _hasInitialSyncCompleted = false;
+      _clearInMemoryState();
+    } finally {
+      _isSyncInProgress = false;
+      notifyListeners();
+    }
   }
 
   Future<void> logout() async {
     await _authenticationRepository?.logout();
     _hasInitialSyncCompleted = false;
+    _lastSyncFailed = false;
     _clearInMemoryState();
     notifyListeners();
   }
@@ -1551,6 +1575,10 @@ class AppController extends ChangeNotifier {
   }
 
   void _scheduleRemoteSync() {
+    if (!_hasInitialSyncCompleted || _lastSyncFailed) {
+      return;
+    }
+
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     if (userId == null || dataSyncRepository == null) {

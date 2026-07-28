@@ -235,6 +235,37 @@ void main() {
       await authRepository.dispose();
     });
 
+    test('sync failure blocks remote push until pull succeeds', () async {
+      final authRepository = MockAuthenticationRepository(
+        currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+      );
+      final dataSyncRepository = MockDataSyncRepository()..failPull = true;
+      final controller = AppController(
+        authenticationRepository: authRepository,
+        dataSyncRepository: dataSyncRepository,
+        localSessionStore: LocalSessionStore(),
+      );
+
+      await controller.handleAuthenticatedSession();
+
+      expect(controller.lastSyncFailed, isTrue);
+      expect(controller.hasInitialSyncCompleted, isFalse);
+
+      controller.setProfile(
+        UserProfile(
+          birthDate: DateTime(1990, 1, 1),
+          gender: Gender.male,
+          heightCm: 175,
+          weightKg: 75,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(dataSyncRepository.pushLocalToRemoteCalled, isFalse);
+
+      await authRepository.dispose();
+    });
+
     test('onboarding completion triggers remote push', () async {
       final authRepository = MockAuthenticationRepository(
         currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
@@ -245,6 +276,8 @@ void main() {
         dataSyncRepository: dataSyncRepository,
         localSessionStore: LocalSessionStore(),
       );
+
+      await controller.handleAuthenticatedSession();
 
       controller.setProfile(
         UserProfile(

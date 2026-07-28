@@ -12,7 +12,10 @@ import '../platform/web/repositories/web_saved_food_repository.dart';
 import '../platform/web/repositories/web_settings_repository.dart';
 import '../platform/web/repositories/web_user_repository.dart';
 import '../platform/web/repositories/web_weight_repository.dart';
+import '../platform/web/resilient_auth_local_storage.dart';
+import '../platform/web/resilient_gotrue_async_storage.dart';
 import '../platform/web/web_local_user_data_clearer.dart';
+import '../platform/web/web_storage_availability.dart';
 import '../platform/web/web_unsupported_health_repository.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/data_sync_repository.dart';
@@ -28,33 +31,95 @@ import '../repositories/supabase_authentication_repository.dart';
 import '../services/open_food_facts_service.dart';
 import '../state/app_controller.dart';
 import '../widgets/startup/startup_error_app.dart';
+import 'web_init_error.dart';
 
 /// Web起動用 DI（Isar非依存）。
 Future<void> bootstrapWebApp() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final diagnostics = WebInitDiagnostics();
 
   if (kDebugMode) {
     debugPrint('[AYG Web] bootstrap start');
   }
 
   try {
-    if (SupabaseConfig.isConfigured) {
+    diagnostics.supabaseUrlConfigured = SupabaseConfig.url.isNotEmpty;
+    diagnostics.supabaseAnonKeyConfigured = SupabaseConfig.anonKey.isNotEmpty;
+    diagnostics.authStorageAvailable =
+        WebStorageAvailability.isLocalStorageAvailable;
+
+    _logDiagnostics(diagnostics, 'config');
+
+    if (!SupabaseConfig.isConfigured) {
       if (kDebugMode) {
-        debugPrint('[AYG Web] Supabase.initialize');
+        debugPrint('[AYG Web] Supabase not configured; login-only mode');
       }
-      await Supabase.initialize(
-        url: SupabaseConfig.url,
-        anonKey: SupabaseConfig.anonKey,
-      );
+    } else {
+      try {
+        final sessionKey =
+            'sb-${Uri.parse(SupabaseConfig.url).host.split('.').first}-auth-token';
+        final baseStorage = SharedPreferencesLocalStorage(
+          persistSessionKey: sessionKey,
+        );
+        final resilientStorage = ResilientAuthLocalStorage(baseStorage);
+
+        await Supabase.initialize(
+          url: SupabaseConfig.url,
+          anonKey: SupabaseConfig.anonKey,
+          authOptions: FlutterAuthClientOptions(
+            authFlowType: AuthFlowType.pkce,
+            localStorage: resilientStorage,
+            pkceAsyncStorage: ResilientGotrueAsyncStorage(
+              SharedPreferencesGotrueAsyncStorage(),
+            ),
+          ),
+        );
+        diagnostics.supabaseInitializeSuccess = true;
+        if (!resilientStorage.isPersistent) {
+          diagnostics.authStorageAvailable = false;
+        }
+      } catch (error, stackTrace) {
+        diagnostics.lastErrorCode = WebInitErrorCode.initSupabaseFailed.code;
+        if (kDebugMode) {
+          debugPrint('[AYG Web] Supabase.initialize failed: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+        throw WebInitException(
+          WebInitErrorCode.initSupabaseFailed,
+          cause: error,
+        );
+      }
     }
 
-    final userRepository = UserRepository();
-    final settingsRepository = SettingsRepository();
-    final foodRepository = FoodRepository();
-    final exerciseRepository = ExerciseRepository();
-    final weightRepository = WeightRepository();
-    final savedFoodRepository = IsarSavedFoodRepository();
-    final mealTemplateRepository = MealTemplateRepository();
+    _logDiagnostics(diagnostics, 'supabase');
+
+    late final UserRepository userRepository;
+    late final SettingsRepository settingsRepository;
+    late final FoodRepository foodRepository;
+    late final ExerciseRepository exerciseRepository;
+    late final WeightRepository weightRepository;
+    late final IsarSavedFoodRepository savedFoodRepository;
+    late final MealTemplateRepository mealTemplateRepository;
+
+    try {
+      userRepository = UserRepository();
+      settingsRepository = SettingsRepository();
+      foodRepository = FoodRepository();
+      exerciseRepository = ExerciseRepository();
+      weightRepository = WeightRepository();
+      savedFoodRepository = IsarSavedFoodRepository();
+      mealTemplateRepository = MealTemplateRepository();
+    } catch (error, stackTrace) {
+      diagnostics.lastErrorCode = WebInitErrorCode.initRepositoryFailed.code;
+      if (kDebugMode) {
+        debugPrint('[AYG Web] repository init failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      throw WebInitException(
+        WebInitErrorCode.initRepositoryFailed,
+        cause: error,
+      );
+    }
 
     final foodMasterRepositories = SupabaseConfig.isConfigured
         ? FoodMasterRepositories.synced(
@@ -127,7 +192,28 @@ Future<void> bootstrapWebApp() async {
     if (kDebugMode) {
       debugPrint('[AYG Web] controller.initialize');
     }
-    await controller.initialize();
+
+    try {
+      await controller.initialize();
+      diagnostics.authRestore = authenticationRepository.isAuthenticated
+          ? 'success'
+          : 'no session';
+      diagnostics.initialSync = controller.hasInitialSyncCompleted
+          ? 'success'
+          : controller.lastSyncFailed
+          ? 'failed'
+          : 'skipped';
+    } catch (error, stackTrace) {
+      diagnostics.lastErrorCode = WebInitErrorCode.initControllerFailed.code;
+      diagnostics.authRestore = 'failed';
+      if (kDebugMode) {
+        debugPrint('[AYG Web] controller.initialize failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      // コントローラ初期化失敗でもログイン画面へ進める。
+    }
+
+    _logDiagnostics(diagnostics, 'controller');
 
     if (kDebugMode) {
       debugPrint('[AYG Web] runApp');
@@ -139,13 +225,40 @@ Future<void> bootstrapWebApp() async {
         openFoodFactsService: openFoodFactsService,
         healthRepository: healthRepository,
         authenticationRepository: authenticationRepository,
+        authStorageAvailable: diagnostics.authStorageAvailable,
       ),
     );
+  } on WebInitException catch (error, stackTrace) {
+    if (kDebugMode) {
+      debugPrint('[AYG Web] bootstrap failed: ${error.code.code}');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    runApp(StartupErrorApp(error: error, stackTrace: stackTrace));
   } catch (error, stackTrace) {
     if (kDebugMode) {
       debugPrint('[AYG Web] bootstrap failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
-    runApp(StartupErrorApp(error: error, stackTrace: stackTrace));
+    runApp(
+      StartupErrorApp(
+        error: WebInitException(WebInitErrorCode.initUnknown, cause: error),
+        stackTrace: stackTrace,
+      ),
+    );
   }
+}
+
+void _logDiagnostics(WebInitDiagnostics diagnostics, String stage) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint(
+    '[AYG Web][$stage] '
+    'SUPABASE_URL configured: ${diagnostics.supabaseUrlConfigured}; '
+    'SUPABASE_ANON_KEY configured: ${diagnostics.supabaseAnonKeyConfigured}; '
+    'Supabase initialize: ${diagnostics.supabaseInitializeSuccess ? 'success' : 'failed'}; '
+    'Auth storage available: ${diagnostics.authStorageAvailable}; '
+    'Auth restore: ${diagnostics.authRestore}; '
+    'Initial sync: ${diagnostics.initialSync}',
+  );
 }

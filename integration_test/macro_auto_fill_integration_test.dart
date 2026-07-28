@@ -3,7 +3,6 @@ import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/models/macro_field.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/screens/food/food_tab_screen.dart';
-import 'package:ayg/screens/home/home_screen.dart';
 import 'package:ayg/screens/saved_food/saved_food_form_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,14 +30,7 @@ void main() {
   Future<void> openFoodFormFromHome(WidgetTester tester) async {
     await tester.tap(find.text(AppStrings.navHome));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(HomeScreen),
-        matching: find.byType(FloatingActionButton),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('食事を追加'));
+    await tester.tap(find.text('食事追加'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('macro_field_kcal')), findsOneWidget);
   }

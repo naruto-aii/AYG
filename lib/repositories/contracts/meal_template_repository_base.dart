@@ -36,18 +36,6 @@ abstract class MealTemplateRepositoryBase {
     required List<MealTemplateItem> items,
   });
 
-  Future<void> saveWithItems({
-    required MealTemplate template,
-    required List<MealTemplateItem> items,
-  }) async {
-    await save(template);
-    await replaceItems(
-      ownerUserId: template.ownerUserId,
-      templateId: template.templateId,
-      items: items,
-    );
-  }
-
   Future<List<MealTemplateItem>> getItems({
     required String ownerUserId,
     required String templateId,

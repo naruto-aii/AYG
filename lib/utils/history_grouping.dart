@@ -1,6 +1,5 @@
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
-import 'meal_slot.dart';
 
 /// 履歴画面向けの日付グループ。
 class HistoryDateGroup<T> {
@@ -13,14 +12,6 @@ class HistoryDateGroup<T> {
   final DateTime date;
   final String label;
   final List<T> items;
-}
-
-/// 食事履歴向けの時間帯グループ。
-class MealSlotGroup {
-  const MealSlotGroup({required this.slot, required this.entries});
-
-  final MealSlot slot;
-  final List<FoodEntry> entries;
 }
 
 bool _isSameDay(DateTime a, DateTime b) {
@@ -41,6 +32,13 @@ String dateLabelFor(DateTime date, {required DateTime referenceDate}) {
     1 => '昨日',
     _ => '${date.year}/${date.month}/${date.day}',
   };
+}
+
+/// 記録時刻の昇順で並べ替え。
+List<FoodEntry> sortFoodEntriesByLoggedAt(List<FoodEntry> entries) {
+  final sorted = List<FoodEntry>.from(entries)
+    ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+  return sorted;
 }
 
 /// 日付単位でグルーピング。将来の日付切替に備え、todayOnly=false で全期間に拡張可能。
@@ -68,23 +66,9 @@ List<HistoryDateGroup<FoodEntry>> groupFoodEntriesByDate(
         (date) => HistoryDateGroup<FoodEntry>(
           date: date,
           label: dateLabelFor(date, referenceDate: referenceDate),
-          items: grouped[date]!,
+          items: sortFoodEntriesByLoggedAt(grouped[date]!),
         ),
       )
-      .toList();
-}
-
-List<MealSlotGroup> groupFoodEntriesByMealSlot(List<FoodEntry> entries) {
-  final grouped = <MealSlot, List<FoodEntry>>{
-    for (final slot in MealSlot.displayOrder) slot: [],
-  };
-
-  for (final entry in entries) {
-    grouped[mealSlotFromTime(entry.loggedAt)]!.add(entry);
-  }
-
-  return MealSlot.displayOrder
-      .map((slot) => MealSlotGroup(slot: slot, entries: grouped[slot]!))
       .toList();
 }
 
@@ -112,7 +96,8 @@ List<HistoryDateGroup<ExerciseEntry>> groupExerciseEntriesByDate(
         (date) => HistoryDateGroup<ExerciseEntry>(
           date: date,
           label: dateLabelFor(date, referenceDate: referenceDate),
-          items: grouped[date]!,
+          items: List<ExerciseEntry>.from(grouped[date]!)
+            ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt)),
         ),
       )
       .toList();

@@ -46,6 +46,7 @@ Version 1.1 の食品マスター・公開食品・食事テンプレート・Go
 - `sourceType`, `barcode`, `brand`, `supplementaryWeight`
 - `copiedFromFoodId`, `copiedFromOwnerUserId`
 - `useCount`, `lastUsedAt`, `reportCount`（キャッシュ）
+- `version`（公開食品の利用者向け内容変更回数。初期値 1。V1.1 は履歴なし）
 - `createdAt`, `updatedAt`, `deletedAt`
 
 **Good/Bad 件数は `saved_foods` に持たない。** `food_rating_stats` を参照。
@@ -82,6 +83,16 @@ V1.1 は **private のみ**。公開食品を構成要素に使用可。依存�
 - `food_rating_stats`: Trigger 更新（D15）
 - 保守用: `food_ratings` からの再集計 SQL
 
+**Version 1.1 アプリ要件（DB 高度レート制限は V1.2 候補）:**
+
+- UI 連打防止（debounce）
+- 送信中ボタン無効化
+- 1ユーザー1食品1評価（DB unique + RLS）
+- 自己評価禁止（Trigger）
+- Good/Bad 件数のみでの自動削除は行わない
+
+**Version 1.1 DB:** 直接 RLS INSERT/UPDATE/DELETE を許容（`food_ratings`）。公開化レート制限とは別扱い。
+
 ---
 
 ## 完全重複 vs 類似候補
@@ -100,6 +111,81 @@ V1.1 は **private のみ**。公開食品を構成要素に使用可。依存�
 必須チェック: 「入力した食品情報と栄養値が正しいことを確認しました」
 
 完全重複がある場合は「公開する」を **表示しない**。
+
+---
+
+## 公開化（DB — Version 1.1）
+
+- `private` / `unlisted` → `public` は **通常 UPDATE 禁止**
+- 公開化は **`publish_saved_food(food_id)` RPC のみ**
+- RPC 内で再検証: 所有者・active・重複・栄養非負・moderation 公開可能・**公開頻度制限**
+- **公開頻度上限（Owner 確定）:** 10件/時間/ユーザー、30件/日/ユーザー（private 保存は対象外）
+- RPC 内順序: 認証 → 検証 → 重複確認 → レート headroom 確保（`FOR UPDATE`）→ `visibility=public` 更新 → **成功後にのみ** count 加算（同一トランザクション）
+- 公開済み食品の編集は **Option A**: 通常 UPDATE 可 + Trigger で重複・必須値・非負値を再検証
+
+---
+
+## 公開済み食品の編集（Version 1.1）
+
+### スナップショット不変
+
+- **FoodEntry** は公開食品の **記録時点スナップショット** を保持する
+- 公開食品を編集しても **過去の FoodEntry は変更しない**
+- 今後その食品を検索・利用するユーザーのみ **新しい内容** を見る
+
+### 確認 Popup（必須）
+
+公開食品で、利用者へ影響する項目（食品名・基準量・単位・kcal・P・F・C）を変更して保存する前に確認 Popup を表示する。
+
+```
+公開食品を更新します。
+すでに記録済みの食事内容は変更されません。
+今後この食品を利用するユーザーには新しい内容が表示されます。
+```
+
+実装: `showConfirmPublicFoodUpdateDialog`（`lib/widgets/saved_food/confirm_public_food_update_dialog.dart`）
+
+### version（`saved_foods.version`）
+
+| 項目 | 内容 |
+|------|------|
+| 型 | `integer NOT NULL DEFAULT 1` |
+| 初期値 | `1` |
+| 増加条件 | 公開食品（`visibility = public`）で、利用者向け項目を更新したときのみ `version++` |
+| 対象項目 | `name`, `normalized_name`, `base_amount`, `unit_type`, `kcal/protein/fat/carb_per_base` |
+| V1.1 スコープ | **履歴管理なし**。現行行の version のみ保持（将来互換用） |
+
+増加しない例: `use_count`, `last_used_at`, `barcode`, `brand`, `moderation_status` のみの変更。
+
+Migration: `20260727120000_add_saved_foods_version.sql`
+
+### DB・RLS
+
+- 作成者は公開済み食品を編集可能
+- 完全重複・必須値・非負値は DB Trigger で再検証
+- PFC 整合性: manual 手入力は 4/9/4 強制、OFF 由来は取得値尊重（別仕様）
+- 他ユーザーは編集不可（RLS）
+- 過去 FoodEntry とテンプレート item のスナップショットは **自動更新しない**
+
+**主要情報変更時の確認 Popup（アプリ要件）** — 対象: 食品名、baseAmount、unitType、kcal、P、F、C
+
+---
+
+## テンプレート × ブロック作成者（Version 1.1 アプリ要件）
+
+テンプレート利用時、ブロック済み作成者の食品を含む場合は **記録前に警告 Popup** を表示する。
+
+警告で選択可能:
+
+- 対象食品名の表示
+- ブロックした作成者の食品である旨
+- スナップショット値で今回利用
+- 自分用 private 食品としてコピー
+- 代替食品へ差し替え
+- テンプレートから除外
+- キャンセル
+
+DB 上: スナップショットは削除しない。過去 FoodEntry は不変。
 
 ---
 

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../models/food_entry.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/nutrition_format.dart';
-import '../entry_list_tile.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_empty_state.dart';
 import 'history_section_widgets.dart';
 
 typedef FoodEntryTap = void Function(FoodEntry entry);
 typedef FoodEntryDelete = void Function(FoodEntry entry);
 
-/// 日付 × 時間帯でグルーピングした食事履歴リスト。
+/// 日付でグルーピングした食事履歴リスト（画像なし）。
 class FoodHistoryList extends StatelessWidget {
   const FoodHistoryList({
     super.key,
@@ -24,6 +26,12 @@ class FoodHistoryList extends StatelessWidget {
   final FoodEntryTap onTapEntry;
   final FoodEntryDelete onDeleteEntry;
   final String emptyMessage;
+
+  String _formatTime(DateTime time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
 
   String _foodEntrySubtitle(FoodEntry entry) {
     final kcal = formatNullableNutrient(
@@ -39,52 +47,94 @@ class FoodHistoryList extends StatelessWidget {
       entry.carbPerUnit == null ? null : entry.totalCarbG,
     );
 
-    return '$kcal kcal / P $protein g / F $fat g / C $carb g / '
+    return '$kcal kcal / P $protein / F $fat / C $carb / '
         '数量 ${entry.quantity.toStringAsFixed(1)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (dateGroups.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Text(
-            emptyMessage,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
+    final hasEntries = dateGroups.any((group) => group.items.isNotEmpty);
+    if (!hasEntries) {
+      return AppEmptyState(message: emptyMessage);
     }
 
     return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
       children: [
         for (final dateGroup in dateGroups) ...[
-          HistoryDateHeader(label: dateGroup.label),
-          for (final mealGroup in groupFoodEntriesByMealSlot(
-            dateGroup.items,
-          )) ...[
-            HistorySectionHeader(label: mealGroup.slot.label),
-            if (mealGroup.entries.isEmpty)
-              const HistoryEmptySlotMessage(message: '記録なし')
-            else
-              ...mealGroup.entries.map(
-                (entry) => EntryListTile(
-                  title: entry.name,
-                  subtitle: _foodEntrySubtitle(entry),
-                  leadingIcon: Icons.restaurant,
-                  onTap: () => onTapEntry(entry),
-                  onDelete: () => onDeleteEntry(entry),
-                ),
+          if (dateGroup.items.isNotEmpty) ...[
+            HistoryDateHeader(label: dateGroup.label),
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var i = 0; i < dateGroup.items.length; i++) ...[
+                    if (i > 0) const Divider(height: 1),
+                    _FoodHistoryTile(
+                      entry: dateGroup.items[i],
+                      timeLabel: _formatTime(dateGroup.items[i].loggedAt),
+                      subtitle: _foodEntrySubtitle(dateGroup.items[i]),
+                      onTap: () => onTapEntry(dateGroup.items[i]),
+                      onDelete: () => onDeleteEntry(dateGroup.items[i]),
+                    ),
+                  ],
+                ],
               ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
           ],
-          const SizedBox(height: AppSpacing.lg),
         ],
       ],
+    );
+  }
+}
+
+class _FoodHistoryTile extends StatelessWidget {
+  const _FoodHistoryTile({
+    required this.entry,
+    required this.timeLabel,
+    required this.subtitle,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final FoodEntry entry;
+  final String timeLabel;
+  final String subtitle;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final kcal = formatNullableNutrient(
+      entry.kcalPerUnit == null ? null : entry.totalKcal,
+    );
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xxs,
+      ),
+      onTap: onTap,
+      title: Text(entry.name),
+      subtitle: Text('$timeLabel  $subtitle'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$kcal kcal',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: AppColors.primaryGreen,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            onPressed: onDelete,
+            color: AppColors.secondaryText,
+          ),
+        ],
+      ),
     );
   }
 }

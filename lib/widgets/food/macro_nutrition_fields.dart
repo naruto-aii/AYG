@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/macro_field.dart';
 import '../../services/nutrition_value_calculator.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_spacing.dart';
+import '../common/app_text_field.dart';
 import 'macro_nutrition_input_controller.dart';
 
 /// kcal / P / F / C 入力欄（Mobile / Web 共通）。
@@ -30,33 +34,33 @@ class MacroNutritionFields extends StatelessWidget {
               field: MacroField.kcal,
               label: 'kcal（1単位あたり・任意）',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _buildField(
               context,
               field: MacroField.protein,
               label: 'P（1単位あたり g・任意）',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _buildField(
               context,
               field: MacroField.fat,
               label: 'F（1単位あたり g・任意）',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _buildField(
               context,
               field: MacroField.carb,
               label: 'C（1単位あたり g・任意）',
             ),
             if (controller.negativeMessage != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 controller.negativeMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                style: const TextStyle(color: AppColors.error),
               ),
             ],
             if (controller.showExternalMismatchNotice) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               _ExternalMismatchNotice(controller: controller),
             ],
           ],
@@ -74,21 +78,18 @@ class MacroNutritionFields extends StatelessWidget {
     final source = controller.sourceOf(field);
     final suffix = source == MacroFieldSource.auto ? '（自動）' : null;
 
-    return TextFormField(
+    return AppTextField(
       key: ValueKey('macro_field_${field.name}'),
       controller: textController,
       readOnly: readOnly,
-      decoration: InputDecoration(
-        labelText: suffix == null ? label : '$label $suffix',
-        border: const OutlineInputBorder(),
-        suffixIcon: source == MacroFieldSource.auto
-            ? Icon(
-                Icons.auto_fix_high,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
-              )
-            : null,
-      ),
+      label: suffix == null ? label : '$label $suffix',
+      suffixIcon: source == MacroFieldSource.auto
+          ? Icon(
+              Icons.auto_fix_high,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            )
+          : null,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       validator: (value) => validator(value, label),
       onTap: () => controller.onFieldFocus(field),
@@ -122,10 +123,10 @@ class _ExternalMismatchNotice extends StatelessWidget {
         : null;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.input,
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Column(

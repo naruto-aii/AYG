@@ -4,6 +4,7 @@ import '../../models/food_entry.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/history_grouping.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/history/food_history_list.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import 'food_form_navigation.dart';
@@ -21,22 +22,10 @@ class FoodTabScreen extends StatelessWidget {
   final FoodFormScreenBuilder? foodFormBuilder;
 
   Future<void> _confirmDeleteFood(BuildContext context, FoodEntry entry) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
     );
 
     if (confirmed == true) {
@@ -74,10 +63,18 @@ class FoodTabScreen extends StatelessWidget {
             : dateGroups;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('食事')),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _openFoodForm(context),
-            child: const Icon(Icons.add),
+          appBar: AppBar(
+            title: const Text('食事'),
+            actions: [
+              Semantics(
+                label: '食事追加',
+                button: true,
+                child: IconButton(
+                  onPressed: () => _openFoodForm(context),
+                  icon: const Icon(Icons.add),
+                ),
+              ),
+            ],
           ),
           body: SafeArea(
             child: AppContentConstraint(

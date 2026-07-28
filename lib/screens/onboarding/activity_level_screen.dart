@@ -6,9 +6,9 @@ import '../../models/nutrition_settings.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_spacing.dart';
-import '../food/food_form_navigation.dart';
-import '../shell/shell_navigation.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/onboarding/onboarding_scaffold.dart';
+import '../shell/main_shell_screen.dart';
 
 class ActivityLevelScreen extends StatefulWidget {
   const ActivityLevelScreen({
@@ -16,15 +16,11 @@ class ActivityLevelScreen extends StatefulWidget {
     required this.controller,
     required this.openFoodFactsService,
     required this.authenticationRepository,
-    this.mainShellBuilder,
-    this.foodFormBuilder,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final AuthenticationRepository authenticationRepository;
-  final MainShellScreenBuilder? mainShellBuilder;
-  final FoodFormScreenBuilder? foodFormBuilder;
 
   @override
   State<ActivityLevelScreen> createState() => _ActivityLevelScreenState();
@@ -42,15 +38,12 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
     );
     widget.controller.completeOnboarding();
 
-    final shellBuilder =
-        widget.mainShellBuilder ?? defaultMainShellScreenBuilder;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (context) => shellBuilder(
+        builder: (context) => MainShellScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
-          foodFormBuilder: widget.foodFormBuilder,
         ),
       ),
       (route) => false,
@@ -59,21 +52,14 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.activityLevel)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            Text(
-              '日々の活動量を選択してください',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            ...ActivityLevel.values.map(
+    return OnboardingScaffold(
+      title: AppStrings.activityLevel,
+      subtitle: '日々の活動量を選択してください',
+      body: Column(
+        children: ActivityLevel.values
+            .map(
               (level) => RadioListTile<ActivityLevel>(
+                contentPadding: EdgeInsets.zero,
                 title: Text(AppStrings.activityLevelLabel(level)),
                 subtitle: Text('係数 ${level.factor}'),
                 value: level,
@@ -84,18 +70,10 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
                   }
                 },
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            FilledButton(
-              onPressed: _complete,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Text('完了'),
-              ),
-            ),
-          ],
-        ),
+            )
+            .toList(),
       ),
+      action: PrimaryButton(label: '完了', onPressed: _complete),
     );
   }
 }

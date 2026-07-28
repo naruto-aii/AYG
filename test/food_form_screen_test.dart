@@ -54,15 +54,29 @@ void main() {
       await tester.tap(find.text('open form'));
       await tester.pumpAndSettle();
 
-      final fields = find.byType(TextFormField);
-      await tester.enterText(fields.at(0), 'テスト食品');
-      await tester.enterText(fields.at(1), '200');
-      await tester.enterText(fields.at(2), '10');
-      await tester.enterText(fields.at(3), '5');
-      await tester.enterText(fields.at(4), '10');
+      await tester.enterText(
+        find.byKey(const ValueKey('food_name_field')),
+        'テスト食品',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('macro_field_kcal')),
+        '200',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('macro_field_protein')),
+        '10',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('macro_field_fat')),
+        '5',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('macro_field_carb')),
+        '10',
+      );
       await tester.pump();
 
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
       expect(controller.foodEntries, hasLength(1));

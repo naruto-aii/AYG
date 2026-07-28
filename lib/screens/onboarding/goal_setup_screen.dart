@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../models/goal.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
-import '../food/food_form_navigation.dart';
-import '../shell/shell_navigation.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/onboarding/onboarding_scaffold.dart';
+import '../shell/main_shell_screen.dart';
 import 'activity_level_screen.dart';
 
 class GoalSetupScreen extends StatefulWidget {
@@ -14,15 +18,11 @@ class GoalSetupScreen extends StatefulWidget {
     required this.controller,
     required this.openFoodFactsService,
     required this.authenticationRepository,
-    this.mainShellBuilder,
-    this.foodFormBuilder,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final AuthenticationRepository authenticationRepository;
-  final MainShellScreenBuilder? mainShellBuilder;
-  final FoodFormScreenBuilder? foodFormBuilder;
 
   @override
   State<GoalSetupScreen> createState() => _GoalSetupScreenState();
@@ -75,15 +75,12 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
 
     if (widget.controller.useHealthIntegration) {
       widget.controller.completeOnboarding();
-      final shellBuilder =
-          widget.mainShellBuilder ?? defaultMainShellScreenBuilder;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (context) => shellBuilder(
+          builder: (context) => MainShellScreen(
             controller: widget.controller,
             openFoodFactsService: widget.openFoodFactsService,
             authenticationRepository: widget.authenticationRepository,
-            foodFormBuilder: widget.foodFormBuilder,
           ),
         ),
         (route) => false,
@@ -97,8 +94,6 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
-          mainShellBuilder: widget.mainShellBuilder,
-          foodFormBuilder: widget.foodFormBuilder,
         ),
       ),
     );
@@ -107,70 +102,62 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final targetDateLabel = _targetDate == null
-        ? '未選択'
+        ? AppStrings.notSelected
         : '${_targetDate!.year}/${_targetDate!.month}/${_targetDate!.day}';
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('目標設定')),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const Text(
-                '目標を設定してください',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+    return Form(
+      key: _formKey,
+      child: OnboardingScaffold(
+        title: AppStrings.settingsGoal,
+        subtitle: '目標を設定してください',
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(AppStrings.goalType),
+            const SizedBox(height: AppSpacing.sm),
+            SegmentedButton<GoalType>(
+              segments: GoalType.values
+                  .map(
+                    (type) => ButtonSegment(
+                      value: type,
+                      label: Text(AppStrings.goalTypeLabel(type)),
+                    ),
+                  )
+                  .toList(),
+              selected: {_goalType},
+              onSelectionChanged: (selection) {
+                setState(() => _goalType = selection.first);
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
+              controller: _targetWeightController,
+              label: AppStrings.targetWeightKg,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
-              const SizedBox(height: 24),
-              const Text('目標区分'),
-              const SizedBox(height: 8),
-              SegmentedButton<GoalType>(
-                segments: GoalType.values
-                    .map(
-                      (type) =>
-                          ButtonSegment(value: type, label: Text(type.label)),
-                    )
-                    .toList(),
-                selected: {_goalType},
-                onSelectionChanged: (selection) {
-                  setState(() => _goalType = selection.first);
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _targetWeightController,
-                decoration: const InputDecoration(
-                  labelText: '目標体重 (kg)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '目標体重を入力してください';
-                  }
-                  final parsed = double.tryParse(value);
-                  if (parsed == null || parsed < 30 || parsed > 300) {
-                    return '30〜300 kg の範囲で入力してください';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('目標日'),
-                subtitle: Text(targetDateLabel),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: _pickTargetDate,
-              ),
-              const SizedBox(height: 32),
-              FilledButton(onPressed: _complete, child: const Text('次へ')),
-            ],
-          ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return '目標体重を入力してください';
+                }
+                final parsed = double.tryParse(value);
+                if (parsed == null || parsed < 30 || parsed > 300) {
+                  return '30〜300 kg の範囲で入力してください';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(AppStrings.targetDate),
+              subtitle: Text(targetDateLabel),
+              trailing: const Icon(Icons.calendar_today_outlined),
+              onTap: _pickTargetDate,
+            ),
+          ],
         ),
+        action: PrimaryButton(label: AppStrings.next, onPressed: _complete),
       ),
     );
   }

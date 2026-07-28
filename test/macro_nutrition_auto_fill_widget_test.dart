@@ -1,7 +1,6 @@
 import 'package:ayg/config/open_food_facts_config.dart';
 import 'package:ayg/models/macro_field.dart';
 import 'package:ayg/screens/food/food_form_screen.dart';
-import 'package:ayg/screens/food/web_food_form_screen.dart';
 import 'package:ayg/screens/saved_food/saved_food_form_screen.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/state/app_controller.dart';
@@ -197,90 +196,6 @@ void main() {
       await enterMacro(tester, MacroField.protein, '20');
       await enterMacro(tester, MacroField.fat, '8');
       expect(macroText(tester, MacroField.carb), '12.0');
-    });
-  });
-
-  group('WebFoodFormScreen macro auto-fill', () {
-    late AppController appController;
-    late OpenFoodFactsService offService;
-
-    setUp(() {
-      appController = AppController(
-        healthRepository: MockHealthRepository(isAvailable: false),
-      );
-      offService = OpenFoodFactsService(
-        userAgent: OpenFoodFactsConfig.userAgent,
-      );
-    });
-
-    tearDown(() => appController.dispose());
-
-    Future<void> pumpForm(WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: WebFoodFormScreen(
-            controller: appController,
-            openFoodFactsService: offService,
-            barcodeScanAvailabilityChecker: () => false,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('case1: P F C -> kcal 165 without save', (tester) async {
-      await pumpForm(tester);
-      await enterMacro(tester, MacroField.protein, '10');
-      await enterMacro(tester, MacroField.fat, '5');
-      await enterMacro(tester, MacroField.carb, '20');
-      expect(macroText(tester, MacroField.kcal), '165');
-    });
-
-    testWidgets('case2: kcal F C -> P 12.0', (tester) async {
-      await pumpForm(tester);
-      await enterMacro(tester, MacroField.kcal, '200');
-      await enterMacro(tester, MacroField.fat, '8');
-      await enterMacro(tester, MacroField.carb, '20');
-      expect(macroText(tester, MacroField.protein), '12.0');
-    });
-
-    testWidgets('case3: kcal P C -> F 4.4', (tester) async {
-      await pumpForm(tester);
-      await enterMacro(tester, MacroField.kcal, '200');
-      await enterMacro(tester, MacroField.protein, '20');
-      await enterMacro(tester, MacroField.carb, '20');
-      expect(macroText(tester, MacroField.fat), '4.4');
-    });
-
-    testWidgets('case4: kcal P F -> C 12.0', (tester) async {
-      await pumpForm(tester);
-      await enterMacro(tester, MacroField.kcal, '200');
-      await enterMacro(tester, MacroField.protein, '20');
-      await enterMacro(tester, MacroField.fat, '8');
-      expect(macroText(tester, MacroField.carb), '12.0');
-    });
-
-    testWidgets('order C P F auto-fills kcal', (tester) async {
-      await pumpForm(tester);
-      await enterMacro(tester, MacroField.carb, '20');
-      await enterMacro(tester, MacroField.protein, '10');
-      await enterMacro(tester, MacroField.fat, '5');
-      expect(macroText(tester, MacroField.kcal), '165');
-    });
-
-    testWidgets('deleting field clears stale auto value', (tester) async {
-      await pumpForm(tester);
-      await enterMacro(tester, MacroField.protein, '10');
-      await enterMacro(tester, MacroField.fat, '5');
-      await enterMacro(tester, MacroField.carb, '20');
-      expect(macroText(tester, MacroField.kcal), '165');
-
-      await tester.enterText(find.byKey(ValueKey('macro_field_carb')), '');
-      await tester.pump();
-      expect(macroText(tester, MacroField.kcal), isEmpty);
-
-      await enterMacro(tester, MacroField.carb, '20');
-      expect(macroText(tester, MacroField.kcal), '165');
     });
   });
 }

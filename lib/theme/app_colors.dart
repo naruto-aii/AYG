@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 
-/// ブランドカラーおよびテーマ生成用の色定義。
+/// カロナビ ブランドカラー定義。
 abstract final class AppColors {
-  static const Color seed = Color(0xFF00897B);
-  static const Color heroBackground = Color(0xFFE0F2F1);
-  static const Color macroProtein = Color(0xFF43A047);
-  static const Color macroCarb = Color(0xFFFB8C00);
-  static const Color macroFat = Color(0xFF5C6BC0);
+  static const Color primaryGreen = Color(0xFF4CAF7D);
+  static const Color softGreen = Color(0xFFA8D5A2);
+  static const Color accentOrange = Color(0xFFFFB366);
+  static const Color backgroundCream = Color(0xFFFFF9F1);
+  static const Color cardWhite = Color(0xFFFFFFFF);
+  static const Color primaryText = Color(0xFF3D3A36);
+  static const Color secondaryText = Color(0xFF7A7570);
+  static const Color border = Color(0xFFE8E2D8);
+  static const Color borderGreen = Color(0xFFD4EAD4);
+  static const Color error = Color(0xFFD64545);
+
+  static const Color macroProtein = primaryGreen;
+  static const Color macroCarb = accentOrange;
+  static const Color macroFat = Color(0xFF8BC4A8);
+
+  /// Material seed（後方互換）。
+  static const Color seed = primaryGreen;
+  static const Color heroBackground = Color(0xFFEAF6EE);
 }

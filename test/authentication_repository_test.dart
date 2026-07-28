@@ -209,6 +209,8 @@ void main() {
         foodRepository: harness.foodRepository,
         exerciseRepository: harness.exerciseRepository,
         weightRepository: harness.weightRepository,
+        savedFoodRepository: harness.savedFoodRepository,
+        mealTemplateRepository: harness.mealTemplateRepository,
       );
       final controller = AppController(
         authenticationRepository: authRepository,

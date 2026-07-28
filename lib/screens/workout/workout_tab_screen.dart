@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/exercise_entry.dart';
 import '../../state/app_controller.dart';
 import '../../utils/history_grouping.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/history/workout_history_list.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../exercise/exercise_form_screen.dart';
@@ -16,22 +17,10 @@ class WorkoutTabScreen extends StatelessWidget {
     BuildContext context,
     ExerciseEntry entry,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
     );
 
     if (confirmed == true) {
@@ -68,10 +57,18 @@ class WorkoutTabScreen extends StatelessWidget {
             : dateGroups;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('運動')),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _openExerciseForm(context),
-            child: const Icon(Icons.add),
+          appBar: AppBar(
+            title: const Text('運動'),
+            actions: [
+              Semantics(
+                label: '運動追加',
+                button: true,
+                child: IconButton(
+                  onPressed: () => _openExerciseForm(context),
+                  icon: const Icon(Icons.add),
+                ),
+              ),
+            ],
           ),
           body: SafeArea(
             child: AppContentConstraint(

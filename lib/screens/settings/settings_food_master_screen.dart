@@ -4,7 +4,6 @@ import '../meal_template/meal_template_list_screen.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
-import '../food/food_form_navigation.dart';
 import '../saved_food/saved_food_list_screen.dart';
 
 class SettingsFoodMasterScreen extends StatelessWidget {
@@ -12,12 +11,10 @@ class SettingsFoodMasterScreen extends StatelessWidget {
     super.key,
     required this.controller,
     this.openFoodFactsService,
-    this.foodFormBuilder,
   });
 
   final AppController controller;
   final OpenFoodFactsService? openFoodFactsService;
-  final FoodFormScreenBuilder? foodFormBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +35,6 @@ class SettingsFoodMasterScreen extends StatelessWidget {
                     builder: (context) => SavedFoodListScreen(
                       controller: controller,
                       openFoodFactsService: openFoodFactsService,
-                      foodFormBuilder: foodFormBuilder,
                     ),
                   ),
                 );

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../models/health_profile_data.dart';
 import '../../models/user_profile.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/onboarding/onboarding_scaffold.dart';
 import 'goal_setup_screen.dart';
 
 class BasicInfoScreen extends StatefulWidget {
@@ -120,117 +125,101 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final birthDateLabel = _birthDate == null
-        ? '未選択'
+        ? AppStrings.notSelected
         : '${_birthDate!.year}/${_birthDate!.month}/${_birthDate!.day}';
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('基礎情報入力')),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const Text(
-                'あなたの基礎情報を入力してください',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              if (!_needsBirthDate ||
-                  !_needsGender ||
-                  !_needsHeight ||
-                  !_needsWeight) ...[
-                const SizedBox(height: 12),
-                Text(
+    return Form(
+      key: _formKey,
+      child: OnboardingScaffold(
+        title: '基礎情報入力',
+        subtitle: 'あなたの基礎情報を入力してください',
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!_needsBirthDate ||
+                !_needsGender ||
+                !_needsHeight ||
+                !_needsWeight)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Text(
                   'Health から取得済みの項目は入力不要です。',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ],
-              const SizedBox(height: 24),
-              if (_needsBirthDate) ...[
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('生年月日'),
-                  subtitle: Text(birthDateLabel),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: _pickBirthDate,
-                ),
-                const SizedBox(height: 16),
-              ],
-              if (_needsGender) ...[
-                DropdownButtonFormField<Gender>(
-                  initialValue: _gender,
-                  decoration: const InputDecoration(
-                    labelText: '性別',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: Gender.values
-                      .map(
-                        (gender) => DropdownMenuItem(
-                          value: gender,
-                          child: Text(gender.label),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => _gender = value),
-                ),
-                const SizedBox(height: 16),
-              ],
-              if (_needsHeight)
-                TextFormField(
-                  controller: _heightController,
-                  decoration: const InputDecoration(
-                    labelText: '身長 (cm)',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  validator: (value) {
-                    if (!_needsHeight) {
-                      return null;
-                    }
-                    if (value == null || value.isEmpty) {
-                      return '身長を入力してください';
-                    }
-                    final parsed = double.tryParse(value);
-                    if (parsed == null || parsed < 100 || parsed > 250) {
-                      return '100〜250 cm の範囲で入力してください';
-                    }
-                    return null;
-                  },
-                ),
-              if (_needsHeight) const SizedBox(height: 16),
-              if (_needsWeight)
-                TextFormField(
-                  controller: _weightController,
-                  decoration: const InputDecoration(
-                    labelText: '現在体重 (kg)',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  validator: (value) {
-                    if (!_needsWeight) {
-                      return null;
-                    }
-                    if (value == null || value.isEmpty) {
-                      return '現在体重を入力してください';
-                    }
-                    final parsed = double.tryParse(value);
-                    if (parsed == null || parsed < 30 || parsed > 300) {
-                      return '30〜300 kg の範囲で入力してください';
-                    }
-                    return null;
-                  },
-                ),
-              const SizedBox(height: 32),
-              FilledButton(onPressed: _goNext, child: const Text('次へ')),
+              ),
+            if (_needsBirthDate) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(AppStrings.birthDate),
+                subtitle: Text(birthDateLabel),
+                trailing: const Icon(Icons.calendar_today_outlined),
+                onTap: _pickBirthDate,
+              ),
+              const SizedBox(height: AppSpacing.md),
             ],
-          ),
+            if (_needsGender) ...[
+              DropdownButtonFormField<Gender>(
+                initialValue: _gender,
+                decoration: InputDecoration(labelText: AppStrings.gender),
+                items: Gender.values
+                    .map(
+                      (gender) => DropdownMenuItem(
+                        value: gender,
+                        child: Text(gender.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _gender = value),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+            if (_needsHeight) ...[
+              AppTextField(
+                controller: _heightController,
+                label: AppStrings.heightCm,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  if (!_needsHeight) {
+                    return null;
+                  }
+                  if (value == null || value.isEmpty) {
+                    return '身長を入力してください';
+                  }
+                  final parsed = double.tryParse(value);
+                  if (parsed == null || parsed < 100 || parsed > 250) {
+                    return '100〜250 cm の範囲で入力してください';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+            if (_needsWeight)
+              AppTextField(
+                controller: _weightController,
+                label: AppStrings.currentWeightKg,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  if (!_needsWeight) {
+                    return null;
+                  }
+                  if (value == null || value.isEmpty) {
+                    return '現在体重を入力してください';
+                  }
+                  final parsed = double.tryParse(value);
+                  if (parsed == null || parsed < 30 || parsed > 300) {
+                    return '30〜300 kg の範囲で入力してください';
+                  }
+                  return null;
+                },
+              ),
+          ],
         ),
+        action: PrimaryButton(label: AppStrings.next, onPressed: _goNext),
       ),
     );
   }

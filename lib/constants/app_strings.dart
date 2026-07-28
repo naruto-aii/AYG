@@ -5,7 +5,10 @@ import '../models/goal.dart';
 class AppStrings {
   AppStrings._();
 
-  static const appTitle = 'AYG';
+  static const appTitle = 'カロナビ';
+
+  /// 暫定アプリアイコン内の表示文字（正式アセット確定まで）。
+  static const provisionalAppIconText = 'カ';
 
   static const navHome = 'ホーム';
   static const navFood = '食事';

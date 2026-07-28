@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/supabase_config.dart';
+import '../../constants/app_strings.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
+import '../../widgets/brand/app_brand_mark.dart';
+import '../../widgets/brand/app_logo.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/secondary_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -66,6 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.backgroundCream,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -73,42 +80,28 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              Text(
-                'AYG',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
+              const Center(child: AppBrandMark(size: 88)),
+              const SizedBox(height: AppSpacing.lg),
+              const Center(child: AppLogo(height: 44)),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 'エネルギー管理をはじめましょう',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.secondaryText,
+                ),
               ),
               const Spacer(),
-              FilledButton.icon(
+              PrimaryButton(
+                label: 'Googleでログイン',
+                icon: Icons.login,
+                loading: _isLoading,
                 onPressed: _isLoading ? null : _signInWithGoogle,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.login),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text('Googleでログイン'),
-                ),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              OutlinedButton.icon(
+              SecondaryButton(
+                label: 'Appleでログイン',
+                icon: Icons.apple,
                 onPressed: _isLoading ? null : _signInWithApple,
-                icon: const Icon(Icons.apple),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text('Appleでログイン'),
-                ),
               ),
               const SizedBox(height: AppSpacing.lg),
               Wrap(

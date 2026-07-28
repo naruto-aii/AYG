@@ -5,6 +5,10 @@ import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_shadows.dart';
+import '../../theme/app_spacing.dart';
 import '../food/food_form_navigation.dart';
 import '../food/food_tab_screen.dart';
 import '../home/home_screen.dart';
@@ -35,6 +39,10 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen> {
   int _selectedIndex = 0;
 
+  void _selectTab(int index) {
+    setState(() => _selectedIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
@@ -42,6 +50,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
         controller: widget.controller,
         openFoodFactsService: widget.openFoodFactsService,
         foodFormBuilder: widget.foodFormBuilder,
+        onOpenFoodTab: () => _selectTab(1),
+        onOpenWorkoutTab: () => _selectTab(2),
+        onOpenWeightTab: () => _selectTab(3),
       ),
       FoodTabScreen(
         controller: widget.controller,
@@ -60,38 +71,48 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: AppStrings.navHome,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: AppRadius.bottomNav,
+          boxShadow: AppShadows.subtle,
+        ),
+        child: ClipRRect(
+          borderRadius: AppRadius.bottomNav,
+          child: NavigationBar(
+            selectedIndex: _selectedIndex,
+            elevation: 0,
+            backgroundColor: AppColors.cardWhite,
+            onDestinationSelected: _selectTab,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: AppStrings.navHome,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.restaurant_outlined),
+                selectedIcon: Icon(Icons.restaurant),
+                label: AppStrings.navFood,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.fitness_center_outlined),
+                selectedIcon: Icon(Icons.fitness_center),
+                label: AppStrings.navWorkout,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.monitor_weight_outlined),
+                selectedIcon: Icon(Icons.monitor_weight),
+                label: AppStrings.navWeight,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings),
+                label: AppStrings.navSettings,
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.restaurant_outlined),
-            selectedIcon: Icon(Icons.restaurant),
-            label: AppStrings.navFood,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.fitness_center_outlined),
-            selectedIcon: Icon(Icons.fitness_center),
-            label: AppStrings.navWorkout,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.monitor_weight_outlined),
-            selectedIcon: Icon(Icons.monitor_weight),
-            label: AppStrings.navWeight,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: AppStrings.navSettings,
-          ),
-        ],
+        ),
       ),
     );
   }

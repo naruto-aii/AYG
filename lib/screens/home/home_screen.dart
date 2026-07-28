@@ -5,16 +5,18 @@ import '../../models/food_entry.dart';
 import '../../models/goal.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
-import '../../theme/app_text_styles.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/add_action_sheet.dart';
-import '../../widgets/entry_list_tile.dart';
-import '../../widgets/home/remaining_macros_section.dart';
-import '../../widgets/home/responsive_summary_grid.dart';
-import '../../widgets/home/today_progress_bar.dart';
-import '../../widgets/summary_card.dart';
+import '../../widgets/brand/app_logo.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_section_header.dart';
+import '../../widgets/common/calorie_progress_ring.dart';
+import '../../widgets/common/macro_progress_bar.dart';
 import '../food/food_form_navigation.dart';
 import '../exercise/exercise_form_screen.dart';
 import '../weight/weight_record_screen.dart';
@@ -25,31 +27,24 @@ class HomeScreen extends StatelessWidget {
     required this.controller,
     required this.openFoodFactsService,
     this.foodFormBuilder,
+    this.onOpenFoodTab,
+    this.onOpenWorkoutTab,
+    this.onOpenWeightTab,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final FoodFormScreenBuilder? foodFormBuilder;
+  final VoidCallback? onOpenFoodTab;
+  final VoidCallback? onOpenWorkoutTab;
+  final VoidCallback? onOpenWeightTab;
 
   Future<void> _confirmDeleteFood(BuildContext context, FoodEntry entry) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
     );
-
     if (confirmed == true) {
       await controller.deleteFood(entry.id);
     }
@@ -59,24 +54,11 @@ class HomeScreen extends StatelessWidget {
     BuildContext context,
     ExerciseEntry entry,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
     );
-
     if (confirmed == true) {
       await controller.deleteExercise(entry.id);
     }
@@ -122,26 +104,10 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  String _foodEntrySubtitle(FoodEntry entry) {
-    final kcal = formatNullableNutrient(
-      entry.kcalPerUnit == null ? null : entry.totalKcal,
-    );
-    final protein = formatNullableNutrient(
-      entry.proteinPerUnit == null ? null : entry.totalProteinG,
-    );
-    final fat = formatNullableNutrient(
-      entry.fatPerUnit == null ? null : entry.totalFatG,
-    );
-    final carb = formatNullableNutrient(
-      entry.carbPerUnit == null ? null : entry.totalCarbG,
-    );
-
-    return '$kcal kcal / P $protein g / F $fat g / C $carb g / '
-        '数量 ${entry.quantity.toStringAsFixed(1)}';
-  }
-
-  double _remainingMacro(double target, double intake) {
-    return (target - intake).clamp(0, double.infinity);
+  String _formatTime(DateTime time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
   }
 
   String _goalSummaryLabel(Goal goal) {
@@ -159,7 +125,8 @@ class HomeScreen extends StatelessWidget {
               entry.loggedAt.month == now.month &&
               entry.loggedAt.day == now.day,
         )
-        .toList();
+        .toList()
+      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
   }
 
   List<ExerciseEntry> _todayExerciseEntries(List<ExerciseEntry> entries) {
@@ -171,7 +138,8 @@ class HomeScreen extends StatelessWidget {
               entry.loggedAt.month == now.month &&
               entry.loggedAt.day == now.day,
         )
-        .toList();
+        .toList()
+      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
   }
 
   @override
@@ -184,109 +152,167 @@ class HomeScreen extends StatelessWidget {
         final summary = controller.summary;
 
         if (profile == null || goal == null || summary == null) {
-          return const Scaffold(body: Center(child: Text('データがありません')));
+          return const Scaffold(body: AppEmptyState(message: 'データがありません'));
         }
 
-        final progressValue = summary.targetKcal > 0
-            ? (summary.intakeKcal / summary.targetKcal).clamp(0.0, 1.0)
-            : 0.0;
         final todayFood = _todayFoodEntries(controller.foodEntries);
         final todayExercise = _todayExerciseEntries(controller.exerciseEntries);
 
         return Scaffold(
-          appBar: AppBar(title: const Text('ホーム')),
-          floatingActionButton: FloatingActionButton(
+          floatingActionButton: FloatingActionButton.extended(
             onPressed: () =>
                 _showAddMenu(context, currentWeightKg: profile.weightKg),
-            child: const Icon(Icons.add),
+            icon: const Icon(Icons.add),
+            label: const Text('追加'),
           ),
           body: SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  RemainingKcalHero(remainingKcal: summary.remainingKcal),
-                  const SizedBox(height: AppSpacing.md),
-                  RemainingMacrosSection(
-                    remainingProteinG: _remainingMacro(
-                      summary.targetProteinG,
-                      summary.intakeProteinG,
-                    ),
-                    remainingCarbG: _remainingMacro(
-                      summary.targetCarbG,
-                      summary.intakeCarbG,
-                    ),
-                    remainingFatG: _remainingMacro(
-                      summary.targetFatG,
-                      summary.intakeFatG,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TodayProgressBar(
-                    intakeKcal: summary.intakeKcal,
-                    targetKcal: summary.targetKcal,
-                    progressValue: progressValue,
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: AppLogo(height: 32),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  ResponsiveSummaryGrid(
-                    cards: [
-                      SummaryCard(
-                        title: '摂取 kcal',
-                        value: '${summary.intakeKcal.toStringAsFixed(0)} kcal',
-                        icon: Icons.restaurant,
-                      ),
-                      SummaryCard(
-                        title: '消費 kcal',
-                        value:
-                            '${summary.exerciseBurnKcal.toStringAsFixed(0)} kcal',
-                        icon: Icons.local_fire_department,
-                      ),
-                      SummaryCard(
-                        title: '現在体重',
-                        value: '${profile.weightKg.toStringAsFixed(1)} kg',
-                        icon: Icons.monitor_weight_outlined,
-                      ),
-                      SummaryCard(
-                        title: '目標',
-                        value: _goalSummaryLabel(goal),
-                        icon: Icons.flag_outlined,
-                      ),
-                    ],
+                  AppCard(
+                    large: true,
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      children: [
+                        CalorieProgressRing(
+                          intakeKcal: summary.intakeKcal,
+                          targetKcal: summary.targetKcal,
+                          remainingKcal: summary.remainingKcal,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
+                          '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal',
+                          style: Theme.of(context).textTheme.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        MacroProgressBar(
+                          label: 'P',
+                          intakeG: summary.intakeProteinG,
+                          targetG: summary.targetProteinG,
+                          color: AppColors.macroProtein,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        MacroProgressBar(
+                          label: 'F',
+                          intakeG: summary.intakeFatG,
+                          targetG: summary.targetFatG,
+                          color: AppColors.macroFat,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        MacroProgressBar(
+                          label: 'C',
+                          intakeG: summary.intakeCarbG,
+                          targetG: summary.targetCarbG,
+                          color: AppColors.macroCarb,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _QuickActionsRow(
+                    onAddFood: () => _openFoodForm(context),
+                    onAddWorkout: () => _openExerciseForm(context),
+                    onRecordWeight: () => _openWeightRecord(
+                      context,
+                      initialWeightKg: profile.weightKg,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text('今日の食事', style: AppTextStyles.sectionTitle(context)),
-                  const SizedBox(height: AppSpacing.md),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '今日のサマリー',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        _SummaryRow(
+                          label: '消費 kcal',
+                          value:
+                              '${summary.exerciseBurnKcal.toStringAsFixed(0)} kcal',
+                        ),
+                        _SummaryRow(
+                          label: '現在体重',
+                          value: '${profile.weightKg.toStringAsFixed(1)} kg',
+                        ),
+                        _SummaryRow(
+                          label: '目標',
+                          value: _goalSummaryLabel(goal),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  AppSectionHeader(
+                    title: '今日の食事',
+                    actionLabel: onOpenFoodTab != null ? '履歴' : null,
+                    onAction: onOpenFoodTab,
+                  ),
                   if (todayFood.isEmpty)
-                    const _EmptySectionMessage(message: '登録された食事はありません')
+                    const AppEmptyState(message: '登録された食事はありません')
                   else
-                    ...todayFood.map(
-                      (entry) => EntryListTile(
-                        title: entry.name,
-                        subtitle: _foodEntrySubtitle(entry),
-                        leadingIcon: Icons.restaurant,
-                        onTap: () => _openFoodForm(context, entry: entry),
-                        onDelete: () => _confirmDeleteFood(context, entry),
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < todayFood.length; i++) ...[
+                            if (i > 0) const Divider(height: 1),
+                            _TodayFoodTile(
+                              entry: todayFood[i],
+                              timeLabel: _formatTime(todayFood[i].loggedAt),
+                              onTap: () =>
+                                  _openFoodForm(context, entry: todayFood[i]),
+                              onDelete: () =>
+                                  _confirmDeleteFood(context, todayFood[i]),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text('今日の運動', style: AppTextStyles.sectionTitle(context)),
-                  const SizedBox(height: AppSpacing.md),
+                  AppSectionHeader(title: '今日の運動'),
                   if (todayExercise.isEmpty)
-                    const _EmptySectionMessage(message: '登録された運動はありません')
+                    const AppEmptyState(message: '登録された運動はありません')
                   else
-                    ...todayExercise.map(
-                      (entry) => EntryListTile(
-                        title: entry.name,
-                        subtitle:
-                            '${entry.burnedKcal.toStringAsFixed(0)} kcal / '
-                            '${entry.durationMin} 分',
-                        leadingIcon: Icons.fitness_center,
-                        onTap: () => _openExerciseForm(context, entry: entry),
-                        onDelete: () => _confirmDeleteExercise(context, entry),
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < todayExercise.length; i++) ...[
+                            if (i > 0) const Divider(height: 1),
+                            _TodayExerciseTile(
+                              entry: todayExercise[i],
+                              timeLabel: _formatTime(todayExercise[i].loggedAt),
+                              onTap: () => _openExerciseForm(
+                                context,
+                                entry: todayExercise[i],
+                              ),
+                              onDelete: () => _confirmDeleteExercise(
+                                context,
+                                todayExercise[i],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
             ),
@@ -297,23 +323,197 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _EmptySectionMessage extends StatelessWidget {
-  const _EmptySectionMessage({required this.message});
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow({
+    required this.onAddFood,
+    required this.onAddWorkout,
+    required this.onRecordWeight,
+  });
 
-  final String message;
+  final VoidCallback onAddFood;
+  final VoidCallback onAddWorkout;
+  final VoidCallback onRecordWeight;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Text(
-          message,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickActionButton(
+            icon: Icons.restaurant_outlined,
+            label: '食事追加',
+            onTap: onAddFood,
           ),
         ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickActionButton(
+            icon: Icons.directions_run_outlined,
+            label: '運動追加',
+            onTap: onAddWorkout,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickActionButton(
+            icon: Icons.monitor_weight_outlined,
+            label: '体重記録',
+            onTap: onRecordWeight,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.md,
+        horizontal: AppSpacing.sm,
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: AppColors.primaryGreen),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText),
+            ),
+          ),
+          Text(value, style: Theme.of(context).textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayFoodTile extends StatelessWidget {
+  const _TodayFoodTile({
+    required this.entry,
+    required this.timeLabel,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final FoodEntry entry;
+  final String timeLabel;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final kcal = formatNullableNutrient(
+      entry.kcalPerUnit == null ? null : entry.totalKcal,
+    );
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xxs,
+      ),
+      onTap: onTap,
+      title: Text(entry.name),
+      subtitle: Text(timeLabel),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$kcal kcal',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: AppColors.primaryGreen,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            onPressed: onDelete,
+            color: AppColors.secondaryText,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayExerciseTile extends StatelessWidget {
+  const _TodayExerciseTile({
+    required this.entry,
+    required this.timeLabel,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final ExerciseEntry entry;
+  final String timeLabel;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xxs,
+      ),
+      onTap: onTap,
+      title: Text(entry.name),
+      subtitle: Text(timeLabel),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${entry.burnedKcal.toStringAsFixed(0)} kcal',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: AppColors.accentOrange,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            onPressed: onDelete,
+            color: AppColors.secondaryText,
+          ),
+        ],
       ),
     );
   }

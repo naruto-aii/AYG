@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/app.dart';
 import 'package:ayg/config/open_food_facts_config.dart';
+import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/food_entry.dart';
 import 'package:ayg/models/goal.dart';
@@ -289,11 +290,13 @@ void main() {
       ),
     );
 
-    final expectedRemainingLabel =
-        '${controller.summary!.remainingKcal.toStringAsFixed(0)} kcal';
+    final expectedRemaining = controller.summary!.remainingKcal.toStringAsFixed(
+      0,
+    );
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.light,
         home: HomeScreen(
           controller: controller,
           openFoodFactsService: openFoodFactsService,
@@ -301,7 +304,7 @@ void main() {
       ),
     );
 
-    expect(find.text(expectedRemainingLabel), findsOneWidget);
+    expect(find.text(expectedRemaining), findsOneWidget);
   });
 
   testWidgets('HomeScreen shows -- for food entries with null nutrients', (
@@ -349,6 +352,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.light,
         home: HomeScreen(
           controller: controller,
           openFoodFactsService: openFoodFactsService,
@@ -357,6 +361,5 @@ void main() {
     );
 
     expect(find.textContaining('-- kcal'), findsOneWidget);
-    expect(find.textContaining('P -- g'), findsOneWidget);
   });
 }

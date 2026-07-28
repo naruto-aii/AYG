@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'constants/app_strings.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/health_repository.dart';
 import 'screens/auth/login_screen.dart';
@@ -26,7 +27,7 @@ class AygApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AYG',
+      title: AppStrings.appTitle,
       theme: AppTheme.light,
       home: ListenableBuilder(
         listenable: controller,

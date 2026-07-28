@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/exercise_entry.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
+import '../../widgets/brand/app_logo.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/history/workout_history_list.dart';
 import '../exercise/exercise_form_screen.dart';
 
@@ -15,22 +18,10 @@ class WorkoutTabScreen extends StatelessWidget {
     BuildContext context,
     ExerciseEntry entry,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
     );
 
     if (confirmed == true) {
@@ -67,16 +58,44 @@ class WorkoutTabScreen extends StatelessWidget {
             : dateGroups;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('運動')),
-          floatingActionButton: FloatingActionButton(
+          floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openExerciseForm(context),
-            child: const Icon(Icons.add),
+            icon: const Icon(Icons.add),
+            label: const Text('運動追加'),
           ),
           body: SafeArea(
-            child: WorkoutHistoryList(
-              dateGroups: displayGroups,
-              onTapEntry: (entry) => _openExerciseForm(context, entry: entry),
-              onDeleteEntry: (entry) => _confirmDeleteExercise(context, entry),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenPadding,
+                    AppSpacing.screenPadding,
+                    AppSpacing.screenPadding,
+                    AppSpacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppLogo(height: 28),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        '運動',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: WorkoutHistoryList(
+                    dateGroups: displayGroups,
+                    onTapEntry: (entry) =>
+                        _openExerciseForm(context, entry: entry),
+                    onDeleteEntry: (entry) =>
+                        _confirmDeleteExercise(context, entry),
+                  ),
+                ),
+              ],
             ),
           ),
         );

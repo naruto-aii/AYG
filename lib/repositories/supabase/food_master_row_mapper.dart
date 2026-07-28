@@ -31,6 +31,7 @@ class FoodMasterRowMapper {
       unitType:
           FoodUnitTypeX.tryParse(row['unit_type'] as String?) ??
           FoodUnitType.serving,
+      servingUnitLabel: row['serving_unit_label'] as String?,
       kcalPerBase: (row['kcal_per_base'] as num?)?.toDouble(),
       proteinPerBase: (row['protein_per_base'] as num?)?.toDouble(),
       fatPerBase: (row['fat_per_base'] as num?)?.toDouble(),
@@ -66,6 +67,7 @@ class FoodMasterRowMapper {
       'normalized_name': food.normalizedName,
       'base_amount': food.baseAmount,
       'unit_type': food.unitType.storageValue,
+      'serving_unit_label': food.servingUnitLabel,
       'kcal_per_base': food.kcalPerBase,
       'protein_per_base': food.proteinPerBase,
       'fat_per_base': food.fatPerBase,

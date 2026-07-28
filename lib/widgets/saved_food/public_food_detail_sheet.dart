@@ -203,7 +203,7 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _useForMeal,
-                child: Text(widget.selectForMealEntry ? '食事に追加' : '食事登録へ'),
+                child: Text(widget.selectForMealEntry ? '食事に追加' : '食事に追加'),
               ),
               const SizedBox(height: 8),
               OutlinedButton(

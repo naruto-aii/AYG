@@ -17,6 +17,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
+import '../../utils/saved_food_base_serving_format.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_text_field.dart';
@@ -29,6 +30,7 @@ import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
 import '../../widgets/saved_food/saved_food_suggestion_list.dart';
 import '../../widgets/saved_food/saved_food_visibility_selector.dart';
+import '../../widgets/saved_food/serving_amount_fields.dart';
 import '../saved_food/public_food_search_screen.dart';
 import '../saved_food/saved_food_list_screen.dart';
 import 'barcode_scanner_screen.dart';
@@ -58,6 +60,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   final _barcodeController = TextEditingController();
   final _nameController = TextEditingController();
   final _quantityController = TextEditingController();
+  final _saveServingQuantityController = TextEditingController(text: '100');
+  final _saveServingUnitController = TextEditingController();
   late final MacroNutritionInputController _macroInput;
 
   bool _isSearching = false;
@@ -132,6 +136,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     _barcodeController.dispose();
     _nameController.dispose();
     _quantityController.dispose();
+    _saveServingQuantityController.dispose();
+    _saveServingUnitController.dispose();
     _macroInput.dispose();
     super.dispose();
   }
@@ -169,7 +175,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       _sourceType = selection.entrySourceType;
       _savedFoodSuggestions = const [];
       _nameController.text = selection.name;
-      _quantityController.text = selection.baseAmount.toString();
+      _quantityController.text = SavedFoodBaseServingFormat.formatQuantity(
+        selection.baseAmount,
+      );
     });
     _macroInput.applyExternalValues(
       kcal: selection.kcalPerBase,
@@ -241,16 +249,23 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   }
 
   Future<void> _openPublicFoodSearch() async {
-    final food = await Navigator.of(context).push<SavedFood>(
-      MaterialPageRoute<SavedFood>(
+    final result = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
         builder: (context) => PublicFoodSearchScreen(
           controller: widget.controller,
           selectForMealEntry: true,
         ),
       ),
     );
-    if (food != null && mounted) {
-      _applySavedFoodSelection(food);
+    if (!mounted) {
+      return;
+    }
+    if (result == true) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (result is SavedFood) {
+      _applySavedFoodSelection(result);
     }
   }
 
@@ -331,16 +346,27 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
-  SavedFoodDraft _buildSavedFoodDraft(FoodEntry entry) {
+  SavedFoodDraft? _buildSavedFoodDraft() {
+    final quantity = SavedFoodBaseServingFormat.parseQuantity(
+      _saveServingQuantityController.text,
+    );
+    final unit = SavedFoodBaseServingFormat.parseUnit(
+      _saveServingUnitController.text,
+    );
+    if (quantity == null || unit == null) {
+      return null;
+    }
+
     return SavedFoodDraft(
-      name: entry.name,
-      baseAmount: entry.baseAmount,
-      unitType: entry.unitType,
-      kcalPerBase: entry.kcalPerBase,
-      proteinPerBase: entry.proteinPerBase,
-      fatPerBase: entry.fatPerBase,
-      carbPerBase: entry.carbPerBase,
-      sourceType: switch (entry.sourceType) {
+      name: _nameController.text.trim(),
+      baseAmount: quantity,
+      servingUnitLabel: unit,
+      unitType: FoodUnitTypeX.inferFromUnitLabel(unit),
+      kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
+      proteinPerBase: _macroInput.parseOptional(MacroField.protein),
+      fatPerBase: _macroInput.parseOptional(MacroField.fat),
+      carbPerBase: _macroInput.parseOptional(MacroField.carb),
+      sourceType: switch (_sourceType) {
         FoodEntrySource.openFoodFacts => FoodSourceType.openFoodFacts,
         _ => FoodSourceType.manual,
       },
@@ -413,7 +439,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     DuplicateSavedFoodResolution? duplicateResolution;
 
     if (shouldSaveAsFood) {
-      final foodDraft = _buildSavedFoodDraft(entry);
+      final foodDraft = _buildSavedFoodDraft();
+      if (foodDraft == null) {
+        _showMessage('基準数量と基準単位を入力してください');
+        return;
+      }
       draft = foodDraft;
       duplicateResolution = await _resolveDuplicateIfNeeded(foodDraft);
       if (duplicateResolution == null &&
@@ -658,6 +688,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                               setState(() => _saveAsFood = value),
                         ),
                         if (_saveAsFood) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          ServingAmountFields(
+                            quantityController: _saveServingQuantityController,
+                            unitController: _saveServingUnitController,
+                          ),
                           const SizedBox(height: AppSpacing.sm),
                           SavedFoodVisibilitySelector(
                             value: _saveFoodVisibility,

@@ -13,6 +13,7 @@ class SavedFoodVersionPolicy {
         previous.normalizedName != next.normalizedName ||
         previous.baseAmount != next.baseAmount ||
         previous.unitType != next.unitType ||
+        previous.servingUnitLabel != next.servingUnitLabel ||
         previous.kcalPerBase != next.kcalPerBase ||
         previous.proteinPerBase != next.proteinPerBase ||
         previous.fatPerBase != next.fatPerBase ||

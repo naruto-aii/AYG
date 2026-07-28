@@ -15,6 +15,7 @@ class SavedFood {
     required this.normalizedName,
     required this.baseAmount,
     required this.unitType,
+    this.servingUnitLabel,
     this.visibility = FoodVisibility.private,
     this.status = FoodStatus.active,
     this.moderationStatus = ModerationStatus.none,
@@ -49,6 +50,9 @@ class SavedFood {
   final double baseAmount;
   final FoodUnitType unitType;
 
+  /// ユーザー入力の基準単位（g / 食 / 缶 など）。null = レガシー未設定。
+  final String? servingUnitLabel;
+
   final double? kcalPerBase;
   final double? proteinPerBase;
   final double? fatPerBase;
@@ -80,6 +84,15 @@ class SavedFood {
       moderationStatus != ModerationStatus.hidden &&
       moderationStatus != ModerationStatus.suspended;
 
+  /// 基準数量・基準単位が明示的に設定されているか。
+  bool get baseServingDefined {
+    final unit = servingUnitLabel?.trim();
+    return unit != null && unit.isNotEmpty && baseAmount > 0;
+  }
+
+  /// 表示用の基準単位文字列。
+  String get baseUnit => servingUnitLabel?.trim() ?? '';
+
   SavedFood copyWith({
     String? foodId,
     String? ownerUserId,
@@ -90,6 +103,7 @@ class SavedFood {
     String? normalizedName,
     double? baseAmount,
     FoodUnitType? unitType,
+    String? servingUnitLabel,
     double? kcalPerBase,
     double? proteinPerBase,
     double? fatPerBase,
@@ -118,6 +132,7 @@ class SavedFood {
       normalizedName: normalizedName ?? this.normalizedName,
       baseAmount: baseAmount ?? this.baseAmount,
       unitType: unitType ?? this.unitType,
+      servingUnitLabel: servingUnitLabel ?? this.servingUnitLabel,
       kcalPerBase: kcalPerBase ?? this.kcalPerBase,
       proteinPerBase: proteinPerBase ?? this.proteinPerBase,
       fatPerBase: fatPerBase ?? this.fatPerBase,

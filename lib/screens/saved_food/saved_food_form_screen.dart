@@ -9,6 +9,7 @@ import '../../services/saved_food_version_policy.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
+import '../../utils/saved_food_base_serving_format.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/app_text_field.dart';
@@ -20,6 +21,7 @@ import '../../widgets/layout/app_form_constraint.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/confirm_public_food_update_dialog.dart';
 import '../../widgets/saved_food/saved_food_visibility_selector.dart';
+import '../../widgets/saved_food/serving_amount_fields.dart';
 import 'saved_food_publish_flow.dart';
 
 class SavedFoodFormScreen extends StatefulWidget {
@@ -38,12 +40,12 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _baseAmountController = TextEditingController(text: '100');
+  final _servingUnitController = TextEditingController();
   final _brandController = TextEditingController();
   final _barcodeController = TextEditingController();
   final _supplementaryWeightController = TextEditingController();
   late final MacroNutritionInputController _macroInput;
 
-  FoodUnitType _unitType = FoodUnitType.g;
   bool _isSaving = false;
   FoodVisibility _createVisibility = FoodVisibility.private;
 
@@ -58,8 +60,10 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
     final food = widget.food;
     if (food != null) {
       _nameController.text = food.name;
-      _baseAmountController.text = food.baseAmount.toString();
-      _unitType = food.unitType;
+      _baseAmountController.text = SavedFoodBaseServingFormat.formatQuantity(
+        food.baseAmount,
+      );
+      _servingUnitController.text = food.servingUnitLabel ?? '';
       _brandController.text = food.brand ?? '';
       _barcodeController.text = food.barcode ?? '';
       _supplementaryWeightController.text = food.supplementaryWeight ?? '';
@@ -76,6 +80,7 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
   void dispose() {
     _nameController.dispose();
     _baseAmountController.dispose();
+    _servingUnitController.dispose();
     _brandController.dispose();
     _barcodeController.dispose();
     _supplementaryWeightController.dispose();
@@ -91,10 +96,21 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
       return null;
     }
 
+    final baseAmount = SavedFoodBaseServingFormat.parseQuantity(
+      _baseAmountController.text,
+    );
+    final servingUnit = SavedFoodBaseServingFormat.parseUnit(
+      _servingUnitController.text,
+    );
+    if (baseAmount == null || servingUnit == null) {
+      return null;
+    }
+
     return SavedFoodDraft(
       name: _nameController.text.trim(),
-      baseAmount: double.parse(_baseAmountController.text.trim()),
-      unitType: _unitType,
+      baseAmount: baseAmount,
+      servingUnitLabel: servingUnit,
+      unitType: FoodUnitTypeX.inferFromUnitLabel(servingUnit),
       kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
       proteinPerBase: _macroInput.parseOptional(MacroField.protein),
       fatPerBase: _macroInput.parseOptional(MacroField.fat),
@@ -115,6 +131,7 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
       name: draft.name,
       baseAmount: draft.baseAmount,
       unitType: draft.unitType,
+      servingUnitLabel: draft.servingUnitLabel,
       kcalPerBase: draft.kcalPerBase,
       proteinPerBase: draft.proteinPerBase,
       fatPerBase: draft.fatPerBase,
@@ -211,7 +228,7 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
       if (draft != null &&
           (draft.name != existing.name ||
               draft.baseAmount != existing.baseAmount ||
-              draft.unitType != existing.unitType ||
+              draft.servingUnitLabel != existing.servingUnitLabel ||
               draft.kcalPerBase != existing.kcalPerBase)) {
         foodToPublish = await widget.controller.updateSavedFood(
           _buildUpdatedFood(draft)!,
@@ -345,44 +362,9 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
                         },
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: AppTextField(
-                              controller: _baseAmountController,
-                              label: '基準量 *',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              validator: _validateRequiredNumber('基準量'),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: DropdownButtonFormField<FoodUnitType>(
-                              value: _unitType,
-                              decoration: const InputDecoration(
-                                labelText: '単位 *',
-                              ),
-                              items: FoodUnitType.values
-                                  .map(
-                                    (unit) => DropdownMenuItem(
-                                      value: unit,
-                                      child: Text(unit.label),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _unitType = value);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
+                      ServingAmountFields(
+                        quantityController: _baseAmountController,
+                        unitController: _servingUnitController,
                       ),
                     ],
                   ),

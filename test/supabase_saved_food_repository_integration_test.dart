@@ -54,6 +54,7 @@ SavedFood sampleIntegrationFood({
     normalizedName: normalizedName,
     baseAmount: baseAmount,
     unitType: unitType,
+    servingUnitLabel: 'g',
     kcalPerBase: kcal,
     proteinPerBase: 10,
     fatPerBase: 5,

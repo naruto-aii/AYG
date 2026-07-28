@@ -121,6 +121,7 @@ void main() {
         const SavedFoodDraft(
           name: '鶏むね',
           baseAmount: 100,
+          servingUnitLabel: 'g',
           unitType: FoodUnitType.g,
           kcalPerBase: 165,
           proteinPerBase: 31,
@@ -135,6 +136,7 @@ void main() {
       );
       expect(loaded, isNotNull);
       expect(loaded!.name, '鶏むね');
+      expect(loaded.servingUnitLabel, 'g');
     });
 
     test('searchOwnSavedFoods excludes deleted foods', () async {
@@ -160,6 +162,7 @@ void main() {
             draft: SavedFoodDraft(
               name: existing.name,
               baseAmount: existing.baseAmount,
+              servingUnitLabel: 'g',
               unitType: existing.unitType,
               kcalPerBase: existing.kcalPerBase,
               proteinPerBase: existing.proteinPerBase,
@@ -200,6 +203,7 @@ void main() {
               savedFoodDraft: const SavedFoodDraft(
                 name: 'fail',
                 baseAmount: 100,
+                servingUnitLabel: 'g',
                 unitType: FoodUnitType.g,
                 kcalPerBase: 1,
                 proteinPerBase: 1,

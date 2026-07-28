@@ -742,14 +742,34 @@ class AppController extends ChangeNotifier {
 
     await _ensureAuthenticatedUserProfile();
 
+    final unitLabel = draft.servingUnitLabel.trim();
+    if (unitLabel.isEmpty) {
+      throw SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.validationFailed,
+        message: '基準単位を入力してください',
+        repositoryStep: 'AppController.createSavedFood',
+        operation: 'validate',
+      )..logDebug();
+    }
+    if (draft.baseAmount <= 0) {
+      throw SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.validationFailed,
+        message: '基準数量は0より大きい数値で入力してください',
+        repositoryStep: 'AppController.createSavedFood',
+        operation: 'validate',
+      )..logDebug();
+    }
+
     final now = DateTime.now();
+    final unitType = FoodUnitTypeX.inferFromUnitLabel(unitLabel);
     final food = SavedFood(
       foodId: generateId(),
       ownerUserId: authUser.id,
       name: draft.name.trim(),
       normalizedName: FoodNameNormalizer.normalize(draft.name),
       baseAmount: draft.baseAmount,
-      unitType: draft.unitType,
+      unitType: unitType,
+      servingUnitLabel: unitLabel,
       kcalPerBase: draft.kcalPerBase,
       proteinPerBase: draft.proteinPerBase,
       fatPerBase: draft.fatPerBase,
@@ -1555,6 +1575,31 @@ class AppController extends ChangeNotifier {
     return _savedFoodEntryBuilder.formatBaseLabel(food);
   }
 
+  Future<void> addMealEntryFromSavedFoodMaster({
+    required SavedFood food,
+    required double consumedQuantity,
+    required DateTime loggedAt,
+  }) async {
+    if (!food.baseServingDefined) {
+      throw StateError('Saved food serving spec is not defined.');
+    }
+    if (consumedQuantity <= 0) {
+      throw StateError('Consumed quantity must be positive.');
+    }
+
+    final entry = _savedFoodEntryBuilder.buildFromSavedFood(
+      food: food,
+      entryId: generateId(),
+      consumedAmount: consumedQuantity,
+      loggedAt: loggedAt,
+    );
+    await addFood(entry);
+
+    if (food.ownerUserId == currentOwnerUserId) {
+      await _recordSavedFoodUsage(food.foodId);
+    }
+  }
+
   String formatBaseAmountLabel({
     required double baseAmount,
     required FoodUnitType unitType,
@@ -1665,7 +1710,10 @@ class AppController extends ChangeNotifier {
         resolution.existingFood!.copyWith(
           name: resolution.draft.name,
           baseAmount: resolution.draft.baseAmount,
-          unitType: resolution.draft.unitType,
+          unitType: FoodUnitTypeX.inferFromUnitLabel(
+            resolution.draft.servingUnitLabel,
+          ),
+          servingUnitLabel: resolution.draft.servingUnitLabel.trim(),
           kcalPerBase: resolution.draft.kcalPerBase,
           proteinPerBase: resolution.draft.proteinPerBase,
           fatPerBase: resolution.draft.fatPerBase,
@@ -1679,7 +1727,10 @@ class AppController extends ChangeNotifier {
         SavedFoodDraft(
           name: resolution.newName ?? resolution.draft.name,
           baseAmount: resolution.draft.baseAmount,
-          unitType: resolution.draft.unitType,
+          servingUnitLabel: resolution.draft.servingUnitLabel,
+          unitType: FoodUnitTypeX.inferFromUnitLabel(
+            resolution.draft.servingUnitLabel,
+          ),
           kcalPerBase: resolution.draft.kcalPerBase,
           proteinPerBase: resolution.draft.proteinPerBase,
           fatPerBase: resolution.draft.fatPerBase,

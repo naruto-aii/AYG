@@ -16,6 +16,8 @@ import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/calorie_progress_ring.dart';
 import '../../widgets/common/macro_progress_bar.dart';
+import '../../widgets/layout/app_content_constraint.dart';
+import '../../widgets/layout/app_responsive.dart';
 import '../food/food_form_navigation.dart';
 import '../exercise/exercise_form_screen.dart';
 import '../weight/weight_record_screen.dart';
@@ -149,166 +151,196 @@ class HomeScreen extends StatelessWidget {
 
         return Scaffold(
           body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.screenPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: AppLogo(height: 30),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  AppCard(
-                    large: true,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm + 2,
+            child: AppContentConstraint(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.screenPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: AppLogo(height: 30),
                     ),
-                    child: Column(
-                      children: [
-                        CalorieProgressRing(
-                          intakeKcal: summary.intakeKcal,
-                          targetKcal: summary.targetKcal,
-                          remainingKcal: summary.remainingKcal,
-                          size: 148,
-                          strokeWidth: 11,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
-                          '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal',
-                          style: Theme.of(context).textTheme.bodySmall,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  AppCard(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm,
-                    ),
-                    child: Column(
-                      children: [
-                        MacroProgressBar(
-                          label: 'P',
-                          intakeG: summary.intakeProteinG,
-                          targetG: summary.targetProteinG,
-                          color: AppColors.macroProtein,
-                          compact: true,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        MacroProgressBar(
-                          label: 'F',
-                          intakeG: summary.intakeFatG,
-                          targetG: summary.targetFatG,
-                          color: AppColors.macroFat,
-                          compact: true,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        MacroProgressBar(
-                          label: 'C',
-                          intakeG: summary.intakeCarbG,
-                          targetG: summary.targetCarbG,
-                          color: AppColors.macroCarb,
-                          compact: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _QuickActionsRow(
-                    onAddFood: () => _openFoodForm(context),
-                    onAddWorkout: () => _openExerciseForm(context),
-                    onRecordWeight: () => _openWeightRecord(
-                      context,
-                      initialWeightKg: profile.weightKg,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '今日のサマリー',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        _SummaryRow(
-                          label: '消費 kcal',
-                          value:
-                              '${summary.exerciseBurnKcal.toStringAsFixed(0)} kcal',
-                        ),
-                        _SummaryRow(
-                          label: '現在体重',
-                          value: '${profile.weightKg.toStringAsFixed(1)} kg',
-                        ),
-                        _SummaryRow(
-                          label: '目標',
-                          value: _goalSummaryLabel(goal),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  AppSectionHeader(
-                    title: '今日の食事',
-                    actionLabel: onOpenFoodTab != null ? '履歴' : null,
-                    onAction: onOpenFoodTab,
-                  ),
-                  if (todayFood.isEmpty)
-                    const AppEmptyState(message: '登録された食事はありません')
-                  else
-                    AppCard(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < todayFood.length; i++) ...[
-                            if (i > 0) const Divider(height: 1),
-                            _TodayFoodTile(
-                              entry: todayFood[i],
-                              timeLabel: _formatTime(todayFood[i].loggedAt),
-                              onTap: () =>
-                                  _openFoodForm(context, entry: todayFood[i]),
-                              onDelete: () =>
-                                  _confirmDeleteFood(context, todayFood[i]),
-                            ),
+                    const SizedBox(height: AppSpacing.md),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final twoColumn =
+                            isDesktopLayout(context) &&
+                            isWideSummaryLayout(constraints.maxWidth);
+                        final ringCard = AppCard(
+                          large: true,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm + 2,
+                          ),
+                          child: Column(
+                            children: [
+                              CalorieProgressRing(
+                                intakeKcal: summary.intakeKcal,
+                                targetKcal: summary.targetKcal,
+                                remainingKcal: summary.remainingKcal,
+                                size: twoColumn ? 132 : 148,
+                                strokeWidth: 11,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(
+                                '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
+                                '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal',
+                                style: Theme.of(context).textTheme.bodySmall,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                        final macroCard = AppCard(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm,
+                          ),
+                          child: Column(
+                            children: [
+                              MacroProgressBar(
+                                label: 'P',
+                                intakeG: summary.intakeProteinG,
+                                targetG: summary.targetProteinG,
+                                color: AppColors.macroProtein,
+                                compact: true,
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              MacroProgressBar(
+                                label: 'F',
+                                intakeG: summary.intakeFatG,
+                                targetG: summary.targetFatG,
+                                color: AppColors.macroFat,
+                                compact: true,
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              MacroProgressBar(
+                                label: 'C',
+                                intakeG: summary.intakeCarbG,
+                                targetG: summary.targetCarbG,
+                                color: AppColors.macroCarb,
+                                compact: true,
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (twoColumn) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: ringCard),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(child: macroCard),
+                            ],
+                          );
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ringCard,
+                            const SizedBox(height: AppSpacing.sm),
+                            macroCard,
                           ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _QuickActionsRow(
+                      onAddFood: () => _openFoodForm(context),
+                      onAddWorkout: () => _openExerciseForm(context),
+                      onRecordWeight: () => _openWeightRecord(
+                        context,
+                        initialWeightKg: profile.weightKg,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '今日のサマリー',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          _SummaryRow(
+                            label: '消費 kcal',
+                            value:
+                                '${summary.exerciseBurnKcal.toStringAsFixed(0)} kcal',
+                          ),
+                          _SummaryRow(
+                            label: '現在体重',
+                            value: '${profile.weightKg.toStringAsFixed(1)} kg',
+                          ),
+                          _SummaryRow(
+                            label: '目標',
+                            value: _goalSummaryLabel(goal),
+                          ),
                         ],
                       ),
                     ),
-                  const SizedBox(height: AppSpacing.lg),
-                  AppSectionHeader(title: '今日の運動'),
-                  if (todayExercise.isEmpty)
-                    const AppEmptyState(message: '登録された運動はありません')
-                  else
-                    AppCard(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < todayExercise.length; i++) ...[
-                            if (i > 0) const Divider(height: 1),
-                            _TodayExerciseTile(
-                              entry: todayExercise[i],
-                              timeLabel: _formatTime(todayExercise[i].loggedAt),
-                              onTap: () => _openExerciseForm(
-                                context,
+                    const SizedBox(height: AppSpacing.lg),
+                    AppSectionHeader(
+                      title: '今日の食事',
+                      actionLabel: onOpenFoodTab != null ? '履歴' : null,
+                      onAction: onOpenFoodTab,
+                    ),
+                    if (todayFood.isEmpty)
+                      const AppEmptyState(message: '登録された食事はありません')
+                    else
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < todayFood.length; i++) ...[
+                              if (i > 0) const Divider(height: 1),
+                              _TodayFoodTile(
+                                entry: todayFood[i],
+                                timeLabel: _formatTime(todayFood[i].loggedAt),
+                                onTap: () =>
+                                    _openFoodForm(context, entry: todayFood[i]),
+                                onDelete: () =>
+                                    _confirmDeleteFood(context, todayFood[i]),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppSectionHeader(title: '今日の運動'),
+                    if (todayExercise.isEmpty)
+                      const AppEmptyState(message: '登録された運動はありません')
+                    else
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < todayExercise.length; i++) ...[
+                              if (i > 0) const Divider(height: 1),
+                              _TodayExerciseTile(
                                 entry: todayExercise[i],
+                                timeLabel: _formatTime(
+                                  todayExercise[i].loggedAt,
+                                ),
+                                onTap: () => _openExerciseForm(
+                                  context,
+                                  entry: todayExercise[i],
+                                ),
+                                onDelete: () => _confirmDeleteExercise(
+                                  context,
+                                  todayExercise[i],
+                                ),
                               ),
-                              onDelete: () => _confirmDeleteExercise(
-                                context,
-                                todayExercise[i],
-                              ),
-                            ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                  const SizedBox(height: AppSpacing.xxl),
-                ],
+                    const SizedBox(height: AppSpacing.xxl),
+                  ],
+                ),
               ),
             ),
           ),

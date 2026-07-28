@@ -8,6 +8,8 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_shadows.dart';
+import '../../widgets/layout/app_responsive.dart';
+import '../../widgets/layout/app_sidebar_navigation.dart';
 import '../food/food_form_navigation.dart';
 import '../food/food_tab_screen.dart';
 import '../home/home_screen.dart';
@@ -67,6 +69,26 @@ class _MainShellScreenState extends State<MainShellScreen> {
         openFoodFactsService: widget.openFoodFactsService,
       ),
     ];
+
+    final useSidebar = isDesktopLayout(context);
+
+    if (useSidebar) {
+      return Scaffold(
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppSidebarNavigation(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: _selectTab,
+            ),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(
+              child: IndexedStack(index: _selectedIndex, children: screens),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: screens),

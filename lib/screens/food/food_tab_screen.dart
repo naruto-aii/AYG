@@ -6,6 +6,7 @@ import '../../state/app_controller.dart';
 import '../../utils/history_grouping.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/history/food_history_list.dart';
+import '../../widgets/layout/app_content_constraint.dart';
 import 'food_form_navigation.dart';
 
 class FoodTabScreen extends StatelessWidget {
@@ -76,10 +77,13 @@ class FoodTabScreen extends StatelessWidget {
             ],
           ),
           body: SafeArea(
-            child: FoodHistoryList(
-              dateGroups: displayGroups,
-              onTapEntry: (entry) => _openFoodForm(context, entry: entry),
-              onDeleteEntry: (entry) => _confirmDeleteFood(context, entry),
+            child: AppContentConstraint(
+              expandVertically: true,
+              child: FoodHistoryList(
+                dateGroups: displayGroups,
+                onTapEntry: (entry) => _openFoodForm(context, entry: entry),
+                onDeleteEntry: (entry) => _confirmDeleteFood(context, entry),
+              ),
             ),
           ),
         );

@@ -11,6 +11,8 @@ import '../../theme/app_spacing.dart';
 import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
+import '../../widgets/layout/app_form_constraint.dart';
+import '../../widgets/layout/app_responsive.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -68,55 +70,65 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Widget _buildLoginContent(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Spacer(),
+        const Center(child: AppLogo(markSize: 72, vertical: true)),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          AppStrings.loginTagline,
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: AppColors.secondaryText),
+        ),
+        const Spacer(),
+        PrimaryButton(
+          label: 'Googleでログイン',
+          icon: Icons.login,
+          loading: _isLoading,
+          onPressed: _isLoading ? null : _signInWithGoogle,
+        ),
+        SecondaryButton(
+          label: 'Appleでログイン',
+          icon: Icons.apple,
+          onPressed: _isLoading ? null : _signInWithApple,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: AppSpacing.md,
+          children: [
+            TextButton(
+              onPressed: () => _openUrl(SupabaseConfig.termsUrl),
+              child: const Text('利用規約'),
+            ),
+            TextButton(
+              onPressed: () => _openUrl(SupabaseConfig.privacyUrl),
+              child: const Text('プライバシーポリシー'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: _buildLoginContent(context),
+    );
+
     return Scaffold(
       backgroundColor: AppColors.backgroundCream,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(),
-              const Center(child: AppLogo(markSize: 72, vertical: true)),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                AppStrings.loginTagline,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.secondaryText,
-                ),
-              ),
-              const Spacer(),
-              PrimaryButton(
-                label: 'Googleでログイン',
-                icon: Icons.login,
-                loading: _isLoading,
-                onPressed: _isLoading ? null : _signInWithGoogle,
-              ),
-              SecondaryButton(
-                label: 'Appleでログイン',
-                icon: Icons.apple,
-                onPressed: _isLoading ? null : _signInWithApple,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: AppSpacing.md,
-                children: [
-                  TextButton(
-                    onPressed: () => _openUrl(SupabaseConfig.termsUrl),
-                    child: const Text('利用規約'),
-                  ),
-                  TextButton(
-                    onPressed: () => _openUrl(SupabaseConfig.privacyUrl),
-                    child: const Text('プライバシーポリシー'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+        child: Center(
+          child: isDesktopLayout(context)
+              ? AppFormConstraint(child: content)
+              : content,
         ),
       ),
     );

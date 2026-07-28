@@ -10,6 +10,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/settings_list_tile.dart';
+import '../../widgets/layout/app_content_constraint.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
@@ -54,129 +55,131 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('設定')),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            if (email != null) ...[
-              Text(
-                '${AppStrings.settingsLoggedInAs}: $email',
-                style: Theme.of(context).textTheme.bodyMedium,
+        child: AppContentConstraint(
+          child: ListView(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            children: [
+              if (email != null) ...[
+                Text(
+                  '${AppStrings.settingsLoggedInAs}: $email',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    SettingsListTile(
+                      icon: Icons.person_outline,
+                      title: AppStrings.settingsBasicInfo,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                SettingsBasicInfoScreen(controller: controller),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1),
+                    SettingsListTile(
+                      icon: Icons.flag_outlined,
+                      title: AppStrings.settingsGoal,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                SettingsGoalScreen(controller: controller),
+                          ),
+                        );
+                      },
+                    ),
+                    if (!hideHealthSettings) ...[
+                      const Divider(height: 1),
+                      SettingsListTile(
+                        icon: Icons.favorite_outline,
+                        title: AppStrings.settingsHealthActivity,
+                        onTap: healthRepository == null
+                            ? null
+                            : () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (context) =>
+                                        SettingsHealthActivityScreen(
+                                          controller: controller,
+                                          healthRepository: healthRepository!,
+                                        ),
+                                  ),
+                                );
+                              },
+                      ),
+                    ],
+                    const Divider(height: 1),
+                    SettingsListTile(
+                      icon: Icons.restaurant_menu_outlined,
+                      title: AppStrings.settingsFoodMaster,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => SettingsFoodMasterScreen(
+                              controller: controller,
+                              openFoodFactsService: openFoodFactsService,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    if (hideHealthSettings) ...[
+                      const Divider(height: 1),
+                      SettingsListTile(
+                        icon: Icons.favorite_outline,
+                        title: AppStrings.settingsHealthActivity,
+                        subtitle: AppStrings.webHealthUnavailable,
+                        enabled: false,
+                      ),
+                    ],
+                  ],
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    SettingsListTile(
+                      icon: Icons.description_outlined,
+                      title: '利用規約',
+                      onTap: () => _openUrl(context, SupabaseConfig.termsUrl),
+                    ),
+                    const Divider(height: 1),
+                    SettingsListTile(
+                      icon: Icons.privacy_tip_outlined,
+                      title: 'プライバシーポリシー',
+                      onTap: () => _openUrl(context, SupabaseConfig.privacyUrl),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: SettingsListTile(
+                  icon: Icons.logout,
+                  title: AppStrings.settingsLogout,
+                  destructive: true,
+                  onTap: () => _logout(context),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Center(
+                child: Text(
+                  AppStrings.appTitle,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             ],
-            AppCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  SettingsListTile(
-                    icon: Icons.person_outline,
-                    title: AppStrings.settingsBasicInfo,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) =>
-                              SettingsBasicInfoScreen(controller: controller),
-                        ),
-                      );
-                    },
-                  ),
-                  const Divider(height: 1),
-                  SettingsListTile(
-                    icon: Icons.flag_outlined,
-                    title: AppStrings.settingsGoal,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) =>
-                              SettingsGoalScreen(controller: controller),
-                        ),
-                      );
-                    },
-                  ),
-                  if (!hideHealthSettings) ...[
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.favorite_outline,
-                      title: AppStrings.settingsHealthActivity,
-                      onTap: healthRepository == null
-                          ? null
-                          : () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (context) =>
-                                      SettingsHealthActivityScreen(
-                                        controller: controller,
-                                        healthRepository: healthRepository!,
-                                      ),
-                                ),
-                              );
-                            },
-                    ),
-                  ],
-                  const Divider(height: 1),
-                  SettingsListTile(
-                    icon: Icons.restaurant_menu_outlined,
-                    title: AppStrings.settingsFoodMaster,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) => SettingsFoodMasterScreen(
-                            controller: controller,
-                            openFoodFactsService: openFoodFactsService,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  if (hideHealthSettings) ...[
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.favorite_outline,
-                      title: AppStrings.settingsHealthActivity,
-                      subtitle: AppStrings.webHealthUnavailable,
-                      enabled: false,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            AppCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  SettingsListTile(
-                    icon: Icons.description_outlined,
-                    title: '利用規約',
-                    onTap: () => _openUrl(context, SupabaseConfig.termsUrl),
-                  ),
-                  const Divider(height: 1),
-                  SettingsListTile(
-                    icon: Icons.privacy_tip_outlined,
-                    title: 'プライバシーポリシー',
-                    onTap: () => _openUrl(context, SupabaseConfig.privacyUrl),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            AppCard(
-              padding: EdgeInsets.zero,
-              child: SettingsListTile(
-                icon: Icons.logout,
-                title: AppStrings.settingsLogout,
-                destructive: true,
-                onTap: () => _logout(context),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Center(
-              child: Text(
-                AppStrings.appTitle,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

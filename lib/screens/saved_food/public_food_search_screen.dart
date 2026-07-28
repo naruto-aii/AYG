@@ -10,6 +10,7 @@ import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
+import '../../widgets/layout/app_content_constraint.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../../widgets/saved_food/public_food_search_result_tile.dart';
 import '../food/food_form_screen.dart';
@@ -150,89 +151,92 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
         title: Text(widget.selectForMealEntry ? '公開食品を選択' : '公開食品検索'),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(
-                          value: false,
-                          label: Text('食品名'),
-                          icon: Icon(Icons.search),
+        child: AppContentConstraint(
+          expandVertically: true,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: false,
+                            label: Text('食品名'),
+                            icon: Icon(Icons.search),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            label: Text('バーコード'),
+                            icon: Icon(Icons.qr_code),
+                          ),
+                        ],
+                        selected: {_useBarcodeSearch},
+                        onSelectionChanged: (selection) {
+                          setState(() => _useBarcodeSearch = selection.first);
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (!_useBarcodeSearch) ...[
+                        AppTextField(
+                          controller: _queryController,
+                          label: '食品名で検索',
                         ),
-                        ButtonSegment(
-                          value: true,
-                          label: Text('バーコード'),
-                          icon: Icon(Icons.qr_code),
+                        const SizedBox(height: AppSpacing.sm),
+                        PrimaryButton(
+                          label: _isSearching ? '検索中...' : '検索',
+                          icon: Icons.search,
+                          loading: _isSearching,
+                          onPressed: _isSearching ? null : () => _search(),
+                        ),
+                      ] else ...[
+                        AppTextField(
+                          controller: _barcodeController,
+                          label: 'バーコード',
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        SecondaryButton(
+                          label: 'バーコードで検索',
+                          icon: Icons.qr_code,
+                          onPressed: _isSearching ? null : _searchByBarcode,
                         ),
                       ],
-                      selected: {_useBarcodeSearch},
-                      onSelectionChanged: (selection) {
-                        setState(() => _useBarcodeSearch = selection.first);
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    if (!_useBarcodeSearch) ...[
-                      AppTextField(
-                        controller: _queryController,
-                        label: '食品名で検索',
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      PrimaryButton(
-                        label: _isSearching ? '検索中...' : '検索',
-                        icon: Icons.search,
-                        loading: _isSearching,
-                        onPressed: _isSearching ? null : () => _search(),
-                      ),
-                    ] else ...[
-                      AppTextField(
-                        controller: _barcodeController,
-                        label: 'バーコード',
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      SecondaryButton(
-                        label: 'バーコードで検索',
-                        icon: Icons.qr_code,
-                        onPressed: _isSearching ? null : _searchByBarcode,
-                      ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: _isSearching
-                  ? const AppLoadingState()
-                  : _errorMessage != null && _results.isEmpty
-                  ? AppEmptyState(message: _errorMessage!)
-                  : _results.isEmpty
-                  ? AppEmptyState(
-                      message: _hasSearched
-                          ? '該当する公開食品が見つかりませんでした'
-                          : '食品名またはバーコードで検索してください',
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
+              Expanded(
+                child: _isSearching
+                    ? const AppLoadingState()
+                    : _errorMessage != null && _results.isEmpty
+                    ? AppEmptyState(message: _errorMessage!)
+                    : _results.isEmpty
+                    ? AppEmptyState(
+                        message: _hasSearched
+                            ? '該当する公開食品が見つかりませんでした'
+                            : '食品名またはバーコードで検索してください',
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                        ),
+                        itemCount: _results.length,
+                        itemBuilder: (context, index) {
+                          final match = _results[index];
+                          return PublicFoodSearchResultTile(
+                            controller: widget.controller,
+                            match: match,
+                            onTap: () => _openMatch(match),
+                          );
+                        },
                       ),
-                      itemCount: _results.length,
-                      itemBuilder: (context, index) {
-                        final match = _results[index];
-                        return PublicFoodSearchResultTile(
-                          controller: widget.controller,
-                          match: match,
-                          onTap: () => _openMatch(match),
-                        );
-                      },
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

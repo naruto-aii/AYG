@@ -6,6 +6,7 @@ import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
 import '../../utils/nutrition_format.dart';
 import '../../utils/saved_food_display_labels.dart';
+import '../common/app_bottom_sheet.dart';
 import 'block_food_creator_dialog.dart';
 import 'public_food_rating_bar.dart';
 import 'public_food_report_dialog.dart';
@@ -19,9 +20,8 @@ Future<void> showPublicFoodDetailSheet({
   VoidCallback? onCopied,
   VoidCallback? onBlocked,
 }) async {
-  await showModalBottomSheet<void>(
+  await showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
     builder: (sheetContext) {
       return _PublicFoodDetailSheet(
         controller: controller,

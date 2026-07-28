@@ -3,7 +3,14 @@ import 'package:flutter/material.dart';
 import '../../models/meal_template.dart';
 import '../../models/meal_template_apply.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_loading_state.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/layout/app_content_constraint.dart';
 import 'meal_template_form_screen.dart';
 
 class MealTemplateListScreen extends StatefulWidget {
@@ -121,22 +128,10 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   }
 
   Future<void> _deleteTemplate(MealTemplate template) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${template.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${template.name}」を削除しますか？',
     );
     if (confirmed != true) {
       return;
@@ -145,83 +140,119 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
     await _reload();
   }
 
+  String _formatLastUsed(DateTime? value) {
+    if (value == null) {
+      return '未使用';
+    }
+    final local = value.toLocal();
+    return '${local.year}/${local.month}/${local.day}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('食事テンプレート'),
         actions: [
-          IconButton(
-            onPressed: _openCreate,
-            icon: const Icon(Icons.add),
-            tooltip: '新規作成',
+          Semantics(
+            label: 'テンプレート作成',
+            button: true,
+            child: IconButton(
+              onPressed: _openCreate,
+              icon: const Icon(Icons.add),
+            ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                labelText: 'テンプレート名で検索',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.search),
+      body: SafeArea(
+        child: AppContentConstraint(
+          expandVertically: true,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: AppTextField(
+                  controller: _searchController,
+                  label: 'テンプレート名で検索',
+                  suffixIcon: const Icon(Icons.search),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _templates.isEmpty
-                ? const Center(child: Text('食事テンプレートがありません'))
-                : ListView.builder(
-                    itemCount: _templates.length,
-                    itemBuilder: (context, index) {
-                      final template = _templates[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
+              Expanded(
+                child: _isLoading
+                    ? const AppLoadingState()
+                    : _templates.isEmpty
+                    ? const AppEmptyState(message: '食事テンプレートがありません')
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
                         ),
-                        child: ListTile(
-                          title: Text(template.name),
-                          subtitle: Text(
-                            '食品数: — · '
-                            '${formatNullableNutrient(template.totalKcal)}kcal · '
-                            'P${formatNullableNutrient(template.totalProteinG)} '
-                            'F${formatNullableNutrient(template.totalFatG)} '
-                            'C${formatNullableNutrient(template.totalCarbG)} · '
-                            '使用${template.useCount}回',
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (value) {
-                              switch (value) {
-                                case 'apply':
-                                  _applyTemplate(template);
-                                case 'edit':
-                                  _openEdit(template);
-                                case 'delete':
-                                  _deleteTemplate(template);
-                              }
-                            },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(
-                                value: 'apply',
-                                child: Text('今日の食事に追加'),
+                        itemCount: _templates.length,
+                        itemBuilder: (context, index) {
+                          final template = _templates[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
+                            ),
+                            child: AppCard(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.xs,
                               ),
-                              PopupMenuItem(value: 'edit', child: Text('編集')),
-                              PopupMenuItem(value: 'delete', child: Text('削除')),
-                            ],
-                          ),
-                          onTap: () => _applyTemplate(template),
-                        ),
-                      );
-                    },
-                  ),
+                              onTap: () => _applyTemplate(template),
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(template.name),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${formatNullableNutrient(template.totalKcal)} kcal · '
+                                      'P ${formatNullableNutrient(template.totalProteinG)} '
+                                      'F ${formatNullableNutrient(template.totalFatG)} '
+                                      'C ${formatNullableNutrient(template.totalCarbG)}',
+                                    ),
+                                    Text(
+                                      '最終利用 ${_formatLastUsed(template.lastUsedAt)} · '
+                                      '利用 ${template.useCount} 回',
+                                    ),
+                                  ],
+                                ),
+                                isThreeLine: true,
+                                trailing: PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    switch (value) {
+                                      case 'apply':
+                                        _applyTemplate(template);
+                                      case 'edit':
+                                        _openEdit(template);
+                                      case 'delete':
+                                        _deleteTemplate(template);
+                                    }
+                                  },
+                                  itemBuilder: (context) => const [
+                                    PopupMenuItem(
+                                      value: 'apply',
+                                      child: Text('利用'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'edit',
+                                      child: Text('編集'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('削除'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -276,10 +307,10 @@ class _MealTemplateDependencyDialogState
           shrinkWrap: true,
           children: [
             const Text('元食品の状態が変わっています。各項目の利用方法を選んでください。'),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             ...widget.issues.map((issue) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

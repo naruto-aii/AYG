@@ -4,6 +4,7 @@ import '../../models/exercise_entry.dart';
 import '../../state/app_controller.dart';
 import '../../utils/history_grouping.dart';
 import '../../widgets/history/workout_history_list.dart';
+import '../../widgets/layout/app_content_constraint.dart';
 import '../exercise/exercise_form_screen.dart';
 
 class WorkoutTabScreen extends StatelessWidget {
@@ -73,10 +74,14 @@ class WorkoutTabScreen extends StatelessWidget {
             child: const Icon(Icons.add),
           ),
           body: SafeArea(
-            child: WorkoutHistoryList(
-              dateGroups: displayGroups,
-              onTapEntry: (entry) => _openExerciseForm(context, entry: entry),
-              onDeleteEntry: (entry) => _confirmDeleteExercise(context, entry),
+            child: AppContentConstraint(
+              expandVertically: true,
+              child: WorkoutHistoryList(
+                dateGroups: displayGroups,
+                onTapEntry: (entry) => _openExerciseForm(context, entry: entry),
+                onDeleteEntry: (entry) =>
+                    _confirmDeleteExercise(context, entry),
+              ),
             ),
           ),
         );

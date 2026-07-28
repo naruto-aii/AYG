@@ -728,9 +728,6 @@ class AppController extends ChangeNotifier {
     if (repository == null) {
       throw StateError('SavedFoodRepository is not configured');
     }
-    if (draft.visibility != FoodVisibility.private) {
-      throw UnsupportedError('Only private foods can be saved in Phase 6A–6C');
-    }
 
     final authUser = _authenticationRepository?.currentUser;
     if (authUser == null) {
@@ -768,6 +765,36 @@ class AppController extends ChangeNotifier {
     ).normalizedForSave();
 
     await repository.savePrivate(food);
+
+    if (draft.visibility == FoodVisibility.public) {
+      final validation = validateSavedFoodForPublish(food);
+      if (!validation.isValid) {
+        throw SavedFoodPersistenceException(
+          errorCode: SavedFoodErrorCode.validationFailed,
+          message: validation.errors.join('\n'),
+          repositoryStep: 'AppController.createSavedFood',
+          operation: 'publish_validate',
+        );
+      }
+
+      final duplicate = await checkPublicDuplicate(food);
+      if (duplicate != null) {
+        throw SavedFoodPersistenceException(
+          errorCode: SavedFoodErrorCode.conflict,
+          message: 'Duplicate public food exists.',
+          repositoryStep: 'AppController.createSavedFood',
+          operation: 'publish_duplicate_check',
+        );
+      }
+
+      final published = await repository.publish(
+        ownerUserId: authUser.id,
+        foodId: food.foodId,
+      );
+      _scheduleRemoteSync();
+      return published;
+    }
+
     _scheduleRemoteSync();
     return food;
   }
@@ -1609,7 +1636,7 @@ class AppController extends ChangeNotifier {
       if (error is SavedFoodPersistenceException) {
         error.logDebug();
         errorCode = error.errorCode;
-        message = error.message;
+        message = error.userMessage;
       } else {
         message = error.toString();
         if (kDebugMode) {

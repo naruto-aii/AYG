@@ -62,6 +62,7 @@ app.*.map.json
 *.xcuserdata
 ios/Flutter/GoogleSignIn.generated.xcconfig
 tool/dart_defines.local.json
+tool/db_password.local
 
 # Local native binaries
 *.dylib

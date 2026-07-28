@@ -17,6 +17,25 @@ enum SavedFoodErrorCode {
   const SavedFoodErrorCode(this.code);
 
   final String code;
+
+  /// ユーザー向けの説明文（エラーコードは含めない）。
+  String userMessage({String? detail}) {
+    return switch (this) {
+      SavedFoodErrorCode.authRequired => 'ログイン状態を確認できませんでした。再度ログインしてください。',
+      SavedFoodErrorCode.userProfileRequired =>
+        'ユーザー情報の準備が完了していません。しばらく待ってからお試しください。',
+      SavedFoodErrorCode.permissionDenied => '食品を保存する権限がありません。',
+      SavedFoodErrorCode.validationFailed =>
+        detail?.trim().isNotEmpty == true
+            ? detail!.trim()
+            : '公開保存に必要な情報が不足しています。kcal・P・F・Cをすべて入力してください。',
+      SavedFoodErrorCode.networkFailed => '通信に失敗しました。ネットワークを確認して再度お試しください。',
+      SavedFoodErrorCode.conflict =>
+        '同じ内容の公開食品がすでに登録されています。非公開で保存するか、食品名・基準量・単位を変えてお試しください。',
+      SavedFoodErrorCode.tableMissing => '食品保存機能は現在利用できません。しばらく待ってからお試しください。',
+      SavedFoodErrorCode.insertFailed => '食品の保存に失敗しました。しばらく待ってからお試しください。',
+    };
+  }
 }
 
 /// saved_foods 永続化失敗。PostgREST / Postgres 情報を安全に保持する。
@@ -45,6 +64,8 @@ class SavedFoodPersistenceException implements Exception {
 
   @override
   String toString() => message;
+
+  String get userMessage => errorCode.userMessage(detail: message);
 
   void logDebug() {
     if (!kDebugMode) {

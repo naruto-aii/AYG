@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/food_visibility.dart';
 import '../../models/duplicate_saved_food_resolution.dart';
 import '../../models/food_entry.dart';
 import '../../models/food_entry_source.dart';
@@ -9,6 +10,7 @@ import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
+import '../../models/saved_food_persistence_error.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
@@ -26,7 +28,9 @@ import '../../widgets/layout/app_form_constraint.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
 import '../../widgets/saved_food/saved_food_suggestion_list.dart';
+import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../saved_food/public_food_search_screen.dart';
+import '../saved_food/saved_food_list_screen.dart';
 import 'barcode_scanner_screen.dart';
 
 class FoodFormScreen extends StatefulWidget {
@@ -59,6 +63,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   bool _isSearching = false;
   bool _manualInputHighlighted = false;
   bool _saveAsFood = true;
+  FoodVisibility _saveFoodVisibility = FoodVisibility.private;
   bool _fromSavedFoodSelection = false;
   bool _barcodeSectionExpanded = false;
   FoodEntrySource _sourceType = FoodEntrySource.manual;
@@ -339,6 +344,18 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         FoodEntrySource.openFoodFacts => FoodSourceType.openFoodFacts,
         _ => FoodSourceType.manual,
       },
+      visibility: _saveFoodVisibility,
+    );
+  }
+
+  Future<void> _openMyFoods() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => SavedFoodListScreen(
+          controller: widget.controller,
+          openFoodFactsService: widget.openFoodFactsService,
+        ),
+      ),
     );
   }
 
@@ -425,12 +442,12 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     if (result.savedFoodErrorMessage != null) {
-      final code =
-          result.savedFoodErrorCode?.code ?? 'SAVED_FOOD_INSERT_FAILED';
-      _showMessage(
-        '食事は記録しましたが、食品としての保存に失敗しました。\n'
-        'エラーコード：$code',
-      );
+      final userMessage =
+          result.savedFoodErrorCode?.userMessage(
+            detail: result.savedFoodErrorMessage,
+          ) ??
+          result.savedFoodErrorMessage!;
+      _showMessage('食事は記録しましたが、食品としての保存に失敗しました。\n$userMessage');
     }
 
     Navigator.of(context).pop();
@@ -485,7 +502,13 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         : '数量（未入力時は1）';
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? '食事を編集' : '食事を追加')),
+      appBar: AppBar(
+        title: Text(widget.isEditing ? '食事を編集' : '食事を追加'),
+        actions: [
+          if (!widget.isEditing)
+            TextButton(onPressed: _openMyFoods, child: const Text('マイ食品')),
+        ],
+      ),
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: AppFormConstraint(
@@ -634,6 +657,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                           onChanged: (value) =>
                               setState(() => _saveAsFood = value),
                         ),
+                        if (_saveAsFood) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          SavedFoodVisibilitySelector(
+                            value: _saveFoodVisibility,
+                            onChanged: (value) =>
+                                setState(() => _saveFoodVisibility = value),
+                          ),
+                        ],
                       ],
                     ],
                   ),

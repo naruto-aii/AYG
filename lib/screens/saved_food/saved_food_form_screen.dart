@@ -19,6 +19,7 @@ import '../../widgets/layout/app_constrained_bottom_bar.dart';
 import '../../widgets/layout/app_form_constraint.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/confirm_public_food_update_dialog.dart';
+import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import 'saved_food_publish_flow.dart';
 
 class SavedFoodFormScreen extends StatefulWidget {
@@ -44,6 +45,7 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
 
   FoodUnitType _unitType = FoodUnitType.g;
   bool _isSaving = false;
+  FoodVisibility _createVisibility = FoodVisibility.private;
 
   bool get _isPublicFood => widget.food?.visibility == FoodVisibility.public;
   bool get _isPrivateFood =>
@@ -100,6 +102,7 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
       brand: _nullableText(_brandController.text),
       barcode: normalizeEan13Barcode(_barcodeController.text.trim()),
       supplementaryWeight: _nullableText(_supplementaryWeightController.text),
+      visibility: _createVisibility,
     );
   }
 
@@ -423,12 +426,21 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                AppCard(
-                  child: InputDecorator(
-                    decoration: const InputDecoration(labelText: '保存範囲'),
-                    child: Text(_isPublicFood ? '公開' : '非公開（private）'),
+                if (!widget.isEditing)
+                  AppCard(
+                    child: SavedFoodVisibilitySelector(
+                      value: _createVisibility,
+                      onChanged: (value) =>
+                          setState(() => _createVisibility = value),
+                    ),
+                  )
+                else
+                  AppCard(
+                    child: InputDecorator(
+                      decoration: const InputDecoration(labelText: '保存範囲'),
+                      child: Text(_isPublicFood ? '公開' : '非公開'),
+                    ),
                   ),
-                ),
                 if (_isPrivateFood && widget.isEditing) ...[
                   const SizedBox(height: AppSpacing.md),
                   SecondaryButton(

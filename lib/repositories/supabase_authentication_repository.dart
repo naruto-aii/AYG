@@ -1,9 +1,10 @@
-import 'dart:async';
-
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/supabase_config.dart';
+import '../config/web_auth_config.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
 
@@ -13,19 +14,20 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     SupabaseClient? client,
     GoogleSignIn? googleSignIn,
   }) : _client = client ?? Supabase.instance.client,
-       _googleSignIn =
-           googleSignIn ??
-           GoogleSignIn(
-             clientId: SupabaseConfig.googleIosClientId.isEmpty
-                 ? null
-                 : SupabaseConfig.googleIosClientId,
-             serverClientId: SupabaseConfig.googleWebClientId.isEmpty
-                 ? null
-                 : SupabaseConfig.googleWebClientId,
-           );
+       _googleSignIn = kIsWeb
+           ? null
+           : googleSignIn ??
+                 GoogleSignIn(
+                   clientId: SupabaseConfig.googleIosClientId.isEmpty
+                       ? null
+                       : SupabaseConfig.googleIosClientId,
+                   serverClientId: SupabaseConfig.googleWebClientId.isEmpty
+                       ? null
+                       : SupabaseConfig.googleWebClientId,
+                 );
 
   final SupabaseClient _client;
-  final GoogleSignIn _googleSignIn;
+  final GoogleSignIn? _googleSignIn;
 
   @override
   AuthUser? get currentUser => _mapUser(_client.auth.currentUser);
@@ -43,7 +45,14 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     if (session == null) {
       return;
     }
-    await _client.auth.refreshSession();
+
+    try {
+      await _client.auth.refreshSession();
+    } catch (_) {
+      try {
+        await _client.auth.signOut();
+      } catch (_) {}
+    }
   }
 
   @override
@@ -52,7 +61,26 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
       throw GoogleSignInFailedException('Google Sign-In is not configured.');
     }
 
-    final googleUser = await _googleSignIn.signIn();
+    if (kIsWeb) {
+      final launched = await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: WebAuthConfig.redirectUrl,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw GoogleSignInFailedException(
+          'Could not launch Google sign-in browser.',
+        );
+      }
+      return;
+    }
+
+    final googleSignIn = _googleSignIn;
+    if (googleSignIn == null) {
+      throw GoogleSignInFailedException('Google Sign-In is not available.');
+    }
+
+    final googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
       throw GoogleSignInCancelledException();
     }
@@ -83,7 +111,7 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> logout() async {
-    await _googleSignIn.signOut();
+    await _googleSignIn?.signOut();
     await _client.auth.signOut();
   }
 

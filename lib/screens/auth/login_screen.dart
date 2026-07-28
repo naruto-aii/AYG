@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../platform/web/web_browser_utils.dart';
 import '../../config/supabase_config.dart';
 import '../../constants/app_strings.dart';
+import '../../platform/web/in_app_browser_detector.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../state/app_controller.dart';
@@ -19,10 +22,12 @@ class LoginScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.authenticationRepository,
+    this.authStorageAvailable = true,
   });
 
   final AppController controller;
   final AuthenticationRepository authenticationRepository;
+  final bool authStorageAvailable;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -35,6 +40,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       await widget.authenticationRepository.loginWithGoogle();
+      if (kIsWeb) {
+        return;
+      }
       await widget.controller.handleAuthenticatedSession();
     } on GoogleSignInCancelledException {
       return;
@@ -74,6 +82,29 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (InAppBrowserDetector.shouldRecommendExternalBrowser) ...[
+          MaterialBanner(
+            content: const Text(
+              'アプリ内ブラウザではGoogleログインが制限される場合があります。SafariまたはChromeで開いてください。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: openCurrentUrlInExternalBrowser,
+                child: const Text('外部ブラウザで開く'),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        if (!widget.authStorageAvailable) ...[
+          MaterialBanner(
+            content: const Text(
+              'ブラウザのストレージが利用できないため、ログイン状態を保持できません。プライベートブラウズを解除するか、通常モードで開いてください。',
+            ),
+            actions: const [SizedBox.shrink()],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         const Spacer(),
         const Center(child: AppLogo(markSize: 72, vertical: true)),
         const SizedBox(height: AppSpacing.sm),

@@ -17,12 +17,14 @@ class AygApp extends StatelessWidget {
     required this.openFoodFactsService,
     required this.healthRepository,
     required this.authenticationRepository,
+    this.authStorageAvailable = true,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final HealthRepository healthRepository;
   final AuthenticationRepository authenticationRepository;
+  final bool authStorageAvailable;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +38,7 @@ class AygApp extends StatelessWidget {
             return LoginScreen(
               controller: controller,
               authenticationRepository: authenticationRepository,
+              authStorageAvailable: authStorageAvailable,
             );
           }
 

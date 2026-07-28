@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../constants/app_strings.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import 'brand_assets.dart';
 
-/// 暫定アプリアイコン / ブランドマーク（SVG 差し替え可能）。
+/// 暫定ブランドマーク（装飾SVGのみ。文字は [AppLogo] の Text で表示）。
 class AppBrandMark extends StatelessWidget {
   const AppBrandMark({
     super.key,
-    this.size = 72,
-    this.borderRadius = AppRadius.lg,
+    this.size = 32,
+    this.borderRadius = AppRadius.md,
   });
 
   final double size;
@@ -22,7 +21,7 @@ class AppBrandMark extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: SvgPicture.asset(
-        BrandAssets.iconPlaceholderSvg,
+        BrandAssets.brandMarkSvg,
         width: size,
         height: size,
         placeholderBuilder: (_) =>
@@ -48,14 +47,7 @@ class _FallbackMark extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       alignment: Alignment.center,
-      child: Text(
-        AppStrings.provisionalAppIconText,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: size * 0.38,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      child: Icon(Icons.eco_outlined, color: Colors.white, size: size * 0.52),
     );
   }
 }

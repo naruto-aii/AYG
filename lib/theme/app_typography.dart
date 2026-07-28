@@ -91,4 +91,19 @@ abstract final class AppTypography {
       context,
     ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700);
   }
+
+  /// ロゴ横のプロダクト名「カロナビ」。
+  static TextStyle brandTitle(
+    BuildContext context, {
+    required double markSize,
+  }) {
+    final fontSize = (markSize * 0.78).clamp(18.0, 34.0);
+    return Theme.of(context).textTheme.headlineMedium!.copyWith(
+      color: AppColors.primaryGreen,
+      fontSize: fontSize,
+      fontWeight: FontWeight.w700,
+      height: 1.1,
+      letterSpacing: 0.2,
+    );
+  }
 }

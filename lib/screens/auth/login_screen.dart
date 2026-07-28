@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/supabase_config.dart';
-import '../../constants/app_strings.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/brand/app_brand_mark.dart';
 import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
@@ -80,9 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              const Center(child: AppBrandMark(size: 88)),
-              const SizedBox(height: AppSpacing.lg),
-              const Center(child: AppLogo(height: 44)),
+              const Center(child: AppLogo(markSize: 72, vertical: true)),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'エネルギー管理をはじめましょう',

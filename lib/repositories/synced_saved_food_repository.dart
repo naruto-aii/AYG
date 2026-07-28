@@ -1,3 +1,4 @@
+import '../../models/food_status.dart';
 import '../../models/food_visibility.dart';
 import '../../models/food_unit_type.dart';
 import '../../models/saved_food.dart';
@@ -46,21 +47,26 @@ class SyncedSavedFoodRepository extends SavedFoodRepositoryBase {
         next: normalized,
       );
     }
+
+    final remote = _remote;
+    if (remote != null) {
+      SavedFood persisted;
+      if (normalized.visibility == FoodVisibility.public) {
+        persisted = await remote.updateOwnRow(
+          userId: normalized.ownerUserId,
+          food: normalized,
+        );
+      } else {
+        persisted = await remote.upsertOwnPrivate(
+          userId: normalized.ownerUserId,
+          food: normalized,
+        );
+      }
+      await _local.updateOwn(persisted);
+      return;
+    }
+
     await _local.updateOwn(normalized);
-    if (_remote == null) {
-      return;
-    }
-    if (normalized.visibility == FoodVisibility.public) {
-      await _remote!.updateOwnRow(
-        userId: normalized.ownerUserId,
-        food: normalized,
-      );
-      return;
-    }
-    await _remote!.upsertOwnPrivate(
-      userId: normalized.ownerUserId,
-      food: normalized,
-    );
   }
 
   @override
@@ -100,18 +106,35 @@ class SyncedSavedFoodRepository extends SavedFoodRepositoryBase {
     required String foodId,
     required DateTime deletedAt,
   }) async {
+    final existing = await _local.getOwn(
+      ownerUserId: ownerUserId,
+      foodId: foodId,
+    );
+    if (existing == null) {
+      return;
+    }
+
+    final deleted = existing.copyWith(
+      status: FoodStatus.deleted,
+      deletedAt: deletedAt,
+      updatedAt: deletedAt,
+    );
+
+    final remote = _remote;
+    if (remote != null) {
+      final persisted = await remote.updateOwnRow(
+        userId: ownerUserId,
+        food: deleted,
+      );
+      await _local.updateOwn(persisted);
+      return;
+    }
+
     await _local.softDelete(
       ownerUserId: ownerUserId,
       foodId: foodId,
       deletedAt: deletedAt,
     );
-    final existing = await _local.getOwn(
-      ownerUserId: ownerUserId,
-      foodId: foodId,
-    );
-    if (existing != null && _remote != null) {
-      await _remote!.updateOwnRow(userId: ownerUserId, food: existing);
-    }
   }
 
   @override

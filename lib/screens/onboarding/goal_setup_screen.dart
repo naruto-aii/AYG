@@ -53,7 +53,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     }
   }
 
-  void _complete() {
+  Future<void> _complete() async {
     if (_targetDate == null) {
       ScaffoldMessenger.of(
         context,
@@ -74,7 +74,22 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     );
 
     if (widget.controller.useHealthIntegration) {
-      widget.controller.completeOnboarding();
+      try {
+        await widget.controller.completeOnboarding();
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
           builder: (context) => MainShellScreen(

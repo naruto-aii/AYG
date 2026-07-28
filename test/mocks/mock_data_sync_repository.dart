@@ -43,6 +43,14 @@ class MockDataSyncRepository implements DataSyncRepository {
   }
 
   @override
+  Future<void> pullSavedFoodsRemoteToLocal(String userId) async {
+    lastUserId = userId;
+    if (failPull) {
+      throw StateError('pull saved foods failed');
+    }
+  }
+
+  @override
   Future<void> pushLocalToRemote(String userId) async {
     pushLocalToRemoteCalled = true;
     lastUserId = userId;

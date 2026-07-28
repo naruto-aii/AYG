@@ -425,7 +425,12 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     if (result.savedFoodErrorMessage != null) {
-      _showMessage('食事は記録しましたが、食品としての保存に失敗しました');
+      final code =
+          result.savedFoodErrorCode?.code ?? 'SAVED_FOOD_INSERT_FAILED';
+      _showMessage(
+        '食事は記録しましたが、食品としての保存に失敗しました。\n'
+        'エラーコード：$code',
+      );
     }
 
     Navigator.of(context).pop();

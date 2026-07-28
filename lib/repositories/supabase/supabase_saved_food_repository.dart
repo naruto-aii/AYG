@@ -4,6 +4,7 @@ import '../../models/food_unit_type.dart';
 import '../../models/food_visibility.dart';
 import '../../models/saved_food.dart';
 import '../../models/food_source_type.dart';
+import '../../models/saved_food_persistence_error.dart';
 import '../../services/saved_food_version_policy.dart';
 import '../../utils/base_amount_normalizer.dart';
 import '../../utils/food_name_normalizer.dart';
@@ -23,6 +24,7 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
     required String userId,
     required SavedFood food,
   }) async {
+    const step = 'SupabaseSavedFoodRepository.upsertOwnPrivate';
     try {
       final payload = FoodMasterRowMapper.savedFoodToRow(
         food.copyWith(
@@ -37,7 +39,25 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
           .select()
           .single();
       return FoodMasterRowMapper.savedFoodFromRow(row);
+    } on PostgrestException catch (error) {
+      final mapped = SavedFoodPersistenceException.fromPostgrest(
+        error: error,
+        repositoryStep: step,
+        operation: 'upsert',
+      )..logDebug();
+      throw mapped;
     } catch (error) {
+      if (error is SavedFoodPersistenceException) {
+        rethrow;
+      }
+      if (error is FoodMasterException) {
+        final mapped = SavedFoodPersistenceException.fromFoodMaster(
+          error: error,
+          repositoryStep: step,
+          operation: 'upsert',
+        )..logDebug();
+        throw mapped;
+      }
       throw SupabaseErrorMapper.map(error, context: 'saved_foods upsert');
     }
   }

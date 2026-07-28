@@ -1,3 +1,4 @@
+import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/duplicate_saved_food_action.dart';
 import 'package:ayg/models/duplicate_saved_food_resolution.dart';
@@ -14,6 +15,8 @@ import 'package:ayg/state/app_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/isar_test_helper.dart';
+import 'mocks/mock_authentication_repository.dart';
+import 'mocks/mock_data_sync_repository.dart';
 import 'mocks/mock_health_repository.dart';
 
 void main() {
@@ -21,10 +24,22 @@ void main() {
     late IsarTestHarness harness;
     late AppController controller;
 
+    late MockAuthenticationRepository authRepository;
+    late MockDataSyncRepository dataSyncRepository;
+
     setUp(() async {
       harness = await IsarTestHarness.create();
+      authRepository = MockAuthenticationRepository(
+        currentUser: const AuthUser(
+          id: 'test-user-id',
+          email: 'test@example.com',
+        ),
+      );
+      dataSyncRepository = MockDataSyncRepository();
       controller = AppController(
         healthRepository: MockHealthRepository(isAvailable: false),
+        authenticationRepository: authRepository,
+        dataSyncRepository: dataSyncRepository,
         userRepository: harness.userRepository,
         settingsRepository: harness.settingsRepository,
         foodRepository: harness.foodRepository,
@@ -64,7 +79,7 @@ void main() {
       final now = DateTime(2026, 7, 20);
       final food = SavedFood(
         foodId: id,
-        ownerUserId: AppController.localOwnerUserId,
+        ownerUserId: 'test-user-id',
         name: name,
         normalizedName: name.toLowerCase(),
         baseAmount: baseAmount,
@@ -115,7 +130,7 @@ void main() {
       );
 
       final loaded = await harness.savedFoodRepository.getOwn(
-        ownerUserId: AppController.localOwnerUserId,
+        ownerUserId: 'test-user-id',
         foodId: created.foodId,
       );
       expect(loaded, isNotNull);
@@ -159,7 +174,7 @@ void main() {
         expect(result.entry?.savedFoodId, 'dup');
         expect(
           await harness.savedFoodRepository.searchOwn(
-            ownerUserId: AppController.localOwnerUserId,
+            ownerUserId: 'test-user-id',
             query: '',
           ),
           hasLength(1),
@@ -208,7 +223,7 @@ void main() {
 
       expect(controller.foodEntries.single.name, 'テスト');
       final reloaded = await harness.savedFoodRepository.getOwn(
-        ownerUserId: AppController.localOwnerUserId,
+        ownerUserId: 'test-user-id',
         foodId: food.foodId,
       );
       expect(reloaded!.name, 'Updated');

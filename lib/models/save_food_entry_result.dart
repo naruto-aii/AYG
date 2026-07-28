@@ -1,5 +1,6 @@
 import 'food_entry.dart';
 import 'saved_food.dart';
+import 'saved_food_persistence_error.dart';
 
 /// 食事保存 + 任意の食品マスター保存結果。
 class SaveFoodEntryResult {
@@ -9,6 +10,7 @@ class SaveFoodEntryResult {
     this.savedFood,
     this.savedFoodSaved = false,
     this.savedFoodErrorMessage,
+    this.savedFoodErrorCode,
   });
 
   final bool foodEntrySaved;
@@ -16,6 +18,7 @@ class SaveFoodEntryResult {
   final SavedFood? savedFood;
   final bool savedFoodSaved;
   final String? savedFoodErrorMessage;
+  final SavedFoodErrorCode? savedFoodErrorCode;
 
   bool get isFullSuccess => foodEntrySaved && savedFoodErrorMessage == null;
 }

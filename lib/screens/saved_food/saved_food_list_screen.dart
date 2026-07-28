@@ -57,6 +57,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
     });
 
     try {
+      await widget.controller.refreshSavedFoodsFromRemote();
       final foods = await widget.controller.searchOwnSavedFoods(
         _searchController.text.trim(),
       );
@@ -137,7 +138,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '削除確認',
-      message: '「${food.name}」を削除しますか？\n過去の食事記録は変更されません。',
+      message: '「${food.name}」を削除しますか？\n過去の食事記録は削除されません。',
     );
 
     if (confirmed != true) {

@@ -246,7 +246,22 @@ void main() {
       expect(local.stored, isNull);
     });
 
-    test('updateOwn bumps version for public user-facing changes', () async {
+    test('softDelete writes remote before local', () async {
+      final local = _FakeLocalStore()..stored = _sampleFood('u1', 'f1');
+      final remote = _FakeRemoteStore();
+      final repo = SyncedSavedFoodRepository(local: local, remote: remote);
+      final deletedAt = DateTime.utc(2026, 2, 1);
+
+      await repo.softDelete(
+        ownerUserId: 'u1',
+        foodId: 'f1',
+        deletedAt: deletedAt,
+      );
+
+      expect(local.stored?.status, FoodStatus.deleted);
+    });
+
+    test('updateOwn writes remote before local', () async {
       final local = _FakeLocalStore()
         ..stored = _sampleFood('u1', 'f1').copyWith(
           visibility: FoodVisibility.public,

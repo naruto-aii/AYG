@@ -29,14 +29,29 @@ class ActivityLevelScreen extends StatefulWidget {
 class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
   ActivityLevel _activityLevel = ActivityLevel.moderate;
 
-  void _complete() {
+  Future<void> _complete() async {
     widget.controller.setNutritionSettings(
       NutritionSettings(
         useHealthIntegration: false,
         activityLevel: _activityLevel,
       ),
     );
-    widget.controller.completeOnboarding();
+
+    try {
+      await widget.controller.completeOnboarding();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(

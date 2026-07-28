@@ -52,6 +52,8 @@ abstract class DataSyncRepository {
 
   Future<void> pullRemoteToLocal(String userId);
 
+  Future<void> pullSavedFoodsRemoteToLocal(String userId);
+
   Future<void> pushLocalToRemote(String userId);
 }
 
@@ -130,6 +132,11 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pullWeightEntries(userId);
     await _pullSavedFoods(userId);
     await _pullMealTemplates(userId);
+  }
+
+  @override
+  Future<void> pullSavedFoodsRemoteToLocal(String userId) async {
+    await _pullSavedFoods(userId);
   }
 
   @override
@@ -528,6 +535,9 @@ class NoOpDataSyncRepository implements DataSyncRepository {
 
   @override
   Future<void> pullRemoteToLocal(String userId) async {}
+
+  @override
+  Future<void> pullSavedFoodsRemoteToLocal(String userId) async {}
 
   @override
   Future<void> pushLocalToRemote(String userId) async {}

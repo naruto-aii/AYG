@@ -93,9 +93,11 @@ void main() {
     final healthRepository = MockHealthRepository(isAvailable: false);
     final authRepository = MockAuthenticationRepository()
       ..simulateGoogleSignInCancelled = true;
+    final dataSyncRepository = MockDataSyncRepository();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
     );
 
     await tester.pumpWidget(
@@ -123,9 +125,11 @@ void main() {
     final healthRepository = MockHealthRepository(isAvailable: false);
     final authRepository = MockAuthenticationRepository()
       ..simulateGoogleSignInFailure = true;
+    final dataSyncRepository = MockDataSyncRepository();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
     );
 
     await tester.pumpWidget(
@@ -151,9 +155,11 @@ void main() {
     final authRepository = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
     );
+    final dataSyncRepository = MockDataSyncRepository();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
     );
 
     controller.setProfile(
@@ -207,9 +213,11 @@ void main() {
     final authRepository = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
     );
+    final dataSyncRepository = MockDataSyncRepository();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
     );
 
     controller.setProfile(

@@ -22,6 +22,7 @@ import '../models/nutrition_settings.dart';
 import '../models/food_unit_type.dart';
 import '../models/saved_food.dart';
 import '../models/saved_food_draft.dart';
+import '../models/saved_food_persistence_error.dart';
 import '../models/saved_food_entry_selection.dart';
 import '../models/food_report.dart';
 import '../models/public_food_publish_match.dart';
@@ -144,10 +145,24 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
   bool _lastSyncFailed = false;
+  bool _isInitializing = false;
 
   bool get hasInitialSyncCompleted => _hasInitialSyncCompleted;
   bool get isSyncInProgress => _isSyncInProgress;
   bool get lastSyncFailed => _lastSyncFailed;
+  bool get isInitializing => _isInitializing;
+
+  /// 初回同期失敗などでプロフィール未取得のままオンボーディングへ進まない。
+  bool get requiresSyncRetry =>
+      isAuthenticated && _lastSyncFailed && !_hasInitialSyncCompleted;
+
+  bool get requiresOnboarding =>
+      isAuthenticated &&
+      _hasInitialSyncCompleted &&
+      !(onboardingComplete &&
+          profile != null &&
+          goal != null &&
+          nutritionSettings != null);
 
   UserProfile? profile;
   Goal? goal;
@@ -193,9 +208,14 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    _isInitializing = true;
+    notifyListeners();
+
     final authRepository = _authenticationRepository;
     if (authRepository == null) {
       await loadPersistedState();
+      _isInitializing = false;
+      notifyListeners();
       return;
     }
 
@@ -205,22 +225,47 @@ class AppController extends ChangeNotifier {
       // セッション復元失敗時は未ログインとして続行する。
     }
 
-    _authSubscription ??= authRepository.authStateChanges.listen((_) {
-      notifyListeners();
+    _authSubscription ??= authRepository.authStateChanges.listen((user) {
+      unawaited(_handleAuthStateChanged(user));
     });
 
     if (authRepository.isAuthenticated) {
       await handleAuthenticatedSession();
+    } else {
+      _clearInMemoryState();
+    }
+
+    _isInitializing = false;
+    notifyListeners();
+  }
+
+  Future<void> _handleAuthStateChanged(AuthUser? user) async {
+    if (user == null) {
+      _hasInitialSyncCompleted = false;
+      _lastSyncFailed = false;
+      _clearInMemoryState();
+      notifyListeners();
       return;
     }
 
-    _clearInMemoryState();
+    if (!_isSyncInProgress) {
+      await handleAuthenticatedSession();
+    }
+    notifyListeners();
   }
 
-  Future<void> handleAuthenticatedSession() async {
+  Future<void> retryAuthenticatedSync() async {
+    await handleAuthenticatedSession(force: true);
+  }
+
+  Future<void> handleAuthenticatedSession({bool force = false}) async {
     final authUser = _authenticationRepository?.currentUser;
     final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
+      return;
+    }
+
+    if (_isSyncInProgress) {
       return;
     }
 
@@ -239,17 +284,20 @@ class AppController extends ChangeNotifier {
         email: authUser.email,
       );
 
-      if (lastUserId != authUser.id || !_hasInitialSyncCompleted) {
+      if (force || lastUserId != authUser.id || !_hasInitialSyncCompleted) {
         await dataSyncRepository.pullRemoteToLocal(authUser.id);
         _hasInitialSyncCompleted = true;
         await _localSessionStore?.saveLastUserId(authUser.id);
       }
 
       await loadPersistedState();
-    } catch (_) {
+      _lastSyncFailed = false;
+    } catch (error, stackTrace) {
       _lastSyncFailed = true;
-      _hasInitialSyncCompleted = false;
-      _clearInMemoryState();
+      if (kDebugMode) {
+        debugPrint('[AYG] handleAuthenticatedSession failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
     } finally {
       _isSyncInProgress = false;
       notifyListeners();
@@ -310,7 +358,7 @@ class AppController extends ChangeNotifier {
   Future<void> completeOnboarding() async {
     appSettings = appSettings.copyWith(onboardingComplete: true);
     await _settingsRepository?.saveAppSettings(appSettings);
-    _scheduleRemoteSync();
+    await _persistToRemoteNow();
     notifyListeners();
   }
 
@@ -645,12 +693,23 @@ class AppController extends ChangeNotifier {
       throw UnsupportedError('Only private foods can be saved in Phase 6A–6C');
     }
 
+    final authUser = _authenticationRepository?.currentUser;
+    if (authUser == null) {
+      final error = SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.authRequired,
+        message: 'Authentication required.',
+        repositoryStep: 'AppController.createSavedFood',
+        operation: 'validate',
+      )..logDebug();
+      throw error;
+    }
+
     await _ensureAuthenticatedUserProfile();
 
     final now = DateTime.now();
     final food = SavedFood(
       foodId: generateId(),
-      ownerUserId: currentOwnerUserId,
+      ownerUserId: authUser.id,
       name: draft.name.trim(),
       normalizedName: FoodNameNormalizer.normalize(draft.name),
       baseAmount: draft.baseAmount,
@@ -1506,11 +1565,26 @@ class AppController extends ChangeNotifier {
         savedFoodSaved: savedFood != null,
       );
     } catch (error) {
+      SavedFoodErrorCode? errorCode;
+      String? message;
+      if (error is SavedFoodPersistenceException) {
+        error.logDebug();
+        errorCode = error.errorCode;
+        message = error.message;
+      } else {
+        message = error.toString();
+        if (kDebugMode) {
+          debugPrint(
+            '[AYG SavedFood] saveFoodEntryWithOptionalSavedFood: $error',
+          );
+        }
+      }
       return SaveFoodEntryResult(
         foodEntrySaved: true,
         entry: entryToSave,
         savedFoodSaved: false,
-        savedFoodErrorMessage: error.toString(),
+        savedFoodErrorMessage: message,
+        savedFoodErrorCode: errorCode ?? SavedFoodErrorCode.insertFailed,
       );
     }
   }
@@ -1556,14 +1630,59 @@ class AppController extends ChangeNotifier {
   Future<void> _ensureAuthenticatedUserProfile() async {
     final authUser = _authenticationRepository?.currentUser;
     final dataSyncRepository = _dataSyncRepository;
+    if (authUser == null) {
+      final error = SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.authRequired,
+        message: 'Authentication required.',
+        repositoryStep: 'AppController._ensureAuthenticatedUserProfile',
+        operation: 'validate',
+      )..logDebug();
+      throw error;
+    }
+    if (dataSyncRepository == null) {
+      final error = SavedFoodPersistenceException(
+        errorCode: SavedFoodErrorCode.networkFailed,
+        message: 'Remote sync is not configured.',
+        repositoryStep: 'AppController._ensureAuthenticatedUserProfile',
+        operation: 'validate',
+      )..logDebug();
+      throw error;
+    }
+
+    try {
+      await dataSyncRepository.ensureUserProfile(
+        userId: authUser.id,
+        email: authUser.email,
+      );
+    } catch (error) {
+      final mapped = SavedFoodPersistenceException.ensureUserProfileFailed(
+        error,
+      )..logDebug();
+      throw mapped;
+    }
+  }
+
+  Future<void> refreshSavedFoodsFromRemote() async {
+    final authUser = _authenticationRepository?.currentUser;
+    final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
       return;
     }
 
-    await dataSyncRepository.ensureUserProfile(
-      userId: authUser.id,
-      email: authUser.email,
-    );
+    await dataSyncRepository.pullSavedFoodsRemoteToLocal(authUser.id);
+    notifyListeners();
+  }
+
+  Future<void> _persistToRemoteNow() async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    if (userId == null || dataSyncRepository == null) {
+      throw StateError('Cannot persist without authenticated remote sync.');
+    }
+
+    await dataSyncRepository.pushLocalToRemote(userId);
+    _hasInitialSyncCompleted = true;
+    _lastSyncFailed = false;
   }
 
   Future<void> _recordSavedFoodUsage(String savedFoodId) async {

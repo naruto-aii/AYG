@@ -37,21 +37,20 @@ import '../repositories/contracts/blocked_food_creator_repository_base.dart';
 import '../repositories/contracts/food_rating_repository_base.dart';
 import '../repositories/contracts/food_report_repository_base.dart';
 import '../repositories/contracts/saved_food_repository_base.dart';
-import '../repositories/data_sync_repository.dart';
+import '../repositories/contracts/exercise_repository_base.dart';
+import '../repositories/contracts/food_repository_base.dart';
 import '../repositories/contracts/meal_template_repository_base.dart';
+import '../repositories/contracts/settings_repository_base.dart';
+import '../repositories/contracts/user_repository_base.dart';
+import '../repositories/contracts/weight_repository_base.dart';
+import '../repositories/data_sync_repository.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
-import '../repositories/contracts/meal_template_repository_base.dart';
 import '../services/local_user_data_clearer_base.dart';
 import '../services/meal_template_apply_service.dart';
 import '../services/meal_template_dependency_service.dart';
 import '../services/meal_template_totals_service.dart';
-import '../repositories/contracts/user_repository_base.dart';
-import '../repositories/contracts/settings_repository_base.dart';
-import '../repositories/contracts/food_repository_base.dart';
-import '../repositories/contracts/exercise_repository_base.dart';
-import '../repositories/contracts/weight_repository_base.dart';
 import '../services/nutrition_engine.dart';
 import '../services/public_food_search_service.dart';
 import '../services/public_food_similar_service.dart';
@@ -1223,14 +1222,6 @@ class AppController extends ChangeNotifier {
     return MealTemplateWithItems(template: template, items: items);
   }
 
-  Future<void> _saveTemplateWithItems({
-    required MealTemplateRepositoryBase repository,
-    required MealTemplate template,
-    required List<MealTemplateItem> items,
-  }) async {
-    await repository.saveWithItems(template: template, items: items);
-  }
-
   Future<MealTemplate> saveMealTemplate({
     required MealTemplateDraft draft,
     String? templateId,
@@ -1281,11 +1272,7 @@ class AppController extends ChangeNotifier {
       updatedAt: now,
     );
 
-    await _saveTemplateWithItems(
-      repository: repository,
-      template: template,
-      items: mappedItems,
-    );
+    await repository.saveWithItems(template: template, items: mappedItems);
     _scheduleRemoteSync();
     return template;
   }

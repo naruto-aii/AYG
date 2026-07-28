@@ -3,7 +3,8 @@ import '../../../models/health_snapshot.dart';
 import '../../../models/nutrition_settings.dart';
 import '../../../repositories/contracts/settings_repository_base.dart';
 
-class WebSettingsRepository implements SettingsRepositoryBase {
+/// Web向けインメモリ SettingsRepository。
+class SettingsRepository implements SettingsRepositoryBase {
   NutritionSettings? _nutritionSettings;
   HealthSnapshot? _healthSnapshot;
   AppSettings _appSettings = const AppSettings();

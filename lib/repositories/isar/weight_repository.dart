@@ -1,31 +1,36 @@
-import '../../../models/health_profile_data.dart';
-import '../../../models/weight_entry.dart';
-import '../../../repositories/contracts/weight_repository_base.dart';
-import '../../../repositories/health_repository_support.dart';
+import 'package:isar/isar.dart';
 
-/// Web向けインメモリ WeightRepository。
+import '../../database/entity_mapper.dart';
+import '../../database/schemas.dart';
+import '../../models/health_profile_data.dart';
+import '../../models/weight_entry.dart';
+import '../contracts/weight_repository_base.dart';
+
 class WeightRepository implements WeightRepositoryBase {
-  final List<WeightEntry> _entries = [];
+  WeightRepository(this._isar);
 
-  @override
+  final Isar _isar;
+
   Future<void> save(WeightEntry entry) async {
-    _entries.removeWhere((item) => item.id == entry.id);
-    _entries.add(entry);
+    await _isar.writeTxn(() async {
+      await _isar.weightEntryEntitys.put(
+        EntityMapper.toWeightEntryEntity(entry),
+      );
+    });
   }
 
-  @override
   Future<List<WeightEntry>> loadAll() async {
-    final copy = List<WeightEntry>.from(_entries);
-    copy.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
-    return copy;
+    final entities = await _isar.weightEntryEntitys.where().findAll();
+    entities.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    return entities.map(EntityMapper.fromWeightEntryEntity).toList();
   }
 
-  @override
   Future<double?> latestWeight({WeightSource? preferredSource}) async {
     final entries = await loadAll();
     if (entries.isEmpty) {
       return null;
     }
+
     if (preferredSource != null) {
       for (final entry in entries) {
         if (entry.source == preferredSource) {
@@ -33,22 +38,22 @@ class WeightRepository implements WeightRepositoryBase {
         }
       }
     }
+
     return entries.first.weightKg;
   }
 
-  @override
   Future<List<WeightRecord>> loadWeightRecords() async {
     final entries = await loadAll();
     return entries.map(weightEntryToRecord).toList();
   }
 
-  @override
   Future<void> saveWeightRecord(WeightRecord record) async {
     await save(weightEntryFromRecord(record));
   }
 
-  @override
   Future<void> clearAll() async {
-    _entries.clear();
+    await _isar.writeTxn(() async {
+      await _isar.weightEntryEntitys.clear();
+    });
   }
 }

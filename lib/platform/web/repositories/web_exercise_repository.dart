@@ -1,17 +1,14 @@
 import '../../../models/exercise_entry.dart';
 import '../../../repositories/contracts/exercise_repository_base.dart';
 
-class WebExerciseRepository implements ExerciseRepositoryBase {
+/// Web向けインメモリ ExerciseRepository。
+class ExerciseRepository implements ExerciseRepositoryBase {
   final List<ExerciseEntry> _entries = [];
 
   @override
   Future<void> save(ExerciseEntry entry) async {
-    final index = _entries.indexWhere((item) => item.id == entry.id);
-    if (index == -1) {
-      _entries.add(entry);
-      return;
-    }
-    _entries[index] = entry;
+    _entries.removeWhere((item) => item.id == entry.id);
+    _entries.add(entry);
   }
 
   @override
@@ -23,14 +20,14 @@ class WebExerciseRepository implements ExerciseRepositoryBase {
 
   @override
   Future<List<ExerciseEntry>> loadAll() async {
-    final entries = List<ExerciseEntry>.from(_entries);
-    entries.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
-    return entries;
+    final copy = List<ExerciseEntry>.from(_entries);
+    copy.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+    return copy;
   }
 
   @override
   Future<void> delete(String entryId) async {
-    _entries.removeWhere((item) => item.id == entryId);
+    _entries.removeWhere((entry) => entry.id == entryId);
   }
 
   @override

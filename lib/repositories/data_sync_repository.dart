@@ -13,6 +13,7 @@ import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
 import 'contracts/exercise_repository_base.dart';
 import 'contracts/food_repository_base.dart';
+import 'contracts/meal_template_repository_base.dart';
 import 'contracts/settings_repository_base.dart';
 import 'contracts/user_repository_base.dart';
 import 'contracts/weight_repository_base.dart';

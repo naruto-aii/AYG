@@ -1,17 +1,14 @@
 import '../../../models/food_entry.dart';
 import '../../../repositories/contracts/food_repository_base.dart';
 
-class WebFoodRepository implements FoodRepositoryBase {
+/// Web向けインメモリ FoodRepository。
+class FoodRepository implements FoodRepositoryBase {
   final List<FoodEntry> _entries = [];
 
   @override
   Future<void> save(FoodEntry entry) async {
-    final index = _entries.indexWhere((item) => item.id == entry.id);
-    if (index == -1) {
-      _entries.add(entry);
-      return;
-    }
-    _entries[index] = entry;
+    _entries.removeWhere((item) => item.id == entry.id);
+    _entries.add(entry);
   }
 
   @override
@@ -23,14 +20,14 @@ class WebFoodRepository implements FoodRepositoryBase {
 
   @override
   Future<List<FoodEntry>> loadAll() async {
-    final entries = List<FoodEntry>.from(_entries);
-    entries.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
-    return entries;
+    final copy = List<FoodEntry>.from(_entries);
+    copy.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+    return copy;
   }
 
   @override
   Future<void> delete(String entryId) async {
-    _entries.removeWhere((item) => item.id == entryId);
+    _entries.removeWhere((entry) => entry.id == entryId);
   }
 
   @override

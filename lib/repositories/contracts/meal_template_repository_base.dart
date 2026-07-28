@@ -5,6 +5,11 @@ abstract class MealTemplateRepositoryBase {
 
   Future<void> saveAll(List<MealTemplate> templates);
 
+  Future<void> saveWithItems({
+    required MealTemplate template,
+    required List<MealTemplateItem> items,
+  });
+
   Future<MealTemplate?> getById({
     required String ownerUserId,
     required String templateId,

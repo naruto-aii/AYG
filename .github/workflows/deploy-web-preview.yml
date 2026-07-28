@@ -34,6 +34,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Validate secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "Missing required GitHub Secrets: SUPABASE_URL and/or SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
       - name: Build web
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -48,8 +58,8 @@ jobs:
           config = {
               "SUPABASE_URL": os.environ["SUPABASE_URL"],
               "SUPABASE_ANON_KEY": os.environ["SUPABASE_PUBLISHABLE_KEY"],
-              "GOOGLE_WEB_CLIENT_ID": os.environ["GOOGLE_WEB_CLIENT_ID"],
-              "OFF_CONTACT_EMAIL": os.environ["OFF_CONTACT_EMAIL"],
+              "GOOGLE_WEB_CLIENT_ID": os.environ.get("GOOGLE_WEB_CLIENT_ID", ""),
+              "OFF_CONTACT_EMAIL": os.environ.get("OFF_CONTACT_EMAIL", ""),
           }
           with open("dart_defines.ci.json", "w", encoding="utf-8") as handle:
               json.dump(config, handle)

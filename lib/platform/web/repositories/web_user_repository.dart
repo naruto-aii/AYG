@@ -2,7 +2,8 @@ import '../../../models/goal.dart';
 import '../../../models/user_profile.dart';
 import '../../../repositories/contracts/user_repository_base.dart';
 
-class WebUserRepository implements UserRepositoryBase {
+/// Web向けインメモリ UserRepository（Supabase同期のローカルキャッシュ）。
+class UserRepository implements UserRepositoryBase {
   UserProfile? _profile;
   Goal? _goal;
 

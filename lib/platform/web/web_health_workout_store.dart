@@ -1,5 +1,6 @@
 import '../../../models/health_profile_data.dart';
 
+/// Web向けインメモリ Health workout ストア。
 class WebHealthWorkoutStore {
   final List<HealthWorkoutRecord> _records = [];
 
@@ -11,9 +12,9 @@ class WebHealthWorkoutStore {
   }
 
   Future<List<HealthWorkoutRecord>> loadWorkoutRecords() async {
-    final records = List<HealthWorkoutRecord>.from(_records);
-    records.sort((a, b) => b.startTime.compareTo(a.startTime));
-    return records;
+    final copy = List<HealthWorkoutRecord>.from(_records);
+    copy.sort((a, b) => b.startTime.compareTo(a.startTime));
+    return copy;
   }
 
   Future<void> clearAll() async {

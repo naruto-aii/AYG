@@ -11,6 +11,7 @@ enum SavedFoodErrorCode {
   validationFailed('SAVED_FOOD_VALIDATION_FAILED'),
   networkFailed('SAVED_FOOD_NETWORK_FAILED'),
   conflict('SAVED_FOOD_CONFLICT'),
+  tableMissing('SAVED_FOOD_TABLE_MISSING'),
   insertFailed('SAVED_FOOD_INSERT_FAILED');
 
   const SavedFoodErrorCode(this.code);
@@ -86,6 +87,10 @@ class SavedFoodPersistenceException implements Exception {
       errorCode = SavedFoodErrorCode.permissionDenied;
     } else if (error.code == '23505' || combined.contains('duplicate')) {
       errorCode = SavedFoodErrorCode.conflict;
+    } else if (error.code == '42P01' ||
+        error.code == 'PGRST205' ||
+        combined.contains('does not exist')) {
+      errorCode = SavedFoodErrorCode.tableMissing;
     } else if (error.code == '23514' ||
         combined.contains('check constraint') ||
         combined.contains('base_amount') ||

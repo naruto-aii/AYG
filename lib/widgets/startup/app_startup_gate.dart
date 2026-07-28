@@ -1,9 +1,17 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../common/primary_button.dart';
+
+String _diagnosticPlatformLabel() {
+  if (kIsWeb) {
+    return 'web';
+  }
+  return defaultTargetPlatform.name;
+}
 
 /// 認証・同期・オンボーディング判定中のローディング。
 class AppStartupLoadingScreen extends StatelessWidget {
@@ -44,7 +52,12 @@ class AppSyncRetryScreen extends StatelessWidget {
     if (failure == null) {
       return;
     }
-    await Clipboard.setData(ClipboardData(text: failure.copyText));
+    final text = [
+      failure.copyText,
+      'platform=${_diagnosticPlatformLabel()}',
+      'timestamp=${DateTime.now().toUtc().toIso8601String()}',
+    ].join('\n');
+    await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) {
       return;
     }

@@ -188,14 +188,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       operation: 'select',
       action: () => _pullWeightEntries(userId),
     );
-    await runSyncStep(
+    await runOptionalSyncStep(
       step: SyncStep.fetchSavedFoods,
       repository: 'SupabaseDataSyncRepository',
       tableName: 'saved_foods',
       operation: 'select',
       action: () => _pullSavedFoods(userId),
     );
-    await runSyncStep(
+    await runOptionalSyncStep(
       step: SyncStep.fetchMealTemplates,
       repository: 'SupabaseDataSyncRepository',
       tableName: 'meal_templates',
@@ -463,9 +463,16 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     if (foodMaster?.remoteSavedFoods == null) {
       return;
     }
-    final localFoods = await foodMaster!.localSavedFoods
-        .loadAllOwnIncludingDeleted(userId);
-    await foodMaster.savedFoods.pushAllOwnRemote(userId, localFoods);
+    try {
+      final localFoods = await foodMaster!.localSavedFoods
+          .loadAllOwnIncludingDeleted(userId);
+      await foodMaster.savedFoods.pushAllOwnRemote(userId, localFoods);
+    } catch (error) {
+      if (isOptionalTableMissingError(error)) {
+        return;
+      }
+      rethrow;
+    }
   }
 
   Future<void> _pullMealTemplates(String userId) async {
@@ -500,19 +507,26 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    final templates = await foodMaster!.mealTemplates
-        .loadAllOwnIncludingDeleted(userId);
-    final itemsByTemplate = <String, List<MealTemplateItem>>{};
-    for (final template in templates) {
-      itemsByTemplate[template.templateId] = await foodMaster.mealTemplates
-          .getItems(ownerUserId: userId, templateId: template.templateId);
-    }
+    try {
+      final templates = await foodMaster!.mealTemplates
+          .loadAllOwnIncludingDeleted(userId);
+      final itemsByTemplate = <String, List<MealTemplateItem>>{};
+      for (final template in templates) {
+        itemsByTemplate[template.templateId] = await foodMaster.mealTemplates
+            .getItems(ownerUserId: userId, templateId: template.templateId);
+      }
 
-    await remote.pushAllOwn(
-      userId: userId,
-      templates: templates,
-      itemsByTemplateId: itemsByTemplate,
-    );
+      await remote.pushAllOwn(
+        userId: userId,
+        templates: templates,
+        itemsByTemplateId: itemsByTemplate,
+      );
+    } catch (error) {
+      if (isOptionalTableMissingError(error)) {
+        return;
+      }
+      rethrow;
+    }
   }
 
   Future<void> _pullExerciseEntries(String userId) async {

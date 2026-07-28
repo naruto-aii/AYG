@@ -64,6 +64,28 @@ void main() {
     expect(isOptionalTableMissing(failure), isTrue);
   });
 
+  test('runOptionalSyncStep skips PGRST205 schema cache miss', () async {
+    final result = await runOptionalSyncStep<int>(
+      step: SyncStep.fetchSavedFoods,
+      repository: 'SupabaseSavedFoodRepository',
+      tableName: 'saved_foods',
+      operation: 'select',
+      action: () async {
+        throw SupabaseErrorMapper.map(
+          const PostgrestException(
+            message:
+                "Could not find the table 'public.saved_foods' in the schema cache",
+            code: 'PGRST205',
+            details: 'Not Found',
+          ),
+          context: 'saved_foods pull',
+        );
+      },
+    );
+
+    expect(result, isNull);
+  });
+
   test('runOptionalSyncStep rethrows permission errors', () async {
     expect(
       () => runOptionalSyncStep<void>(

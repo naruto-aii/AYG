@@ -126,7 +126,18 @@ class SupabaseErrorMapper {
       return const FoodMasterAuthenticationException();
     }
 
-    if (combined.contains('not found') || error.code == 'PGRST116') {
+    if (error.code == '42P01' ||
+        error.code == 'PGRST205' ||
+        combined.contains('does not exist') ||
+        combined.contains('schema cache')) {
+      return FoodMasterTableMissingException(
+        postgresCode: error.code ?? '42P01',
+        message: error.message,
+        tableName: _extractRelationName(combined),
+      );
+    }
+
+    if (error.code == 'PGRST116' || message.contains('not found')) {
       return FoodMasterNotFoundException(error.message);
     }
 
@@ -147,16 +158,6 @@ class SupabaseErrorMapper {
         combined.contains('row-level security') ||
         error.code == '42501') {
       return FoodMasterPermissionException(error.message);
-    }
-
-    if (error.code == '42P01' ||
-        error.code == 'PGRST205' ||
-        combined.contains('does not exist')) {
-      return FoodMasterTableMissingException(
-        postgresCode: error.code ?? '42P01',
-        message: error.message,
-        tableName: _extractRelationName(combined),
-      );
     }
 
     if (combined.contains('moderation') ||
@@ -191,7 +192,13 @@ class SupabaseErrorMapper {
   }
 
   static String? _extractRelationName(String combined) {
-    final match = RegExp(r'relation "([^"]+)"').firstMatch(combined);
-    return match?.group(1);
+    final quoted = RegExp(r'''(?:relation|table) "([^"]+)"''').firstMatch(
+      combined,
+    );
+    if (quoted != null) {
+      return quoted.group(1);
+    }
+    final publicTable = RegExp(r"public\.(\w+)").firstMatch(combined);
+    return publicTable?.group(1);
   }
 }

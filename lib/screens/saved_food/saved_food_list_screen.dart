@@ -5,6 +5,12 @@ import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
 import '../../utils/nutrition_format.dart';
 import '../../utils/saved_food_display_labels.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_loading_state.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/app_card.dart';
 import '../../services/open_food_facts_service.dart';
 import 'public_food_search_screen.dart';
 import 'saved_food_form_screen.dart';
@@ -127,22 +133,10 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
   }
 
   Future<void> _confirmDelete(SavedFood food) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${food.name}」を削除しますか？\n過去の食事記録は変更されません。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${food.name}」を削除しますか？\n過去の食事記録は変更されません。',
     );
 
     if (confirmed != true) {
@@ -184,82 +178,94 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: AppTextField(
                 controller: _searchController,
-                decoration: const InputDecoration(
-                  labelText: '食品名で検索',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search),
-                ),
+                label: '食品名で検索',
+                suffixIcon: const Icon(Icons.search),
               ),
             ),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoadingState()
                   : _errorMessage != null
-                  ? Center(child: Text(_errorMessage!))
+                  ? AppEmptyState(message: _errorMessage!)
                   : _foods.isEmpty
-                  ? const Center(child: Text('保存済み食品がありません'))
-                  : ListView.separated(
+                  ? const AppEmptyState(message: '保存済み食品がありません')
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                      ),
                       itemCount: _foods.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final food = _foods[index];
-                        return ListTile(
-                          title: Text(food.name),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${widget.controller.formatSavedFoodBaseLabel(food)} · '
-                                '${formatNullableNutrient(food.kcalPerBase)}kcal · '
-                                'P${formatNullableNutrient(food.proteinPerBase)} '
-                                'F${formatNullableNutrient(food.fatPerBase)} '
-                                'C${formatNullableNutrient(food.carbPerBase)}',
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: AppCard(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.xs,
+                            ),
+                            onTap: () => _openEdit(food),
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(food.name),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${widget.controller.formatSavedFoodBaseLabel(food)} · '
+                                    '${formatNullableNutrient(food.kcalPerBase)} kcal · '
+                                    'P ${formatNullableNutrient(food.proteinPerBase)} '
+                                    'F ${formatNullableNutrient(food.fatPerBase)} '
+                                    'C ${formatNullableNutrient(food.carbPerBase)}',
+                                  ),
+                                  if (food.brand != null &&
+                                      food.brand!.isNotEmpty)
+                                    Text('ブランド: ${food.brand}'),
+                                  Text(
+                                    '${SavedFoodDisplayLabels.visibility(food.visibility)} · '
+                                    '${SavedFoodDisplayLabels.sourceType(food.sourceType)} · '
+                                    '更新 ${_formatDateTime(food.updatedAt)}',
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${SavedFoodDisplayLabels.visibility(food.visibility)} · '
-                                '${SavedFoodDisplayLabels.sourceType(food.sourceType)} · '
-                                '利用${food.useCount}回 · '
-                                '更新 ${_formatDateTime(food.updatedAt)}',
+                              isThreeLine: true,
+                              trailing: PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  switch (value) {
+                                    case 'edit':
+                                      _openEdit(food);
+                                    case 'publish':
+                                      _startPublish(food);
+                                    case 'unpublish':
+                                      _unpublish(food);
+                                    case 'delete':
+                                      _confirmDelete(food);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text('編集'),
+                                  ),
+                                  if (food.visibility == FoodVisibility.private)
+                                    const PopupMenuItem(
+                                      value: 'publish',
+                                      child: Text('公開する'),
+                                    ),
+                                  if (food.visibility == FoodVisibility.public)
+                                    const PopupMenuItem(
+                                      value: 'unpublish',
+                                      child: Text('非公開にする'),
+                                    ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('削除'),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          isThreeLine: true,
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (value) {
-                              switch (value) {
-                                case 'edit':
-                                  _openEdit(food);
-                                case 'publish':
-                                  _startPublish(food);
-                                case 'unpublish':
-                                  _unpublish(food);
-                                case 'delete':
-                                  _confirmDelete(food);
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Text('編集'),
-                              ),
-                              if (food.visibility == FoodVisibility.private)
-                                const PopupMenuItem(
-                                  value: 'publish',
-                                  child: Text('公開する'),
-                                ),
-                              if (food.visibility == FoodVisibility.public)
-                                const PopupMenuItem(
-                                  value: 'unpublish',
-                                  child: Text('非公開にする'),
-                                ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Text('削除'),
-                              ),
-                            ],
+                            ),
                           ),
                         );
                       },

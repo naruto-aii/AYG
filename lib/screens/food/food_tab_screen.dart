@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../models/food_entry.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
+import '../../widgets/brand/app_logo.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/history/food_history_list.dart';
 import 'food_form_navigation.dart';
 
@@ -20,22 +23,10 @@ class FoodTabScreen extends StatelessWidget {
   final FoodFormScreenBuilder? foodFormBuilder;
 
   Future<void> _confirmDeleteFood(BuildContext context, FoodEntry entry) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
     );
 
     if (confirmed == true) {
@@ -73,16 +64,43 @@ class FoodTabScreen extends StatelessWidget {
             : dateGroups;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('食事')),
-          floatingActionButton: FloatingActionButton(
+          floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openFoodForm(context),
-            child: const Icon(Icons.add),
+            icon: const Icon(Icons.add),
+            label: const Text('食事追加'),
           ),
           body: SafeArea(
-            child: FoodHistoryList(
-              dateGroups: displayGroups,
-              onTapEntry: (entry) => _openFoodForm(context, entry: entry),
-              onDeleteEntry: (entry) => _confirmDeleteFood(context, entry),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenPadding,
+                    AppSpacing.screenPadding,
+                    AppSpacing.screenPadding,
+                    AppSpacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppLogo(height: 28),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        '食事',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: FoodHistoryList(
+                    dateGroups: displayGroups,
+                    onTapEntry: (entry) => _openFoodForm(context, entry: entry),
+                    onDeleteEntry: (entry) =>
+                        _confirmDeleteFood(context, entry),
+                  ),
+                ),
+              ],
             ),
           ),
         );

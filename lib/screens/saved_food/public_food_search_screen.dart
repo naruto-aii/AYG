@@ -3,6 +3,13 @@ import 'package:flutter/material.dart';
 import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_loading_state.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/secondary_button.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../../widgets/saved_food/public_food_search_result_tile.dart';
 import '../food/food_form_screen.dart';
@@ -30,6 +37,8 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
   List<PublicFoodSearchMatch> _results = const [];
   bool _isSearching = false;
   String? _errorMessage;
+  bool _hasSearched = false;
+  bool _useBarcodeSearch = false;
 
   @override
   void dispose() {
@@ -44,6 +53,7 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
       setState(() {
         _results = const [];
         _errorMessage = '検索キーワードを入力してください';
+        _hasSearched = true;
       });
       return;
     }
@@ -51,6 +61,7 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
     setState(() {
       _isSearching = true;
       _errorMessage = null;
+      _hasSearched = true;
     });
 
     try {
@@ -80,7 +91,10 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
   Future<void> _searchByBarcode() async {
     final barcode = _barcodeController.text.trim();
     if (barcode.isEmpty) {
-      setState(() => _errorMessage = 'バーコードを入力してください');
+      setState(() {
+        _errorMessage = 'バーコードを入力してください';
+        _hasSearched = true;
+      });
       return;
     }
     _queryController.text = barcode;
@@ -135,75 +149,91 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
       appBar: AppBar(
         title: Text(widget.selectForMealEntry ? '公開食品を選択' : '公開食品検索'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: _queryController,
-                  decoration: const InputDecoration(
-                    labelText: '食品名で検索',
-                    border: OutlineInputBorder(),
-                  ),
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => _search(),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _isSearching ? null : () => _search(),
-                  icon: _isSearching
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.search),
-                  label: Text(_isSearching ? '検索中...' : '検索'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _barcodeController,
-                  decoration: const InputDecoration(
-                    labelText: 'バーコード',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _isSearching ? null : _searchByBarcode,
-                  icon: const Icon(Icons.qr_code),
-                  label: const Text('バーコードで検索'),
-                ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(
+                          value: false,
+                          label: Text('食品名'),
+                          icon: Icon(Icons.search),
+                        ),
+                        ButtonSegment(
+                          value: true,
+                          label: Text('バーコード'),
+                          icon: Icon(Icons.qr_code),
+                        ),
+                      ],
+                      selected: {_useBarcodeSearch},
+                      onSelectionChanged: (selection) {
+                        setState(() => _useBarcodeSearch = selection.first);
+                      },
                     ),
-                  ),
-                ],
-              ],
+                    const SizedBox(height: AppSpacing.sm),
+                    if (!_useBarcodeSearch) ...[
+                      AppTextField(
+                        controller: _queryController,
+                        label: '食品名で検索',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      PrimaryButton(
+                        label: _isSearching ? '検索中...' : '検索',
+                        icon: Icons.search,
+                        loading: _isSearching,
+                        onPressed: _isSearching ? null : () => _search(),
+                      ),
+                    ] else ...[
+                      AppTextField(
+                        controller: _barcodeController,
+                        label: 'バーコード',
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      SecondaryButton(
+                        label: 'バーコードで検索',
+                        icon: Icons.qr_code,
+                        onPressed: _isSearching ? null : _searchByBarcode,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _results.length,
-              itemBuilder: (context, index) {
-                final match = _results[index];
-                return PublicFoodSearchResultTile(
-                  controller: widget.controller,
-                  match: match,
-                  onTap: () => _openMatch(match),
-                );
-              },
+            Expanded(
+              child: _isSearching
+                  ? const AppLoadingState()
+                  : _errorMessage != null && _results.isEmpty
+                  ? AppEmptyState(message: _errorMessage!)
+                  : _results.isEmpty
+                  ? AppEmptyState(
+                      message: _hasSearched
+                          ? '該当する公開食品が見つかりませんでした'
+                          : '食品名またはバーコードで検索してください',
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                      ),
+                      itemCount: _results.length,
+                      itemBuilder: (context, index) {
+                        final match = _results[index];
+                        return PublicFoodSearchResultTile(
+                          controller: widget.controller,
+                          match: match,
+                          onTap: () => _openMatch(match),
+                        );
+                      },
+                    ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

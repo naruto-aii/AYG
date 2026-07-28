@@ -162,15 +162,21 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
       appBar: AppBar(
         title: const Text('保存済み食品'),
         actions: [
-          IconButton(
-            onPressed: _openPublicSearch,
-            icon: const Icon(Icons.public),
-            tooltip: '公開食品検索',
+          Semantics(
+            label: '公開食品検索',
+            button: true,
+            child: IconButton(
+              onPressed: _openPublicSearch,
+              icon: const Icon(Icons.public),
+            ),
           ),
-          IconButton(
-            onPressed: _openCreate,
-            icon: const Icon(Icons.add),
-            tooltip: '新規作成',
+          Semantics(
+            label: '新規作成',
+            button: true,
+            child: IconButton(
+              onPressed: _openCreate,
+              icon: const Icon(Icons.add),
+            ),
           ),
         ],
       ),
@@ -273,10 +279,6 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openCreate,
-        child: const Icon(Icons.add),
       ),
     );
   }

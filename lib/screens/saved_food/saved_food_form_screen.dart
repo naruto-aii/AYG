@@ -7,7 +7,13 @@ import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
 import '../../services/saved_food_version_policy.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_section_header.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/secondary_button.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/confirm_public_food_update_dialog.dart';
@@ -288,134 +294,159 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenPadding,
+              AppSpacing.md,
+              AppSpacing.screenPadding,
+              100,
+            ),
             children: [
               if (_isPublicFood)
-                Card(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: ListTile(
-                    leading: const Icon(Icons.public),
-                    title: const Text('公開食品'),
-                    subtitle: Text('version ${widget.food!.version}'),
-                  ),
-                ),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: '食品名 *',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '食品名を入力してください';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      controller: _baseAmountController,
-                      decoration: const InputDecoration(
-                        labelText: '基準量 *',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      validator: _validateRequiredNumber('基準量'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<FoodUnitType>(
-                      value: _unitType,
-                      decoration: const InputDecoration(
-                        labelText: '単位 *',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: FoodUnitType.values
-                          .map(
-                            (unit) => DropdownMenuItem(
-                              value: unit,
-                              child: Text(unit.label),
+                AppCard(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.public),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '公開食品',
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _unitType = value);
+                            Text('version ${widget.food!.version}'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_isPublicFood) const SizedBox(height: AppSpacing.md),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const AppSectionHeader(title: '基本情報'),
+                    AppTextField(
+                      controller: _nameController,
+                      label: '食品名 *',
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '食品名を入力してください';
                         }
+                        return null;
                       },
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              MacroNutritionFields(
-                controller: _macroInput,
-                validator: (value, label) =>
-                    _validateOptionalNonNegativeNumber(label)(value),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _brandController,
-                decoration: const InputDecoration(
-                  labelText: 'ブランド・メーカー',
-                  border: OutlineInputBorder(),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: AppTextField(
+                            controller: _baseAmountController,
+                            label: '基準量 *',
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            validator: _validateRequiredNumber('基準量'),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: DropdownButtonFormField<FoodUnitType>(
+                            value: _unitType,
+                            decoration: const InputDecoration(
+                              labelText: '単位 *',
+                            ),
+                            items: FoodUnitType.values
+                                .map(
+                                  (unit) => DropdownMenuItem(
+                                    value: unit,
+                                    child: Text(unit.label),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _unitType = value);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _barcodeController,
-                decoration: const InputDecoration(
-                  labelText: 'バーコード',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _supplementaryWeightController,
-                decoration: const InputDecoration(
-                  labelText: '補助重量・内容量',
-                  border: OutlineInputBorder(),
+              const SizedBox(height: AppSpacing.md),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const AppSectionHeader(title: '栄養'),
+                    MacroNutritionFields(
+                      controller: _macroInput,
+                      validator: (value, label) =>
+                          _validateOptionalNonNegativeNumber(label)(value),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: '保存範囲',
-                  border: OutlineInputBorder(),
+              const SizedBox(height: AppSpacing.md),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const AppSectionHeader(title: 'オプション'),
+                    AppTextField(
+                      controller: _brandController,
+                      label: 'ブランド・メーカー',
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppTextField(
+                      controller: _barcodeController,
+                      label: 'バーコード',
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppTextField(
+                      controller: _supplementaryWeightController,
+                      label: '補助重量・内容量',
+                    ),
+                  ],
                 ),
-                child: Text(_isPublicFood ? '公開' : '非公開（private）'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppCard(
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: '保存範囲'),
+                  child: Text(_isPublicFood ? '公開' : '非公開（private）'),
+                ),
               ),
               if (_isPrivateFood && widget.isEditing) ...[
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
+                const SizedBox(height: AppSpacing.md),
+                SecondaryButton(
+                  label: '公開する',
+                  icon: Icons.public,
                   onPressed:
                       _isSaving ||
                           widget.controller.isPublishOperationInProgress
                       ? null
                       : _startPublish,
-                  icon: const Icon(Icons.public),
-                  label: const Text('公開する'),
                 ),
               ],
               if (_isPublicFood) ...[
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
+                const SizedBox(height: AppSpacing.md),
+                SecondaryButton(
+                  label: '非公開にする',
+                  icon: Icons.lock,
                   onPressed:
                       _isSaving ||
                           widget.controller.isPublishOperationInProgress
                       ? null
                       : _unpublish,
-                  icon: const Icon(Icons.lock),
-                  label: const Text('非公開にする'),
                 ),
               ],
             ],
@@ -424,13 +455,11 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: FilledButton(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: PrimaryButton(
+            label: _isSaving ? '保存中...' : '保存',
+            loading: _isSaving,
             onPressed: _isSaving ? null : _save,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Text(_isSaving ? '保存中...' : '保存'),
-            ),
           ),
         ),
       ),

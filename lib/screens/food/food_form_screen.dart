@@ -12,7 +12,14 @@ import '../../models/saved_food_draft.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/secondary_button.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
@@ -51,6 +58,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   bool _manualInputHighlighted = false;
   bool _saveAsFood = true;
   bool _fromSavedFoodSelection = false;
+  bool _barcodeSectionExpanded = false;
   FoodEntrySource _sourceType = FoodEntrySource.manual;
   String? _selectedSavedFoodId;
   String? _sourceFoodOwnerUserId;
@@ -452,7 +460,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     final carb = (_macroInput.parseOptional(MacroField.carb) ?? 0) * multiplier;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
       child: Text(
         '今回の摂取: ${formatNullableNutrient(kcal)}kcal · '
         'P${formatNullableNutrient(protein)} '
@@ -476,152 +484,158 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenPadding,
+              AppSpacing.md,
+              AppSpacing.screenPadding,
+              100,
+            ),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
               if (!widget.isEditing) ...[
-                OutlinedButton.icon(
-                  onPressed: _openPublicFoodSearch,
-                  icon: const Icon(Icons.public),
-                  label: const Text('公開食品を検索'),
-                ),
-                const SizedBox(height: 12),
-                if (_isMobilePlatform) ...[
-                  FilledButton.icon(
-                    onPressed: _isSearching ? null : _openBarcodeScanner,
-                    icon: const Icon(Icons.qr_code_scanner, size: 28),
-                    label: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        'カメラでバーコードをスキャン',
-                        style: TextStyle(fontSize: 16),
+                AppCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SecondaryButton(
+                        label: '公開食品を検索',
+                        icon: Icons.public,
+                        onPressed: _openPublicFoodSearch,
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.xs),
+                      SecondaryButton(
+                        label: _barcodeSectionExpanded
+                            ? 'バーコード入力を閉じる'
+                            : 'バーコードから追加',
+                        icon: Icons.qr_code,
+                        onPressed: () => setState(
+                          () => _barcodeSectionExpanded =
+                              !_barcodeSectionExpanded,
+                        ),
+                      ),
+                      if (_barcodeSectionExpanded) ...[
+                        if (_isMobilePlatform) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          PrimaryButton(
+                            label: 'カメラでスキャン',
+                            icon: Icons.qr_code_scanner,
+                            onPressed: _isSearching
+                                ? null
+                                : _openBarcodeScanner,
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.sm),
+                        AppTextField(
+                          controller: _barcodeController,
+                          label: 'バーコード',
+                          keyboardType: TextInputType.number,
+                          readOnly: _isSearching,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        PrimaryButton(
+                          label: _isSearching ? '検索中...' : 'バーコードで検索',
+                          icon: Icons.search,
+                          loading: _isSearching,
+                          onPressed: _isSearching
+                              ? null
+                              : () => _searchByBarcode(),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                ],
-                const Text(
-                  'バーコード（テキスト入力）',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _barcodeController,
-                  decoration: const InputDecoration(
-                    labelText: 'バーコード',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  enabled: !_isSearching,
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _isSearching ? null : () => _searchByBarcode(),
-                  icon: _isSearching
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.search),
-                  label: Text(_isSearching ? '検索中...' : 'バーコードで検索'),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '手入力',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: _manualInputHighlighted
-                        ? Theme.of(context).colorScheme.error
-                        : null,
-                  ),
-                ),
+                const SizedBox(height: AppSpacing.sm),
                 if (_manualInputHighlighted)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: Text(
-                      'APIから取得できなかった項目は手入力してください。',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+                      '取得できなかった項目があります。下の欄から入力してください。',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.error),
                     ),
                   ),
-                const SizedBox(height: 12),
               ],
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: '食品名',
-                  border: OutlineInputBorder(),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppTextField(
+                      key: const ValueKey('food_name_field'),
+                      controller: _nameController,
+                      label: '食品名',
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '食品名を入力してください';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (!widget.isEditing && !_fromSavedFoodSelection)
+                      SavedFoodSuggestionList(
+                        controller: widget.controller,
+                        foods: _savedFoodSuggestions,
+                        onSelected: _applySavedFoodSelection,
+                      ),
+                    if (_usesSavedFoodBaseModel) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        '基準: ${widget.controller.formatBaseAmountLabel(baseAmount: _baseAmount, unitType: _unitType)} · '
+                        '${formatNullableNutrient(_macroInput.parseOptional(MacroField.kcal))}kcal',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.md),
+                    MacroNutritionFields(
+                      controller: _macroInput,
+                      readOnly: _fromSavedFoodSelection,
+                      validator: (value, label) =>
+                          _validateOptionalNonNegativeNumber(label)(value),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppTextField(
+                      controller: _quantityController,
+                      label: quantityLabel,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return null;
+                        }
+                        final parsed = double.tryParse(value);
+                        if (parsed == null || parsed <= 0) {
+                          return '0より大きい値を入力してください';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (_buildTotalPreview() != null) _buildTotalPreview()!,
+                    if (_showSaveAsFoodCheckbox) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('食品として保存'),
+                        subtitle: const Text('次回以降、保存済み食品から再利用できます'),
+                        value: _saveAsFood,
+                        onChanged: (value) =>
+                            setState(() => _saveAsFood = value),
+                      ),
+                    ],
+                  ],
                 ),
-                textInputAction: TextInputAction.next,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '食品名を入力してください';
-                  }
-                  return null;
-                },
               ),
-              if (!widget.isEditing && !_fromSavedFoodSelection)
-                SavedFoodSuggestionList(
-                  controller: widget.controller,
-                  foods: _savedFoodSuggestions,
-                  onSelected: _applySavedFoodSelection,
-                ),
-              if (_usesSavedFoodBaseModel) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '基準: ${widget.controller.formatBaseAmountLabel(baseAmount: _baseAmount, unitType: _unitType)} · '
-                  '${formatNullableNutrient(_macroInput.parseOptional(MacroField.kcal))}kcal',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-              const SizedBox(height: 16),
-              MacroNutritionFields(
-                controller: _macroInput,
-                readOnly: _fromSavedFoodSelection,
-                validator: (value, label) =>
-                    _validateOptionalNonNegativeNumber(label)(value),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _quantityController,
-                decoration: InputDecoration(
-                  labelText: quantityLabel,
-                  border: const OutlineInputBorder(),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (_) => setState(() {}),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return null;
-                  }
-                  final parsed = double.tryParse(value);
-                  if (parsed == null || parsed <= 0) {
-                    return '0より大きい値を入力してください';
-                  }
-                  return null;
-                },
-              ),
-              if (_buildTotalPreview() != null) _buildTotalPreview()!,
-              if (_showSaveAsFoodCheckbox) ...[
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('食品として保存'),
-                  subtitle: const Text('次回以降、保存済み食品から再利用できます'),
-                  value: _saveAsFood,
-                  onChanged: (value) => setState(() => _saveAsFood = value),
-                ),
-              ],
               if (widget.isEditing) ...[
-                const SizedBox(height: 32),
-                OutlinedButton(
+                const SizedBox(height: AppSpacing.lg),
+                SecondaryButton(
+                  label: '削除',
+                  icon: Icons.delete_outline,
                   onPressed: _confirmDelete,
-                  child: const Text('削除'),
                 ),
               ],
             ],
@@ -630,13 +644,21 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: FilledButton(
-            onPressed: _save,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('保存', style: TextStyle(fontSize: 16)),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              filledButtonTheme: FilledButtonThemeData(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+              ),
             ),
+            child: PrimaryButton(label: '保存', onPressed: _save),
           ),
         ),
       ),
@@ -649,22 +671,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: Text('「${entry.name}」を削除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
     );
 
     if (confirmed != true) {

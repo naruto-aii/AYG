@@ -12,6 +12,7 @@ Future<T?> showAppBottomSheet<T>({
   if (isDesktopLayout(context)) {
     return showDialog<T>(
       context: context,
+      useRootNavigator: true,
       builder: (dialogContext) {
         return Dialog(
           child: ConstrainedBox(
@@ -33,6 +34,7 @@ Future<T?> showAppBottomSheet<T>({
     context: context,
     isScrollControlled: isScrollControlled,
     showDragHandle: true,
+    useRootNavigator: true,
     builder: builder,
   );
 }

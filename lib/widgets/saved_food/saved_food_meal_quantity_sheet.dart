@@ -10,6 +10,10 @@ import '../common/app_bottom_sheet.dart';
 import '../common/app_text_field.dart';
 import '../common/primary_button.dart';
 
+BuildContext _rootSheetContext(BuildContext context) {
+  return Navigator.of(context, rootNavigator: true).context;
+}
+
 /// 保存済み / 公開食品から食事へ直接追加する数量入力シート。
 Future<bool> showSavedFoodMealQuantitySheet({
   required BuildContext context,
@@ -18,7 +22,7 @@ Future<bool> showSavedFoodMealQuantitySheet({
   DateTime? loggedAt,
 }) async {
   final result = await showAppBottomSheet<bool>(
-    context: context,
+    context: _rootSheetContext(context),
     isScrollControlled: true,
     builder: (sheetContext) {
       return _SavedFoodMealQuantitySheet(
@@ -217,7 +221,8 @@ Future<void> showSavedFoodDirectAddBlockedDialog({
   VoidCallback? onOpenManualForm,
 }) async {
   await showDialog<void>(
-    context: context,
+    context: _rootSheetContext(context),
+    useRootNavigator: true,
     builder: (dialogContext) {
       return AlertDialog(
         title: const Text('直接追加できません'),
@@ -235,7 +240,7 @@ Future<void> showSavedFoodDirectAddBlockedDialog({
             ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('閉じる'),
+            child: const Text('キャンセル'),
           ),
         ],
       );

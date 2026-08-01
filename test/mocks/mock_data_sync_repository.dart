@@ -6,9 +6,14 @@ class MockDataSyncRepository implements DataSyncRepository {
   bool pullRemoteToLocalCalled = false;
   bool pushLocalToRemoteCalled = false;
   bool failPull = false;
+  bool failDeleteFoodEntry = false;
+
+  @override
+  bool get supportsRemoteFoodEntryDelete => true;
 
   String? lastUserId;
   String? lastEmail;
+  final deletedFoodEntryIds = <String>[];
 
   @override
   Future<RemoteUserProfile> ensureUserProfile({
@@ -63,5 +68,17 @@ class MockDataSyncRepository implements DataSyncRepository {
   Future<void> pushLocalToRemote(String userId) async {
     pushLocalToRemoteCalled = true;
     lastUserId = userId;
+  }
+
+  @override
+  Future<void> deleteFoodEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    lastUserId = userId;
+    if (failDeleteFoodEntry) {
+      throw StateError('delete food entry failed');
+    }
+    deletedFoodEntryIds.add(entryId);
   }
 }

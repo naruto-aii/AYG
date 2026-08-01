@@ -11,12 +11,11 @@ import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
 import '../../widgets/layout/app_content_constraint.dart';
+import '../../services/open_food_facts_service.dart';
+import '../../services/public_food_meal_add_flow.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../../widgets/saved_food/public_food_search_result_tile.dart';
-import '../../widgets/saved_food/saved_food_meal_quantity_sheet.dart';
-import '../../widgets/saved_food/serving_amount_fields.dart';
 import '../food/food_form_screen.dart';
-import '../../services/open_food_facts_service.dart';
 
 class PublicFoodSearchScreen extends StatefulWidget {
   const PublicFoodSearchScreen({
@@ -105,12 +104,11 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
   }
 
   Future<void> _openMatch(PublicFoodSearchMatch match) async {
-    await showPublicFoodDetailSheet(
+    final foodForMeal = await showPublicFoodDetailSheet(
       context: context,
       controller: widget.controller,
       match: match,
       selectForMealEntry: widget.selectForMealEntry,
-      onUseForMeal: _handleUseForMeal,
       onBlocked: () {
         setState(() {
           _results = _results
@@ -119,22 +117,18 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
         });
       },
     );
+    if (foodForMeal != null && mounted) {
+      await _handleUseForMeal(foodForMeal);
+    }
   }
 
   Future<void> _handleUseForMeal(SavedFood food) async {
     if (widget.selectForMealEntry) {
-      if (!food.baseServingDefined) {
-        await showSavedFoodDirectAddBlockedDialog(
-          context: context,
-          onOpenManualForm: () => Navigator.of(context).pop(food),
-        );
-        return;
-      }
-
-      final added = await showSavedFoodMealQuantitySheet(
+      final added = await PublicFoodMealAddFlow.start(
         context: context,
         controller: widget.controller,
         food: food,
+        onOpenManualForm: (context, food) => Navigator.of(context).pop(food),
       );
       if (added && mounted) {
         Navigator.of(context).pop(true);
@@ -145,34 +139,26 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
       return;
     }
 
-    if (!food.baseServingDefined) {
-      final service = widget.openFoodFactsService;
-      await showSavedFoodDirectAddBlockedDialog(
-        context: context,
-        onOpenManualForm: service == null
-            ? null
-            : () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => FoodFormScreen(
-                      controller: widget.controller,
-                      openFoodFactsService: service,
-                      initialPublicFood: food,
-                    ),
-                  ),
-                );
-              },
-      );
-      return;
-    }
-
-    final added = await showSavedFoodMealQuantitySheet(
+    final service = widget.openFoodFactsService;
+    final added = await PublicFoodMealAddFlow.start(
       context: context,
       controller: widget.controller,
       food: food,
+      onOpenManualForm: service == null
+          ? null
+          : (context, food) {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => FoodFormScreen(
+                    controller: widget.controller,
+                    openFoodFactsService: service,
+                    initialPublicFood: food,
+                  ),
+                ),
+              );
+            },
     );
     if (added && mounted) {
-      Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('食事に追加しました')),
       );

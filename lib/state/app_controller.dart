@@ -670,14 +670,23 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteFood(String id) async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
     final foodRepository = _foodRepository;
+
+    if (dataSyncRepository?.supportsRemoteFoodEntryDelete ?? false) {
+      if (userId == null) {
+        throw StateError('Authentication required to delete food entry.');
+      }
+      await dataSyncRepository!.deleteFoodEntry(userId: userId, entryId: id);
+    }
+
     if (foodRepository != null) {
       await foodRepository.delete(id);
       await _reloadFoodEntries();
     } else {
       foodEntries.removeWhere((item) => item.id == id);
     }
-    _scheduleRemoteSync();
     refreshDailySummary();
   }
 

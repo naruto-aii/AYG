@@ -11,23 +11,21 @@ import 'block_food_creator_dialog.dart';
 import 'public_food_rating_bar.dart';
 import 'public_food_report_dialog.dart';
 
-Future<void> showPublicFoodDetailSheet({
+Future<SavedFood?> showPublicFoodDetailSheet({
   required BuildContext context,
   required AppController controller,
   required PublicFoodSearchMatch match,
   required bool selectForMealEntry,
-  ValueChanged<SavedFood>? onUseForMeal,
   VoidCallback? onCopied,
   VoidCallback? onBlocked,
 }) async {
-  await showAppBottomSheet<void>(
+  return showAppBottomSheet<SavedFood?>(
     context: context,
     builder: (sheetContext) {
       return _PublicFoodDetailSheet(
         controller: controller,
         match: match,
         selectForMealEntry: selectForMealEntry,
-        onUseForMeal: onUseForMeal,
         onCopied: onCopied,
         onBlocked: onBlocked,
       );
@@ -40,7 +38,6 @@ class _PublicFoodDetailSheet extends StatefulWidget {
     required this.controller,
     required this.match,
     required this.selectForMealEntry,
-    this.onUseForMeal,
     this.onCopied,
     this.onBlocked,
   });
@@ -48,7 +45,6 @@ class _PublicFoodDetailSheet extends StatefulWidget {
   final AppController controller;
   final PublicFoodSearchMatch match;
   final bool selectForMealEntry;
-  final ValueChanged<SavedFood>? onUseForMeal;
   final VoidCallback? onCopied;
   final VoidCallback? onBlocked;
 
@@ -118,8 +114,7 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
   }
 
   void _useForMeal() {
-    widget.onUseForMeal?.call(_food);
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(_food);
   }
 
   Future<void> _report() async {

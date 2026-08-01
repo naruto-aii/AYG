@@ -1,5 +1,6 @@
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
+import 'local_date.dart';
 
 /// 履歴画面向けの日付グループ。
 class HistoryDateGroup<T> {
@@ -15,11 +16,11 @@ class HistoryDateGroup<T> {
 }
 
 bool _isSameDay(DateTime a, DateTime b) {
-  return a.year == b.year && a.month == b.month && a.day == b.day;
+  return isSameLocalDay(a.toLocal(), b.toLocal());
 }
 
 DateTime _dateOnly(DateTime value) {
-  return DateTime(value.year, value.month, value.day);
+  return localDayStart(value.toLocal());
 }
 
 String dateLabelFor(DateTime date, {required DateTime referenceDate}) {

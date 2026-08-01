@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/public_food_publish_match.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
+import '../../constants/app_strings.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_display_labels.dart';
 
 class PublicFoodMatchCard extends StatelessWidget {
@@ -59,12 +61,11 @@ class PublicFoodMatchCard extends StatelessWidget {
           children: [
             Text(food.name, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text(
-              '${controller.formatSavedFoodBaseLabel(food)} · '
-              '${formatNullableNutrient(food.kcalPerBase)}kcal · '
-              'P${formatNullableNutrient(food.proteinPerBase)} '
-              'F${formatNullableNutrient(food.fatPerBase)} '
-              'C${formatNullableNutrient(food.carbPerBase)}',
+            CompactMacroDisplay(
+              kcal: food.kcalPerBase,
+              proteinG: food.proteinPerBase,
+              fatG: food.fatPerBase,
+              carbG: food.carbPerBase,
             ),
             Text('Good $goodCount / Bad $badCount'),
             Text('作成元: ${SavedFoodDisplayLabels.sourceType(food.sourceType)}'),

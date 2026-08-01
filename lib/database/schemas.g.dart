@@ -16097,6 +16097,1632 @@ extension ExerciseEntryEntityQueryProperty
 // coverage:ignore-file
 // ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
 
+extension GetAlcoholEntryEntityCollection on Isar {
+  IsarCollection<AlcoholEntryEntity> get alcoholEntryEntitys =>
+      this.collection();
+}
+
+const AlcoholEntryEntitySchema = CollectionSchema(
+  name: r'AlcoholEntryEntity',
+  id: -2705665003704732987,
+  properties: {
+    r'alcoholCalories': PropertySchema(
+      id: 0,
+      name: r'alcoholCalories',
+      type: IsarType.double,
+    ),
+    r'alcoholPercentage': PropertySchema(
+      id: 1,
+      name: r'alcoholPercentage',
+      type: IsarType.double,
+    ),
+    r'amount': PropertySchema(
+      id: 2,
+      name: r'amount',
+      type: IsarType.double,
+    ),
+    r'beverageName': PropertySchema(
+      id: 3,
+      name: r'beverageName',
+      type: IsarType.string,
+    ),
+    r'consumedAt': PropertySchema(
+      id: 4,
+      name: r'consumedAt',
+      type: IsarType.dateTime,
+    ),
+    r'entryId': PropertySchema(
+      id: 5,
+      name: r'entryId',
+      type: IsarType.string,
+    ),
+    r'pureAlcoholGrams': PropertySchema(
+      id: 6,
+      name: r'pureAlcoholGrams',
+      type: IsarType.double,
+    ),
+    r'totalCalories': PropertySchema(
+      id: 7,
+      name: r'totalCalories',
+      type: IsarType.double,
+    ),
+    r'unit': PropertySchema(
+      id: 8,
+      name: r'unit',
+      type: IsarType.string,
+    )
+  },
+  estimateSize: _alcoholEntryEntityEstimateSize,
+  serialize: _alcoholEntryEntitySerialize,
+  deserialize: _alcoholEntryEntityDeserialize,
+  deserializeProp: _alcoholEntryEntityDeserializeProp,
+  idName: r'id',
+  indexes: {
+    r'entryId': IndexSchema(
+      id: 3733379884318738402,
+      name: r'entryId',
+      unique: true,
+      replace: true,
+      properties: [
+        IndexPropertySchema(
+          name: r'entryId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    )
+  },
+  links: {},
+  embeddedSchemas: {},
+  getId: _alcoholEntryEntityGetId,
+  getLinks: _alcoholEntryEntityGetLinks,
+  attach: _alcoholEntryEntityAttach,
+  version: '3.1.0+1',
+);
+
+int _alcoholEntryEntityEstimateSize(
+  AlcoholEntryEntity object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  bytesCount += 3 + object.beverageName.length * 3;
+  bytesCount += 3 + object.entryId.length * 3;
+  bytesCount += 3 + object.unit.length * 3;
+  return bytesCount;
+}
+
+void _alcoholEntryEntitySerialize(
+  AlcoholEntryEntity object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeDouble(offsets[0], object.alcoholCalories);
+  writer.writeDouble(offsets[1], object.alcoholPercentage);
+  writer.writeDouble(offsets[2], object.amount);
+  writer.writeString(offsets[3], object.beverageName);
+  writer.writeDateTime(offsets[4], object.consumedAt);
+  writer.writeString(offsets[5], object.entryId);
+  writer.writeDouble(offsets[6], object.pureAlcoholGrams);
+  writer.writeDouble(offsets[7], object.totalCalories);
+  writer.writeString(offsets[8], object.unit);
+}
+
+AlcoholEntryEntity _alcoholEntryEntityDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = AlcoholEntryEntity();
+  object.alcoholCalories = reader.readDouble(offsets[0]);
+  object.alcoholPercentage = reader.readDouble(offsets[1]);
+  object.amount = reader.readDouble(offsets[2]);
+  object.beverageName = reader.readString(offsets[3]);
+  object.consumedAt = reader.readDateTime(offsets[4]);
+  object.entryId = reader.readString(offsets[5]);
+  object.id = id;
+  object.pureAlcoholGrams = reader.readDouble(offsets[6]);
+  object.totalCalories = reader.readDouble(offsets[7]);
+  object.unit = reader.readString(offsets[8]);
+  return object;
+}
+
+P _alcoholEntryEntityDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readDouble(offset)) as P;
+    case 1:
+      return (reader.readDouble(offset)) as P;
+    case 2:
+      return (reader.readDouble(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readDateTime(offset)) as P;
+    case 5:
+      return (reader.readString(offset)) as P;
+    case 6:
+      return (reader.readDouble(offset)) as P;
+    case 7:
+      return (reader.readDouble(offset)) as P;
+    case 8:
+      return (reader.readString(offset)) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+Id _alcoholEntryEntityGetId(AlcoholEntryEntity object) {
+  return object.id;
+}
+
+List<IsarLinkBase<dynamic>> _alcoholEntryEntityGetLinks(
+    AlcoholEntryEntity object) {
+  return [];
+}
+
+void _alcoholEntryEntityAttach(
+    IsarCollection<dynamic> col, Id id, AlcoholEntryEntity object) {
+  object.id = id;
+}
+
+extension AlcoholEntryEntityByIndex on IsarCollection<AlcoholEntryEntity> {
+  Future<AlcoholEntryEntity?> getByEntryId(String entryId) {
+    return getByIndex(r'entryId', [entryId]);
+  }
+
+  AlcoholEntryEntity? getByEntryIdSync(String entryId) {
+    return getByIndexSync(r'entryId', [entryId]);
+  }
+
+  Future<bool> deleteByEntryId(String entryId) {
+    return deleteByIndex(r'entryId', [entryId]);
+  }
+
+  bool deleteByEntryIdSync(String entryId) {
+    return deleteByIndexSync(r'entryId', [entryId]);
+  }
+
+  Future<List<AlcoholEntryEntity?>> getAllByEntryId(
+      List<String> entryIdValues) {
+    final values = entryIdValues.map((e) => [e]).toList();
+    return getAllByIndex(r'entryId', values);
+  }
+
+  List<AlcoholEntryEntity?> getAllByEntryIdSync(List<String> entryIdValues) {
+    final values = entryIdValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'entryId', values);
+  }
+
+  Future<int> deleteAllByEntryId(List<String> entryIdValues) {
+    final values = entryIdValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'entryId', values);
+  }
+
+  int deleteAllByEntryIdSync(List<String> entryIdValues) {
+    final values = entryIdValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'entryId', values);
+  }
+
+  Future<Id> putByEntryId(AlcoholEntryEntity object) {
+    return putByIndex(r'entryId', object);
+  }
+
+  Id putByEntryIdSync(AlcoholEntryEntity object, {bool saveLinks = true}) {
+    return putByIndexSync(r'entryId', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByEntryId(List<AlcoholEntryEntity> objects) {
+    return putAllByIndex(r'entryId', objects);
+  }
+
+  List<Id> putAllByEntryIdSync(List<AlcoholEntryEntity> objects,
+      {bool saveLinks = true}) {
+    return putAllByIndexSync(r'entryId', objects, saveLinks: saveLinks);
+  }
+}
+
+extension AlcoholEntryEntityQueryWhereSort
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QWhere> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhere> anyId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryWhere
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QWhereClause> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+      idEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IdWhereClause.between(
+        lower: id,
+        upper: id,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+      idNotEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            )
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            )
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+      idGreaterThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.greaterThan(lower: id, includeLower: include),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+      idLessThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.lessThan(upper: id, includeUpper: include),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+      idBetween(
+    Id lowerId,
+    Id upperId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IdWhereClause.between(
+        lower: lowerId,
+        includeLower: includeLower,
+        upper: upperId,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+      entryIdEqualTo(String entryId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'entryId',
+        value: [entryId],
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+      entryIdNotEqualTo(String entryId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'entryId',
+              lower: [],
+              upper: [entryId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'entryId',
+              lower: [entryId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'entryId',
+              lower: [entryId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'entryId',
+              lower: [],
+              upper: [entryId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryFilter
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QFilterCondition> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      alcoholCaloriesEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'alcoholCalories',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      alcoholCaloriesGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'alcoholCalories',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      alcoholCaloriesLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'alcoholCalories',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      alcoholCaloriesBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'alcoholCalories',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      alcoholPercentageEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'alcoholPercentage',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      alcoholPercentageGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'alcoholPercentage',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      alcoholPercentageLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'alcoholPercentage',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      alcoholPercentageBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'alcoholPercentage',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      amountEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'amount',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      amountGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'amount',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      amountLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'amount',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      amountBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'amount',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'beverageName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'beverageName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'beverageName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'beverageName',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'beverageName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'beverageName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'beverageName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'beverageName',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'beverageName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      beverageNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'beverageName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      consumedAtEqualTo(DateTime value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'consumedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      consumedAtGreaterThan(
+    DateTime value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'consumedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      consumedAtLessThan(
+    DateTime value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'consumedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      consumedAtBetween(
+    DateTime lower,
+    DateTime upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'consumedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'entryId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'entryId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'entryId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'entryId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'entryId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'entryId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'entryId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'entryId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'entryId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      entryIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'entryId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      idEqualTo(Id value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      idGreaterThan(
+    Id value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      idLessThan(
+    Id value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      idBetween(
+    Id lower,
+    Id upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'id',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      pureAlcoholGramsEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'pureAlcoholGrams',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      pureAlcoholGramsGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'pureAlcoholGrams',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      pureAlcoholGramsLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'pureAlcoholGrams',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      pureAlcoholGramsBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'pureAlcoholGrams',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      totalCaloriesEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'totalCalories',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      totalCaloriesGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'totalCalories',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      totalCaloriesLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'totalCalories',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      totalCaloriesBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'totalCalories',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'unit',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'unit',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'unit',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'unit',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'unit',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'unit',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'unit',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'unit',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'unit',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+      unitIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'unit',
+        value: '',
+      ));
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryObject
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QFilterCondition> {}
+
+extension AlcoholEntryEntityQueryLinks
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QFilterCondition> {}
+
+extension AlcoholEntryEntityQuerySortBy
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QSortBy> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByAlcoholCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholCalories', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByAlcoholCaloriesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholCalories', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByAlcoholPercentage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholPercentage', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByAlcoholPercentageDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholPercentage', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByAmountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByBeverageName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'beverageName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByBeverageNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'beverageName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByConsumedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'consumedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByConsumedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'consumedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByEntryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'entryId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByEntryIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'entryId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByPureAlcoholGrams() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pureAlcoholGrams', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByPureAlcoholGramsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pureAlcoholGrams', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByTotalCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalCalories', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByTotalCaloriesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalCalories', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByUnit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unit', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      sortByUnitDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unit', Sort.desc);
+    });
+  }
+}
+
+extension AlcoholEntryEntityQuerySortThenBy
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QSortThenBy> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByAlcoholCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholCalories', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByAlcoholCaloriesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholCalories', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByAlcoholPercentage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholPercentage', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByAlcoholPercentageDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholPercentage', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByAmountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByBeverageName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'beverageName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByBeverageNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'beverageName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByConsumedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'consumedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByConsumedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'consumedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByEntryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'entryId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByEntryIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'entryId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenById() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByPureAlcoholGrams() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pureAlcoholGrams', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByPureAlcoholGramsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pureAlcoholGrams', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByTotalCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalCalories', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByTotalCaloriesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalCalories', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByUnit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unit', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+      thenByUnitDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unit', Sort.desc);
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryWhereDistinct
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByAlcoholCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'alcoholCalories');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByAlcoholPercentage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'alcoholPercentage');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'amount');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByBeverageName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'beverageName', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByConsumedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'consumedAt');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByEntryId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'entryId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByPureAlcoholGrams() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'pureAlcoholGrams');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByTotalCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'totalCalories');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+      distinctByUnit({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'unit', caseSensitive: caseSensitive);
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryProperty
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QQueryProperty> {
+  QueryBuilder<AlcoholEntryEntity, int, QQueryOperations> idProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations>
+      alcoholCaloriesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'alcoholCalories');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations>
+      alcoholPercentageProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'alcoholPercentage');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations> amountProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'amount');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, String, QQueryOperations>
+      beverageNameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'beverageName');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, DateTime, QQueryOperations>
+      consumedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'consumedAt');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, String, QQueryOperations> entryIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'entryId');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations>
+      pureAlcoholGramsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'pureAlcoholGrams');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations>
+      totalCaloriesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'totalCalories');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, String, QQueryOperations> unitProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'unit');
+    });
+  }
+}
+
+// coverage:ignore-file
+// ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
+
 extension GetWeightEntryEntityCollection on Isar {
   IsarCollection<WeightEntryEntity> get weightEntryEntitys => this.collection();
 }

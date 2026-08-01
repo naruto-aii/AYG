@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../models/macro_field.dart';
+import '../../utils/macro_display.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/nutrition_value_calculator.dart';
 
@@ -436,14 +438,7 @@ class MacroNutritionInputController extends ChangeNotifier {
     _suppressListener = false;
   }
 
-  String _label(MacroField field) {
-    return switch (field) {
-      MacroField.kcal => 'カロリー',
-      MacroField.protein => 'たんぱく質',
-      MacroField.fat => '脂質',
-      MacroField.carb => '炭水化物',
-    };
-  }
+  String _label(MacroField field) => macroFieldLabel(field);
 
   double? parseOptional(MacroField field) {
     final parsed = _parseField(field);

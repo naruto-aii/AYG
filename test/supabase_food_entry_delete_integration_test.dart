@@ -8,6 +8,7 @@ import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/sync_failure.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/repositories/contracts/alcohol_repository_base.dart';
 import 'package:ayg/repositories/contracts/exercise_repository_base.dart';
 import 'package:ayg/repositories/contracts/food_repository_base.dart';
 import 'package:ayg/repositories/contracts/settings_repository_base.dart';
@@ -72,6 +73,7 @@ SupabaseDataSyncRepository buildDataSync({
     settingsRepository: _NoopSettingsRepository(),
     foodRepository: foodRepository,
     exerciseRepository: _NoopExerciseRepository(),
+    alcoholRepository: _NoopAlcoholRepository(),
     weightRepository: _NoopWeightRepository(),
     client: client,
   );
@@ -379,6 +381,11 @@ class _NoopFoodRepository implements FoodRepositoryBase {
 }
 
 class _NoopExerciseRepository implements ExerciseRepositoryBase {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoopAlcoholRepository implements AlcoholRepositoryBase {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

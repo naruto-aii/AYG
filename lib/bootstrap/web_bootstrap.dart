@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../app.dart';
 import '../config/open_food_facts_config.dart';
 import '../config/supabase_config.dart';
+import '../platform/web/repositories/web_alcohol_repository.dart';
 import '../platform/web/repositories/web_exercise_repository.dart';
 import '../platform/web/repositories/web_food_repository.dart';
 import '../platform/web/repositories/web_meal_template_repository.dart';
@@ -97,6 +98,7 @@ Future<void> bootstrapWebApp() async {
     late final SettingsRepository settingsRepository;
     late final FoodRepository foodRepository;
     late final ExerciseRepository exerciseRepository;
+    late final AlcoholRepository alcoholRepository;
     late final WeightRepository weightRepository;
     late final IsarSavedFoodRepository savedFoodRepository;
     late final MealTemplateRepository mealTemplateRepository;
@@ -106,6 +108,7 @@ Future<void> bootstrapWebApp() async {
       settingsRepository = SettingsRepository();
       foodRepository = FoodRepository();
       exerciseRepository = ExerciseRepository();
+      alcoholRepository = AlcoholRepository();
       weightRepository = WeightRepository();
       savedFoodRepository = IsarSavedFoodRepository();
       mealTemplateRepository = MealTemplateRepository();
@@ -155,6 +158,7 @@ Future<void> bootstrapWebApp() async {
             settingsRepository: settingsRepository,
             foodRepository: foodRepository,
             exerciseRepository: exerciseRepository,
+            alcoholRepository: alcoholRepository,
             weightRepository: weightRepository,
             foodMaster: foodMasterRepositories,
           )
@@ -166,6 +170,7 @@ Future<void> bootstrapWebApp() async {
       settingsRepository: settingsRepository,
       foodRepository: foodRepository,
       exerciseRepository: exerciseRepository,
+      alcoholRepository: alcoholRepository,
       weightRepository: weightRepository,
       savedFoodRepository: savedFoodRepository,
       mealTemplateRepository: mealTemplateRepository,
@@ -181,6 +186,7 @@ Future<void> bootstrapWebApp() async {
       settingsRepository: settingsRepository,
       foodRepository: foodRepository,
       exerciseRepository: exerciseRepository,
+      alcoholRepository: alcoholRepository,
       weightRepository: weightRepository,
       savedFoodRepository: foodMasterRepositories.savedFoods,
       foodRatingRepository: foodMasterRepositories.foodRatings,

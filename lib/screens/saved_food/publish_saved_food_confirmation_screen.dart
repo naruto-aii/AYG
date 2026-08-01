@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/public_food_publish_match.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
+import '../../constants/app_strings.dart';
 import '../../utils/nutrition_format.dart';
+import '../../utils/macro_display.dart';
 import '../../utils/saved_food_display_labels.dart';
 import '../../widgets/saved_food/public_food_match_card.dart';
 
@@ -83,9 +85,9 @@ class _PublishSavedFoodConfirmationScreenState
             const SizedBox(height: 12),
             _infoRow('基準量', widget.controller.formatSavedFoodBaseLabel(food)),
             _infoRow('kcal', formatNullableNutrient(food.kcalPerBase)),
-            _infoRow('P', formatNullableNutrient(food.proteinPerBase)),
-            _infoRow('F', formatNullableNutrient(food.fatPerBase)),
-            _infoRow('C', formatNullableNutrient(food.carbPerBase)),
+            _infoRow(AppStrings.macroProtein, formatNullableNutrient(food.proteinPerBase)),
+            _infoRow(AppStrings.macroFat, formatNullableNutrient(food.fatPerBase)),
+            _infoRow(AppStrings.macroCarb, formatNullableNutrient(food.carbPerBase)),
             if (food.brand != null) _infoRow('ブランド', food.brand!),
             if (food.barcode != null) _infoRow('バーコード', food.barcode!),
             _infoRow(

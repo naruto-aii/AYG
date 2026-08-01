@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ayg/models/exercise_entry.dart';
 import 'package:ayg/models/food_entry.dart';
 import 'package:ayg/utils/history_grouping.dart';
+import 'package:ayg/utils/local_date.dart';
 
 void main() {
   final referenceDate = DateTime(2026, 7, 21, 12);
@@ -80,6 +81,29 @@ void main() {
       );
 
       expect(groups.first.items.map((entry) => entry.id), ['1', '2']);
+    });
+
+    test('groups entries on local calendar day across UTC boundary', () {
+      final loggedAt = DateTime.utc(2026, 7, 20, 15);
+      final entries = [
+        FoodEntry(
+          id: '1',
+          name: 'UTC evening local next day',
+          quantity: 1,
+          loggedAt: loggedAt,
+        ),
+      ];
+
+      final localReference = localDayStart(loggedAt.toLocal());
+      final groups = groupFoodEntriesByDate(
+        entries,
+        referenceDate: localReference,
+        todayOnly: false,
+      );
+
+      expect(groups, hasLength(1));
+      expect(groups.first.date, localReference);
+      expect(groups.first.items.single.id, '1');
     });
   });
 

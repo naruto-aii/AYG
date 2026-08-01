@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 
 import '../../database/schemas.dart';
+import '../../repositories/alcohol_repository.dart';
 import '../../repositories/exercise_repository.dart';
 import '../../repositories/food_repository.dart';
 import '../../repositories/meal_template_repository.dart';
@@ -19,6 +20,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
     required SettingsRepository settingsRepository,
     required FoodRepository foodRepository,
     required ExerciseRepository exerciseRepository,
+    required AlcoholRepository alcoholRepository,
     required WeightRepository weightRepository,
     required SavedFoodRepository savedFoodRepository,
     required MealTemplateRepository mealTemplateRepository,
@@ -27,6 +29,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
        _settingsRepository = settingsRepository,
        _foodRepository = foodRepository,
        _exerciseRepository = exerciseRepository,
+       _alcoholRepository = alcoholRepository,
        _weightRepository = weightRepository,
        _savedFoodRepository = savedFoodRepository,
        _mealTemplateRepository = mealTemplateRepository;
@@ -36,6 +39,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
   final SettingsRepository _settingsRepository;
   final FoodRepository _foodRepository;
   final ExerciseRepository _exerciseRepository;
+  final AlcoholRepository _alcoholRepository;
   final WeightRepository _weightRepository;
   final SavedFoodRepository _savedFoodRepository;
   final MealTemplateRepository _mealTemplateRepository;
@@ -46,6 +50,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
     await _settingsRepository.clearAll();
     await _foodRepository.clearAll();
     await _exerciseRepository.clearAll();
+    await _alcoholRepository.clearAll();
     await _weightRepository.clearAll();
     await _savedFoodRepository.clearAll();
     await _mealTemplateRepository.clearAll();

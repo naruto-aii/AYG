@@ -51,9 +51,9 @@ void main() {
   Future<void> openSavedFoodCreate(WidgetTester tester) async {
     await tester.tap(find.text(AppStrings.navSettings));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('食品・食事テンプレート'));
+    await tester.tap(find.text(AppStrings.settingsFoodMaster));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('保存済み食品'));
+    await tester.tap(find.text('マイ食品'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();

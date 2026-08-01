@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
+import '../../models/alcohol_entry.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
 import '../../models/goal.dart';
@@ -9,6 +11,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
+import '../../utils/local_date.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/app_card.dart';
@@ -19,6 +22,7 @@ import '../../widgets/common/calorie_progress_ring.dart';
 import '../../widgets/common/macro_progress_bar.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../../widgets/layout/app_responsive.dart';
+import '../alcohol/alcohol_form_screen.dart';
 import '../food/food_form_navigation.dart';
 import '../exercise/exercise_form_screen.dart';
 import '../weight/weight_record_screen.dart';
@@ -29,7 +33,7 @@ class HomeScreen extends StatelessWidget {
     required this.controller,
     required this.openFoodFactsService,
     this.foodFormBuilder,
-    this.onOpenFoodTab,
+    this.onOpenHistoryCalendar,
     this.onOpenWorkoutTab,
     this.onOpenWeightTab,
   });
@@ -37,7 +41,7 @@ class HomeScreen extends StatelessWidget {
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final FoodFormScreenBuilder? foodFormBuilder;
-  final VoidCallback? onOpenFoodTab;
+  final VoidCallback? onOpenHistoryCalendar;
   final VoidCallback? onOpenWorkoutTab;
   final VoidCallback? onOpenWeightTab;
 
@@ -87,6 +91,40 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _confirmDeleteAlcohol(
+    BuildContext context,
+    AlcoholEntry entry,
+  ) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '削除確認',
+      message: '「${entry.beverageName}」を削除しますか？',
+    );
+    if (confirmed == true) {
+      try {
+        await controller.deleteAlcohol(entry.id);
+      } catch (error, stackTrace) {
+        debugPrint('deleteAlcohol failed: $error\n$stackTrace');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('アルコール記録の削除に失敗しました。もう一度お試しください'),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _openAlcoholForm(BuildContext context, {AlcoholEntry? entry}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            AlcoholFormScreen(controller: controller, entry: entry),
+      ),
+    );
+  }
+
   void _openExerciseForm(BuildContext context, {ExerciseEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -132,6 +170,14 @@ class HomeScreen extends StatelessWidget {
       ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
   }
 
+  List<AlcoholEntry> _todayAlcoholEntries(List<AlcoholEntry> entries) {
+    final now = DateTime.now();
+    return entries
+        .where((entry) => isSameLocalDay(entry.consumedAt, now))
+        .toList()
+      ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+  }
+
   List<ExerciseEntry> _todayExerciseEntries(List<ExerciseEntry> entries) {
     final now = DateTime.now();
     return entries
@@ -159,6 +205,7 @@ class HomeScreen extends StatelessWidget {
         }
 
         final todayFood = _todayFoodEntries(controller.foodEntries);
+        final todayAlcohol = _todayAlcoholEntries(controller.alcoholEntries);
         final todayExercise = _todayExerciseEntries(controller.exerciseEntries);
 
         return Scaffold(
@@ -212,7 +259,7 @@ class HomeScreen extends StatelessWidget {
                           child: Column(
                             children: [
                               MacroProgressBar(
-                                label: 'P',
+                                label: AppStrings.macroProtein,
                                 intakeG: summary.intakeProteinG,
                                 targetG: summary.targetProteinG,
                                 color: AppColors.macroProtein,
@@ -220,7 +267,7 @@ class HomeScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               MacroProgressBar(
-                                label: 'F',
+                                label: AppStrings.macroFat,
                                 intakeG: summary.intakeFatG,
                                 targetG: summary.targetFatG,
                                 color: AppColors.macroFat,
@@ -228,7 +275,7 @@ class HomeScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               MacroProgressBar(
-                                label: 'C',
+                                label: AppStrings.macroCarb,
                                 intakeG: summary.intakeCarbG,
                                 targetG: summary.targetCarbG,
                                 color: AppColors.macroCarb,
@@ -297,8 +344,9 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: AppSpacing.lg),
                     AppSectionHeader(
                       title: '今日の食事',
-                      actionLabel: onOpenFoodTab != null ? '履歴' : null,
-                      onAction: onOpenFoodTab,
+                      actionLabel:
+                          onOpenHistoryCalendar != null ? '履歴' : null,
+                      onAction: onOpenHistoryCalendar,
                     ),
                     if (todayFood.isEmpty)
                       const AppEmptyState(message: '登録された食事はありません')
@@ -316,6 +364,33 @@ class HomeScreen extends StatelessWidget {
                                     _openFoodForm(context, entry: todayFood[i]),
                                 onDelete: () =>
                                     _confirmDeleteFood(context, todayFood[i]),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppSectionHeader(title: '今日のアルコール'),
+                    if (todayAlcohol.isEmpty)
+                      const AppEmptyState(message: '登録されたアルコールはありません')
+                    else
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < todayAlcohol.length; i++) ...[
+                              if (i > 0) const Divider(height: 1),
+                              _TodayAlcoholTile(
+                                entry: todayAlcohol[i],
+                                timeLabel: _formatTime(todayAlcohol[i].consumedAt),
+                                onTap: () => _openAlcoholForm(
+                                  context,
+                                  entry: todayAlcohol[i],
+                                ),
+                                onDelete: () => _confirmDeleteAlcohol(
+                                  context,
+                                  todayAlcohol[i],
+                                ),
                               ),
                             ],
                           ],
@@ -507,6 +582,66 @@ class _TodayFoodTile extends StatelessWidget {
             '$kcal kcal',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: AppColors.primaryGreen,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            onPressed: onDelete,
+            color: AppColors.secondaryText,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayAlcoholTile extends StatelessWidget {
+  const _TodayAlcoholTile({
+    required this.entry,
+    required this.timeLabel,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final AlcoholEntry entry;
+  final String timeLabel;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xxs,
+      ),
+      onTap: onTap,
+      title: Text(entry.beverageName),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${entry.amount}${entry.unit} / ${entry.alcoholPercentage}%',
+          ),
+          Text(
+            '純アルコール ${formatNullableNutrient(entry.pureAlcoholGrams, fractionDigits: 1)}g · '
+            'アルコール由来 ${formatNullableNutrient(entry.alcoholCalories, fractionDigits: 0)}kcal',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+          Text(timeLabel),
+        ],
+      ),
+      isThreeLine: true,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${formatNullableNutrient(entry.totalCalories, fractionDigits: 0)} kcal',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: AppColors.accentWine,
               fontWeight: FontWeight.w600,
             ),
           ),

@@ -1,3 +1,4 @@
+import '../../repositories/contracts/alcohol_repository_base.dart';
 import '../../repositories/contracts/exercise_repository_base.dart';
 import '../../repositories/contracts/food_repository_base.dart';
 import '../../repositories/contracts/meal_template_repository_base.dart';
@@ -15,6 +16,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
     required SettingsRepositoryBase settingsRepository,
     required FoodRepositoryBase foodRepository,
     required ExerciseRepositoryBase exerciseRepository,
+    required AlcoholRepositoryBase alcoholRepository,
     required WeightRepositoryBase weightRepository,
     required SavedFoodLocalStore savedFoodRepository,
     required MealTemplateRepositoryBase mealTemplateRepository,
@@ -23,6 +25,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
        _settingsRepository = settingsRepository,
        _foodRepository = foodRepository,
        _exerciseRepository = exerciseRepository,
+       _alcoholRepository = alcoholRepository,
        _weightRepository = weightRepository,
        _savedFoodRepository = savedFoodRepository,
        _mealTemplateRepository = mealTemplateRepository,
@@ -32,6 +35,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
   final SettingsRepositoryBase _settingsRepository;
   final FoodRepositoryBase _foodRepository;
   final ExerciseRepositoryBase _exerciseRepository;
+  final AlcoholRepositoryBase _alcoholRepository;
   final WeightRepositoryBase _weightRepository;
   final SavedFoodLocalStore _savedFoodRepository;
   final MealTemplateRepositoryBase _mealTemplateRepository;
@@ -43,6 +47,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
     await _settingsRepository.clearAll();
     await _foodRepository.clearAll();
     await _exerciseRepository.clearAll();
+    await _alcoholRepository.clearAll();
     await _weightRepository.clearAll();
     await _savedFoodRepository.clearAllLocal();
     await _mealTemplateRepository.clearAll();

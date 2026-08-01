@@ -4,7 +4,10 @@ import '../../models/saved_food.dart';
 import '../../services/saved_food_entry_builder.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../../constants/app_strings.dart';
 import '../../utils/nutrition_format.dart';
+import '../../utils/macro_display.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_base_serving_format.dart';
 import '../common/app_bottom_sheet.dart';
 import '../common/app_text_field.dart';
@@ -157,12 +160,12 @@ class _SavedFoodMealQuantitySheetState
                   )}',
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '栄養情報：\n'
-                  '${formatNullableNutrient(_food.kcalPerBase)}kcal\n'
-                  'P ${formatNullableNutrient(_food.proteinPerBase)}g / '
-                  'F ${formatNullableNutrient(_food.fatPerBase)}g / '
-                  'C ${formatNullableNutrient(_food.carbPerBase)}g',
+                Text(AppStrings.macroNutritionInfoLabel),
+                CompactMacroDisplay(
+                  kcal: _food.kcalPerBase,
+                  proteinG: _food.proteinPerBase,
+                  fatG: _food.fatPerBase,
+                  carbG: _food.carbPerBase,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Row(
@@ -191,13 +194,12 @@ class _SavedFoodMealQuantitySheetState
                 ),
                 if (scaled.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    '記録する栄養：\n'
-                    '${formatNullableNutrient(scaled['kcal'])}kcal\n'
-                    'P ${formatNullableNutrient(scaled['protein'])}g / '
-                    'F ${formatNullableNutrient(scaled['fat'])}g / '
-                    'C ${formatNullableNutrient(scaled['carb'])}g',
-                    style: theme.textTheme.bodyMedium,
+                  Text(AppStrings.macroRecordNutritionLabel),
+                  CompactMacroDisplay(
+                    kcal: scaled['kcal'],
+                    proteinG: scaled['protein'],
+                    fatG: scaled['fat'],
+                    carbG: scaled['carb'],
                   ),
                 ],
                 const SizedBox(height: AppSpacing.md),

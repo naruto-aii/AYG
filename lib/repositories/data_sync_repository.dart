@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/activity_level.dart';
+import '../models/alcohol_entry.dart';
 import '../models/app_settings.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
@@ -11,6 +12,7 @@ import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
+import 'contracts/alcohol_repository_base.dart';
 import 'contracts/exercise_repository_base.dart';
 import 'contracts/food_repository_base.dart';
 import 'contracts/meal_template_repository_base.dart';
@@ -63,8 +65,15 @@ abstract class DataSyncRepository {
     required String entryId,
   });
 
+  Future<void> deleteAlcoholEntry({
+    required String userId,
+    required String entryId,
+  });
+
   /// Supabase 等のリモート削除が有効か。
   bool get supportsRemoteFoodEntryDelete;
+
+  bool get supportsRemoteAlcoholEntryDelete;
 }
 
 /// Supabase 実装。
@@ -74,6 +83,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     required SettingsRepositoryBase settingsRepository,
     required FoodRepositoryBase foodRepository,
     required ExerciseRepositoryBase exerciseRepository,
+    required AlcoholRepositoryBase alcoholRepository,
     required WeightRepositoryBase weightRepository,
     FoodMasterRepositories? foodMaster,
     SupabaseClient? client,
@@ -81,6 +91,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
        _settingsRepository = settingsRepository,
        _foodRepository = foodRepository,
        _exerciseRepository = exerciseRepository,
+       _alcoholRepository = alcoholRepository,
        _weightRepository = weightRepository,
        _foodMaster = foodMaster,
        _client = client ?? Supabase.instance.client;
@@ -89,12 +100,16 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   final SettingsRepositoryBase _settingsRepository;
   final FoodRepositoryBase _foodRepository;
   final ExerciseRepositoryBase _exerciseRepository;
+  final AlcoholRepositoryBase _alcoholRepository;
   final WeightRepositoryBase _weightRepository;
   final FoodMasterRepositories? _foodMaster;
   final SupabaseClient _client;
 
   @override
   bool get supportsRemoteFoodEntryDelete => true;
+
+  @override
+  bool get supportsRemoteAlcoholEntryDelete => true;
 
   @override
   Future<RemoteUserProfile> ensureUserProfile({
@@ -193,6 +208,13 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       action: () => _pullExerciseEntries(userId),
     );
     await runSyncStep(
+      step: SyncStep.fetchAlcoholEntries,
+      repository: 'SupabaseDataSyncRepository',
+      tableName: 'alcohol_entries',
+      operation: 'select',
+      action: () => _pullAlcoholEntries(userId),
+    );
+    await runSyncStep(
       step: SyncStep.fetchWeightEntries,
       repository: 'SupabaseDataSyncRepository',
       tableName: 'weight_entries',
@@ -229,6 +251,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pushAppSettings(userId);
     await _pushFoodEntries(userId);
     await _pushExerciseEntries(userId);
+    await _pushAlcoholEntries(userId);
     await _pushWeightEntries(userId);
     await _pushSavedFoods(userId);
     await _pushMealTemplates(userId);
@@ -254,6 +277,32 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         if (deleted.isEmpty) {
           throw StateError(
             'Food entry delete affected 0 rows (entry_id=$entryId)',
+          );
+        }
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteAlcoholEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    await runSyncStep(
+      step: SyncStep.deleteAlcoholEntry,
+      repository: 'SupabaseDataSyncRepository',
+      tableName: 'alcohol_entries',
+      operation: 'delete',
+      action: () async {
+        final deleted = await _client
+            .from('alcohol_entries')
+            .delete()
+            .eq('user_id', userId)
+            .eq('entry_id', entryId)
+            .select('entry_id');
+        if (deleted.isEmpty) {
+          throw StateError(
+            'Alcohol entry delete affected 0 rows (entry_id=$entryId)',
           );
         }
       },
@@ -616,6 +665,40 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         );
   }
 
+  Future<void> _pullAlcoholEntries(String userId) async {
+    final rows = await _client
+        .from('alcohol_entries')
+        .select()
+        .eq('user_id', userId);
+
+    final entries = rows.map(FoodMasterRowMapper.alcoholEntryFromRow).toList();
+
+    await _alcoholRepository.clearAll();
+    if (entries.isEmpty) {
+      return;
+    }
+    await _alcoholRepository.saveAll(entries);
+  }
+
+  Future<void> _pushAlcoholEntries(String userId) async {
+    final entries = await _alcoholRepository.loadAll();
+    if (entries.isEmpty) {
+      return;
+    }
+
+    await _client
+        .from('alcohol_entries')
+        .upsert(
+          entries
+              .map(
+                (entry) =>
+                    FoodMasterRowMapper.alcoholEntryToRow(entry, userId: userId),
+              )
+              .toList(),
+          onConflict: 'user_id,entry_id',
+        );
+  }
+
   Future<void> _pullWeightEntries(String userId) async {
     final rows = await _client
         .from('weight_entries')
@@ -686,6 +769,9 @@ class NoOpDataSyncRepository implements DataSyncRepository {
   bool get supportsRemoteFoodEntryDelete => false;
 
   @override
+  bool get supportsRemoteAlcoholEntryDelete => false;
+
+  @override
   Future<RemoteUserProfile> ensureUserProfile({
     required String userId,
     String? email,
@@ -711,6 +797,12 @@ class NoOpDataSyncRepository implements DataSyncRepository {
 
   @override
   Future<void> deleteFoodEntry({
+    required String userId,
+    required String entryId,
+  }) async {}
+
+  @override
+  Future<void> deleteAlcoholEntry({
     required String userId,
     required String entryId,
   }) async {}

@@ -5,6 +5,7 @@ abstract final class AppColors {
   static const Color primaryGreen = Color(0xFF4CAF7D);
   static const Color softGreen = Color(0xFFA8D5A2);
   static const Color accentOrange = Color(0xFFFFB366);
+  static const Color accentWine = Color(0xFF9B6B9E);
   static const Color backgroundCream = Color(0xFFFFF9F1);
   static const Color cardWhite = Color(0xFFFFFFFF);
   static const Color primaryText = Color(0xFF3D3A36);

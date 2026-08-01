@@ -31,6 +31,51 @@ void main() {
     const service = MealTemplateApplyService();
     final now = DateTime(2026, 7, 20);
 
+    test('buildEntries assigns distinct entry ids from generator', () {
+      var counter = 0;
+      final entries = service.buildEntries(
+        items: [
+          MealTemplateItem(
+            itemId: '1',
+            name: 'A',
+            baseAmount: 100,
+            unitType: FoodUnitType.g,
+            kcalPerBase: 100,
+            consumedAmount: 100,
+            sortOrder: 1,
+            snapshotSavedAt: now,
+          ),
+          MealTemplateItem(
+            itemId: '2',
+            name: 'B',
+            baseAmount: 100,
+            unitType: FoodUnitType.g,
+            kcalPerBase: 100,
+            consumedAmount: 100,
+            sortOrder: 2,
+            snapshotSavedAt: now,
+          ),
+          MealTemplateItem(
+            itemId: '3',
+            name: 'C',
+            baseAmount: 100,
+            unitType: FoodUnitType.g,
+            kcalPerBase: 100,
+            consumedAmount: 100,
+            sortOrder: 3,
+            snapshotSavedAt: now,
+          ),
+        ],
+        mealGroupId: 'group-1',
+        mealGroupName: 'Lunch',
+        loggedAt: now,
+        generateEntryId: () => 'entry-${counter++}',
+      );
+
+      expect(entries, hasLength(3));
+      expect(entries.map((entry) => entry.id).toSet(), hasLength(3));
+    });
+
     test('buildEntries shares mealGroupId and sortOrder', () {
       var counter = 0;
       final entries = service.buildEntries(

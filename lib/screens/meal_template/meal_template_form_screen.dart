@@ -6,7 +6,9 @@ import '../../models/saved_food.dart';
 import '../../models/saved_food_entry_selection.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_section_header.dart';
@@ -243,9 +245,11 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
   String _formatItemSubtitle(MealTemplateItemDraft item) {
     return '${item.consumedAmount}${item.unitType.label} · '
         '${formatNullableNutrient(_itemTotalKcal(item))} kcal · '
-        'P ${formatNullableNutrient(_itemTotalProtein(item))} '
-        'F ${formatNullableNutrient(_itemTotalFat(item))} '
-        'C ${formatNullableNutrient(_itemTotalCarb(item))}';
+        '${formatMacroSummaryInline(
+          proteinG: _itemTotalProtein(item),
+          fatG: _itemTotalFat(item),
+          carbG: _itemTotalCarb(item),
+        )}';
   }
 
   @override
@@ -317,12 +321,20 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
                           horizontal: AppSpacing.md,
                           vertical: AppSpacing.sm,
                         ),
-                        child: Text(
-                          '合計 ${formatNullableNutrient(_totalKcal)} kcal · '
-                          'P ${formatNullableNutrient(_totalProtein)} '
-                          'F ${formatNullableNutrient(_totalFat)} '
-                          'C ${formatNullableNutrient(_totalCarb)}',
-                          style: Theme.of(context).textTheme.titleSmall,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '合計 ${formatNullableNutrient(_totalKcal)} kcal',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            CompactMacroDisplay(
+                              proteinG: _totalProtein,
+                              fatG: _totalFat,
+                              carbG: _totalCarb,
+                              showKcal: false,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: AppSpacing.sm),

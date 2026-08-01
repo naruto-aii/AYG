@@ -11,6 +11,7 @@ import '../../theme/app_shadows.dart';
 import '../../widgets/layout/app_responsive.dart';
 import '../../widgets/layout/app_sidebar_navigation.dart';
 import '../food/food_form_navigation.dart';
+import '../history/history_calendar_screen.dart';
 import '../food/food_tab_screen.dart';
 import '../home/home_screen.dart';
 import '../settings/settings_screen.dart';
@@ -44,6 +45,18 @@ class _MainShellScreenState extends State<MainShellScreen> {
     setState(() => _selectedIndex = index);
   }
 
+  void _openHistoryCalendar() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => HistoryCalendarScreen(
+          controller: widget.controller,
+          openFoodFactsService: widget.openFoodFactsService,
+          foodFormBuilder: widget.foodFormBuilder,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
@@ -51,7 +64,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         controller: widget.controller,
         openFoodFactsService: widget.openFoodFactsService,
         foodFormBuilder: widget.foodFormBuilder,
-        onOpenFoodTab: () => _selectTab(1),
+        onOpenHistoryCalendar: _openHistoryCalendar,
         onOpenWorkoutTab: () => _selectTab(2),
         onOpenWeightTab: () => _selectTab(3),
       ),

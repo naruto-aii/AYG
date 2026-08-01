@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../constants/app_strings.dart';
+import '../models/alcohol_entry.dart';
 import '../models/app_settings.dart';
 import '../models/activity_level.dart';
 import '../models/daily_summary.dart';
@@ -39,6 +40,7 @@ import '../repositories/contracts/blocked_food_creator_repository_base.dart';
 import '../repositories/contracts/food_rating_repository_base.dart';
 import '../repositories/contracts/food_report_repository_base.dart';
 import '../repositories/contracts/saved_food_repository_base.dart';
+import '../repositories/contracts/alcohol_repository_base.dart';
 import '../repositories/contracts/exercise_repository_base.dart';
 import '../repositories/contracts/food_repository_base.dart';
 import '../repositories/contracts/meal_template_repository_base.dart';
@@ -64,6 +66,7 @@ import '../services/saved_food_publish_validator.dart';
 import '../services/saved_food_search_service.dart';
 import '../services/saved_food_version_policy.dart';
 import '../utils/food_name_normalizer.dart';
+import '../utils/id_generator.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -77,6 +80,7 @@ class AppController extends ChangeNotifier {
     SettingsRepositoryBase? settingsRepository,
     FoodRepositoryBase? foodRepository,
     ExerciseRepositoryBase? exerciseRepository,
+    AlcoholRepositoryBase? alcoholRepository,
     WeightRepositoryBase? weightRepository,
     SavedFoodRepositoryBase? savedFoodRepository,
     FoodRatingRepositoryBase? foodRatingRepository,
@@ -93,6 +97,7 @@ class AppController extends ChangeNotifier {
        _settingsRepository = settingsRepository,
        _foodRepository = foodRepository,
        _exerciseRepository = exerciseRepository,
+       _alcoholRepository = alcoholRepository,
        _weightRepository = weightRepository,
        _savedFoodRepository = savedFoodRepository,
        _foodRatingRepository = foodRatingRepository,
@@ -119,6 +124,7 @@ class AppController extends ChangeNotifier {
   final SettingsRepositoryBase? _settingsRepository;
   final FoodRepositoryBase? _foodRepository;
   final ExerciseRepositoryBase? _exerciseRepository;
+  final AlcoholRepositoryBase? _alcoholRepository;
   final WeightRepositoryBase? _weightRepository;
   final SavedFoodRepositoryBase? _savedFoodRepository;
   final FoodRatingRepositoryBase? _foodRatingRepository;
@@ -175,6 +181,7 @@ class AppController extends ChangeNotifier {
   DailySummary? summary;
   final List<FoodEntry> foodEntries = [];
   final List<ExerciseEntry> exerciseEntries = [];
+  final List<AlcoholEntry> alcoholEntries = [];
 
   bool get isAuthenticated =>
       _authenticationRepository?.isAuthenticated ?? false;
@@ -361,6 +368,7 @@ class AppController extends ChangeNotifier {
     summary = null;
     foodEntries.clear();
     exerciseEntries.clear();
+    alcoholEntries.clear();
   }
 
   Future<void> loadPersistedState() async {
@@ -368,6 +376,7 @@ class AppController extends ChangeNotifier {
     final settingsRepository = _settingsRepository;
     final foodRepository = _foodRepository;
     final exerciseRepository = _exerciseRepository;
+    final alcoholRepository = _alcoholRepository;
     if (userRepository == null || settingsRepository == null) {
       return;
     }
@@ -389,6 +398,12 @@ class AppController extends ChangeNotifier {
       exerciseEntries
         ..clear()
         ..addAll(await exerciseRepository.loadAll());
+    }
+
+    if (alcoholRepository != null) {
+      alcoholEntries
+        ..clear()
+        ..addAll(await alcoholRepository.loadAll());
     }
 
     refreshDailySummary();
@@ -614,6 +629,7 @@ class AppController extends ChangeNotifier {
       healthSnapshot: healthSnapshot,
       foodEntries: List.unmodifiable(foodEntries),
       exerciseEntries: List.unmodifiable(exerciseEntries),
+      alcoholEntries: List.unmodifiable(alcoholEntries),
       referenceDate: referenceDate ?? DateTime.now(),
     );
     notifyListeners();
@@ -639,7 +655,17 @@ class AppController extends ChangeNotifier {
       ..addAll(await exerciseRepository.loadAll());
   }
 
-  String generateId() => DateTime.now().microsecondsSinceEpoch.toString();
+  Future<void> _reloadAlcoholEntries() async {
+    final alcoholRepository = _alcoholRepository;
+    if (alcoholRepository == null) {
+      return;
+    }
+    alcoholEntries
+      ..clear()
+      ..addAll(await alcoholRepository.loadAll());
+  }
+
+  String generateId() => generateUniqueId();
 
   Future<void> addFood(FoodEntry entry) async {
     final foodRepository = _foodRepository;
@@ -727,6 +753,55 @@ class AppController extends ChangeNotifier {
       exerciseEntries.removeWhere((item) => item.id == id);
     }
     _scheduleRemoteSync();
+    refreshDailySummary();
+  }
+
+  Future<void> addAlcohol(AlcoholEntry entry) async {
+    final alcoholRepository = _alcoholRepository;
+    if (alcoholRepository != null) {
+      await alcoholRepository.save(entry);
+      await _reloadAlcoholEntries();
+    } else {
+      alcoholEntries.add(entry);
+    }
+    _scheduleRemoteSync();
+    refreshDailySummary();
+  }
+
+  Future<void> updateAlcohol(AlcoholEntry entry) async {
+    final alcoholRepository = _alcoholRepository;
+    if (alcoholRepository != null) {
+      await alcoholRepository.save(entry);
+      await _reloadAlcoholEntries();
+    } else {
+      final index = alcoholEntries.indexWhere((item) => item.id == entry.id);
+      if (index == -1) {
+        return;
+      }
+      alcoholEntries[index] = entry;
+    }
+    _scheduleRemoteSync();
+    refreshDailySummary();
+  }
+
+  Future<void> deleteAlcohol(String id) async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    final alcoholRepository = _alcoholRepository;
+
+    if (dataSyncRepository?.supportsRemoteAlcoholEntryDelete ?? false) {
+      if (userId == null) {
+        throw StateError('Authentication required to delete alcohol entry.');
+      }
+      await dataSyncRepository!.deleteAlcoholEntry(userId: userId, entryId: id);
+    }
+
+    if (alcoholRepository != null) {
+      await alcoholRepository.delete(id);
+      await _reloadAlcoholEntries();
+    } else {
+      alcoholEntries.removeWhere((item) => item.id == id);
+    }
     refreshDailySummary();
   }
 

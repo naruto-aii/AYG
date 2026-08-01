@@ -22,7 +22,7 @@ class AppStrings {
   static const settingsBasicInfo = '基本情報';
   static const settingsGoal = '目標設定';
   static const settingsHealthActivity = '活動・ヘルスケア';
-  static const settingsFoodMaster = '食品・食事テンプレート';
+  static const settingsFoodMaster = 'マイ食品';
   static const settingsAccount = 'アカウント';
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';
@@ -47,9 +47,27 @@ class AppStrings {
   static const next = '次へ';
   static const notSelected = '未選択';
 
-  static const macroProtein = 'たんぱく質';
+  static const macroProtein = 'タンパク質';
   static const macroCarb = '炭水化物';
   static const macroFat = '脂質';
+  static const macroKcal = 'カロリー';
+
+  static const macroNutrientsRequired =
+      'カロリー・タンパク質・脂質・炭水化物はすべて必須です';
+  static const macroNutrientsRequiredShort =
+      'カロリー・タンパク質・脂質・炭水化物は必須です';
+  static const macroManualConsistencyRequired =
+      '手入力食品は カロリー = タンパク質×4 + 脂質×9 + 炭水化物×4 に整合している必要があります';
+  static const macroExternalMismatchTitle =
+      '表示カロリーと栄養素換算値が異なる場合があります。';
+  static const macroDisplayedKcalLabel = '表示カロリー';
+  static const macroDerivedKcalLabel = '栄養素換算';
+  static const macroExternalMismatchFootnote =
+      '食物繊維・糖アルコール・有機酸・表示丸め等により一致しない場合があります。';
+  static const macroIntakePreviewPrefix = '今回の摂取';
+  static const macroNutritionInfoLabel = '栄養情報';
+  static const macroRecordNutritionLabel = '記録する栄養';
+  static const quantityLabel = '数量';
   static const remainingToday = '今日あと';
   static const remainingKcalSuffix = '食べられます';
 

@@ -6,6 +6,7 @@ import 'app.dart';
 import 'config/open_food_facts_config.dart';
 import 'config/supabase_config.dart';
 import 'database/isar_service.dart';
+import 'repositories/alcohol_repository.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/data_sync_repository.dart';
 import 'repositories/exercise_repository.dart';
@@ -46,6 +47,7 @@ Future<void> main() async {
   final settingsRepository = SettingsRepository(isar);
   final foodRepository = FoodRepository(isar);
   final exerciseRepository = ExerciseRepository(isar);
+  final alcoholRepository = AlcoholRepository(isar);
   final savedFoodRepository = IsarSavedFoodRepository(isar);
   final mealTemplateRepository = MealTemplateRepository(isar);
 
@@ -89,6 +91,7 @@ Future<void> main() async {
           settingsRepository: settingsRepository,
           foodRepository: foodRepository,
           exerciseRepository: exerciseRepository,
+          alcoholRepository: alcoholRepository,
           weightRepository: weightRepository,
           foodMaster: foodMasterRepositories,
         )
@@ -101,6 +104,7 @@ Future<void> main() async {
     settingsRepository: settingsRepository,
     foodRepository: foodRepository,
     exerciseRepository: exerciseRepository,
+    alcoholRepository: alcoholRepository,
     weightRepository: weightRepository,
     savedFoodRepository: savedFoodRepository,
     mealTemplateRepository: mealTemplateRepository,
@@ -116,6 +120,7 @@ Future<void> main() async {
     settingsRepository: settingsRepository,
     foodRepository: foodRepository,
     exerciseRepository: exerciseRepository,
+    alcoholRepository: alcoholRepository,
     weightRepository: weightRepository,
     savedFoodRepository: foodMasterRepositories.savedFoods,
     foodRatingRepository: foodMasterRepositories.foodRatings,

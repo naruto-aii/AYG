@@ -1,5 +1,6 @@
 import '../database/schemas.dart';
 import '../models/activity_level.dart';
+import '../models/alcohol_entry.dart';
 import '../models/app_settings.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
@@ -312,6 +313,33 @@ class EntityMapper {
       durationMin: entity.durationMin,
       burnedKcal: entity.burnedKcal,
       loggedAt: entity.loggedAt,
+    );
+  }
+
+  static AlcoholEntryEntity toAlcoholEntryEntity(AlcoholEntry entry) {
+    return AlcoholEntryEntity()
+      ..entryId = entry.id
+      ..beverageName = entry.beverageName
+      ..amount = entry.amount
+      ..unit = entry.unit
+      ..alcoholPercentage = entry.alcoholPercentage
+      ..totalCalories = entry.totalCalories
+      ..pureAlcoholGrams = entry.pureAlcoholGrams
+      ..alcoholCalories = entry.alcoholCalories
+      ..consumedAt = entry.consumedAt;
+  }
+
+  static AlcoholEntry fromAlcoholEntryEntity(AlcoholEntryEntity entity) {
+    return AlcoholEntry(
+      id: entity.entryId,
+      beverageName: entity.beverageName,
+      amount: entity.amount,
+      unit: entity.unit,
+      alcoholPercentage: entity.alcoholPercentage,
+      totalCalories: entity.totalCalories,
+      pureAlcoholGrams: entity.pureAlcoholGrams,
+      alcoholCalories: entity.alcoholCalories,
+      consumedAt: entity.consumedAt,
     );
   }
 

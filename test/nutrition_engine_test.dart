@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ayg/models/alcohol_entry.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/exercise_entry.dart';
 import 'package:ayg/models/food_entry.dart';
@@ -288,6 +289,105 @@ void main() {
 
       expect(summary.intakeKcal, 500);
       expect(summary.exerciseBurnKcal, 200);
+    });
+
+    test('adds alcohol total_calories only to intake kcal', () {
+      final summary = engine.calculateDailySummary(
+        profile: maleProfile,
+        goal: Goal(
+          type: GoalType.maintain,
+          targetWeightKg: 75,
+          targetDate: referenceDate.add(const Duration(days: 90)),
+        ),
+        settings: const NutritionSettings(
+          useHealthIntegration: false,
+          activityLevel: ActivityLevel.moderate,
+        ),
+        foodEntries: [
+          FoodEntry(
+            id: 'food-1',
+            name: '食事',
+            kcalPerUnit: 500,
+            quantity: 1,
+            loggedAt: referenceDate,
+          ),
+        ],
+        alcoholEntries: [
+          AlcoholEntry(
+            id: 'alcohol-1',
+            beverageName: 'ビール',
+            amount: 500,
+            unit: 'ml',
+            alcoholPercentage: 5,
+            totalCalories: 200,
+            pureAlcoholGrams: 20,
+            alcoholCalories: 140,
+            consumedAt: referenceDate,
+          ),
+        ],
+        exerciseEntries: const [],
+        referenceDate: referenceDate,
+      );
+
+      expect(summary.intakeKcal, 700);
+      expect(summary.intakeProteinG, 0);
+      expect(summary.intakeFatG, 0);
+      expect(summary.intakeCarbG, 0);
+    });
+
+    test('unchanged when alcohol entries empty', () {
+      final withoutAlcohol = engine.calculateDailySummary(
+        profile: maleProfile,
+        goal: Goal(
+          type: GoalType.maintain,
+          targetWeightKg: 75,
+          targetDate: referenceDate.add(const Duration(days: 90)),
+        ),
+        settings: const NutritionSettings(
+          useHealthIntegration: false,
+          activityLevel: ActivityLevel.moderate,
+        ),
+        foodEntries: [
+          FoodEntry(
+            id: 'food-1',
+            name: '食事',
+            kcalPerUnit: 500,
+            quantity: 1,
+            loggedAt: referenceDate,
+          ),
+        ],
+        exerciseEntries: const [],
+        referenceDate: referenceDate,
+      );
+
+      final withEmptyAlcohol = engine.calculateDailySummary(
+        profile: maleProfile,
+        goal: Goal(
+          type: GoalType.maintain,
+          targetWeightKg: 75,
+          targetDate: referenceDate.add(const Duration(days: 90)),
+        ),
+        settings: const NutritionSettings(
+          useHealthIntegration: false,
+          activityLevel: ActivityLevel.moderate,
+        ),
+        foodEntries: [
+          FoodEntry(
+            id: 'food-1',
+            name: '食事',
+            kcalPerUnit: 500,
+            quantity: 1,
+            loggedAt: referenceDate,
+          ),
+        ],
+        alcoholEntries: const [],
+        exerciseEntries: const [],
+        referenceDate: referenceDate,
+      );
+
+      expect(withEmptyAlcohol.intakeKcal, withoutAlcohol.intakeKcal);
+      expect(withEmptyAlcohol.intakeProteinG, withoutAlcohol.intakeProteinG);
+      expect(withEmptyAlcohol.remainingKcal, withoutAlcohol.remainingKcal);
     });
   });
 }

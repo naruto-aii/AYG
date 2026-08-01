@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/food_visibility.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
+import '../../constants/app_strings.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_display_labels.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -270,12 +272,12 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      '${widget.controller.formatSavedFoodBaseLabel(food)} · '
-                                      '${formatNullableNutrient(food.kcalPerBase)} kcal · '
-                                      'P ${formatNullableNutrient(food.proteinPerBase)} '
-                                      'F ${formatNullableNutrient(food.fatPerBase)} '
-                                      'C ${formatNullableNutrient(food.carbPerBase)}',
+                                    Text(widget.controller.formatSavedFoodBaseLabel(food)),
+                                    CompactMacroDisplay(
+                                      kcal: food.kcalPerBase,
+                                      proteinG: food.proteinPerBase,
+                                      fatG: food.fatPerBase,
+                                      carbG: food.carbPerBase,
                                     ),
                                     if (food.brand != null &&
                                         food.brand!.isNotEmpty)

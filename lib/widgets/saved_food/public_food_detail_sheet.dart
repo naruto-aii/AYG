@@ -4,7 +4,9 @@ import '../../models/public_food_rating_view.dart';
 import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
+import '../../constants/app_strings.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_display_labels.dart';
 import '../common/app_bottom_sheet.dart';
 import 'block_food_creator_dialog.dart';
@@ -170,12 +172,13 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
             children: [
               Text(food.name, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
-              Text(
-                '${widget.controller.formatSavedFoodBaseLabel(food)} · '
-                '${formatNullableNutrient(food.kcalPerBase)}kcal · '
-                'P${formatNullableNutrient(food.proteinPerBase)} '
-                'F${formatNullableNutrient(food.fatPerBase)} '
-                'C${formatNullableNutrient(food.carbPerBase)}',
+              Text(widget.controller.formatSavedFoodBaseLabel(food)),
+              const SizedBox(height: 4),
+              CompactMacroDisplay(
+                kcal: food.kcalPerBase,
+                proteinG: food.proteinPerBase,
+                fatG: food.fatPerBase,
+                carbG: food.carbPerBase,
               ),
               if (food.brand != null && food.brand!.isNotEmpty)
                 Text('ブランド: ${food.brand}'),

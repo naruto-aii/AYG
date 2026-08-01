@@ -7,6 +7,7 @@ import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
 import '../../services/saved_food_version_policy.dart';
 import '../../state/app_controller.dart';
+import '../../constants/app_strings.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
 import '../../utils/saved_food_base_serving_format.dart';
@@ -164,7 +165,7 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
         draft.proteinPerBase == null ||
         draft.fatPerBase == null ||
         draft.carbPerBase == null) {
-      _showMessage('kcal / P / F / C は必須です');
+      _showMessage(AppStrings.macroNutrientsRequiredShort);
       return;
     }
 

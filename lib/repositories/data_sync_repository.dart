@@ -207,7 +207,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       operation: 'select',
       action: () => _pullExerciseEntries(userId),
     );
-    await runSyncStep(
+    await runOptionalSyncStep(
       step: SyncStep.fetchAlcoholEntries,
       repository: 'SupabaseDataSyncRepository',
       tableName: 'alcohol_entries',
@@ -686,17 +686,26 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _client
-        .from('alcohol_entries')
-        .upsert(
-          entries
-              .map(
-                (entry) =>
-                    FoodMasterRowMapper.alcoholEntryToRow(entry, userId: userId),
-              )
-              .toList(),
-          onConflict: 'user_id,entry_id',
-        );
+    try {
+      await _client
+          .from('alcohol_entries')
+          .upsert(
+            entries
+                .map(
+                  (entry) => FoodMasterRowMapper.alcoholEntryToRow(
+                    entry,
+                    userId: userId,
+                  ),
+                )
+                .toList(),
+            onConflict: 'user_id,entry_id',
+          );
+    } catch (error) {
+      if (isOptionalTableMissingError(error)) {
+        return;
+      }
+      rethrow;
+    }
   }
 
   Future<void> _pullWeightEntries(String userId) async {

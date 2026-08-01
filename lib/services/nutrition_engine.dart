@@ -1,4 +1,5 @@
 import '../models/activity_level.dart';
+import '../models/alcohol_entry.dart';
 import '../models/daily_summary.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
@@ -150,6 +151,7 @@ class NutritionEngine {
     required NutritionSettings settings,
     required List<FoodEntry> foodEntries,
     required List<ExerciseEntry> exerciseEntries,
+    List<AlcoholEntry> alcoholEntries = const [],
     HealthSnapshot healthSnapshot = HealthSnapshot.empty,
     DateTime? referenceDate,
   }) {
@@ -187,8 +189,15 @@ class NutritionEngine {
       referenceDate: referenceDate ?? DateTime.now(),
       readLoggedAt: (entry) => entry.loggedAt,
     );
+    final dayAlcoholEntries = filterLoggedOnLocalDay(
+      entries: alcoholEntries,
+      referenceDate: referenceDate ?? DateTime.now(),
+      readLoggedAt: (entry) => entry.consumedAt,
+    );
 
-    final intakeKcal = _sumFoodKcal(dayFoodEntries);
+    final foodKcal = _sumFoodKcal(dayFoodEntries);
+    final alcoholKcal = _sumAlcoholKcal(dayAlcoholEntries);
+    final intakeKcal = foodKcal + alcoholKcal;
     final intakeProteinG = _sumFoodProtein(dayFoodEntries);
     final intakeFatG = _sumFoodFat(dayFoodEntries);
     final intakeCarbG = _sumFoodCarb(dayFoodEntries);
@@ -227,6 +236,10 @@ class NutritionEngine {
 
   double _sumFoodCarb(List<FoodEntry> entries) {
     return entries.fold(0, (sum, entry) => sum + entry.totalCarbG);
+  }
+
+  double _sumAlcoholKcal(List<AlcoholEntry> entries) {
+    return entries.fold(0, (sum, entry) => sum + entry.totalCalories);
   }
 
   double _sumExerciseBurn(List<ExerciseEntry> entries) {

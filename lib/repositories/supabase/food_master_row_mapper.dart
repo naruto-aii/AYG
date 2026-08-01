@@ -1,3 +1,4 @@
+import '../../models/alcohol_entry.dart';
 import '../../models/food_entry.dart';
 import '../../models/food_entry_source.dart';
 import '../../models/food_rating.dart';
@@ -280,6 +281,38 @@ class FoodMasterRowMapper {
       detailText: row['detail_text'] as String?,
       createdAt: DateTime.parse(row['created_at'] as String),
     );
+  }
+
+  static AlcoholEntry alcoholEntryFromRow(Map<String, dynamic> row) {
+    return AlcoholEntry(
+      id: row['entry_id'] as String,
+      beverageName: row['beverage_name'] as String,
+      amount: (row['amount'] as num).toDouble(),
+      unit: row['unit'] as String,
+      alcoholPercentage: (row['alcohol_percentage'] as num).toDouble(),
+      totalCalories: (row['total_calories'] as num).toDouble(),
+      pureAlcoholGrams: (row['pure_alcohol_grams'] as num).toDouble(),
+      alcoholCalories: (row['alcohol_calories'] as num).toDouble(),
+      consumedAt: DateTime.parse(row['consumed_at'] as String),
+    );
+  }
+
+  static Map<String, dynamic> alcoholEntryToRow(
+    AlcoholEntry entry, {
+    required String userId,
+  }) {
+    return {
+      'user_id': userId,
+      'entry_id': entry.id,
+      'beverage_name': entry.beverageName,
+      'amount': entry.amount,
+      'unit': entry.unit,
+      'alcohol_percentage': entry.alcoholPercentage,
+      'total_calories': entry.totalCalories,
+      'pure_alcohol_grams': entry.pureAlcoholGrams,
+      'alcohol_calories': entry.alcoholCalories,
+      'consumed_at': entry.consumedAt.toIso8601String(),
+    };
   }
 
   static DateTime? _parseDateTime(Object? raw) {

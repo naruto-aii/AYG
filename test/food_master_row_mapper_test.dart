@@ -1,3 +1,4 @@
+import 'package:ayg/models/alcohol_entry.dart';
 import 'package:ayg/models/food_entry.dart';
 import 'package:ayg/models/food_entry_source.dart';
 import 'package:ayg/models/food_report.dart';
@@ -159,6 +160,29 @@ void main() {
       expect(parsed.sortOrder, 2);
       expect(parsed.itemDependencyStatus, ItemDependencyStatus.sourceDeleted);
       expect(parsed.name, 'Snapshot');
+    });
+  });
+
+  group('FoodMasterRowMapper.alcoholEntry', () {
+    test('round trip preserves alcohol fields', () {
+      final entry = AlcoholEntry(
+        id: 'a1',
+        beverageName: 'ビール',
+        amount: 500,
+        unit: 'ml',
+        alcoholPercentage: 5,
+        totalCalories: 200,
+        pureAlcoholGrams: 20,
+        alcoholCalories: 140,
+        consumedAt: DateTime.utc(2026, 7, 20, 12),
+      );
+
+      final row = FoodMasterRowMapper.alcoholEntryToRow(entry, userId: 'u1');
+      final parsed = FoodMasterRowMapper.alcoholEntryFromRow(row);
+
+      expect(parsed.id, entry.id);
+      expect(parsed.totalCalories, 200);
+      expect(parsed.alcoholCalories, 140);
     });
   });
 

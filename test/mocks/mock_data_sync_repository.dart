@@ -8,12 +8,18 @@ class MockDataSyncRepository implements DataSyncRepository {
   bool failPull = false;
   bool failDeleteFoodEntry = false;
 
+  bool failDeleteAlcoholEntry = false;
+
   @override
   bool get supportsRemoteFoodEntryDelete => true;
+
+  @override
+  bool get supportsRemoteAlcoholEntryDelete => true;
 
   String? lastUserId;
   String? lastEmail;
   final deletedFoodEntryIds = <String>[];
+  final deletedAlcoholEntryIds = <String>[];
 
   @override
   Future<RemoteUserProfile> ensureUserProfile({
@@ -80,5 +86,17 @@ class MockDataSyncRepository implements DataSyncRepository {
       throw StateError('delete food entry failed');
     }
     deletedFoodEntryIds.add(entryId);
+  }
+
+  @override
+  Future<void> deleteAlcoholEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    lastUserId = userId;
+    if (failDeleteAlcoholEntry) {
+      throw StateError('delete alcohol entry failed');
+    }
+    deletedAlcoholEntryIds.add(entryId);
   }
 }

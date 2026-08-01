@@ -8,6 +8,9 @@ import '../../utils/history_grouping.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/history/food_history_list.dart';
 import '../../widgets/layout/app_content_constraint.dart';
+import '../history/history_calendar_screen.dart';
+import '../meal_template/meal_template_list_screen.dart';
+import '../alcohol/alcohol_form_screen.dart';
 import 'food_form_navigation.dart';
 
 class FoodTabScreen extends StatelessWidget {
@@ -55,6 +58,14 @@ class FoodTabScreen extends StatelessWidget {
     );
   }
 
+  void _openAlcoholForm(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => AlcoholFormScreen(controller: controller),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -79,11 +90,55 @@ class FoodTabScreen extends StatelessWidget {
             title: const Text('食事'),
             actions: [
               Semantics(
-                label: '食事追加',
+                label: '履歴カレンダー',
                 button: true,
                 child: IconButton(
-                  onPressed: () => _openFoodForm(context),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => HistoryCalendarScreen(
+                          controller: controller,
+                          openFoodFactsService: openFoodFactsService,
+                          foodFormBuilder: foodFormBuilder,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.calendar_month_outlined),
+                ),
+              ),
+              Semantics(
+                label: '食事テンプレート',
+                button: true,
+                child: IconButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) =>
+                            MealTemplateListScreen(controller: controller),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.view_list_outlined),
+                ),
+              ),
+              Semantics(
+                label: '記録追加',
+                button: true,
+                child: PopupMenuButton<String>(
                   icon: const Icon(Icons.add),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'food':
+                        _openFoodForm(context);
+                      case 'alcohol':
+                        _openAlcoholForm(context);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'food', child: Text('食事を追加')),
+                    PopupMenuItem(value: 'alcohol', child: Text('アルコールを追加')),
+                  ],
                 ),
               ),
             ],

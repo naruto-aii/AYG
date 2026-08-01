@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../../constants/app_strings.dart';
+import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_display_labels.dart';
 import '../common/app_card.dart';
 import '../common/app_section_header.dart';
@@ -51,14 +54,23 @@ class SavedFoodSuggestionList extends StatelessWidget {
                       horizontal: AppSpacing.md,
                     ),
                     title: Text(food.name),
-                    subtitle: Text(
-                      '${controller.formatSavedFoodBaseLabel(food)} · '
-                      '${formatNullableNutrient(food.kcalPerBase)}kcal · '
-                      'P${formatNullableNutrient(food.proteinPerBase)} '
-                      'F${formatNullableNutrient(food.fatPerBase)} '
-                      'C${formatNullableNutrient(food.carbPerBase)} · '
-                      '${SavedFoodDisplayLabels.visibility(food.visibility)} · '
-                      '${SavedFoodDisplayLabels.sourceType(food.sourceType)}',
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          controller.formatSavedFoodBaseLabel(food),
+                        ),
+                        CompactMacroDisplay(
+                          kcal: food.kcalPerBase,
+                          proteinG: food.proteinPerBase,
+                          fatG: food.fatPerBase,
+                          carbG: food.carbPerBase,
+                        ),
+                        Text(
+                          '${SavedFoodDisplayLabels.visibility(food.visibility)} · '
+                          '${SavedFoodDisplayLabels.sourceType(food.sourceType)}',
+                        ),
+                      ],
                     ),
                     onTap: () => onSelected(food),
                   ),

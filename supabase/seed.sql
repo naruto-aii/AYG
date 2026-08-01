@@ -10,4 +10,5 @@ grant select, insert, update, delete on public.health_snapshots to authenticated
 grant select, insert, update, delete on public.app_settings to authenticated;
 grant select, insert, update, delete on public.food_entries to authenticated;
 grant select, insert, update, delete on public.exercise_entries to authenticated;
+grant select, insert, update, delete on public.alcohol_entries to authenticated;
 grant select, insert, update, delete on public.weight_entries to authenticated;

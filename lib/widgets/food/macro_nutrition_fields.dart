@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../models/macro_field.dart';
 import '../../services/nutrition_value_calculator.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
+import '../../utils/macro_display.dart';
 import '../common/app_text_field.dart';
 import 'macro_nutrition_input_controller.dart';
 
@@ -32,25 +34,25 @@ class MacroNutritionFields extends StatelessWidget {
             _buildField(
               context,
               field: MacroField.kcal,
-              label: 'kcal（1単位あたり・任意）',
+              label: macroFieldInputLabel(MacroField.kcal),
             ),
             const SizedBox(height: AppSpacing.md),
             _buildField(
               context,
               field: MacroField.protein,
-              label: 'P（1単位あたり g・任意）',
+              label: macroFieldInputLabel(MacroField.protein),
             ),
             const SizedBox(height: AppSpacing.md),
             _buildField(
               context,
               field: MacroField.fat,
-              label: 'F（1単位あたり g・任意）',
+              label: macroFieldInputLabel(MacroField.fat),
             ),
             const SizedBox(height: AppSpacing.md),
             _buildField(
               context,
               field: MacroField.carb,
-              label: 'C（1単位あたり g・任意）',
+              label: macroFieldInputLabel(MacroField.carb),
             ),
             if (controller.negativeMessage != null) ...[
               const SizedBox(height: AppSpacing.sm),
@@ -133,20 +135,20 @@ class _ExternalMismatchNotice extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '表示カロリーとPFC換算値が異なる場合があります。',
+            AppStrings.macroExternalMismatchTitle,
             style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
           if (parsed.kcal != null && derivedKcal != null) ...[
             const SizedBox(height: 4),
             Text(
-              '表示カロリー：${NutritionValueCalculator.formatForField(MacroField.kcal, parsed.kcal!)} kcal\n'
-              'PFC換算：${NutritionValueCalculator.formatForField(MacroField.kcal, derivedKcal)} kcal',
+              '${AppStrings.macroDisplayedKcalLabel}：${NutritionValueCalculator.formatForField(MacroField.kcal, parsed.kcal!)} kcal\n'
+              '${AppStrings.macroDerivedKcalLabel}：${NutritionValueCalculator.formatForField(MacroField.kcal, derivedKcal)} kcal',
               style: TextStyle(color: color),
             ),
           ],
           const SizedBox(height: 4),
           Text(
-            '食物繊維・糖アルコール・有機酸・表示丸め等により一致しない場合があります。',
+            AppStrings.macroExternalMismatchFootnote,
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: color),

@@ -8,7 +8,7 @@ DateTime localDayStart(DateTime value) {
 }
 
 bool isLoggedOnLocalDay(DateTime loggedAt, DateTime referenceDate) {
-  return isSameLocalDay(loggedAt, referenceDate);
+  return isSameLocalDay(loggedAt.toLocal(), referenceDate.toLocal());
 }
 
 List<T> filterLoggedOnLocalDay<T>({

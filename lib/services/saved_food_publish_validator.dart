@@ -1,3 +1,4 @@
+import '../constants/app_strings.dart';
 import '../models/food_source_type.dart';
 import '../models/food_status.dart';
 import '../models/moderation_status.dart';
@@ -48,7 +49,7 @@ class SavedFoodPublishValidator {
     final fat = food.fatPerBase;
     final carb = food.carbPerBase;
     if (kcal == null || protein == null || fat == null || carb == null) {
-      errors.add('kcal / P / F / C はすべて必須です');
+      errors.add(AppStrings.macroNutrientsRequired);
     } else {
       if (kcal < 0 || protein < 0 || fat < 0 || carb < 0) {
         errors.add('栄養素に負の値は設定できません');
@@ -68,7 +69,7 @@ class SavedFoodPublishValidator {
         carb: carb,
       );
       if (!manualMacroConsistent) {
-        errors.add('手入力食品は kcal = P×4 + F×9 + C×4 に整合している必要があります');
+        errors.add(AppStrings.macroManualConsistencyRequired);
       }
     }
 

@@ -35,6 +35,7 @@ class IsarService {
         MealTemplateEntitySchema,
         MealTemplateItemEntitySchema,
         ExerciseEntryEntitySchema,
+        AlcoholEntryEntitySchema,
         WeightEntryEntitySchema,
         HealthSnapshotEntitySchema,
         AppSettingsEntitySchema,

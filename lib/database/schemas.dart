@@ -187,6 +187,23 @@ class ExerciseEntryEntity {
 }
 
 @collection
+class AlcoholEntryEntity {
+  Id id = Isar.autoIncrement;
+
+  @Index(unique: true, replace: true)
+  late String entryId;
+
+  late String beverageName;
+  late double amount;
+  late String unit;
+  late double alcoholPercentage;
+  late double totalCalories;
+  late double pureAlcoholGrams;
+  late double alcoholCalories;
+  late DateTime consumedAt;
+}
+
+@collection
 class WeightEntryEntity {
   Id id = Isar.autoIncrement;
 

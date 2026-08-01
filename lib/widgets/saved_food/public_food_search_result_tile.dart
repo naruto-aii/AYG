@@ -4,7 +4,7 @@ import '../../models/public_food_search_match.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
-import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_display_labels.dart';
 import '../common/app_card.dart';
 
@@ -46,13 +46,12 @@ class PublicFoodSearchResultTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.xxs),
-            Text(
-              '${controller.formatSavedFoodBaseLabel(food)} · '
-              '${formatNullableNutrient(food.kcalPerBase)}kcal · '
-              'P${formatNullableNutrient(food.proteinPerBase)} '
-              'F${formatNullableNutrient(food.fatPerBase)} '
-              'C${formatNullableNutrient(food.carbPerBase)}',
-              style: theme.textTheme.bodyMedium,
+            Text(controller.formatSavedFoodBaseLabel(food)),
+            CompactMacroDisplay(
+              kcal: food.kcalPerBase,
+              proteinG: food.proteinPerBase,
+              fatG: food.fatPerBase,
+              carbG: food.carbPerBase,
             ),
             if (food.brand != null && food.brand!.isNotEmpty)
               Text('ブランド: ${food.brand}', style: theme.textTheme.bodySmall),

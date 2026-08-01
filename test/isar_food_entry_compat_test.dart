@@ -154,6 +154,7 @@ void main() {
         settingsRepository: harness.settingsRepository,
         foodRepository: harness.foodRepository,
         exerciseRepository: harness.exerciseRepository,
+        alcoholRepository: harness.alcoholRepository,
         weightRepository: harness.weightRepository,
         savedFoodRepository: harness.savedFoodRepository,
         mealTemplateRepository: harness.mealTemplateRepository,

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ayg/models/alcohol_entry.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/app_settings.dart';
 import 'package:ayg/models/exercise_entry.dart';
@@ -97,6 +98,39 @@ void main() {
 
       expect(await harness.foodRepository.loadAll(), hasLength(1));
       expect(await harness.exerciseRepository.loadAll(), hasLength(1));
+    });
+
+    test('AlcoholRepository persists alcohol entries', () async {
+      final harness = await setUpIsarHarness();
+
+      await harness.alcoholRepository.save(
+        AlcoholEntry(
+          id: 'alcohol-1',
+          beverageName: 'ビール',
+          amount: 500,
+          unit: 'ml',
+          alcoholPercentage: 5,
+          totalCalories: 200,
+          pureAlcoholGrams: 20,
+          alcoholCalories: 140,
+          consumedAt: DateTime(2026, 7, 21, 20),
+        ),
+      );
+
+      final entries = await harness.alcoholRepository.loadAll();
+      expect(entries, hasLength(1));
+      expect(entries.first.totalCalories, 200);
+
+      await harness.alcoholRepository.delete('alcohol-1');
+      expect(await harness.alcoholRepository.loadAll(), isEmpty);
+    });
+
+    test('AlcoholRepository delete throws when entry missing', () async {
+      final harness = await setUpIsarHarness();
+      await expectLater(
+        harness.alcoholRepository.delete('missing'),
+        throwsStateError,
+      );
     });
 
     test('WeightRepository persists weight entries', () async {

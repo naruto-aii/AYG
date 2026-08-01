@@ -1,0 +1,384 @@
+import 'package:flutter/material.dart';
+
+import '../../models/alcohol_entry.dart';
+import '../../models/exercise_entry.dart';
+import '../../models/food_entry.dart';
+import '../../services/open_food_facts_service.dart';
+import '../../state/app_controller.dart';
+import '../../constants/app_strings.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../utils/history_grouping.dart';
+import '../../utils/local_date.dart';
+import '../../utils/nutrition_format.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/compact_macro_display.dart';
+import '../../widgets/layout/app_content_constraint.dart';
+import '../alcohol/alcohol_form_screen.dart';
+import '../exercise/exercise_form_screen.dart';
+import '../food/food_form_navigation.dart';
+
+/// 指定日の食事・運動履歴。
+class DayHistoryScreen extends StatelessWidget {
+  const DayHistoryScreen({
+    super.key,
+    required this.controller,
+    required this.openFoodFactsService,
+    required this.selectedDay,
+    this.foodFormBuilder,
+  });
+
+  final AppController controller;
+  final OpenFoodFactsService openFoodFactsService;
+  final DateTime selectedDay;
+  final FoodFormScreenBuilder? foodFormBuilder;
+
+  String get _title {
+    final day = selectedDay.toLocal();
+    return '${day.year}/${day.month}/${day.day}';
+  }
+
+  String _formatTime(DateTime time) {
+    final local = time.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  Future<void> _confirmDeleteFood(BuildContext context, FoodEntry entry) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
+    );
+    if (confirmed == true) {
+      try {
+        await controller.deleteFood(entry.id);
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('食事の削除に失敗しました。もう一度お試しください')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteExercise(
+    BuildContext context,
+    ExerciseEntry entry,
+  ) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '削除確認',
+      message: '「${entry.name}」を削除しますか？',
+    );
+    if (confirmed == true) {
+      await controller.deleteExercise(entry.id);
+    }
+  }
+
+  void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
+    openFoodFormScreen(
+      context,
+      controller: controller,
+      openFoodFactsService: openFoodFactsService,
+      entry: entry,
+      foodFormBuilder: foodFormBuilder,
+    );
+  }
+
+  Future<void> _confirmDeleteAlcohol(
+    BuildContext context,
+    AlcoholEntry entry,
+  ) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '削除確認',
+      message: '「${entry.beverageName}」を削除しますか？',
+    );
+    if (confirmed == true) {
+      try {
+        await controller.deleteAlcohol(entry.id);
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('アルコール記録の削除に失敗しました。もう一度お試しください'),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _openAlcoholForm(BuildContext context, {AlcoholEntry? entry}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            AlcoholFormScreen(controller: controller, entry: entry),
+      ),
+    );
+  }
+
+  void _openExerciseForm(BuildContext context, {ExerciseEntry? entry}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            ExerciseFormScreen(controller: controller, entry: entry),
+      ),
+    );
+  }
+
+  String _foodEntryQuantityLine(FoodEntry entry) {
+    return '${AppStrings.quantityLabel} ${entry.quantity.toStringAsFixed(1)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final day = localDayStart(selectedDay.toLocal());
+
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, child) {
+        final foodItems = sortFoodEntriesByLoggedAt(
+          controller.foodEntries
+              .where((entry) => isSameLocalDay(entry.loggedAt, day))
+              .toList(),
+        );
+        final exerciseItems = controller.exerciseEntries
+            .where((entry) => isSameLocalDay(entry.loggedAt, day))
+            .toList()
+          ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+        final alcoholItems = controller.alcoholEntries
+            .where((entry) => isSameLocalDay(entry.consumedAt, day))
+            .toList()
+          ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+
+        return Scaffold(
+          appBar: AppBar(title: Text(_title)),
+          body: SafeArea(
+            child: AppContentConstraint(
+              child: ListView(
+                padding: const EdgeInsets.all(AppSpacing.screenPadding),
+                children: [
+                  Text(
+                    '食事',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (foodItems.isEmpty)
+                    const AppEmptyState(message: 'この日の食事記録はありません')
+                  else
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < foodItems.length; i++) ...[
+                            if (i > 0) const Divider(height: 1),
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.xxs,
+                              ),
+                              onTap: () =>
+                                  _openFoodForm(context, entry: foodItems[i]),
+                              title: Text(foodItems[i].name),
+                              subtitle: VerticalMacroDisplay(
+                                leading: Text(_formatTime(foodItems[i].loggedAt)),
+                                kcal: foodItems[i].kcalPerUnit == null
+                                    ? null
+                                    : foodItems[i].totalKcal,
+                                proteinG: foodItems[i].proteinPerUnit == null
+                                    ? null
+                                    : foodItems[i].totalProteinG,
+                                fatG: foodItems[i].fatPerUnit == null
+                                    ? null
+                                    : foodItems[i].totalFatG,
+                                carbG: foodItems[i].carbPerUnit == null
+                                    ? null
+                                    : foodItems[i].totalCarbG,
+                                showKcal: false,
+                                trailing: Text(_foodEntryQuantityLine(foodItems[i])),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${formatNullableNutrient(foodItems[i].kcalPerUnit == null ? null : foodItems[i].totalKcal)} kcal',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          color: AppColors.primaryGreen,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        _confirmDeleteFood(context, foodItems[i]),
+                                    color: AppColors.secondaryText,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'アルコール',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (alcoholItems.isEmpty)
+                    const AppEmptyState(message: 'この日のアルコール記録はありません')
+                  else
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < alcoholItems.length; i++) ...[
+                            if (i > 0) const Divider(height: 1),
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.xxs,
+                              ),
+                              onTap: () => _openAlcoholForm(
+                                context,
+                                entry: alcoholItems[i],
+                              ),
+                              title: Text(alcoholItems[i].beverageName),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${alcoholItems[i].amount}${alcoholItems[i].unit} / '
+                                    '${alcoholItems[i].alcoholPercentage}%',
+                                  ),
+                                  Text(
+                                    '純アルコール ${formatNullableNutrient(alcoholItems[i].pureAlcoholGrams, fractionDigits: 1)}g · '
+                                    'アルコール由来 ${formatNullableNutrient(alcoholItems[i].alcoholCalories, fractionDigits: 0)}kcal',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(color: AppColors.secondaryText),
+                                  ),
+                                  Text(_formatTime(alcoholItems[i].consumedAt)),
+                                ],
+                              ),
+                              isThreeLine: true,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${formatNullableNutrient(alcoholItems[i].totalCalories, fractionDigits: 0)} kcal',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          color: AppColors.accentWine,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 20,
+                                    ),
+                                    onPressed: () => _confirmDeleteAlcohol(
+                                      context,
+                                      alcoholItems[i],
+                                    ),
+                                    color: AppColors.secondaryText,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    '運動',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (exerciseItems.isEmpty)
+                    const AppEmptyState(message: 'この日の運動記録はありません')
+                  else
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < exerciseItems.length; i++) ...[
+                            if (i > 0) const Divider(height: 1),
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.xxs,
+                              ),
+                              onTap: () => _openExerciseForm(
+                                context,
+                                entry: exerciseItems[i],
+                              ),
+                              title: Text(exerciseItems[i].name),
+                              subtitle: Text(
+                                '${_formatTime(exerciseItems[i].loggedAt)} · '
+                                '${exerciseItems[i].durationMin} 分',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${exerciseItems[i].burnedKcal.toStringAsFixed(0)} kcal',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          color: AppColors.accentOrange,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 20,
+                                    ),
+                                    onPressed: () => _confirmDeleteExercise(
+                                      context,
+                                      exerciseItems[i],
+                                    ),
+                                    color: AppColors.secondaryText,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

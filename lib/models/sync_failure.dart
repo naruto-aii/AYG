@@ -15,6 +15,8 @@ enum SyncStep {
   fetchFoodEntries('FETCH_FOOD_ENTRIES'),
   deleteFoodEntry('DELETE_FOOD_ENTRY'),
   fetchExerciseEntries('FETCH_EXERCISE_ENTRIES'),
+  fetchAlcoholEntries('FETCH_ALCOHOL_ENTRIES'),
+  deleteAlcoholEntry('DELETE_ALCOHOL_ENTRY'),
   fetchWeightEntries('FETCH_WEIGHT_ENTRIES'),
   fetchSavedFoods('FETCH_SAVED_FOODS'),
   fetchMealTemplates('FETCH_MEAL_TEMPLATES'),

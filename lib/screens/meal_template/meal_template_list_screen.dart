@@ -5,6 +5,7 @@ import '../../models/meal_template_apply.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -26,6 +27,7 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   final _searchController = TextEditingController();
   List<MealTemplate> _templates = const [];
   bool _isLoading = true;
+  bool _isApplying = false;
 
   @override
   void initState() {
@@ -81,50 +83,60 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   }
 
   Future<void> _applyTemplate(MealTemplate template) async {
-    var result = await widget.controller.applyMealTemplate(
-      templateId: template.templateId,
-    );
-    if (!mounted) {
+    if (_isApplying) {
       return;
     }
-
-    while (result.needsResolution) {
-      final resolutions = await showMealTemplateDependencyDialog(
-        context: context,
-        controller: widget.controller,
-        issues: result.issues,
-      );
-      if (resolutions == null) {
-        return;
-      }
-      result = await widget.controller.applyMealTemplate(
+    setState(() => _isApplying = true);
+    try {
+      var result = await widget.controller.applyMealTemplate(
         templateId: template.templateId,
-        resolutions: resolutions,
       );
       if (!mounted) {
         return;
       }
-    }
 
-    if (result.cancelled) {
-      return;
-    }
+      while (result.needsResolution) {
+        final resolutions = await showMealTemplateDependencyDialog(
+          context: context,
+          controller: widget.controller,
+          issues: result.issues,
+        );
+        if (resolutions == null) {
+          return;
+        }
+        result = await widget.controller.applyMealTemplate(
+          templateId: template.templateId,
+          resolutions: resolutions,
+        );
+        if (!mounted) {
+          return;
+        }
+      }
 
-    if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '「${template.name}」から${result.createdEntryCount}件の食事を追加しました',
+      if (result.cancelled) {
+        return;
+      }
+
+      if (result.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '「${template.name}」から${result.createdEntryCount}件の食事を追加しました',
+            ),
           ),
-        ),
-      );
-      await _reload();
-      return;
-    }
+        );
+        await _reload();
+        return;
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.errorMessage ?? 'テンプレート適用に失敗しました')),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.errorMessage ?? 'テンプレート適用に失敗しました')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isApplying = false);
+      }
+    }
   }
 
   Future<void> _deleteTemplate(MealTemplate template) async {
@@ -198,18 +210,18 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
                                 horizontal: AppSpacing.md,
                                 vertical: AppSpacing.xs,
                               ),
-                              onTap: () => _applyTemplate(template),
+                              onTap: _isApplying ? null : () => _applyTemplate(template),
                               child: ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(template.name),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      '${formatNullableNutrient(template.totalKcal)} kcal · '
-                                      'P ${formatNullableNutrient(template.totalProteinG)} '
-                                      'F ${formatNullableNutrient(template.totalFatG)} '
-                                      'C ${formatNullableNutrient(template.totalCarbG)}',
+                                    CompactMacroDisplay(
+                                      kcal: template.totalKcal,
+                                      proteinG: template.totalProteinG,
+                                      fatG: template.totalFatG,
+                                      carbG: template.totalCarbG,
                                     ),
                                     Text(
                                       '最終利用 ${_formatLastUsed(template.lastUsedAt)} · '

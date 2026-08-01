@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/food_visibility.dart';
@@ -17,7 +16,10 @@ import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
+import '../../constants/app_strings.dart';
+import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_base_serving_format.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
@@ -516,12 +518,20 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xs),
-      child: Text(
-        '今回の摂取: ${formatNullableNutrient(kcal)}kcal · '
-        'P${formatNullableNutrient(protein)} '
-        'F${formatNullableNutrient(fat)} '
-        'C${formatNullableNutrient(carb)}',
-        style: Theme.of(context).textTheme.bodyMedium,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            AppStrings.macroIntakePreviewPrefix,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          CompactMacroDisplay(
+            kcal: kcal,
+            proteinG: protein,
+            fatG: fat,
+            carbG: carb,
+          ),
+        ],
       ),
     );
   }

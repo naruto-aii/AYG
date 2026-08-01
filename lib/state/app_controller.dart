@@ -182,6 +182,7 @@ class AppController extends ChangeNotifier {
   final List<FoodEntry> foodEntries = [];
   final List<ExerciseEntry> exerciseEntries = [];
   final List<AlcoholEntry> alcoholEntries = [];
+  final List<WeightEntry> weightEntries = [];
 
   bool get isAuthenticated =>
       _authenticationRepository?.isAuthenticated ?? false;
@@ -369,6 +370,7 @@ class AppController extends ChangeNotifier {
     foodEntries.clear();
     exerciseEntries.clear();
     alcoholEntries.clear();
+    weightEntries.clear();
   }
 
   Future<void> loadPersistedState() async {
@@ -405,6 +407,8 @@ class AppController extends ChangeNotifier {
         ..clear()
         ..addAll(await alcoholRepository.loadAll());
     }
+
+    await _reloadWeightEntries();
 
     refreshDailySummary();
   }
@@ -450,23 +454,49 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> recordManualWeight(double weightKg) async {
+  Future<void> recordManualWeight(double weightKg, {DateTime? recordedAt}) async {
     final entry = WeightEntry(
       id: generateId(),
       weightKg: weightKg,
-      recordedAt: DateTime.now(),
+      recordedAt: recordedAt ?? DateTime.now(),
       source: WeightSource.manual,
     );
     await _weightRepository?.save(entry);
+    await _reloadWeightEntries();
+    await _refreshProfileWeightFromEntries();
+  }
 
+  Future<void> updateWeightEntry(WeightEntry entry) async {
+    await _weightRepository?.save(entry);
+    await _reloadWeightEntries();
+    await _refreshProfileWeightFromEntries();
+  }
+
+  Future<void> deleteWeightEntry(String entryId) async {
+    await _weightRepository?.delete(entryId);
+    await _reloadWeightEntries();
+    await _refreshProfileWeightFromEntries();
+  }
+
+  Future<void> _reloadWeightEntries() async {
+    final weightRepository = _weightRepository;
+    if (weightRepository == null) {
+      return;
+    }
+    weightEntries
+      ..clear()
+      ..addAll(await weightRepository.loadAll());
+    notifyListeners();
+  }
+
+  Future<void> _refreshProfileWeightFromEntries() async {
     final currentProfile = profile;
     if (currentProfile == null) {
+      refreshDailySummary();
       return;
     }
 
-    profile = _profileWithPreferredWeight(
-      currentProfile.copyWith(weightKg: weightKg),
-    );
+    profile = _profileWithPreferredWeight(currentProfile);
     await _userRepository?.saveProfile(profile!);
     _scheduleRemoteSync();
     refreshDailySummary();
@@ -1450,6 +1480,60 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
+  Future<void> registerFoodMealFromDrafts({
+    required String mealGroupName,
+    required List<MealTemplateItemDraft> items,
+    required DateTime loggedAt,
+    String? sourceTemplateId,
+  }) async {
+    if (items.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final mealGroupId = generateId();
+    final mappedItems = items
+        .asMap()
+        .entries
+        .map(
+          (entry) => entry.value
+              .copyWithSortOrder(entry.key + 1)
+              .toItem(itemId: generateId(), now: now),
+        )
+        .toList();
+    final foodEntriesToSave = _mealTemplateApplyService.buildEntries(
+      items: mappedItems,
+      mealGroupId: mealGroupId,
+      mealGroupName: mealGroupName,
+      loggedAt: loggedAt,
+      generateEntryId: generateId,
+    );
+    await addFoodEntriesBatch(foodEntriesToSave);
+
+    if (sourceTemplateId == null) {
+      return;
+    }
+
+    final repository = _mealTemplateRepository;
+    if (repository == null) {
+      return;
+    }
+
+    final bundle = await getMealTemplateWithItems(sourceTemplateId);
+    if (bundle == null) {
+      return;
+    }
+
+    await repository.update(
+      bundle.template.copyWith(
+        useCount: bundle.template.useCount + 1,
+        lastUsedAt: now,
+        updatedAt: now,
+      ),
+    );
+    _scheduleRemoteSync();
+  }
+
   Future<List<MealTemplate>> searchMealTemplates(String query) async {
     final repository = _mealTemplateRepository;
     if (repository == null) {
@@ -1574,6 +1658,16 @@ class AppController extends ChangeNotifier {
             );
           },
       isCreatorBlocked: isFoodCreatorBlocked,
+    );
+  }
+
+  List<MealTemplateItem> resolveMealTemplateItems({
+    required List<MealTemplateItem> originalItems,
+    required List<MealTemplateItemResolution> resolutions,
+  }) {
+    return _mealTemplateApplyService.resolveItems(
+      originalItems: originalItems,
+      resolutions: resolutions,
     );
   }
 

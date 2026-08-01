@@ -4,6 +4,7 @@ import '../../models/food_entry.dart';
 import '../../models/food_entry_source.dart';
 import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
+import '../../models/meal_template_draft.dart';
 import '../../models/saved_food.dart';
 import '../../platform/web/web_barcode_scanner_screen.dart';
 import '../../platform/web/web_barcode_support.dart';
@@ -13,8 +14,10 @@ import '../../state/app_controller.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
+import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/saved_food/saved_food_suggestion_list.dart';
 import '../saved_food/public_food_search_screen.dart';
+import 'food_form_template_actions.dart';
 
 typedef BarcodeScanAvailabilityChecker = bool Function();
 
@@ -26,6 +29,7 @@ class WebFoodFormScreen extends StatefulWidget {
     required this.openFoodFactsService,
     this.entry,
     this.initialPublicFood,
+    this.initialLoggedAt,
     this.barcodeScanAvailabilityChecker = isWebBarcodeScanAvailable,
     this.barcodeLookupBuilder = WebBarcodeLookup.new,
   });
@@ -34,6 +38,7 @@ class WebFoodFormScreen extends StatefulWidget {
   final OpenFoodFactsService openFoodFactsService;
   final FoodEntry? entry;
   final SavedFood? initialPublicFood;
+  final DateTime? initialLoggedAt;
   final BarcodeScanAvailabilityChecker barcodeScanAvailabilityChecker;
   final WebBarcodeLookup Function(OpenFoodFactsService service)
   barcodeLookupBuilder;
@@ -61,6 +66,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
   double _baseAmount = 1;
   FoodUnitType _unitType = FoodUnitType.serving;
   List<SavedFood> _savedFoodSuggestions = const [];
+  late DateTime _loggedAt;
 
   bool get _usesSavedFoodBaseModel =>
       _fromSavedFoodSelection || _selectedSavedFoodId != null;
@@ -70,6 +76,8 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
     super.initState();
     _macroInput = MacroNutritionInputController();
     final entry = widget.entry;
+    _loggedAt = (entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now())
+        .toLocal();
     _sourceType = entry?.sourceType ?? FoodEntrySource.manual;
     _nameController.text = entry?.name ?? '';
     _selectedSavedFoodId = entry?.savedFoodId;
@@ -288,7 +296,61 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
       savedFoodId: _selectedSavedFoodId,
       sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
       sourceSavedFoodVersion: _sourceSavedFoodVersion,
-      loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
+      loggedAt: _loggedAt,
+    );
+  }
+
+  MealTemplateItemDraft? _buildTemplateItemDraft() {
+    if (!_macroInput.prepareForSave()) {
+      return null;
+    }
+
+    final consumedAmount = _parseQuantity(_quantityController.text);
+    final baseAmount = _usesSavedFoodBaseModel ? _baseAmount : 1.0;
+    final unitType = _usesSavedFoodBaseModel ? _unitType : FoodUnitType.serving;
+
+    return buildMealTemplateItemDraftFromFoodForm(
+      name: _nameController.text,
+      consumedAmount: consumedAmount,
+      baseAmount: baseAmount,
+      unitType: unitType,
+      kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
+      proteinPerBase: _macroInput.parseOptional(MacroField.protein),
+      fatPerBase: _macroInput.parseOptional(MacroField.fat),
+      carbPerBase: _macroInput.parseOptional(MacroField.carb),
+      savedFoodId: _selectedSavedFoodId,
+      sourceOwnerUserId: _sourceFoodOwnerUserId,
+    );
+  }
+
+  Future<void> _openTemplatePicker() async {
+    await openFoodTemplatePicker(
+      context: context,
+      controller: widget.controller,
+      initialLoggedAt: _loggedAt,
+      onMealRegistered: () {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+    );
+  }
+
+  Future<void> _openTemplateCreate() {
+    return openFoodTemplateCreate(context, widget.controller);
+  }
+
+  Future<void> _saveAsTemplate() async {
+    final draft = _buildTemplateItemDraft();
+    if (draft == null) {
+      _showMessage('テンプレートに保存する内容を入力してください');
+      return;
+    }
+
+    await saveCurrentFoodAsTemplate(
+      context: context,
+      controller: widget.controller,
+      itemDraft: draft,
     );
   }
 
@@ -401,7 +463,6 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           selectForMealEntry: true,
-          foodFormBuilder: webFoodFormScreenBuilder,
         ),
       ),
     );
@@ -428,6 +489,18 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
             children: [
               if (!widget.isEditing) ...[
                 OutlinedButton.icon(
+                  onPressed: _openTemplatePicker,
+                  icon: const Icon(Icons.view_list_outlined),
+                  label: const Text('テンプレートから追加'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _openTemplateCreate,
+                  icon: const Icon(Icons.add_box_outlined),
+                  label: const Text('テンプレートを作成'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
                   onPressed: _openPublicFoodSearch,
                   icon: const Icon(Icons.public),
                   label: const Text('公開食品を検索'),
@@ -451,6 +524,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  key: const ValueKey('web_barcode_field'),
                   controller: _barcodeController,
                   decoration: const InputDecoration(
                     labelText: 'バーコード',
@@ -495,6 +569,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                 const SizedBox(height: 12),
               ],
               TextFormField(
+                key: const ValueKey('web_food_name_field'),
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: '食品名',
@@ -552,6 +627,18 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                 },
               ),
               if (_buildTotalPreview() != null) _buildTotalPreview()!,
+              if (!widget.isEditing) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _saveAsTemplate,
+                  icon: const Icon(Icons.bookmark_add_outlined),
+                  label: const Text('入力内容をテンプレートとして保存'),
+                ),
+              ],
+              LoggedAtPickerField(
+                loggedAt: _loggedAt,
+                onChanged: (value) => setState(() => _loggedAt = value),
+              ),
               if (widget.isEditing) ...[
                 const SizedBox(height: 32),
                 OutlinedButton(
@@ -583,12 +670,14 @@ Widget webFoodFormScreenBuilder({
   required AppController controller,
   required OpenFoodFactsService openFoodFactsService,
   FoodEntry? entry,
+  DateTime? initialLoggedAt,
   SavedFood? initialPublicFood,
 }) {
   return WebFoodFormScreen(
     controller: controller,
     openFoodFactsService: openFoodFactsService,
     entry: entry,
+    initialLoggedAt: initialLoggedAt,
     initialPublicFood: initialPublicFood,
   );
 }

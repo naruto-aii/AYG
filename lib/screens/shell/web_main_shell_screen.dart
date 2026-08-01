@@ -45,13 +45,16 @@ class _WebMainShellScreenState extends State<WebMainShellScreen> {
         openFoodFactsService: widget.openFoodFactsService,
         foodFormBuilder: webFoodFormScreenBuilder,
       ),
-      WorkoutTabScreen(controller: widget.controller),
+      WorkoutTabScreen(
+        controller: widget.controller,
+        openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: webFoodFormScreenBuilder,
+      ),
       const WeightPlaceholderScreen(),
       SettingsScreen(
         controller: widget.controller,
         authenticationRepository: widget.authenticationRepository,
         openFoodFactsService: widget.openFoodFactsService,
-        foodFormBuilder: webFoodFormScreenBuilder,
         hideHealthSettings: true,
       ),
     ];

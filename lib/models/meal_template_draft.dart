@@ -64,6 +64,40 @@ class MealTemplateItemDraft {
       sortOrder: sortOrder,
     );
   }
+
+  MealTemplateItemDraft copyWith({double? consumedAmount}) {
+    return MealTemplateItemDraft(
+      itemId: itemId,
+      savedFoodId: savedFoodId,
+      sourceOwnerUserId: sourceOwnerUserId,
+      name: name,
+      baseAmount: baseAmount,
+      unitType: unitType,
+      kcalPerBase: kcalPerBase,
+      proteinPerBase: proteinPerBase,
+      fatPerBase: fatPerBase,
+      carbPerBase: carbPerBase,
+      consumedAmount: consumedAmount ?? this.consumedAmount,
+      sortOrder: sortOrder,
+    );
+  }
+
+  static MealTemplateItemDraft fromTemplateItem(MealTemplateItem item) {
+    return MealTemplateItemDraft(
+      itemId: item.itemId,
+      savedFoodId: item.savedFoodId,
+      sourceOwnerUserId: item.sourceOwnerUserId,
+      name: item.name,
+      baseAmount: item.baseAmount,
+      unitType: item.unitType,
+      kcalPerBase: item.kcalPerBase,
+      proteinPerBase: item.proteinPerBase,
+      fatPerBase: item.fatPerBase,
+      carbPerBase: item.carbPerBase,
+      consumedAmount: item.consumedAmount,
+      sortOrder: item.sortOrder,
+    );
+  }
 }
 
 class MealTemplateDraft {

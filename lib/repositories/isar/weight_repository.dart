@@ -19,6 +19,15 @@ class WeightRepository implements WeightRepositoryBase {
     });
   }
 
+  Future<void> delete(String entryId) async {
+    await _isar.writeTxn(() async {
+      final entity = await _isar.weightEntryEntitys.getByEntryId(entryId);
+      if (entity != null) {
+        await _isar.weightEntryEntitys.delete(entity.id);
+      }
+    });
+  }
+
   Future<List<WeightEntry>> loadAll() async {
     final entities = await _isar.weightEntryEntitys.where().findAll();
     entities.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));

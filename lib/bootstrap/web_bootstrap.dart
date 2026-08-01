@@ -35,6 +35,8 @@ import '../widgets/startup/startup_error_app.dart';
 import 'web_init_error.dart';
 
 /// Web起動用 DI（Isar非依存）。
+Future<void> bootstrapApp() => bootstrapWebApp();
+
 Future<void> bootstrapWebApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   final diagnostics = WebInitDiagnostics();

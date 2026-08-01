@@ -8,6 +8,7 @@ import '../../models/food_entry_source.dart';
 import '../../models/food_source_type.dart';
 import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
+import '../../models/meal_template_draft.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
 import '../../models/saved_food_persistence_error.dart';
@@ -24,6 +25,7 @@ import '../../utils/saved_food_base_serving_format.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
@@ -37,6 +39,7 @@ import '../../widgets/saved_food/serving_amount_fields.dart';
 import '../saved_food/public_food_search_screen.dart';
 import '../saved_food/saved_food_list_screen.dart';
 import 'barcode_scanner_screen.dart';
+import 'food_form_template_actions.dart';
 
 class FoodFormScreen extends StatefulWidget {
   const FoodFormScreen({
@@ -45,12 +48,14 @@ class FoodFormScreen extends StatefulWidget {
     required this.openFoodFactsService,
     this.entry,
     this.initialPublicFood,
+    this.initialLoggedAt,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final FoodEntry? entry;
   final SavedFood? initialPublicFood;
+  final DateTime? initialLoggedAt;
 
   bool get isEditing => entry != null;
 
@@ -80,6 +85,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   double _baseAmount = 1;
   FoodUnitType _unitType = FoodUnitType.serving;
   List<SavedFood> _savedFoodSuggestions = const [];
+  late DateTime _loggedAt;
 
   bool get _showSaveAsFoodCheckbox =>
       !widget.isEditing && !_fromSavedFoodSelection;
@@ -100,6 +106,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     super.initState();
     _macroInput = MacroNutritionInputController();
     final entry = widget.entry;
+    _loggedAt = (entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now())
+        .toLocal();
     _sourceType = entry?.sourceType ?? FoodEntrySource.manual;
     _nameController.text = entry?.name ?? '';
     _selectedSavedFoodId = entry?.savedFoodId;
@@ -345,7 +353,61 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       savedFoodId: _selectedSavedFoodId,
       sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
       sourceSavedFoodVersion: _sourceSavedFoodVersion,
-      loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
+      loggedAt: _loggedAt,
+    );
+  }
+
+  MealTemplateItemDraft? _buildTemplateItemDraft() {
+    if (!_macroInput.prepareForSave()) {
+      return null;
+    }
+
+    final consumedAmount = _parseQuantity(_quantityController.text);
+    final baseAmount = _usesSavedFoodBaseModel ? _baseAmount : 1.0;
+    final unitType = _usesSavedFoodBaseModel ? _unitType : FoodUnitType.serving;
+
+    return buildMealTemplateItemDraftFromFoodForm(
+      name: _nameController.text,
+      consumedAmount: consumedAmount,
+      baseAmount: baseAmount,
+      unitType: unitType,
+      kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
+      proteinPerBase: _macroInput.parseOptional(MacroField.protein),
+      fatPerBase: _macroInput.parseOptional(MacroField.fat),
+      carbPerBase: _macroInput.parseOptional(MacroField.carb),
+      savedFoodId: _selectedSavedFoodId,
+      sourceOwnerUserId: _sourceFoodOwnerUserId,
+    );
+  }
+
+  Future<void> _openTemplatePicker() async {
+    await openFoodTemplatePicker(
+      context: context,
+      controller: widget.controller,
+      initialLoggedAt: _loggedAt,
+      onMealRegistered: () {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+    );
+  }
+
+  Future<void> _openTemplateCreate() {
+    return openFoodTemplateCreate(context, widget.controller);
+  }
+
+  Future<void> _saveAsTemplate() async {
+    final draft = _buildTemplateItemDraft();
+    if (draft == null) {
+      _showMessage('テンプレートに保存する内容を入力してください');
+      return;
+    }
+
+    await saveCurrentFoodAsTemplate(
+      context: context,
+      controller: widget.controller,
+      itemDraft: draft,
     );
   }
 
@@ -574,6 +636,29 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SecondaryButton(
+                          label: 'テンプレートから追加',
+                          icon: Icons.view_list_outlined,
+                          onPressed: _openTemplatePicker,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        SecondaryButton(
+                          label: 'テンプレートを作成',
+                          icon: Icons.add_box_outlined,
+                          onPressed: _openTemplateCreate,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SecondaryButton(
                           label: '公開食品を検索',
                           icon: Icons.public,
                           onPressed: _openPublicFoodSearch,
@@ -688,6 +773,18 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                         },
                       ),
                       if (_buildTotalPreview() != null) _buildTotalPreview()!,
+                      if (!widget.isEditing) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        SecondaryButton(
+                          label: '入力内容をテンプレートとして保存',
+                          icon: Icons.bookmark_add_outlined,
+                          onPressed: _saveAsTemplate,
+                        ),
+                      ],
+                      LoggedAtPickerField(
+                        loggedAt: _loggedAt,
+                        onChanged: (value) => setState(() => _loggedAt = value),
+                      ),
                       if (_showSaveAsFoodCheckbox) ...[
                         const SizedBox(height: AppSpacing.sm),
                         SwitchListTile(

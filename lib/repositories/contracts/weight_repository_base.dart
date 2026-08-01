@@ -4,6 +4,8 @@ import '../../models/weight_entry.dart';
 abstract class WeightRepositoryBase {
   Future<void> save(WeightEntry entry);
 
+  Future<void> delete(String entryId);
+
   Future<List<WeightEntry>> loadAll();
 
   Future<double?> latestWeight({WeightSource? preferredSource});

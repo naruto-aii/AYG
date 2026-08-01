@@ -1,4 +1,5 @@
 import 'package:ayg/config/open_food_facts_config.dart';
+import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/models/food_entry_source.dart';
 import 'package:ayg/platform/web/web_barcode_support.dart';
 import 'package:ayg/screens/food/web_food_form_screen.dart';
@@ -32,10 +33,16 @@ void main() {
       ),
     );
 
+    expect(find.text('テンプレートから追加'), findsOneWidget);
     expect(find.text('カメラでバーコードを読み取る'), findsOneWidget);
     expect(find.text('バーコード（テキスト入力）'), findsOneWidget);
     expect(find.text('手入力'), findsOneWidget);
-    expect(find.text('食品名'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('web_food_name_field')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const ValueKey('web_food_name_field')), findsOneWidget);
     expect(find.text('保存'), findsOneWidget);
   });
 
@@ -82,13 +89,37 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.byType(TextField).first, '3017620422003');
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('web_barcode_field')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('web_barcode_field')),
+      '3017620422003',
+    );
+    await tester.scrollUntilVisible(
+      find.text('バーコードで検索'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('バーコードで検索'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('通信に失敗しました。手入力をご利用ください。'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('手入力'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('手入力'), findsOneWidget);
-    expect(find.text('食品名'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('web_food_name_field')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const ValueKey('web_food_name_field')), findsOneWidget);
   });
 
   testWidgets('preserves OFF kcal when saving without nutrition edits', (
@@ -109,14 +140,45 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.byType(TextField).first, '3017620422003');
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('web_barcode_field')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('web_barcode_field')),
+      '3017620422003',
+    );
+    await tester.scrollUntilVisible(
+      find.text('バーコードで検索'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('バーコードで検索'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.textContaining('表示カロリーとPFC換算値が異なる場合があります'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.textContaining(AppStrings.macroExternalMismatchTitle),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining(AppStrings.macroExternalMismatchTitle), findsOneWidget);
 
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'Nutella');
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('web_food_name_field')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('web_food_name_field')),
+      'Nutella',
+    );
+    await tester.scrollUntilVisible(
+      find.text('保存'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 

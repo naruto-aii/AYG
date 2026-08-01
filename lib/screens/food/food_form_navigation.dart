@@ -10,6 +10,7 @@ typedef FoodFormScreenBuilder =
       required AppController controller,
       required OpenFoodFactsService openFoodFactsService,
       FoodEntry? entry,
+      DateTime? initialLoggedAt,
     });
 
 /// プラットフォーム別の食事フォーム画面を開く。
@@ -18,6 +19,7 @@ void openFoodFormScreen(
   required AppController controller,
   required OpenFoodFactsService openFoodFactsService,
   FoodEntry? entry,
+  DateTime? initialLoggedAt,
   FoodFormScreenBuilder? foodFormBuilder,
 }) {
   final builder = foodFormBuilder ?? defaultFoodFormScreenBuilder;
@@ -27,6 +29,7 @@ void openFoodFormScreen(
         controller: controller,
         openFoodFactsService: openFoodFactsService,
         entry: entry,
+        initialLoggedAt: initialLoggedAt,
       ),
     ),
   );
@@ -36,10 +39,12 @@ Widget defaultFoodFormScreenBuilder({
   required AppController controller,
   required OpenFoodFactsService openFoodFactsService,
   FoodEntry? entry,
+  DateTime? initialLoggedAt,
 }) {
   return FoodFormScreen(
     controller: controller,
     openFoodFactsService: openFoodFactsService,
     entry: entry,
+    initialLoggedAt: initialLoggedAt,
   );
 }

@@ -8,14 +8,21 @@ import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
+import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/layout/app_constrained_bottom_bar.dart';
 import '../../widgets/layout/app_form_constraint.dart';
 
 class ExerciseFormScreen extends StatefulWidget {
-  const ExerciseFormScreen({super.key, required this.controller, this.entry});
+  const ExerciseFormScreen({
+    super.key,
+    required this.controller,
+    this.entry,
+    this.initialLoggedAt,
+  });
 
   final AppController controller;
   final ExerciseEntry? entry;
+  final DateTime? initialLoggedAt;
 
   bool get isEditing => entry != null;
 
@@ -28,12 +35,15 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _durationController;
   late final TextEditingController _burnedKcalController;
+  late DateTime _loggedAt;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     final entry = widget.entry;
+    _loggedAt = (entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now())
+        .toLocal();
     _nameController = TextEditingController(text: entry?.name ?? '');
     _durationController = TextEditingController(
       text: entry?.durationMin.toString() ?? '',
@@ -61,7 +71,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       name: _nameController.text.trim(),
       durationMin: int.parse(_durationController.text),
       burnedKcal: double.parse(_burnedKcalController.text),
-      loggedAt: widget.entry?.loggedAt ?? DateTime.now(),
+      loggedAt: _loggedAt,
     );
   }
 
@@ -154,6 +164,10 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                         },
                       ),
                       const SizedBox(height: AppSpacing.sm),
+                      LoggedAtPickerField(
+                        loggedAt: _loggedAt,
+                        onChanged: (value) => setState(() => _loggedAt = value),
+                      ),
                       AppTextField(
                         controller: _burnedKcalController,
                         label: '消費 kcal',

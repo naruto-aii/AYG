@@ -73,7 +73,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
         openFoodFactsService: widget.openFoodFactsService,
         foodFormBuilder: widget.foodFormBuilder,
       ),
-      WorkoutTabScreen(controller: widget.controller),
+      WorkoutTabScreen(
+        controller: widget.controller,
+        openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: widget.foodFormBuilder,
+      ),
       const WeightPlaceholderScreen(),
       SettingsScreen(
         controller: widget.controller,

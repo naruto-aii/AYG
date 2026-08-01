@@ -14,6 +14,11 @@ class WeightRepository implements WeightRepositoryBase {
   }
 
   @override
+  Future<void> delete(String entryId) async {
+    _entries.removeWhere((item) => item.id == entryId);
+  }
+
+  @override
   Future<List<WeightEntry>> loadAll() async {
     final copy = List<WeightEntry>.from(_entries);
     copy.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));

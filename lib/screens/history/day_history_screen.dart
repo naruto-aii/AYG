@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/alcohol_entry.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
+import '../../models/weight_entry.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../constants/app_strings.dart';
@@ -19,6 +20,7 @@ import '../../widgets/layout/app_content_constraint.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../exercise/exercise_form_screen.dart';
 import '../food/food_form_navigation.dart';
+import '../weight/weight_record_screen.dart';
 
 /// 指定日の食事・運動履歴。
 class DayHistoryScreen extends StatelessWidget {
@@ -80,12 +82,19 @@ class DayHistoryScreen extends StatelessWidget {
     }
   }
 
+  DateTime get _initialLoggedAtForNewEntry {
+    final now = DateTime.now();
+    final day = selectedDay.toLocal();
+    return DateTime(day.year, day.month, day.day, now.hour, now.minute);
+  }
+
   void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
     openFoodFormScreen(
       context,
       controller: controller,
       openFoodFactsService: openFoodFactsService,
       entry: entry,
+      initialLoggedAt: entry == null ? _initialLoggedAtForNewEntry : null,
       foodFormBuilder: foodFormBuilder,
     );
   }
@@ -117,8 +126,10 @@ class DayHistoryScreen extends StatelessWidget {
   void _openAlcoholForm(BuildContext context, {AlcoholEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) =>
-            AlcoholFormScreen(controller: controller, entry: entry),
+        builder: (context) => AlcoholFormScreen(
+          controller: controller,
+          entry: entry,
+        ),
       ),
     );
   }
@@ -126,10 +137,39 @@ class DayHistoryScreen extends StatelessWidget {
   void _openExerciseForm(BuildContext context, {ExerciseEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) =>
-            ExerciseFormScreen(controller: controller, entry: entry),
+        builder: (context) => ExerciseFormScreen(
+          controller: controller,
+          entry: entry,
+          initialLoggedAt: entry == null ? _initialLoggedAtForNewEntry : null,
+        ),
       ),
     );
+  }
+
+  void _openWeightForm(BuildContext context, {WeightEntry? entry}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => WeightRecordScreen(
+          controller: controller,
+          entry: entry,
+          initialRecordedAt: entry == null ? _initialLoggedAtForNewEntry : null,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteWeight(
+    BuildContext context,
+    WeightEntry entry,
+  ) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '削除確認',
+      message: 'この体重記録を削除しますか？',
+    );
+    if (confirmed == true) {
+      await controller.deleteWeightEntry(entry.id);
+    }
   }
 
   String _foodEntryQuantityLine(FoodEntry entry) {
@@ -156,6 +196,10 @@ class DayHistoryScreen extends StatelessWidget {
             .where((entry) => isSameLocalDay(entry.consumedAt, day))
             .toList()
           ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+        final weightItems = controller.weightEntries
+            .where((entry) => isSameLocalDay(entry.recordedAt, day))
+            .toList()
+          ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
 
         return Scaffold(
           appBar: AppBar(title: Text(_title)),
@@ -367,6 +411,54 @@ class DayHistoryScreen extends StatelessWidget {
                                     color: AppColors.secondaryText,
                                   ),
                                 ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    '体重',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (weightItems.isEmpty)
+                    const AppEmptyState(message: 'この日の体重記録はありません')
+                  else
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < weightItems.length; i++) ...[
+                            if (i > 0) const Divider(height: 1),
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.xxs,
+                              ),
+                              onTap: () => _openWeightForm(
+                                context,
+                                entry: weightItems[i],
+                              ),
+                              title: Text(
+                                '${weightItems[i].weightKg.toStringAsFixed(1)} kg',
+                              ),
+                              subtitle: Text(
+                                _formatTime(weightItems[i].recordedAt),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                ),
+                                onPressed: () => _confirmDeleteWeight(
+                                  context,
+                                  weightItems[i],
+                                ),
+                                color: AppColors.secondaryText,
                               ),
                             ),
                           ],

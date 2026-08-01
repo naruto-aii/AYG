@@ -43,6 +43,28 @@ void main() {
       expect(parsed.version, 1);
     });
 
+    test('round trip preserves serving_unit_label for web mapper', () {
+      final food = SavedFood(
+        foodId: 'f3',
+        ownerUserId: 'u1',
+        name: 'Oats',
+        normalizedName: 'oats',
+        baseAmount: 40,
+        unitType: FoodUnitType.g,
+        servingUnitLabel: 'g',
+        kcalPerBase: 150,
+        createdAt: DateTime.utc(2026, 1, 1),
+        updatedAt: DateTime.utc(2026, 1, 2),
+      );
+
+      final row = FoodMasterRowMapper.savedFoodToRow(food, userId: 'u1');
+      final parsed = FoodMasterRowMapper.savedFoodFromRow(row);
+
+      expect(parsed.baseAmount, 40);
+      expect(parsed.servingUnitLabel, 'g');
+      expect(parsed.baseServingDefined, isTrue);
+    });
+
     test('round trip preserves version', () {
       final food = SavedFood(
         foodId: 'f2',

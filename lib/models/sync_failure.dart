@@ -13,6 +13,7 @@ enum SyncStep {
   fetchHealthSnapshot('FETCH_HEALTH_SNAPSHOT'),
   fetchAppSettings('FETCH_APP_SETTINGS'),
   fetchFoodEntries('FETCH_FOOD_ENTRIES'),
+  deleteFoodEntry('DELETE_FOOD_ENTRY'),
   fetchExerciseEntries('FETCH_EXERCISE_ENTRIES'),
   fetchWeightEntries('FETCH_WEIGHT_ENTRIES'),
   fetchSavedFoods('FETCH_SAVED_FOODS'),

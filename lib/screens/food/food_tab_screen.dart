@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/food_entry.dart';
@@ -29,7 +30,18 @@ class FoodTabScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
-      await controller.deleteFood(entry.id);
+      try {
+        await controller.deleteFood(entry.id);
+      } catch (error, stackTrace) {
+        debugPrint('deleteFood failed: $error\n$stackTrace');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('食事の削除に失敗しました。もう一度お試しください'),
+            ),
+          );
+        }
+      }
     }
   }
 

@@ -57,6 +57,14 @@ abstract class DataSyncRepository {
   Future<void> pullSavedFoodsRemoteToLocal(String userId);
 
   Future<void> pushLocalToRemote(String userId);
+
+  Future<void> deleteFoodEntry({
+    required String userId,
+    required String entryId,
+  });
+
+  /// Supabase 等のリモート削除が有効か。
+  bool get supportsRemoteFoodEntryDelete;
 }
 
 /// Supabase 実装。
@@ -84,6 +92,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   final WeightRepositoryBase _weightRepository;
   final FoodMasterRepositories? _foodMaster;
   final SupabaseClient _client;
+
+  @override
+  bool get supportsRemoteFoodEntryDelete => true;
 
   @override
   Future<RemoteUserProfile> ensureUserProfile({
@@ -221,6 +232,32 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pushWeightEntries(userId);
     await _pushSavedFoods(userId);
     await _pushMealTemplates(userId);
+  }
+
+  @override
+  Future<void> deleteFoodEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    await runSyncStep(
+      step: SyncStep.deleteFoodEntry,
+      repository: 'SupabaseDataSyncRepository',
+      tableName: 'food_entries',
+      operation: 'delete',
+      action: () async {
+        final deleted = await _client
+            .from('food_entries')
+            .delete()
+            .eq('user_id', userId)
+            .eq('entry_id', entryId)
+            .select('entry_id');
+        if (deleted.isEmpty) {
+          throw StateError(
+            'Food entry delete affected 0 rows (entry_id=$entryId)',
+          );
+        }
+      },
+    );
   }
 
   Future<void> _pullProfile(String userId) async {
@@ -646,6 +683,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 /// Supabase 未設定時の no-op 同期。
 class NoOpDataSyncRepository implements DataSyncRepository {
   @override
+  bool get supportsRemoteFoodEntryDelete => false;
+
+  @override
   Future<RemoteUserProfile> ensureUserProfile({
     required String userId,
     String? email,
@@ -668,4 +708,10 @@ class NoOpDataSyncRepository implements DataSyncRepository {
 
   @override
   Future<void> pushLocalToRemote(String userId) async {}
+
+  @override
+  Future<void> deleteFoodEntry({
+    required String userId,
+    required String entryId,
+  }) async {}
 }

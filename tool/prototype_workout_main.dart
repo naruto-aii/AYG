@@ -20,10 +20,7 @@ Future<void> main() async {
             Semantics(
               label: '運動追加',
               button: true,
-              child: IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.add),
-              ),
+              child: IconButton(onPressed: () {}, icon: const Icon(Icons.add)),
             ),
           ],
         ),

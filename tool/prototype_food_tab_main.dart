@@ -23,10 +23,7 @@ Future<void> main() async {
             Semantics(
               label: '食事追加',
               button: true,
-              child: IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.add),
-              ),
+              child: IconButton(onPressed: () {}, icon: const Icon(Icons.add)),
             ),
           ],
         ),

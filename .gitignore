@@ -61,6 +61,7 @@ app.*.map.json
 **/DerivedData/
 *.xcuserdata
 ios/Flutter/GoogleSignIn.generated.xcconfig
+macos/Flutter/GoogleSignIn.generated.xcconfig
 tool/dart_defines.local.json
 tool/db_password.local
 

@@ -9,11 +9,14 @@ import '../platform/web/repositories/web_alcohol_repository.dart';
 import '../platform/web/repositories/web_exercise_repository.dart';
 import '../platform/web/repositories/web_food_repository.dart';
 import '../platform/web/repositories/web_meal_template_repository.dart';
+import '../platform/web/repositories/web_workout_template_repository.dart';
 import '../platform/web/repositories/web_saved_food_repository.dart';
 import '../platform/web/repositories/web_settings_repository.dart';
 import '../platform/web/repositories/web_user_repository.dart';
 import '../platform/web/repositories/web_weight_repository.dart';
-import '../platform/web/resilient_auth_local_storage.dart';
+import '../repositories/supabase/supabase_meal_template_repository.dart';
+import '../repositories/supabase/supabase_workout_template_repository.dart';
+import '../repositories/supabase/supabase_saved_food_repository.dart';
 import '../platform/web/resilient_gotrue_async_storage.dart';
 import '../platform/web/web_local_user_data_clearer.dart';
 import '../platform/web/web_storage_availability.dart';
@@ -29,6 +32,7 @@ import '../repositories/supabase/supabase_food_report_repository.dart';
 import '../repositories/supabase/supabase_meal_template_repository.dart';
 import '../repositories/supabase/supabase_saved_food_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
+import '../platform/web/resilient_auth_local_storage.dart';
 import '../services/open_food_facts_service.dart';
 import '../state/app_controller.dart';
 import '../widgets/startup/startup_error_app.dart';
@@ -104,6 +108,7 @@ Future<void> bootstrapWebApp() async {
     late final WeightRepository weightRepository;
     late final IsarSavedFoodRepository savedFoodRepository;
     late final MealTemplateRepository mealTemplateRepository;
+    late final WorkoutTemplateRepository workoutTemplateRepository;
 
     try {
       userRepository = UserRepository();
@@ -114,6 +119,7 @@ Future<void> bootstrapWebApp() async {
       weightRepository = WeightRepository();
       savedFoodRepository = IsarSavedFoodRepository();
       mealTemplateRepository = MealTemplateRepository();
+      workoutTemplateRepository = WorkoutTemplateRepository();
     } catch (error, stackTrace) {
       diagnostics.lastErrorCode = WebInitErrorCode.initRepositoryFailed.code;
       if (kDebugMode) {
@@ -130,8 +136,10 @@ Future<void> bootstrapWebApp() async {
         ? FoodMasterRepositories.synced(
             localSavedFoods: savedFoodRepository,
             mealTemplates: mealTemplateRepository,
+            workoutTemplates: workoutTemplateRepository,
             remoteSavedFoods: SupabaseSavedFoodRepository(),
             remoteMealTemplates: SupabaseMealTemplateRepository(),
+            remoteWorkoutTemplates: SupabaseWorkoutTemplateRepository(),
             foodRatings: SupabaseFoodRatingRepository(),
             foodReports: SupabaseFoodReportRepository(),
             blockedCreators: SupabaseBlockedFoodCreatorRepository(),
@@ -139,6 +147,7 @@ Future<void> bootstrapWebApp() async {
         : FoodMasterRepositories.localOnly(
             localSavedFoods: savedFoodRepository,
             mealTemplates: mealTemplateRepository,
+            workoutTemplates: workoutTemplateRepository,
           );
 
     final openFoodFactsService = OpenFoodFactsService(
@@ -176,6 +185,7 @@ Future<void> bootstrapWebApp() async {
       weightRepository: weightRepository,
       savedFoodRepository: savedFoodRepository,
       mealTemplateRepository: mealTemplateRepository,
+      workoutTemplateRepository: workoutTemplateRepository,
     );
 
     final controller = AppController(
@@ -195,6 +205,7 @@ Future<void> bootstrapWebApp() async {
       foodReportRepository: foodMasterRepositories.foodReports,
       blockedCreatorRepository: foodMasterRepositories.blockedCreators,
       mealTemplateRepository: mealTemplateRepository,
+      workoutTemplateRepository: workoutTemplateRepository,
     );
 
     if (kDebugMode) {

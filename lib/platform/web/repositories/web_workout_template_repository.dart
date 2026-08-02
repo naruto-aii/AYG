@@ -1,41 +1,39 @@
-import '../../../models/meal_template.dart';
-import '../../../repositories/contracts/meal_template_repository_base.dart';
+import '../../../models/workout_template.dart';
+import '../../../repositories/contracts/workout_template_repository_base.dart';
 import '../../../utils/food_name_normalizer.dart';
 
-/// Web向けインメモリ MealTemplateRepository。
-class MealTemplateRepository implements MealTemplateRepositoryBase {
-  final List<MealTemplate> _templates = [];
-  final Map<String, List<MealTemplateItem>> _itemsByTemplate = {};
+/// Web向けインメモリ WorkoutTemplateRepository。
+class WorkoutTemplateRepository implements WorkoutTemplateRepositoryBase {
+  final List<WorkoutTemplate> _templates = [];
+  final Map<String, List<WorkoutTemplateItem>> _itemsByTemplate = {};
 
   String _itemsKey(String ownerUserId, String templateId) =>
       '$ownerUserId::$templateId';
 
   @override
-  Future<void> save(MealTemplate template) async {
+  Future<void> saveWithItems({
+    required WorkoutTemplate template,
+    required List<WorkoutTemplateItem> items,
+  }) async {
     _templates.removeWhere(
       (item) =>
           item.templateId == template.templateId &&
           item.ownerUserId == template.ownerUserId,
     );
     _templates.add(template);
+    _itemsByTemplate[_itemsKey(template.ownerUserId, template.templateId)] =
+        List.of(items);
   }
 
   @override
-  Future<void> saveAll(List<MealTemplate> templates) async {
-    for (final template in templates) {
-      await save(template);
-    }
-  }
-
-  @override
-  Future<MealTemplate?> getById({
+  Future<WorkoutTemplate?> getById({
     required String ownerUserId,
     required String templateId,
   }) async {
     for (final template in _templates) {
       if (template.templateId == templateId &&
           template.ownerUserId == ownerUserId &&
-          template.status == TemplateStatus.active) {
+          template.status == WorkoutTemplateStatus.active) {
         return template;
       }
     }
@@ -43,21 +41,19 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
   }
 
   @override
-  Future<List<MealTemplate>> getAll(String ownerUserId) async {
-    final templates =
-        _templates
-            .where(
-              (template) =>
-                  template.ownerUserId == ownerUserId &&
-                  template.status == TemplateStatus.active,
-            )
-            .toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    return templates;
+  Future<List<WorkoutTemplate>> getAll(String ownerUserId) async {
+    return _templates
+        .where(
+          (template) =>
+              template.ownerUserId == ownerUserId &&
+              template.status == WorkoutTemplateStatus.active,
+        )
+        .toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
 
   @override
-  Future<List<MealTemplate>> search({
+  Future<List<WorkoutTemplate>> search({
     required String ownerUserId,
     required String query,
   }) async {
@@ -66,22 +62,15 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
       return getAll(ownerUserId);
     }
 
-    final templates =
-        _templates
-            .where(
-              (template) =>
-                  template.ownerUserId == ownerUserId &&
-                  template.status == TemplateStatus.active &&
-                  template.normalizedName.contains(normalizedQuery),
-            )
-            .toList()
-          ..sort((a, b) => a.normalizedName.compareTo(b.normalizedName));
-    return templates;
-  }
-
-  @override
-  Future<void> update(MealTemplate template) async {
-    await save(template);
+    return _templates
+        .where(
+          (template) =>
+              template.ownerUserId == ownerUserId &&
+              template.status == WorkoutTemplateStatus.active &&
+              template.normalizedName.contains(normalizedQuery),
+        )
+        .toList()
+      ..sort((a, b) => a.normalizedName.compareTo(b.normalizedName));
   }
 
   @override
@@ -95,7 +84,7 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
       if (template.templateId == templateId &&
           template.ownerUserId == ownerUserId) {
         _templates[i] = template.copyWith(
-          status: TemplateStatus.deleted,
+          status: WorkoutTemplateStatus.deleted,
           deletedAt: deletedAt,
           updatedAt: deletedAt,
         );
@@ -105,40 +94,18 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
   }
 
   @override
-  Future<void> replaceItems({
-    required String ownerUserId,
-    required String templateId,
-    required List<MealTemplateItem> items,
-  }) async {
-    _itemsByTemplate[_itemsKey(ownerUserId, templateId)] = List.of(items);
-  }
-
-  @override
-  Future<void> saveWithItems({
-    required MealTemplate template,
-    required List<MealTemplateItem> items,
-  }) async {
-    await save(template);
-    await replaceItems(
-      ownerUserId: template.ownerUserId,
-      templateId: template.templateId,
-      items: items,
-    );
-  }
-
-  @override
-  Future<List<MealTemplateItem>> getItems({
+  Future<List<WorkoutTemplateItem>> getItems({
     required String ownerUserId,
     required String templateId,
   }) async {
-    final items = List<MealTemplateItem>.from(
+    final items = List<WorkoutTemplateItem>.from(
       _itemsByTemplate[_itemsKey(ownerUserId, templateId)] ?? const [],
     )..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     return items;
   }
 
   @override
-  Future<List<MealTemplate>> loadAllOwnIncludingDeleted(
+  Future<List<WorkoutTemplate>> loadAllOwnIncludingDeleted(
     String ownerUserId,
   ) async {
     return _templates
@@ -174,7 +141,7 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
       }
     }
 
-    final migratedItems = <String, List<MealTemplateItem>>{};
+    final migratedItems = <String, List<WorkoutTemplateItem>>{};
     for (final entry in _itemsByTemplate.entries.toList()) {
       if (!entry.key.startsWith('$fromOwnerUserId::')) {
         continue;

@@ -76,19 +76,18 @@ class SupabaseMealTemplateRepository {
             onConflict: 'user_id,template_id',
           );
 
-      await _client
-          .from('meal_template_items')
-          .delete()
-          .eq('user_id', userId)
-          .eq('template_id', template.templateId);
-
       if (items.isEmpty) {
+        await _client
+            .from('meal_template_items')
+            .delete()
+            .eq('user_id', userId)
+            .eq('template_id', template.templateId);
         return;
       }
 
       await _client
           .from('meal_template_items')
-          .insert(
+          .upsert(
             items
                 .map(
                   (item) => FoodMasterRowMapper.mealTemplateItemToRow(
@@ -98,7 +97,25 @@ class SupabaseMealTemplateRepository {
                   ),
                 )
                 .toList(),
+            onConflict: 'user_id,item_id',
           );
+
+      final keepIds = items.map((item) => item.itemId).toSet();
+      final existingRows = await _client
+          .from('meal_template_items')
+          .select('item_id')
+          .eq('user_id', userId)
+          .eq('template_id', template.templateId);
+      for (final row in existingRows) {
+        final itemId = row['item_id'] as String;
+        if (!keepIds.contains(itemId)) {
+          await _client
+              .from('meal_template_items')
+              .delete()
+              .eq('user_id', userId)
+              .eq('item_id', itemId);
+        }
+      }
     } catch (error) {
       throw SupabaseErrorMapper.map(
         error,

@@ -15,13 +15,16 @@ import '../models/weight_entry.dart';
 import 'contracts/alcohol_repository_base.dart';
 import 'contracts/exercise_repository_base.dart';
 import 'contracts/food_repository_base.dart';
-import 'contracts/meal_template_repository_base.dart';
+import '../models/workout_template.dart';
+import 'contracts/workout_template_repository_base.dart';
 import 'contracts/settings_repository_base.dart';
 import 'contracts/user_repository_base.dart';
 import 'contracts/weight_repository_base.dart';
 import '../models/sync_failure.dart';
 import 'food_master_repositories.dart';
+import 'supabase/exercise_entry_row_mapper.dart';
 import 'supabase/food_master_row_mapper.dart';
+import 'supabase/supabase_workout_template_repository.dart';
 import 'sync_step_runner.dart';
 
 /// Supabase users テーブルの行。
@@ -235,6 +238,13 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       operation: 'select',
       action: () => _pullMealTemplates(userId),
     );
+    await runOptionalSyncStep(
+      step: SyncStep.fetchWorkoutTemplates,
+      repository: 'SupabaseDataSyncRepository',
+      tableName: 'workout_templates',
+      operation: 'select',
+      action: () => _pullWorkoutTemplates(userId),
+    );
   }
 
   @override
@@ -255,6 +265,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pushWeightEntries(userId);
     await _pushSavedFoods(userId);
     await _pushMealTemplates(userId);
+    await _pushWorkoutTemplates(userId);
   }
 
   @override
@@ -571,7 +582,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     final templates = await remote.pullAllOwn(userId);
     final itemsByTemplate = await remote.pullAllItems(userId);
 
-    await foodMaster!.mealTemplates.clearAll();
+    await foodMaster!.mealTemplates.clearForOwner(userId);
     if (templates.isEmpty) {
       return;
     }
@@ -615,23 +626,68 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }
   }
 
+  Future<void> _pullWorkoutTemplates(String userId) async {
+    final foodMaster = _foodMaster;
+    final local = foodMaster?.workoutTemplates;
+    final remote = foodMaster?.remoteWorkoutTemplates;
+    if (local == null || remote == null) {
+      return;
+    }
+
+    final templates = await remote.pullAllOwn(userId);
+    final itemsByTemplate = await remote.pullAllItems(userId);
+
+    await local.clearForOwner(userId);
+    if (templates.isEmpty) {
+      return;
+    }
+
+    for (final template in templates) {
+      await local.saveWithItems(
+        template: template,
+        items: itemsByTemplate[template.templateId] ?? const [],
+      );
+    }
+  }
+
+  Future<void> _pushWorkoutTemplates(String userId) async {
+    final foodMaster = _foodMaster;
+    final local = foodMaster?.workoutTemplates;
+    final remote = foodMaster?.remoteWorkoutTemplates;
+    if (local == null || remote == null) {
+      return;
+    }
+
+    try {
+      final templates = await local.loadAllOwnIncludingDeleted(userId);
+      final itemsByTemplate = <String, List<WorkoutTemplateItem>>{};
+      for (final template in templates) {
+        itemsByTemplate[template.templateId] = await local.getItems(
+          ownerUserId: userId,
+          templateId: template.templateId,
+        );
+      }
+
+      await remote.pushAllOwn(
+        userId: userId,
+        templates: templates,
+        itemsByTemplateId: itemsByTemplate,
+      );
+    } catch (error) {
+      if (isOptionalTableMissingError(error)) {
+        return;
+      }
+      rethrow;
+    }
+  }
+
   Future<void> _pullExerciseEntries(String userId) async {
     final rows = await _client
         .from('exercise_entries')
         .select()
         .eq('user_id', userId);
 
-    final entries = rows
-        .map(
-          (row) => ExerciseEntry(
-            id: row['entry_id'] as String,
-            name: row['name'] as String,
-            durationMin: row['duration_min'] as int,
-            burnedKcal: (row['burned_kcal'] as num).toDouble(),
-            loggedAt: DateTime.parse(row['logged_at'] as String),
-          ),
-        )
-        .toList();
+    final entries = rows.map(ExerciseEntryRowMapper.fromRow).toList();
 
     await _exerciseRepository.clearAll();
     if (entries.isEmpty) {
@@ -646,23 +702,40 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _client
-        .from('exercise_entries')
-        .upsert(
-          entries
-              .map(
-                (entry) => {
-                  'user_id': userId,
-                  'entry_id': entry.id,
-                  'name': entry.name,
-                  'duration_min': entry.durationMin,
-                  'burned_kcal': entry.burnedKcal,
-                  'logged_at': entry.loggedAt.toIso8601String(),
-                },
-              )
-              .toList(),
-          onConflict: 'user_id,entry_id',
-        );
+    try {
+      await _client
+          .from('exercise_entries')
+          .upsert(
+            entries
+                .map(
+                  (entry) =>
+                      ExerciseEntryRowMapper.toRow(entry, userId: userId),
+                )
+                .toList(),
+            onConflict: 'user_id,entry_id',
+          );
+    } catch (error) {
+      if (isOptionalTableMissingError(error)) {
+        return;
+      }
+      await _client
+          .from('exercise_entries')
+          .upsert(
+            entries
+                .map(
+                  (entry) => {
+                    'user_id': userId,
+                    'entry_id': entry.id,
+                    'name': entry.name,
+                    'duration_min': entry.durationMin,
+                    'burned_kcal': entry.burnedKcal,
+                    'logged_at': entry.loggedAt.toIso8601String(),
+                  },
+                )
+                .toList(),
+            onConflict: 'user_id,entry_id',
+          );
+    }
   }
 
   Future<void> _pullAlcoholEntries(String userId) async {

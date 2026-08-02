@@ -6,6 +6,7 @@ import '../../repositories/contracts/settings_repository_base.dart';
 import '../../repositories/contracts/user_repository_base.dart';
 import '../../repositories/contracts/weight_repository_base.dart';
 import '../../repositories/contracts/saved_food_local_store.dart';
+import '../../repositories/contracts/workout_template_repository_base.dart';
 import '../../services/local_user_data_clearer_base.dart';
 import '../web/web_health_workout_store.dart';
 
@@ -20,6 +21,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
     required WeightRepositoryBase weightRepository,
     required SavedFoodLocalStore savedFoodRepository,
     required MealTemplateRepositoryBase mealTemplateRepository,
+    WorkoutTemplateRepositoryBase? workoutTemplateRepository,
     WebHealthWorkoutStore? workoutStore,
   }) : _userRepository = userRepository,
        _settingsRepository = settingsRepository,
@@ -29,6 +31,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
        _weightRepository = weightRepository,
        _savedFoodRepository = savedFoodRepository,
        _mealTemplateRepository = mealTemplateRepository,
+       _workoutTemplateRepository = workoutTemplateRepository,
        _workoutStore = workoutStore ?? WebHealthWorkoutStore();
 
   final UserRepositoryBase _userRepository;
@@ -39,6 +42,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
   final WeightRepositoryBase _weightRepository;
   final SavedFoodLocalStore _savedFoodRepository;
   final MealTemplateRepositoryBase _mealTemplateRepository;
+  final WorkoutTemplateRepositoryBase? _workoutTemplateRepository;
   final WebHealthWorkoutStore _workoutStore;
 
   @override
@@ -51,6 +55,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
     await _weightRepository.clearAll();
     await _savedFoodRepository.clearAllLocal();
     await _mealTemplateRepository.clearAll();
+    await _workoutTemplateRepository?.clearAll();
     await _workoutStore.clearAll();
   }
 }

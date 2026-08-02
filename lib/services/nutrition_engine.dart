@@ -9,9 +9,12 @@ import '../models/nutrition_settings.dart';
 import '../models/target_macros.dart';
 import '../models/user_profile.dart';
 import '../utils/local_date.dart';
+import 'remaining_calorie_service.dart';
 
 /// Version 1.1 正式 Nutrition Engine。
 class NutritionEngine {
+  static const _remainingCalorieService = RemainingCalorieService();
+
   static const double kcalPerKgBodyWeightChange = 7200;
   static const double proteinKcalPerGram = 4;
   static const double fatKcalPerGram = 9;
@@ -184,28 +187,23 @@ class NutritionEngine {
       referenceDate: referenceDate ?? DateTime.now(),
       readLoggedAt: (entry) => entry.loggedAt,
     );
-    final dayExerciseEntries = filterLoggedOnLocalDay(
-      entries: exerciseEntries,
-      referenceDate: referenceDate ?? DateTime.now(),
-      readLoggedAt: (entry) => entry.loggedAt,
-    );
-    final dayAlcoholEntries = filterLoggedOnLocalDay(
-      entries: alcoholEntries,
-      referenceDate: referenceDate ?? DateTime.now(),
-      readLoggedAt: (entry) => entry.consumedAt,
-    );
 
-    final foodKcal = _sumFoodKcal(dayFoodEntries);
-    final alcoholKcal = _sumAlcoholKcal(dayAlcoholEntries);
-    final intakeKcal = foodKcal + alcoholKcal;
+    final intakeKcal = _remainingCalorieService.sumIntakeKcal(
+      foodEntries: foodEntries,
+      alcoholEntries: alcoholEntries,
+      selectedDay: referenceDate ?? DateTime.now(),
+    );
     final intakeProteinG = _sumFoodProtein(dayFoodEntries);
     final intakeFatG = _sumFoodFat(dayFoodEntries);
     final intakeCarbG = _sumFoodCarb(dayFoodEntries);
-    final exerciseBurnKcal = _sumExerciseBurn(dayExerciseEntries);
-    final remainingKcal = calculateRemainingCalories(
-      targetCalories: targetKcal,
-      foodCalories: intakeKcal,
-      exerciseCalories: exerciseBurnKcal,
+    final exerciseNetKcal = _remainingCalorieService.sumExerciseNetKcal(
+      exerciseEntries: exerciseEntries,
+      selectedDay: referenceDate ?? DateTime.now(),
+    );
+    final remainingKcal = _remainingCalorieService.calculate(
+      baseDailyFoodTargetKcal: targetKcal,
+      intakeKcal: intakeKcal,
+      exerciseNetKcal: exerciseNetKcal,
     );
 
     return DailySummary(
@@ -218,7 +216,7 @@ class NutritionEngine {
       intakeProteinG: intakeProteinG,
       intakeFatG: intakeFatG,
       intakeCarbG: intakeCarbG,
-      exerciseBurnKcal: exerciseBurnKcal,
+      exerciseBurnKcal: exerciseNetKcal,
     );
   }
 
@@ -236,14 +234,6 @@ class NutritionEngine {
 
   double _sumFoodCarb(List<FoodEntry> entries) {
     return entries.fold(0, (sum, entry) => sum + entry.totalCarbG);
-  }
-
-  double _sumAlcoholKcal(List<AlcoholEntry> entries) {
-    return entries.fold(0, (sum, entry) => sum + entry.totalCalories);
-  }
-
-  double _sumExerciseBurn(List<ExerciseEntry> entries) {
-    return entries.fold(0, (sum, entry) => sum + entry.burnedKcal);
   }
 
   DateTime _dateOnly(DateTime value) {

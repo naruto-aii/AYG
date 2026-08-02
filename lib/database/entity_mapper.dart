@@ -2,6 +2,8 @@ import '../database/schemas.dart';
 import '../models/activity_level.dart';
 import '../models/alcohol_entry.dart';
 import '../models/app_settings.dart';
+import '../models/exercise_calculation_source.dart';
+import '../models/exercise_category.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
 import '../models/food_entry_source.dart';
@@ -18,6 +20,7 @@ import '../models/nutrition_settings.dart';
 import '../models/saved_food.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
+import '../models/workout_template.dart';
 import 'entity_enum_codec.dart';
 
 class EntityMapper {
@@ -303,7 +306,21 @@ class EntityMapper {
       ..name = entry.name
       ..durationMin = entry.durationMin
       ..burnedKcal = entry.burnedKcal
-      ..loggedAt = entry.loggedAt;
+      ..loggedAt = entry.loggedAt
+      ..categoryKey = entry.category?.id
+      ..activityId = entry.activityId
+      ..intensity = entry.intensity
+      ..sets = entry.sets
+      ..reps = entry.reps
+      ..liftWeightKg = entry.liftWeightKg
+      ..metValue = entry.metValue
+      ..grossKcal = entry.grossKcal
+      ..netKcal = entry.netKcal
+      ..weightKgSnapshot = entry.weightKgSnapshot
+      ..calculationSource = entry.calculationSource?.storageValue
+      ..calculationVersion = entry.calculationVersion
+      ..sourceKey = entry.sourceKey
+      ..notes = entry.notes;
   }
 
   static ExerciseEntry fromExerciseEntryEntity(ExerciseEntryEntity entity) {
@@ -313,6 +330,102 @@ class EntityMapper {
       durationMin: entity.durationMin,
       burnedKcal: entity.burnedKcal,
       loggedAt: entity.loggedAt,
+      category: ExerciseCategoryX.tryParse(entity.categoryKey),
+      activityId: entity.activityId,
+      intensity: entity.intensity,
+      sets: entity.sets,
+      reps: entity.reps,
+      liftWeightKg: entity.liftWeightKg,
+      metValue: entity.metValue,
+      grossKcal: entity.grossKcal,
+      netKcal: entity.netKcal,
+      weightKgSnapshot: entity.weightKgSnapshot,
+      calculationSource: ExerciseCalculationSourceX.tryParse(
+        entity.calculationSource,
+      ),
+      calculationVersion: entity.calculationVersion,
+      sourceKey: entity.sourceKey,
+      notes: entity.notes,
+    );
+  }
+
+  static WorkoutTemplateEntity toWorkoutTemplateEntity(
+    WorkoutTemplate template,
+  ) {
+    return WorkoutTemplateEntity()
+      ..templateId = template.templateId
+      ..ownerUserId = template.ownerUserId
+      ..normalizedName = template.normalizedName
+      ..statusIndex = EntityEnumCodec.workoutTemplateStatusIndex(
+        template.status,
+      )
+      ..name = template.name
+      ..useCount = template.useCount
+      ..lastUsedAt = template.lastUsedAt
+      ..createdAt = template.createdAt
+      ..updatedAt = template.updatedAt
+      ..deletedAt = template.deletedAt;
+  }
+
+  static WorkoutTemplate fromWorkoutTemplateEntity(
+    WorkoutTemplateEntity entity,
+  ) {
+    return WorkoutTemplate(
+      templateId: entity.templateId,
+      ownerUserId: entity.ownerUserId,
+      name: entity.name,
+      normalizedName: entity.normalizedName,
+      status: EntityEnumCodec.workoutTemplateStatusFromIndex(
+        entity.statusIndex,
+      ),
+      useCount: entity.useCount,
+      lastUsedAt: entity.lastUsedAt,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      deletedAt: entity.deletedAt,
+    );
+  }
+
+  static WorkoutTemplateItemEntity toWorkoutTemplateItemEntity({
+    required WorkoutTemplateItem item,
+    required String templateId,
+    required String ownerUserId,
+  }) {
+    return WorkoutTemplateItemEntity()
+      ..itemId = item.itemId
+      ..templateId = templateId
+      ..ownerUserId = ownerUserId
+      ..sortOrder = item.sortOrder
+      ..name = item.name
+      ..activityId = item.activityId
+      ..categoryKey = item.categoryKey
+      ..intensity = item.intensity
+      ..durationMin = item.durationMin
+      ..sets = item.sets
+      ..reps = item.reps
+      ..liftWeightKg = item.liftWeightKg
+      ..notes = item.notes
+      ..metValue = item.metValue
+      ..sourceKey = item.sourceKey;
+  }
+
+  static WorkoutTemplateItem fromWorkoutTemplateItemEntity(
+    WorkoutTemplateItemEntity entity,
+  ) {
+    return WorkoutTemplateItem(
+      itemId: entity.itemId,
+      name: entity.name,
+      activityId: entity.activityId,
+      categoryKey: entity.categoryKey,
+      intensity: entity.intensity,
+      durationMin: entity.durationMin,
+      sets: entity.sets,
+      reps: entity.reps,
+      liftWeightKg: entity.liftWeightKg,
+      sortOrder: entity.sortOrder,
+      notes: entity.notes,
+      metValue: entity.metValue,
+      sourceKey: entity.sourceKey,
     );
   }
 

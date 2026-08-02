@@ -15,12 +15,14 @@ import '../repositories/health_repository.dart';
 import '../repositories/saved_food_repository.dart';
 import '../repositories/local_session_store.dart';
 import '../repositories/meal_template_repository.dart';
+import '../repositories/workout_template_repository.dart';
 import '../repositories/platform_health_repository.dart';
 import '../repositories/settings_repository.dart';
 import '../repositories/supabase/supabase_food_rating_repository.dart';
 import '../repositories/supabase/supabase_food_report_repository.dart';
 import '../repositories/supabase/supabase_meal_template_repository.dart';
 import '../repositories/supabase/supabase_saved_food_repository.dart';
+import '../repositories/supabase/supabase_workout_template_repository.dart';
 import '../repositories/user_repository.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
@@ -49,13 +51,16 @@ Future<void> bootstrapApp() async {
   final alcoholRepository = AlcoholRepository(isar);
   final savedFoodRepository = IsarSavedFoodRepository(isar);
   final mealTemplateRepository = MealTemplateRepository(isar);
+  final workoutTemplateRepository = WorkoutTemplateRepository(isar);
 
   final foodMasterRepositories = SupabaseConfig.isConfigured
       ? FoodMasterRepositories.synced(
           localSavedFoods: savedFoodRepository,
           mealTemplates: mealTemplateRepository,
+          workoutTemplates: workoutTemplateRepository,
           remoteSavedFoods: SupabaseSavedFoodRepository(),
           remoteMealTemplates: SupabaseMealTemplateRepository(),
+          remoteWorkoutTemplates: SupabaseWorkoutTemplateRepository(),
           foodRatings: SupabaseFoodRatingRepository(),
           foodReports: SupabaseFoodReportRepository(),
           blockedCreators: SupabaseBlockedFoodCreatorRepository(),
@@ -63,6 +68,7 @@ Future<void> bootstrapApp() async {
       : FoodMasterRepositories.localOnly(
           localSavedFoods: savedFoodRepository,
           mealTemplates: mealTemplateRepository,
+          workoutTemplates: workoutTemplateRepository,
         );
 
   final openFoodFactsService = OpenFoodFactsService(
@@ -102,6 +108,7 @@ Future<void> bootstrapApp() async {
     weightRepository: weightRepository,
     savedFoodRepository: savedFoodRepository,
     mealTemplateRepository: mealTemplateRepository,
+    workoutTemplateRepository: workoutTemplateRepository,
   );
 
   final controller = AppController(
@@ -121,6 +128,7 @@ Future<void> bootstrapApp() async {
     foodReportRepository: foodMasterRepositories.foodReports,
     blockedCreatorRepository: foodMasterRepositories.blockedCreators,
     mealTemplateRepository: mealTemplateRepository,
+    workoutTemplateRepository: workoutTemplateRepository,
   );
   await controller.initialize();
 

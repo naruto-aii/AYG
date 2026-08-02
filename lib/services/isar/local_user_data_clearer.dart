@@ -5,6 +5,7 @@ import '../../repositories/alcohol_repository.dart';
 import '../../repositories/exercise_repository.dart';
 import '../../repositories/food_repository.dart';
 import '../../repositories/meal_template_repository.dart';
+import '../../repositories/workout_template_repository.dart';
 import '../../repositories/saved_food_repository.dart';
 import '../../repositories/settings_repository.dart';
 import '../../repositories/user_repository.dart';
@@ -24,6 +25,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
     required WeightRepository weightRepository,
     required SavedFoodRepository savedFoodRepository,
     required MealTemplateRepository mealTemplateRepository,
+    required WorkoutTemplateRepository workoutTemplateRepository,
   }) : _isar = isar,
        _userRepository = userRepository,
        _settingsRepository = settingsRepository,
@@ -32,7 +34,8 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
        _alcoholRepository = alcoholRepository,
        _weightRepository = weightRepository,
        _savedFoodRepository = savedFoodRepository,
-       _mealTemplateRepository = mealTemplateRepository;
+       _mealTemplateRepository = mealTemplateRepository,
+       _workoutTemplateRepository = workoutTemplateRepository;
 
   final Isar _isar;
   final UserRepository _userRepository;
@@ -43,6 +46,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
   final WeightRepository _weightRepository;
   final SavedFoodRepository _savedFoodRepository;
   final MealTemplateRepository _mealTemplateRepository;
+  final WorkoutTemplateRepository _workoutTemplateRepository;
 
   @override
   Future<void> clearAll() async {
@@ -54,6 +58,7 @@ class LocalUserDataClearer implements LocalUserDataClearerBase {
     await _weightRepository.clearAll();
     await _savedFoodRepository.clearAll();
     await _mealTemplateRepository.clearAll();
+    await _workoutTemplateRepository.clearAll();
 
     await _isar.writeTxn(() async {
       await _isar.healthWorkoutEntitys.clear();

@@ -216,4 +216,59 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
       await _isar.mealTemplateEntitys.clear();
     });
   }
+
+  @override
+  Future<void> clearForOwner(String ownerUserId) async {
+    await _isar.writeTxn(() async {
+      final items = await _isar.mealTemplateItemEntitys
+          .filter()
+          .ownerUserIdEqualTo(ownerUserId)
+          .findAll();
+      if (items.isNotEmpty) {
+        await _isar.mealTemplateItemEntitys.deleteAll(
+          items.map((e) => e.id).toList(),
+        );
+      }
+
+      final templates = await _isar.mealTemplateEntitys
+          .filter()
+          .ownerUserIdEqualTo(ownerUserId)
+          .findAll();
+      if (templates.isNotEmpty) {
+        await _isar.mealTemplateEntitys.deleteAll(
+          templates.map((e) => e.id).toList(),
+        );
+      }
+    });
+  }
+
+  @override
+  Future<void> reassignOwnerUserId({
+    required String fromOwnerUserId,
+    required String toOwnerUserId,
+  }) async {
+    if (fromOwnerUserId == toOwnerUserId) {
+      return;
+    }
+
+    await _isar.writeTxn(() async {
+      final templates = await _isar.mealTemplateEntitys
+          .filter()
+          .ownerUserIdEqualTo(fromOwnerUserId)
+          .findAll();
+      for (final entity in templates) {
+        entity.ownerUserId = toOwnerUserId;
+        await _isar.mealTemplateEntitys.put(entity);
+      }
+
+      final items = await _isar.mealTemplateItemEntitys
+          .filter()
+          .ownerUserIdEqualTo(fromOwnerUserId)
+          .findAll();
+      for (final entity in items) {
+        entity.ownerUserId = toOwnerUserId;
+        await _isar.mealTemplateItemEntitys.put(entity);
+      }
+    });
+  }
 }

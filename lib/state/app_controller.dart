@@ -9,7 +9,11 @@ import '../models/activity_level.dart';
 import '../models/daily_summary.dart';
 import '../models/duplicate_saved_food_action.dart';
 import '../models/duplicate_saved_food_resolution.dart';
+import '../data/met_activity_catalog.dart';
+import '../models/exercise_calculation_source.dart';
+import '../models/exercise_category.dart';
 import '../models/exercise_entry.dart';
+import '../models/food_form_suggestion.dart';
 import '../models/food_entry.dart';
 import '../models/goal.dart';
 import '../models/food_status.dart';
@@ -34,6 +38,7 @@ import '../models/saved_food_publish_validation.dart';
 import '../models/save_food_entry_result.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
+import '../models/workout_template.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
 import '../repositories/contracts/blocked_food_creator_repository_base.dart';
@@ -46,6 +51,7 @@ import '../repositories/contracts/food_repository_base.dart';
 import '../repositories/contracts/meal_template_repository_base.dart';
 import '../repositories/contracts/settings_repository_base.dart';
 import '../repositories/contracts/user_repository_base.dart';
+import '../repositories/contracts/workout_template_repository_base.dart';
 import '../repositories/contracts/weight_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
 import '../repositories/sync_step_runner.dart';
@@ -65,6 +71,7 @@ import '../services/saved_food_entry_builder.dart';
 import '../services/saved_food_publish_validator.dart';
 import '../services/saved_food_search_service.dart';
 import '../services/saved_food_version_policy.dart';
+import '../services/search_suggestion_service.dart';
 import '../utils/food_name_normalizer.dart';
 import '../utils/id_generator.dart';
 
@@ -87,6 +94,7 @@ class AppController extends ChangeNotifier {
     FoodReportRepositoryBase? foodReportRepository,
     BlockedFoodCreatorRepositoryBase? blockedCreatorRepository,
     MealTemplateRepositoryBase? mealTemplateRepository,
+    WorkoutTemplateRepositoryBase? workoutTemplateRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -104,6 +112,7 @@ class AppController extends ChangeNotifier {
        _foodReportRepository = foodReportRepository,
        _blockedCreatorRepository = blockedCreatorRepository,
        _mealTemplateRepository = mealTemplateRepository,
+       _workoutTemplateRepository = workoutTemplateRepository,
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -112,7 +121,8 @@ class AppController extends ChangeNotifier {
        _publicFoodSearchService = const PublicFoodSearchService(),
        _mealTemplateTotalsService = const MealTemplateTotalsService(),
        _mealTemplateDependencyService = const MealTemplateDependencyService(),
-       _mealTemplateApplyService = const MealTemplateApplyService();
+       _mealTemplateApplyService = const MealTemplateApplyService(),
+       _searchSuggestionService = const SearchSuggestionService();
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
@@ -131,6 +141,7 @@ class AppController extends ChangeNotifier {
   final FoodReportRepositoryBase? _foodReportRepository;
   final BlockedFoodCreatorRepositoryBase? _blockedCreatorRepository;
   final MealTemplateRepositoryBase? _mealTemplateRepository;
+  final WorkoutTemplateRepositoryBase? _workoutTemplateRepository;
   final SavedFoodSearchService _savedFoodSearchService;
   final SavedFoodDuplicateService _savedFoodDuplicateService;
   final SavedFoodEntryBuilder _savedFoodEntryBuilder;
@@ -140,6 +151,7 @@ class AppController extends ChangeNotifier {
   final MealTemplateTotalsService _mealTemplateTotalsService;
   final MealTemplateDependencyService _mealTemplateDependencyService;
   final MealTemplateApplyService _mealTemplateApplyService;
+  final SearchSuggestionService _searchSuggestionService;
 
   bool _publishOperationInProgress = false;
   final Set<String> _ratingOperationsInProgress = {};
@@ -298,6 +310,7 @@ class AppController extends ChangeNotifier {
       );
 
       if (force || lastUserId != authUser.id || !_hasInitialSyncCompleted) {
+        await _migrateLocalOwnerData(toUserId: authUser.id);
         await dataSyncRepository.pullRemoteToLocal(authUser.id);
         _hasInitialSyncCompleted = true;
         await _localSessionStore?.saveLastUserId(authUser.id);
@@ -454,7 +467,10 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> recordManualWeight(double weightKg, {DateTime? recordedAt}) async {
+  Future<void> recordManualWeight(
+    double weightKg, {
+    DateTime? recordedAt,
+  }) async {
     final entry = WeightEntry(
       id: generateId(),
       weightKg: weightKg,
@@ -1162,6 +1178,94 @@ class AppController extends ChangeNotifier {
     return _savedFoodSearchService.rankOwnResults(foods: results, query: query);
   }
 
+  Future<List<SavedFood>> getOwnSavedFoodSuggestions() async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      return const [];
+    }
+    final results = await repository.searchOwn(
+      ownerUserId: currentOwnerUserId,
+      query: '',
+    );
+    return _searchSuggestionService.rankSavedFoodSuggestions(results);
+  }
+
+  Future<List<MealTemplate>> getMealTemplateSuggestions() async {
+    return searchMealTemplates('');
+  }
+
+  Future<List<FoodFormSuggestion>> getFoodFormSuggestions(String query) async {
+    final trimmed = query.trim();
+    final foods = trimmed.isEmpty
+        ? await getOwnSavedFoodSuggestions()
+        : await searchOwnSavedFoods(trimmed);
+    final templates = await searchMealTemplates(trimmed);
+
+    final itemCounts = <String, int>{};
+    final mealRepo = _mealTemplateRepository;
+    if (mealRepo != null) {
+      for (final template in templates) {
+        final items = await mealRepo.getItems(
+          ownerUserId: currentOwnerUserId,
+          templateId: template.templateId,
+        );
+        itemCounts[template.templateId] = items.length;
+      }
+    }
+
+    return _searchSuggestionService.rankFoodFormSuggestions(
+      foods: foods,
+      templates: templates,
+      templateItemCounts: itemCounts,
+    );
+  }
+
+  Future<List<WorkoutTemplate>> getWorkoutTemplateSuggestions() async {
+    return searchWorkoutTemplates('');
+  }
+
+  Future<List<String>> getExerciseNameSuggestions() async {
+    final counts = <String, int>{};
+    final lastUsed = <String, DateTime>{};
+    for (final entry in exerciseEntries) {
+      final name = entry.name.trim();
+      if (name.isEmpty) {
+        continue;
+      }
+      final key = FoodNameNormalizer.normalize(name);
+      counts[key] = (counts[key] ?? 0) + 1;
+      final loggedAt = entry.loggedAt;
+      final previous = lastUsed[key];
+      if (previous == null || loggedAt.isAfter(previous)) {
+        lastUsed[key] = loggedAt;
+      }
+    }
+
+    final displayNames = <String, String>{};
+    for (final entry in exerciseEntries) {
+      final name = entry.name.trim();
+      if (name.isEmpty) {
+        continue;
+      }
+      displayNames[FoodNameNormalizer.normalize(name)] = name;
+    }
+
+    final keys = counts.keys.toList()
+      ..sort((a, b) {
+        final countCompare = counts[b]!.compareTo(counts[a]!);
+        if (countCompare != 0) {
+          return countCompare;
+        }
+        final usedCompare = lastUsed[b]!.compareTo(lastUsed[a]!);
+        if (usedCompare != 0) {
+          return usedCompare;
+        }
+        return a.compareTo(b);
+      });
+
+    return keys.map((key) => displayNames[key] ?? key).toList();
+  }
+
   Future<List<PublicFoodSearchMatch>> searchPublicSavedFoods(
     String query,
   ) async {
@@ -1539,7 +1643,138 @@ class AppController extends ChangeNotifier {
     if (repository == null) {
       return const [];
     }
-    return repository.search(ownerUserId: currentOwnerUserId, query: query);
+    final results = await repository.search(
+      ownerUserId: currentOwnerUserId,
+      query: query,
+    );
+    if (query.trim().isEmpty) {
+      return _searchSuggestionService.rankMealTemplateSuggestions(results);
+    }
+    return results;
+  }
+
+  Future<List<WorkoutTemplate>> searchWorkoutTemplates(String query) async {
+    final repository = _workoutTemplateRepository;
+    if (repository == null) {
+      return const [];
+    }
+    final results = await repository.search(
+      ownerUserId: currentOwnerUserId,
+      query: query,
+    );
+    if (query.trim().isEmpty) {
+      return _searchSuggestionService.rankWorkoutTemplateSuggestions(results);
+    }
+    return results;
+  }
+
+  Future<WorkoutTemplateWithItems?> getWorkoutTemplateWithItems(
+    String templateId,
+  ) async {
+    final repository = _workoutTemplateRepository;
+    if (repository == null) {
+      return null;
+    }
+    final template = await repository.getById(
+      ownerUserId: currentOwnerUserId,
+      templateId: templateId,
+    );
+    if (template == null) {
+      return null;
+    }
+    final items = await repository.getItems(
+      ownerUserId: currentOwnerUserId,
+      templateId: templateId,
+    );
+    return WorkoutTemplateWithItems(template: template, items: items);
+  }
+
+  Future<WorkoutTemplate> saveWorkoutTemplate({
+    required WorkoutTemplateDraft draft,
+    String? templateId,
+  }) async {
+    final repository = _workoutTemplateRepository;
+    if (repository == null) {
+      throw StateError('WorkoutTemplateRepository is not configured');
+    }
+    if (draft.name.trim().isEmpty) {
+      throw ArgumentError('Template name is required');
+    }
+    if (draft.items.isEmpty) {
+      throw ArgumentError('Template must include at least one item');
+    }
+
+    final now = DateTime.now();
+    final id = templateId ?? generateId();
+    final existing = templateId == null
+        ? null
+        : await repository.getById(
+            ownerUserId: currentOwnerUserId,
+            templateId: id,
+          );
+    final items = draft.items.toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final mappedItems = items
+        .asMap()
+        .entries
+        .map((entry) => entry.value.copyWith(sortOrder: entry.key + 1))
+        .toList();
+    final template = WorkoutTemplate(
+      templateId: id,
+      ownerUserId: currentOwnerUserId,
+      name: draft.name.trim(),
+      normalizedName: FoodNameNormalizer.normalize(draft.name),
+      useCount: existing?.useCount ?? 0,
+      lastUsedAt: existing?.lastUsedAt,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    );
+
+    await repository.saveWithItems(template: template, items: mappedItems);
+    _scheduleRemoteSync();
+    return template;
+  }
+
+  Future<void> deleteWorkoutTemplate(String templateId) async {
+    final repository = _workoutTemplateRepository;
+    if (repository == null) {
+      throw StateError('WorkoutTemplateRepository is not configured');
+    }
+    await repository.softDelete(
+      ownerUserId: currentOwnerUserId,
+      templateId: templateId,
+      deletedAt: DateTime.now(),
+    );
+    _scheduleRemoteSync();
+  }
+
+  Future<void> registerWorkoutEntriesFromDrafts(
+    List<WorkoutTemplateApplyDraft> drafts,
+  ) async {
+    for (final draft in drafts) {
+      await addExercise(
+        ExerciseEntry(
+          id: generateId(),
+          name: draft.name,
+          durationMin: draft.durationMin,
+          burnedKcal: draft.grossKcal ?? draft.netKcal ?? 0,
+          loggedAt: draft.loggedAt,
+          category: ExerciseCategoryX.tryParse(draft.categoryKey),
+          activityId: draft.activityId,
+          intensity: draft.intensity,
+          sets: draft.sets,
+          reps: draft.reps,
+          liftWeightKg: draft.liftWeightKg,
+          metValue: draft.metValue,
+          grossKcal: draft.grossKcal,
+          netKcal: draft.netKcal,
+          calculationSource: ExerciseCalculationSource.template,
+          calculationVersion: MetActivityCatalog.calculationVersion,
+          sourceKey: draft.sourceKey,
+          notes: draft.notes,
+        ),
+      );
+    }
   }
 
   Future<MealTemplateWithItems?> getMealTemplateWithItems(
@@ -1629,6 +1864,45 @@ class AppController extends ChangeNotifier {
       deletedAt: DateTime.now(),
     );
     _scheduleRemoteSync();
+  }
+
+  Future<void> restoreMealTemplateBundle(MealTemplateWithItems bundle) async {
+    await saveMealTemplate(
+      draft: MealTemplateDraft(
+        name: bundle.template.name,
+        items: bundle.items
+            .map(
+              (item) => MealTemplateItemDraft(
+                itemId: item.itemId,
+                savedFoodId: item.savedFoodId,
+                sourceOwnerUserId: item.sourceOwnerUserId,
+                name: item.name,
+                baseAmount: item.baseAmount,
+                unitType: item.unitType,
+                kcalPerBase: item.kcalPerBase,
+                proteinPerBase: item.proteinPerBase,
+                fatPerBase: item.fatPerBase,
+                carbPerBase: item.carbPerBase,
+                consumedAmount: item.consumedAmount,
+                sortOrder: item.sortOrder,
+              ),
+            )
+            .toList(),
+      ),
+      templateId: bundle.template.templateId,
+    );
+  }
+
+  Future<void> restoreWorkoutTemplateBundle(
+    WorkoutTemplateWithItems bundle,
+  ) async {
+    await saveWorkoutTemplate(
+      draft: WorkoutTemplateDraft(
+        name: bundle.template.name,
+        items: bundle.items,
+      ),
+      templateId: bundle.template.templateId,
+    );
   }
 
   Future<List<MealTemplateDependencyIssue>> analyzeMealTemplateDependencies(
@@ -2016,6 +2290,24 @@ class AppController extends ChangeNotifier {
       ),
     );
     _scheduleRemoteSync();
+  }
+
+  Future<void> _migrateLocalOwnerData({required String toUserId}) async {
+    final mealTemplateRepository = _mealTemplateRepository;
+    if (mealTemplateRepository != null) {
+      await mealTemplateRepository.reassignOwnerUserId(
+        fromOwnerUserId: localOwnerUserId,
+        toOwnerUserId: toUserId,
+      );
+    }
+
+    final workoutTemplateRepository = _workoutTemplateRepository;
+    if (workoutTemplateRepository != null) {
+      await workoutTemplateRepository.reassignOwnerUserId(
+        fromOwnerUserId: localOwnerUserId,
+        toOwnerUserId: toUserId,
+      );
+    }
   }
 
   void _scheduleRemoteSync() {

@@ -184,6 +184,21 @@ class ExerciseEntryEntity {
   late int durationMin;
   late double burnedKcal;
   late DateTime loggedAt;
+
+  String? categoryKey;
+  String? activityId;
+  String? intensity;
+  int? sets;
+  int? reps;
+  double? liftWeightKg;
+  double? metValue;
+  double? grossKcal;
+  double? netKcal;
+  double? weightKgSnapshot;
+  String? calculationSource;
+  String? calculationVersion;
+  String? sourceKey;
+  String? notes;
 }
 
 @collection
@@ -201,6 +216,59 @@ class AlcoholEntryEntity {
   late double pureAlcoholGrams;
   late double alcoholCalories;
   late DateTime consumedAt;
+}
+
+@collection
+class WorkoutTemplateEntity {
+  Id id = Isar.autoIncrement;
+
+  @Index(unique: true, replace: true)
+  late String templateId;
+
+  @Index()
+  late String ownerUserId;
+
+  @Index()
+  late String normalizedName;
+
+  late int statusIndex;
+
+  late String name;
+  late int useCount;
+  DateTime? lastUsedAt;
+
+  late DateTime createdAt;
+  late DateTime updatedAt;
+  DateTime? deletedAt;
+}
+
+@collection
+class WorkoutTemplateItemEntity {
+  Id id = Isar.autoIncrement;
+
+  @Index(unique: true, replace: true)
+  late String itemId;
+
+  @Index()
+  late String templateId;
+
+  @Index()
+  late String ownerUserId;
+
+  @Index()
+  late int sortOrder;
+
+  late String name;
+  String? activityId;
+  String? categoryKey;
+  String? intensity;
+  late int durationMin;
+  int? sets;
+  int? reps;
+  double? liftWeightKg;
+  String? notes;
+  double? metValue;
+  String? sourceKey;
 }
 
 @collection

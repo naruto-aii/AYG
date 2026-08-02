@@ -192,9 +192,9 @@ class SupabaseErrorMapper {
   }
 
   static String? _extractRelationName(String combined) {
-    final quoted = RegExp(r'''(?:relation|table) "([^"]+)"''').firstMatch(
-      combined,
-    );
+    final quoted = RegExp(
+      r'''(?:relation|table) "([^"]+)"''',
+    ).firstMatch(combined);
     if (quoted != null) {
       return quoted.group(1);
     }

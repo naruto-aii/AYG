@@ -43,6 +43,7 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
   late final TextEditingController _manualPureAlcoholController;
   late DateTime _consumedAt;
   bool _isSaving = false;
+  bool _totalCaloriesManuallyEdited = false;
 
   @override
   void initState() {
@@ -67,10 +68,20 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
     _consumedAt =
         (entry?.consumedAt ?? widget.initialConsumedAt ?? DateTime.now())
             .toLocal();
+    if (entry != null) {
+      _totalCaloriesManuallyEdited =
+          (entry.totalCalories - entry.alcoholCalories).abs() > 0.01;
+    }
+    _totalCaloriesController.addListener(_onTotalCaloriesEdited);
+  }
+
+  void _onTotalCaloriesEdited() {
+    _totalCaloriesManuallyEdited = true;
   }
 
   @override
   void dispose() {
+    _totalCaloriesController.removeListener(_onTotalCaloriesEdited);
     _nameController.dispose();
     _amountController.dispose();
     _unitController.dispose();
@@ -101,7 +112,9 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
       amount: amount,
       unit: _unitController.text,
       alcoholPercentage: alcoholPercentage,
-      totalCaloriesInput: _parseOptionalDouble(_totalCaloriesController.text),
+      totalCaloriesInput: _totalCaloriesManuallyEdited
+          ? _parseOptionalDouble(_totalCaloriesController.text)
+          : null,
       manualPureAlcoholGrams: _parseOptionalDouble(
         _manualPureAlcoholController.text,
       ),
@@ -129,7 +142,9 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
       amount: amount,
       unit: unit,
       alcoholPercentage: alcoholPercentage,
-      totalCaloriesInput: _parseOptionalDouble(_totalCaloriesController.text),
+      totalCaloriesInput: _totalCaloriesManuallyEdited
+          ? _parseOptionalDouble(_totalCaloriesController.text)
+          : null,
       manualPureAlcoholGrams: manualPure,
     );
 

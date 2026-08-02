@@ -142,6 +142,26 @@ class CalculationReferencesScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               _CategorySection(
+                title: 'アルコールカロリー',
+                version: 'alcohol_v1',
+                summary:
+                    '純アルコール量 (g) = 飲酒量 (mL) × アルコール度数 ÷ 100 × 0.8 g/mL。'
+                    'アルコール由来 kcal = 純アルコール量 (g) × 7 kcal/g。'
+                    'P/F/C には配分しません。',
+                references: const [
+                  _Ref(
+                    authors: 'Food and Agriculture Organization of the UN.',
+                    title:
+                        'FAO / WHO Expert Consultation on human vitamin and mineral requirements.',
+                    journal: 'FAO.',
+                    url: 'https://www.fao.org/4/y2809e/y2809e00.htm',
+                    usage: 'エタノールのエネルギー換算（約 7 kcal/g）の公的参考。',
+                  ),
+                ],
+                onOpen: (url) => _openUrl(context, url),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _CategorySection(
                 title: '体重変化についての注意',
                 version: CalculationVersions.energy,
                 summary:

@@ -72,6 +72,8 @@ import '../services/saved_food_publish_validator.dart';
 import '../services/saved_food_search_service.dart';
 import '../services/saved_food_version_policy.dart';
 import '../services/search_suggestion_service.dart';
+import '../models/food_visibility.dart';
+import '../services/source_food_edit_policy.dart';
 import '../utils/food_name_normalizer.dart';
 import '../utils/id_generator.dart';
 
@@ -488,10 +490,45 @@ class AppController extends ChangeNotifier {
     await _refreshProfileWeightFromEntries();
   }
 
-  Future<void> deleteWeightEntry(String entryId) async {
-    await _weightRepository?.delete(entryId);
+  Future<void> restoreWeightEntry(WeightEntry entry) async {
+    await _weightRepository?.save(entry);
     await _reloadWeightEntries();
-    await _refreshProfileWeightFromEntries();
+    await _refreshProfileWeightFromEntriesWithoutScheduledSync();
+    await _persistToRemoteNow();
+  }
+
+  Future<void> _refreshProfileWeightFromEntriesWithoutScheduledSync() async {
+    final currentProfile = profile;
+    if (currentProfile == null) {
+      refreshDailySummary();
+      return;
+    }
+
+    profile = _profileWithPreferredWeight(currentProfile);
+    await _userRepository?.saveProfile(profile!);
+    refreshDailySummary();
+  }
+
+  Future<void> deleteWeightEntry(String entryId) async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    final weightRepository = _weightRepository;
+
+    if (dataSyncRepository?.supportsRemoteWeightEntryDelete ?? false) {
+      if (userId == null) {
+        throw StateError('Authentication required to delete weight entry.');
+      }
+      await dataSyncRepository!.deleteWeightEntry(
+        userId: userId,
+        entryId: entryId,
+      );
+    }
+
+    if (weightRepository != null) {
+      await weightRepository.delete(entryId);
+      await _reloadWeightEntries();
+      await _refreshProfileWeightFromEntries();
+    }
   }
 
   Future<void> _reloadWeightEntries() async {
@@ -726,6 +763,27 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
+  Future<void> restoreFoodEntry(FoodEntry entry) async {
+    await _saveFoodEntryLocally(entry);
+    refreshDailySummary();
+    await _persistToRemoteNow();
+  }
+
+  Future<void> _saveFoodEntryLocally(FoodEntry entry) async {
+    final foodRepository = _foodRepository;
+    if (foodRepository != null) {
+      await foodRepository.save(entry);
+      await _reloadFoodEntries();
+    } else {
+      final index = foodEntries.indexWhere((item) => item.id == entry.id);
+      if (index == -1) {
+        foodEntries.add(entry);
+      } else {
+        foodEntries[index] = entry;
+      }
+    }
+  }
+
   Future<void> updateFood(FoodEntry entry) async {
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
@@ -740,6 +798,111 @@ class AppController extends ChangeNotifier {
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+  }
+
+  Future<void> saveEditedFoodEntryWithSourceChoice({
+    required FoodEntry entry,
+    required FoodEntry originalEntry,
+    required SourceFoodUpdateChoice sourceChoice,
+  }) async {
+    if (sourceChoice == SourceFoodUpdateChoice.cancel) {
+      return;
+    }
+
+    var entryToSave = entry;
+
+    if (sourceChoice == SourceFoodUpdateChoice.copyAndUpdateSource) {
+      entryToSave = await _copyLinkedPublicFoodAndPatch(
+        entry: entry,
+        patch: SourceFoodEditPolicy.fromFoodEntry(entry),
+      );
+    } else if (sourceChoice == SourceFoodUpdateChoice.updateSource) {
+      await _patchLinkedOwnSavedFood(
+        savedFoodId: entry.savedFoodId!,
+        patch: SourceFoodEditPolicy.fromFoodEntry(entry),
+      );
+    }
+
+    await updateFood(entryToSave);
+  }
+
+  Future<void> _patchLinkedOwnSavedFood({
+    required String savedFoodId,
+    required SavedFoodPatch patch,
+  }) async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      throw StateError('SavedFoodRepository is not configured');
+    }
+
+    final existing = await repository.getOwn(
+      ownerUserId: currentOwnerUserId,
+      foodId: savedFoodId,
+    );
+    if (existing == null) {
+      throw StateError('Saved food not found');
+    }
+
+    final updated = existing.copyWith(
+      name: patch.name,
+      normalizedName: FoodNameNormalizer.normalize(patch.name),
+      baseAmount: patch.baseAmount,
+      unitType: patch.unitType,
+      kcalPerBase: patch.kcalPerBase,
+      proteinPerBase: patch.proteinPerBase,
+      fatPerBase: patch.fatPerBase,
+      carbPerBase: patch.carbPerBase,
+      updatedAt: DateTime.now(),
+    );
+
+    if (updated.visibility == FoodVisibility.public) {
+      await updatePublishedSavedFood(updated, confirmedPublicUpdate: true);
+    } else {
+      await updateSavedFood(updated);
+    }
+  }
+
+  Future<FoodEntry> _copyLinkedPublicFoodAndPatch({
+    required FoodEntry entry,
+    required SavedFoodPatch patch,
+  }) async {
+    final repository = _savedFoodRepository;
+    final sourceOwnerUserId = entry.sourceFoodOwnerUserId;
+    final savedFoodId = entry.savedFoodId;
+    if (repository == null ||
+        sourceOwnerUserId == null ||
+        savedFoodId == null) {
+      throw StateError('Linked public food is unavailable');
+    }
+
+    final source = await repository.getPublicById(
+      ownerUserId: sourceOwnerUserId,
+      foodId: savedFoodId,
+    );
+    if (source == null) {
+      throw StateError('Public source food not found');
+    }
+
+    final copy = await copyPublicFoodToPrivate(source);
+    final patched = await updateSavedFood(
+      copy.copyWith(
+        name: patch.name,
+        normalizedName: FoodNameNormalizer.normalize(patch.name),
+        baseAmount: patch.baseAmount,
+        unitType: patch.unitType,
+        kcalPerBase: patch.kcalPerBase,
+        proteinPerBase: patch.proteinPerBase,
+        fatPerBase: patch.fatPerBase,
+        carbPerBase: patch.carbPerBase,
+        updatedAt: DateTime.now(),
+      ),
+    );
+
+    return entry.copyWith(
+      savedFoodId: patched.foodId,
+      sourceFoodOwnerUserId: currentOwnerUserId,
+      sourceSavedFoodVersion: patched.version,
+    );
   }
 
   Future<void> deleteFood(String id) async {
@@ -775,6 +938,27 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
+  Future<void> restoreExerciseEntry(ExerciseEntry entry) async {
+    await _saveExerciseEntryLocally(entry);
+    refreshDailySummary();
+    await _persistToRemoteNow();
+  }
+
+  Future<void> _saveExerciseEntryLocally(ExerciseEntry entry) async {
+    final exerciseRepository = _exerciseRepository;
+    if (exerciseRepository != null) {
+      await exerciseRepository.save(entry);
+      await _reloadExerciseEntries();
+    } else {
+      final index = exerciseEntries.indexWhere((item) => item.id == entry.id);
+      if (index == -1) {
+        exerciseEntries.add(entry);
+      } else {
+        exerciseEntries[index] = entry;
+      }
+    }
+  }
+
   Future<void> updateExercise(ExerciseEntry entry) async {
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
@@ -792,14 +976,26 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteExercise(String id) async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
     final exerciseRepository = _exerciseRepository;
+
+    if (dataSyncRepository?.supportsRemoteExerciseEntryDelete ?? false) {
+      if (userId == null) {
+        throw StateError('Authentication required to delete exercise entry.');
+      }
+      await dataSyncRepository!.deleteExerciseEntry(
+        userId: userId,
+        entryId: id,
+      );
+    }
+
     if (exerciseRepository != null) {
       await exerciseRepository.delete(id);
       await _reloadExerciseEntries();
     } else {
       exerciseEntries.removeWhere((item) => item.id == id);
     }
-    _scheduleRemoteSync();
     refreshDailySummary();
   }
 
@@ -813,6 +1009,27 @@ class AppController extends ChangeNotifier {
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+  }
+
+  Future<void> restoreAlcoholEntry(AlcoholEntry entry) async {
+    await _saveAlcoholEntryLocally(entry);
+    refreshDailySummary();
+    await _persistToRemoteNow();
+  }
+
+  Future<void> _saveAlcoholEntryLocally(AlcoholEntry entry) async {
+    final alcoholRepository = _alcoholRepository;
+    if (alcoholRepository != null) {
+      await alcoholRepository.save(entry);
+      await _reloadAlcoholEntries();
+    } else {
+      final index = alcoholEntries.indexWhere((item) => item.id == entry.id);
+      if (index == -1) {
+        alcoholEntries.add(entry);
+      } else {
+        alcoholEntries[index] = entry;
+      }
+    }
   }
 
   Future<void> updateAlcohol(AlcoholEntry entry) async {

@@ -62,7 +62,7 @@ class DayHistoryScreen extends StatelessWidget {
       message: '「${entry.name}」を削除しますか？',
       snapshot: entry,
       onDelete: () => controller.deleteFood(entry.id),
-      onRestore: (restored) => controller.addFood(restored),
+      onRestore: (restored) => controller.restoreFoodEntry(restored),
     );
   }
 
@@ -76,7 +76,7 @@ class DayHistoryScreen extends StatelessWidget {
       message: '「${entry.name}」を削除しますか？',
       snapshot: entry,
       onDelete: () => controller.deleteExercise(entry.id),
-      onRestore: (restored) => controller.addExercise(restored),
+      onRestore: (restored) => controller.restoreExerciseEntry(restored),
     );
   }
 
@@ -90,7 +90,7 @@ class DayHistoryScreen extends StatelessWidget {
       message: '「${entry.beverageName}」を削除しますか？',
       snapshot: entry,
       onDelete: () => controller.deleteAlcohol(entry.id),
-      onRestore: (restored) => controller.addAlcohol(restored),
+      onRestore: (restored) => controller.restoreAlcoholEntry(restored),
     );
   }
 
@@ -104,7 +104,7 @@ class DayHistoryScreen extends StatelessWidget {
       message: 'この体重記録を削除しますか？',
       snapshot: entry,
       onDelete: () => controller.deleteWeightEntry(entry.id),
-      onRestore: (restored) => controller.updateWeightEntry(restored),
+      onRestore: (restored) => controller.restoreWeightEntry(restored),
     );
   }
 

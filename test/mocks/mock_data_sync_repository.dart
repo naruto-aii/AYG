@@ -10,16 +10,28 @@ class MockDataSyncRepository implements DataSyncRepository {
 
   bool failDeleteAlcoholEntry = false;
 
+  bool failDeleteExerciseEntry = false;
+
+  bool failDeleteWeightEntry = false;
+
   @override
   bool get supportsRemoteFoodEntryDelete => true;
 
   @override
   bool get supportsRemoteAlcoholEntryDelete => true;
 
+  @override
+  bool get supportsRemoteExerciseEntryDelete => true;
+
+  @override
+  bool get supportsRemoteWeightEntryDelete => true;
+
   String? lastUserId;
   String? lastEmail;
   final deletedFoodEntryIds = <String>[];
   final deletedAlcoholEntryIds = <String>[];
+  final deletedExerciseEntryIds = <String>[];
+  final deletedWeightEntryIds = <String>[];
 
   @override
   Future<RemoteUserProfile> ensureUserProfile({
@@ -98,5 +110,29 @@ class MockDataSyncRepository implements DataSyncRepository {
       throw StateError('delete alcohol entry failed');
     }
     deletedAlcoholEntryIds.add(entryId);
+  }
+
+  @override
+  Future<void> deleteExerciseEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    lastUserId = userId;
+    if (failDeleteExerciseEntry) {
+      throw StateError('delete exercise entry failed');
+    }
+    deletedExerciseEntryIds.add(entryId);
+  }
+
+  @override
+  Future<void> deleteWeightEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    lastUserId = userId;
+    if (failDeleteWeightEntry) {
+      throw StateError('delete weight entry failed');
+    }
+    deletedWeightEntryIds.add(entryId);
   }
 }

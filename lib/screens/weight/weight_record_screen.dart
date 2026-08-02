@@ -104,11 +104,19 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
       return;
     }
 
-    await widget.controller.deleteWeightEntry(entry.id);
-    if (!mounted) {
-      return;
+    try {
+      await widget.controller.deleteWeightEntry(entry.id);
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('体重記録の削除に失敗しました。もう一度お試しください')),
+        );
+      }
     }
-    Navigator.of(context).pop();
   }
 
   @override

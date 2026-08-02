@@ -74,10 +74,24 @@ abstract class DataSyncRepository {
     required String entryId,
   });
 
+  Future<void> deleteExerciseEntry({
+    required String userId,
+    required String entryId,
+  });
+
+  Future<void> deleteWeightEntry({
+    required String userId,
+    required String entryId,
+  });
+
   /// Supabase 等のリモート削除が有効か。
   bool get supportsRemoteFoodEntryDelete;
 
   bool get supportsRemoteAlcoholEntryDelete;
+
+  bool get supportsRemoteExerciseEntryDelete;
+
+  bool get supportsRemoteWeightEntryDelete;
 }
 
 /// Supabase 実装。
@@ -114,6 +128,12 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 
   @override
   bool get supportsRemoteAlcoholEntryDelete => true;
+
+  @override
+  bool get supportsRemoteExerciseEntryDelete => true;
+
+  @override
+  bool get supportsRemoteWeightEntryDelete => true;
 
   @override
   Future<RemoteUserProfile> ensureUserProfile({
@@ -315,6 +335,58 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         if (deleted.isEmpty) {
           throw StateError(
             'Alcohol entry delete affected 0 rows (entry_id=$entryId)',
+          );
+        }
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteExerciseEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    await runSyncStep(
+      step: SyncStep.deleteExerciseEntry,
+      repository: 'SupabaseDataSyncRepository',
+      tableName: 'exercise_entries',
+      operation: 'delete',
+      action: () async {
+        final deleted = await _client
+            .from('exercise_entries')
+            .delete()
+            .eq('user_id', userId)
+            .eq('entry_id', entryId)
+            .select('entry_id');
+        if (deleted.isEmpty) {
+          throw StateError(
+            'Exercise entry delete affected 0 rows (entry_id=$entryId)',
+          );
+        }
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteWeightEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    await runSyncStep(
+      step: SyncStep.deleteWeightEntry,
+      repository: 'SupabaseDataSyncRepository',
+      tableName: 'weight_entries',
+      operation: 'delete',
+      action: () async {
+        final deleted = await _client
+            .from('weight_entries')
+            .delete()
+            .eq('user_id', userId)
+            .eq('entry_id', entryId)
+            .select('entry_id');
+        if (deleted.isEmpty) {
+          throw StateError(
+            'Weight entry delete affected 0 rows (entry_id=$entryId)',
           );
         }
       },
@@ -861,6 +933,12 @@ class NoOpDataSyncRepository implements DataSyncRepository {
   bool get supportsRemoteAlcoholEntryDelete => false;
 
   @override
+  bool get supportsRemoteExerciseEntryDelete => false;
+
+  @override
+  bool get supportsRemoteWeightEntryDelete => false;
+
+  @override
   Future<RemoteUserProfile> ensureUserProfile({
     required String userId,
     String? email,
@@ -892,6 +970,18 @@ class NoOpDataSyncRepository implements DataSyncRepository {
 
   @override
   Future<void> deleteAlcoholEntry({
+    required String userId,
+    required String entryId,
+  }) async {}
+
+  @override
+  Future<void> deleteExerciseEntry({
+    required String userId,
+    required String entryId,
+  }) async {}
+
+  @override
+  Future<void> deleteWeightEntry({
     required String userId,
     required String entryId,
   }) async {}

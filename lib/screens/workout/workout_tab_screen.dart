@@ -49,7 +49,7 @@ class _WorkoutTabScreenState extends State<WorkoutTabScreen> {
       message: '「${entry.name}」を削除しますか？',
       snapshot: entry,
       onDelete: () => widget.controller.deleteExercise(entry.id),
-      onRestore: (restored) => widget.controller.addExercise(restored),
+      onRestore: (restored) => widget.controller.restoreExerciseEntry(restored),
     );
   }
 

@@ -22,7 +22,17 @@ Future<void> confirmDeleteWithUndo<T>({
     return;
   }
 
-  await onDelete();
+  try {
+    await onDelete();
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('削除に失敗しました。もう一度お試しください')));
+    }
+    return;
+  }
+
   if (!context.mounted) {
     return;
   }
@@ -32,8 +42,16 @@ Future<void> confirmDeleteWithUndo<T>({
       content: Text(deletedMessage),
       action: SnackBarAction(
         label: undoLabel,
-        onPressed: () {
-          onRestore(snapshot);
+        onPressed: () async {
+          try {
+            await onRestore(snapshot);
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('元に戻せませんでした。もう一度お試しください')),
+              );
+            }
+          }
         },
       ),
     ),

@@ -69,16 +69,9 @@ SupabaseDataSyncRepository buildGoalSync({
 void main() {
   group('GoalPace sync contract', () {
     test('push maps maintain to null and lose/gain to slow/standard', () {
+      expect(remoteGoalPaceValue(sampleLoseGoal(pace: GoalPace.slow)), 'slow');
       expect(
-        remoteGoalPaceValue(
-          sampleLoseGoal(pace: GoalPace.slow),
-        ),
-        'slow',
-      );
-      expect(
-        remoteGoalPaceValue(
-          sampleLoseGoal(pace: GoalPace.standard),
-        ),
+        remoteGoalPaceValue(sampleLoseGoal(pace: GoalPace.standard)),
         'standard',
       );
       expect(
@@ -96,30 +89,18 @@ void main() {
 
     test('pull falls back null and unknown to standard', () {
       expect(
-        goalPaceFromRemoteRow({
-          'goal_type': 'lose',
-          'goal_pace': null,
-        }),
+        goalPaceFromRemoteRow({'goal_type': 'lose', 'goal_pace': null}),
         GoalPace.standard,
       );
       expect(
-        goalPaceFromRemoteRow({
-          'goal_type': 'lose',
-          'goal_pace': 'unknown',
-        }),
+        goalPaceFromRemoteRow({'goal_type': 'lose', 'goal_pace': 'unknown'}),
         GoalPace.standard,
       );
       expect(
-        goalPaceFromRemoteRow({
-          'goal_type': 'lose',
-          'goal_pace': 'slow',
-        }),
+        goalPaceFromRemoteRow({'goal_type': 'lose', 'goal_pace': 'slow'}),
         GoalPace.slow,
       );
-      expect(
-        goalPaceFromRemoteRow({'goal_type': 'lose'}),
-        GoalPace.standard,
-      );
+      expect(goalPaceFromRemoteRow({'goal_type': 'lose'}), GoalPace.standard);
     });
 
     test('slow pace raises lose target kcal versus standard', () {
@@ -191,7 +172,9 @@ void main() {
       final harness = await setUpIsarHarness();
       addTearDown(harness.dispose);
 
-      await harness.userRepository.saveGoal(sampleLoseGoal(pace: GoalPace.slow));
+      await harness.userRepository.saveGoal(
+        sampleLoseGoal(pace: GoalPace.slow),
+      );
       expect(
         (await harness.userRepository.loadGoal())?.goalPace,
         GoalPace.slow,
@@ -202,7 +185,9 @@ void main() {
       final harness = await setUpIsarHarness();
       addTearDown(harness.dispose);
 
-      await harness.userRepository.saveGoal(sampleLoseGoal(pace: GoalPace.slow));
+      await harness.userRepository.saveGoal(
+        sampleLoseGoal(pace: GoalPace.slow),
+      );
       await harness.userRepository.clearAll();
 
       final remoteRow = {

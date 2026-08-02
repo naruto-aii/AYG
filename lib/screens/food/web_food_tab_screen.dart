@@ -76,7 +76,7 @@ class _WebFoodTabScreenState extends State<WebFoodTabScreen> {
       message: '「${entry.name}」を削除しますか？',
       snapshot: entry,
       onDelete: () => widget.controller.deleteFood(entry.id),
-      onRestore: (restored) => widget.controller.addFood(restored),
+      onRestore: (restored) => widget.controller.restoreFoodEntry(restored),
     );
   }
 

@@ -46,6 +46,19 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                 Text('カロリー根拠', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: AppSpacing.sm),
                 if (energy != null && energy.canEstimateRee) ...[
+                  Text(
+                    '基礎代謝（安静時エネルギー消費量の推定）',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Mifflin–St Jeor 式による推定安静時消費（REE）です。'
+                    '実測の基礎代謝ではなく、年齢・身長・体重・性別区分から算出した推定値です。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
                   _row('年齢', '${energy.ageYears} 歳'),
                   _row('身長', '${energy.heightCm?.toStringAsFixed(1)} cm'),
                   _row('体重', '${energy.weightKg?.toStringAsFixed(1)} kg'),
@@ -75,6 +88,17 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     '1日の食事目標',
                     '${formatNullableNutrient(energy.goalFoodTargetKcal)} kcal',
                   ),
+                ],
+                if (energy != null && !energy.canEstimateRee) ...[
+                  Text(
+                    energy.unavailableReason ??
+                        '推定安静時消費を算出できません（18歳未満、'
+                            'または性別区分が未設定の場合など）。',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
                 ],
                 if (remaining != null) ...[
                   _row(

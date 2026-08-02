@@ -14,6 +14,8 @@ import '../../platform/web/web_barcode_scanner_screen.dart';
 import '../../platform/web/web_barcode_support.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/source_food_edit_policy.dart';
+import '../../widgets/food/source_food_update_dialog.dart';
 import '../../state/app_controller.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
@@ -396,7 +398,31 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
     }
 
     if (widget.isEditing) {
-      await widget.controller.updateFood(entry);
+      final original = widget.entry!;
+      SourceFoodUpdateChoice sourceChoice = SourceFoodUpdateChoice.entryOnly;
+      if (SourceFoodEditPolicy.affectsSourceFood(
+        original: original,
+        updated: entry,
+      )) {
+        final isOwn =
+            original.sourceFoodOwnerUserId == null ||
+            original.sourceFoodOwnerUserId ==
+                widget.controller.currentOwnerUserId;
+        final choice = await showSourceFoodUpdateDialog(
+          context: context,
+          isOwnSavedFood: isOwn,
+        );
+        if (choice == null || choice == SourceFoodUpdateChoice.cancel) {
+          return;
+        }
+        sourceChoice = choice;
+      }
+
+      await widget.controller.saveEditedFoodEntryWithSourceChoice(
+        entry: entry,
+        originalEntry: original,
+        sourceChoice: sourceChoice,
+      );
     } else {
       await widget.controller.saveFoodEntryWithOptionalSavedFood(
         entry: entry,

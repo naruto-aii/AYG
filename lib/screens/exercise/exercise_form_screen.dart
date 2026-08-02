@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_category.dart';
+import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/workout_template.dart';
+import '../../services/exercise_calorie_calculator.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/common/app_card.dart';
@@ -113,8 +115,12 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return null;
     }
 
-    final gross = double.parse(_burnedKcalController.text);
-    final net = _metState.netKcal ?? gross;
+    final grossAndNet = _resolveGrossAndNetKcal();
+    if (grossAndNet == null) {
+      return null;
+    }
+    final gross = grossAndNet.$1;
+    final net = grossAndNet.$2;
 
     return ExerciseEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
@@ -134,6 +140,44 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
           _metState.calculationVersion ?? MetActivityCatalog.calculationVersion,
       sourceKey: _metState.sourceKey,
     );
+  }
+
+  /// 保存直前に MET 入力から gross/net を再計算（編集時の古い値混在を防ぐ）。
+  (double, double)? _resolveGrossAndNetKcal() {
+    final parsedGross = double.tryParse(_burnedKcalController.text.trim());
+    if (parsedGross == null) {
+      return null;
+    }
+
+    if (_metState.manualOverride ||
+        _metState.calculationSource ==
+            ExerciseCalculationSource.manualOverride) {
+      return (parsedGross, _metState.netKcal ?? parsedGross);
+    }
+
+    final duration = int.tryParse(_durationController.text.trim());
+    final met = _metState.metValue;
+    final weight =
+        _metState.weightKgSnapshot ?? widget.controller.profile?.weightKg;
+    if (duration != null &&
+        duration > 0 &&
+        met != null &&
+        met > 0 &&
+        weight != null &&
+        weight > 0) {
+      const calculator = ExerciseCalorieCalculator();
+      final estimate = calculator.estimate(
+        met: met,
+        weightKg: weight,
+        durationMinutes: duration,
+        sourceKey: _metState.sourceKey,
+      );
+      if (estimate != null) {
+        return (estimate.grossKcal, estimate.netKcal);
+      }
+    }
+
+    return (parsedGross, _metState.netKcal ?? parsedGross);
   }
 
   Future<void> _save() async {
@@ -167,7 +211,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       message: '「${entry.name}」を削除しますか？',
       snapshot: entry,
       onDelete: () => widget.controller.deleteExercise(entry.id),
-      onRestore: (restored) => widget.controller.addExercise(restored),
+      onRestore: (restored) => widget.controller.restoreExerciseEntry(restored),
     );
 
     if (!mounted) {

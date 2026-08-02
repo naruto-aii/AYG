@@ -37,6 +37,8 @@ import '../../widgets/layout/app_constrained_bottom_bar.dart';
 import '../../widgets/layout/app_form_constraint.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/food/food_form_suggestion_list.dart';
+import '../../services/source_food_edit_policy.dart';
+import '../../widgets/food/source_food_update_dialog.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
 import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../../widgets/saved_food/serving_amount_fields.dart';
@@ -515,7 +517,31 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     if (widget.isEditing) {
-      await widget.controller.updateFood(entry);
+      final original = widget.entry!;
+      SourceFoodUpdateChoice sourceChoice = SourceFoodUpdateChoice.entryOnly;
+      if (SourceFoodEditPolicy.affectsSourceFood(
+        original: original,
+        updated: entry,
+      )) {
+        final isOwn =
+            original.sourceFoodOwnerUserId == null ||
+            original.sourceFoodOwnerUserId ==
+                widget.controller.currentOwnerUserId;
+        final choice = await showSourceFoodUpdateDialog(
+          context: context,
+          isOwnSavedFood: isOwn,
+        );
+        if (choice == null || choice == SourceFoodUpdateChoice.cancel) {
+          return;
+        }
+        sourceChoice = choice;
+      }
+
+      await widget.controller.saveEditedFoodEntryWithSourceChoice(
+        entry: entry,
+        originalEntry: original,
+        sourceChoice: sourceChoice,
+      );
       if (!mounted) {
         return;
       }

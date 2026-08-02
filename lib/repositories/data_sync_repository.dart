@@ -413,11 +413,8 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       'goal_type': goal.type.name,
       'target_weight_kg': goal.targetWeightKg,
       'target_date': goal.targetDate.toIso8601String(),
+      'goal_pace': goal.type == GoalType.maintain ? null : goal.goalPace.name,
     };
-
-    // goal_pace 列は migration 20260802120000 適用後に同期。
-    // 未適用環境では goals の upsert を壊さないため省略する。
-    // Isar / Web ローカルには goalPace が保存される。
 
     await _client.from('goals').upsert(payload, onConflict: 'user_id');
   }

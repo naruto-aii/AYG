@@ -142,11 +142,7 @@ void main() {
           home: Scaffold(
             body: FoodHistoryList(
               dateGroups: [
-                HistoryDateGroup(
-                  date: now,
-                  label: '今日',
-                  items: [entry],
-                ),
+                HistoryDateGroup(date: now, label: '今日', items: [entry]),
               ],
               onTapEntry: (_) {},
               onDeleteEntry: (_) {},

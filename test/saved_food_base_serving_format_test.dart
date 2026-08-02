@@ -48,10 +48,7 @@ void main() {
     });
 
     test('formats per serving label', () {
-      expect(
-        SavedFoodBaseServingFormat.formatSavedFood(food()),
-        '100gあたり',
-      );
+      expect(SavedFoodBaseServingFormat.formatSavedFood(food()), '100gあたり');
       expect(
         SavedFoodBaseServingFormat.formatSavedFood(
           food(baseAmount: 1, servingUnitLabel: '缶'),

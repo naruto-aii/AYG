@@ -91,10 +91,12 @@ void main() {
       final otherId = otherClient.auth.currentUser!.id;
       final entry = sampleAlcoholEntry(id: 'alcohol-$suffix');
 
-      await ownerClient.from('alcohol_entries').upsert(
-        FoodMasterRowMapper.alcoholEntryToRow(entry, userId: ownerId),
-        onConflict: 'user_id,entry_id',
-      );
+      await ownerClient
+          .from('alcohol_entries')
+          .upsert(
+            FoodMasterRowMapper.alcoholEntryToRow(entry, userId: ownerId),
+            onConflict: 'user_id,entry_id',
+          );
 
       final ownRows = await ownerClient
           .from('alcohol_entries')
@@ -235,10 +237,12 @@ void main() {
         final user = client.auth.currentUser!;
         final entry = sampleAlcoholEntry(id: 'alcohol-delete-$suffix');
 
-        await client.from('alcohol_entries').upsert(
-          FoodMasterRowMapper.alcoholEntryToRow(entry, userId: user.id),
-          onConflict: 'user_id,entry_id',
-        );
+        await client
+            .from('alcohol_entries')
+            .upsert(
+              FoodMasterRowMapper.alcoholEntryToRow(entry, userId: user.id),
+              onConflict: 'user_id,entry_id',
+            );
 
         final controller = await buildController(
           client: client,
@@ -248,10 +252,16 @@ void main() {
 
         await simulateAlcoholEntriesPull(client: client, userId: user.id);
         await syncControllerAlcoholEntries(controller: controller);
-        expect(controller.alcoholEntries.map((item) => item.id), contains(entry.id));
+        expect(
+          controller.alcoholEntries.map((item) => item.id),
+          contains(entry.id),
+        );
 
         await controller.deleteAlcohol(entry.id);
-        expect(controller.alcoholEntries.where((item) => item.id == entry.id), isEmpty);
+        expect(
+          controller.alcoholEntries.where((item) => item.id == entry.id),
+          isEmpty,
+        );
 
         final rows = await client
             .from('alcohol_entries')
@@ -275,10 +285,12 @@ void main() {
         final user = client.auth.currentUser!;
         final entry = sampleAlcoholEntry(id: 'alcohol-keep-$suffix');
 
-        await client.from('alcohol_entries').upsert(
-          FoodMasterRowMapper.alcoholEntryToRow(entry, userId: user.id),
-          onConflict: 'user_id,entry_id',
-        );
+        await client
+            .from('alcohol_entries')
+            .upsert(
+              FoodMasterRowMapper.alcoholEntryToRow(entry, userId: user.id),
+              onConflict: 'user_id,entry_id',
+            );
 
         final controller = await buildController(
           client: client,
@@ -319,7 +331,8 @@ class _InMemoryAlcoholRepository implements AlcoholRepositoryBase {
   }
 
   @override
-  Future<List<AlcoholEntry>> loadAll() async => List<AlcoholEntry>.from(_entries);
+  Future<List<AlcoholEntry>> loadAll() async =>
+      List<AlcoholEntry>.from(_entries);
 
   @override
   Future<void> save(AlcoholEntry entry) async {

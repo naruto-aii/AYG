@@ -106,10 +106,12 @@ void main() {
       final userId = client.auth.currentUser!.id;
       final entry = sampleEntry(id: 'entry-delete-$suffix');
 
-      await client.from('food_entries').upsert(
-        FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
-        onConflict: 'user_id,entry_id',
-      );
+      await client
+          .from('food_entries')
+          .upsert(
+            FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
+            onConflict: 'user_id,entry_id',
+          );
 
       final dataSync = buildDataSync(
         client: client,
@@ -173,10 +175,12 @@ void main() {
       final attackerId = attackerClient.auth.currentUser!.id;
       final entry = sampleEntry(id: 'entry-other-$suffix');
 
-      await ownerClient.from('food_entries').upsert(
-        FoodMasterRowMapper.foodEntryToRow(entry, userId: ownerId),
-        onConflict: 'user_id,entry_id',
-      );
+      await ownerClient
+          .from('food_entries')
+          .upsert(
+            FoodMasterRowMapper.foodEntryToRow(entry, userId: ownerId),
+            onConflict: 'user_id,entry_id',
+          );
 
       final attackerSync = buildDataSync(
         client: attackerClient,
@@ -184,10 +188,7 @@ void main() {
       );
 
       await expectLater(
-        attackerSync.deleteFoodEntry(
-          userId: attackerId,
-          entryId: entry.id,
-        ),
+        attackerSync.deleteFoodEntry(userId: attackerId, entryId: entry.id),
         throwsA(isA<SyncStepException>()),
       );
 
@@ -259,10 +260,12 @@ void main() {
         final user = client.auth.currentUser!;
         final entry = sampleEntry(id: 'entry-controller-$suffix');
 
-        await client.from('food_entries').upsert(
-          FoodMasterRowMapper.foodEntryToRow(entry, userId: user.id),
-          onConflict: 'user_id,entry_id',
-        );
+        await client
+            .from('food_entries')
+            .upsert(
+              FoodMasterRowMapper.foodEntryToRow(entry, userId: user.id),
+              onConflict: 'user_id,entry_id',
+            );
 
         final controller = await buildController(
           client: client,
@@ -279,10 +282,16 @@ void main() {
           controller: controller,
           foodRepository: foodRepository,
         );
-        expect(controller.foodEntries.map((item) => item.id), contains(entry.id));
+        expect(
+          controller.foodEntries.map((item) => item.id),
+          contains(entry.id),
+        );
 
         await controller.deleteFood(entry.id);
-        expect(controller.foodEntries.where((item) => item.id == entry.id), isEmpty);
+        expect(
+          controller.foodEntries.where((item) => item.id == entry.id),
+          isEmpty,
+        );
 
         await simulateFoodEntriesPull(
           client: client,
@@ -293,7 +302,10 @@ void main() {
           controller: controller,
           foodRepository: foodRepository,
         );
-        expect(controller.foodEntries.where((item) => item.id == entry.id), isEmpty);
+        expect(
+          controller.foodEntries.where((item) => item.id == entry.id),
+          isEmpty,
+        );
       });
 
       test('keeps local entry when remote delete finds no row', () async {

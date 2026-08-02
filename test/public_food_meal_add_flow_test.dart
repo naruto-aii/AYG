@@ -99,17 +99,10 @@ void main() {
       await harness.dispose();
     });
 
-    Future<void> pumpHost(
-      WidgetTester tester, {
-      required Widget child,
-    }) async {
+    Future<void> pumpHost(WidgetTester tester, {required Widget child}) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: child),
-        ),
-      );
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
       await tester.pump();
     }
 
@@ -170,14 +163,13 @@ void main() {
       await pumpFrames(tester);
 
       expect(find.text('直接追加できません'), findsOneWidget);
-      expect(
-        find.text('この食品には基準量が設定されていないため、直接追加できません。'),
-        findsOneWidget,
-      );
+      expect(find.text('この食品には基準量が設定されていないため、直接追加できません。'), findsOneWidget);
       expect(find.text('キャンセル'), findsOneWidget);
     });
 
-    testWidgets('detail sheet closes before opening quantity sheet', (tester) async {
+    testWidgets('detail sheet closes before opening quantity sheet', (
+      tester,
+    ) async {
       SavedFood? mealFood;
       await pumpHost(
         tester,
@@ -257,7 +249,9 @@ void main() {
       expect(mealFood, isNotNull);
     });
 
-    testWidgets('quantity change scales nutrients proportionally', (tester) async {
+    testWidgets('quantity change scales nutrients proportionally', (
+      tester,
+    ) async {
       await pumpHost(
         tester,
         child: Builder(
@@ -283,17 +277,20 @@ void main() {
       expect(find.textContaining('760'), findsWidgets);
     });
 
-    test('addMealEntryFromSavedFoodMaster creates one entry from public food', () async {
-      await controller.addMealEntryFromSavedFoodMaster(
-        food: publicFood(),
-        consumedQuantity: 100,
-        loggedAt: DateTime(2026, 7, 20, 12),
-      );
+    test(
+      'addMealEntryFromSavedFoodMaster creates one entry from public food',
+      () async {
+        await controller.addMealEntryFromSavedFoodMaster(
+          food: publicFood(),
+          consumedQuantity: 100,
+          loggedAt: DateTime(2026, 7, 20, 12),
+        );
 
-      expect(controller.foodEntries, hasLength(1));
-      expect(controller.foodEntries.single.name, '公開オートミール');
-      expect(controller.foodEntries.single.kcalPerBase, 380);
-      expect(controller.foodEntries.single.consumedAmount, 100);
-    });
+        expect(controller.foodEntries, hasLength(1));
+        expect(controller.foodEntries.single.name, '公開オートミール');
+        expect(controller.foodEntries.single.kcalPerBase, 380);
+        expect(controller.foodEntries.single.consumedAmount, 100);
+      },
+    );
   });
 }

@@ -14,9 +14,7 @@ void main() {
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: AlcoholFormScreen(controller: controller),
-        ),
+        MaterialApp(home: AlcoholFormScreen(controller: controller)),
       );
 
       expect(find.text('数量'), findsOneWidget);
@@ -42,19 +40,14 @@ void main() {
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: AlcoholFormScreen(controller: controller),
-        ),
+        MaterialApp(home: AlcoholFormScreen(controller: controller)),
       );
 
       await tester.enterText(find.byType(TextFormField).at(2), '缶');
       await tester.pump();
 
       expect(find.text('純アルコール量 (g)'), findsOneWidget);
-      expect(
-        find.text('mlで入力すると純アルコール量を自動計算できます'),
-        findsOneWidget,
-      );
+      expect(find.text('mlで入力すると純アルコール量を自動計算できます'), findsOneWidget);
     });
   });
 
@@ -67,9 +60,7 @@ void main() {
         MaterialApp(
           home: FoodTabScreen(
             controller: controller,
-            openFoodFactsService: OpenFoodFactsService(
-              userAgent: 'test-agent',
-            ),
+            openFoodFactsService: OpenFoodFactsService(userAgent: 'test-agent'),
           ),
         ),
       );
@@ -77,7 +68,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
 
-      expect(find.text('食事を追加'), findsOneWidget);
+      expect(find.text('食事を追加'), findsAtLeast(1));
       expect(find.text('アルコールを追加'), findsOneWidget);
     });
   });

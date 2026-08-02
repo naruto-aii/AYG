@@ -72,71 +72,91 @@ void main() {
       );
     }
 
-    test('saveMealTemplate persists three distinct items after reload', () async {
-      final saved = await controller.saveMealTemplate(draft: threeItemDraft());
+    test(
+      'saveMealTemplate persists three distinct items after reload',
+      () async {
+        final saved = await controller.saveMealTemplate(
+          draft: threeItemDraft(),
+        );
 
-      final reloaded = await controller.getMealTemplateWithItems(
-        saved.templateId,
-      );
+        final reloaded = await controller.getMealTemplateWithItems(
+          saved.templateId,
+        );
 
-      expect(reloaded, isNotNull);
-      expect(reloaded!.items, hasLength(3));
-      expect(
-        reloaded.items.map((item) => item.itemId).toSet(),
-        hasLength(3),
-      );
-      expect(reloaded.items.map((item) => item.name), ['A', 'B', 'C']);
-    });
+        expect(reloaded, isNotNull);
+        expect(reloaded!.items, hasLength(3));
+        expect(reloaded.items.map((item) => item.itemId).toSet(), hasLength(3));
+        expect(reloaded.items.map((item) => item.name), ['A', 'B', 'C']);
+      },
+    );
 
-    test('applyMealTemplate creates three food entries with distinct ids', () async {
-      final saved = await controller.saveMealTemplate(draft: threeItemDraft());
-      final beforeCount = controller.foodEntries.length;
+    test(
+      'applyMealTemplate creates three food entries with distinct ids',
+      () async {
+        final saved = await controller.saveMealTemplate(
+          draft: threeItemDraft(),
+        );
+        final beforeCount = controller.foodEntries.length;
 
-      final result = await controller.applyMealTemplate(
-        templateId: saved.templateId,
-      );
+        final result = await controller.applyMealTemplate(
+          templateId: saved.templateId,
+        );
 
-      expect(result.success, isTrue);
-      expect(result.createdEntryCount, 3);
-      expect(controller.foodEntries.length, beforeCount + 3);
+        expect(result.success, isTrue);
+        expect(result.createdEntryCount, 3);
+        expect(controller.foodEntries.length, beforeCount + 3);
 
-      final created = controller.foodEntries
-          .where((entry) => {'A', 'B', 'C'}.contains(entry.name))
-          .toList();
-      expect(created, hasLength(3));
-      expect(created.map((entry) => entry.id).toSet(), hasLength(3));
-    });
+        final created = controller.foodEntries
+            .where((entry) => {'A', 'B', 'C'}.contains(entry.name))
+            .toList();
+        expect(created, hasLength(3));
+        expect(created.map((entry) => entry.id).toSet(), hasLength(3));
+      },
+    );
 
-    test('rapid apply attempts do not duplicate entries when guarded externally', () async {
-      final saved = await controller.saveMealTemplate(draft: threeItemDraft());
+    test(
+      'rapid apply attempts do not duplicate entries when guarded externally',
+      () async {
+        final saved = await controller.saveMealTemplate(
+          draft: threeItemDraft(),
+        );
 
-      final first = await controller.applyMealTemplate(
-        templateId: saved.templateId,
-      );
-      final second = await controller.applyMealTemplate(
-        templateId: saved.templateId,
-      );
+        final first = await controller.applyMealTemplate(
+          templateId: saved.templateId,
+        );
+        final second = await controller.applyMealTemplate(
+          templateId: saved.templateId,
+        );
 
-      expect(first.success, isTrue);
-      expect(second.success, isTrue);
-      expect(first.createdEntryCount, 3);
-      expect(second.createdEntryCount, 3);
-      expect(controller.foodEntries.map((entry) => entry.id).toSet(), hasLength(6));
-    });
+        expect(first.success, isTrue);
+        expect(second.success, isTrue);
+        expect(first.createdEntryCount, 3);
+        expect(second.createdEntryCount, 3);
+        expect(
+          controller.foodEntries.map((entry) => entry.id).toSet(),
+          hasLength(6),
+        );
+      },
+    );
 
-    test('saveWithItems keeps parent and all items in one repository transaction', () async {
-      final saved = await controller.saveMealTemplate(draft: threeItemDraft());
-      final items = await harness.mealTemplateRepository.getItems(
-        ownerUserId: 'test-user-id',
-        templateId: saved.templateId,
-      );
-      final template = await harness.mealTemplateRepository.getById(
-        ownerUserId: 'test-user-id',
-        templateId: saved.templateId,
-      );
+    test(
+      'saveWithItems keeps parent and all items in one repository transaction',
+      () async {
+        final saved = await controller.saveMealTemplate(
+          draft: threeItemDraft(),
+        );
+        final items = await harness.mealTemplateRepository.getItems(
+          ownerUserId: 'test-user-id',
+          templateId: saved.templateId,
+        );
+        final template = await harness.mealTemplateRepository.getById(
+          ownerUserId: 'test-user-id',
+          templateId: saved.templateId,
+        );
 
-      expect(template, isNotNull);
-      expect(items, hasLength(3));
-    });
+        expect(template, isNotNull);
+        expect(items, hasLength(3));
+      },
+    );
   });
 }

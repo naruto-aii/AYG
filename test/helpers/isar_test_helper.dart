@@ -5,6 +5,7 @@ import 'package:ayg/repositories/alcohol_repository.dart';
 import 'package:ayg/repositories/exercise_repository.dart';
 import 'package:ayg/repositories/food_repository.dart';
 import 'package:ayg/repositories/meal_template_repository.dart';
+import 'package:ayg/repositories/workout_template_repository.dart';
 import 'package:ayg/repositories/saved_food_repository.dart';
 import 'package:ayg/repositories/settings_repository.dart';
 import 'package:ayg/repositories/unsupported_health_repository.dart';
@@ -25,6 +26,7 @@ class IsarTestHarness {
     required this.alcoholRepository,
     required this.savedFoodRepository,
     required this.mealTemplateRepository,
+    required this.workoutTemplateRepository,
     required this.healthRepository,
   });
 
@@ -38,6 +40,7 @@ class IsarTestHarness {
   final AlcoholRepository alcoholRepository;
   final SavedFoodRepository savedFoodRepository;
   final MealTemplateRepository mealTemplateRepository;
+  final WorkoutTemplateRepository workoutTemplateRepository;
   final UnsupportedHealthRepository healthRepository;
 
   static Future<IsarTestHarness> create() async {
@@ -57,6 +60,7 @@ class IsarTestHarness {
       alcoholRepository: AlcoholRepository(isar),
       savedFoodRepository: SavedFoodRepository(isar),
       mealTemplateRepository: MealTemplateRepository(isar),
+      workoutTemplateRepository: WorkoutTemplateRepository(isar),
       healthRepository: UnsupportedHealthRepository(
         weightRepository: weightRepository,
         isar: isar,

@@ -163,7 +163,10 @@ void main() {
       500,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.textContaining(AppStrings.macroExternalMismatchTitle), findsOneWidget);
+    expect(
+      find.textContaining(AppStrings.macroExternalMismatchTitle),
+      findsOneWidget,
+    );
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('web_food_name_field')),

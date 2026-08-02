@@ -41,54 +41,57 @@ void main() {
   });
 
   group('registerFoodMealFromDrafts', () {
-    test('creates grouped food entries without mutating template storage', () async {
-      final controller = AppController();
-      final loggedAt = DateTime(2026, 7, 20, 18, 30);
+    test(
+      'creates grouped food entries without mutating template storage',
+      () async {
+        final controller = AppController();
+        final loggedAt = DateTime(2026, 7, 20, 18, 30);
 
-      await controller.registerFoodMealFromDrafts(
-        mealGroupName: '朝食セット',
-        loggedAt: loggedAt,
-        items: const [
-          MealTemplateItemDraft(
-            name: 'ヨーグルト',
-            baseAmount: 1,
-            unitType: FoodUnitType.serving,
-            kcalPerBase: 80,
-            proteinPerBase: 4,
-            fatPerBase: 2,
-            carbPerBase: 10,
-            consumedAmount: 1,
-            sortOrder: 1,
-          ),
-          MealTemplateItemDraft(
-            name: 'バナナ',
-            baseAmount: 1,
-            unitType: FoodUnitType.piece,
-            kcalPerBase: 90,
-            proteinPerBase: 1,
-            fatPerBase: 0.2,
-            carbPerBase: 23,
-            consumedAmount: 2,
-            sortOrder: 2,
-          ),
-        ],
-      );
+        await controller.registerFoodMealFromDrafts(
+          mealGroupName: '朝食セット',
+          loggedAt: loggedAt,
+          items: const [
+            MealTemplateItemDraft(
+              name: 'ヨーグルト',
+              baseAmount: 1,
+              unitType: FoodUnitType.serving,
+              kcalPerBase: 80,
+              proteinPerBase: 4,
+              fatPerBase: 2,
+              carbPerBase: 10,
+              consumedAmount: 1,
+              sortOrder: 1,
+            ),
+            MealTemplateItemDraft(
+              name: 'バナナ',
+              baseAmount: 1,
+              unitType: FoodUnitType.piece,
+              kcalPerBase: 90,
+              proteinPerBase: 1,
+              fatPerBase: 0.2,
+              carbPerBase: 23,
+              consumedAmount: 2,
+              sortOrder: 2,
+            ),
+          ],
+        );
 
-      expect(controller.foodEntries, hasLength(2));
-      expect(
-        controller.foodEntries.every(
-          (entry) =>
-              entry.mealGroupName == '朝食セット' &&
-              entry.mealGroupId != null &&
-              entry.loggedAt == loggedAt,
-        ),
-        isTrue,
-      );
-      expect(
-        controller.foodEntries.map((entry) => entry.name),
-        containsAll(['ヨーグルト', 'バナナ']),
-      );
-    });
+        expect(controller.foodEntries, hasLength(2));
+        expect(
+          controller.foodEntries.every(
+            (entry) =>
+                entry.mealGroupName == '朝食セット' &&
+                entry.mealGroupId != null &&
+                entry.loggedAt == loggedAt,
+          ),
+          isTrue,
+        );
+        expect(
+          controller.foodEntries.map((entry) => entry.name),
+          containsAll(['ヨーグルト', 'バナナ']),
+        );
+      },
+    );
 
     test('updateFood preserves entry id when loggedAt changes', () async {
       final controller = AppController();

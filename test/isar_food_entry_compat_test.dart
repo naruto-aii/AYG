@@ -158,6 +158,7 @@ void main() {
         weightRepository: harness.weightRepository,
         savedFoodRepository: harness.savedFoodRepository,
         mealTemplateRepository: harness.mealTemplateRepository,
+        workoutTemplateRepository: harness.workoutTemplateRepository,
       );
 
       await harness.savedFoodRepository.save(

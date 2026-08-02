@@ -212,6 +212,7 @@ void main() {
         weightRepository: harness.weightRepository,
         savedFoodRepository: harness.savedFoodRepository,
         mealTemplateRepository: harness.mealTemplateRepository,
+        workoutTemplateRepository: harness.workoutTemplateRepository,
       );
       final controller = AppController(
         authenticationRepository: authRepository,

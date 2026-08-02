@@ -1,3 +1,4 @@
+import 'package:ayg/models/calculation/goal_pace.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/exercise_entry.dart';
 import 'package:ayg/models/food_entry.dart';
@@ -130,6 +131,30 @@ void main() {
 
       expect(controller.summary!.intakeKcal, 0);
       expect(controller.foodEntries, isEmpty);
+    });
+
+    test('changing goal pace updates target kcal immediately', () async {
+      controller.setGoal(
+        Goal(
+          type: GoalType.lose,
+          targetWeightKg: 70,
+          targetDate: today.add(const Duration(days: 90)),
+          goalPace: GoalPace.standard,
+        ),
+      );
+      final standardTarget = controller.summary!.targetKcal;
+
+      controller.setGoal(
+        Goal(
+          type: GoalType.lose,
+          targetWeightKg: 70,
+          targetDate: today.add(const Duration(days: 90)),
+          goalPace: GoalPace.slow,
+        ),
+      );
+
+      expect(controller.summary!.targetKcal, greaterThan(standardTarget));
+      expect(controller.summary!.energyBreakdown?.goalPace, GoalPace.slow);
     });
   });
 }

@@ -673,6 +673,7 @@ class AppController extends ChangeNotifier {
       goal: currentGoal,
       settings: settings,
       healthSnapshot: healthSnapshot,
+      goalPace: currentGoal.goalPace,
       foodEntries: List.unmodifiable(foodEntries),
       exerciseEntries: List.unmodifiable(exerciseEntries),
       alcoholEntries: List.unmodifiable(alcoholEntries),

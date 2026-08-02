@@ -114,6 +114,28 @@ void main() {
       expect(net, 250);
       expect(net, isNot(300));
     });
+
+    test('reports overage without clamping to zero', () {
+      final breakdown = service.calculateBreakdown(
+        baseDailyFoodTargetKcal: 2000,
+        foodEntries: [
+          FoodEntry(
+            id: 'f1',
+            name: 'meal',
+            quantity: 1,
+            kcalPerUnit: 2500,
+            loggedAt: DateTime(2026, 7, 21),
+          ),
+        ],
+        alcoholEntries: const [],
+        exerciseEntries: const [],
+        selectedDay: DateTime(2026, 7, 21),
+      );
+
+      expect(breakdown.rawRemainingKcal, -500);
+      expect(breakdown.isOverage, isTrue);
+      expect(breakdown.overageKcal, 500);
+    });
   });
 
   group('ExerciseCalorieCalculator', () {

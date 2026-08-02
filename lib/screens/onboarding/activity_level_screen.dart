@@ -76,7 +76,7 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
               (level) => RadioListTile<ActivityLevel>(
                 contentPadding: EdgeInsets.zero,
                 title: Text(AppStrings.activityLevelLabel(level)),
-                subtitle: Text('係数 ${level.factor}'),
+                subtitle: Text(AppStrings.activityLevelDescription(level)),
                 value: level,
                 groupValue: _activityLevel,
                 onChanged: (value) {

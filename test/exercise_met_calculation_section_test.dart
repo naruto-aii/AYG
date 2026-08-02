@@ -9,7 +9,6 @@ import 'package:ayg/screens/exercise/exercise_form_screen.dart';
 import 'package:ayg/services/exercise_calorie_calculator.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/widgets/exercise/exercise_met_calculation_section.dart';
-import 'package:ayg/utils/nutrition_format.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -56,6 +55,7 @@ void main() {
       loggedAt: loggedAt,
       category: ExerciseCategory.aerobic,
       activityId: activityId,
+      intensity: 'moderate',
       metValue: 3.5,
       grossKcal: grossKcal,
       netKcal: netKcal,
@@ -96,7 +96,82 @@ void main() {
     return latestState;
   }
 
+  Future<void> expandAdvanced(WidgetTester tester) async {
+    await tester.scrollUntilVisible(
+      find.text('詳細設定'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('詳細設定'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapRecalculate(WidgetTester tester) async {
+    await tester.scrollUntilVisible(
+      find.text('再計算'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('再計算'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapManualOverride(
+    WidgetTester tester, {
+    bool enable = true,
+  }) async {
+    if (find.byType(SwitchListTile).evaluate().isEmpty) {
+      await expandAdvanced(tester);
+    } else {
+      await tester.scrollUntilVisible(
+        find.byType(SwitchListTile),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
+    final switchFinder = find.byType(SwitchListTile);
+    final switchTile = tester.widget<SwitchListTile>(switchFinder);
+    if (switchTile.value != enable) {
+      await tester.ensureVisible(switchFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+    }
+  }
+
   group('ExerciseMetCalculationSection', () {
+    testWidgets('strength training offers light moderate hard intensities', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      final durationController = TextEditingController(text: '30');
+      final grossController = TextEditingController(text: '');
+      addTearDown(durationController.dispose);
+      addTearDown(grossController.dispose);
+
+      await pumpMetSection(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: DateTime(2026, 8, 1, 12),
+        isEditing: false,
+      );
+
+      await tester.tap(find.byType(DropdownButtonFormField<ExerciseCategory>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('筋力トレーニング').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('軽め'), findsOneWidget);
+      expect(find.text('ふつう'), findsOneWidget);
+      expect(find.text('きつい'), findsOneWidget);
+      expect(find.textContaining('MET'), findsNothing);
+    });
+
     testWidgets('edit open alone does not change saved calculation values', (
       tester,
     ) async {
@@ -175,7 +250,7 @@ void main() {
           find.byType(DropdownButtonFormField<MetActivityDefinition>),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('ランニング（中程度）').last);
+        await tester.tap(find.text('ランニング・ジョギング').last);
         await tester.pumpAndSettle();
         expect(grossController.text, '500');
       },
@@ -207,18 +282,25 @@ void main() {
       addTearDown(durationController.dispose);
       addTearDown(grossController.dispose);
 
-      await pumpMetSection(
-        tester,
-        controller: controller,
-        durationController: durationController,
-        grossController: grossController,
-        loggedAt: loggedAt,
-        isEditing: true,
-        initialEntry: entry,
+      ExerciseMetFormState? latestState;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ExerciseMetCalculationSection(
+              controller: controller,
+              loggedAt: loggedAt,
+              durationController: durationController,
+              grossKcalController: grossController,
+              isEditing: true,
+              initialEntry: entry,
+              onEstimateChanged: (state) => latestState = state,
+            ),
+          ),
+        ),
       );
-
-      await tester.tap(find.text('保存済みの値を再計算する'));
       await tester.pumpAndSettle();
+
+      await tapRecalculate(tester);
 
       final expected = calculator.estimate(
         met: 3.5,
@@ -231,16 +313,12 @@ void main() {
         double.parse(grossController.text),
         closeTo(expected!.grossKcal, 0.1),
       );
-      expect(
-        find.textContaining(
-          'net: ${formatNullableNutrient(expected.netKcal)} kcal',
-        ),
-        findsOneWidget,
-      );
-      expect(find.textContaining('参照体重: 71.0 kg（体重記録）'), findsOneWidget);
+      expect(latestState?.netKcal, closeTo(expected.netKcal, 0.1));
+      await expandAdvanced(tester);
+      expect(find.textContaining('71.0 kg'), findsOneWidget);
     });
 
-    testWidgets('manual override ON uses manual gross value', (tester) async {
+    testWidgets('manual override uses net kcal field', (tester) async {
       final controller = AppController();
       addTearDown(controller.dispose);
 
@@ -269,11 +347,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('消費 kcal を手動入力'));
+      await tapManualOverride(tester);
+      final netField = find.widgetWithText(TextField, '手動 追加消費 kcal（net）');
+      await tester.ensureVisible(netField);
       await tester.pumpAndSettle();
-
-      grossController.text = '555';
-      durationController.text = '31';
+      await tester.enterText(netField, '555');
       await tester.pumpAndSettle();
 
       expect(latestState?.manualOverride, isTrue);
@@ -281,7 +359,6 @@ void main() {
         latestState?.calculationSource,
         ExerciseCalculationSource.manualOverride,
       );
-      expect(latestState?.grossKcal, 555);
       expect(latestState?.netKcal, 555);
     });
 
@@ -316,13 +393,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('消費 kcal を手動入力'));
-      await tester.pumpAndSettle();
-      grossController.text = '555';
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('消費 kcal を手動入力'));
-      await tester.pumpAndSettle();
+      await tapManualOverride(tester);
+      await tapManualOverride(tester, enable: false);
 
       final expected = calculator.estimate(
         met: MetActivityCatalog.activities.first.defaultMet,
@@ -358,7 +430,7 @@ void main() {
       );
 
       expect(
-        find.textContaining('体重記録がありません。プロフィールに体重を設定するか、体重を記録してください。'),
+        find.textContaining('体重データがないため、消費カロリーを自動計算できません'),
         findsOneWidget,
       );
     });
@@ -379,17 +451,25 @@ void main() {
       addTearDown(durationController.dispose);
       addTearDown(grossController.dispose);
 
-      await pumpMetSection(
-        tester,
-        controller: controller,
-        durationController: durationController,
-        grossController: grossController,
-        loggedAt: loggedAt,
-        isEditing: false,
+      ExerciseMetFormState? latestState;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ExerciseMetCalculationSection(
+              controller: controller,
+              loggedAt: loggedAt,
+              durationController: durationController,
+              grossKcalController: grossController,
+              isEditing: false,
+              onEstimateChanged: (state) => latestState = state,
+            ),
+          ),
+        ),
       );
+      await tester.pumpAndSettle();
 
-      expect(find.textContaining('参照体重: 68.0 kg（体重記録）'), findsOneWidget);
-      expect(find.textContaining('60.0 kg'), findsNothing);
+      expect(latestState?.weightKgSnapshot, 68);
+      expect(latestState?.weightKgSnapshot, isNot(60));
     });
   });
 

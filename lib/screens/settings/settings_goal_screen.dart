@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
+import '../../models/calculation/goal_pace.dart';
 import '../../models/goal.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
@@ -18,6 +19,7 @@ class SettingsGoalScreen extends StatefulWidget {
 class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   final _formKey = GlobalKey<FormState>();
   late GoalType _goalType;
+  late GoalPace _goalPace;
   final _targetWeightController = TextEditingController();
   late DateTime _targetDate;
   bool _isSaving = false;
@@ -27,6 +29,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     super.initState();
     final goal = widget.controller.goal!;
     _goalType = goal.type;
+    _goalPace = goal.goalPace;
     _targetWeightController.text = goal.targetWeightKg.toStringAsFixed(1);
     _targetDate = goal.targetDate;
   }
@@ -98,6 +101,9 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
         type: _goalType,
         targetWeightKg: targetWeightKg,
         targetDate: _targetDate,
+        goalPace: _goalType == GoalType.maintain
+            ? GoalPace.standard
+            : _goalPace,
       ),
     );
     if (!mounted) {
@@ -136,7 +142,12 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
                     .toList(),
                 selected: {_goalType},
                 onSelectionChanged: (selection) {
-                  setState(() => _goalType = selection.first);
+                  setState(() {
+                    _goalType = selection.first;
+                    if (_goalType == GoalType.maintain) {
+                      _goalPace = GoalPace.standard;
+                    }
+                  });
                 },
               ),
               const SizedBox(height: AppSpacing.md),
@@ -168,6 +179,32 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
                 trailing: const Icon(Icons.calendar_today),
                 onTap: _pickTargetDate,
               ),
+              if (_goalType == GoalType.lose || _goalType == GoalType.gain) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  _goalType == GoalType.lose ? '減量ペース' : '増量ペース',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                ...GoalPace.values.map(
+                  (pace) => RadioListTile<GoalPace>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(pace.labelJa),
+                    subtitle: Text(pace.descriptionJa),
+                    value: pace,
+                    groupValue: _goalPace,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _goalPace = value);
+                      }
+                    },
+                  ),
+                ),
+                Text(
+                  'ペースの係数や kcal/kg の詳細は「計算根拠」画面で確認できます。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               FilledButton(
                 onPressed: _isSaving ? null : _save,

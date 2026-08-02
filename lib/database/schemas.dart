@@ -19,6 +19,7 @@ class GoalEntity {
   late int goalTypeIndex;
   late double targetWeightKg;
   late DateTime targetDate;
+  int? goalPaceIndex;
 }
 
 @collection

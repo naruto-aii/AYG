@@ -25,6 +25,7 @@ import '../../widgets/layout/app_responsive.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../food/food_form_navigation.dart';
 import '../exercise/exercise_form_screen.dart';
+import '../settings/daily_calculation_explanation_screen.dart';
 import '../weight/weight_record_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -216,15 +217,33 @@ class HomeScreen extends StatelessWidget {
                                 intakeKcal: summary.intakeKcal,
                                 targetKcal: summary.targetKcal,
                                 remainingKcal: summary.remainingKcal,
+                                isCalorieOverage: summary.isCalorieOverage,
+                                calorieOverageKcal: summary.calorieOverageKcal,
                                 size: twoColumn ? 132 : 148,
                                 strokeWidth: 11,
                               ),
                               const SizedBox(height: AppSpacing.sm),
                               Text(
-                                '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
-                                '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal',
+                                summary.isCalorieOverage
+                                    ? '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
+                                          '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal（超過）'
+                                    : '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
+                                          '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal',
                                 style: Theme.of(context).textTheme.bodySmall,
                                 textAlign: TextAlign.center,
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (context) =>
+                                          DailyCalculationExplanationScreen(
+                                            summary: summary,
+                                          ),
+                                    ),
+                                  );
+                                },
+                                child: const Text('この数値の計算根拠'),
                               ),
                             ],
                           ),

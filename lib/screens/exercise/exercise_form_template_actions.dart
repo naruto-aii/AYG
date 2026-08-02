@@ -181,9 +181,11 @@ class _WorkoutTemplateApplyScreenState
 
     setState(() {
       _drafts = _drafts.map((draft) {
+        final activity = MetActivityCatalog.findById(draft.activityId);
         final met =
+            activity?.intensityById(draft.intensity)?.met ??
             draft.metValue ??
-            MetActivityCatalog.findById(draft.activityId)?.defaultMet ??
+            activity?.defaultMet ??
             3.0;
         final estimate = _calculator.estimate(
           met: met,

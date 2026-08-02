@@ -80,15 +80,10 @@ class AppStrings {
   static const goalWarningMaintainMismatch = '維持なのに目標体重と現在体重に差があります。';
   static const goalWarningTitle = '目標設定の確認';
 
-  static String activityLevelLabel(ActivityLevel level) {
-    return switch (level) {
-      ActivityLevel.low => '低い',
-      ActivityLevel.light => 'やや低い',
-      ActivityLevel.moderate => '普通',
-      ActivityLevel.high => '高い',
-      ActivityLevel.veryHigh => '非常に高い',
-    };
-  }
+  static String activityLevelLabel(ActivityLevel level) => level.everydayLabel;
+
+  static String activityLevelDescription(ActivityLevel level) =>
+      level.everydayDescription;
 
   static String goalTypeLabel(GoalType type) => type.label;
 }

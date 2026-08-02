@@ -1,3 +1,7 @@
+import 'calculation/energy_target_breakdown.dart';
+import 'calculation/macro_target_breakdown.dart';
+import 'calculation/remaining_calorie_breakdown.dart';
+
 class DailySummary {
   DailySummary({
     required this.targetKcal,
@@ -10,6 +14,11 @@ class DailySummary {
     required this.intakeFatG,
     required this.intakeCarbG,
     required this.exerciseBurnKcal,
+    this.isCalorieOverage = false,
+    this.calorieOverageKcal = 0,
+    this.energyBreakdown,
+    this.macroBreakdown,
+    this.remainingBreakdown,
   });
 
   final double targetKcal;
@@ -22,4 +31,9 @@ class DailySummary {
   final double intakeFatG;
   final double intakeCarbG;
   final double exerciseBurnKcal;
+  final bool isCalorieOverage;
+  final double calorieOverageKcal;
+  final EnergyTargetBreakdown? energyBreakdown;
+  final MacroTargetBreakdown? macroBreakdown;
+  final RemainingCalorieBreakdown? remainingBreakdown;
 }

@@ -11,6 +11,7 @@ import '../models/food_source_type.dart';
 import '../models/food_status.dart';
 import '../models/food_unit_type.dart';
 import '../models/food_visibility.dart';
+import '../models/calculation/goal_pace.dart';
 import '../models/goal.dart';
 import '../models/health_profile_data.dart';
 import '../models/health_snapshot.dart';
@@ -47,7 +48,8 @@ class EntityMapper {
     return GoalEntity()
       ..goalTypeIndex = goal.type.index
       ..targetWeightKg = goal.targetWeightKg
-      ..targetDate = goal.targetDate;
+      ..targetDate = goal.targetDate
+      ..goalPaceIndex = goal.goalPace.index;
   }
 
   static Goal fromGoalEntity(GoalEntity entity) {
@@ -55,6 +57,9 @@ class EntityMapper {
       type: GoalType.values[entity.goalTypeIndex],
       targetWeightKg: entity.targetWeightKg,
       targetDate: entity.targetDate,
+      goalPace: entity.goalPaceIndex == null
+          ? GoalPace.standard
+          : GoalPace.values[entity.goalPaceIndex!],
     );
   }
 

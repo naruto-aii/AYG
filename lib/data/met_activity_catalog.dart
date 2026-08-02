@@ -1,4 +1,8 @@
+import '../models/calculation/calculation_versions.dart';
 import '../models/exercise_category.dart';
+import 'met_intensity_presets.dart';
+
+export 'met_intensity_presets.dart' show MetIntensityOption;
 
 /// 個別 MET 値の出典台帳エントリ。
 class MetSourceLedgerEntry {
@@ -12,18 +16,16 @@ class MetSourceLedgerEntry {
   final String sourceKey;
   final String citation;
   final DateTime confirmedOn;
-
-  /// bibliographicCitation | formulaOrTheory | selectedFactualParameter
   final String rightsCategory;
 }
 
-/// アプリ独自の運動候補（Compendium 表の転載なし）。
 class MetActivityDefinition {
   const MetActivityDefinition({
     required this.id,
     required this.displayName,
     required this.category,
     required this.defaultMet,
+    required this.defaultIntensityId,
     required this.sourceKey,
     this.description,
     this.intensityOptions = const [],
@@ -33,31 +35,41 @@ class MetActivityDefinition {
   final String displayName;
   final ExerciseCategory category;
   final double defaultMet;
+  final String defaultIntensityId;
   final String sourceKey;
   final String? description;
-
-  /// 強度ラベル → MET の対応（空なら defaultMet のみ）。
   final List<MetIntensityOption> intensityOptions;
+
+  MetIntensityOption? intensityById(String? id) {
+    if (id == null) {
+      return null;
+    }
+    for (final option in intensityOptions) {
+      if (option.id == id) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  MetIntensityOption get defaultIntensity =>
+      intensityById(defaultIntensityId) ??
+      (intensityOptions.isNotEmpty
+          ? intensityOptions.first
+          : MetIntensityOption(
+              id: 'default',
+              label: '標準',
+              description: '',
+              met: defaultMet,
+              sourceKey: sourceKey,
+            ));
 }
 
-class MetIntensityOption {
-  const MetIntensityOption({
-    required this.label,
-    required this.met,
-    required this.sourceKey,
-  });
-
-  final String label;
-  final double met;
-  final String sourceKey;
-}
-
-/// 初期収録の代表運動カタログ。
 class MetActivityCatalog {
   MetActivityCatalog._();
 
-  static const calculationVersion = 'met-v1';
-  static const lastUpdated = '2026-07-28';
+  static const calculationVersion = CalculationVersions.exerciseMet;
+  static const lastUpdated = '2026-08-02';
 
   static const herrmann2024Doi = '10.1016/j.jshs.2023.10.010';
 
@@ -67,7 +79,7 @@ class MetActivityCatalog {
       citation:
           'Herrmann SD, Willis EA, Ainsworth BE, et al. 2024 Adult Compendium '
           'of Physical Activities. J Sport Health Sci. 2024;13(1):6–12. '
-          'DOI: $herrmann2024Doi',
+          'DOI: 10.1016/j.jshs.2023.10.010',
       confirmedOn: DateTime(2026, 7, 28),
       rightsCategory: 'bibliographicCitation',
     ),
@@ -79,121 +91,186 @@ class MetActivityCatalog {
       confirmedOn: DateTime(2026, 7, 28),
       rightsCategory: 'formulaOrTheory',
     ),
-    MetSourceLedgerEntry(
-      sourceKey: 'walking_moderate_3_5',
-      citation: 'Walking 3.5 mph, level — selected MET 3.5 (Herrmann 2024)',
-      confirmedOn: DateTime(2026, 7, 28),
-      rightsCategory: 'selectedFactualParameter',
-    ),
-    MetSourceLedgerEntry(
-      sourceKey: 'running_6mph_9_8',
-      citation: 'Running 6 mph — selected MET 9.8 (Herrmann 2024)',
-      confirmedOn: DateTime(2026, 7, 28),
-      rightsCategory: 'selectedFactualParameter',
-    ),
-    MetSourceLedgerEntry(
-      sourceKey: 'cycling_moderate_6_8',
-      citation: 'Bicycling 12–13.9 mph — selected MET 8.0 (Herrmann 2024)',
-      confirmedOn: DateTime(2026, 7, 28),
-      rightsCategory: 'selectedFactualParameter',
-    ),
-    MetSourceLedgerEntry(
-      sourceKey: 'weight_training_vigorous_6_0',
-      citation: 'Weight lifting vigorous — selected MET 6.0 (Herrmann 2024)',
-      confirmedOn: DateTime(2026, 7, 28),
-      rightsCategory: 'selectedFactualParameter',
-    ),
-    MetSourceLedgerEntry(
-      sourceKey: 'swimming_moderate_5_8',
-      citation: 'Swimming moderate — selected MET 5.8 (Herrmann 2024)',
-      confirmedOn: DateTime(2026, 7, 28),
-      rightsCategory: 'selectedFactualParameter',
-    ),
-    MetSourceLedgerEntry(
-      sourceKey: 'yoga_hatha_2_5',
-      citation: 'Yoga Hatha — selected MET 2.5 (Herrmann 2024)',
-      confirmedOn: DateTime(2026, 7, 28),
-      rightsCategory: 'selectedFactualParameter',
-    ),
-    MetSourceLedgerEntry(
-      sourceKey: 'basketball_game_6_5',
-      citation: 'Basketball game — selected MET 6.5 (Herrmann 2024)',
-      confirmedOn: DateTime(2026, 7, 28),
-      rightsCategory: 'selectedFactualParameter',
-    ),
   ];
 
-  static const activities = <MetActivityDefinition>[
+  static final activities = <MetActivityDefinition>[
     MetActivityDefinition(
       id: 'walk_brisk',
-      displayName: 'ウォーキング（速歩）',
+      displayName: 'ウォーキング',
       category: ExerciseCategory.aerobic,
       defaultMet: 3.5,
+      defaultIntensityId: 'moderate',
       sourceKey: 'walking_moderate_3_5',
-      description: '平地での速歩',
+      description: '平地でのウォーキング',
+      intensityOptions: [
+        MetIntensityOption(
+          id: 'easy',
+          label: 'ゆっくり',
+          description: '会話を楽に続けられる',
+          met: 2.8,
+          sourceKey: 'walking_easy_2_8',
+        ),
+        MetIntensityOption(
+          id: 'moderate',
+          label: 'ほどよい',
+          description: '会話はできるが少し息が弾む',
+          met: 3.5,
+          sourceKey: 'walking_moderate_3_5',
+        ),
+        MetIntensityOption(
+          id: 'hard',
+          label: 'きつい',
+          description: '短い言葉しか話せない',
+          met: 4.5,
+          sourceKey: 'walking_hard_4_5',
+        ),
+      ],
     ),
     MetActivityDefinition(
-      id: 'run_moderate',
-      displayName: 'ランニング（中程度）',
+      id: 'run_jog',
+      displayName: 'ランニング・ジョギング',
       category: ExerciseCategory.aerobic,
-      defaultMet: 9.8,
-      sourceKey: 'running_6mph_9_8',
-      description: '時速約10km前後のジョギング',
+      defaultMet: 7.0,
+      defaultIntensityId: 'moderate',
+      sourceKey: 'running_moderate_7_0',
+      intensityOptions: [
+        MetIntensityOption(
+          id: 'easy',
+          label: 'ゆっくり',
+          description: '会話を楽に続けられる',
+          met: 6.0,
+          sourceKey: 'running_easy_6_0',
+        ),
+        MetIntensityOption(
+          id: 'moderate',
+          label: 'ほどよい',
+          description: '会話はできるが少し息が弾む',
+          met: 8.0,
+          sourceKey: 'running_moderate_8_0',
+        ),
+        MetIntensityOption(
+          id: 'hard',
+          label: 'きつい',
+          description: '短い言葉しか話せない',
+          met: 10.0,
+          sourceKey: 'running_hard_10_0',
+        ),
+      ],
     ),
     MetActivityDefinition(
       id: 'cycle_road',
-      displayName: '自転車（ロード）',
+      displayName: '自転車',
       category: ExerciseCategory.aerobic,
-      defaultMet: 8.0,
-      sourceKey: 'cycling_moderate_6_8',
-      description: '平地〜緩やかな坂のサイクリング',
+      defaultMet: 6.0,
+      defaultIntensityId: 'moderate',
+      sourceKey: 'cycling_moderate_6_0',
+      intensityOptions: const [
+        MetIntensityOption(
+          id: 'easy',
+          label: 'ゆっくり',
+          description: '会話を楽に続けられる',
+          met: 4.0,
+          sourceKey: 'cycling_easy',
+        ),
+        MetIntensityOption(
+          id: 'moderate',
+          label: 'ほどよい',
+          description: '会話はできるが少し息が弾む',
+          met: 6.0,
+          sourceKey: 'cycling_moderate',
+        ),
+        MetIntensityOption(
+          id: 'hard',
+          label: 'きつい',
+          description: '短い言葉しか話せない',
+          met: 8.0,
+          sourceKey: 'cycling_hard',
+        ),
+      ],
     ),
     MetActivityDefinition(
       id: 'swim_lap',
-      displayName: '水泳（泳ぎ）',
+      displayName: '水泳',
       category: ExerciseCategory.aerobic,
       defaultMet: 5.8,
+      defaultIntensityId: 'moderate',
       sourceKey: 'swimming_moderate_5_8',
-    ),
-    MetActivityDefinition(
-      id: 'strength_vigorous',
-      displayName: '筋トレ（高強度）',
-      category: ExerciseCategory.strength,
-      defaultMet: 6.0,
-      sourceKey: 'weight_training_vigorous_6_0',
-      description: 'セット間休憩を含む全体時間で記録',
-      intensityOptions: [
+      intensityOptions: const [
         MetIntensityOption(
-          label: '中程度',
-          met: 3.5,
-          sourceKey: 'weight_training_vigorous_6_0',
+          id: 'easy',
+          label: 'ゆっくり',
+          description: '会話を楽に続けられる',
+          met: 4.5,
+          sourceKey: 'swimming_easy',
         ),
         MetIntensityOption(
-          label: '高強度',
-          met: 6.0,
-          sourceKey: 'weight_training_vigorous_6_0',
+          id: 'moderate',
+          label: 'ほどよい',
+          description: '会話はできるが少し息が弾む',
+          met: 5.8,
+          sourceKey: 'swimming_moderate',
+        ),
+        MetIntensityOption(
+          id: 'hard',
+          label: 'きつい',
+          description: '短い言葉しか話せない',
+          met: 7.5,
+          sourceKey: 'swimming_hard',
         ),
       ],
+    ),
+    MetActivityDefinition(
+      id: 'strength_general',
+      displayName: '筋力トレーニング（総合）',
+      category: ExerciseCategory.strength,
+      defaultMet: 5.0,
+      defaultIntensityId: 'moderate',
+      sourceKey: 'weight_training_moderate_5_0',
+      description: 'セット間休憩を含む全体時間で記録',
+      intensityOptions: MetIntensityPresets.strengthOptions,
+    ),
+    MetActivityDefinition(
+      id: 'strength_machine',
+      displayName: 'マシントレーニング',
+      category: ExerciseCategory.strength,
+      defaultMet: 5.0,
+      defaultIntensityId: 'moderate',
+      sourceKey: 'weight_training_moderate_5_0',
+      intensityOptions: MetIntensityPresets.strengthOptions,
     ),
     MetActivityDefinition(
       id: 'basketball',
       displayName: 'バスケットボール',
       category: ExerciseCategory.sport,
       defaultMet: 6.5,
+      defaultIntensityId: 'moderate',
       sourceKey: 'basketball_game_6_5',
+      intensityOptions: MetIntensityPresets.sportOptions,
     ),
     MetActivityDefinition(
       id: 'yoga',
-      displayName: 'ヨガ',
-      category: ExerciseCategory.flexibility,
+      displayName: 'ヨガ・ストレッチ',
+      category: ExerciseCategory.dailyActivity,
       defaultMet: 2.5,
+      defaultIntensityId: 'light',
       sourceKey: 'yoga_hatha_2_5',
+      intensityOptions: MetIntensityPresets.dailyActivityOptions,
+    ),
+    MetActivityDefinition(
+      id: 'housework',
+      displayName: '家事・掃除',
+      category: ExerciseCategory.dailyActivity,
+      defaultMet: 3.0,
+      defaultIntensityId: 'moderate',
+      sourceKey: 'daily_moderate_3_0',
+      intensityOptions: MetIntensityPresets.dailyActivityOptions,
     ),
     MetActivityDefinition(
       id: 'custom',
       displayName: 'その他（手入力）',
       category: ExerciseCategory.other,
       defaultMet: 3.0,
+      defaultIntensityId: 'default',
       sourceKey: 'pacompendium_met_definition',
     ),
   ];
@@ -206,6 +283,12 @@ class MetActivityCatalog {
       if (activity.id == id) {
         return activity;
       }
+      if (id == 'strength_vigorous' && activity.id == 'strength_general') {
+        return activity;
+      }
+      if (id == 'run_moderate' && activity.id == 'run_jog') {
+        return activity;
+      }
     }
     return null;
   }
@@ -213,4 +296,12 @@ class MetActivityCatalog {
   static List<MetActivityDefinition> byCategory(ExerciseCategory category) {
     return activities.where((a) => a.category == category).toList();
   }
+
+  static List<ExerciseCategory> get selectableCategories => [
+    ExerciseCategory.aerobic,
+    ExerciseCategory.strength,
+    ExerciseCategory.sport,
+    ExerciseCategory.dailyActivity,
+    ExerciseCategory.other,
+  ];
 }

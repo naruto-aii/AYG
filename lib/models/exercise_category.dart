@@ -1,4 +1,4 @@
-enum ExerciseCategory { aerobic, strength, sport, flexibility, other }
+enum ExerciseCategory { aerobic, strength, sport, dailyActivity, other }
 
 extension ExerciseCategoryX on ExerciseCategory {
   String get id => name;
@@ -7,7 +7,7 @@ extension ExerciseCategoryX on ExerciseCategory {
     ExerciseCategory.aerobic => '有酸素運動',
     ExerciseCategory.strength => '筋力トレーニング',
     ExerciseCategory.sport => 'スポーツ',
-    ExerciseCategory.flexibility => '柔軟・コンディショニング',
+    ExerciseCategory.dailyActivity => '日常活動・軽い運動',
     ExerciseCategory.other => 'その他',
   };
 
@@ -19,7 +19,8 @@ extension ExerciseCategoryX on ExerciseCategory {
       'aerobic' => ExerciseCategory.aerobic,
       'strength' => ExerciseCategory.strength,
       'sport' => ExerciseCategory.sport,
-      'flexibility' => ExerciseCategory.flexibility,
+      'dailyActivity' => ExerciseCategory.dailyActivity,
+      'flexibility' => ExerciseCategory.dailyActivity,
       'other' => ExerciseCategory.other,
       _ => null,
     };

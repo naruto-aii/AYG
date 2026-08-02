@@ -6,6 +6,7 @@ import '../models/app_settings.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
 import '../models/meal_template.dart';
+import '../models/calculation/goal_pace.dart';
 import '../models/goal.dart';
 import '../models/health_profile_data.dart';
 import '../models/health_snapshot.dart';
@@ -382,6 +383,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         type: _parseGoalType(row['goal_type'] as String?),
         targetWeightKg: (row['target_weight_kg'] as num).toDouble(),
         targetDate: DateTime.parse(row['target_date'] as String),
+        goalPace: row.containsKey('goal_pace')
+            ? GoalPace.fromName(row['goal_pace'] as String?)
+            : GoalPace.standard,
       ),
     );
   }
@@ -404,12 +408,18 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _client.from('goals').upsert({
+    final payload = <String, dynamic>{
       'user_id': userId,
       'goal_type': goal.type.name,
       'target_weight_kg': goal.targetWeightKg,
       'target_date': goal.targetDate.toIso8601String(),
-    }, onConflict: 'user_id');
+    };
+
+    // goal_pace 列は migration 20260802120000 適用後に同期。
+    // 未適用環境では goals の upsert を壊さないため省略する。
+    // Isar / Web ローカルには goalPace が保存される。
+
+    await _client.from('goals').upsert(payload, onConflict: 'user_id');
   }
 
   Future<void> _pullNutritionSettings(String userId) async {

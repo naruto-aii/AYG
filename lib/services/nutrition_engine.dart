@@ -1,5 +1,7 @@
 import '../models/activity_level.dart';
 import '../models/alcohol_entry.dart';
+import '../models/calculation/energy_target_breakdown.dart';
+import '../models/calculation/goal_pace.dart';
 import '../models/daily_summary.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
@@ -9,16 +11,130 @@ import '../models/nutrition_settings.dart';
 import '../models/target_macros.dart';
 import '../models/user_profile.dart';
 import '../utils/local_date.dart';
+import 'energy_target_calculation_service.dart';
+import 'macro_target_calculation_service.dart';
 import 'remaining_calorie_service.dart';
 
-/// Version 1.1 正式 Nutrition Engine。
+/// Science-based Nutrition Engine（energy_v2 / macro_v2）。
 class NutritionEngine {
   static const _remainingCalorieService = RemainingCalorieService();
+  static const _energyService = EnergyTargetCalculationService();
+  static const _macroService = MacroTargetCalculationService();
 
-  static const double kcalPerKgBodyWeightChange = 7200;
-  static const double proteinKcalPerGram = 4;
-  static const double fatKcalPerGram = 9;
-  static const double carbKcalPerGram = 4;
+  static const double kcalPerKgBodyWeightChange =
+      EnergyTargetCalculationService.kcalPerKgBodyWeightChange;
+
+  DailySummary calculateDailySummary({
+    required UserProfile profile,
+    required Goal goal,
+    required NutritionSettings settings,
+    required List<FoodEntry> foodEntries,
+    required List<ExerciseEntry> exerciseEntries,
+    List<AlcoholEntry> alcoholEntries = const [],
+    HealthSnapshot healthSnapshot = HealthSnapshot.empty,
+    GoalPace goalPace = GoalPace.standard,
+    DateTime? referenceDate,
+  }) {
+    final selectedDay = referenceDate ?? DateTime.now();
+    final energy = _energyService.calculate(
+      profile: profile,
+      goal: goal,
+      settings: settings,
+      healthSnapshot: healthSnapshot,
+      goalPace: goalPace,
+      referenceDate: selectedDay,
+    );
+
+    if (!energy.canEstimateRee || energy.goalFoodTargetKcal == null) {
+      return _emptySummary(
+        energy: energy,
+        foodEntries: foodEntries,
+        alcoholEntries: alcoholEntries,
+        exerciseEntries: exerciseEntries,
+        selectedDay: selectedDay,
+      );
+    }
+
+    final targetKcal = energy.goalFoodTargetKcal!;
+    final hasStrength = _macroService.inferStrengthTrainingHabit(
+      recentCategories: exerciseEntries
+          .map((entry) => entry.category)
+          .take(30)
+          .toList(),
+    );
+    final macroBreakdown = _macroService.calculate(
+      goalType: goal.type,
+      goalFoodTargetKcal: targetKcal,
+      referenceWeightKg: profile.weightKg,
+      hasStrengthTrainingHabit: hasStrength,
+    );
+
+    final dayFoodEntries = filterLoggedOnLocalDay(
+      entries: foodEntries,
+      referenceDate: selectedDay,
+      readLoggedAt: (entry) => entry.loggedAt,
+    );
+
+    final remainingBreakdown = _remainingCalorieService.calculateBreakdown(
+      baseDailyFoodTargetKcal: targetKcal,
+      foodEntries: foodEntries,
+      alcoholEntries: alcoholEntries,
+      exerciseEntries: exerciseEntries,
+      selectedDay: selectedDay,
+    );
+
+    return DailySummary(
+      targetKcal: targetKcal,
+      remainingKcal: remainingBreakdown.rawRemainingKcal,
+      targetProteinG: macroBreakdown.proteinG,
+      targetFatG: macroBreakdown.fatG,
+      targetCarbG: macroBreakdown.carbG,
+      intakeKcal: remainingBreakdown.intakeKcal,
+      intakeProteinG: _sumFoodProtein(dayFoodEntries),
+      intakeFatG: _sumFoodFat(dayFoodEntries),
+      intakeCarbG: _sumFoodCarb(dayFoodEntries),
+      exerciseBurnKcal: remainingBreakdown.exerciseNetKcal,
+      isCalorieOverage: remainingBreakdown.isOverage,
+      calorieOverageKcal: remainingBreakdown.overageKcal,
+      energyBreakdown: energy,
+      macroBreakdown: macroBreakdown,
+      remainingBreakdown: remainingBreakdown,
+    );
+  }
+
+  DailySummary _emptySummary({
+    required EnergyTargetBreakdown energy,
+    required List<FoodEntry> foodEntries,
+    required List<AlcoholEntry> alcoholEntries,
+    required List<ExerciseEntry> exerciseEntries,
+    required DateTime selectedDay,
+  }) {
+    final remainingBreakdown = _remainingCalorieService.calculateBreakdown(
+      baseDailyFoodTargetKcal: 0,
+      foodEntries: foodEntries,
+      alcoholEntries: alcoholEntries,
+      exerciseEntries: exerciseEntries,
+      selectedDay: selectedDay,
+    );
+    return DailySummary(
+      targetKcal: 0,
+      remainingKcal: remainingBreakdown.rawRemainingKcal,
+      targetProteinG: 0,
+      targetFatG: 0,
+      targetCarbG: 0,
+      intakeKcal: remainingBreakdown.intakeKcal,
+      intakeProteinG: 0,
+      intakeFatG: 0,
+      intakeCarbG: 0,
+      exerciseBurnKcal: remainingBreakdown.exerciseNetKcal,
+      isCalorieOverage: remainingBreakdown.isOverage,
+      calorieOverageKcal: remainingBreakdown.overageKcal,
+      energyBreakdown: energy,
+      remainingBreakdown: remainingBreakdown,
+    );
+  }
+
+  // --- 後方互換（テスト・既存呼び出し） ---
 
   int calculateAge(DateTime birthDate, {DateTime? referenceDate}) {
     final today = _dateOnly(referenceDate ?? DateTime.now());
@@ -34,7 +150,6 @@ class NutritionEngine {
     final age = calculateAge(profile.birthDate, referenceDate: referenceDate);
     final base =
         (10 * profile.weightKg) + (6.25 * profile.heightCm) - (5 * age);
-
     return switch (profile.gender) {
       Gender.female => base - 161,
       Gender.male || Gender.other => base + 5,
@@ -44,16 +159,12 @@ class NutritionEngine {
   double calculateTDEEFromActivityFactor({
     required double bmr,
     required ActivityLevel activityLevel,
-  }) {
-    return bmr * activityLevel.factor;
-  }
+  }) => bmr * activityLevel.factor;
 
   double calculateTDEEFromHealth({
     required double bmr,
     required double activeEnergyBurnedKcal,
-  }) {
-    return bmr + activeEnergyBurnedKcal;
-  }
+  }) => bmr + activeEnergyBurnedKcal;
 
   int daysUntilGoalDate(DateTime targetDate, {DateTime? referenceDate}) {
     final today = _dateOnly(referenceDate ?? DateTime.now());
@@ -73,10 +184,8 @@ class NutritionEngine {
     if (days <= 0) {
       return 0;
     }
-
     final weightDiffKg = (goal.targetWeightKg - currentWeightKg).abs();
-    final requiredTotalEnergy = weightDiffKg * kcalPerKgBodyWeightChange;
-    return requiredTotalEnergy / days;
+    return weightDiffKg * kcalPerKgBodyWeightChange / days;
   }
 
   double calculateTargetCalories({
@@ -89,7 +198,6 @@ class NutritionEngine {
     if (daysUntilGoalDate(targetDate, referenceDate: referenceDate) <= 0) {
       return tdee;
     }
-
     return switch (goalType) {
       GoalType.lose => tdee - dailyAdjustment,
       GoalType.gain => tdee + dailyAdjustment,
@@ -97,38 +205,30 @@ class NutritionEngine {
     };
   }
 
-  double proteinGramsPerKg(GoalType goalType) {
-    return switch (goalType) {
-      GoalType.lose => 2.0,
-      GoalType.maintain => 1.6,
-      GoalType.gain => 1.8,
-    };
-  }
-
-  double fatGramsPerKg() => 0.8;
-
   TargetMacros calculateTargetMacros({
     required GoalType goalType,
     required double targetCalories,
     required double weightKg,
+    bool hasStrengthTrainingHabit = false,
   }) {
-    final proteinG = proteinGramsPerKg(goalType) * weightKg;
-    final fatG = fatGramsPerKg() * weightKg;
-    final proteinKcal = proteinG * proteinKcalPerGram;
-    final fatKcal = fatG * fatKcalPerGram;
-    final remainingKcal = targetCalories - proteinKcal - fatKcal;
-    final carbG = remainingKcal > 0 ? remainingKcal / carbKcalPerGram : 0.0;
-
-    return TargetMacros(proteinG: proteinG, fatG: fatG, carbG: carbG);
+    final breakdown = _macroService.calculate(
+      goalType: goalType,
+      goalFoodTargetKcal: targetCalories,
+      referenceWeightKg: weightKg,
+      hasStrengthTrainingHabit: hasStrengthTrainingHabit,
+    );
+    return TargetMacros(
+      proteinG: breakdown.proteinG,
+      fatG: breakdown.fatG,
+      carbG: breakdown.carbG,
+    );
   }
 
   double calculateRemainingCalories({
     required double targetCalories,
     required double foodCalories,
     required double exerciseCalories,
-  }) {
-    return targetCalories - foodCalories + exerciseCalories;
-  }
+  }) => targetCalories - foodCalories + exerciseCalories;
 
   double resolveTdee({
     required double bmr,
@@ -141,102 +241,21 @@ class NutritionEngine {
         activeEnergyBurnedKcal: healthSnapshot.activeEnergyBurnedKcal ?? 0,
       );
     }
-
     return calculateTDEEFromActivityFactor(
       bmr: bmr,
       activityLevel: settings.activityLevel!,
     );
   }
 
-  DailySummary calculateDailySummary({
-    required UserProfile profile,
-    required Goal goal,
-    required NutritionSettings settings,
-    required List<FoodEntry> foodEntries,
-    required List<ExerciseEntry> exerciseEntries,
-    List<AlcoholEntry> alcoholEntries = const [],
-    HealthSnapshot healthSnapshot = HealthSnapshot.empty,
-    DateTime? referenceDate,
-  }) {
-    final bmr = calculateBMR(profile: profile, referenceDate: referenceDate);
-    final tdee = resolveTdee(
-      bmr: bmr,
-      settings: settings,
-      healthSnapshot: healthSnapshot,
-    );
-    final dailyAdjustment = calculateDailyAdjustment(
-      goal: goal,
-      currentWeightKg: profile.weightKg,
-      referenceDate: referenceDate,
-    );
-    final targetKcal = calculateTargetCalories(
-      goalType: goal.type,
-      tdee: tdee,
-      dailyAdjustment: dailyAdjustment,
-      targetDate: goal.targetDate,
-      referenceDate: referenceDate,
-    );
-    final targetMacros = calculateTargetMacros(
-      goalType: goal.type,
-      targetCalories: targetKcal,
-      weightKg: profile.weightKg,
-    );
+  double _sumFoodProtein(List<FoodEntry> entries) =>
+      entries.fold(0, (sum, entry) => sum + entry.totalProteinG);
 
-    final dayFoodEntries = filterLoggedOnLocalDay(
-      entries: foodEntries,
-      referenceDate: referenceDate ?? DateTime.now(),
-      readLoggedAt: (entry) => entry.loggedAt,
-    );
+  double _sumFoodFat(List<FoodEntry> entries) =>
+      entries.fold(0, (sum, entry) => sum + entry.totalFatG);
 
-    final intakeKcal = _remainingCalorieService.sumIntakeKcal(
-      foodEntries: foodEntries,
-      alcoholEntries: alcoholEntries,
-      selectedDay: referenceDate ?? DateTime.now(),
-    );
-    final intakeProteinG = _sumFoodProtein(dayFoodEntries);
-    final intakeFatG = _sumFoodFat(dayFoodEntries);
-    final intakeCarbG = _sumFoodCarb(dayFoodEntries);
-    final exerciseNetKcal = _remainingCalorieService.sumExerciseNetKcal(
-      exerciseEntries: exerciseEntries,
-      selectedDay: referenceDate ?? DateTime.now(),
-    );
-    final remainingKcal = _remainingCalorieService.calculate(
-      baseDailyFoodTargetKcal: targetKcal,
-      intakeKcal: intakeKcal,
-      exerciseNetKcal: exerciseNetKcal,
-    );
+  double _sumFoodCarb(List<FoodEntry> entries) =>
+      entries.fold(0, (sum, entry) => sum + entry.totalCarbG);
 
-    return DailySummary(
-      targetKcal: targetKcal,
-      remainingKcal: remainingKcal,
-      targetProteinG: targetMacros.proteinG,
-      targetFatG: targetMacros.fatG,
-      targetCarbG: targetMacros.carbG,
-      intakeKcal: intakeKcal,
-      intakeProteinG: intakeProteinG,
-      intakeFatG: intakeFatG,
-      intakeCarbG: intakeCarbG,
-      exerciseBurnKcal: exerciseNetKcal,
-    );
-  }
-
-  double _sumFoodKcal(List<FoodEntry> entries) {
-    return entries.fold(0, (sum, entry) => sum + entry.totalKcal);
-  }
-
-  double _sumFoodProtein(List<FoodEntry> entries) {
-    return entries.fold(0, (sum, entry) => sum + entry.totalProteinG);
-  }
-
-  double _sumFoodFat(List<FoodEntry> entries) {
-    return entries.fold(0, (sum, entry) => sum + entry.totalFatG);
-  }
-
-  double _sumFoodCarb(List<FoodEntry> entries) {
-    return entries.fold(0, (sum, entry) => sum + entry.totalCarbG);
-  }
-
-  DateTime _dateOnly(DateTime value) {
-    return DateTime(value.year, value.month, value.day);
-  }
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
 }

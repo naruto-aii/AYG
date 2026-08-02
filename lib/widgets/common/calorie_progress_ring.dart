@@ -12,6 +12,8 @@ class CalorieProgressRing extends StatelessWidget {
     required this.intakeKcal,
     required this.targetKcal,
     required this.remainingKcal,
+    this.isCalorieOverage = false,
+    this.calorieOverageKcal = 0,
     this.size = 180,
     this.strokeWidth = 14,
   });
@@ -19,6 +21,8 @@ class CalorieProgressRing extends StatelessWidget {
   final double intakeKcal;
   final double targetKcal;
   final double remainingKcal;
+  final bool isCalorieOverage;
+  final double calorieOverageKcal;
   final double size;
   final double strokeWidth;
 
@@ -27,6 +31,9 @@ class CalorieProgressRing extends StatelessWidget {
     final progress = targetKcal > 0
         ? (intakeKcal / targetKcal).clamp(0.0, 1.0)
         : 0.0;
+    final displayValue = isCalorieOverage
+        ? calorieOverageKcal
+        : remainingKcal.clamp(0.0, double.infinity);
 
     return SizedBox(
       width: size,
@@ -36,15 +43,24 @@ class CalorieProgressRing extends StatelessWidget {
         children: [
           CustomPaint(
             size: Size(size, size),
-            painter: _RingPainter(progress: progress, strokeWidth: strokeWidth),
+            painter: _RingPainter(
+              progress: progress,
+              strokeWidth: strokeWidth,
+              isOverage: isCalorieOverage,
+            ),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('あと', style: AppTypography.heroLabel(context)),
               Text(
-                remainingKcal.toStringAsFixed(0),
-                style: AppTypography.heroValue(context),
+                isCalorieOverage ? '超過' : 'あと',
+                style: AppTypography.heroLabel(context),
+              ),
+              Text(
+                displayValue.toStringAsFixed(0),
+                style: AppTypography.heroValue(context)?.copyWith(
+                  color: isCalorieOverage ? AppColors.accentOrange : null,
+                ),
               ),
               Text(
                 'kcal',
@@ -61,10 +77,15 @@ class CalorieProgressRing extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  _RingPainter({required this.progress, required this.strokeWidth});
+  _RingPainter({
+    required this.progress,
+    required this.strokeWidth,
+    this.isOverage = false,
+  });
 
   final double progress;
   final double strokeWidth;
+  final bool isOverage;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -80,7 +101,12 @@ class _RingPainter extends CustomPainter {
 
     final progressPaint = Paint()
       ..shader = SweepGradient(
-        colors: [AppColors.primaryGreen, AppColors.accentOrange],
+        colors: isOverage
+            ? [
+                AppColors.accentOrange,
+                AppColors.accentOrange.withValues(alpha: 0.7),
+              ]
+            : [AppColors.primaryGreen, AppColors.accentOrange],
         startAngle: -math.pi / 2,
         endAngle: 3 * math.pi / 2,
       ).createShader(rect)
@@ -100,6 +126,7 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RingPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress ||
+        oldDelegate.isOverage != isOverage;
   }
 }

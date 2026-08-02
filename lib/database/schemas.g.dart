@@ -728,18 +728,23 @@ const GoalEntitySchema = CollectionSchema(
   name: r'GoalEntity',
   id: -5725872661757418951,
   properties: {
-    r'goalTypeIndex': PropertySchema(
+    r'goalPaceIndex': PropertySchema(
       id: 0,
+      name: r'goalPaceIndex',
+      type: IsarType.long,
+    ),
+    r'goalTypeIndex': PropertySchema(
+      id: 1,
       name: r'goalTypeIndex',
       type: IsarType.long,
     ),
     r'targetDate': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'targetDate',
       type: IsarType.dateTime,
     ),
     r'targetWeightKg': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'targetWeightKg',
       type: IsarType.double,
     ),
@@ -773,9 +778,10 @@ void _goalEntitySerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeLong(offsets[0], object.goalTypeIndex);
-  writer.writeDateTime(offsets[1], object.targetDate);
-  writer.writeDouble(offsets[2], object.targetWeightKg);
+  writer.writeLong(offsets[0], object.goalPaceIndex);
+  writer.writeLong(offsets[1], object.goalTypeIndex);
+  writer.writeDateTime(offsets[2], object.targetDate);
+  writer.writeDouble(offsets[3], object.targetWeightKg);
 }
 
 GoalEntity _goalEntityDeserialize(
@@ -785,10 +791,11 @@ GoalEntity _goalEntityDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = GoalEntity();
-  object.goalTypeIndex = reader.readLong(offsets[0]);
+  object.goalPaceIndex = reader.readLongOrNull(offsets[0]);
+  object.goalTypeIndex = reader.readLong(offsets[1]);
   object.id = id;
-  object.targetDate = reader.readDateTime(offsets[1]);
-  object.targetWeightKg = reader.readDouble(offsets[2]);
+  object.targetDate = reader.readDateTime(offsets[2]);
+  object.targetWeightKg = reader.readDouble(offsets[3]);
   return object;
 }
 
@@ -800,10 +807,12 @@ P _goalEntityDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readLong(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 1:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 2:
+      return (reader.readDateTime(offset)) as P;
+    case 3:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -904,6 +913,79 @@ extension GoalEntityQueryWhere
 
 extension GoalEntityQueryFilter
     on QueryBuilder<GoalEntity, GoalEntity, QFilterCondition> {
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'goalPaceIndex'),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'goalPaceIndex'),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'goalPaceIndex', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'goalPaceIndex',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'goalPaceIndex',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'goalPaceIndex',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
   QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
   goalTypeIndexEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
@@ -1153,6 +1235,18 @@ extension GoalEntityQueryLinks
 
 extension GoalEntityQuerySortBy
     on QueryBuilder<GoalEntity, GoalEntity, QSortBy> {
+  QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> sortByGoalPaceIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'goalPaceIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> sortByGoalPaceIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'goalPaceIndex', Sort.desc);
+    });
+  }
+
   QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> sortByGoalTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'goalTypeIndex', Sort.asc);
@@ -1193,6 +1287,18 @@ extension GoalEntityQuerySortBy
 
 extension GoalEntityQuerySortThenBy
     on QueryBuilder<GoalEntity, GoalEntity, QSortThenBy> {
+  QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> thenByGoalPaceIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'goalPaceIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> thenByGoalPaceIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'goalPaceIndex', Sort.desc);
+    });
+  }
+
   QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> thenByGoalTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'goalTypeIndex', Sort.asc);
@@ -1245,6 +1351,12 @@ extension GoalEntityQuerySortThenBy
 
 extension GoalEntityQueryWhereDistinct
     on QueryBuilder<GoalEntity, GoalEntity, QDistinct> {
+  QueryBuilder<GoalEntity, GoalEntity, QDistinct> distinctByGoalPaceIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'goalPaceIndex');
+    });
+  }
+
   QueryBuilder<GoalEntity, GoalEntity, QDistinct> distinctByGoalTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'goalTypeIndex');
@@ -1269,6 +1381,12 @@ extension GoalEntityQueryProperty
   QueryBuilder<GoalEntity, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<GoalEntity, int?, QQueryOperations> goalPaceIndexProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'goalPaceIndex');
     });
   }
 

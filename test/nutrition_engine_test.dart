@@ -147,16 +147,16 @@ void main() {
   });
 
   group('calculateTargetMacros', () {
-    test('lose uses 2.0g/kg protein and 0.8g/kg fat', () {
+    test('lose uses ISSN-based protein and AMDR fat ratio', () {
       final macros = engine.calculateTargetMacros(
         goalType: GoalType.lose,
         targetCalories: 2000,
         weightKg: 75,
       );
 
-      expect(macros.proteinG, 150);
-      expect(macros.fatG, 60);
-      expect(macros.carbG, closeTo(215.0, 0.01));
+      expect(macros.proteinG, 120);
+      expect(macros.fatG, closeTo(62.22, 0.1));
+      expect(macros.carbG, closeTo(240.0, 0.1));
     });
   });
 
@@ -173,7 +173,7 @@ void main() {
   });
 
   group('calculateDailySummary', () {
-    test('health integration ignores activity level', () {
+    test('health integration does not add active energy to food target', () {
       final summary = engine.calculateDailySummary(
         profile: maleProfile,
         goal: Goal(
@@ -181,7 +181,10 @@ void main() {
           targetWeightKg: 75,
           targetDate: referenceDate.add(const Duration(days: 90)),
         ),
-        settings: const NutritionSettings(useHealthIntegration: true),
+        settings: const NutritionSettings(
+          useHealthIntegration: true,
+          activityLevel: ActivityLevel.moderate,
+        ),
         healthSnapshot: const HealthSnapshot(activeEnergyBurnedKcal: 500),
         foodEntries: const [],
         exerciseEntries: const [],
@@ -192,7 +195,11 @@ void main() {
         profile: maleProfile,
         referenceDate: referenceDate,
       );
-      expect(summary.targetKcal, closeTo(bmr + 500, 0.01));
+      expect(
+        summary.targetKcal,
+        closeTo(bmr * ActivityLevel.moderate.factor, 0.01),
+      );
+      expect(summary.targetKcal, isNot(closeTo(bmr + 500, 0.01)));
     });
 
     test('activity level integration uses activity factor', () {

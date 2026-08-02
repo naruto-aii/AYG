@@ -22,12 +22,16 @@ class FoodHistoryList extends StatelessWidget {
     required this.onTapEntry,
     required this.onDeleteEntry,
     this.emptyMessage = '記録された食事はありません',
+    this.emptyActionLabel,
+    this.onEmptyAction,
   });
 
   final List<HistoryDateGroup<FoodEntry>> dateGroups;
   final FoodEntryTap onTapEntry;
   final FoodEntryDelete onDeleteEntry;
   final String emptyMessage;
+  final String? emptyActionLabel;
+  final VoidCallback? onEmptyAction;
 
   String _formatTime(DateTime time) {
     final h = time.hour.toString().padLeft(2, '0');
@@ -43,7 +47,12 @@ class FoodHistoryList extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasEntries = dateGroups.any((group) => group.items.isNotEmpty);
     if (!hasEntries) {
-      return AppEmptyState(message: emptyMessage, centered: true);
+      return AppEmptyState(
+        message: emptyMessage,
+        centered: true,
+        actionLabel: emptyActionLabel,
+        onAction: onEmptyAction,
+      );
     }
 
     return ListView(

@@ -57,9 +57,7 @@ class SavedFoodSuggestionList extends StatelessWidget {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          controller.formatSavedFoodBaseLabel(food),
-                        ),
+                        Text(controller.formatSavedFoodBaseLabel(food)),
                         CompactMacroDisplay(
                           kcal: food.kcalPerBase,
                           proteinG: food.proteinPerBase,

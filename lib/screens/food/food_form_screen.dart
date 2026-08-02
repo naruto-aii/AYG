@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -8,6 +10,8 @@ import '../../models/food_entry_source.dart';
 import '../../models/food_source_type.dart';
 import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
+import '../../models/food_form_suggestion.dart';
+import '../../models/meal_template.dart';
 import '../../models/meal_template_draft.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
@@ -32,14 +36,15 @@ import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/layout/app_constrained_bottom_bar.dart';
 import '../../widgets/layout/app_form_constraint.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
+import '../../widgets/food/food_form_suggestion_list.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
-import '../../widgets/saved_food/saved_food_suggestion_list.dart';
 import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../../widgets/saved_food/serving_amount_fields.dart';
 import '../saved_food/public_food_search_screen.dart';
 import '../saved_food/saved_food_list_screen.dart';
 import 'barcode_scanner_screen.dart';
 import 'food_form_template_actions.dart';
+import 'food_meal_registration_screen.dart';
 
 class FoodFormScreen extends StatefulWidget {
   const FoodFormScreen({
@@ -84,7 +89,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   int? _sourceSavedFoodVersion;
   double _baseAmount = 1;
   FoodUnitType _unitType = FoodUnitType.serving;
-  List<SavedFood> _savedFoodSuggestions = const [];
+  List<FoodFormSuggestion> _formSuggestions = const [];
   late DateTime _loggedAt;
 
   bool get _showSaveAsFoodCheckbox =>
@@ -131,6 +136,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         ? entry.consumedAmount.toString()
         : '1';
     _nameController.addListener(_onNameChanged);
+    if (!widget.isEditing) {
+      unawaited(_loadInitialSuggestions());
+    }
     final initialPublicFood = widget.initialPublicFood;
     if (initialPublicFood != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -153,24 +161,40 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     super.dispose();
   }
 
+  Future<void> _loadInitialSuggestions() async {
+    if (widget.isEditing || _fromSavedFoodSelection) {
+      return;
+    }
+    final results = await widget.controller.getFoodFormSuggestions('');
+    if (!mounted) {
+      return;
+    }
+    setState(() => _formSuggestions = results);
+  }
+
   Future<void> _onNameChanged() async {
     if (widget.isEditing || _fromSavedFoodSelection) {
       return;
     }
 
     final query = _nameController.text.trim();
-    if (query.isEmpty) {
-      if (mounted) {
-        setState(() => _savedFoodSuggestions = const []);
-      }
-      return;
-    }
-
-    final results = await widget.controller.searchOwnSavedFoods(query);
+    final results = await widget.controller.getFoodFormSuggestions(query);
     if (!mounted) {
       return;
     }
-    setState(() => _savedFoodSuggestions = results);
+    setState(() => _formSuggestions = results);
+  }
+
+  Future<void> _applyMealTemplateSuggestion(MealTemplate template) async {
+    final registered = await openFoodMealRegistrationFromTemplate(
+      context: context,
+      controller: widget.controller,
+      template: template,
+      initialLoggedAt: _loggedAt,
+    );
+    if (registered == true && mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   void _applySavedFoodSelection(SavedFood food) {
@@ -184,7 +208,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       _baseAmount = selection.baseAmount;
       _unitType = selection.unitType;
       _sourceType = selection.entrySourceType;
-      _savedFoodSuggestions = const [];
+      _formSuggestions = const [];
       _nameController.text = selection.name;
       _quantityController.text = SavedFoodBaseServingFormat.formatQuantity(
         selection.baseAmount,
@@ -733,10 +757,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                         },
                       ),
                       if (!widget.isEditing && !_fromSavedFoodSelection)
-                        SavedFoodSuggestionList(
+                        FoodFormSuggestionList(
                           controller: widget.controller,
-                          foods: _savedFoodSuggestions,
-                          onSelected: _applySavedFoodSelection,
+                          suggestions: _formSuggestions,
+                          onSavedFoodSelected: _applySavedFoodSelection,
+                          onMealTemplateSelected: _applyMealTemplateSuggestion,
                         ),
                       if (_usesSavedFoodBaseModel) ...[
                         const SizedBox(height: AppSpacing.sm),
@@ -862,9 +887,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       debugPrint('deleteFood failed: $error\n$stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('食事の削除に失敗しました。もう一度お試しください'),
-          ),
+          const SnackBar(content: Text('食事の削除に失敗しました。もう一度お試しください')),
         );
       }
       return;

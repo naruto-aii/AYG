@@ -103,7 +103,10 @@ class VerticalMacroDisplay extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (leading != null) ...[leading!, const SizedBox(height: AppSpacing.xxs)],
+        if (leading != null) ...[
+          leading!,
+          const SizedBox(height: AppSpacing.xxs),
+        ],
         if (showKcal && kcal != null)
           Text(
             '${formatNullableNutrient(kcal, fractionDigits: fractionDigits)} kcal',
@@ -136,7 +139,10 @@ class VerticalMacroDisplay extends StatelessWidget {
             ),
             style: style,
           ),
-        if (trailing != null) ...[const SizedBox(height: AppSpacing.xxs), trailing!],
+        if (trailing != null) ...[
+          const SizedBox(height: AppSpacing.xxs),
+          trailing!,
+        ],
       ],
     );
   }

@@ -62,8 +62,9 @@ class SavedFoodEntryBuilder {
     final ratio = consumedQuantity / food.baseAmount;
     return {
       'kcal': food.kcalPerBase != null ? food.kcalPerBase! * ratio : null,
-      'protein':
-          food.proteinPerBase != null ? food.proteinPerBase! * ratio : null,
+      'protein': food.proteinPerBase != null
+          ? food.proteinPerBase! * ratio
+          : null,
       'fat': food.fatPerBase != null ? food.fatPerBase! * ratio : null,
       'carb': food.carbPerBase != null ? food.carbPerBase! * ratio : null,
     };

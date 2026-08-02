@@ -43,14 +43,14 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
     super.initState();
     final entry = widget.entry;
     _weightController = TextEditingController(
-      text: entry?.weightKg.toStringAsFixed(1) ??
+      text:
+          entry?.weightKg.toStringAsFixed(1) ??
           widget.initialWeightKg?.toStringAsFixed(1) ??
           '',
     );
-    _recordedAt = (entry?.recordedAt ??
-            widget.initialRecordedAt ??
-            DateTime.now())
-        .toLocal();
+    _recordedAt =
+        (entry?.recordedAt ?? widget.initialRecordedAt ?? DateTime.now())
+            .toLocal();
   }
 
   @override
@@ -69,10 +69,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
 
     if (widget.isEditing) {
       await widget.controller.updateWeightEntry(
-        widget.entry!.copyWith(
-          weightKg: weightKg,
-          recordedAt: _recordedAt,
-        ),
+        widget.entry!.copyWith(weightKg: weightKg, recordedAt: _recordedAt),
       );
     } else {
       await widget.controller.recordManualWeight(
@@ -87,9 +84,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
 
     setState(() => _isSaving = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(widget.isEditing ? '体重を更新しました' : '体重を記録しました'),
-      ),
+      SnackBar(content: Text(widget.isEditing ? '体重を更新しました' : '体重を記録しました')),
     );
     Navigator.of(context).pop();
   }
@@ -119,9 +114,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEditing ? '体重を編集' : '体重を記録'),
-      ),
+      appBar: AppBar(title: Text(widget.isEditing ? '体重を編集' : '体重を記録')),
       body: SafeArea(
         child: AppFormConstraint(
           child: Form(
@@ -139,9 +132,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        widget.isEditing
-                            ? '体重記録を編集'
-                            : '体重を入力してください',
+                        widget.isEditing ? '体重記録を編集' : '体重を入力してください',
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w600),
                       ),

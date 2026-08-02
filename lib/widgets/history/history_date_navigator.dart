@@ -30,14 +30,13 @@ class HistoryDateNavigator extends StatelessWidget {
     onSelectedDateChanged(localDayStart(DateTime.now()));
   }
 
-  String get _label =>
-      dateLabelFor(_day, referenceDate: DateTime.now());
+  String get _label => dateLabelFor(_day, referenceDate: DateTime.now());
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-      fontWeight: FontWeight.w600,
-    );
+    final labelStyle = Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -61,7 +60,11 @@ class HistoryDateNavigator extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
                 child: Column(
                   children: [
-                    Text(_label, textAlign: TextAlign.center, style: labelStyle),
+                    Text(
+                      _label,
+                      textAlign: TextAlign.center,
+                      style: labelStyle,
+                    ),
                     if (onOpenCalendar != null)
                       Text(
                         'カレンダーを開く',

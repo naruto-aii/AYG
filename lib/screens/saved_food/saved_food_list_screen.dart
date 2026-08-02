@@ -272,7 +272,10 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(widget.controller.formatSavedFoodBaseLabel(food)),
+                                    Text(
+                                      widget.controller
+                                          .formatSavedFoodBaseLabel(food),
+                                    ),
                                     CompactMacroDisplay(
                                       kcal: food.kcalPerBase,
                                       proteinG: food.proteinPerBase,

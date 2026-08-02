@@ -8,7 +8,10 @@ import '../meal_template/meal_template_form_screen.dart';
 import 'food_meal_registration_screen.dart';
 
 /// 食事フォームからテンプレート関連の導線を開く。
-Future<void> openFoodTemplateCreate(BuildContext context, AppController controller) {
+Future<void> openFoodTemplateCreate(
+  BuildContext context,
+  AppController controller,
+) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       builder: (context) => MealTemplateFormScreen(controller: controller),
@@ -71,9 +74,9 @@ Future<void> saveCurrentFoodAsTemplate({
   final name = nameController.text.trim();
   nameController.dispose();
   if (name.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('テンプレート名を入力してください')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('テンプレート名を入力してください')));
     return;
   }
 
@@ -84,16 +87,16 @@ Future<void> saveCurrentFoodAsTemplate({
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('「$name」をテンプレートとして保存しました')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('「$name」をテンプレートとして保存しました')));
   } catch (error) {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('テンプレートの保存に失敗しました: $error')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('テンプレートの保存に失敗しました: $error')));
   }
 }
 

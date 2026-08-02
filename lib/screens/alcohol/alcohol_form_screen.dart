@@ -16,10 +16,16 @@ import '../../widgets/layout/app_constrained_bottom_bar.dart';
 import '../../widgets/layout/app_form_constraint.dart';
 
 class AlcoholFormScreen extends StatefulWidget {
-  const AlcoholFormScreen({super.key, required this.controller, this.entry});
+  const AlcoholFormScreen({
+    super.key,
+    required this.controller,
+    this.entry,
+    this.initialConsumedAt,
+  });
 
   final AppController controller;
   final AlcoholEntry? entry;
+  final DateTime? initialConsumedAt;
 
   bool get isEditing => entry != null;
 
@@ -58,7 +64,9 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
           ? entry.pureAlcoholGrams.toString()
           : '',
     );
-    _consumedAt = entry?.consumedAt.toLocal() ?? DateTime.now();
+    _consumedAt =
+        (entry?.consumedAt ?? widget.initialConsumedAt ?? DateTime.now())
+            .toLocal();
   }
 
   @override
@@ -234,9 +242,7 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
         isMilliliterUnit(_unitController.text);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEditing ? 'アルコールを編集' : 'アルコールを追加'),
-      ),
+      appBar: AppBar(title: Text(widget.isEditing ? 'アルコールを編集' : 'アルコールを追加')),
       body: SafeArea(
         child: AppFormConstraint(
           child: Form(
@@ -375,7 +381,8 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
                         const SizedBox(height: AppSpacing.sm),
                         _PreviewRow(
                           label: '純アルコール量',
-                          value: '${formatNullableNutrient(preview.pureAlcoholGrams, fractionDigits: 1)} g',
+                          value:
+                              '${formatNullableNutrient(preview.pureAlcoholGrams, fractionDigits: 1)} g',
                         ),
                         _PreviewRow(
                           label: 'アルコール由来',

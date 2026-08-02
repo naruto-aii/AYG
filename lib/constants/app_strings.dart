@@ -52,14 +52,11 @@ class AppStrings {
   static const macroFat = '脂質';
   static const macroKcal = 'カロリー';
 
-  static const macroNutrientsRequired =
-      'カロリー・タンパク質・脂質・炭水化物はすべて必須です';
-  static const macroNutrientsRequiredShort =
-      'カロリー・タンパク質・脂質・炭水化物は必須です';
+  static const macroNutrientsRequired = 'カロリー・タンパク質・脂質・炭水化物はすべて必須です';
+  static const macroNutrientsRequiredShort = 'カロリー・タンパク質・脂質・炭水化物は必須です';
   static const macroManualConsistencyRequired =
       '手入力食品は カロリー = タンパク質×4 + 脂質×9 + 炭水化物×4 に整合している必要があります';
-  static const macroExternalMismatchTitle =
-      '表示カロリーと栄養素換算値が異なる場合があります。';
+  static const macroExternalMismatchTitle = '表示カロリーと栄養素換算値が異なる場合があります。';
   static const macroDisplayedKcalLabel = '表示カロリー';
   static const macroDerivedKcalLabel = '栄養素換算';
   static const macroExternalMismatchFootnote =

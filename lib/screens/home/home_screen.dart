@@ -14,8 +14,8 @@ import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/brand/app_logo.dart';
+import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/calorie_progress_ring.dart';
@@ -46,39 +46,28 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onOpenWeightTab;
 
   Future<void> _confirmDeleteFood(BuildContext context, FoodEntry entry) async {
-    final confirmed = await showAppConfirmDialog(
+    await confirmDeleteWithUndo<FoodEntry>(
       context: context,
       title: '削除確認',
       message: '「${entry.name}」を削除しますか？',
+      snapshot: entry,
+      onDelete: () => controller.deleteFood(entry.id),
+      onRestore: (restored) => controller.addFood(restored),
     );
-    if (confirmed == true) {
-      try {
-        await controller.deleteFood(entry.id);
-      } catch (error, stackTrace) {
-        debugPrint('deleteFood failed: $error\n$stackTrace');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('食事の削除に失敗しました。もう一度お試しください'),
-            ),
-          );
-        }
-      }
-    }
   }
 
   Future<void> _confirmDeleteExercise(
     BuildContext context,
     ExerciseEntry entry,
   ) async {
-    final confirmed = await showAppConfirmDialog(
+    await confirmDeleteWithUndo<ExerciseEntry>(
       context: context,
       title: '削除確認',
       message: '「${entry.name}」を削除しますか？',
+      snapshot: entry,
+      onDelete: () => controller.deleteExercise(entry.id),
+      onRestore: (restored) => controller.addExercise(restored),
     );
-    if (confirmed == true) {
-      await controller.deleteExercise(entry.id);
-    }
   }
 
   void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
@@ -95,25 +84,14 @@ class HomeScreen extends StatelessWidget {
     BuildContext context,
     AlcoholEntry entry,
   ) async {
-    final confirmed = await showAppConfirmDialog(
+    await confirmDeleteWithUndo<AlcoholEntry>(
       context: context,
       title: '削除確認',
       message: '「${entry.beverageName}」を削除しますか？',
+      snapshot: entry,
+      onDelete: () => controller.deleteAlcohol(entry.id),
+      onRestore: (restored) => controller.addAlcohol(restored),
     );
-    if (confirmed == true) {
-      try {
-        await controller.deleteAlcohol(entry.id);
-      } catch (error, stackTrace) {
-        debugPrint('deleteAlcohol failed: $error\n$stackTrace');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('アルコール記録の削除に失敗しました。もう一度お試しください'),
-            ),
-          );
-        }
-      }
-    }
   }
 
   void _openAlcoholForm(BuildContext context, {AlcoholEntry? entry}) {
@@ -344,8 +322,7 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: AppSpacing.lg),
                     AppSectionHeader(
                       title: '今日の食事',
-                      actionLabel:
-                          onOpenHistoryCalendar != null ? '履歴' : null,
+                      actionLabel: onOpenHistoryCalendar != null ? '履歴' : null,
                       onAction: onOpenHistoryCalendar,
                     ),
                     if (todayFood.isEmpty)
@@ -382,7 +359,9 @@ class HomeScreen extends StatelessWidget {
                               if (i > 0) const Divider(height: 1),
                               _TodayAlcoholTile(
                                 entry: todayAlcohol[i],
-                                timeLabel: _formatTime(todayAlcohol[i].consumedAt),
+                                timeLabel: _formatTime(
+                                  todayAlcohol[i].consumedAt,
+                                ),
                                 onTap: () => _openAlcoholForm(
                                   context,
                                   entry: todayAlcohol[i],
@@ -621,15 +600,13 @@ class _TodayAlcoholTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${entry.amount}${entry.unit} / ${entry.alcoholPercentage}%',
-          ),
+          Text('${entry.amount}${entry.unit} / ${entry.alcoholPercentage}%'),
           Text(
             '純アルコール ${formatNullableNutrient(entry.pureAlcoholGrams, fractionDigits: 1)}g · '
             'アルコール由来 ${formatNullableNutrient(entry.alcoholCalories, fractionDigits: 0)}kcal',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.secondaryText,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.secondaryText),
           ),
           Text(timeLabel),
         ],

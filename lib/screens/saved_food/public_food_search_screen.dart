@@ -132,9 +132,9 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
       );
       if (added && mounted) {
         Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('食事に追加しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('食事に追加しました')));
       }
       return;
     }
@@ -159,9 +159,9 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
             },
     );
     if (added && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('食事に追加しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('食事に追加しました')));
     }
   }
 

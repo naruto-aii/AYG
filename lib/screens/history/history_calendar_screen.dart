@@ -194,11 +194,7 @@ class _CalendarLegend extends StatelessWidget {
 }
 
 class _LegendItem extends StatelessWidget {
-  const _LegendItem({
-    this.color,
-    this.colors = const [],
-    required this.label,
-  });
+  const _LegendItem({this.color, this.colors = const [], required this.label});
 
   final Color? color;
   final List<Color> colors;
@@ -231,17 +227,14 @@ class _LegendItem extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
         const SizedBox(width: AppSpacing.xxs),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppColors.secondaryText,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.secondaryText),
         ),
       ],
     );

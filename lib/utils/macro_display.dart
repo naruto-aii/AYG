@@ -41,7 +41,8 @@ String formatMacroSummaryMultiline({
   int fractionDigits = 0,
 }) {
   final lines = <String>[
-    if (kcal != null) '${formatNullableNutrient(kcal, fractionDigits: fractionDigits)} kcal',
+    if (kcal != null)
+      '${formatNullableNutrient(kcal, fractionDigits: fractionDigits)} kcal',
     if (proteinG != null)
       formatMacroGramsLine(
         AppStrings.macroProtein,

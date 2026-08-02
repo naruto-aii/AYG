@@ -245,11 +245,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
   String _formatItemSubtitle(MealTemplateItemDraft item) {
     return '${item.consumedAmount}${item.unitType.label} · '
         '${formatNullableNutrient(_itemTotalKcal(item))} kcal · '
-        '${formatMacroSummaryInline(
-          proteinG: _itemTotalProtein(item),
-          fatG: _itemTotalFat(item),
-          carbG: _itemTotalCarb(item),
-        )}';
+        '${formatMacroSummaryInline(proteinG: _itemTotalProtein(item), fatG: _itemTotalFat(item), carbG: _itemTotalCarb(item))}';
   }
 
   @override

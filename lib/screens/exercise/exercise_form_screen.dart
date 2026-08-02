@@ -1,16 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../data/met_activity_catalog.dart';
+import '../../models/exercise_category.dart';
 import '../../models/exercise_entry.dart';
+import '../../models/workout_template.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
 import '../../widgets/common/logged_at_picker_field.dart';
+import '../../widgets/exercise/exercise_met_calculation_section.dart';
 import '../../widgets/layout/app_constrained_bottom_bar.dart';
 import '../../widgets/layout/app_form_constraint.dart';
+import 'exercise_form_template_actions.dart';
 
 class ExerciseFormScreen extends StatefulWidget {
   const ExerciseFormScreen({
@@ -37,6 +44,8 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   late final TextEditingController _burnedKcalController;
   late DateTime _loggedAt;
   bool _isSaving = false;
+  ExerciseMetFormState _metState = ExerciseMetFormState();
+  List<String> _nameSuggestions = const [];
 
   @override
   void initState() {
@@ -49,16 +58,54 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       text: entry?.durationMin.toString() ?? '',
     );
     _burnedKcalController = TextEditingController(
-      text: entry?.burnedKcal.toString() ?? '',
+      text: entry != null ? entry.effectiveGrossKcal.toString() : '',
     );
+    _nameController.addListener(_onNameChanged);
+    if (!widget.isEditing) {
+      unawaited(_loadInitialSuggestions());
+    }
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _durationController.dispose();
     _burnedKcalController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadInitialSuggestions() async {
+    if (widget.isEditing) {
+      return;
+    }
+    final results = await widget.controller.getExerciseNameSuggestions();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _nameSuggestions = results.take(20).toList());
+  }
+
+  Future<void> _onNameChanged() async {
+    if (widget.isEditing) {
+      return;
+    }
+    final query = _nameController.text.trim();
+    if (query.isEmpty) {
+      await _loadInitialSuggestions();
+      return;
+    }
+    final results = await widget.controller.getExerciseNameSuggestions();
+    if (!mounted) {
+      return;
+    }
+    final normalizedQuery = query.toLowerCase();
+    setState(() {
+      _nameSuggestions = results
+          .where((name) => name.toLowerCase().contains(normalizedQuery))
+          .take(20)
+          .toList();
+    });
   }
 
   ExerciseEntry? _buildEntry() {
@@ -66,12 +113,26 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return null;
     }
 
+    final gross = double.parse(_burnedKcalController.text);
+    final net = _metState.netKcal ?? gross;
+
     return ExerciseEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
       name: _nameController.text.trim(),
       durationMin: int.parse(_durationController.text),
-      burnedKcal: double.parse(_burnedKcalController.text),
+      burnedKcal: gross,
       loggedAt: _loggedAt,
+      category: _metState.category,
+      activityId: _metState.activityId,
+      intensity: _metState.intensity,
+      metValue: _metState.metValue,
+      grossKcal: gross,
+      netKcal: net,
+      weightKgSnapshot: _metState.weightKgSnapshot,
+      calculationSource: _metState.calculationSource,
+      calculationVersion:
+          _metState.calculationVersion ?? MetActivityCatalog.calculationVersion,
+      sourceKey: _metState.sourceKey,
     );
   }
 
@@ -100,17 +161,15 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return;
     }
 
-    final confirmed = await showAppConfirmDialog(
+    await confirmDeleteWithUndo<ExerciseEntry>(
       context: context,
       title: '削除確認',
       message: '「${entry.name}」を削除しますか？',
+      snapshot: entry,
+      onDelete: () => widget.controller.deleteExercise(entry.id),
+      onRestore: (restored) => widget.controller.addExercise(restored),
     );
 
-    if (confirmed != true) {
-      return;
-    }
-
-    await widget.controller.deleteExercise(entry.id);
     if (!mounted) {
       return;
     }
@@ -130,9 +189,34 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                 AppSpacing.md,
                 AppSpacing.md,
                 AppSpacing.md,
-                widget.isEditing ? 160 : 100,
+                widget.isEditing ? 160 : 120,
               ),
               children: [
+                if (!widget.isEditing) ...[
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SecondaryButton(
+                          onPressed: () => openWorkoutTemplatePicker(
+                            context: context,
+                            controller: widget.controller,
+                          ),
+                          label: 'テンプレートから追加',
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        SecondaryButton(
+                          onPressed: () => openWorkoutTemplateCreate(
+                            context,
+                            widget.controller,
+                          ),
+                          label: 'テンプレートを新規作成',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
                 AppCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -147,6 +231,22 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                           return null;
                         },
                       ),
+                      if (!widget.isEditing && _nameSuggestions.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            for (final suggestion in _nameSuggestions)
+                              ActionChip(
+                                label: Text(suggestion),
+                                onPressed: () {
+                                  _nameController.text = suggestion;
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: AppSpacing.sm),
                       AppTextField(
                         controller: _durationController,
@@ -170,7 +270,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                       ),
                       AppTextField(
                         controller: _burnedKcalController,
-                        label: '消費 kcal',
+                        label: '消費 kcal（gross）',
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -188,6 +288,17 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                ExerciseMetCalculationSection(
+                  controller: widget.controller,
+                  loggedAt: _loggedAt,
+                  durationController: _durationController,
+                  grossKcalController: _burnedKcalController,
+                  isEditing: widget.isEditing,
+                  initialEntry: widget.entry,
+                  onEstimateChanged: (state) =>
+                      setState(() => _metState = state),
+                ),
               ],
             ),
           ),
@@ -197,20 +308,44 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Theme(
-              data: Theme.of(context).copyWith(
-                filledButtonTheme: FilledButtonThemeData(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                ),
-              ),
-              child: PrimaryButton(
-                label: '保存',
-                loading: _isSaving,
-                onPressed: _isSaving ? null : _save,
-              ),
+            PrimaryButton(
+              label: '保存',
+              loading: _isSaving,
+              onPressed: _isSaving ? null : _save,
             ),
+            if (!widget.isEditing) ...[
+              const SizedBox(height: AppSpacing.xs),
+              SecondaryButton(
+                label: '入力内容をテンプレートとして保存',
+                onPressed: () {
+                  final duration = int.tryParse(
+                    _durationController.text.trim(),
+                  );
+                  final name = _nameController.text.trim();
+                  if (name.isEmpty || duration == null || duration <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('運動名と実施時間を入力してください')),
+                    );
+                    return;
+                  }
+                  saveCurrentExerciseAsTemplate(
+                    context: context,
+                    controller: widget.controller,
+                    itemDraft: WorkoutTemplateItem(
+                      itemId: widget.controller.generateId(),
+                      name: name,
+                      durationMin: duration,
+                      categoryKey: _metState.category?.id,
+                      activityId: _metState.activityId,
+                      intensity: _metState.intensity,
+                      metValue: _metState.metValue,
+                      sourceKey: _metState.sourceKey,
+                      sortOrder: 1,
+                    ),
+                  );
+                },
+              ),
+            ],
             if (widget.isEditing) ...[
               const SizedBox(height: AppSpacing.xs),
               SecondaryButton(label: '削除', onPressed: _confirmDelete),

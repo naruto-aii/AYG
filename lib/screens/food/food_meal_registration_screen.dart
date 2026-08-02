@@ -38,7 +38,8 @@ class FoodMealRegistrationScreen extends StatefulWidget {
       _FoodMealRegistrationScreenState();
 }
 
-class _FoodMealRegistrationScreenState extends State<FoodMealRegistrationScreen> {
+class _FoodMealRegistrationScreenState
+    extends State<FoodMealRegistrationScreen> {
   late final List<MealTemplateItemDraft> _items;
   late DateTime _loggedAt;
   final _quantityControllers = <TextEditingController>[];
@@ -94,9 +95,9 @@ class _FoodMealRegistrationScreenState extends State<FoodMealRegistrationScreen>
   Future<void> _save() async {
     final drafts = _buildDrafts();
     if (drafts == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('すべての食品に有効な数量を入力してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('すべての食品に有効な数量を入力してください')));
       return;
     }
 
@@ -140,9 +141,9 @@ class _FoodMealRegistrationScreenState extends State<FoodMealRegistrationScreen>
               const SizedBox(height: AppSpacing.sm),
               Text(
                 '登録する食品 (${_items.length}件)',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: AppSpacing.sm),
               for (var i = 0; i < _items.length; i++) ...[
@@ -201,21 +202,13 @@ class _FoodMealRegistrationScreenState extends State<FoodMealRegistrationScreen>
   }
 }
 
-/// テンプレートを選択し、依存関係を解決して [FoodMealRegistrationScreen] へ遷移する。
-Future<bool?> openFoodMealRegistrationFromTemplatePicker({
+/// 指定テンプレートから [FoodMealRegistrationScreen] へ遷移する。
+Future<bool?> openFoodMealRegistrationFromTemplate({
   required BuildContext context,
   required AppController controller,
+  required MealTemplate template,
   DateTime? initialLoggedAt,
 }) async {
-  final template = await Navigator.of(context).push<MealTemplate>(
-    MaterialPageRoute<MealTemplate>(
-      builder: (context) => MealTemplatePickerScreen(controller: controller),
-    ),
-  );
-  if (template == null || !context.mounted) {
-    return null;
-  }
-
   var bundle = await controller.getMealTemplateWithItems(template.templateId);
   if (bundle == null || !context.mounted) {
     return null;
@@ -260,5 +253,28 @@ Future<bool?> openFoodMealRegistrationFromTemplatePicker({
         initialLoggedAt: initialLoggedAt,
       ),
     ),
+  );
+}
+
+/// テンプレートを選択し、依存関係を解決して [FoodMealRegistrationScreen] へ遷移する。
+Future<bool?> openFoodMealRegistrationFromTemplatePicker({
+  required BuildContext context,
+  required AppController controller,
+  DateTime? initialLoggedAt,
+}) async {
+  final template = await Navigator.of(context).push<MealTemplate>(
+    MaterialPageRoute<MealTemplate>(
+      builder: (context) => MealTemplatePickerScreen(controller: controller),
+    ),
+  );
+  if (template == null || !context.mounted) {
+    return null;
+  }
+
+  return openFoodMealRegistrationFromTemplate(
+    context: context,
+    controller: controller,
+    template: template,
+    initialLoggedAt: initialLoggedAt,
   );
 }

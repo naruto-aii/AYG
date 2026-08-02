@@ -19,12 +19,16 @@ class WorkoutHistoryList extends StatelessWidget {
     required this.onTapEntry,
     required this.onDeleteEntry,
     this.emptyMessage = '記録された運動はありません',
+    this.emptyActionLabel,
+    this.onEmptyAction,
   });
 
   final List<HistoryDateGroup<ExerciseEntry>> dateGroups;
   final ExerciseEntryTap onTapEntry;
   final ExerciseEntryDelete onDeleteEntry;
   final String emptyMessage;
+  final String? emptyActionLabel;
+  final VoidCallback? onEmptyAction;
 
   String _formatTime(DateTime time) {
     final h = time.hour.toString().padLeft(2, '0');
@@ -36,7 +40,12 @@ class WorkoutHistoryList extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasEntries = dateGroups.any((group) => group.items.isNotEmpty);
     if (!hasEntries) {
-      return AppEmptyState(message: emptyMessage, centered: true);
+      return AppEmptyState(
+        message: emptyMessage,
+        centered: true,
+        actionLabel: emptyActionLabel,
+        onAction: onEmptyAction,
+      );
     }
 
     return ListView(

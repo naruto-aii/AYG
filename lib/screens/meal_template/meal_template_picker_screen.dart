@@ -106,7 +106,9 @@ class _MealTemplatePickerScreenState extends State<MealTemplatePickerScreen> {
                         itemBuilder: (context, index) {
                           final template = _templates[index];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
+                            ),
                             child: AppCard(
                               onTap: () => _select(template),
                               child: ListTile(

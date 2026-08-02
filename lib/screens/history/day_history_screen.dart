@@ -11,10 +11,11 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
+import '../../widgets/history/history_tab_body.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/compact_macro_display.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../alcohol/alcohol_form_screen.dart';
@@ -49,46 +50,69 @@ class DayHistoryScreen extends StatelessWidget {
     return '$h:$m';
   }
 
+  DateTime get _initialLoggedAtForNewEntry =>
+      initialLoggedAtForSelectedDay(selectedDay);
+
+  bool get _canAdd => canAddRecordOnDay(selectedDay);
+
   Future<void> _confirmDeleteFood(BuildContext context, FoodEntry entry) async {
-    final confirmed = await showAppConfirmDialog(
+    await confirmDeleteWithUndo<FoodEntry>(
       context: context,
       title: '削除確認',
       message: '「${entry.name}」を削除しますか？',
+      snapshot: entry,
+      onDelete: () => controller.deleteFood(entry.id),
+      onRestore: (restored) => controller.addFood(restored),
     );
-    if (confirmed == true) {
-      try {
-        await controller.deleteFood(entry.id);
-      } catch (error) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('食事の削除に失敗しました。もう一度お試しください')),
-          );
-        }
-      }
-    }
   }
 
   Future<void> _confirmDeleteExercise(
     BuildContext context,
     ExerciseEntry entry,
   ) async {
-    final confirmed = await showAppConfirmDialog(
+    await confirmDeleteWithUndo<ExerciseEntry>(
       context: context,
       title: '削除確認',
       message: '「${entry.name}」を削除しますか？',
+      snapshot: entry,
+      onDelete: () => controller.deleteExercise(entry.id),
+      onRestore: (restored) => controller.addExercise(restored),
     );
-    if (confirmed == true) {
-      await controller.deleteExercise(entry.id);
-    }
   }
 
-  DateTime get _initialLoggedAtForNewEntry {
-    final now = DateTime.now();
-    final day = selectedDay.toLocal();
-    return DateTime(day.year, day.month, day.day, now.hour, now.minute);
+  Future<void> _confirmDeleteAlcohol(
+    BuildContext context,
+    AlcoholEntry entry,
+  ) async {
+    await confirmDeleteWithUndo<AlcoholEntry>(
+      context: context,
+      title: '削除確認',
+      message: '「${entry.beverageName}」を削除しますか？',
+      snapshot: entry,
+      onDelete: () => controller.deleteAlcohol(entry.id),
+      onRestore: (restored) => controller.addAlcohol(restored),
+    );
+  }
+
+  Future<void> _confirmDeleteWeight(
+    BuildContext context,
+    WeightEntry entry,
+  ) async {
+    await confirmDeleteWithUndo<WeightEntry>(
+      context: context,
+      title: '削除確認',
+      message: 'この体重記録を削除しますか？',
+      snapshot: entry,
+      onDelete: () => controller.deleteWeightEntry(entry.id),
+      onRestore: (restored) => controller.updateWeightEntry(restored),
+    );
   }
 
   void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
+    if (entry == null && !_canAdd) {
+      showFutureDayAddBlockedSnackBar(context);
+      return;
+    }
     openFoodFormScreen(
       context,
       controller: controller,
@@ -99,42 +123,27 @@ class DayHistoryScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDeleteAlcohol(
-    BuildContext context,
-    AlcoholEntry entry,
-  ) async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '削除確認',
-      message: '「${entry.beverageName}」を削除しますか？',
-    );
-    if (confirmed == true) {
-      try {
-        await controller.deleteAlcohol(entry.id);
-      } catch (_) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('アルコール記録の削除に失敗しました。もう一度お試しください'),
-            ),
-          );
-        }
-      }
-    }
-  }
-
   void _openAlcoholForm(BuildContext context, {AlcoholEntry? entry}) {
+    if (entry == null && !_canAdd) {
+      showFutureDayAddBlockedSnackBar(context);
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => AlcoholFormScreen(
           controller: controller,
           entry: entry,
+          initialConsumedAt: entry == null ? _initialLoggedAtForNewEntry : null,
         ),
       ),
     );
   }
 
   void _openExerciseForm(BuildContext context, {ExerciseEntry? entry}) {
+    if (entry == null && !_canAdd) {
+      showFutureDayAddBlockedSnackBar(context);
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => ExerciseFormScreen(
@@ -147,6 +156,10 @@ class DayHistoryScreen extends StatelessWidget {
   }
 
   void _openWeightForm(BuildContext context, {WeightEntry? entry}) {
+    if (entry == null && !_canAdd) {
+      showFutureDayAddBlockedSnackBar(context);
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => WeightRecordScreen(
@@ -156,20 +169,6 @@ class DayHistoryScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _confirmDeleteWeight(
-    BuildContext context,
-    WeightEntry entry,
-  ) async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '削除確認',
-      message: 'この体重記録を削除しますか？',
-    );
-    if (confirmed == true) {
-      await controller.deleteWeightEntry(entry.id);
-    }
   }
 
   String _foodEntryQuantityLine(FoodEntry entry) {
@@ -188,18 +187,21 @@ class DayHistoryScreen extends StatelessWidget {
               .where((entry) => isSameLocalDay(entry.loggedAt, day))
               .toList(),
         );
-        final exerciseItems = controller.exerciseEntries
-            .where((entry) => isSameLocalDay(entry.loggedAt, day))
-            .toList()
-          ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
-        final alcoholItems = controller.alcoholEntries
-            .where((entry) => isSameLocalDay(entry.consumedAt, day))
-            .toList()
-          ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
-        final weightItems = controller.weightEntries
-            .where((entry) => isSameLocalDay(entry.recordedAt, day))
-            .toList()
-          ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+        final exerciseItems =
+            controller.exerciseEntries
+                .where((entry) => isSameLocalDay(entry.loggedAt, day))
+                .toList()
+              ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+        final alcoholItems =
+            controller.alcoholEntries
+                .where((entry) => isSameLocalDay(entry.consumedAt, day))
+                .toList()
+              ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+        final weightItems =
+            controller.weightEntries
+                .where((entry) => isSameLocalDay(entry.recordedAt, day))
+                .toList()
+              ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
 
         return Scaffold(
           appBar: AppBar(title: Text(_title)),
@@ -216,7 +218,11 @@ class DayHistoryScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   if (foodItems.isEmpty)
-                    const AppEmptyState(message: 'この日の食事記録はありません')
+                    AppEmptyState(
+                      message: 'この日の食事記録はありません',
+                      actionLabel: _canAdd ? '食事を追加' : null,
+                      onAction: _canAdd ? () => _openFoodForm(context) : null,
+                    )
                   else
                     AppCard(
                       padding: EdgeInsets.zero,
@@ -233,7 +239,9 @@ class DayHistoryScreen extends StatelessWidget {
                                   _openFoodForm(context, entry: foodItems[i]),
                               title: Text(foodItems[i].name),
                               subtitle: VerticalMacroDisplay(
-                                leading: Text(_formatTime(foodItems[i].loggedAt)),
+                                leading: Text(
+                                  _formatTime(foodItems[i].loggedAt),
+                                ),
                                 kcal: foodItems[i].kcalPerUnit == null
                                     ? null
                                     : foodItems[i].totalKcal,
@@ -247,7 +255,9 @@ class DayHistoryScreen extends StatelessWidget {
                                     ? null
                                     : foodItems[i].totalCarbG,
                                 showKcal: false,
-                                trailing: Text(_foodEntryQuantityLine(foodItems[i])),
+                                trailing: Text(
+                                  _foodEntryQuantityLine(foodItems[i]),
+                                ),
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -267,8 +277,10 @@ class DayHistoryScreen extends StatelessWidget {
                                       Icons.delete_outline,
                                       size: 20,
                                     ),
-                                    onPressed: () =>
-                                        _confirmDeleteFood(context, foodItems[i]),
+                                    onPressed: () => _confirmDeleteFood(
+                                      context,
+                                      foodItems[i],
+                                    ),
                                     color: AppColors.secondaryText,
                                   ),
                                 ],
@@ -287,7 +299,13 @@ class DayHistoryScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   if (alcoholItems.isEmpty)
-                    const AppEmptyState(message: 'この日のアルコール記録はありません')
+                    AppEmptyState(
+                      message: 'この日のアルコール記録はありません',
+                      actionLabel: _canAdd ? 'アルコールを追加' : null,
+                      onAction: _canAdd
+                          ? () => _openAlcoholForm(context)
+                          : null,
+                    )
                   else
                     AppCard(
                       padding: EdgeInsets.zero,
@@ -315,10 +333,10 @@ class DayHistoryScreen extends StatelessWidget {
                                   Text(
                                     '純アルコール ${formatNullableNutrient(alcoholItems[i].pureAlcoholGrams, fractionDigits: 1)}g · '
                                     'アルコール由来 ${formatNullableNutrient(alcoholItems[i].alcoholCalories, fractionDigits: 0)}kcal',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(color: AppColors.secondaryText),
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: AppColors.secondaryText,
+                                        ),
                                   ),
                                   Text(_formatTime(alcoholItems[i].consumedAt)),
                                 ],
@@ -364,7 +382,13 @@ class DayHistoryScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   if (exerciseItems.isEmpty)
-                    const AppEmptyState(message: 'この日の運動記録はありません')
+                    AppEmptyState(
+                      message: 'この日の運動記録はありません',
+                      actionLabel: _canAdd ? '運動を追加' : null,
+                      onAction: _canAdd
+                          ? () => _openExerciseForm(context)
+                          : null,
+                    )
                   else
                     AppCard(
                       padding: EdgeInsets.zero,
@@ -426,7 +450,11 @@ class DayHistoryScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   if (weightItems.isEmpty)
-                    const AppEmptyState(message: 'この日の体重記録はありません')
+                    AppEmptyState(
+                      message: 'この日の体重記録はありません',
+                      actionLabel: _canAdd ? '体重を追加' : null,
+                      onAction: _canAdd ? () => _openWeightForm(context) : null,
+                    )
                   else
                     AppCard(
                       padding: EdgeInsets.zero,

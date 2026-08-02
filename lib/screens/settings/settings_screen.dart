@@ -12,6 +12,7 @@ import '../../widgets/common/app_card.dart';
 import '../../widgets/common/settings_list_tile.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import 'settings_basic_info_screen.dart';
+import 'calculation_references_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
@@ -126,6 +127,19 @@ class SettingsScreen extends StatelessWidget {
                               controller: controller,
                               openFoodFactsService: openFoodFactsService,
                             ),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1),
+                    SettingsListTile(
+                      icon: Icons.calculate_outlined,
+                      title: '計算根拠・参考文献',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                const CalculationReferencesScreen(),
                           ),
                         );
                       },

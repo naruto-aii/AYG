@@ -85,9 +85,18 @@ class _PublishSavedFoodConfirmationScreenState
             const SizedBox(height: 12),
             _infoRow('基準量', widget.controller.formatSavedFoodBaseLabel(food)),
             _infoRow('kcal', formatNullableNutrient(food.kcalPerBase)),
-            _infoRow(AppStrings.macroProtein, formatNullableNutrient(food.proteinPerBase)),
-            _infoRow(AppStrings.macroFat, formatNullableNutrient(food.fatPerBase)),
-            _infoRow(AppStrings.macroCarb, formatNullableNutrient(food.carbPerBase)),
+            _infoRow(
+              AppStrings.macroProtein,
+              formatNullableNutrient(food.proteinPerBase),
+            ),
+            _infoRow(
+              AppStrings.macroFat,
+              formatNullableNutrient(food.fatPerBase),
+            ),
+            _infoRow(
+              AppStrings.macroCarb,
+              formatNullableNutrient(food.carbPerBase),
+            ),
             if (food.brand != null) _infoRow('ブランド', food.brand!),
             if (food.barcode != null) _infoRow('バーコード', food.barcode!),
             _infoRow(

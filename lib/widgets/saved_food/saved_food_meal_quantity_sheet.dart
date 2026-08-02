@@ -123,9 +123,9 @@ class _SavedFoodMealQuantitySheetState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('食事の追加に失敗しました: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('食事の追加に失敗しました: $error')));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -153,11 +153,7 @@ class _SavedFoodMealQuantitySheetState
                 Text(_food.name, style: theme.textTheme.titleLarge),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '基準：${SavedFoodBaseServingFormat.formatPerBaseLabel(
-                    baseServingDefined: _food.baseServingDefined,
-                    baseAmount: _food.baseAmount,
-                    baseUnit: unitLabel,
-                  )}',
+                  '基準：${SavedFoodBaseServingFormat.formatPerBaseLabel(baseServingDefined: _food.baseServingDefined, baseAmount: _food.baseAmount, baseUnit: unitLabel)}',
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(AppStrings.macroNutritionInfoLabel),
@@ -178,8 +174,11 @@ class _SavedFoodMealQuantitySheetState
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        validator: (value) => SavedFoodBaseServingFormat
-                            .validateQuantity(value, label: '数量'),
+                        validator: (value) =>
+                            SavedFoodBaseServingFormat.validateQuantity(
+                              value,
+                              label: '数量',
+                            ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
@@ -228,9 +227,7 @@ Future<void> showSavedFoodDirectAddBlockedDialog({
     builder: (dialogContext) {
       return AlertDialog(
         title: const Text('直接追加できません'),
-        content: const Text(
-          'この食品には基準量が設定されていないため、直接追加できません。',
-        ),
+        content: const Text('この食品には基準量が設定されていないため、直接追加できません。'),
         actions: [
           if (onOpenManualForm != null)
             TextButton(

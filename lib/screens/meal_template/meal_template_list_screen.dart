@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../models/meal_template.dart';
 import '../../models/meal_template_apply.dart';
+import '../../models/meal_template_draft.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/compact_macro_display.dart';
 import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_text_field.dart';
@@ -140,16 +141,25 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   }
 
   Future<void> _deleteTemplate(MealTemplate template) async {
-    final confirmed = await showAppConfirmDialog(
+    final bundle = await widget.controller.getMealTemplateWithItems(
+      template.templateId,
+    );
+    if (bundle == null) {
+      return;
+    }
+
+    await confirmDeleteWithUndo<MealTemplateWithItems>(
       context: context,
       title: '削除確認',
       message: '「${template.name}」を削除しますか？',
+      snapshot: bundle,
+      onDelete: () => widget.controller.deleteMealTemplate(template.templateId),
+      onRestore: (restored) =>
+          widget.controller.restoreMealTemplateBundle(restored),
     );
-    if (confirmed != true) {
-      return;
+    if (mounted) {
+      await _reload();
     }
-    await widget.controller.deleteMealTemplate(template.templateId);
-    await _reload();
   }
 
   String _formatLastUsed(DateTime? value) {
@@ -210,7 +220,9 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
                                 horizontal: AppSpacing.md,
                                 vertical: AppSpacing.xs,
                               ),
-                              onTap: _isApplying ? null : () => _applyTemplate(template),
+                              onTap: _isApplying
+                                  ? null
+                                  : () => _applyTemplate(template),
                               child: ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(template.name),

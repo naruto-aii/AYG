@@ -44,9 +44,7 @@ class PublicFoodMealAddFlow {
       debugPrint('PublicFoodMealAddFlow failed: $error\n$stackTrace');
       if (rootContext.mounted) {
         ScaffoldMessenger.of(rootContext).showSnackBar(
-          const SnackBar(
-            content: Text('食品を追加できませんでした。もう一度お試しください'),
-          ),
+          const SnackBar(content: Text('食品を追加できませんでした。もう一度お試しください')),
         );
       }
       return false;

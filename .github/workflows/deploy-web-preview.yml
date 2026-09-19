@@ -16,11 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,9 +39,15 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          OFF_CONTACT_EMAIL: ${{ secrets.OFF_CONTACT_EMAIL }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
             echo "Missing required GitHub Secrets: SUPABASE_URL and/or SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+          if [ -z "$SUPPORT_EMAIL" ] && [ -z "$OFF_CONTACT_EMAIL" ]; then
+            echo "Missing GitHub Secrets: SUPPORT_EMAIL and OFF_CONTACT_EMAIL"
             exit 1
           fi
 
@@ -85,15 +88,29 @@ jobs:
           mkdir -p build/web/legal
           cp legal/*.html legal/*.css build/web/legal/
 
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-preview-build
+          path: build/web
+          if-no-files-found: error
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Setup Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -1,0 +1,103 @@
+:root {
+  --bg: #fff9f1;
+  --card: #ffffff;
+  --text: #3d3a36;
+  --muted: #7a7570;
+  --border: #e8e2d8;
+  --accent: #4caf7d;
+  --warn-bg: #fff3d6;
+  --warn-border: #e6c56a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
+    sans-serif;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--bg);
+}
+
+header,
+main,
+footer {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
+}
+
+header {
+  padding-bottom: 0;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.4;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin-top: 2rem;
+}
+
+p,
+li {
+  font-size: 0.98rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+.draft-banner {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.draft-banner strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+nav a {
+  display: inline-block;
+  margin-right: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+footer {
+  color: var(--muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.card-list {
+  list-style: none;
+  padding: 0;
+}
+
+.card-list li {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  margin: 0 0 0.75rem;
+}

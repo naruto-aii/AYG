@@ -10,7 +10,7 @@
 - 実装は Flutter 側が行います。デザイナーは **Figma と画像アセット** を渡します。
 - コンポーネント名・余白・状態が実装者に読み取れること。
 - 内側（API、メール、Flutter Environment、Apple コンソール）は納品対象外です。
-- サポートメールと公開 URL は **未定** です。ダミーの実在アドレスを入れないでください。
+- サポートメールは calonavi.ayg.support@gmail.com。公開 URL は https://naruto-aii.github.io/AYG/legal/ です。架空のアドレスは作らないでください。
 
 ---
 

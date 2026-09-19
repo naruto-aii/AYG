@@ -27,6 +27,10 @@ class AppStrings {
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';
   static const settingsContactOperator = '運営への連絡';
+  static const settingsSupport = 'サポート';
+  static const settingsAccountDeletion = 'アカウント削除';
+  static const settingsAccountDeletionSubtitle = '公開食品は残ります。手順は案内ページへ';
+  static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
 
 
   static const birthDate = '生年月日';

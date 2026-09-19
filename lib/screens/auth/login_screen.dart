@@ -142,6 +142,12 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          AppStrings.loginLegalAgreement,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
       ],
     );
   }

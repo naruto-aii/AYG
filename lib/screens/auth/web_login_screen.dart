@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/supabase_config.dart';
+import '../../constants/app_strings.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../state/app_controller.dart';
@@ -115,6 +116,12 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                     child: const Text('プライバシーポリシー'),
                   ),
                 ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                AppStrings.loginLegalAgreement,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),

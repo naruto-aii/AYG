@@ -5,8 +5,8 @@
   --muted: #7a7570;
   --border: #e8e2d8;
   --accent: #4caf7d;
-  --warn-bg: #fff3d6;
-  --warn-border: #e6c56a;
+  --info-bg: #eef7f1;
+  --info-border: #b7d9c4;
 }
 
 * {
@@ -59,15 +59,15 @@ a {
   color: var(--accent);
 }
 
-.draft-banner {
-  background: var(--warn-bg);
-  border: 1px solid var(--warn-border);
+.notice {
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
   border-radius: 8px;
   padding: 0.85rem 1rem;
   margin: 1rem 0 1.5rem;
 }
 
-.draft-banner strong {
+.notice strong {
   display: block;
   margin-bottom: 0.25rem;
 }

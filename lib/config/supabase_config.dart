@@ -26,6 +26,14 @@ class SupabaseConfig {
     'PRIVACY_URL',
     defaultValue: 'https://naruto-aii.github.io/AYG/legal/privacy.html',
   );
+  static const String supportUrl = String.fromEnvironment(
+    'SUPPORT_URL',
+    defaultValue: 'https://naruto-aii.github.io/AYG/legal/support.html',
+  );
+  static const String accountDeletionUrl = String.fromEnvironment(
+    'ACCOUNT_DELETION_URL',
+    defaultValue: 'https://naruto-aii.github.io/AYG/legal/account-deletion.html',
+  );
 
   static bool get isConfigured => url.isNotEmpty && anonKey.isNotEmpty;
 

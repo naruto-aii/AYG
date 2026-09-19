@@ -176,6 +176,20 @@ class SettingsScreen extends StatelessWidget {
                       title: 'プライバシーポリシー',
                       onTap: () => _openUrl(context, SupabaseConfig.privacyUrl),
                     ),
+                    const Divider(height: 1),
+                    SettingsListTile(
+                      icon: Icons.help_outline,
+                      title: AppStrings.settingsSupport,
+                      onTap: () => _openUrl(context, SupabaseConfig.supportUrl),
+                    ),
+                    const Divider(height: 1),
+                    SettingsListTile(
+                      icon: Icons.person_off_outlined,
+                      title: AppStrings.settingsAccountDeletion,
+                      subtitle: AppStrings.settingsAccountDeletionSubtitle,
+                      onTap: () =>
+                          _openUrl(context, SupabaseConfig.accountDeletionUrl),
+                    ),
                     if (contactEmail.isNotEmpty) ...[
                       const Divider(height: 1),
                       SettingsListTile(

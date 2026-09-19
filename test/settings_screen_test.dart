@@ -73,6 +73,8 @@ void main() {
 
     expect(find.text(AppStrings.settingsContactOperator), findsOneWidget);
     expect(find.text('calonavi.ayg.support@gmail.com'), findsOneWidget);
+    expect(find.text(AppStrings.settingsSupport), findsOneWidget);
+    expect(find.text(AppStrings.settingsAccountDeletion), findsOneWidget);
 
     await authRepository.dispose();
   });

@@ -74,6 +74,8 @@ jobs:
               "SUPPORT_EMAIL": support_email or off_contact_email,
               "TERMS_URL": f"{pages_base}/legal/terms.html",
               "PRIVACY_URL": f"{pages_base}/legal/privacy.html",
+              "SUPPORT_URL": f"{pages_base}/legal/support.html",
+              "ACCOUNT_DELETION_URL": f"{pages_base}/legal/account-deletion.html",
           }
           with open("dart_defines.ci.json", "w", encoding="utf-8") as handle:
               json.dump(config, handle)

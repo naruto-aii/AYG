@@ -1,7 +1,7 @@
 # App Store 掲載文（草案）
 
-法務・マーケ確定前の草案です。**確定文面ではありません。**  
-店名に AYG は出しません。サポートメールと公開 URL は未定です。
+店名以外の宣伝文はまだ草案です。店名に AYG は出しません。  
+サポートメールと公開 URL は決まっています。
 
 対象ストア: Apple App Store（iPhone 優先）  
 アプリ名（表）：カロナビ  
@@ -46,9 +46,9 @@
 
 計算は一般的な式に基づく推定です。根拠はアプリ内のリンク先で確認できます。断定や医療助言はしません。
 
-運営: AYG  
-サポートメール: 未定  
-サポート／プライバシー／利用規約の公開 URL: 未定
+運営: AYG（個人事業主）  
+サポートメール: calonavi.ayg.support@gmail.com  
+サポート／プライバシー／利用規約の公開 URL: https://naruto-aii.github.io/AYG/legal/
 
 ---
 
@@ -77,17 +77,17 @@ Apple のキーワード欄はカンマ区切り・スペースなし、合計 1
 
 ## Privacy / Support URL（穴）
 
-公開 URL は未定です。審査提出までに差し替えます。
+App Store Connect に入れる値です。
 
-| 項目 | 値 | 状態 |
-| --- | --- | --- |
-| Privacy Policy URL | （未定） | プレースホルダ: `legal/privacy.html` |
-| Terms of Use URL | （未定） | プレースホルダ: `legal/terms.html` |
-| Support URL | （未定） | プレースホルダ: `legal/support.html` |
-| サポートメール | 未定 | 画面上も未定のまま |
-| アカウント削除案内 | （未定） | プレースホルダ: `legal/account-deletion.html` |
+| 項目 | 値 |
+| --- | --- |
+| Privacy Policy URL | https://naruto-aii.github.io/AYG/legal/privacy.html |
+| Terms of Use URL | https://naruto-aii.github.io/AYG/legal/terms.html |
+| Support URL | https://naruto-aii.github.io/AYG/legal/support.html |
+| サポートメール | calonavi.ayg.support@gmail.com |
+| アカウント削除案内 | https://naruto-aii.github.io/AYG/legal/account-deletion.html |
 
-HTML プレースホルダはリポジトリの [`/legal/`](../../legal/index.html) にあります。公開ドメインは未定です。
+HTML は [`/legal/`](../../legal/index.html) にあります。
 
 App Privacy（App Store Connect の設問）はデザイン対象外です。実装側が別途記入します。この資料には書きません。
 

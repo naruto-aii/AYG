@@ -26,6 +26,8 @@ class AppStrings {
   static const settingsAccount = 'アカウント';
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';
+  static const settingsContactOperator = '運営への連絡';
+
 
   static const birthDate = '生年月日';
   static const gender = '性別';

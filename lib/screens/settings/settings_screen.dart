@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/app_contact_config.dart';
 import '../../config/supabase_config.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
@@ -25,6 +26,7 @@ class SettingsScreen extends StatelessWidget {
     this.healthRepository,
     this.openFoodFactsService,
     this.hideHealthSettings = false,
+    this.supportEmail,
   });
 
   final AppController controller;
@@ -32,6 +34,7 @@ class SettingsScreen extends StatelessWidget {
   final HealthRepository? healthRepository;
   final OpenFoodFactsService? openFoodFactsService;
   final bool hideHealthSettings;
+  final String? supportEmail;
 
   Future<void> _logout(BuildContext context) async {
     await controller.logout();
@@ -52,6 +55,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final email = authenticationRepository.currentUser?.email;
+    final contactEmail = (supportEmail ?? AppContactConfig.contactEmail).trim();
 
     return Scaffold(
       appBar: AppBar(title: const Text('設定')),
@@ -172,6 +176,15 @@ class SettingsScreen extends StatelessWidget {
                       title: 'プライバシーポリシー',
                       onTap: () => _openUrl(context, SupabaseConfig.privacyUrl),
                     ),
+                    if (contactEmail.isNotEmpty) ...[
+                      const Divider(height: 1),
+                      SettingsListTile(
+                        icon: Icons.mail_outline,
+                        title: AppStrings.settingsContactOperator,
+                        subtitle: contactEmail,
+                        onTap: () => _openUrl(context, 'mailto:$contactEmail'),
+                      ),
+                    ],
                   ],
                 ),
               ),

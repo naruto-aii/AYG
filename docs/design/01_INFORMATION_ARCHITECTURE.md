@@ -65,7 +65,7 @@
 | 読込 | いずれか押下中。二重送信しない |
 | キャンセル | 何も起きない（エラーにしない） |
 | 失敗 | 失敗したことと再試行。詳細な内部エラーは出さない |
-| 規約リンク | 外部ページ。公開 URL は未定なのでプレースホルダ可 |
+| 規約リンク | 外部ページ。https://naruto-aii.github.io/AYG/legal/terms.html と privacy.html |
 
 Web Preview 固有（本番 iPhone では主対象外）
 
@@ -350,11 +350,12 @@ Health から取れた項目は先に入っている。取れなかった項目�
 | 活動・Health | 連携 ON/OFF、再取得、活動量（Health 未使用時） |
 | マイ食品 | 6.4 と同じ一覧 |
 | 計算根拠 | 推定であることの断り＋文献リンク。本文は短く |
-| 利用規約 | 外部ページ。公開 URL は未定 |
-| プライバシー | 外部ページ。公開 URL は未定 |
-| 運営連絡 | サポート導線。**メールアドレスは未定** |
+| 利用規約 | 外部ページ。https://naruto-aii.github.io/AYG/legal/terms.html |
+| プライバシー | 外部ページ。https://naruto-aii.github.io/AYG/legal/privacy.html |
+| 運営連絡 | calonavi.ayg.support@gmail.com |
+| サポート | 外部ページ。https://naruto-aii.github.io/AYG/legal/support.html |
 | ログアウト | 破壊的。確認してよい |
-| アカウント削除 | 破壊的。確認必須。手順の本文は草案 |
+| アカウント削除 | 外部ページ。https://naruto-aii.github.io/AYG/legal/account-deletion.html 。公開食品は残る |
 
 Web Preview では Health 行が無効（「Web版では Health 連携は利用できません。」）です。iPhone 本番では有効行として描いてください。
 

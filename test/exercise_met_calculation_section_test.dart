@@ -1,4 +1,5 @@
 import 'package:ayg/data/met_activity_catalog.dart';
+import 'package:ayg/data/met_intensity_presets.dart';
 import 'package:ayg/models/exercise_calculation_source.dart';
 import 'package:ayg/models/exercise_category.dart';
 import 'package:ayg/models/exercise_entry.dart';
@@ -74,26 +75,82 @@ void main() {
     required DateTime loggedAt,
     required bool isEditing,
     ExerciseEntry? initialEntry,
+    TextEditingController? nameController,
   }) async {
     ExerciseMetFormState? latestState;
 
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ExerciseMetCalculationSection(
-            controller: controller,
-            loggedAt: loggedAt,
-            durationController: durationController,
-            grossKcalController: grossController,
-            isEditing: isEditing,
-            initialEntry: initialEntry,
-            onEstimateChanged: (state) => latestState = state,
+          body: SingleChildScrollView(
+            child: ExerciseMetCalculationSection(
+              controller: controller,
+              loggedAt: loggedAt,
+              durationController: durationController,
+              grossKcalController: grossController,
+              nameController: nameController,
+              isEditing: isEditing,
+              initialEntry: initialEntry,
+              onEstimateChanged: (state) => latestState = state,
+            ),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     return latestState;
+  }
+
+  Future<void> pumpMetSectionWithState(
+    WidgetTester tester, {
+    required AppController controller,
+    required TextEditingController durationController,
+    required TextEditingController grossController,
+    required DateTime loggedAt,
+    required bool isEditing,
+    ExerciseEntry? initialEntry,
+    required void Function(ExerciseMetFormState state) onEstimateChanged,
+  }) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ExerciseMetCalculationSection(
+              controller: controller,
+              loggedAt: loggedAt,
+              durationController: durationController,
+              grossKcalController: grossController,
+              isEditing: isEditing,
+              initialEntry: initialEntry,
+              onEstimateChanged: onEstimateChanged,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapCategoryChip(WidgetTester tester, String label) async {
+    final chip = find.widgetWithText(FilterChip, label);
+    await tester.scrollUntilVisible(
+      chip,
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapActivityChip(WidgetTester tester, String label) async {
+    final chip = find.widgetWithText(ChoiceChip, label);
+    await tester.scrollUntilVisible(
+      chip,
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
   }
 
   Future<void> expandAdvanced(WidgetTester tester) async {
@@ -161,10 +218,7 @@ void main() {
         isEditing: false,
       );
 
-      await tester.tap(find.byType(DropdownButtonFormField<ExerciseCategory>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('筋力トレーニング').last);
-      await tester.pumpAndSettle();
+      await tapCategoryChip(tester, '筋力トレーニング');
 
       expect(find.text('軽め'), findsOneWidget);
       expect(find.text('ふつう'), findsOneWidget);
@@ -246,12 +300,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(grossController.text, '500');
 
-        await tester.tap(
-          find.byType(DropdownButtonFormField<MetActivityDefinition>),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('ランニング・ジョギング').last);
-        await tester.pumpAndSettle();
+        await tapActivityChip(tester, 'ランニング・ジョギング');
         expect(grossController.text, '500');
       },
     );
@@ -283,22 +332,16 @@ void main() {
       addTearDown(grossController.dispose);
 
       ExerciseMetFormState? latestState;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ExerciseMetCalculationSection(
-              controller: controller,
-              loggedAt: loggedAt,
-              durationController: durationController,
-              grossKcalController: grossController,
-              isEditing: true,
-              initialEntry: entry,
-              onEstimateChanged: (state) => latestState = state,
-            ),
-          ),
-        ),
+      await pumpMetSectionWithState(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: loggedAt,
+        isEditing: true,
+        initialEntry: entry,
+        onEstimateChanged: (state) => latestState = state,
       );
-      await tester.pumpAndSettle();
 
       await tapRecalculate(tester);
 
@@ -331,21 +374,15 @@ void main() {
       addTearDown(grossController.dispose);
 
       ExerciseMetFormState? latestState;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ExerciseMetCalculationSection(
-              controller: controller,
-              loggedAt: loggedAt,
-              durationController: durationController,
-              grossKcalController: grossController,
-              isEditing: false,
-              onEstimateChanged: (state) => latestState = state,
-            ),
-          ),
-        ),
+      await pumpMetSectionWithState(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: loggedAt,
+        isEditing: false,
+        onEstimateChanged: (state) => latestState = state,
       );
-      await tester.pumpAndSettle();
 
       await tapManualOverride(tester);
       final netField = find.widgetWithText(TextField, '手動 追加消費 kcal（net）');
@@ -377,21 +414,15 @@ void main() {
       addTearDown(grossController.dispose);
 
       ExerciseMetFormState? latestState;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ExerciseMetCalculationSection(
-              controller: controller,
-              loggedAt: loggedAt,
-              durationController: durationController,
-              grossKcalController: grossController,
-              isEditing: false,
-              onEstimateChanged: (state) => latestState = state,
-            ),
-          ),
-        ),
+      await pumpMetSectionWithState(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: loggedAt,
+        isEditing: false,
+        onEstimateChanged: (state) => latestState = state,
       );
-      await tester.pumpAndSettle();
 
       await tapManualOverride(tester);
       await tapManualOverride(tester, enable: false);
@@ -452,24 +483,130 @@ void main() {
       addTearDown(grossController.dispose);
 
       ExerciseMetFormState? latestState;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ExerciseMetCalculationSection(
-              controller: controller,
-              loggedAt: loggedAt,
-              durationController: durationController,
-              grossKcalController: grossController,
-              isEditing: false,
-              onEstimateChanged: (state) => latestState = state,
-            ),
-          ),
-        ),
+      await pumpMetSectionWithState(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: loggedAt,
+        isEditing: false,
+        onEstimateChanged: (state) => latestState = state,
       );
-      await tester.pumpAndSettle();
 
       expect(latestState?.weightKgSnapshot, 68);
       expect(latestState?.weightKgSnapshot, isNot(60));
+    });
+
+    testWidgets('other category offers light moderate hard intensities', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      final durationController = TextEditingController(text: '30');
+      final grossController = TextEditingController(text: '');
+      addTearDown(durationController.dispose);
+      addTearDown(grossController.dispose);
+
+      await pumpMetSection(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: DateTime(2026, 8, 1, 12),
+        isEditing: false,
+      );
+
+      await tapCategoryChip(tester, 'その他');
+
+      expect(find.text('軽め'), findsOneWidget);
+      expect(find.text('ふつう'), findsOneWidget);
+      expect(find.text('きつい'), findsOneWidget);
+      expect(
+        MetActivityCatalog.findById('custom')?.intensityOptions,
+        MetIntensityPresets.otherOptions,
+      );
+    });
+
+    testWidgets('daily activity warns that PAL already includes housework', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      final durationController = TextEditingController(text: '30');
+      final grossController = TextEditingController(text: '');
+      addTearDown(durationController.dispose);
+      addTearDown(grossController.dispose);
+
+      await pumpMetSection(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: DateTime(2026, 8, 1, 12),
+        isEditing: false,
+      );
+
+      await tapCategoryChip(tester, '日常活動・軽い運動');
+
+      expect(find.textContaining('生活活動係数（PAL）にすでに含まれています'), findsOneWidget);
+    });
+
+    testWidgets('main surface shows net only without gross or MET', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      final durationController = TextEditingController(text: '30');
+      final grossController = TextEditingController(text: '');
+      addTearDown(durationController.dispose);
+      addTearDown(grossController.dispose);
+
+      await pumpMetSection(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: DateTime(2026, 8, 1, 12),
+        isEditing: false,
+      );
+
+      expect(find.text('追加消費'), findsWidgets);
+      expect(find.textContaining('残りカロリーに加算'), findsOneWidget);
+      expect(find.textContaining('推定総消費'), findsNothing);
+      expect(find.textContaining('MET'), findsNothing);
+      expect(find.text('消費 kcal（gross）'), findsNothing);
+    });
+
+    testWidgets('selecting an activity fills the display name', (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      final durationController = TextEditingController(text: '30');
+      final grossController = TextEditingController(text: '');
+      final nameController = TextEditingController();
+      addTearDown(durationController.dispose);
+      addTearDown(grossController.dispose);
+      addTearDown(nameController.dispose);
+
+      await pumpMetSection(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        nameController: nameController,
+        loggedAt: DateTime(2026, 8, 1, 12),
+        isEditing: false,
+      );
+
+      await tapActivityChip(tester, 'ランニング・ジョギング');
+      expect(nameController.text, 'ランニング・ジョギング');
     });
   });
 
@@ -512,6 +649,54 @@ void main() {
       expect(controller.exerciseEntries.single.grossKcal, 500);
       expect(controller.exerciseEntries.single.netKcal, 400);
       expect(controller.exerciseEntries.single.weightKgSnapshot, 65);
+    });
+
+    testWidgets('add form hides template shortcuts and required gross kcal', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      await tester.pumpWidget(
+        MaterialApp(home: ExerciseFormScreen(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('テンプレートから追加'), findsNothing);
+      expect(find.text('テンプレートを新規作成'), findsNothing);
+      expect(find.text('入力内容をテンプレートとして保存'), findsOneWidget);
+      expect(find.text('消費 kcal（gross）'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('メモ'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('メモ'), findsOneWidget);
+    });
+
+    testWidgets('strength category shows sets reps and lift weight', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      await tester.pumpWidget(
+        MaterialApp(home: ExerciseFormScreen(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      await tapCategoryChip(tester, '筋力トレーニング');
+
+      await tester.scrollUntilVisible(
+        find.widgetWithText(TextFormField, 'セット'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.widgetWithText(TextFormField, 'セット'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, '回数'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, '重量（kg）'), findsOneWidget);
     });
   });
 }

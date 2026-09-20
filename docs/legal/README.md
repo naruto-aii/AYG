@@ -51,19 +51,29 @@ Owner が本番 Supabase の SQL Editor で適用する。エージェントは�
 
 App Store Connect で上記 Product ID の自動更新サブスクリプションを作るのは Owner 作業。
 
+## 済んでいるもの
+
+- 法務 HTML とアプリ内全画面表示
+- Sign in with Apple（Developer Key、Supabase Apple Enabled、アプリ配線）。Web プレビューでは使えない
+- アカウント削除 UI と RPC コード（本番 SQL は未適用）
+- カロナビ+ のアプリ側（380円 / 4,180円、無料枠 5 / 3 / 3）
+- 公開食品の作成者欄「削除済みユーザー」
+- 通報・作成者ブロック
+
 ## 残タスク（推奨着手順）
 
-提出を止めるものから先。括弧は主担当。
+提出を止めるものから先。括弧は主担当。次は 1。
 
 1. **本番 Supabase に削除 SQL を適用**（Owner）
    - `supabase/migrations/20260920120000_delete_own_account_keep_public_foods.sql`
-   - 適用前にバックアップ。未適用だとアプリ内削除がメール頼みになる
+   - SQL Editor で適用する。エージェントは本番に適用しない
+   - 適用前にバックアップ。未適用だとアプリ内削除がメール頼みになり、審査 5.1.1(v) で止まる
 2. **App Store Connect でカロナビ+ を作る**（Owner）
    - グループ: カロナビ+
    - `calonavi_plus_monthly` 380円 / 1ヶ月
    - `calonavi_plus_yearly` 4,180円 / 1年
 3. **実機確認**（Owner、不具合はエージェント）
-   - Sign in with Apple は Developer / Supabase / アプリ配線まで済み。Web プレビューでは使えない
+   - 1 と 2 のあとで一度通す。Apple ログインだけ先に見るのは今すぐ可能
    - Google / Apple ログイン、アカウント削除、公開食品の「削除済みユーザー」、検索5回とテンプレ3件の上限、カロナビ+ 購入と復元、Health
 4. **App Store Connect の掲載情報**（Owner）
    - プライバシー / 利用規約 / アカウント削除 URL
@@ -74,4 +84,4 @@ App Store Connect で上記 Product ID の自動更新サブスクリプショ�
    - `calonavi.ayg.support@gmail.com` を見る。住所・電話請求と削除依頼は本人確認のうえ遅滞なく返す
    - 番地・私用電話を公開ページに載せない
 
-初回にやらなくてよい: Google Play、法人名義、体重タブ本格 UI、Health Workout の運動反映、写真解析。
+初回にやらなくてよい: Google Play、法人名義、体重タブ本格 UI、Health Workout の運動反映、写真解析、Apple token 失効、レシートのサーバ検証。

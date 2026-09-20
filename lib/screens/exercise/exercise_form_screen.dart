@@ -4,7 +4,6 @@ import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_entry.dart';
-import '../../models/workout_template.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
@@ -16,7 +15,6 @@ import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/exercise/exercise_met_calculation_section.dart';
 import '../../widgets/layout/app_constrained_bottom_bar.dart';
 import '../../widgets/layout/app_form_constraint.dart';
-import 'exercise_form_template_actions.dart';
 
 class ExerciseFormScreen extends StatefulWidget {
   const ExerciseFormScreen({
@@ -108,6 +106,12 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     if (_formKey.currentState?.validate() != true) {
       return null;
     }
+    if (_metState.activityId == null || _nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('種目を選んでください')));
+      return null;
+    }
 
     final grossAndNet = _resolveGrossAndNetKcal();
     if (grossAndNet == null) {
@@ -158,6 +162,12 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         return null;
       }
       return (parsedGross ?? _metState.grossKcal ?? net, net);
+    }
+
+    if (!_metState.includeInRemaining ||
+        _metState.calculationSource ==
+            ExerciseCalculationSource.lifestyleIncluded) {
+      return (parsedGross ?? _metState.grossKcal ?? 0, 0);
     }
 
     final duration = int.tryParse(_durationController.text.trim());
@@ -235,29 +245,35 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_isStrength) ...[
-          AppTextField(
-            controller: _setsController,
-            label: 'セット',
-            keyboardType: TextInputType.number,
+        if (_isStrength)
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text('セット・回数・重量（任意）'),
+            subtitle: const Text('消費カロリーは実施時間から計算します'),
+            children: [
+              AppTextField(
+                controller: _setsController,
+                label: 'セット',
+                keyboardType: TextInputType.number,
+              ),
+              AppTextField(
+                controller: _repsController,
+                label: '回数',
+                keyboardType: TextInputType.number,
+              ),
+              AppTextField(
+                controller: _liftWeightController,
+                label: '重量（kg）',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+              ),
+            ],
           ),
-          AppTextField(
-            controller: _repsController,
-            label: '回数',
-            keyboardType: TextInputType.number,
-          ),
-          AppTextField(
-            controller: _liftWeightController,
-            label: '重量（kg）',
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
         LoggedAtPickerField(
           loggedAt: _loggedAt,
           onChanged: (value) => setState(() => _loggedAt = value),
         ),
-        AppTextField(controller: _notesController, label: 'メモ', maxLines: 3),
       ],
     );
   }
@@ -275,7 +291,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                 AppSpacing.md,
                 AppSpacing.md,
                 AppSpacing.md,
-                widget.isEditing ? 160 : 120,
+                widget.isEditing ? 160 : 100,
               ),
               children: [
                 ExerciseMetCalculationSection(
@@ -284,6 +300,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                   durationController: _durationController,
                   grossKcalController: _burnedKcalController,
                   nameController: _nameController,
+                  notesController: _notesController,
                   additionalFields: _buildAdditionalFields(),
                   isEditing: widget.isEditing,
                   initialEntry: widget.entry,
@@ -304,51 +321,6 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
               loading: _isSaving,
               onPressed: _isSaving ? null : _save,
             ),
-            if (!widget.isEditing) ...[
-              const SizedBox(height: AppSpacing.xs),
-              SecondaryButton(
-                label: '入力内容をテンプレートとして保存',
-                onPressed: () {
-                  final duration = int.tryParse(
-                    _durationController.text.trim(),
-                  );
-                  final name = _nameController.text.trim();
-                  if (name.isEmpty || duration == null || duration <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('表示名と実施時間を入力してください')),
-                    );
-                    return;
-                  }
-                  saveCurrentExerciseAsTemplate(
-                    context: context,
-                    controller: widget.controller,
-                    itemDraft: WorkoutTemplateItem(
-                      itemId: widget.controller.generateId(),
-                      name: name,
-                      durationMin: duration,
-                      categoryKey: _metState.category?.id,
-                      activityId: _metState.activityId,
-                      intensity: _metState.intensity,
-                      metValue: _metState.metValue,
-                      sourceKey: _metState.sourceKey,
-                      sets: _isStrength
-                          ? _parseOptionalInt(_setsController)
-                          : null,
-                      reps: _isStrength
-                          ? _parseOptionalInt(_repsController)
-                          : null,
-                      liftWeightKg: _isStrength
-                          ? _parseOptionalDouble(_liftWeightController)
-                          : null,
-                      notes: _notesController.text.trim().isEmpty
-                          ? null
-                          : _notesController.text.trim(),
-                      sortOrder: 1,
-                    ),
-                  );
-                },
-              ),
-            ],
             if (widget.isEditing) ...[
               const SizedBox(height: AppSpacing.xs),
               SecondaryButton(label: '削除', onPressed: _confirmDelete),

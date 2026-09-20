@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../common/app_keyboard_dismiss.dart';
 import '../../models/duplicate_saved_food_action.dart';
 import '../../models/saved_food.dart';
 
@@ -108,6 +109,9 @@ class _DuplicateSavedFoodDialogState extends State<_DuplicateSavedFoodDialog> {
                   labelText: '新しい食品名',
                   border: OutlineInputBorder(),
                 ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => dismissAppKeyboard(),
+                onTapOutside: (_) => dismissAppKeyboard(),
               ),
             ],
             RadioListTile<DuplicateSavedFoodAction>(

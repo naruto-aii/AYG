@@ -9,7 +9,7 @@ import 'screens/shell/main_shell_screen.dart';
 import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
-import 'constants/app_strings.dart';
+import 'widgets/common/app_keyboard_dismiss.dart';
 import 'widgets/startup/app_startup_gate.dart';
 
 class AygApp extends StatelessWidget {
@@ -33,6 +33,9 @@ class AygApp extends StatelessWidget {
     return MaterialApp(
       title: AppStrings.appTitle,
       theme: AppTheme.light,
+      builder: (context, child) {
+        return AppKeyboardHost(child: child ?? const SizedBox.shrink());
+      },
       home: ListenableBuilder(
         listenable: controller,
         builder: (context, child) {

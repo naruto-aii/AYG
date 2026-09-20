@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/exercise_entry.dart';
+import '../../models/strength_workout_log.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
@@ -36,6 +37,17 @@ class WorkoutHistoryList extends StatelessWidget {
     return '$h:$m';
   }
 
+  String _subtitleFor(ExerciseEntry entry) {
+    final parts = <String>[
+      '${_formatTime(entry.loggedAt)} · ${entry.durationMin} 分',
+    ];
+    final summary = entry.strengthSummary;
+    if (summary != null && summary.isNotEmpty) {
+      parts.add(summary);
+    }
+    return parts.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasEntries = dateGroups.any((group) => group.items.isNotEmpty);
@@ -68,8 +80,7 @@ class WorkoutHistoryList extends StatelessWidget {
                       onTap: () => onTapEntry(dateGroup.items[i]),
                       title: Text(dateGroup.items[i].name),
                       subtitle: Text(
-                        '${_formatTime(dateGroup.items[i].loggedAt)} · '
-                        '${dateGroup.items[i].durationMin} 分',
+                        _subtitleFor(dateGroup.items[i]),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/common/app_keyboard_dismiss.dart';
 import '../../models/food_unit_type.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../models/macro_field.dart';
@@ -62,6 +63,9 @@ Future<void> saveCurrentFoodAsTemplate({
           border: OutlineInputBorder(),
         ),
         autofocus: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => dismissAppKeyboard(),
+        onTapOutside: (_) => dismissAppKeyboard(),
       ),
       actions: [
         TextButton(

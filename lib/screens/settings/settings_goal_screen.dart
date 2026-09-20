@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/common/app_keyboard_dismiss.dart';
 import '../../constants/app_strings.dart';
 import '../../models/calculation/goal_pace.dart';
 import '../../models/goal.dart';
@@ -160,6 +161,9 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => dismissAppKeyboard(),
+                onTapOutside: (_) => dismissAppKeyboard(),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return '目標体重を入力してください';

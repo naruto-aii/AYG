@@ -8,6 +8,7 @@ import '../../services/exercise_calorie_calculator.dart';
 import '../../services/exercise_weight_resolver.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../../widgets/common/app_keyboard_dismiss.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/common/primary_button.dart';
@@ -80,6 +81,9 @@ Future<void> saveCurrentExerciseAsTemplate({
         controller: nameController,
         decoration: const InputDecoration(labelText: 'テンプレート名'),
         autofocus: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => dismissAppKeyboard(),
+        onTapOutside: (_) => dismissAppKeyboard(),
       ),
       actions: [
         TextButton(

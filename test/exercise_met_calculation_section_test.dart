@@ -737,7 +737,7 @@ void main() {
       expect(find.text('メモ'), findsOneWidget);
     });
 
-    testWidgets('strength category shows sets reps and lift weight', (
+    testWidgets('strength category shows multi exercise set editor', (
       tester,
     ) async {
       final controller = AppController();
@@ -752,13 +752,14 @@ void main() {
       await tapActivityChip(tester, '筋トレ');
 
       await tester.scrollUntilVisible(
-        find.text('セット・回数・重量（任意）'),
+        find.text('種目の記録'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('セット・回数・重量（任意）'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextFormField, 'セット'), findsOneWidget);
+      expect(find.text('種目の記録'), findsOneWidget);
+      expect(find.text('種目を追加'), findsOneWidget);
+      expect(find.text('セットを追加'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, '種目名'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, '回数'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, '重量（kg）'), findsOneWidget);
     });

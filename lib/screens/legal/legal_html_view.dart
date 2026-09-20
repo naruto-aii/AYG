@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import 'legal_document.dart';
 
@@ -17,6 +18,7 @@ class LegalHtmlView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final meta = _extractMeta(html);
     final mainHtml = _extractMain(html);
     final blocks = _parseBlocks(mainHtml);
     final theme = Theme.of(context);
@@ -29,6 +31,15 @@ class LegalHtmlView extends StatelessWidget {
         AppSpacing.xl,
       ),
       children: [
+        if (meta != null && meta.isNotEmpty) ...[
+          Text(
+            meta,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
         for (final block in blocks) ...[
           _LegalBlockView(
             block: block,
@@ -131,6 +142,18 @@ class _InlineHtmlText extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _extractMeta(String html) {
+  final match = RegExp(
+    r'<p class="meta">([\s\S]*?)</p>',
+    caseSensitive: false,
+  ).firstMatch(html);
+  if (match == null) {
+    return null;
+  }
+  final text = _plainText(match.group(1)!);
+  return text.isEmpty ? null : text;
 }
 
 String _extractMain(String html) {

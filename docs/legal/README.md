@@ -48,14 +48,15 @@
 - 加入中は3つとも無制限
 - 記録・Health・バーコード・公開投稿は無料のまま
 
-App Store Connect で上記 Product ID の自動更新サブスクリプションを作るのは Owner 作業。
+App Store Connect の商品は作成済み。初回提出はアプリのバージョンと一緒。ストアのアプリ名は `カロナビ - 食事と運動`（`カロナビ` 単体は使用済み）。ホーム画面とアプリ内はカロナビのまま。
 
 ## 済んでいるもの
 
 - 法務 HTML とアプリ内全画面表示
 - Sign in with Apple（Developer Key、Supabase Apple Enabled、アプリ配線）。Web プレビューでは使えない
 - アカウント削除 UI と本番 RPC（`delete_own_account`、authenticated から実行可）
-- カロナビ+ のアプリ側（380円 / 4,180円、無料枠 5 / 3 / 3）
+- カロナビ+ のアプリ側と App Store Connect 商品（`calonavi_plus_monthly` 380円 / `calonavi_plus_yearly` 4,180円、同じ Level 1）
+- ストアのアプリ枠（名前は `カロナビ - 食事と運動`）
 - 公開食品の作成者欄「削除済みユーザー」
 - 通報・作成者ブロック
 
@@ -65,20 +66,15 @@ App Store Connect で上記 Product ID の自動更新サブスクリプショ�
 
 見た目の納品を待たなくてよい。括弧は主担当。次は 1。
 
-1. **App Store Connect でカロナビ+ を作る**（Owner）
-   - グループ: カロナビ+
-   - `calonavi_plus_monthly` 380円 / 1ヶ月
-   - `calonavi_plus_yearly` 4,180円 / 1年
-   - 商品名・説明は文言だけ。Figma 不要
-2. **実機の機能確認**（Owner、不具合はエージェント）
+1. **実機の機能確認**（Owner、不具合はエージェント）
    - 今の仮デザインのままでよい。見た目の直しはデザイン後
-   - 今すぐ: Google / Apple ログイン、アカウント削除、公開食品の「削除済みユーザー」、検索5回とテンプレ3件の上限、Health
-   - 1 のあと: カロナビ+ の購入と復元
-3. **掲載のテキストだけ先に入れる**（Owner）
+   - Google / Apple ログイン、アカウント削除、公開食品の「削除済みユーザー」、検索5回とテンプレ3件の上限、Health
+   - カロナビ+ の購入と復元（Sandbox。Add for Review はまだ押さない）
+2. **掲載のテキストだけ先に入れる**（Owner）
    - プライバシー / 利用規約 / アカウント削除 URL
    - Privacy Nutrition Labels（Health は目標計算のみ。広告・マーケティングに使わない）
    - 年齢、審査メモ（公開食品が残ること、削除手順、Health の用途）
-   - スクリーンショットとアイコンは空のまま
+   - スクリーンショットとアイコンは空のまま。ストア名は `カロナビ - 食事と運動`
 
 公開窓口は `calonavi.ayg.support@gmail.com`。新しい仕組みは作らない。その Gmail を見られればよい。
 

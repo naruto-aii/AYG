@@ -18,7 +18,7 @@ KEYS = (
 )
 
 DEFAULTS = {
-    "SUPABASE_URL": "https://vdzzuoqsymetlejcnkeb.supabase.co",
+    "SUPABASE_URL": "https://vdzzusqisymtejcjnikb.supabase.co",
     "SUPABASE_ANON_KEY": "",
     "GOOGLE_WEB_CLIENT_ID": "",
     "GOOGLE_IOS_CLIENT_ID": "",
@@ -60,6 +60,8 @@ def extract_values(text: str) -> dict[str, str]:
         if value is None:
             value = ""
         data[key] = str(value).strip()
+    if "vdzzuoqsymetlejcnkeb" in data["SUPABASE_URL"]:
+        data["SUPABASE_URL"] = DEFAULTS["SUPABASE_URL"]
     return data
 
 

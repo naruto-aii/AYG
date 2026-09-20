@@ -7,7 +7,7 @@ DEST="tool/dart_defines.local.json"
 if [ ! -f "$DEST" ]; then
   cat > "$DEST" <<'EOF'
 {
-  "SUPABASE_URL": "https://vdzzuoqsymetlejcnkeb.supabase.co",
+  "SUPABASE_URL": "https://vdzzusqisymtejcjnikb.supabase.co",
   "SUPABASE_ANON_KEY": "PASTE_ANON_KEY_HERE",
   "GOOGLE_WEB_CLIENT_ID": "PASTE_WEB_CLIENT_ID.apps.googleusercontent.com",
   "GOOGLE_IOS_CLIENT_ID": "",

@@ -55,25 +55,22 @@ App Store Connect で上記 Product ID の自動更新サブスクリプショ�
 
 提出を止めるものから先。括弧は主担当。
 
-1. **Sign in with Apple のコンソール仕上げと実機確認**（Owner）
-   - アプリの `loginWithApple()` と iOS entitlement は実装済み。Web プレビューでは使えない
-   - Services ID の Configure で Return URL を `https://<Supabaseプロジェクト>.supabase.co/auth/v1/callback` にする
-   - Supabase Auth の Apple を Enabled にし、Client IDs に `com.narutoaii.ayg` と `com.narutoaii.ayg.web` を入れる。`.p8` はリポジトリに置かない
-2. **本番 Supabase に削除 SQL を適用**（Owner）
+1. **本番 Supabase に削除 SQL を適用**（Owner）
    - `supabase/migrations/20260920120000_delete_own_account_keep_public_foods.sql`
    - 適用前にバックアップ。未適用だとアプリ内削除がメール頼みになる
-3. **App Store Connect でカロナビ+ を作る**（Owner）
+2. **App Store Connect でカロナビ+ を作る**（Owner）
    - グループ: カロナビ+
    - `calonavi_plus_monthly` 380円 / 1ヶ月
    - `calonavi_plus_yearly` 4,180円 / 1年
-4. **実機確認**（Owner、不具合はエージェント）
+3. **実機確認**（Owner、不具合はエージェント）
+   - Sign in with Apple は Developer / Supabase / アプリ配線まで済み。Web プレビューでは使えない
    - Google / Apple ログイン、アカウント削除、公開食品の「削除済みユーザー」、検索5回とテンプレ3件の上限、カロナビ+ 購入と復元、Health
-5. **App Store Connect の掲載情報**（Owner）
+4. **App Store Connect の掲載情報**（Owner）
    - プライバシー / 利用規約 / アカウント削除 URL
    - Privacy Nutrition Labels（Health は目標計算のみ。広告・マーケティングに使わない）
    - 年齢、スクリーンショット、審査メモ（公開食品が残ること、削除手順、Health の用途）
-6. **TestFlight → 審査提出**（Owner）
-7. **日常運用**（Owner）
+5. **TestFlight → 審査提出**（Owner）
+6. **日常運用**（Owner）
    - `calonavi.ayg.support@gmail.com` を見る。住所・電話請求と削除依頼は本人確認のうえ遅滞なく返す
    - 番地・私用電話を公開ページに載せない
 

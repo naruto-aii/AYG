@@ -12,6 +12,7 @@ cd "$ROOT_DIR"
 LOCAL_DEFINES="${ROOT_DIR}/tool/dart_defines.local.json"
 
 if [ -f "$LOCAL_DEFINES" ]; then
+  python3 "${ROOT_DIR}/tool/repair_local_defines.py" "$LOCAL_DEFINES"
   python3 - "$LOCAL_DEFINES" <<'PY'
 import json, sys
 path = sys.argv[1]
@@ -22,10 +23,6 @@ except json.JSONDecodeError as error:
     print(
         "error: tool/dart_defines.local.json の JSON が壊れています。"
         f" {error}",
-        file=sys.stderr,
-    )
-    print(
-        "直し方: Finder で tool/repair_local_defines.command をダブルクリックしてください。",
         file=sys.stderr,
     )
     raise SystemExit(1)

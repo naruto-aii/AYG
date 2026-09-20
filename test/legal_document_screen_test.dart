@@ -80,7 +80,7 @@ void main() {
     expect(find.text('利用規約'), findsWidgets);
     expect(find.byTooltip('閉じる'), findsOneWidget);
     expect(find.textContaining('ログインした時点で'), findsOneWidget);
-    expect(find.textContaining('個人（カロナビ）'), findsWidgets);
+    expect(find.textContaining('麹池成'), findsWidgets);
     expect(find.textContaining('24歳'), findsNothing);
 
     await tester.tap(find.byTooltip('閉じる'));
@@ -103,7 +103,7 @@ void main() {
 
     expect(find.text('プライバシーポリシー'), findsOneWidget);
     expect(find.textContaining('Apple Health'), findsOneWidget);
-    expect(find.textContaining('個人（カロナビ）'), findsWidgets);
+    expect(find.textContaining('麹池成'), findsWidgets);
     expect(find.textContaining('24歳'), findsNothing);
     expect(find.textContaining('Web 版'), findsNothing);
     expect(find.byTooltip('閉じる'), findsOneWidget);
@@ -120,7 +120,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('特定商取引法に基づく表記'), findsOneWidget);
-    expect(find.textContaining('麹池成'), findsOneWidget);
+    expect(find.textContaining('麹池成'), findsWidgets);
     expect(find.textContaining('アプリ内課金'), findsOneWidget);
     expect(find.byTooltip('閉じる'), findsOneWidget);
   });

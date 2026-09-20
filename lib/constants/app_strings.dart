@@ -48,6 +48,17 @@ class AppStrings {
   static const accountDeletionReadPolicy = '詳しい説明を読む';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
   static const loginAppleComingSoon = 'Appleログインは準備中です。';
+  static const plusTitle = 'カロナビ+';
+  static const plusLead =
+      '公開食品検索とテンプレートの上限を外します。記録・Health・バーコードはこれまでどおり無料です。';
+  static const plusFreeQuota =
+      '無料枠: 公開食品検索 5回/日、食事テンプレート 3件、運動テンプレート 3件。';
+  static const plusRestore = '購入を復元';
+  static const plusPurchaseUnavailable = 'この画面では購入できません。iPhone のアプリから購入してください。';
+  static const plusLegalNote =
+      '価格は税込です。購入画面の表示が正です。定期購入の解約は App Store の設定から行います。';
+  static const plusActive = '加入中';
+  static const plusInactive = '無料枠あり';
 
   static const birthDate = '生年月日';
   static const gender = '性別';

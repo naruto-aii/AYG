@@ -13,8 +13,10 @@ import '../../widgets/common/secondary_button.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/public_food_meal_add_flow.dart';
+import '../../repositories/subscription_exceptions.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../../widgets/saved_food/public_food_search_result_tile.dart';
+import '../subscription/calonavi_plus_screen.dart';
 import '../food/food_form_screen.dart';
 
 class PublicFoodSearchScreen extends StatefulWidget {
@@ -78,6 +80,16 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
           _errorMessage = '該当する公開食品が見つかりませんでした';
         }
       });
+    } on SubscriptionLimitExceededException {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSearching = false);
+      await showCalonaviPlus(
+        context,
+        widget.controller.subscriptionRepository,
+      );
+      return;
     } catch (error) {
       if (!mounted) {
         return;

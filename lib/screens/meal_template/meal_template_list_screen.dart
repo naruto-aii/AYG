@@ -13,6 +13,7 @@ import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/layout/app_content_constraint.dart';
+import '../subscription/calonavi_plus_screen.dart';
 import 'meal_template_form_screen.dart';
 
 class MealTemplateListScreen extends StatefulWidget {
@@ -58,6 +59,14 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   }
 
   Future<void> _openCreate() async {
+    final allowed = await guardPlusFeature(
+      context: context,
+      controller: widget.controller,
+      ensure: widget.controller.ensureCanCreateMealTemplate,
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) =>

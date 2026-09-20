@@ -19,6 +19,7 @@ import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
+import '../subscription/calonavi_plus_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -167,6 +168,18 @@ class SettingsScreen extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
+                    SettingsListTile(
+                      icon: Icons.workspace_premium_outlined,
+                      title: AppStrings.plusTitle,
+                      subtitle: controller.isCalonaviPlusActive
+                          ? AppStrings.plusActive
+                          : AppStrings.plusInactive,
+                      onTap: () => showCalonaviPlus(
+                        context,
+                        controller.subscriptionRepository,
+                      ),
+                    ),
+                    const Divider(height: 1),
                     SettingsListTile(
                       icon: Icons.description_outlined,
                       title: '利用規約',

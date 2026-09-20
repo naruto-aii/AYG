@@ -34,6 +34,10 @@ class SupabaseConfig {
     'ACCOUNT_DELETION_URL',
     defaultValue: 'https://naruto-aii.github.io/AYG/legal/account-deletion.html',
   );
+  static const String tokushohoUrl = String.fromEnvironment(
+    'TOKUSHOHO_URL',
+    defaultValue: 'https://naruto-aii.github.io/AYG/legal/tokushoho.html',
+  );
 
   static bool get isConfigured => url.isNotEmpty && anonKey.isNotEmpty;
 

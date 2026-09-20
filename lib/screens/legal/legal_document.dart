@@ -3,6 +3,7 @@ enum LegalDocument {
   privacy,
   support,
   accountDeletion,
+  tokushoho,
 }
 
 extension LegalDocumentInfo on LegalDocument {
@@ -16,6 +17,8 @@ extension LegalDocumentInfo on LegalDocument {
         return 'サポート';
       case LegalDocument.accountDeletion:
         return 'アカウント削除';
+      case LegalDocument.tokushoho:
+        return '特定商取引法に基づく表記';
     }
   }
 
@@ -29,6 +32,8 @@ extension LegalDocumentInfo on LegalDocument {
         return 'legal/support.html';
       case LegalDocument.accountDeletion:
         return 'legal/account-deletion.html';
+      case LegalDocument.tokushoho:
+        return 'legal/tokushoho.html';
     }
   }
 
@@ -43,6 +48,8 @@ extension LegalDocumentInfo on LegalDocument {
         return LegalDocument.support;
       case 'account-deletion.html':
         return LegalDocument.accountDeletion;
+      case 'tokushoho.html':
+        return LegalDocument.tokushoho;
       default:
         return null;
     }

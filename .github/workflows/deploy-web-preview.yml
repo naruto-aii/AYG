@@ -63,6 +63,7 @@ jobs:
           import json
           import os
 
+          # Flutter Web は開発用プレビュー。legal/ は App Store 用に残す。
           pages_base = "https://naruto-aii.github.io/AYG"
           support_email = os.environ.get("SUPPORT_EMAIL", "").strip()
           off_contact_email = os.environ.get("OFF_CONTACT_EMAIL", "").strip()
@@ -76,6 +77,7 @@ jobs:
               "PRIVACY_URL": f"{pages_base}/legal/privacy.html",
               "SUPPORT_URL": f"{pages_base}/legal/support.html",
               "ACCOUNT_DELETION_URL": f"{pages_base}/legal/account-deletion.html",
+              "TOKUSHOHO_URL": f"{pages_base}/legal/tokushoho.html",
           }
           with open("dart_defines.ci.json", "w", encoding="utf-8") as handle:
               json.dump(config, handle)

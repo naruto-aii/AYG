@@ -65,7 +65,7 @@ Handbook 全体のルール・分類凡例は `01_Project.md` を参照。
 ### 【Owner Decision】— 01_Project より（プロダクト制約）
 
 - 正式プロダクトは **モバイルアプリ**（iOS / Android）。App Store 先行
-- **Web Preview** は検証・共有専用。一般向け本番 Web ではない
+- **Web Preview** は開発中の検証専用。一般向け本番 Web ではない。アプリリリース後は非公開にする
 - 初回ログイン必須（Google / Apple ID）
 - Health 連携は **オプション**
 - ユーザー間のデータ分離はプロダクト要件

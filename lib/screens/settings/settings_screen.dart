@@ -181,6 +181,13 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     const Divider(height: 1),
                     SettingsListTile(
+                      icon: Icons.receipt_long_outlined,
+                      title: AppStrings.settingsTokushoho,
+                      onTap: () =>
+                          showLegalDocument(context, LegalDocument.tokushoho),
+                    ),
+                    const Divider(height: 1),
+                    SettingsListTile(
                       icon: Icons.help_outline,
                       title: AppStrings.settingsSupport,
                       onTap: () =>

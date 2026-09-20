@@ -57,7 +57,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
             children: [
               const Spacer(),
               Text(
-                'AYG',
+                AppStrings.appTitle,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -65,7 +65,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Webプレビュー（友人テスト用）',
+                '開発用プレビュー',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),

@@ -23,7 +23,7 @@ class AygWebApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AYG Web Preview',
+      title: 'カロナビ（開発用プレビュー）',
       theme: AppTheme.light,
       home: ListenableBuilder(
         listenable: controller,

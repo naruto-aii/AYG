@@ -105,6 +105,22 @@ void main() {
     expect(find.textContaining('Apple Health'), findsOneWidget);
     expect(find.textContaining('個人（カロナビ）'), findsWidgets);
     expect(find.textContaining('24歳'), findsNothing);
+    expect(find.textContaining('Web 版'), findsNothing);
+    expect(find.byTooltip('閉じる'), findsOneWidget);
+  });
+
+  testWidgets('tokushoho screen renders from assets', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LegalDocumentScreen(document: LegalDocument.tokushoho),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('特定商取引法に基づく表記'), findsOneWidget);
+    expect(find.textContaining('アプリ内課金'), findsOneWidget);
     expect(find.byTooltip('閉じる'), findsOneWidget);
   });
 }

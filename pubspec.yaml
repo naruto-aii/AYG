@@ -74,6 +74,7 @@ flutter:
     - legal/privacy.html
     - legal/support.html
     - legal/account-deletion.html
+    - legal/tokushoho.html
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

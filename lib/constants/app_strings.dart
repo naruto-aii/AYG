@@ -47,6 +47,13 @@ class AppStrings {
   static const healthUsingActiveEnergy = 'Healthのアクティブエネルギーを使用中';
   static const healthUnavailableOnDevice = 'この端末では Health 連携に対応していません。';
   static const webHealthUnavailable = 'このプレビューでは Health 連携は利用できません。';
+  static const webPreviewTitle = '開発用プレビュー';
+  static const webPreviewUnavailableIntro = 'この Web では次の機能は使えません。';
+  static const webPreviewUnavailableList =
+      '・Health 連携\n・Sign in with Apple\n・アプリ内課金';
+  static const webPreviewUnavailableSummary =
+      '開発用プレビューです。Health 連携、Sign in with Apple、アプリ内課金は使えません。';
+  static const webPreviewUseApp = '使えない機能は、アプリで利用できます。';
 
   static const save = '保存';
   static const cancel = 'キャンセル';

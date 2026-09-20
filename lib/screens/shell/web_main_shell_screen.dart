@@ -5,6 +5,7 @@ import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/web/web_preview_notice.dart';
 import '../food/food_form_navigation.dart';
 import '../food/food_tab_screen.dart';
 import '../food/web_food_form_screen.dart';
@@ -60,7 +61,17 @@ class _WebMainShellScreenState extends State<WebMainShellScreen> {
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: screens),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const WebPreviewNotice(compact: true),
+            Expanded(
+              child: IndexedStack(index: _selectedIndex, children: screens),
+            ),
+          ],
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {

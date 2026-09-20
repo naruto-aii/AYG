@@ -1,6 +1,10 @@
 import 'package:flutter/foundation.dart';
 
-/// Web OAuth / リダイレクト設定。
+/// Web プレビュー専用の OAuth リダイレクト。
+///
+/// モバイルの Google ログインはネイティブ SDK で完結する。
+/// この URL が無くてもアプリは動く。Web プレビューを非公開にすると、
+/// 壊れるのは Web 上の Google ログインだけである。
 abstract final class WebAuthConfig {
   static const String productionRedirectUrl =
       'https://naruto-aii.github.io/AYG/';

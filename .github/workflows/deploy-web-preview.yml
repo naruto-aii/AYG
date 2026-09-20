@@ -63,7 +63,8 @@ jobs:
           import json
           import os
 
-          # Flutter Web は開発用プレビュー。legal/ は App Store 用に残す。
+          # Flutter Web は開発用プレビュー。アプリはこれに依存しない。
+          # 非公開にするときは Flutter ビルドを止め、legal/ だけ残す。
           pages_base = "https://naruto-aii.github.io/AYG"
           support_email = os.environ.get("SUPPORT_EMAIL", "").strip()
           off_contact_email = os.environ.get("OFF_CONTACT_EMAIL", "").strip()

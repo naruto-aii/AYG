@@ -5,6 +5,7 @@ import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../../widgets/web/web_preview_notice.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
 
@@ -63,18 +64,8 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                '開発用プレビュー',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Health連携は無効です。Activity Level で目標を計算します。',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              const SizedBox(height: AppSpacing.sm),
+              const WebPreviewNotice(),
               const Spacer(),
               FilledButton.icon(
                 onPressed: _isLoading ? null : _signInWithGoogle,

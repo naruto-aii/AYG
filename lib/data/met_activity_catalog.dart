@@ -270,8 +270,9 @@ class MetActivityCatalog {
       displayName: 'その他（手入力）',
       category: ExerciseCategory.other,
       defaultMet: 3.0,
-      defaultIntensityId: 'default',
-      sourceKey: 'pacompendium_met_definition',
+      defaultIntensityId: 'light',
+      sourceKey: 'other_light_3_0',
+      intensityOptions: MetIntensityPresets.otherOptions,
     ),
   ];
 
@@ -295,6 +296,24 @@ class MetActivityCatalog {
 
   static List<MetActivityDefinition> byCategory(ExerciseCategory category) {
     return activities.where((a) => a.category == category).toList();
+  }
+
+  static List<MetActivityDefinition> search({
+    String query = '',
+    ExerciseCategory? category,
+  }) {
+    final normalized = query.trim().toLowerCase();
+    return activities.where((activity) {
+      if (category != null && activity.category != category) {
+        return false;
+      }
+      if (normalized.isEmpty) {
+        return true;
+      }
+      final description = activity.description?.toLowerCase() ?? '';
+      return activity.displayName.toLowerCase().contains(normalized) ||
+          description.contains(normalized);
+    }).toList();
   }
 
   static List<ExerciseCategory> get selectableCategories => [

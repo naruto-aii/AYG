@@ -679,7 +679,7 @@ class _TodayExerciseTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '${entry.burnedKcal.toStringAsFixed(0)} kcal',
+            '${entry.effectiveNetKcal.toStringAsFixed(0)} kcal',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: AppColors.accentOrange,
               fontWeight: FontWeight.w600,

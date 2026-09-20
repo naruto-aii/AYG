@@ -75,7 +75,7 @@ class WorkoutHistoryList extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '${dateGroup.items[i].burnedKcal.toStringAsFixed(0)} kcal',
+                            '${dateGroup.items[i].effectiveNetKcal.toStringAsFixed(0)} kcal',
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
                                   color: AppColors.accentOrange,

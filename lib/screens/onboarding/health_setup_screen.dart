@@ -53,10 +53,13 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
 
     setState(() => _isLoading = false);
 
-    if (!granted) {
+    if (!granted || !profileData.hasAnyValue) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
+        SnackBar(
+          content: Text(
+            widget.healthRepository.lastFailureMessage ??
+                'Healthデータを取得できませんでした。取得できない項目は手入力してください。',
+          ),
         ),
       );
     }

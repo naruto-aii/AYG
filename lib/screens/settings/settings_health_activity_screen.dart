@@ -58,8 +58,11 @@ class _SettingsHealthActivityScreenState
       }
       if (!granted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
+          SnackBar(
+            content: Text(
+              widget.healthRepository.lastFailureMessage ??
+                  'Healthデータを取得できませんでした。取得できない項目は手入力してください。',
+            ),
           ),
         );
       }
@@ -91,7 +94,12 @@ class _SettingsHealthActivityScreenState
     setState(() => _isBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(success ? 'Healthデータを再取得しました' : 'Healthデータを取得できませんでした'),
+        content: Text(
+          success
+              ? 'Healthデータを再取得しました'
+              : (widget.healthRepository.lastFailureMessage ??
+                    'Healthデータを取得できませんでした'),
+        ),
       ),
     );
   }

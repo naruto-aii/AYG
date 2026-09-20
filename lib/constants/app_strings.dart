@@ -30,9 +30,35 @@ class AppStrings {
   static const settingsSupport = 'サポート';
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
-  static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で確認できます';
+  static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で削除できます';
+  static const accountDeletionLead =
+      '削除するとログインできなくなります。公開食品は残ります。作成者欄は「削除済みユーザー」になります。';
+  static const accountDeletionRemoves = '削除されるもの';
+  static const accountDeletionKeeps = '残るもの';
+  static const accountDeletionBilling =
+      'ストアの定期購入は、この操作では止まりません。先に各ストアで解約してください。';
+  static const accountDeletionConfirmTitle = 'アカウントを削除しますか？';
+  static const accountDeletionConfirmBody =
+      'この操作は取り消せません。個人の記録は消えます。公開食品は残り、作成者は「削除済みユーザー」と表示されます。';
+  static const accountDeletionExecute = 'アカウントを削除する';
+  static const accountDeletionUnavailable =
+      '自動削除はまだ使えません。サポートメールから削除を依頼できます。';
+  static const accountDeletionMailSubject = 'アカウント削除';
+  static const accountDeletionFailed = '削除に失敗しました';
+  static const accountDeletionReadPolicy = '詳しい説明を読む';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
-
+  static const loginAppleUnavailableOnWeb = 'このプレビューでは Apple ログインは使えません。';
+  static const plusTitle = 'カロナビ+';
+  static const plusLead =
+      '公開食品検索とテンプレートの上限を外します。記録・Health・バーコードはこれまでどおり無料です。';
+  static const plusFreeQuota =
+      '無料枠: 公開食品検索 5回/日、食事テンプレート 3件、運動テンプレート 3件。';
+  static const plusRestore = '購入を復元';
+  static const plusPurchaseUnavailable = 'この画面では購入できません。iPhone のアプリから購入してください。';
+  static const plusLegalNote =
+      '価格は税込です。購入画面の表示が正です。定期購入の解約は App Store の設定から行います。';
+  static const plusActive = '加入中';
+  static const plusInactive = '無料枠あり';
 
   static const birthDate = '生年月日';
   static const gender = '性別';

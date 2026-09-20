@@ -56,6 +56,7 @@ class FoodFormScreen extends StatefulWidget {
     this.entry,
     this.initialPublicFood,
     this.initialLoggedAt,
+    this.autoStartBarcodeScan = false,
   });
 
   final AppController controller;
@@ -63,6 +64,7 @@ class FoodFormScreen extends StatefulWidget {
   final FoodEntry? entry;
   final SavedFood? initialPublicFood;
   final DateTime? initialLoggedAt;
+  final bool autoStartBarcodeScan;
 
   bool get isEditing => entry != null;
 
@@ -146,6 +148,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _applySavedFoodSelection(initialPublicFood);
+        }
+      });
+    } else if (!widget.isEditing &&
+        widget.autoStartBarcodeScan &&
+        _isMobilePlatform) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _openBarcodeScanner();
         }
       });
     }
@@ -685,17 +695,50 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (_isMobilePlatform) ...[
+                          PrimaryButton(
+                            label: 'カメラでバーコードを読み取る',
+                            icon: Icons.qr_code_scanner,
+                            onPressed: _isSearching
+                                ? null
+                                : _openBarcodeScanner,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            '商品のバーコードにカメラを向けると、栄養情報を取り込みます。',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppColors.secondaryText),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                        ],
                         SecondaryButton(
-                          label: 'テンプレートから追加',
-                          icon: Icons.view_list_outlined,
-                          onPressed: _openTemplatePicker,
+                          label: _barcodeSectionExpanded
+                              ? '番号の手入力を閉じる'
+                              : 'バーコード番号を手入力',
+                          icon: Icons.pin,
+                          onPressed: () => setState(
+                            () => _barcodeSectionExpanded =
+                                !_barcodeSectionExpanded,
+                          ),
                         ),
-                        const SizedBox(height: AppSpacing.xs),
-                        SecondaryButton(
-                          label: 'テンプレートを作成',
-                          icon: Icons.add_box_outlined,
-                          onPressed: _openTemplateCreate,
-                        ),
+                        if (_barcodeSectionExpanded) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          AppTextField(
+                            controller: _barcodeController,
+                            label: 'バーコード',
+                            keyboardType: TextInputType.number,
+                            readOnly: _isSearching,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          PrimaryButton(
+                            label: _isSearching ? '検索中...' : 'バーコードで検索',
+                            icon: Icons.search,
+                            loading: _isSearching,
+                            onPressed: _isSearching
+                                ? null
+                                : () => _searchByBarcode(),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -715,43 +758,16 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         SecondaryButton(
-                          label: _barcodeSectionExpanded
-                              ? 'バーコード入力を閉じる'
-                              : 'バーコードから追加',
-                          icon: Icons.qr_code,
-                          onPressed: () => setState(
-                            () => _barcodeSectionExpanded =
-                                !_barcodeSectionExpanded,
-                          ),
+                          label: 'テンプレートから追加',
+                          icon: Icons.view_list_outlined,
+                          onPressed: _openTemplatePicker,
                         ),
-                        if (_barcodeSectionExpanded) ...[
-                          if (_isMobilePlatform) ...[
-                            const SizedBox(height: AppSpacing.xs),
-                            PrimaryButton(
-                              label: 'カメラでスキャン',
-                              icon: Icons.qr_code_scanner,
-                              onPressed: _isSearching
-                                  ? null
-                                  : _openBarcodeScanner,
-                            ),
-                          ],
-                          const SizedBox(height: AppSpacing.sm),
-                          AppTextField(
-                            controller: _barcodeController,
-                            label: 'バーコード',
-                            keyboardType: TextInputType.number,
-                            readOnly: _isSearching,
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          PrimaryButton(
-                            label: _isSearching ? '検索中...' : 'バーコードで検索',
-                            icon: Icons.search,
-                            loading: _isSearching,
-                            onPressed: _isSearching
-                                ? null
-                                : () => _searchByBarcode(),
-                          ),
-                        ],
+                        const SizedBox(height: AppSpacing.xs),
+                        SecondaryButton(
+                          label: 'テンプレートを作成',
+                          icon: Icons.add_box_outlined,
+                          onPressed: _openTemplateCreate,
+                        ),
                       ],
                     ),
                   ),

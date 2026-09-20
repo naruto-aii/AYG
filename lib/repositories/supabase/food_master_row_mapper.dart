@@ -49,6 +49,7 @@ class FoodMasterRowMapper {
       lastUsedAt: _parseDateTime(row['last_used_at']),
       reportCount: (row['report_count'] as num?)?.toInt() ?? 0,
       version: (row['version'] as num?)?.toInt() ?? 1,
+      ownerDeleted: row['owner_deleted'] == true,
       createdAt: DateTime.parse(row['created_at'] as String),
       updatedAt: DateTime.parse(row['updated_at'] as String),
       deletedAt: _parseDateTime(row['deleted_at']),

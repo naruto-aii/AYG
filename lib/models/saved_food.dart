@@ -33,6 +33,7 @@ class SavedFood {
     this.lastUsedAt,
     this.reportCount = 0,
     this.version = 1,
+    this.ownerDeleted = false,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -73,6 +74,9 @@ class SavedFood {
   /// 公開食品の利用者向け内容変更回数（V1.1 は履歴なし・将来互換用）。
   final int version;
 
+  /// 作成者アカウント削除後の公開食品。氏名は出さず「削除済みユーザー」と表示する。
+  final bool ownerDeleted;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -92,6 +96,9 @@ class SavedFood {
 
   /// 表示用の基準単位文字列。
   String get baseUnit => servingUnitLabel?.trim() ?? '';
+
+  /// 公開食品の作成者欄。本名やメールは使わない。
+  String get creatorLabel => ownerDeleted ? '削除済みユーザー' : 'ユーザー';
 
   SavedFood copyWith({
     String? foodId,
@@ -118,6 +125,7 @@ class SavedFood {
     DateTime? lastUsedAt,
     int? reportCount,
     int? version,
+    bool? ownerDeleted,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
@@ -148,6 +156,7 @@ class SavedFood {
       lastUsedAt: lastUsedAt ?? this.lastUsedAt,
       reportCount: reportCount ?? this.reportCount,
       version: version ?? this.version,
+      ownerDeleted: ownerDeleted ?? this.ownerDeleted,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,

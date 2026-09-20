@@ -17,6 +17,7 @@ import '../../services/open_food_facts_service.dart';
 import '../../services/source_food_edit_policy.dart';
 import '../../widgets/food/source_food_update_dialog.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/common/app_keyboard_dismiss.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
@@ -582,6 +583,9 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                   ),
                   keyboardType: TextInputType.number,
                   enabled: !_isSearching,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => dismissAppKeyboard(),
+                  onTapOutside: (_) => dismissAppKeyboard(),
                 ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
@@ -626,6 +630,7 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                   border: OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.next,
+                onTapOutside: (_) => dismissAppKeyboard(),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return '食品名を入力してください';
@@ -665,6 +670,9 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => dismissAppKeyboard(),
+                onTapOutside: (_) => dismissAppKeyboard(),
                 onChanged: (_) => setState(() {}),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {

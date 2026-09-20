@@ -13,11 +13,13 @@ import '../../widgets/common/settings_list_tile.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
-import 'settings_basic_info_screen.dart';
+import 'account_deletion_screen.dart';
 import 'calculation_references_screen.dart';
+import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
+import '../subscription/calonavi_plus_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -167,6 +169,18 @@ class SettingsScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     SettingsListTile(
+                      icon: Icons.workspace_premium_outlined,
+                      title: AppStrings.plusTitle,
+                      subtitle: controller.isCalonaviPlusActive
+                          ? AppStrings.plusActive
+                          : AppStrings.plusInactive,
+                      onTap: () => showCalonaviPlus(
+                        context,
+                        controller.subscriptionRepository,
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    SettingsListTile(
                       icon: Icons.description_outlined,
                       title: '利用規約',
                       onTap: () =>
@@ -198,10 +212,18 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.person_off_outlined,
                       title: AppStrings.settingsAccountDeletion,
                       subtitle: AppStrings.settingsAccountDeletionSubtitle,
-                      onTap: () => showLegalDocument(
-                        context,
-                        LegalDocument.accountDeletion,
-                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => AccountDeletionScreen(
+                              controller: controller,
+                              authenticationRepository:
+                                  authenticationRepository,
+                              supportEmail: contactEmail,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     if (contactEmail.isNotEmpty) ...[
                       const Divider(height: 1),

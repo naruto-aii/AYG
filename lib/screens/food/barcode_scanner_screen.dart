@@ -3,7 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../utils/nutrition_format.dart';
 
-/// カメラで EAN-13 / JAN バーコードを読み取る画面。
+/// カメラで EAN / JAN / UPC バーコードを読み取る画面。
 class BarcodeScannerScreen extends StatefulWidget {
   const BarcodeScannerScreen({super.key});
 
@@ -13,7 +13,14 @@ class BarcodeScannerScreen extends StatefulWidget {
 
 class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   final MobileScannerController _controller = MobileScannerController(
-    formats: [BarcodeFormat.ean13],
+    autoStart: true,
+    facing: CameraFacing.back,
+    formats: const [
+      BarcodeFormat.ean13,
+      BarcodeFormat.ean8,
+      BarcodeFormat.upcA,
+      BarcodeFormat.upcE,
+    ],
   );
 
   bool _hasScanned = false;
@@ -45,48 +52,118 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     Navigator.of(context).pop(normalized);
   }
 
-  void _handlePermissionDenied() {
-    if (!mounted) {
-      return;
-    }
-    Navigator.of(context).pop();
+  Future<void> _toggleTorch() async {
+    await _controller.toggleTorch();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('バーコードをスキャン')),
-      body: MobileScanner(
-        controller: _controller,
-        onDetect: _handleDetect,
-        errorBuilder: (context, error) {
-          final isPermissionDenied =
-              error.errorCode == MobileScannerErrorCode.permissionDenied;
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('バーコードをスキャン'),
+        actions: [
+          IconButton(
+            tooltip: 'ライト',
+            onPressed: _toggleTorch,
+            icon: const Icon(Icons.flash_on),
+          ),
+          IconButton(
+            tooltip: '閉じる',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: _handleDetect,
+            errorBuilder: (context, error) {
+              final isPermissionDenied =
+                  error.errorCode == MobileScannerErrorCode.permissionDenied;
 
-          if (isPermissionDenied) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('カメラを利用できません。手入力またはテキスト検索をご利用ください。'),
+              return ColoredBox(
+                color: Colors.black,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isPermissionDenied
+                              ? 'カメラの使用が許可されていません。iPhoneの設定 → カロナビ → カメラをオンにしてください。'
+                              : 'カメラを起動できませんでした。もう一度開くか、番号を手入力してください。',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('戻る'),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-                _handlePermissionDenied();
-              }
-            });
-          }
-
-          return Center(
+                ),
+              );
+            },
+          ),
+          const IgnorePointer(child: _BarcodeViewfinder()),
+          const Align(
+            alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.fromLTRB(24, 0, 24, 48),
               child: Text(
-                isPermissionDenied ? 'カメラ権限が必要です' : 'カメラを起動できませんでした',
+                'バーコードを枠内に合わせてください',
                 textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 16),
               ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
+}
+
+class _BarcodeViewfinder extends StatelessWidget {
+  const _BarcodeViewfinder();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _ViewfinderPainter(), child: const SizedBox.expand());
+  }
+}
+
+class _ViewfinderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cutout = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, size.height / 2),
+        width: size.width * 0.78,
+        height: 160,
+      ),
+      const Radius.circular(16),
+    );
+    final overlay = Path()
+      ..addRect(Offset.zero & size)
+      ..addRRect(cutout)
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(overlay, Paint()..color = const Color(0x88000000));
+    canvas.drawRRect(
+      cutout,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

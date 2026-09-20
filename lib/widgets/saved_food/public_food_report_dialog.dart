@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../common/app_keyboard_dismiss.dart';
 import '../../models/food_report.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
@@ -115,6 +116,7 @@ class _PublicFoodReportDialogState extends State<_PublicFoodReportDialog> {
               ),
               maxLines: 3,
               enabled: !_isSubmitting,
+              onTapOutside: (_) => dismissAppKeyboard(),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 8),

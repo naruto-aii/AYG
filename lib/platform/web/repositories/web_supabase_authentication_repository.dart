@@ -1,10 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
 import '../../../config/supabase_config.dart';
+import '../../../repositories/account_deletion_rpc.dart';
 import '../../../repositories/auth_exceptions.dart';
 import '../../../repositories/authentication_repository.dart';
 
-/// Web 向け Supabase OAuth 認証（Google のみ）。
+/// Web 向け Supabase OAuth 認証（Google のみ。Apple はアプリで使う）。
 class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
   WebSupabaseAuthenticationRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
@@ -33,7 +34,9 @@ class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
   @override
   Future<void> loginWithGoogle() async {
     if (!SupabaseConfig.isGoogleConfigured) {
-      throw GoogleSignInFailedException('Google Sign-In is not configured.');
+      throw GoogleSignInFailedException(
+        'Googleログインの設定がありません。GOOGLE_WEB_CLIENT_ID を入れてください。',
+      );
     }
 
     try {
@@ -48,12 +51,17 @@ class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> loginWithApple() async {
-    throw UnimplementedError('Apple Sign-In is not available on Web preview.');
+    throw AppleSignInUnavailableException();
   }
 
   @override
   Future<void> logout() async {
     await _client.auth.signOut();
+  }
+
+  @override
+  Future<void> deleteOwnAccount() {
+    return deleteOwnAccountWithClient(_client);
   }
 
   String get _redirectUrl {

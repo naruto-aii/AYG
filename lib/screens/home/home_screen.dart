@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_strings.dart';
 import '../../models/alcohol_entry.dart';
 import '../../models/exercise_entry.dart';
+import '../../models/strength_workout_log.dart';
 import '../../models/food_entry.dart';
 import '../../models/goal.dart';
 import '../../services/open_food_facts_service.dart';
@@ -674,7 +675,12 @@ class _TodayExerciseTile extends StatelessWidget {
       ),
       onTap: onTap,
       title: Text(entry.name),
-      subtitle: Text(timeLabel),
+      subtitle: Text(
+        [
+          timeLabel,
+          if (entry.strengthSummary != null) entry.strengthSummary!,
+        ].join(' · '),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

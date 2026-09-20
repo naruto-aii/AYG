@@ -22,12 +22,7 @@
 
 ### Version 1.1 残タスク（DB 外 — App Store 公開前）
 
-- アプリ内運営連絡先表示（`OFF_CONTACT_EMAIL` 案）
-- Support URL
-- Privacy Policy
-- 利用規約 / コミュニティルール（公開食品・禁止投稿・通報対応方針）
-- 公開食品詳細からの通報 UI
-- 食品作成者ブロック UI
+法務 URL・アプリ内表示・通報 / ブロック UI は済み。公開前の残作業は `docs/legal/README.md`。
 
 ---
 

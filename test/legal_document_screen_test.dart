@@ -138,6 +138,7 @@ void main() {
     expect(find.text('アカウント削除'), findsOneWidget);
     expect(find.textContaining('アプリ内からの削除'), findsOneWidget);
     expect(find.textContaining('公開食品'), findsOneWidget);
+    expect(find.textContaining('削除済みユーザー'), findsOneWidget);
     expect(find.byTooltip('閉じる'), findsOneWidget);
   });
 }

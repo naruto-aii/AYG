@@ -174,12 +174,9 @@ Vision / Mission / 最上位目的は、今後 Owner が確定する。
 
 - カロナビの **正式プロダクトはモバイルアプリ** である
 - **iOS / Android の両方** を本線プラットフォームとして設計する
-- **初回の正式公開は Apple App Store を優先** する
-- Android も同時公開を意味する表現は用いない
-
-#### 【Open Question】
-
-- Google Play 公開時期
+- **初回の正式公開は Apple App Store のみ** とする
+- Android / Google Play は初回に出さない。時期は未定
+- 運営名義は法人化まで **個人・麹池成**
 
 ### Web Preview
 
@@ -415,12 +412,9 @@ Core Value は、プロダクト一言定義 **「エネルギー管理におけ
 ### 【Owner Decision】
 
 - カロナビは **Apple App Store での公開を予定** する
+- 初回は App Store のみ。Google Play は出さない
 - App Store 公開前に、法務、Privacy、Apple Sign-In、審査要件、セキュリティ、TestFlight 等を完了する
 - 詳細は後続の Release / Legal 文書で定義する
-
-### 【Open Question】
-
-- Google Play 公開時期
 
 ---
 
@@ -432,7 +426,7 @@ Core Value は、プロダクト一言定義 **「エネルギー管理におけ
 | Q2 | Core Value の具体的な問い・例 |
 | Q3 | 体重専用タブの本格 UI（履歴・グラフ等）を Version 1.1 に含めるか |
 | Q4 | Health から取得した Workout を運動履歴・消費カロリー計算へどう反映するか |
-| Q5 | Google Play 公開時期 |
+| Q5 | Google Play を後から出す時期（初回は出さない） |
 
 ---
 

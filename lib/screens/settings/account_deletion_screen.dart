@@ -162,7 +162,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: AppSpacing.xs),
-                    const Text('・公開食品（氏名やメールは載せません）'),
+                    const Text('・公開食品（作成者は「削除済みユーザー」。氏名やメールは載せません）'),
                   ],
                 ),
               ),

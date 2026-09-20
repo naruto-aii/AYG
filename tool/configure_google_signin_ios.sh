@@ -61,7 +61,9 @@ write_config() {
   output_file="$1"
   if [ -z "$CLIENT_ID" ]; then
     cat > "$output_file" <<'EOF'
-// GOOGLE_IOS_CLIENT_ID is not set. Google Sign-In URL scheme is not configured.
+// GOOGLE_IOS_CLIENT_ID is not set. Do not write empty GID_CLIENT_ID values.
+// An empty GIDClientID in Info.plist crashes iOS:
+// You must specify |clientID| in |GIDConfiguration|.
 GID_CLIENT_ID=
 GID_SERVER_CLIENT_ID=
 GOOGLE_REVERSED_CLIENT_ID=

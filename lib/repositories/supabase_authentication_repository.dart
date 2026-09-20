@@ -9,6 +9,7 @@ import 'account_deletion_rpc.dart';
 import 'apple_sign_in_client.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
+import 'google_sign_in_factory.dart';
 
 /// Supabase Auth + Google / Apple Sign-In 実装。
 class SupabaseAuthenticationRepository extends AuthenticationRepository {
@@ -17,17 +18,11 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     GoogleSignIn? googleSignIn,
     AppleSignInClient? appleSignInClient,
   }) : _client = client ?? Supabase.instance.client,
-       _googleSignIn = kIsWeb
-           ? null
-           : googleSignIn ??
-                 GoogleSignIn(
-                   clientId: SupabaseConfig.googleIosClientId.isEmpty
-                       ? null
-                       : SupabaseConfig.googleIosClientId,
-                   serverClientId: SupabaseConfig.googleWebClientId.isEmpty
-                       ? null
-                       : SupabaseConfig.googleWebClientId,
-                 ),
+       _googleSignIn = googleSignIn ??
+           createGoogleSignIn(
+             iosClientId: SupabaseConfig.googleIosClientId,
+             webClientId: SupabaseConfig.googleWebClientId,
+           ),
        _appleSignInClient = appleSignInClient ?? const AppleSignInClient();
 
   final SupabaseClient _client;

@@ -35,10 +35,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>GIDClientID</key>
-	<string>$(GID_CLIENT_ID)</string>
-	<key>GIDServerClientID</key>
-	<string>$(GID_SERVER_CLIENT_ID)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

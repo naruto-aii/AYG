@@ -24,14 +24,13 @@
 
 特商法11条: 氏名、住所、電話（請求開示）、メール、価格、数量、送料、通信料、支払方法・時期、提供時期、申込期限、返品、定期購入の解約、動作環境。
 
-## アカウント削除 RPC（本番未適用）
+## アカウント削除 RPC（本番適用済み）
 
 `supabase/migrations/20260920120000_delete_own_account_keep_public_foods.sql`
 
-Owner が本番 Supabase の SQL Editor で適用する。エージェントは本番に適用しない。
-適用後、設定 → アカウント削除から個人データが消え、公開食品は残る。
+本番に `public.delete_own_account()` があり、`authenticated` から execute できる。
+設定 → アカウント削除で個人データが消え、公開食品は残る。
 作成者欄は「削除済みユーザー」になる（`saved_foods.owner_deleted`）。
-未適用のあいだは、アプリがメール依頼にフォールバックする。
 
 ## 決まったこと（2026-09-20）
 
@@ -55,7 +54,7 @@ App Store Connect で上記 Product ID の自動更新サブスクリプショ�
 
 - 法務 HTML とアプリ内全画面表示
 - Sign in with Apple（Developer Key、Supabase Apple Enabled、アプリ配線）。Web プレビューでは使えない
-- アカウント削除 UI と RPC コード（本番 SQL は未適用）
+- アカウント削除 UI と本番 RPC（`delete_own_account`、authenticated から実行可）
 - カロナビ+ のアプリ側（380円 / 4,180円、無料枠 5 / 3 / 3）
 - 公開食品の作成者欄「削除済みユーザー」
 - 通報・作成者ブロック
@@ -64,23 +63,19 @@ App Store Connect で上記 Product ID の自動更新サブスクリプショ�
 
 提出を止めるものから先。括弧は主担当。次は 1。
 
-1. **本番 Supabase に削除 SQL を適用**（Owner）
-   - `supabase/migrations/20260920120000_delete_own_account_keep_public_foods.sql`
-   - SQL Editor で適用する。エージェントは本番に適用しない
-   - 適用前にバックアップ。未適用だとアプリ内削除がメール頼みになり、審査 5.1.1(v) で止まる
-2. **App Store Connect でカロナビ+ を作る**（Owner）
+1. **App Store Connect でカロナビ+ を作る**（Owner）
    - グループ: カロナビ+
    - `calonavi_plus_monthly` 380円 / 1ヶ月
    - `calonavi_plus_yearly` 4,180円 / 1年
-3. **実機確認**（Owner、不具合はエージェント）
-   - 1 と 2 のあとで一度通す。Apple ログインだけ先に見るのは今すぐ可能
+2. **実機確認**（Owner、不具合はエージェント）
+   - 1 のあとで一度通す。Apple ログインとアカウント削除は今すぐ可能
    - Google / Apple ログイン、アカウント削除、公開食品の「削除済みユーザー」、検索5回とテンプレ3件の上限、カロナビ+ 購入と復元、Health
-4. **App Store Connect の掲載情報**（Owner）
+3. **App Store Connect の掲載情報**（Owner）
    - プライバシー / 利用規約 / アカウント削除 URL
    - Privacy Nutrition Labels（Health は目標計算のみ。広告・マーケティングに使わない）
    - 年齢、スクリーンショット、審査メモ（公開食品が残ること、削除手順、Health の用途）
-5. **TestFlight → 審査提出**（Owner）
-6. **日常運用**（Owner）
+4. **TestFlight → 審査提出**（Owner）
+5. **日常運用**（Owner）
    - `calonavi.ayg.support@gmail.com` を見る。住所・電話請求と削除依頼は本人確認のうえ遅滞なく返す
    - 番地・私用電話を公開ページに載せない
 

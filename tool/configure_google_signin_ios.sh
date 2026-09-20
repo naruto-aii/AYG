@@ -24,12 +24,25 @@ key, path = sys.argv[1], sys.argv[2]
 try:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
-    value = data.get(key, "")
-    if value is None:
-        value = ""
-    print(value)
 except FileNotFoundError:
     print("")
+    raise SystemExit(0)
+except json.JSONDecodeError as error:
+    print(
+        "error: tool/dart_defines.local.json の JSON が壊れています。"
+        f" {error}",
+        file=sys.stderr,
+    )
+    print(
+        "直し方: Finder で tool/repair_local_defines.command をダブルクリックするか、"
+        "GOOGLE_WEB_CLIENT_ID の行の末尾にカンマがあるか確認してください。",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+value = data.get(key, "")
+if value is None:
+    value = ""
+print(value)
 PY
 }
 

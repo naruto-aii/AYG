@@ -1,6 +1,6 @@
 # ayg
 
-アプリ名は **カロナビ**（運営: AYG）です。
+アプリ名は **カロナビ**（運営: 麹池成）です。
 
 デザイナー向け要件定義は [docs/design/README.md](docs/design/README.md) から入ってください。最初に渡す文書は [docs/design/00_DESIGNER_BRIEF.md](docs/design/00_DESIGNER_BRIEF.md) です。
 

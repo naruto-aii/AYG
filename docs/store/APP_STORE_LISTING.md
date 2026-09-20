@@ -5,7 +5,7 @@
 
 対象ストア: Apple App Store（iPhone 優先）  
 アプリ名（表）：カロナビ  
-運営：AYG（店名には出さない）
+運営：麹池成
 
 ---
 
@@ -46,9 +46,9 @@
 
 計算は一般的な式に基づく推定です。根拠はアプリ内のリンク先で確認できます。断定や医療助言はしません。
 
-運営: AYG（個人事業主）  
+運営: 麹池成  
 サポートメール: calonavi.ayg.support@gmail.com  
-サポート／プライバシー／利用規約の公開 URL: https://naruto-aii.github.io/AYG/legal/
+サポート／プライバシー／利用規約／特商法の公開 URL: https://naruto-aii.github.io/AYG/legal/
 
 ---
 
@@ -84,6 +84,7 @@ App Store Connect に入れる値です。
 | Privacy Policy URL | https://naruto-aii.github.io/AYG/legal/privacy.html |
 | Terms of Use URL | https://naruto-aii.github.io/AYG/legal/terms.html |
 | Support URL | https://naruto-aii.github.io/AYG/legal/support.html |
+| 特商法 | https://naruto-aii.github.io/AYG/legal/tokushoho.html |
 | サポートメール | calonavi.ayg.support@gmail.com |
 | アカウント削除案内 | https://naruto-aii.github.io/AYG/legal/account-deletion.html |
 

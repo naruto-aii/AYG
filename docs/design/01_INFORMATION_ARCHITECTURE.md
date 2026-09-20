@@ -352,6 +352,7 @@ Health から取れた項目は先に入っている。取れなかった項目�
 | 計算根拠 | 推定であることの断り＋文献リンク。本文は短く |
 | 利用規約 | 外部ページ。https://naruto-aii.github.io/AYG/legal/terms.html |
 | プライバシー | 外部ページ。https://naruto-aii.github.io/AYG/legal/privacy.html |
+| 特商法 | 外部ページ。https://naruto-aii.github.io/AYG/legal/tokushoho.html 。販売業者: 麹池成 |
 | 運営連絡 | calonavi.ayg.support@gmail.com |
 | サポート | 外部ページ。https://naruto-aii.github.io/AYG/legal/support.html |
 | ログアウト | 破壊的。確認してよい |
@@ -457,7 +458,7 @@ web-preview にあるが、デザインでは直すもの
 | --- | --- |
 | 体重タブが「準備中」 | 一覧・追加・編集・削除 |
 | バーコードが折りたたみ | カメラと番号を常時表示 |
-| 設定に運営連絡・アカウント削除がない | 項目として置く |
+| 設定に運営連絡・アカウント削除・特商法がない | 項目として置く |
 | Apple ログインが未完成表示 | 通常のログイン手段として置く |
 | 見た目が仮 | 踏襲不要 |
 

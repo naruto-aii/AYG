@@ -11,9 +11,10 @@ import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_text_field.dart';
 import '../../screens/settings/calculation_references_screen.dart';
 
-/// 運動フォーム内の MET 自動計算（日常語 UI / 詳細設定折りたたみ）。
+/// 運動フォーム内の MET 自動計算（種目1回 + 分量 + 追加消費）。
 class ExerciseMetCalculationSection extends StatefulWidget {
   const ExerciseMetCalculationSection({
     super.key,
@@ -22,6 +23,9 @@ class ExerciseMetCalculationSection extends StatefulWidget {
     required this.durationController,
     required this.grossKcalController,
     required this.isEditing,
+    this.nameController,
+    this.notesController,
+    this.additionalFields,
     this.initialEntry,
     required this.onEstimateChanged,
   });
@@ -30,6 +34,9 @@ class ExerciseMetCalculationSection extends StatefulWidget {
   final DateTime loggedAt;
   final TextEditingController durationController;
   final TextEditingController grossKcalController;
+  final TextEditingController? nameController;
+  final TextEditingController? notesController;
+  final Widget? additionalFields;
   final bool isEditing;
   final ExerciseEntry? initialEntry;
   final void Function(ExerciseMetFormState state) onEstimateChanged;
@@ -52,6 +59,7 @@ class ExerciseMetFormState {
     this.calculationVersion,
     this.sourceKey,
     this.manualOverride = false,
+    this.includeInRemaining = true,
   });
 
   final ExerciseCategory? category;
@@ -65,22 +73,33 @@ class ExerciseMetFormState {
   final String? calculationVersion;
   final String? sourceKey;
   final bool manualOverride;
+  final bool includeInRemaining;
 }
 
 class _ExerciseMetCalculationSectionState
     extends State<ExerciseMetCalculationSection> {
   static const _calculator = ExerciseCalorieCalculator();
   static const _weightResolver = ExerciseWeightResolver();
+  static const _walkActivityId = 'walk_brisk';
+  static const _houseworkActivityId = 'housework';
+  static const _customActivityId = 'custom';
   static const _noWeightMessage =
       '体重データがないため、消費カロリーを自動計算できません。'
       '体重を記録するか、手動で入力してください。';
+  static const _houseworkPalWarning =
+      'いつもの家事は、設定の生活活動係数にすでに含まれています。'
+      '特別に長く動いた分だけ記録してください。';
+  static const _lifestyleWalkMessage =
+      '通勤などのいつもの移動は生活活動係数に含まれているので、'
+      '追加消費には入れません。';
 
-  ExerciseCategory _category = ExerciseCategory.aerobic;
   MetActivityDefinition? _activity;
   String? _intensityId;
   bool _manualOverride = false;
   bool _allowRecalculateOnEdit = false;
   bool _showAdvanced = false;
+  bool _showRename = false;
+  bool _walkIsExtraExercise = true;
   WeightReference? _weightReference;
   ExerciseCalorieEstimate? _estimate;
   double? _displayNetKcal;
@@ -91,11 +110,13 @@ class _ExerciseMetCalculationSectionState
     super.initState();
     final entry = widget.initialEntry;
     if (entry != null) {
-      _category = entry.category ?? ExerciseCategory.aerobic;
       _activity = MetActivityCatalog.findById(entry.activityId);
-      _intensityId = entry.intensity;
+      _intensityId = entry.intensity ?? _activity?.defaultIntensityId;
       _manualOverride =
           entry.calculationSource == ExerciseCalculationSource.manualOverride;
+      _walkIsExtraExercise =
+          entry.calculationSource !=
+          ExerciseCalculationSource.lifestyleIncluded;
       _displayNetKcal = entry.netKcal ?? entry.effectiveNetKcal;
       _weightReference = entry.weightKgSnapshot != null
           ? WeightReference(
@@ -103,17 +124,17 @@ class _ExerciseMetCalculationSectionState
               source: WeightReferenceSource.weightEntry,
             )
           : null;
-    } else {
-      final list = MetActivityCatalog.byCategory(_category);
-      _activity = list.isNotEmpty
-          ? list.first
-          : MetActivityCatalog.activities.first;
-      _intensityId = _activity?.defaultIntensityId;
+      final catalogName = _activity?.displayName;
+      _showRename =
+          _isCustom ||
+          (catalogName != null &&
+              (entry.name).trim().isNotEmpty &&
+              entry.name.trim() != catalogName);
     }
     widget.durationController.addListener(_onInputsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!widget.isEditing) {
-        _recalculate();
+        _notifyParent();
       } else {
         _notifyParent();
       }
@@ -125,6 +146,11 @@ class _ExerciseMetCalculationSectionState
     widget.durationController.removeListener(_onInputsChanged);
     super.dispose();
   }
+
+  bool get _isWalk => _activity?.id == _walkActivityId;
+  bool get _isHousework => _activity?.id == _houseworkActivityId;
+  bool get _isCustom => _activity?.id == _customActivityId;
+  bool get _includeInRemaining => !_isWalk || _walkIsExtraExercise;
 
   void _onInputsChanged() {
     _maybeRecalculate();
@@ -147,6 +173,30 @@ class _ExerciseMetCalculationSectionState
 
   double? get _resolvedMet => _manualOverride ? null : _selectedIntensity?.met;
 
+  void _applyActivity(MetActivityDefinition activity) {
+    _activity = activity;
+    _intensityId = activity.defaultIntensityId;
+    if (activity.id != _walkActivityId) {
+      _walkIsExtraExercise = true;
+    }
+    if (activity.id != _customActivityId) {
+      _showRename = false;
+      _syncNameFromActivity();
+    } else {
+      _showRename = true;
+      _syncNameFromActivity();
+    }
+  }
+
+  void _syncNameFromActivity() {
+    final nameController = widget.nameController;
+    final activity = _activity;
+    if (nameController == null || activity == null) {
+      return;
+    }
+    nameController.text = activity.displayName;
+  }
+
   void _recalculate() {
     if (_manualOverride) {
       _notifyParent();
@@ -161,14 +211,15 @@ class _ExerciseMetCalculationSectionState
 
     final duration = int.tryParse(widget.durationController.text.trim());
     final met = _resolvedMet;
-    if (_weightReference == null ||
+    if (_activity == null ||
+        _weightReference == null ||
         duration == null ||
         duration <= 0 ||
         met == null) {
       setState(() {
         _estimate = null;
         if (!widget.isEditing || _allowRecalculateOnEdit) {
-          _displayNetKcal = null;
+          _displayNetKcal = _includeInRemaining ? null : 0;
         }
       });
       _notifyParent();
@@ -184,7 +235,7 @@ class _ExerciseMetCalculationSectionState
 
     setState(() {
       _estimate = estimate;
-      _displayNetKcal = estimate?.netKcal;
+      _displayNetKcal = _includeInRemaining ? estimate?.netKcal : 0;
       if (estimate != null) {
         widget.grossKcalController.text = estimate.grossKcal.toStringAsFixed(1);
       }
@@ -194,235 +245,322 @@ class _ExerciseMetCalculationSectionState
 
   void _notifyParent() {
     final gross = double.tryParse(widget.grossKcalController.text.trim());
-    final net = _manualOverride ? (_manualNetKcal ?? gross) : _displayNetKcal;
+    final net = _manualOverride
+        ? (_manualNetKcal ?? gross)
+        : (_includeInRemaining ? _displayNetKcal : 0.0);
     widget.onEstimateChanged(
       ExerciseMetFormState(
-        category: _category,
+        category: _activity?.category,
         activityId: _activity?.id,
         intensity: _intensityId,
         metValue: _manualOverride ? null : _resolvedMet,
-        grossKcal: gross,
+        grossKcal: _includeInRemaining ? gross : (gross ?? 0.0),
         netKcal: net,
         weightKgSnapshot:
             _weightReference?.weightKg ?? widget.initialEntry?.weightKgSnapshot,
         calculationSource: _manualOverride
             ? ExerciseCalculationSource.manualOverride
-            : (_estimate != null
-                  ? ExerciseCalculationSource.metEstimate
-                  : widget.initialEntry?.calculationSource),
+            : (!_includeInRemaining
+                  ? ExerciseCalculationSource.lifestyleIncluded
+                  : (_estimate != null
+                        ? ExerciseCalculationSource.metEstimate
+                        : widget.initialEntry?.calculationSource)),
         calculationVersion:
             _estimate?.calculationVersion ??
             widget.initialEntry?.calculationVersion ??
             MetActivityCatalog.calculationVersion,
         sourceKey: _selectedIntensity?.sourceKey ?? _activity?.sourceKey,
         manualOverride: _manualOverride,
+        includeInRemaining: _includeInRemaining,
       ),
     );
   }
 
   List<MetIntensityOption> get _intensityOptions {
-    if (_activity == null || _activity!.intensityOptions.isEmpty) {
-      return MetIntensityPresets.forCategory(_category);
+    if (_activity == null) {
+      return const [];
+    }
+    if (_activity!.intensityOptions.isEmpty) {
+      return MetIntensityPresets.forCategory(_activity!.category);
     }
     return _activity!.intensityOptions;
   }
 
+  List<MetActivityDefinition> get _visibleActivities {
+    return MetActivityCatalog.activities;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activityOptions = MetActivityCatalog.byCategory(_category);
     final intensities = _intensityOptions;
     final hasWeight =
         _weightReference != null ||
         widget.initialEntry?.weightKgSnapshot != null;
+    final visibleActivities = _visibleActivities;
+    final showNameField = widget.nameController != null && _showRename;
+    final canShowNet =
+        _activity != null &&
+        (_estimate != null || _displayNetKcal != null || !_includeInRemaining);
 
     return AppCard(
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('1. 運動の種類', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: AppSpacing.xs),
-            DropdownButtonFormField<ExerciseCategory>(
-              initialValue: _category,
-              decoration: const InputDecoration(labelText: '運動の種類'),
-              items: MetActivityCatalog.selectableCategories
-                  .map(
-                    (category) => DropdownMenuItem(
-                      value: category,
-                      child: Text(category.labelJa),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) {
-                  return;
-                }
-                setState(() {
-                  _category = value;
-                  final next = MetActivityCatalog.byCategory(value);
-                  _activity = next.isNotEmpty ? next.first : null;
-                  _intensityId = _activity?.defaultIntensityId;
-                });
-                _maybeRecalculate();
-              },
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text('2. 種目', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: AppSpacing.xs),
-            DropdownButtonFormField<MetActivityDefinition>(
-              initialValue: _activity,
-              decoration: const InputDecoration(labelText: '種目'),
-              items: activityOptions
-                  .map(
-                    (activity) => DropdownMenuItem(
-                      value: activity,
-                      child: Text(activity.displayName),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _activity = value;
-                  _intensityId = value?.defaultIntensityId;
-                });
-                _maybeRecalculate();
-              },
-            ),
-            if (intensities.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                '3. きつさ・運動強度',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              ...intensities.map((option) {
-                return RadioListTile<String>(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(option.label),
-                  subtitle: Text(option.description),
-                  value: option.id,
-                  groupValue: _intensityId,
-                  onChanged: _manualOverride
-                      ? null
-                      : (value) {
-                          setState(() => _intensityId = value);
-                          _maybeRecalculate();
-                        },
-                );
-              }),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('種目', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final activity in visibleActivities)
+                ChoiceChip(
+                  label: Text(activity.displayName),
+                  selected: _activity?.id == activity.id,
+                  onSelected: (_) {
+                    setState(() {
+                      _applyActivity(activity);
+                    });
+                    _maybeRecalculate();
+                  },
+                ),
             ],
+          ),
+          if (_activity == null) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '4. 運動時間は上のフォームで入力してください',
+              '種目を1つ選んでください',
               style: Theme.of(context).textTheme.bodySmall,
             ),
+          ],
+          if (_activity != null &&
+              widget.nameController != null &&
+              !_isCustom &&
+              !_showRename)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => setState(() => _showRename = true),
+                child: const Text('名前を変える'),
+              ),
+            ),
+          if (showNameField) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(
+              controller: widget.nameController,
+              label: '表示名',
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '表示名を入力してください';
+                }
+                return null;
+              },
+            ),
+          ],
+          if (_isWalk) ...[
             const SizedBox(height: AppSpacing.md),
-            if (!hasWeight && !_manualOverride)
-              Text(
-                _noWeightMessage,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            if (_estimate != null || _displayNetKcal != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                '5. 推定消費カロリー',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                '推定総消費：${formatNullableNutrient(_estimate?.grossKcal ?? double.tryParse(widget.grossKcalController.text))} kcal\n'
-                '（運動時間中の総エネルギー消費）',
-              ),
-              Text(
-                '追加消費：${formatNullableNutrient(_displayNetKcal)} kcal\n'
-                '（安静時消費を除いた、運動による追加分）',
-              ),
-            ],
-            ExpansionTile(
-              title: const Text('詳細設定'),
-              initiallyExpanded: _showAdvanced,
-              onExpansionChanged: (v) => setState(() => _showAdvanced = v),
+            Text('これは？', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
               children: [
-                if (_resolvedMet != null)
-                  ListTile(
-                    dense: true,
-                    title: const Text('内部 MET'),
-                    trailing: Text(_resolvedMet!.toStringAsFixed(2)),
-                  ),
-                if (_weightReference != null)
-                  ListTile(
-                    dense: true,
-                    title: const Text('計算に使用した体重'),
-                    trailing: Text(
-                      '${_weightReference!.weightKg.toStringAsFixed(1)} kg',
-                    ),
-                  ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('手動消費カロリー補正'),
-                  subtitle: const Text('追加消費（net）を手入力'),
-                  value: _manualOverride,
-                  onChanged: (value) {
-                    setState(() {
-                      _manualOverride = value;
-                      if (value) {
-                        _manualNetKcal =
-                            _displayNetKcal ??
-                            double.tryParse(
-                              widget.grossKcalController.text.trim(),
-                            );
-                      }
-                    });
-                    _recalculate();
+                ChoiceChip(
+                  label: const Text('追加の運動'),
+                  selected: _walkIsExtraExercise,
+                  onSelected: (_) {
+                    setState(() => _walkIsExtraExercise = true);
+                    _maybeRecalculate();
                   },
                 ),
-                if (_manualOverride)
-                  TextField(
-                    decoration: const InputDecoration(
-                      labelText: '手動 追加消費 kcal（net）',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    onChanged: (value) {
-                      _manualNetKcal = double.tryParse(value.trim());
-                      _notifyParent();
-                    },
-                  ),
-                ListTile(
-                  dense: true,
-                  title: const Text('計算バージョン'),
-                  trailing: Text(MetActivityCatalog.calculationVersion),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) =>
-                            const CalculationReferencesScreen(),
-                      ),
-                    );
+                ChoiceChip(
+                  label: const Text('いつもの移動'),
+                  selected: !_walkIsExtraExercise,
+                  onSelected: (_) {
+                    setState(() => _walkIsExtraExercise = false);
+                    _maybeRecalculate();
                   },
-                  child: const Text('計算根拠・参考文献'),
                 ),
               ],
             ),
-            if (widget.isEditing && !_allowRecalculateOnEdit) ...[
-              const SizedBox(height: AppSpacing.sm),
+            if (!_walkIsExtraExercise) ...[
+              const SizedBox(height: AppSpacing.xs),
               Text(
-                '保存済みの計算結果を、現在の入力内容と体重データで再計算します。',
+                _lifestyleWalkMessage,
                 style: Theme.of(context).textTheme.bodySmall,
-              ),
-              TextButton(
-                onPressed: () {
-                  setState(() => _allowRecalculateOnEdit = true);
-                  _recalculate();
-                },
-                child: const Text('再計算'),
               ),
             ],
           ],
-        ),
+          if (_isHousework) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _houseworkPalWarning,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+          if (intensities.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text('きつさ', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                for (final option in intensities)
+                  ChoiceChip(
+                    label: Text(option.label),
+                    selected: _intensityId == option.id,
+                    onSelected: _manualOverride
+                        ? null
+                        : (_) {
+                            setState(() => _intensityId = option.id);
+                            _maybeRecalculate();
+                          },
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          AppTextField(
+            controller: widget.durationController,
+            label: '実施時間（分）',
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return '実施時間を入力してください';
+              }
+              final parsed = int.tryParse(value);
+              if (parsed == null || parsed <= 0) {
+                return '1以上の整数を入力してください';
+              }
+              return null;
+            },
+          ),
+          if (widget.additionalFields != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            widget.additionalFields!,
+          ],
+          if (_activity != null &&
+              _includeInRemaining &&
+              !hasWeight &&
+              !_manualOverride) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _noWeightMessage,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          if (canShowNet) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text('追加消費', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '${formatNullableNutrient(_includeInRemaining ? _displayNetKcal : 0)} kcal',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            Text(
+              _includeInRemaining
+                  ? '残りカロリーに加算される、運動による追加分'
+                  : _lifestyleWalkMessage,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+          ExpansionTile(
+            title: const Text('詳細設定'),
+            initiallyExpanded: _showAdvanced,
+            onExpansionChanged: (v) => setState(() => _showAdvanced = v),
+            children: [
+              if (widget.notesController != null)
+                AppTextField(
+                  controller: widget.notesController,
+                  label: 'メモ',
+                  maxLines: 3,
+                ),
+              if (_resolvedMet != null)
+                ListTile(
+                  dense: true,
+                  title: const Text('内部 MET'),
+                  trailing: Text(_resolvedMet!.toStringAsFixed(2)),
+                ),
+              if (_weightReference != null)
+                ListTile(
+                  dense: true,
+                  title: const Text('計算に使用した体重'),
+                  trailing: Text(
+                    '${_weightReference!.weightKg.toStringAsFixed(1)} kg',
+                  ),
+                ),
+              ListTile(
+                dense: true,
+                title: const Text('推定総消費（gross）'),
+                subtitle: const Text('運動時間中の総エネルギー消費'),
+                trailing: Text(
+                  '${formatNullableNutrient(_estimate?.grossKcal ?? double.tryParse(widget.grossKcalController.text))} kcal',
+                ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('手動消費カロリー補正'),
+                subtitle: const Text('追加消費（net）を手入力'),
+                value: _manualOverride,
+                onChanged: (value) {
+                  setState(() {
+                    _manualOverride = value;
+                    if (value) {
+                      _manualNetKcal =
+                          _displayNetKcal ??
+                          double.tryParse(
+                            widget.grossKcalController.text.trim(),
+                          );
+                    }
+                  });
+                  _recalculate();
+                },
+              ),
+              if (_manualOverride)
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: '手動 追加消費 kcal（net）',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (value) {
+                    _manualNetKcal = double.tryParse(value.trim());
+                    _notifyParent();
+                  },
+                ),
+              ListTile(
+                dense: true,
+                title: const Text('計算バージョン'),
+                trailing: Text(MetActivityCatalog.calculationVersion),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const CalculationReferencesScreen(),
+                    ),
+                  );
+                },
+                child: const Text('計算根拠・参考文献'),
+              ),
+            ],
+          ),
+          if (widget.isEditing && !_allowRecalculateOnEdit) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '保存済みの計算結果を、現在の入力内容と体重データで再計算します。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() => _allowRecalculateOnEdit = true);
+                _recalculate();
+              },
+              child: const Text('再計算'),
+            ),
+          ],
+        ],
       ),
     );
   }

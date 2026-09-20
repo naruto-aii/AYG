@@ -414,7 +414,7 @@ class DayHistoryScreen extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    '${exerciseItems[i].burnedKcal.toStringAsFixed(0)} kcal',
+                                    '${exerciseItems[i].effectiveNetKcal.toStringAsFixed(0)} kcal',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleSmall

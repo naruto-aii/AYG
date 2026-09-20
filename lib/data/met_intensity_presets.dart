@@ -93,13 +93,37 @@ class MetIntensityPresets {
     ),
   ];
 
+  static const otherOptions = [
+    MetIntensityOption(
+      id: 'light',
+      label: '軽め',
+      description: '会話を楽に続けられる',
+      met: 3.0,
+      sourceKey: 'other_light_3_0',
+    ),
+    MetIntensityOption(
+      id: 'moderate',
+      label: 'ふつう',
+      description: '会話はできるが少し息が弾む',
+      met: 4.5,
+      sourceKey: 'other_moderate_4_5',
+    ),
+    MetIntensityOption(
+      id: 'hard',
+      label: 'きつい',
+      description: '短い言葉しか話せない',
+      met: 6.0,
+      sourceKey: 'other_hard_6_0',
+    ),
+  ];
+
   static List<MetIntensityOption> forCategory(ExerciseCategory category) {
     return switch (category) {
       ExerciseCategory.strength => strengthOptions,
       ExerciseCategory.aerobic => aerobicOptions,
       ExerciseCategory.sport => sportOptions,
       ExerciseCategory.dailyActivity => dailyActivityOptions,
-      ExerciseCategory.other => const [],
+      ExerciseCategory.other => otherOptions,
     };
   }
 }

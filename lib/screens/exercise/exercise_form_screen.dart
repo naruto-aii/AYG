@@ -1,16 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_entry.dart';
-import '../../models/workout_template.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/primary_button.dart';
@@ -19,7 +15,6 @@ import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/exercise/exercise_met_calculation_section.dart';
 import '../../widgets/layout/app_constrained_bottom_bar.dart';
 import '../../widgets/layout/app_form_constraint.dart';
-import 'exercise_form_template_actions.dart';
 
 class ExerciseFormScreen extends StatefulWidget {
   const ExerciseFormScreen({
@@ -44,10 +39,13 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _durationController;
   late final TextEditingController _burnedKcalController;
+  late final TextEditingController _setsController;
+  late final TextEditingController _repsController;
+  late final TextEditingController _liftWeightController;
+  late final TextEditingController _notesController;
   late DateTime _loggedAt;
   bool _isSaving = false;
   ExerciseMetFormState _metState = ExerciseMetFormState();
-  List<String> _nameSuggestions = const [];
 
   @override
   void initState() {
@@ -62,65 +60,69 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     _burnedKcalController = TextEditingController(
       text: entry != null ? entry.effectiveGrossKcal.toString() : '',
     );
-    _nameController.addListener(_onNameChanged);
-    if (!widget.isEditing) {
-      unawaited(_loadInitialSuggestions());
-    }
+    _setsController = TextEditingController(
+      text: entry?.sets?.toString() ?? '',
+    );
+    _repsController = TextEditingController(
+      text: entry?.reps?.toString() ?? '',
+    );
+    _liftWeightController = TextEditingController(
+      text: entry?.liftWeightKg?.toString() ?? '',
+    );
+    _notesController = TextEditingController(text: entry?.notes ?? '');
   }
 
   @override
   void dispose() {
-    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _durationController.dispose();
     _burnedKcalController.dispose();
+    _setsController.dispose();
+    _repsController.dispose();
+    _liftWeightController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadInitialSuggestions() async {
-    if (widget.isEditing) {
-      return;
+  bool get _isStrength => _metState.category == ExerciseCategory.strength;
+
+  int? _parseOptionalInt(TextEditingController controller) {
+    final raw = controller.text.trim();
+    if (raw.isEmpty) {
+      return null;
     }
-    final results = await widget.controller.getExerciseNameSuggestions();
-    if (!mounted) {
-      return;
-    }
-    setState(() => _nameSuggestions = results.take(20).toList());
+    return int.tryParse(raw);
   }
 
-  Future<void> _onNameChanged() async {
-    if (widget.isEditing) {
-      return;
+  double? _parseOptionalDouble(TextEditingController controller) {
+    final raw = controller.text.trim();
+    if (raw.isEmpty) {
+      return null;
     }
-    final query = _nameController.text.trim();
-    if (query.isEmpty) {
-      await _loadInitialSuggestions();
-      return;
-    }
-    final results = await widget.controller.getExerciseNameSuggestions();
-    if (!mounted) {
-      return;
-    }
-    final normalizedQuery = query.toLowerCase();
-    setState(() {
-      _nameSuggestions = results
-          .where((name) => name.toLowerCase().contains(normalizedQuery))
-          .take(20)
-          .toList();
-    });
+    return double.tryParse(raw);
   }
 
   ExerciseEntry? _buildEntry() {
     if (_formKey.currentState?.validate() != true) {
       return null;
     }
+    if (_metState.activityId == null || _nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('種目を選んでください')));
+      return null;
+    }
 
     final grossAndNet = _resolveGrossAndNetKcal();
     if (grossAndNet == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('消費カロリーを計算できないか、詳細設定で追加消費を入力してください')),
+      );
       return null;
     }
     final gross = grossAndNet.$1;
     final net = grossAndNet.$2;
+    final notes = _notesController.text.trim();
 
     return ExerciseEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
@@ -131,6 +133,11 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       category: _metState.category,
       activityId: _metState.activityId,
       intensity: _metState.intensity,
+      sets: _isStrength ? _parseOptionalInt(_setsController) : null,
+      reps: _isStrength ? _parseOptionalInt(_repsController) : null,
+      liftWeightKg: _isStrength
+          ? _parseOptionalDouble(_liftWeightController)
+          : null,
       metValue: _metState.metValue,
       grossKcal: gross,
       netKcal: net,
@@ -139,20 +146,28 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       calculationVersion:
           _metState.calculationVersion ?? MetActivityCatalog.calculationVersion,
       sourceKey: _metState.sourceKey,
+      notes: notes.isEmpty ? null : notes,
     );
   }
 
   /// 保存直前に MET 入力から gross/net を再計算（編集時の古い値混在を防ぐ）。
   (double, double)? _resolveGrossAndNetKcal() {
     final parsedGross = double.tryParse(_burnedKcalController.text.trim());
-    if (parsedGross == null) {
-      return null;
-    }
 
     if (_metState.manualOverride ||
         _metState.calculationSource ==
             ExerciseCalculationSource.manualOverride) {
-      return (parsedGross, _metState.netKcal ?? parsedGross);
+      final net = _metState.netKcal ?? parsedGross;
+      if (net == null) {
+        return null;
+      }
+      return (parsedGross ?? _metState.grossKcal ?? net, net);
+    }
+
+    if (!_metState.includeInRemaining ||
+        _metState.calculationSource ==
+            ExerciseCalculationSource.lifestyleIncluded) {
+      return (parsedGross ?? _metState.grossKcal ?? 0, 0);
     }
 
     final duration = int.tryParse(_durationController.text.trim());
@@ -177,7 +192,13 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       }
     }
 
-    return (parsedGross, _metState.netKcal ?? parsedGross);
+    if (parsedGross != null) {
+      return (parsedGross, _metState.netKcal ?? parsedGross);
+    }
+    if (_metState.grossKcal != null && _metState.netKcal != null) {
+      return (_metState.grossKcal!, _metState.netKcal!);
+    }
+    return null;
   }
 
   Future<void> _save() async {
@@ -220,6 +241,43 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     Navigator.of(context).pop();
   }
 
+  Widget _buildAdditionalFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_isStrength)
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text('セット・回数・重量（任意）'),
+            subtitle: const Text('消費カロリーは実施時間から計算します'),
+            children: [
+              AppTextField(
+                controller: _setsController,
+                label: 'セット',
+                keyboardType: TextInputType.number,
+              ),
+              AppTextField(
+                controller: _repsController,
+                label: '回数',
+                keyboardType: TextInputType.number,
+              ),
+              AppTextField(
+                controller: _liftWeightController,
+                label: '重量（kg）',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+              ),
+            ],
+          ),
+        LoggedAtPickerField(
+          loggedAt: _loggedAt,
+          onChanged: (value) => setState(() => _loggedAt = value),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -233,111 +291,17 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                 AppSpacing.md,
                 AppSpacing.md,
                 AppSpacing.md,
-                widget.isEditing ? 160 : 120,
+                widget.isEditing ? 160 : 100,
               ),
               children: [
-                if (!widget.isEditing) ...[
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SecondaryButton(
-                          onPressed: () => openWorkoutTemplatePicker(
-                            context: context,
-                            controller: widget.controller,
-                          ),
-                          label: 'テンプレートから追加',
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        SecondaryButton(
-                          onPressed: () => openWorkoutTemplateCreate(
-                            context,
-                            widget.controller,
-                          ),
-                          label: 'テンプレートを新規作成',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                ],
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AppTextField(
-                        controller: _nameController,
-                        label: '運動名',
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return '運動名を入力してください';
-                          }
-                          return null;
-                        },
-                      ),
-                      if (!widget.isEditing && _nameSuggestions.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Wrap(
-                          spacing: AppSpacing.xs,
-                          runSpacing: AppSpacing.xs,
-                          children: [
-                            for (final suggestion in _nameSuggestions)
-                              ActionChip(
-                                label: Text(suggestion),
-                                onPressed: () {
-                                  _nameController.text = suggestion;
-                                },
-                              ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.sm),
-                      AppTextField(
-                        controller: _durationController,
-                        label: '実施時間（分）',
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '実施時間を入力してください';
-                          }
-                          final parsed = int.tryParse(value);
-                          if (parsed == null || parsed <= 0) {
-                            return '1以上の整数を入力してください';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      LoggedAtPickerField(
-                        loggedAt: _loggedAt,
-                        onChanged: (value) => setState(() => _loggedAt = value),
-                      ),
-                      AppTextField(
-                        controller: _burnedKcalController,
-                        label: '消費 kcal（gross）',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '消費 kcal を入力してください';
-                          }
-                          final parsed = double.tryParse(value);
-                          if (parsed == null || parsed < 0) {
-                            return '0以上の数値を入力してください';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
                 ExerciseMetCalculationSection(
                   controller: widget.controller,
                   loggedAt: _loggedAt,
                   durationController: _durationController,
                   grossKcalController: _burnedKcalController,
+                  nameController: _nameController,
+                  notesController: _notesController,
+                  additionalFields: _buildAdditionalFields(),
                   isEditing: widget.isEditing,
                   initialEntry: widget.entry,
                   onEstimateChanged: (state) =>
@@ -357,39 +321,6 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
               loading: _isSaving,
               onPressed: _isSaving ? null : _save,
             ),
-            if (!widget.isEditing) ...[
-              const SizedBox(height: AppSpacing.xs),
-              SecondaryButton(
-                label: '入力内容をテンプレートとして保存',
-                onPressed: () {
-                  final duration = int.tryParse(
-                    _durationController.text.trim(),
-                  );
-                  final name = _nameController.text.trim();
-                  if (name.isEmpty || duration == null || duration <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('運動名と実施時間を入力してください')),
-                    );
-                    return;
-                  }
-                  saveCurrentExerciseAsTemplate(
-                    context: context,
-                    controller: widget.controller,
-                    itemDraft: WorkoutTemplateItem(
-                      itemId: widget.controller.generateId(),
-                      name: name,
-                      durationMin: duration,
-                      categoryKey: _metState.category?.id,
-                      activityId: _metState.activityId,
-                      intensity: _metState.intensity,
-                      metValue: _metState.metValue,
-                      sourceKey: _metState.sourceKey,
-                      sortOrder: 1,
-                    ),
-                  );
-                },
-              ),
-            ],
             if (widget.isEditing) ...[
               const SizedBox(height: AppSpacing.xs),
               SecondaryButton(label: '削除', onPressed: _confirmDelete),

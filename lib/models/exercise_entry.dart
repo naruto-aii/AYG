@@ -28,7 +28,7 @@ class ExerciseEntry {
   final String name;
   final int durationMin;
 
-  /// 表示用の消費カロリー（gross または手入力値）。
+  /// 保存用の消費カロリー（gross または手入力値）。一覧表示は [effectiveNetKcal] を使う。
   final double burnedKcal;
   final DateTime loggedAt;
 
@@ -47,7 +47,8 @@ class ExerciseEntry {
   final String? sourceKey;
   final String? notes;
 
-  /// 残りカロリー計算に使う net。未設定の既存記録は burnedKcal を net 相当として扱う。
+  /// 残りカロリー計算および履歴・ホームの表示に使う net。
+  /// 未設定の既存記録は burnedKcal を net 相当として扱う。
   double get effectiveNetKcal {
     if (netKcal != null && netKcal!.isFinite && netKcal! >= 0) {
       return netKcal!;

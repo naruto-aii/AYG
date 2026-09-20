@@ -221,21 +221,12 @@ class MetActivityCatalog {
     ),
     MetActivityDefinition(
       id: 'strength_general',
-      displayName: '筋力トレーニング（総合）',
+      displayName: '筋トレ',
       category: ExerciseCategory.strength,
       defaultMet: 5.0,
       defaultIntensityId: 'moderate',
       sourceKey: 'weight_training_moderate_5_0',
       description: 'セット間休憩を含む全体時間で記録',
-      intensityOptions: MetIntensityPresets.strengthOptions,
-    ),
-    MetActivityDefinition(
-      id: 'strength_machine',
-      displayName: 'マシントレーニング',
-      category: ExerciseCategory.strength,
-      defaultMet: 5.0,
-      defaultIntensityId: 'moderate',
-      sourceKey: 'weight_training_moderate_5_0',
       intensityOptions: MetIntensityPresets.strengthOptions,
     ),
     MetActivityDefinition(
@@ -270,8 +261,9 @@ class MetActivityCatalog {
       displayName: 'その他（手入力）',
       category: ExerciseCategory.other,
       defaultMet: 3.0,
-      defaultIntensityId: 'default',
-      sourceKey: 'pacompendium_met_definition',
+      defaultIntensityId: 'light',
+      sourceKey: 'other_light_3_0',
+      intensityOptions: MetIntensityPresets.otherOptions,
     ),
   ];
 
@@ -283,7 +275,8 @@ class MetActivityCatalog {
       if (activity.id == id) {
         return activity;
       }
-      if (id == 'strength_vigorous' && activity.id == 'strength_general') {
+      if ((id == 'strength_vigorous' || id == 'strength_machine') &&
+          activity.id == 'strength_general') {
         return activity;
       }
       if (id == 'run_moderate' && activity.id == 'run_jog') {
@@ -295,6 +288,24 @@ class MetActivityCatalog {
 
   static List<MetActivityDefinition> byCategory(ExerciseCategory category) {
     return activities.where((a) => a.category == category).toList();
+  }
+
+  static List<MetActivityDefinition> search({
+    String query = '',
+    ExerciseCategory? category,
+  }) {
+    final normalized = query.trim().toLowerCase();
+    return activities.where((activity) {
+      if (category != null && activity.category != category) {
+        return false;
+      }
+      if (normalized.isEmpty) {
+        return true;
+      }
+      final description = activity.description?.toLowerCase() ?? '';
+      return activity.displayName.toLowerCase().contains(normalized) ||
+          description.contains(normalized);
+    }).toList();
   }
 
   static List<ExerciseCategory> get selectableCategories => [

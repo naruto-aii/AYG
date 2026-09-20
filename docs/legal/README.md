@@ -79,9 +79,8 @@ App Store Connect で上記 Product ID の自動更新サブスクリプショ�
    - Privacy Nutrition Labels（Health は目標計算のみ。広告・マーケティングに使わない）
    - 年齢、審査メモ（公開食品が残ること、削除手順、Health の用途）
    - スクリーンショットとアイコンは空のまま
-4. **日常運用の受け皿**（Owner）
-   - `calonavi.ayg.support@gmail.com` を見る。住所・電話請求と削除依頼は本人確認のうえ遅滞なく返す
-   - 番地・私用電話を公開ページに載せない
+
+公開窓口は `calonavi.ayg.support@gmail.com`。新しい仕組みは作らない。その Gmail を見られればよい。
 
 ## デザインが戻ってから着手
 

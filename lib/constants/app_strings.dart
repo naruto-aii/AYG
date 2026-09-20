@@ -29,7 +29,7 @@ class AppStrings {
   static const settingsContactOperator = '運営への連絡';
   static const settingsSupport = 'サポート';
   static const settingsAccountDeletion = 'アカウント削除';
-  static const settingsAccountDeletionSubtitle = '公開食品は残ります。手順は案内ページへ';
+  static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で確認できます';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
 
 

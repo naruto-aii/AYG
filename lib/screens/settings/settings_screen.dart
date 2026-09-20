@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/app_contact_config.dart';
-import '../../config/supabase_config.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
@@ -12,6 +11,8 @@ import '../../theme/app_spacing.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/settings_list_tile.dart';
 import '../../widgets/layout/app_content_constraint.dart';
+import '../legal/legal_document.dart';
+import '../legal/legal_document_screen.dart';
 import 'settings_basic_info_screen.dart';
 import 'calculation_references_screen.dart';
 import 'settings_food_master_screen.dart';
@@ -168,27 +169,32 @@ class SettingsScreen extends StatelessWidget {
                     SettingsListTile(
                       icon: Icons.description_outlined,
                       title: '利用規約',
-                      onTap: () => _openUrl(context, SupabaseConfig.termsUrl),
+                      onTap: () =>
+                          showLegalDocument(context, LegalDocument.terms),
                     ),
                     const Divider(height: 1),
                     SettingsListTile(
                       icon: Icons.privacy_tip_outlined,
                       title: 'プライバシーポリシー',
-                      onTap: () => _openUrl(context, SupabaseConfig.privacyUrl),
+                      onTap: () =>
+                          showLegalDocument(context, LegalDocument.privacy),
                     ),
                     const Divider(height: 1),
                     SettingsListTile(
                       icon: Icons.help_outline,
                       title: AppStrings.settingsSupport,
-                      onTap: () => _openUrl(context, SupabaseConfig.supportUrl),
+                      onTap: () =>
+                          showLegalDocument(context, LegalDocument.support),
                     ),
                     const Divider(height: 1),
                     SettingsListTile(
                       icon: Icons.person_off_outlined,
                       title: AppStrings.settingsAccountDeletion,
                       subtitle: AppStrings.settingsAccountDeletionSubtitle,
-                      onTap: () =>
-                          _openUrl(context, SupabaseConfig.accountDeletionUrl),
+                      onTap: () => showLegalDocument(
+                        context,
+                        LegalDocument.accountDeletion,
+                      ),
                     ),
                     if (contactEmail.isNotEmpty) ...[
                       const Divider(height: 1),

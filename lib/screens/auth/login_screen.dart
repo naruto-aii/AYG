@@ -1,9 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../platform/web/web_browser_utils.dart';
-import '../../config/supabase_config.dart';
 import '../../constants/app_strings.dart';
 import '../../platform/web/in_app_browser_detector.dart';
 import '../../repositories/auth_exceptions.dart';
@@ -16,6 +14,8 @@ import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
 import '../../widgets/layout/app_form_constraint.dart';
 import '../../widgets/layout/app_responsive.dart';
+import '../legal/legal_document.dart';
+import '../legal/legal_document_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -64,18 +64,6 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Appleログインは準備中です（TODO）')));
-  }
-
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
-    }
   }
 
   Widget _buildLoginContent(BuildContext context) {
@@ -133,11 +121,12 @@ class _LoginScreenState extends State<LoginScreen> {
           spacing: AppSpacing.md,
           children: [
             TextButton(
-              onPressed: () => _openUrl(SupabaseConfig.termsUrl),
+              onPressed: () => showLegalDocument(context, LegalDocument.terms),
               child: const Text('利用規約'),
             ),
             TextButton(
-              onPressed: () => _openUrl(SupabaseConfig.privacyUrl),
+              onPressed: () =>
+                  showLegalDocument(context, LegalDocument.privacy),
               child: const Text('プライバシーポリシー'),
             ),
           ],

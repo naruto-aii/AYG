@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../config/supabase_config.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../legal/legal_document.dart';
+import '../legal/legal_document_screen.dart';
 
 class WebLoginScreen extends StatefulWidget {
   const WebLoginScreen({
@@ -43,18 +43,6 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
-    }
-  }
-
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
     }
   }
 
@@ -108,11 +96,13 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                 spacing: AppSpacing.md,
                 children: [
                   TextButton(
-                    onPressed: () => _openUrl(SupabaseConfig.termsUrl),
+                    onPressed: () =>
+                        showLegalDocument(context, LegalDocument.terms),
                     child: const Text('利用規約'),
                   ),
                   TextButton(
-                    onPressed: () => _openUrl(SupabaseConfig.privacyUrl),
+                    onPressed: () =>
+                        showLegalDocument(context, LegalDocument.privacy),
                     child: const Text('プライバシーポリシー'),
                   ),
                 ],

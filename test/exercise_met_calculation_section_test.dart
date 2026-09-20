@@ -131,17 +131,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> tapCategoryChip(WidgetTester tester, String label) async {
-    final chip = find.widgetWithText(FilterChip, label);
-    await tester.scrollUntilVisible(
-      chip,
-      120,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(chip);
-    await tester.pumpAndSettle();
-  }
-
   Future<void> tapActivityChip(WidgetTester tester, String label) async {
     final chip = find.widgetWithText(ChoiceChip, label);
     await tester.scrollUntilVisible(
@@ -218,11 +207,12 @@ void main() {
         isEditing: false,
       );
 
-      await tapCategoryChip(tester, '筋力トレーニング');
+      await tapActivityChip(tester, '筋トレ');
 
       expect(find.text('軽め'), findsOneWidget);
       expect(find.text('ふつう'), findsOneWidget);
       expect(find.text('きつい'), findsOneWidget);
+      expect(find.text('マシントレーニング'), findsNothing);
       expect(find.textContaining('MET'), findsNothing);
     });
 
@@ -424,11 +414,12 @@ void main() {
         onEstimateChanged: (state) => latestState = state,
       );
 
+      await tapActivityChip(tester, 'ウォーキング');
       await tapManualOverride(tester);
       await tapManualOverride(tester, enable: false);
 
       final expected = calculator.estimate(
-        met: MetActivityCatalog.activities.first.defaultMet,
+        met: 3.5,
         weightKg: 70,
         durationMinutes: 30,
       );
@@ -459,6 +450,8 @@ void main() {
         loggedAt: DateTime(2026, 8, 1, 12),
         isEditing: false,
       );
+
+      await tapActivityChip(tester, 'ランニング・ジョギング');
 
       expect(
         find.textContaining('体重データがないため、消費カロリーを自動計算できません'),
@@ -493,6 +486,8 @@ void main() {
         onEstimateChanged: (state) => latestState = state,
       );
 
+      await tapActivityChip(tester, 'ウォーキング');
+
       expect(latestState?.weightKgSnapshot, 68);
       expect(latestState?.weightKgSnapshot, isNot(60));
     });
@@ -518,7 +513,7 @@ void main() {
         isEditing: false,
       );
 
-      await tapCategoryChip(tester, 'その他');
+      await tapActivityChip(tester, 'その他（手入力）');
 
       expect(find.text('軽め'), findsOneWidget);
       expect(find.text('ふつう'), findsOneWidget);
@@ -550,9 +545,70 @@ void main() {
         isEditing: false,
       );
 
-      await tapCategoryChip(tester, '日常活動・軽い運動');
+      await tapActivityChip(tester, '家事・掃除');
 
-      expect(find.textContaining('生活活動係数（PAL）にすでに含まれています'), findsOneWidget);
+      expect(find.textContaining('生活活動係数にすでに含まれています'), findsOneWidget);
+      expect(find.textContaining('特別に長く動いた分だけ'), findsOneWidget);
+    });
+
+    testWidgets('yoga does not show housework PAL warning', (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      final durationController = TextEditingController(text: '30');
+      final grossController = TextEditingController(text: '');
+      addTearDown(durationController.dispose);
+      addTearDown(grossController.dispose);
+
+      await pumpMetSection(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: DateTime(2026, 8, 1, 12),
+        isEditing: false,
+      );
+
+      await tapActivityChip(tester, 'ヨガ・ストレッチ');
+
+      expect(find.textContaining('いつもの家事'), findsNothing);
+      expect(find.text('これは？'), findsNothing);
+    });
+
+    testWidgets('walk commute choice zeros extra calories', (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      final durationController = TextEditingController(text: '30');
+      final grossController = TextEditingController(text: '');
+      addTearDown(durationController.dispose);
+      addTearDown(grossController.dispose);
+
+      ExerciseMetFormState? latestState;
+      await pumpMetSectionWithState(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: DateTime(2026, 8, 1, 12),
+        isEditing: false,
+        onEstimateChanged: (state) => latestState = state,
+      );
+
+      await tapActivityChip(tester, 'ウォーキング');
+      expect(find.text('これは？'), findsOneWidget);
+      expect(find.text('追加の運動'), findsOneWidget);
+
+      await tapActivityChip(tester, 'いつもの移動');
+      expect(latestState?.includeInRemaining, isFalse);
+      expect(latestState?.netKcal, 0);
+      expect(
+        latestState?.calculationSource,
+        ExerciseCalculationSource.lifestyleIncluded,
+      );
+      expect(find.textContaining('追加消費には入れません'), findsWidgets);
     });
 
     testWidgets('main surface shows net only without gross or MET', (
@@ -575,6 +631,8 @@ void main() {
         loggedAt: DateTime(2026, 8, 1, 12),
         isEditing: false,
       );
+
+      await tapActivityChip(tester, 'ランニング・ジョギング');
 
       expect(find.text('追加消費'), findsWidgets);
       expect(find.textContaining('残りカロリーに加算'), findsOneWidget);
@@ -665,13 +723,17 @@ void main() {
 
       expect(find.text('テンプレートから追加'), findsNothing);
       expect(find.text('テンプレートを新規作成'), findsNothing);
-      expect(find.text('入力内容をテンプレートとして保存'), findsOneWidget);
+      expect(find.text('入力内容をテンプレートとして保存'), findsNothing);
+      expect(find.text('種目を検索'), findsNothing);
+      expect(find.text('表示名'), findsNothing);
       expect(find.text('消費 kcal（gross）'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('メモ'),
+        find.text('詳細設定'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.tap(find.text('詳細設定'));
+      await tester.pumpAndSettle();
       expect(find.text('メモ'), findsOneWidget);
     });
 
@@ -687,13 +749,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tapCategoryChip(tester, '筋力トレーニング');
+      await tapActivityChip(tester, '筋トレ');
 
       await tester.scrollUntilVisible(
-        find.widgetWithText(TextFormField, 'セット'),
+        find.text('セット・回数・重量（任意）'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.tap(find.text('セット・回数・重量（任意）'));
+      await tester.pumpAndSettle();
       expect(find.widgetWithText(TextFormField, 'セット'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, '回数'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, '重量（kg）'), findsOneWidget);

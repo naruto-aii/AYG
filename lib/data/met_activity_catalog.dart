@@ -221,21 +221,12 @@ class MetActivityCatalog {
     ),
     MetActivityDefinition(
       id: 'strength_general',
-      displayName: '筋力トレーニング（総合）',
+      displayName: '筋トレ',
       category: ExerciseCategory.strength,
       defaultMet: 5.0,
       defaultIntensityId: 'moderate',
       sourceKey: 'weight_training_moderate_5_0',
       description: 'セット間休憩を含む全体時間で記録',
-      intensityOptions: MetIntensityPresets.strengthOptions,
-    ),
-    MetActivityDefinition(
-      id: 'strength_machine',
-      displayName: 'マシントレーニング',
-      category: ExerciseCategory.strength,
-      defaultMet: 5.0,
-      defaultIntensityId: 'moderate',
-      sourceKey: 'weight_training_moderate_5_0',
       intensityOptions: MetIntensityPresets.strengthOptions,
     ),
     MetActivityDefinition(
@@ -284,7 +275,8 @@ class MetActivityCatalog {
       if (activity.id == id) {
         return activity;
       }
-      if (id == 'strength_vigorous' && activity.id == 'strength_general') {
+      if ((id == 'strength_vigorous' || id == 'strength_machine') &&
+          activity.id == 'strength_general') {
         return activity;
       }
       if (id == 'run_moderate' && activity.id == 'run_jog') {

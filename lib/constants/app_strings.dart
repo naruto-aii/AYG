@@ -30,9 +30,24 @@ class AppStrings {
   static const settingsSupport = 'サポート';
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
-  static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で確認できます';
+  static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で削除できます';
+  static const accountDeletionLead =
+      '削除するとログインできなくなります。公開食品は他の利用者が使える形で残ります。';
+  static const accountDeletionRemoves = '削除されるもの';
+  static const accountDeletionKeeps = '残るもの';
+  static const accountDeletionBilling =
+      'ストアの定期購入は、この操作では止まりません。先に各ストアで解約してください。';
+  static const accountDeletionConfirmTitle = 'アカウントを削除しますか？';
+  static const accountDeletionConfirmBody =
+      'この操作は取り消せません。個人の記録は消えます。公開食品は残ります。';
+  static const accountDeletionExecute = 'アカウントを削除する';
+  static const accountDeletionUnavailable =
+      '自動削除はまだ使えません。サポートメールから削除を依頼できます。';
+  static const accountDeletionMailSubject = 'アカウント削除';
+  static const accountDeletionFailed = '削除に失敗しました';
+  static const accountDeletionReadPolicy = '詳しい説明を読む';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
-
+  static const loginAppleComingSoon = 'Appleログインは準備中です。';
 
   static const birthDate = '生年月日';
   static const gender = '性別';

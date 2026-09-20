@@ -72,6 +72,19 @@ void main() {
         throwsA(isA<UnimplementedError>()),
       );
     });
+
+    test('deleteOwnAccount records the call', () async {
+      await authRepository.deleteOwnAccount();
+      expect(authRepository.deleteOwnAccountCalled, isTrue);
+    });
+
+    test('deleteOwnAccount can simulate missing RPC', () {
+      authRepository.simulateDeleteUnavailable = true;
+      expect(
+        authRepository.deleteOwnAccount(),
+        throwsA(isA<AccountDeletionUnavailableException>()),
+      );
+    });
   });
 
   group('UnconfiguredAuthenticationRepository', () {
@@ -80,6 +93,14 @@ void main() {
 
       expect(repository.isAuthenticated, isFalse);
       expect(repository.currentUser, isNull);
+    });
+
+    test('deleteOwnAccount is unavailable', () {
+      final repository = UnconfiguredAuthenticationRepository();
+      expect(
+        repository.deleteOwnAccount(),
+        throwsA(isA<AccountDeletionUnavailableException>()),
+      );
     });
   });
 

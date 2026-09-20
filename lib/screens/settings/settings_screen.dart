@@ -13,8 +13,9 @@ import '../../widgets/common/settings_list_tile.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
-import 'settings_basic_info_screen.dart';
+import 'account_deletion_screen.dart';
 import 'calculation_references_screen.dart';
+import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
@@ -198,10 +199,18 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.person_off_outlined,
                       title: AppStrings.settingsAccountDeletion,
                       subtitle: AppStrings.settingsAccountDeletionSubtitle,
-                      onTap: () => showLegalDocument(
-                        context,
-                        LegalDocument.accountDeletion,
-                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => AccountDeletionScreen(
+                              controller: controller,
+                              authenticationRepository:
+                                  authenticationRepository,
+                              supportEmail: contactEmail,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     if (contactEmail.isNotEmpty) ...[
                       const Divider(height: 1),

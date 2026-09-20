@@ -355,8 +355,8 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
-    if (_isSyncInProgress) {
+  Future<void> logout({bool force = false}) async {
+    if (_isSyncInProgress && !force) {
       return;
     }
     _resetSyncState();

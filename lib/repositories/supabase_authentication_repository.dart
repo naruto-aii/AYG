@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config/supabase_config.dart';
 import '../config/web_auth_config.dart';
+import 'account_deletion_rpc.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
 
@@ -115,6 +116,11 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     await _client.auth.signOut();
   }
 
+  @override
+  Future<void> deleteOwnAccount() {
+    return deleteOwnAccountWithClient(_client);
+  }
+
   AuthUser? _mapUser(User? user) {
     if (user == null) {
       return null;
@@ -148,4 +154,9 @@ class UnconfiguredAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> logout() async {}
+
+  @override
+  Future<void> deleteOwnAccount() async {
+    throw AccountDeletionUnavailableException();
+  }
 }

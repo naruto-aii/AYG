@@ -63,7 +63,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signInWithApple() async {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Appleログインは準備中です（TODO）')));
+    ).showSnackBar(
+      const SnackBar(content: Text(AppStrings.loginAppleComingSoon)),
+    );
   }
 
   Widget _buildLoginContent(BuildContext context) {

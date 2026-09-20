@@ -13,3 +13,19 @@ class GoogleSignInFailedException implements Exception {
   @override
   String toString() => message;
 }
+
+/// 本番に delete_own_account がまだ無い。
+class AccountDeletionUnavailableException implements Exception {
+  @override
+  String toString() => 'Account deletion is not available.';
+}
+
+/// アカウント削除に失敗した。
+class AccountDeletionFailedException implements Exception {
+  AccountDeletionFailedException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}

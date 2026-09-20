@@ -55,10 +55,10 @@ App Store Connect で上記 Product ID の自動更新サブスクリプショ�
 
 提出を止めるものから先。括弧は主担当。
 
-1. **Sign in with Apple をアプリで通す**（Owner コンソール + エージェント実装）
-   - Developer: App ID の capability は済み。Services ID の Configure で Return URL を `https://<Supabaseプロジェクト>.supabase.co/auth/v1/callback` にする
-   - Supabase Auth に Apple プロバイダを入れる。`.p8` はリポジトリに置かない
-   - アプリの `loginWithApple()` と iOS entitlement は未配線
+1. **Sign in with Apple のコンソール仕上げと実機確認**（Owner）
+   - アプリの `loginWithApple()` と iOS entitlement は実装済み。Web プレビューでは使えない
+   - Services ID の Configure で Return URL を `https://<Supabaseプロジェクト>.supabase.co/auth/v1/callback` にする
+   - Supabase Auth の Apple を Enabled にし、Client IDs に `com.narutoaii.ayg` と `com.narutoaii.ayg.web` を入れる。`.p8` はリポジトリに置かない
 2. **本番 Supabase に削除 SQL を適用**（Owner）
    - `supabase/migrations/20260920120000_delete_own_account_keep_public_foods.sql`
    - 適用前にバックアップ。未適用だとアプリ内削除がメール頼みになる

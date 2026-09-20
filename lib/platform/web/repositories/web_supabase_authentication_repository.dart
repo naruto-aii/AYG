@@ -5,7 +5,7 @@ import '../../../repositories/account_deletion_rpc.dart';
 import '../../../repositories/auth_exceptions.dart';
 import '../../../repositories/authentication_repository.dart';
 
-/// Web 向け Supabase OAuth 認証（Google のみ）。
+/// Web 向け Supabase OAuth 認証（Google のみ。Apple はアプリで使う）。
 class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
   WebSupabaseAuthenticationRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
@@ -49,7 +49,7 @@ class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> loginWithApple() async {
-    throw UnimplementedError('Apple Sign-In is not available on Web preview.');
+    throw AppleSignInUnavailableException();
   }
 
   @override

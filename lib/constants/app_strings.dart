@@ -47,7 +47,7 @@ class AppStrings {
   static const accountDeletionFailed = '削除に失敗しました';
   static const accountDeletionReadPolicy = '詳しい説明を読む';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
-  static const loginAppleComingSoon = 'Appleログインは準備中です。';
+  static const loginAppleUnavailableOnWeb = 'このプレビューでは Apple ログインは使えません。';
   static const plusTitle = 'カロナビ+';
   static const plusLead =
       '公開食品検索とテンプレートの上限を外します。記録・Health・バーコードはこれまでどおり無料です。';

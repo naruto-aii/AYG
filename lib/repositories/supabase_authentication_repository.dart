@@ -6,14 +6,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/supabase_config.dart';
 import '../config/web_auth_config.dart';
 import 'account_deletion_rpc.dart';
+import 'apple_sign_in_client.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
 
-/// Supabase Auth + Google Sign-In 実装。
+/// Supabase Auth + Google / Apple Sign-In 実装。
 class SupabaseAuthenticationRepository extends AuthenticationRepository {
   SupabaseAuthenticationRepository({
     SupabaseClient? client,
     GoogleSignIn? googleSignIn,
+    AppleSignInClient? appleSignInClient,
   }) : _client = client ?? Supabase.instance.client,
        _googleSignIn = kIsWeb
            ? null
@@ -25,10 +27,12 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
                    serverClientId: SupabaseConfig.googleWebClientId.isEmpty
                        ? null
                        : SupabaseConfig.googleWebClientId,
-                 );
+                 ),
+       _appleSignInClient = appleSignInClient ?? const AppleSignInClient();
 
   final SupabaseClient _client;
   final GoogleSignIn? _googleSignIn;
+  final AppleSignInClient _appleSignInClient;
 
   @override
   AuthUser? get currentUser => _mapUser(_client.auth.currentUser);
@@ -105,9 +109,26 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> loginWithApple() async {
-    throw UnimplementedError(
-      'Apple Sign-In will be implemented in a later phase.',
-    );
+    if (kIsWeb) {
+      throw AppleSignInUnavailableException();
+    }
+
+    try {
+      final result = await _appleSignInClient.fetchIdToken();
+      await _client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: result.identityToken,
+        nonce: result.rawNonce,
+      );
+    } on AppleSignInCancelledException {
+      rethrow;
+    } on AppleSignInUnavailableException {
+      rethrow;
+    } on AppleSignInFailedException {
+      rethrow;
+    } on AuthException catch (error) {
+      throw AppleSignInFailedException(error.message);
+    }
   }
 
   @override
@@ -147,9 +168,7 @@ class UnconfiguredAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> loginWithApple() async {
-    throw UnimplementedError(
-      'Apple Sign-In will be implemented in a later phase.',
-    );
+    throw AppleSignInFailedException('Supabase is not configured.');
   }
 
   @override

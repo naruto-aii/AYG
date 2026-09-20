@@ -61,11 +61,34 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signInWithApple() async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-      const SnackBar(content: Text(AppStrings.loginAppleComingSoon)),
-    );
+    setState(() => _isLoading = true);
+    try {
+      await widget.authenticationRepository.loginWithApple();
+      if (kIsWeb) {
+        return;
+      }
+      await widget.controller.handleAuthenticatedSession();
+    } on AppleSignInCancelledException {
+      return;
+    } on AppleSignInUnavailableException {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.loginAppleUnavailableOnWeb)),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Appleログインに失敗しました: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget _buildLoginContent(BuildContext context) {

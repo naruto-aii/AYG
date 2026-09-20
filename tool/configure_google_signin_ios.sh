@@ -68,7 +68,7 @@ GID_CLIENT_ID=
 GID_SERVER_CLIENT_ID=
 GOOGLE_REVERSED_CLIENT_ID=
 EOF
-    echo "Wrote ${output_file} (empty — set GOOGLE_IOS_CLIENT_ID to enable Google Sign-In)."
+    echo "Wrote ${output_file} (empty — set GOOGLE_IOS_CLIENT_ID to enable native Google Sign-In)."
     return 0
   fi
 
@@ -84,6 +84,7 @@ EOF
 if [ -z "$CLIENT_ID" ]; then
   write_config "$IOS_OUTPUT_FILE"
   write_config "$MACOS_OUTPUT_FILE"
+  echo "GOOGLE_IOS_CLIENT_ID が空です。Google Cloud で iOS クライアント（Bundle ID com.narutoaii.ayg）を作り、tool/dart_defines.local.json に入れてください。" >&2
   exit 0
 fi
 

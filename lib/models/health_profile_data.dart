@@ -20,6 +20,14 @@ class HealthProfileData {
 
   static const empty = HealthProfileData();
 
+  bool get hasAnyValue =>
+      birthDate != null ||
+      gender != null ||
+      heightCm != null ||
+      weightKg != null ||
+      activeEnergyBurnedKcal != null ||
+      workouts.isNotEmpty;
+
   HealthProfileData copyWith({
     DateTime? birthDate,
     Gender? gender,

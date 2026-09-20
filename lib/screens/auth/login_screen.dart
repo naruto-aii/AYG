@@ -46,6 +46,13 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.controller.handleAuthenticatedSession();
     } on GoogleSignInCancelledException {
       return;
+    } on GoogleSignInFailedException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       if (!mounted) {
         return;

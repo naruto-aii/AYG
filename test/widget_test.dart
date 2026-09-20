@@ -271,7 +271,7 @@ void main() {
     await tester.tap(find.text('Googleでログイン'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Googleログインに失敗しました'), findsOneWidget);
+    expect(find.textContaining('Google sign-in failed.'), findsOneWidget);
 
     await authRepository.dispose();
   });

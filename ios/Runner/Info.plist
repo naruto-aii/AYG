@@ -29,6 +29,16 @@
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.narutoaii.ayg</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.narutoaii.ayg</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
@@ -61,7 +71,7 @@
   <key>NSCameraUsageDescription</key>
   <string>商品バーコードを読み取り、食事登録を簡単にするためにカメラを使用します。</string>
   <key>NSHealthShareUsageDescription</key>
-  <string>歩数、体重、アクティブエネルギー、ワークアウトを取得し、カロリー目標の計算にだけ使います。広告やマーケティングには使いません。</string>
+  <string>生年月日、性別、身長、体重、アクティブエネルギー、ワークアウトを取得し、カロリー目標の計算にだけ使います。広告やマーケティングには使いません。</string>
   <key>NSHealthUpdateUsageDescription</key>
   <string>許諾いただいた範囲で、カロナビの記録を Health に書き戻すために使います。広告やマーケティングには使いません。</string>
   <key>UIApplicationSupportsIndirectInputEvents</key>

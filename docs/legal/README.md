@@ -66,11 +66,15 @@ App Store Connect の商品は作成済み。初回提出はアプリのバー�
 
 見た目の納品を待たなくてよい。括弧は主担当。次は 1。
 
-1. **実機の機能確認**（Owner、不具合はエージェント）
-   - 今の仮デザインのままでよい。見た目の直しはデザイン後
-   - Google / Apple ログイン、アカウント削除、公開食品の「削除済みユーザー」、検索5回とテンプレ3件の上限、Health
+1. **Google ログインと Health を実機で通す**（Owner のコンソール作業 + 実機。手順は `docs/setup/ios_google_health.md`）
+   - Google Cloud で iOS OAuth クライアント（Bundle ID `com.narutoaii.ayg`）を作り、`GOOGLE_IOS_CLIENT_ID` に入れる
+   - Supabase Redirect URLs に `com.narutoaii.ayg://login-callback` を足す
+   - Xcode の Signing & Capabilities に HealthKit があることを確認し、USB で入れ直す
+2. **残りの実機確認**（Owner、不具合はエージェント）
+   - Apple ログイン、キーボード、筋トレ複数種目、バーコードカメラ
+   - アカウント削除、公開食品の「削除済みユーザー」、検索5回とテンプレ3件の上限
    - カロナビ+ の購入と復元（Sandbox。Add for Review はまだ押さない）
-2. **掲載のテキストだけ先に入れる**（Owner）
+3. **掲載のテキストだけ先に入れる**（Owner）
    - プライバシー / 利用規約 / アカウント削除 URL
    - Privacy Nutrition Labels（Health は目標計算のみ。広告・マーケティングに使わない）
    - 年齢、審査メモ（公開食品が残ること、削除手順、Health の用途）

@@ -34,7 +34,9 @@ class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
   @override
   Future<void> loginWithGoogle() async {
     if (!SupabaseConfig.isGoogleConfigured) {
-      throw GoogleSignInFailedException('Google Sign-In is not configured.');
+      throw GoogleSignInFailedException(
+        'Googleログインの設定がありません。GOOGLE_WEB_CLIENT_ID を入れてください。',
+      );
     }
 
     try {

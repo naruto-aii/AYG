@@ -18,5 +18,5 @@ EOF
 fi
 
 open -e "$DEST"
-echo "Opened $DEST in TextEdit. Fill SUPABASE_ANON_KEY and GOOGLE_WEB_CLIENT_ID, save, then close."
-echo "Leave GOOGLE_IOS_CLIENT_ID as empty quotes. Test Apple Sign-In first."
+echo "Opened $DEST in TextEdit. Fill SUPABASE_ANON_KEY, GOOGLE_WEB_CLIENT_ID, and GOOGLE_IOS_CLIENT_ID, save, then close."
+echo "GOOGLE_IOS_CLIENT_ID は Google Cloud の iOS OAuth クライアントです。空のままだと端末の Google ログインは Safari 経由になります。"

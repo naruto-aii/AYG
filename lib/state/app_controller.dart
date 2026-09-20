@@ -694,8 +694,7 @@ class AppController extends ChangeNotifier {
 
     final profileData = await healthRepository.fetchProfileData();
     await applyHealthProfileData(profileData);
-    return profileData.weightKg != null ||
-        profileData.activeEnergyBurnedKcal != null;
+    return profileData.hasAnyValue;
   }
 
   void setGoal(Goal value) {

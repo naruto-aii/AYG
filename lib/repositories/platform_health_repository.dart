@@ -23,6 +23,7 @@ class PlatformHealthRepository implements HealthRepository {
   final Health _health;
   final WeightRepository _weightRepository;
   final HealthWorkoutLocalStore _workoutStore;
+  bool _configured = false;
 
   static const _readTypes = [
     HealthDataType.BIRTH_DATE,
@@ -37,14 +38,32 @@ class PlatformHealthRepository implements HealthRepository {
   bool get isAvailable => !kIsWeb;
 
   @override
+  String? lastFailureMessage;
+
+  @override
   Future<bool> requestPermissions() async {
+    lastFailureMessage = null;
     if (!isAvailable) {
+      lastFailureMessage = 'この端末では Health 連携に対応していません。';
       return false;
     }
 
     try {
-      return await _health.requestAuthorization(_readTypes);
-    } catch (_) {
+      await _ensureConfigured();
+      final granted = await _health.requestAuthorization(
+        _readTypes,
+        permissions: List<HealthDataAccess>.filled(
+          _readTypes.length,
+          HealthDataAccess.READ,
+        ),
+      );
+      if (!granted) {
+        lastFailureMessage =
+            'Health の許可が得られませんでした。iPhoneの設定 → プライバシーとセキュリティ → ヘルスケア → カロナビ で読み取りをオンにしてください。';
+      }
+      return granted;
+    } catch (error) {
+      lastFailureMessage = _messageForError(error);
       return false;
     }
   }
@@ -52,34 +71,52 @@ class PlatformHealthRepository implements HealthRepository {
   @override
   Future<HealthProfileData> fetchProfileData() async {
     if (!isAvailable) {
+      lastFailureMessage ??= 'この端末では Health 連携に対応していません。';
+      return HealthProfileData.empty;
+    }
+
+    try {
+      await _ensureConfigured();
+    } catch (error) {
+      lastFailureMessage = _messageForError(error);
       return HealthProfileData.empty;
     }
 
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
 
-    try {
-      final birthDate = await _fetchBirthDate();
-      final gender = await _fetchGender();
-      final heightCm = await _fetchHeightCm();
-      final weightKg = await _fetchLatestWeightKg(startOfDay, now);
-      final activeEnergyBurnedKcal = await _fetchActiveEnergyBurnedKcal(
-        startOfDay,
-        now,
-      );
-      final workouts = await _fetchWorkouts(startOfDay, now);
+    final birthDate = await _safeFetch('生年月日', _fetchBirthDate);
+    final gender = await _safeFetch('性別', _fetchGender);
+    final heightCm = await _safeFetch('身長', _fetchHeightCm);
+    final weightKg = await _safeFetch(
+      '体重',
+      () => _fetchLatestWeightKg(startOfDay, now),
+    );
+    final activeEnergyBurnedKcal = await _safeFetch(
+      'アクティブエネルギー',
+      () => _fetchActiveEnergyBurnedKcal(startOfDay, now),
+    );
+    final workouts =
+        await _safeFetch('ワークアウト', () => _fetchWorkouts(startOfDay, now)) ??
+        const <HealthWorkoutRecord>[];
 
-      return HealthProfileData(
-        birthDate: birthDate,
-        gender: gender,
-        heightCm: heightCm,
-        weightKg: weightKg,
-        activeEnergyBurnedKcal: activeEnergyBurnedKcal,
-        workouts: workouts,
-      );
-    } catch (_) {
-      return HealthProfileData.empty;
+    final data = HealthProfileData(
+      birthDate: birthDate,
+      gender: gender,
+      heightCm: heightCm,
+      weightKg: weightKg,
+      activeEnergyBurnedKcal: activeEnergyBurnedKcal,
+      workouts: workouts,
+    );
+
+    if (!data.hasAnyValue && lastFailureMessage == null) {
+      lastFailureMessage =
+          'Health から値を読めませんでした。ヘルスケアに体重・身長が入っているか、カロナビの読み取り許可を確認してください。';
+    } else if (data.hasAnyValue) {
+      lastFailureMessage = null;
     }
+
+    return data;
   }
 
   @override
@@ -100,6 +137,33 @@ class PlatformHealthRepository implements HealthRepository {
   @override
   Future<void> saveWorkoutRecords(List<HealthWorkoutRecord> records) {
     return _workoutStore.saveWorkoutRecords(records);
+  }
+
+  Future<void> _ensureConfigured() async {
+    if (_configured) {
+      return;
+    }
+    await _health.configure();
+    _configured = true;
+  }
+
+  Future<T?> _safeFetch<T>(String label, Future<T?> Function() run) async {
+    try {
+      return await run();
+    } catch (error) {
+      lastFailureMessage = '$labelを取得できませんでした。${_messageForError(error)}';
+      return null;
+    }
+  }
+
+  String _messageForError(Object error) {
+    final text = error.toString();
+    if (text.contains('entitlement') ||
+        text.contains('Authorization not determined') ||
+        text.contains('Missing')) {
+      return 'HealthKit の権限がビルドに入っていません。Xcode の Signing & Capabilities に HealthKit があるか確認し、USB で入れ直してください。';
+    }
+    return text;
   }
 
   Future<DateTime?> _fetchBirthDate() async {
@@ -176,7 +240,7 @@ class PlatformHealthRepository implements HealthRepository {
     return value.numericValue.toDouble();
   }
 
-  Future<double> _fetchActiveEnergyBurnedKcal(
+  Future<double?> _fetchActiveEnergyBurnedKcal(
     DateTime start,
     DateTime end,
   ) async {
@@ -187,14 +251,16 @@ class PlatformHealthRepository implements HealthRepository {
     );
 
     var total = 0.0;
+    var sawValue = false;
     for (final point in points) {
       final value = point.value;
       if (value is NumericHealthValue) {
         total += value.numericValue.toDouble();
+        sawValue = true;
       }
     }
 
-    return total;
+    return sawValue ? total : null;
   }
 
   Future<List<HealthWorkoutRecord>> _fetchWorkouts(

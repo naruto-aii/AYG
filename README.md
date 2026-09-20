@@ -1,3 +1,18 @@
+# カロナビ（AYG）
+
+エネルギー管理アプリ。公開 Preview は https://naruto-aii.github.io/AYG/ です。
+
+## デザイナー向け
+
+運動入力画面を更新しました。見た目の対応は次を正としてください。
+
+- [docs/design/README.md](./docs/design/README.md)
+- [docs/design/03_WORKOUT_INPUT.md](./docs/design/03_WORKOUT_INPUT.md)（このファイルだけで完了できます）
+
+機能は凍結済みです。項目追加や計算の変更はしないでください。
+
+---
+
 # ayg
 
 A new Flutter project.

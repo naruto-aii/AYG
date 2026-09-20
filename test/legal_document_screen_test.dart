@@ -120,6 +120,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('特定商取引法に基づく表記'), findsOneWidget);
+    expect(find.textContaining('麹池成'), findsOneWidget);
     expect(find.textContaining('アプリ内課金'), findsOneWidget);
     expect(find.byTooltip('閉じる'), findsOneWidget);
   });

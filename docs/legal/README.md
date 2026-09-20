@@ -16,9 +16,9 @@ Flutter Web は開発用プレビューです。アプリの動作には不要�
 | 特定商取引法に基づく表記 | https://naruto-aii.github.io/AYG/legal/tokushoho.html |
 
 運営: 個人（カロナビ） / 所在地: 東京都 / 連絡先: calonavi.ayg.support@gmail.com
+特商法の販売業者の氏名: 麹池成
 
-アプリ内課金は初回公開から入れる。特商法の販売業者の氏名は、屋号がなければ原則本名。
-`legal/tokushoho.html` の「アプリ公開前に記載」を、公開前に本名へ書き換える。弁護士確認は未実施。
+アプリ内課金は初回公開から入れる。弁護士確認は未実施。
 
 原稿は `legal/*.html` を直し、`web-preview` へ push する。
 

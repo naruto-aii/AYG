@@ -54,45 +54,41 @@ App Store Connect の商品は作成済み。初回提出はアプリのバー�
 
 - 法務 HTML とアプリ内全画面表示
 - Sign in with Apple（Developer Key、Supabase Apple Enabled、アプリ配線）。Web プレビューでは使えない
+- Google ログイン（Web / ブラウザ経由。iOS ネイティブシートは元の Cloud プロジェクトが見つかってから）
+- Health の読み取り（READ のみ。実機の許可確認は残）
 - アカウント削除 UI と本番 RPC（`delete_own_account`、authenticated から実行可）
 - カロナビ+ のアプリ側と App Store Connect 商品（`calonavi_plus_monthly` 380円 / `calonavi_plus_yearly` 4,180円、同じ Level 1）
 - ストアのアプリ枠（名前は `カロナビ - 食事と運動`）
 - 公開食品の作成者欄「削除済みユーザー」
 - 通報・作成者ブロック
+- Figma 納品の読み取りと、色・文字・ログイン・ホーム・設定・初回設定・下タブへの反映（`docs/design/FIGMA_DELIVERY.md`）
 
-基本タスクが終わるごとに、下の「今できる」「デザイン後」と推奨順を出し直す。デザイナーへ見た目を依頼中。機能は凍結済み。
+基本タスクが終わるごとに、下の「今できる」「デザイン後」と推奨順を出し直す。
 
 ## 今できる残タスク（推奨着手順）
 
-見た目の納品を待たなくてよい。括弧は主担当。次は 1。
+括弧は主担当。次は 1。
 
-1. **Google ログインと Health を実機で通す**（Owner のコンソール作業 + 実機。手順は `docs/setup/ios_google_health.md`）
-   - Google Cloud で iOS OAuth クライアント（Bundle ID `com.narutoaii.ayg`）を作り、`GOOGLE_IOS_CLIENT_ID` に入れる
-   - Supabase Redirect URLs に `com.narutoaii.ayg://login-callback` を足す
-   - Xcode の Signing & Capabilities に HealthKit があることを確認し、USB で入れ直す
-2. **残りの実機確認**（Owner、不具合はエージェント）
-   - Apple ログイン、キーボード、筋トレ複数種目、バーコードカメラ
+1. **見た目込みの実機確認**（Owner、不具合はエージェント）
+   - 新しい見た目を `cursor/figma-visual-design-ab66` で入れて確認
+   - Health の許可、キーボード、筋トレ複数種目、バーコードカメラ
    - アカウント削除、公開食品の「削除済みユーザー」、検索5回とテンプレ3件の上限
    - カロナビ+ の購入と復元（Sandbox。Add for Review はまだ押さない）
-3. **掲載のテキストだけ先に入れる**（Owner）
+2. **掲載のテキストだけ先に入れる**（Owner）
    - プライバシー / 利用規約 / アカウント削除 URL
    - Privacy Nutrition Labels（Health は目標計算のみ。広告・マーケティングに使わない）
    - 年齢、審査メモ（公開食品が残ること、削除手順、Health の用途）
-   - スクリーンショットとアイコンは空のまま。ストア名は `カロナビ - 食事と運動`
+   - ストア名は `カロナビ - 食事と運動`
 
 公開窓口は `calonavi.ayg.support@gmail.com`。新しい仕組みは作らない。その Gmail を見られればよい。
 
-## デザインが戻ってから着手
+## デザイン後に残っているもの
 
-Figma / アイコン / スプラッシュ / 店頭スクショが揃ってから。
-
-1. **見た目の実装**（エージェント）
-   - ログイン、初回設定、ホーム、食事、運動、体重、設定、空 / 読込 / エラー
-   - カロナビ+ 画面はブリーフ後に足したので、納品に無ければ現行のまま出すか追加依頼
+1. **食事・運動・体重の細部をフレームどおりに寄せる**（エージェント）
+   - 運動の通常面からテンプレートは出さない
 2. **アプリアイコンとスプラッシュ**（エージェント）
 3. **App Store スクリーンショット**（Owner、素材はデザイナー）
-4. **見た目込みの実機確認**（Owner、不具合はエージェント）
-5. **TestFlight → 審査提出**（Owner）
+4. **TestFlight → 審査提出**（Owner）
    - アイコンとスクショが揃ってから出す
 
 初回にやらなくてよい: Google Play、法人名義、体重タブの機能追加、Health Workout の運動反映、写真解析、Apple token 失効、レシートのサーバ検証。

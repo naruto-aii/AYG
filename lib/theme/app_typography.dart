@@ -2,94 +2,144 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// カロナビ タイポグラフィ。
+/// カロナビ タイポグラフィ。Figma「Zen Maru Gothic」準拠。
 abstract final class AppTypography {
-  static TextTheme textTheme = const TextTheme(
+  static const String fontFamily = 'Zen Maru Gothic';
+
+  static const TextTheme textTheme = TextTheme(
     displaySmall: TextStyle(
-      fontSize: 36,
+      fontFamily: fontFamily,
+      fontSize: 34,
       fontWeight: FontWeight.w700,
-      color: AppColors.primaryText,
-      height: 1.2,
+      color: AppColors.textPrimary,
+      height: 1.1,
+      letterSpacing: -0.34,
     ),
     headlineLarge: TextStyle(
+      fontFamily: fontFamily,
       fontSize: 28,
       fontWeight: FontWeight.w700,
-      color: AppColors.primaryText,
-      height: 1.25,
+      color: AppColors.textPrimary,
+      height: 1.3,
+      letterSpacing: -0.28,
     ),
     headlineMedium: TextStyle(
-      fontSize: 22,
-      fontWeight: FontWeight.w600,
-      color: AppColors.primaryText,
-      height: 1.3,
+      fontFamily: fontFamily,
+      fontSize: 24,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+      height: 1.4,
+      letterSpacing: -0.12,
     ),
-    titleLarge: TextStyle(
+    headlineSmall: TextStyle(
+      fontFamily: fontFamily,
       fontSize: 20,
-      fontWeight: FontWeight.w600,
-      color: AppColors.primaryText,
-    ),
-    titleMedium: TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-      color: AppColors.primaryText,
-    ),
-    titleSmall: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-      color: AppColors.primaryText,
-    ),
-    bodyLarge: TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w400,
-      color: AppColors.primaryText,
-      height: 1.5,
-    ),
-    bodyMedium: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w400,
-      color: AppColors.primaryText,
-      height: 1.5,
-    ),
-    bodySmall: TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.w400,
-      color: AppColors.secondaryText,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
       height: 1.4,
     ),
+    titleLarge: TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+      height: 1.5,
+    ),
+    titleMedium: TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+      height: 1.5,
+    ),
+    titleSmall: TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+      height: 1.5,
+    ),
+    bodyLarge: TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 16,
+      fontWeight: FontWeight.w400,
+      color: AppColors.textSecondary,
+      height: 1.7,
+    ),
+    bodyMedium: TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 15,
+      fontWeight: FontWeight.w400,
+      color: AppColors.textPrimary,
+      height: 1.7,
+    ),
+    bodySmall: TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      color: AppColors.textMuted,
+      height: 1.6,
+    ),
     labelLarge: TextStyle(
-      fontSize: 14,
+      fontFamily: fontFamily,
+      fontSize: 13,
       fontWeight: FontWeight.w500,
-      color: AppColors.secondaryText,
+      color: AppColors.textSecondary,
+      height: 1.4,
+    ),
+    labelMedium: TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      color: AppColors.textMuted,
+      height: 1.4,
+    ),
+    labelSmall: TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 11,
+      fontWeight: FontWeight.w400,
+      color: AppColors.textMuted,
+      height: 1.4,
     ),
   );
 
   static TextStyle heroValue(BuildContext context) {
     return Theme.of(context).textTheme.displaySmall!.copyWith(
-      color: AppColors.primaryGreen,
+      color: AppColors.textPrimary,
+      fontSize: 36,
       fontWeight: FontWeight.w700,
+      height: 1.1,
     );
   }
 
   static TextStyle heroLabel(BuildContext context) {
-    return Theme.of(
-      context,
-    ).textTheme.titleMedium!.copyWith(color: AppColors.secondaryText);
+    return Theme.of(context).textTheme.titleSmall!.copyWith(
+      color: AppColors.textMuted,
+      fontWeight: FontWeight.w500,
+    );
   }
 
   static TextStyle sectionTitle(BuildContext context) {
-    return Theme.of(
-      context,
-    ).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.w600);
+    return Theme.of(context).textTheme.titleMedium!;
   }
 
   static TextStyle macroLabel(BuildContext context) {
-    return Theme.of(context).textTheme.labelLarge!;
+    return Theme.of(context).textTheme.labelLarge!.copyWith(
+      color: AppColors.textSecondary,
+    );
   }
 
   static TextStyle macroValue(BuildContext context) {
-    return Theme.of(
-      context,
-    ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700);
+    return Theme.of(context).textTheme.titleSmall!;
+  }
+
+  static TextStyle buttonLarge(BuildContext context) {
+    return const TextStyle(
+      fontFamily: fontFamily,
+      fontSize: 17,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
+    );
   }
 
   /// ロゴ横のプロダクト名「カロナビ」。
@@ -97,13 +147,13 @@ abstract final class AppTypography {
     BuildContext context, {
     required double markSize,
   }) {
-    final fontSize = (markSize * 0.78).clamp(18.0, 34.0);
-    return Theme.of(context).textTheme.headlineMedium!.copyWith(
-      color: AppColors.primaryGreen,
+    final fontSize = (markSize * 0.42).clamp(20.0, 34.0);
+    return Theme.of(context).textTheme.headlineSmall!.copyWith(
+      color: AppColors.textBrand,
       fontSize: fontSize,
       fontWeight: FontWeight.w700,
       height: 1.1,
-      letterSpacing: 0.2,
+      letterSpacing: 0,
     );
   }
 }

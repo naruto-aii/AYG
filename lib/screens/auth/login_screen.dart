@@ -10,6 +10,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/brand/app_logo.dart';
+import '../../widgets/brand/brand_assets.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
 import '../../widgets/layout/app_form_constraint.dart';
@@ -125,36 +126,51 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
         ],
-        const Spacer(),
-        const Center(child: AppLogo(markSize: 72, vertical: true)),
-        const SizedBox(height: AppSpacing.sm),
+        const Spacer(flex: 2),
+        const Center(child: AppLogo(markSize: 120, vertical: true)),
+        const SizedBox(height: AppSpacing.lg),
         Text(
           AppStrings.loginTagline,
           textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(color: AppColors.secondaryText),
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: AppColors.textBrand,
+            height: 1.5,
+          ),
         ),
-        const Spacer(),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          AppStrings.loginBody,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const Spacer(flex: 2),
         PrimaryButton(
           label: 'Googleでログイン',
-          icon: Icons.login,
+          icon: Icons.g_mobiledata,
+          trailingChevron: true,
           loading: _isLoading,
           onPressed: _isLoading ? null : _signInWithGoogle,
         ),
+        const SizedBox(height: AppSpacing.sm),
         SecondaryButton(
           label: 'Appleでログイン',
           icon: Icons.apple,
+          trailingChevron: true,
           onPressed: _isLoading ? null : _signInWithApple,
         ),
-        const SizedBox(height: AppSpacing.lg),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: AppSpacing.md,
+        const Spacer(),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton(
               onPressed: () => showLegalDocument(context, LegalDocument.terms),
               child: const Text('利用規約'),
+            ),
+            Text(
+              '|',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
             ),
             TextButton(
               onPressed: () =>
@@ -163,12 +179,12 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.sm),
         Text(
           AppStrings.loginLegalAgreement,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context).textTheme.labelSmall,
         ),
+        const SizedBox(height: AppSpacing.sm),
       ],
     );
   }
@@ -182,11 +198,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundCream,
-      body: SafeArea(
-        child: Center(
-          child: isDesktopLayout(context)
-              ? AppFormConstraint(child: content)
-              : content,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppColors.backgroundCream,
+          image: DecorationImage(
+            image: AssetImage(BrandAssets.loginBackground),
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: isDesktopLayout(context)
+                ? AppFormConstraint(child: content)
+                : content,
+          ),
         ),
       ),
     );

@@ -13,7 +13,7 @@ class AppCard extends StatelessWidget {
     this.padding,
     this.onTap,
     this.large = false,
-    this.elevated = true,
+    this.elevated = false,
   });
 
   final Widget child;
@@ -28,10 +28,7 @@ class AppCard extends StatelessWidget {
 
     Widget card = Material(
       color: AppColors.cardWhite,
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: const BorderSide(color: AppColors.borderGreen, width: 0.5),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,

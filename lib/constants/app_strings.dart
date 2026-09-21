@@ -8,6 +8,8 @@ class AppStrings {
   static const appTitle = 'カロナビ';
 
   static const loginTagline = '毎日の食事と運動を、やさしく見える化。';
+  static const loginBody =
+      'がんばりすぎず、つづけられる。\nカロナビは、あなたの健康な毎日を\nやさしくサポートします。';
 
   /// 暫定アプリアイコン内の表示文字（正式アセット確定まで）。
   static const provisionalAppIconText = 'カ';
@@ -19,10 +21,18 @@ class AppStrings {
   static const navSettings = '設定';
 
   static const settingsTitle = '設定';
+  static const settingsLead = 'あなたに合った使い方で、\nカロナビをもっと便利に。';
   static const settingsBasicInfo = '基本情報';
-  static const settingsGoal = '目標設定';
-  static const settingsHealthActivity = '活動・ヘルスケア';
+  static const settingsBasicInfoSubtitle = '年齢・性別・身長・体重など';
+  static const settingsGoal = '目標';
+  static const settingsGoalSubtitle = '目標体重・目標カロリーなど';
+  static const settingsHealthActivity = '活動・Health';
+  static const settingsHealthActivitySubtitle = '運動・歩数・ヘルスケア連携の設定';
   static const settingsFoodMaster = 'マイ食品';
+  static const settingsFoodMasterSubtitle = 'よく食べる食品の登録・管理';
+  static const settingsCalculation = '計算根拠';
+  static const settingsCalculationSubtitle = 'カロリー・栄養素の算出方法について';
+  static const settingsLoggedInSubtitle = 'アカウント情報の確認・変更';
   static const settingsAccount = 'アカウント';
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';

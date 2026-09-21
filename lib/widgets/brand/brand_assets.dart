@@ -9,4 +9,7 @@ abstract final class BrandAssets {
   /// 暫定アプリアイコン（装飾のみ・日本語なし）。
   static const String iconPlaceholderSvg =
       'assets/brand/app_icon_placeholder.svg';
+
+  /// ログイン画面の背景ウェーブ。
+  static const String loginBackground = 'assets/brand/login_background.png';
 }

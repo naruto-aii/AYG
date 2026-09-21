@@ -42,10 +42,7 @@ class AppLogo extends StatelessWidget {
       maxLines: 1,
       softWrap: false,
     );
-    final mark = AppBrandMark(
-      size: _markSize,
-      borderRadius: vertical ? AppSpacing.sm : AppSpacing.xs + 2,
-    );
+    final mark = AppBrandMark(size: _markSize, borderRadius: 0);
 
     if (vertical) {
       return Column(

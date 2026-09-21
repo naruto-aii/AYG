@@ -22,7 +22,6 @@ import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/calorie_progress_ring.dart';
 import '../../widgets/common/macro_progress_bar.dart';
 import '../../widgets/layout/app_content_constraint.dart';
-import '../../widgets/layout/app_responsive.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../food/food_form_navigation.dart';
 import '../exercise/exercise_form_screen.dart';
@@ -198,111 +197,87 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     const Align(
                       alignment: Alignment.centerLeft,
-                      child: AppLogo(height: 30),
+                      child: AppLogo(height: 36),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final twoColumn =
-                            isDesktopLayout(context) &&
-                            isWideSummaryLayout(constraints.maxWidth);
-                        final ringCard = AppCard(
-                          large: true,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm + 2,
+                    Center(
+                      child: CalorieProgressRing(
+                        intakeKcal: summary.intakeKcal,
+                        targetKcal: summary.targetKcal,
+                        remainingKcal: summary.remainingKcal,
+                        isCalorieOverage: summary.isCalorieOverage,
+                        calorieOverageKcal: summary.calorieOverageKcal,
+                        size: 164,
+                        strokeWidth: 12,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _HomeStatRow(
+                      targetKcal: summary.targetKcal,
+                      intakeKcal: summary.intakeKcal,
+                      exerciseKcal: summary.exerciseBurnKcal,
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                DailyCalculationExplanationScreen(
+                                  summary: summary,
+                                ),
                           ),
-                          child: Column(
-                            children: [
-                              CalorieProgressRing(
-                                intakeKcal: summary.intakeKcal,
-                                targetKcal: summary.targetKcal,
-                                remainingKcal: summary.remainingKcal,
-                                isCalorieOverage: summary.isCalorieOverage,
-                                calorieOverageKcal: summary.calorieOverageKcal,
-                                size: twoColumn ? 132 : 148,
-                                strokeWidth: 11,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Text(
-                                summary.isCalorieOverage
-                                    ? '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
-                                          '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal（超過）'
-                                    : '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
-                                          '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal',
-                                style: Theme.of(context).textTheme.bodySmall,
-                                textAlign: TextAlign.center,
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (context) =>
-                                          DailyCalculationExplanationScreen(
-                                            summary: summary,
-                                          ),
-                                    ),
-                                  );
-                                },
-                                child: const Text('この数値の計算根拠'),
-                              ),
-                            ],
-                          ),
-                        );
-                        final macroCard = AppCard(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm,
-                          ),
-                          child: Column(
-                            children: [
-                              MacroProgressBar(
-                                label: AppStrings.macroProtein,
-                                intakeG: summary.intakeProteinG,
-                                targetG: summary.targetProteinG,
-                                color: AppColors.macroProtein,
-                                compact: true,
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              MacroProgressBar(
-                                label: AppStrings.macroFat,
-                                intakeG: summary.intakeFatG,
-                                targetG: summary.targetFatG,
-                                color: AppColors.macroFat,
-                                compact: true,
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              MacroProgressBar(
-                                label: AppStrings.macroCarb,
-                                intakeG: summary.intakeCarbG,
-                                targetG: summary.targetCarbG,
-                                color: AppColors.macroCarb,
-                                compact: true,
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (twoColumn) {
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: ringCard),
-                              const SizedBox(width: AppSpacing.sm),
-                              Expanded(child: macroCard),
-                            ],
-                          );
-                        }
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ringCard,
-                            const SizedBox(height: AppSpacing.sm),
-                            macroCard,
-                          ],
                         );
                       },
+                      child: const Text('この数値の計算根拠'),
+                    ),
+                    AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.md,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PFCバランス',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: MacroProgressBar(
+                                  label: AppStrings.macroProtein,
+                                  intakeG: summary.intakeProteinG,
+                                  targetG: summary.targetProteinG,
+                                  color: AppColors.macroProtein,
+                                  compact: true,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: MacroProgressBar(
+                                  label: AppStrings.macroFat,
+                                  intakeG: summary.intakeFatG,
+                                  targetG: summary.targetFatG,
+                                  color: AppColors.macroFat,
+                                  compact: true,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: MacroProgressBar(
+                                  label: AppStrings.macroCarb,
+                                  intakeG: summary.intakeCarbG,
+                                  targetG: summary.targetCarbG,
+                                  color: AppColors.macroCarb,
+                                  compact: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     _QuickActionsRow(
@@ -436,6 +411,57 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+class _HomeStatRow extends StatelessWidget {
+  const _HomeStatRow({
+    required this.targetKcal,
+    required this.intakeKcal,
+    required this.exerciseKcal,
+  });
+
+  final double targetKcal;
+  final double intakeKcal;
+  final double exerciseKcal;
+
+  String _kcal(double value, {bool signed = false}) {
+    final rounded = value.round();
+    final digits = rounded.abs().toString();
+    final withComma = digits.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (match) => '${match[1]},',
+    );
+    if (signed && rounded > 0) {
+      return '+$withComma';
+    }
+    return withComma;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget item(String label, String value) {
+      return Expanded(
+        child: Column(
+          children: [
+            Text(label, style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 2),
+            Text(
+              '$value kcal',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        item('目標', _kcal(targetKcal)),
+        item('摂取', _kcal(intakeKcal)),
+        item('運動', _kcal(exerciseKcal, signed: true)),
+      ],
+    );
+  }
+}
+
 class _QuickActionsRow extends StatelessWidget {
   const _QuickActionsRow({
     required this.onAddFood,
@@ -449,32 +475,36 @@ class _QuickActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.restaurant_outlined,
-            label: '食事追加',
-            onTap: onAddFood,
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuickActionButton(
+              icon: Icons.restaurant_outlined,
+              label: '食事追加',
+              onTap: onAddFood,
+            ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.directions_run_outlined,
-            label: '運動追加',
-            onTap: onAddWorkout,
+          Expanded(
+            child: _QuickActionButton(
+              icon: Icons.directions_run_outlined,
+              label: '運動追加',
+              onTap: onAddWorkout,
+            ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.monitor_weight_outlined,
-            label: '体重記録',
-            onTap: onRecordWeight,
+          Expanded(
+            child: _QuickActionButton(
+              icon: Icons.monitor_weight_outlined,
+              label: '体重記録',
+              onTap: onRecordWeight,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -492,27 +522,28 @@ class _QuickActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
+    return InkWell(
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.sm,
-        horizontal: AppSpacing.xxs,
-      ),
+      borderRadius: BorderRadius.circular(12),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
-        child: Column(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 22, color: AppColors.primaryGreen),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Icon(icon, size: 18, color: AppColors.primaryGreen),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const Icon(Icons.chevron_right, size: 16, color: AppColors.iconMuted),
           ],
         ),
       ),

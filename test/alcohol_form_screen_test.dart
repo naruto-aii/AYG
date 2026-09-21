@@ -65,11 +65,15 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
 
-      expect(find.text('食事を追加'), findsAtLeast(1));
+      // 食事は下部のボタン、アルコールは「今日のアルコール」の見出しから追加する。
+      expect(find.text('食事を追加'), findsOneWidget);
       expect(find.text('アルコールを追加'), findsOneWidget);
+
+      await tester.tap(find.text('アルコールを追加'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlcoholFormScreen), findsOneWidget);
     });
   });
 }

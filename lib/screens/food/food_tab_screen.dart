@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import '../../models/food_entry.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
+import '../../models/alcohol_entry.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
+import '../../utils/nutrition_format.dart';
 import '../../widgets/common/delete_with_undo.dart';
-import '../../widgets/history/food_history_list.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_icon.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/home_parts.dart';
 import '../../widgets/history/history_tab_body.dart';
-import '../../widgets/layout/app_content_constraint.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../history/history_calendar_screen.dart';
 import '../meal_template/meal_template_list_screen.dart';
@@ -99,104 +107,221 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
     );
   }
 
+  void _openAlcoholEdit(BuildContext context, AlcoholEntry entry) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            AlcoholFormScreen(controller: widget.controller, entry: entry),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteAlcohol(
+    BuildContext context,
+    AlcoholEntry entry,
+  ) async {
+    await confirmDeleteWithUndo<AlcoholEntry>(
+      context: context,
+      title: '削除確認',
+      message: '「${entry.beverageName}」を削除しますか？',
+      snapshot: entry,
+      onDelete: () => widget.controller.deleteAlcohol(entry.id),
+      onRestore: (restored) => widget.controller.restoreAlcoholEntry(restored),
+    );
+  }
+
+  void _openTemplates() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            MealTemplateListScreen(controller: widget.controller),
+      ),
+    );
+  }
+
+  void _shiftDay(int delta) {
+    setState(() {
+      _selectedDate = localDayStart(
+        DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day + delta,
+        ),
+      );
+    });
+  }
+
+  String get _dayLabel {
+    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+    final d = _selectedDate;
+    final base = '${d.month}月${d.day}日（${weekdays[d.weekday - 1]}）';
+    return isSameLocalDay(d, DateTime.now()) ? '今日 $base' : base;
+  }
+
+  static String _time(DateTime t) =>
+      '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, child) {
-        final dateGroups = groupFoodEntriesByDate(
-          widget.controller.foodEntries,
-          referenceDate: _selectedDate,
-          todayOnly: true,
+        final day = _selectedDate;
+        final foods = sortFoodEntriesByLoggedAt(
+          widget.controller.foodEntries
+              .where((e) => isSameLocalDay(e.loggedAt, day))
+              .toList(),
         );
-        final displayGroups = dateGroups.isEmpty
-            ? [
-                HistoryDateGroup<FoodEntry>(
-                  date: _selectedDate,
-                  label: dateLabelFor(
-                    _selectedDate,
-                    referenceDate: DateTime.now(),
-                  ),
-                  items: const [],
-                ),
-              ]
-            : dateGroups;
+        final alcohols =
+            widget.controller.alcoholEntries
+                .where((e) => isSameLocalDay(e.consumedAt, day))
+                .toList()
+              ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+        final isToday = isSameLocalDay(day, DateTime.now());
+        final canAdd = canAddRecordOnDay(day);
+        final dayWord = isToday ? '今日' : 'この日';
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('食事'),
-            actions: [
-              Semantics(
-                label: '履歴カレンダー',
-                button: true,
-                child: IconButton(
-                  onPressed: _openHistoryCalendar,
-                  icon: const Icon(Icons.calendar_month_outlined),
-                ),
-              ),
-              Semantics(
-                label: '食事テンプレート',
-                button: true,
-                child: IconButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) => MealTemplateListScreen(
-                          controller: widget.controller,
-                        ),
+        return DesignPage(
+          bottomBar: DesignButton(
+            label: '食事を追加',
+            onPressed: canAdd ? () => _openFoodForm(context) : null,
+          ),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DesignTitleBlock(
+                title: '食事',
+                subtitle: '今日食べたものを、さっと記録。',
+                showBack: false,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: '食事テンプレート',
+                      onPressed: _openTemplates,
+                      icon: const AppIcon(
+                        AppIcons.template,
+                        size: 24,
+                        color: AppColors.iconPrimary,
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.view_list_outlined),
-                ),
-              ),
-              Semantics(
-                label: '記録追加',
-                button: true,
-                child: PopupMenuButton<String>(
-                  icon: const Icon(Icons.add),
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'food':
-                        _openFoodForm(context);
-                      case 'alcohol':
-                        _openAlcoholForm(context);
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'food', child: Text('食事を追加')),
-                    PopupMenuItem(value: 'alcohol', child: Text('アルコールを追加')),
+                    ),
+                    IconButton(
+                      tooltip: '履歴カレンダー',
+                      onPressed: _openHistoryCalendar,
+                      icon: const AppIcon(
+                        AppIcons.calendar,
+                        size: 24,
+                        color: AppColors.iconPrimary,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-          body: SafeArea(
-            child: AppContentConstraint(
-              expandVertically: true,
-              child: HistoryTabBody(
-                selectedDate: _selectedDate,
-                onSelectedDateChanged: (date) {
-                  setState(() => _selectedDate = date);
-                },
-                onOpenCalendar: _openHistoryCalendar,
-                listChild: FoodHistoryList(
-                  dateGroups: displayGroups,
-                  onTapEntry: (entry) => _openFoodForm(context, entry: entry),
-                  onDeleteEntry: (entry) => _confirmDeleteFood(context, entry),
-                  emptyMessage: 'この日の食事記録はありません',
-                  emptyActionLabel: canAddRecordOnDay(_selectedDate)
-                      ? '食事を追加'
-                      : null,
-                  onEmptyAction: canAddRecordOnDay(_selectedDate)
-                      ? () => _openFoodForm(context)
-                      : null,
+              // Figma: 日付の送り（日付を押すとカレンダー）
+              DesignCard(
+                elevated: false,
+                radius: 20,
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: '前の日',
+                      onPressed: () => _shiftDay(-1),
+                      icon: const DesignIcon(
+                        Symbols.chevron_left_rounded,
+                        size: 20,
+                        color: AppColors.iconMuted,
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: _openHistoryCalendar,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Text(
+                            _dayLabel,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.titleM,
+                          ),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '次の日',
+                      onPressed: isToday ? null : () => _shiftDay(1),
+                      icon: DesignIcon(
+                        Symbols.chevron_right_rounded,
+                        size: 20,
+                        color: isToday
+                            ? AppColors.neutral300
+                            : AppColors.iconMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(height: 16),
+              DesignSectionHeader(icon: AppIcons.meal, title: '$dayWordの食事'),
+              const SizedBox(height: 4),
+              if (foods.isEmpty)
+                _empty('$dayWordの食事記録はありません')
+              else
+                for (final e in foods)
+                  DesignListRow(
+                    icon: AppIcons.meal,
+                    time: _time(e.loggedAt),
+                    title: e.name,
+                    value: formatNullableNutrient(
+                      e.kcalPerUnit == null ? null : e.totalKcal,
+                    ),
+                    onTap: () => _openFoodForm(context, entry: e),
+                    onLongPress: () => _confirmDeleteFood(context, e),
+                  ),
+              const SizedBox(height: 16),
+              DesignSectionHeader(
+                icon: AppIcons.alcohol,
+                title: '$dayWordのアルコール',
+                actionLabel: canAdd ? 'アルコールを追加' : null,
+                onAction: canAdd ? () => _openAlcoholForm(context) : null,
+              ),
+              const SizedBox(height: 4),
+              if (alcohols.isEmpty)
+                _empty('$dayWordのアルコール記録はありません')
+              else
+                for (final e in alcohols)
+                  DesignListRow(
+                    icon: AppIcons.alcohol,
+                    time: _time(e.consumedAt),
+                    title: e.beverageName,
+                    value: e.totalCalories.toStringAsFixed(0),
+                    onTap: () => _openAlcoholEdit(context, e),
+                    onLongPress: () => _confirmDeleteAlcohol(context, e),
+                  ),
+              const SizedBox(height: 16),
+              Text(
+                '記録は長押しで削除できます。',
+                textAlign: TextAlign.center,
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _empty(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+      ),
     );
   }
 }

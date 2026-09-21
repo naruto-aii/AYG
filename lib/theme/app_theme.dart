@@ -40,31 +40,39 @@ abstract final class AppTheme {
         foregroundColor: AppColors.primaryText,
         elevation: 0,
         scrolledUnderElevation: 0,
+        titleTextStyle: AppTypography.headingS,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: AppColors.cardWhite,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.card,
-          side: const BorderSide(color: AppColors.borderGreen, width: 0.5),
-        ),
+        color: AppColors.bgSurface,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
         margin: EdgeInsets.zero,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primaryGreen,
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size.fromHeight(64),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+          textStyle: AppTypography.buttonL,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          backgroundColor: AppColors.bgPrimary,
+          foregroundColor: AppColors.textOnPrimary,
+          minimumSize: const Size.fromHeight(64),
           shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
           textStyle: AppTypography.buttonL,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primaryGreen,
-          minimumSize: const Size.fromHeight(52),
-          side: const BorderSide(color: AppColors.borderGreen),
+          foregroundColor: AppColors.textBrand,
+          minimumSize: const Size.fromHeight(64),
+          side: const BorderSide(color: AppColors.borderGreenToken, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
           textStyle: AppTypography.buttonL,
         ),
@@ -77,10 +85,10 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.cardWhite,
+        fillColor: AppColors.bgSurface,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+          horizontal: 18,
+          vertical: 13,
         ),
         border: OutlineInputBorder(
           borderRadius: AppRadius.input,
@@ -88,7 +96,7 @@ abstract final class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.input,
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: const BorderSide(color: AppColors.borderDefault),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.input,
@@ -97,8 +105,76 @@ abstract final class AppTheme {
             width: 1.5,
           ),
         ),
-        labelStyle: AppTypography.labelM,
-        hintStyle: AppTypography.bodyM.copyWith(color: AppColors.textMuted),
+        labelStyle: AppTypography.labelM.copyWith(
+          color: AppColors.textSecondary,
+        ),
+        floatingLabelStyle: AppTypography.labelM.copyWith(
+          color: AppColors.textBrand,
+        ),
+        hintStyle: AppTypography.bodyL.copyWith(color: AppColors.textMuted),
+        helperStyle: AppTypography.caption.copyWith(color: AppColors.textMuted),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: AppColors.iconPrimary,
+        textColor: AppColors.textPrimary,
+        titleTextStyle: AppTypography.titleM,
+        subtitleTextStyle: AppTypography.bodyS.copyWith(
+          color: AppColors.textMuted,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size.fromHeight(48)),
+          side: const WidgetStatePropertyAll(BorderSide.none),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.bgSurfaceGreen
+                : AppColors.bgSecondary,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.textBrand
+                : AppColors.textMuted,
+          ),
+          textStyle: const WidgetStatePropertyAll(AppTypography.titleS),
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: const WidgetStatePropertyAll(AppColors.cream0),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.bgPrimary
+              : AppColors.neutral300,
+        ),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.iconPrimary
+              : AppColors.iconMuted,
+        ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.bgPrimary
+              : Colors.transparent,
+        ),
+        side: const BorderSide(color: AppColors.iconMuted, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.green700,
+        linearTrackColor: AppColors.bgTrack,
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 64,
@@ -146,18 +222,23 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: AppRadius.bottomNav),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.backgroundCream,
-        selectedColor: AppColors.softGreen,
-        labelStyle: AppTypography.labelM.copyWith(color: AppColors.textPrimary),
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.chip,
-          side: const BorderSide(color: AppColors.borderGreen),
+        backgroundColor: AppColors.bgSecondary,
+        selectedColor: AppColors.bgPrimary,
+        checkmarkColor: AppColors.textOnPrimary,
+        labelStyle: AppTypography.labelM.copyWith(
+          color: AppColors.textSecondary,
         ),
+        secondaryLabelStyle: AppTypography.labelM.copyWith(
+          color: AppColors.textOnPrimary,
+        ),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.accentOrange,
-        foregroundColor: Colors.white,
-        elevation: 2,
+        backgroundColor: AppColors.bgPrimary,
+        foregroundColor: AppColors.textOnPrimary,
+        elevation: 0,
+        shape: StadiumBorder(),
       ),
     );
   }

@@ -3,11 +3,16 @@ import 'package:flutter/material.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
 import '../../utils/history_calendar_markers.dart';
 import '../../utils/local_date.dart';
-import '../../widgets/common/app_card.dart';
-import '../../widgets/layout/app_content_constraint.dart';
+import '../../utils/nutrition_format.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_icon.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/home_parts.dart';
 import '../food/food_form_navigation.dart';
 import 'day_history_screen.dart';
 
@@ -30,12 +35,24 @@ class HistoryCalendarScreen extends StatefulWidget {
 
 class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
   late DateTime _focusedMonth;
+  late DateTime _selectedDay;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _focusedMonth = DateTime(now.year, now.month);
+    _selectedDay = localDayStart(now);
+  }
+
+  /// 1回目のタップで選び、選ばれている日をもう一度押すと日別の記録を開く。
+  void _onDayTap(DateTime day) {
+    final start = localDayStart(day);
+    if (isSameLocalDay(start, _selectedDay)) {
+      _openDayHistory(start);
+      return;
+    }
+    setState(() => _selectedDay = start);
   }
 
   void _shiftMonth(int delta) {
@@ -57,7 +74,60 @@ class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
     );
   }
 
-  String _monthLabel(DateTime month) => '${month.year}年${month.month}月';
+  String _monthLabel(DateTime month) => '${month.year}年 ${month.month}月';
+
+  static String _time(DateTime t) =>
+      '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+
+  List<Widget> _dayRows() {
+    final day = _selectedDay;
+    final rows = <({DateTime at, Widget row})>[];
+    void open() => _openDayHistory(day);
+
+    for (final e in widget.controller.foodEntries) {
+      if (!isSameLocalDay(e.loggedAt, day)) continue;
+      rows.add((
+        at: e.loggedAt,
+        row: DesignListRow(
+          icon: AppIcons.meal,
+          time: _time(e.loggedAt),
+          title: e.name,
+          value: formatNullableNutrient(
+            e.kcalPerUnit == null ? null : e.totalKcal,
+          ),
+          onTap: open,
+        ),
+      ));
+    }
+    for (final e in widget.controller.exerciseEntries) {
+      if (!isSameLocalDay(e.loggedAt, day)) continue;
+      rows.add((
+        at: e.loggedAt,
+        row: DesignListRow(
+          icon: AppIcons.exercise,
+          time: _time(e.loggedAt),
+          title: e.name,
+          value: '+${e.effectiveNetKcal.toStringAsFixed(0)}',
+          onTap: open,
+        ),
+      ));
+    }
+    for (final e in widget.controller.alcoholEntries) {
+      if (!isSameLocalDay(e.consumedAt, day)) continue;
+      rows.add((
+        at: e.consumedAt,
+        row: DesignListRow(
+          icon: AppIcons.alcohol,
+          time: _time(e.consumedAt),
+          title: e.beverageName,
+          value: e.totalCalories.toStringAsFixed(0),
+          onTap: open,
+        ),
+      ));
+    }
+    rows.sort((a, b) => a.at.compareTo(b.at));
+    return [for (final r in rows) r.row];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,76 +141,114 @@ class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
         );
         final grid = buildMonthCalendarGrid(_focusedMonth);
         final today = localDayStart(DateTime.now());
+        final rows = _dayRows();
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('履歴')),
-          body: SafeArea(
-            child: AppContentConstraint(
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => _shiftMonth(-1),
-                        icon: const Icon(Icons.chevron_left),
+        return DesignPage(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const DesignTitleBlock(
+                title: '履歴',
+                subtitle: '記録した日をカレンダーで振り返れます。',
+              ),
+              // Figma: 月送り
+              DesignCard(
+                elevated: false,
+                radius: 20,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: '前の月',
+                      onPressed: () => _shiftMonth(-1),
+                      icon: const DesignIcon(
+                        Symbols.chevron_left_rounded,
+                        size: 20,
+                        color: AppColors.iconMuted,
                       ),
-                      Expanded(
-                        child: Text(
-                          _monthLabel(_focusedMonth),
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        _monthLabel(_focusedMonth),
+                        textAlign: TextAlign.center,
+                        style: AppTypography.titleM,
                       ),
-                      IconButton(
-                        onPressed: () => _shiftMonth(1),
-                        icon: const Icon(Icons.chevron_right),
+                    ),
+                    IconButton(
+                      tooltip: '次の月',
+                      onPressed: () => _shiftMonth(1),
+                      icon: const DesignIcon(
+                        Symbols.chevron_right_rounded,
+                        size: 20,
+                        color: AppColors.iconMuted,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _CalendarLegend(),
-                  const SizedBox(height: AppSpacing.md),
-                  AppCard(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    child: Column(
-                      children: [
-                        const _WeekdayHeaderRow(),
-                        const SizedBox(height: AppSpacing.xs),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 7,
-                                mainAxisSpacing: AppSpacing.xs,
-                                crossAxisSpacing: AppSpacing.xs,
-                              ),
-                          itemCount: grid.length,
-                          itemBuilder: (context, index) {
-                            final day = grid[index];
-                            if (day == null) {
-                              return const SizedBox.shrink();
-                            }
-                            final marker =
-                                markers[localDayStart(day)] ??
-                                const HistoryDayMarkerInfo();
-                            final isToday = isSameLocalDay(day, today);
-                            return _CalendarDayCell(
-                              day: day.day,
-                              marker: marker,
-                              isToday: isToday,
-                              onTap: () => _openDayHistory(day),
-                            );
-                          },
-                        ),
-                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              DesignCard(
+                elevated: false,
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+                child: Column(
+                  children: [
+                    const _WeekdayHeaderRow(),
+                    const SizedBox(height: 8),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 7,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 0,
+                          ),
+                      itemCount: grid.length,
+                      itemBuilder: (context, index) {
+                        final day = grid[index];
+                        if (day == null) {
+                          return const SizedBox.shrink();
+                        }
+                        final marker =
+                            markers[localDayStart(day)] ??
+                            const HistoryDayMarkerInfo();
+                        return _CalendarDayCell(
+                          day: day.day,
+                          marker: marker,
+                          isToday: isSameLocalDay(day, today),
+                          isSelected: isSameLocalDay(day, _selectedDay),
+                          onTap: () => _onDayTap(day),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    const _CalendarLegend(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              DesignSectionHeader(
+                icon: AppIcons.calendar,
+                title: formatJapaneseDateWithWeekday(_selectedDay),
+                actionLabel: 'この日を開く',
+                onAction: () => _openDayHistory(_selectedDay),
+              ),
+              const SizedBox(height: 4),
+              if (rows.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'この日の記録はありません',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyS.copyWith(
+                      color: AppColors.textMuted,
                     ),
                   ),
-                ],
-              ),
-            ),
+                )
+              else
+                ...rows,
+              const SizedBox(height: 24),
+            ],
           ),
         );
       },
@@ -162,9 +270,10 @@ class _WeekdayHeaderRow extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.secondaryText,
-                  fontWeight: FontWeight.w600,
+                style: AppTypography.caption.copyWith(
+                  color: label == '日'
+                      ? AppColors.textDanger
+                      : AppColors.textMuted,
                 ),
               ),
             ),
@@ -175,6 +284,8 @@ class _WeekdayHeaderRow extends StatelessWidget {
 }
 
 class _CalendarLegend extends StatelessWidget {
+  const _CalendarLegend();
+
   @override
   Widget build(BuildContext context) {
     return Wrap(
@@ -232,9 +343,7 @@ class _LegendItem extends StatelessWidget {
         const SizedBox(width: AppSpacing.xxs),
         Text(
           label,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppColors.secondaryText),
+          style: AppTypography.caption.copyWith(color: AppColors.textMuted),
         ),
       ],
     );
@@ -246,35 +355,49 @@ class _CalendarDayCell extends StatelessWidget {
     required this.day,
     required this.marker,
     required this.isToday,
+    required this.isSelected,
     required this.onTap,
   });
 
   final int day;
   final HistoryDayMarkerInfo marker;
   final bool isToday;
+  final bool isSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-      color: isToday ? AppColors.primaryGreen : AppColors.primaryText,
-    );
-
-    return Material(
-      color: isToday ? AppColors.heroBackground : Colors.transparent,
-      borderRadius: BorderRadius.circular(AppSpacing.xs),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.xs),
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('$day', style: textStyle),
-            const SizedBox(height: 2),
-            _MarkerDots(marker: marker),
-          ],
-        ),
+    return InkWell(
+      customBorder: const CircleBorder(),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.bgPrimary : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$day',
+              style: AppTypography.labelM.copyWith(
+                color: isSelected
+                    ? AppColors.textOnPrimary
+                    : isToday
+                    ? AppColors.textBrand
+                    : AppColors.textPrimary,
+                fontWeight: isToday || isSelected
+                    ? FontWeight.w700
+                    : FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          _MarkerDots(marker: marker),
+        ],
       ),
     );
   }

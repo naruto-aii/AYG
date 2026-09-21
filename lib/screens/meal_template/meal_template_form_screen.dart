@@ -8,16 +8,19 @@ import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
-import '../../widgets/common/compact_macro_display.dart';
-import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_loading_state.dart';
-import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/app_text_field.dart';
-import '../../widgets/common/primary_button.dart';
-import '../../widgets/common/secondary_button.dart';
-import '../../widgets/layout/app_constrained_bottom_bar.dart';
-import '../../widgets/layout/app_form_constraint.dart';
 import '../saved_food/public_food_search_screen.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/home_parts.dart';
+import '../../widgets/design/icon_circle.dart';
+import '../../widgets/design/settings_row.dart';
 
 class MealTemplateFormScreen extends StatefulWidget {
   const MealTemplateFormScreen({
@@ -36,7 +39,6 @@ class MealTemplateFormScreen extends StatefulWidget {
 }
 
 class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _items = <MealTemplateItemDraft>[];
   bool _isLoading = false;
@@ -205,7 +207,10 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
       _items.fold(0, (sum, item) => sum + _itemTotalCarb(item));
 
   Future<void> _save() async {
-    if (_formKey.currentState?.validate() != true) {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('テンプレート名を入力してください')));
       return;
     }
     if (_items.isEmpty) {
@@ -242,148 +247,192 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
     }
   }
 
-  String _formatItemSubtitle(MealTemplateItemDraft item) {
-    return '${item.consumedAmount}${item.unitType.label} · '
-        '${formatNullableNutrient(_itemTotalKcal(item))} kcal · '
-        '${formatMacroSummaryInline(proteinG: _itemTotalProtein(item), fatG: _itemTotalFat(item), carbG: _itemTotalCarb(item))}';
+  Future<void> _showAddMenu() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SettingsRow(
+                icon: AppIcons.bookmark,
+                title: '保存済み食品から追加',
+                subtitle: '登録済みの食品から選ぶ',
+                onTap: () => Navigator.of(context).pop('own'),
+              ),
+              const SizedBox(height: 8),
+              SettingsRow(
+                icon: AppIcons.search,
+                title: '公開食品から追加',
+                subtitle: 'みんなが登録した食品から探す',
+                onTap: () => Navigator.of(context).pop('public'),
+              ),
+              const SizedBox(height: 8),
+              SettingsRow(
+                icon: AppIcons.pen,
+                title: '手入力で追加',
+                subtitle: '名前と栄養素を直接入れる',
+                onTap: () => Navigator.of(context).pop('manual'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    switch (choice) {
+      case 'own':
+        await _pickOwnSavedFood();
+      case 'public':
+        await _pickPublicFood();
+      case 'manual':
+        await _addManualItem();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? 'テンプレート編集' : 'テンプレート作成')),
-      body: _isLoading
-          ? const AppLoadingState()
-          : AppFormConstraint(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    100,
-                  ),
-                  children: [
-                    AppCard(
-                      child: AppTextField(
-                        controller: _nameController,
-                        label: 'テンプレート名',
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'テンプレート名を入力してください';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    AppCard(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.sm,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SecondaryButton(
-                            label: '保存済み食品から追加',
-                            icon: Icons.bookmark,
-                            onPressed: _pickOwnSavedFood,
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          SecondaryButton(
-                            label: '公開食品から追加',
-                            icon: Icons.public,
-                            onPressed: _pickPublicFood,
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          SecondaryButton(
-                            label: '手入力で追加',
-                            icon: Icons.edit,
-                            onPressed: _addManualItem,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    AppSectionHeader(
-                      title: '構成食品',
-                      subtitle: _items.isEmpty ? null : '${_items.length} 件',
-                    ),
-                    if (_items.isNotEmpty) ...[
-                      AppCard(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.sm,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '合計 ${formatNullableNutrient(_totalKcal)} kcal',
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                            CompactMacroDisplay(
-                              proteinG: _totalProtein,
-                              fatG: _totalFat,
-                              carbG: _totalCarb,
-                              showKcal: false,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                    ],
-                    if (_items.isEmpty)
-                      const AppCard(child: Text('食品を追加してください'))
-                    else
-                      ..._items.asMap().entries.map((entry) {
-                        final item = entry.value;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                          child: AppCard(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: AppSpacing.xs,
-                            ),
-                            child: ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(item.name),
-                              subtitle: Text(_formatItemSubtitle(item)),
-                              trailing: Semantics(
-                                label: '削除',
-                                button: true,
-                                child: IconButton(
-                                  icon: const Icon(Icons.delete_outline),
-                                  onPressed: () => setState(
-                                    () => _items.removeAt(entry.key),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                  ],
+    return DesignPage(
+      bottomBar: DesignButton(
+        label: '保存する',
+        showTrailingIcon: false,
+        loading: _isSaving,
+        onPressed: _isSaving || _isLoading ? null : _save,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DesignTitleBlock(
+            title: widget.isEditing ? 'テンプレートを編集' : 'テンプレートを作成',
+            subtitle: 'よく食べる組み合わせに名前をつけて保存します。',
+          ),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
+            DesignFieldCard(
+              icon: AppIcon(
+                AppIcons.template,
+                size: 24,
+                color: IconCircle.foregroundOf(IconCircleTone.green),
+              ),
+              label: 'テンプレート名',
+              child: DesignInputBox(
+                child: DesignTextInput(
+                  controller: _nameController,
+                  hintText: '例）朝の定番セット',
                 ),
               ),
             ),
-      bottomNavigationBar: AppConstrainedBottomBar(
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            filledButtonTheme: FilledButtonThemeData(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
+            const SizedBox(height: 18),
+            DesignSectionHeader(
+              icon: AppIcons.meal,
+              title: _items.isEmpty ? '登録する食品' : '登録する食品（${_items.length}）',
+              actionLabel: '追加',
+              onAction: _showAddMenu,
             ),
-          ),
-          child: PrimaryButton(
-            label: '保存',
-            loading: _isSaving,
-            onPressed: _isSaving ? null : _save,
-          ),
-        ),
+            const SizedBox(height: 4),
+            if (_items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Text(
+                  '食品を追加してください',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyS.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              )
+            else
+              for (final entry in _items.asMap().entries)
+                Dismissible(
+                  key: ObjectKey(entry.value),
+                  direction: DismissDirection.endToStart,
+                  onDismissed: (_) =>
+                      setState(() => _items.removeAt(entry.key)),
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSurfaceDanger,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    child: const AppIcon(
+                      AppIcons.trash,
+                      size: 20,
+                      color: AppColors.iconDanger,
+                    ),
+                  ),
+                  child: DesignListRow(
+                    icon: AppIcons.meal,
+                    time:
+                        '${entry.value.consumedAmount}${entry.value.unitType.label}',
+                    title: entry.value.name,
+                    value: formatNullableNutrient(_itemTotalKcal(entry.value)),
+                  ),
+                ),
+            if (_items.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              DesignCard(
+                elevated: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('合計', style: AppTypography.titleM),
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          formatNullableNutrient(_totalKcal),
+                          style: AppTypography.valueXl,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'kcal',
+                          style: AppTypography.titleM.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      formatMacroSummaryInline(
+                        proteinG: _totalProtein,
+                        fatG: _totalFat,
+                        carbG: _totalCarb,
+                      ),
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '食品は左にスワイプすると外せます。',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            DesignButton(
+              label: '食品を追加',
+              style: DesignButtonStyle.outline,
+              showTrailingIcon: false,
+              onPressed: _showAddMenu,
+            ),
+            const SizedBox(height: 24),
+          ],
+        ],
       ),
     );
   }

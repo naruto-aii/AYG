@@ -17,6 +17,8 @@ class SettingsRow extends StatelessWidget {
     this.onTap,
     this.danger = false,
     this.showChevron = true,
+    this.trailing,
+    this.leading,
   });
 
   /// assets/icons の SVG パス。
@@ -29,13 +31,19 @@ class SettingsRow extends StatelessWidget {
   /// 遷移先がない行では false にして矢印を消す。
   final bool showChevron;
 
+  /// 矢印の代わりに置くもの（「…」メニューなど）。
+  final Widget? trailing;
+
+  /// アイコンの代わりに置くもの（チェックなど）。
+  final Widget? leading;
+
   @override
   Widget build(BuildContext context) {
     final tone = danger ? IconCircleTone.danger : IconCircleTone.green;
     final enabled = onTap != null;
 
     return Opacity(
-      opacity: enabled || !showChevron ? 1 : 0.5,
+      opacity: enabled || !showChevron || trailing != null ? 1 : 0.5,
       child: Material(
         color: danger ? AppColors.bgSurfaceDanger : AppColors.bgSurface,
         borderRadius: AppRadius.card,
@@ -47,15 +55,16 @@ class SettingsRow extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 18, 16),
             child: Row(
               children: [
-                IconCircle(
-                  tone: tone,
-                  size: 44,
-                  child: AppIcon(
-                    icon,
-                    size: 24,
-                    color: IconCircle.foregroundOf(tone),
-                  ),
-                ),
+                leading ??
+                    IconCircle(
+                      tone: tone,
+                      size: 44,
+                      child: AppIcon(
+                        icon,
+                        size: 24,
+                        color: IconCircle.foregroundOf(tone),
+                      ),
+                    ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -84,7 +93,10 @@ class SettingsRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (showChevron) ...[
+                if (trailing != null) ...[
+                  const SizedBox(width: 4),
+                  trailing!,
+                ] else if (showChevron) ...[
                   const SizedBox(width: 8),
                   DesignIcon(
                     Symbols.chevron_right_rounded,

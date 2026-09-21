@@ -50,7 +50,9 @@ class DesignScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
 
-    return ColoredBox(
+    // ColoredBox ではなく Material にしておくと、中の ListTile や InkWell の
+    // 波紋がこの面に描かれる。
+    return Material(
       color: backgroundColor ?? AppColors.bgPage,
       child: LayoutBuilder(
         builder: (context, constraints) {

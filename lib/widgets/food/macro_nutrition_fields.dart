@@ -127,6 +127,7 @@ class MacroNutritionFields extends StatelessWidget {
         ),
         decoration: const InputDecoration(
           isDense: true,
+          filled: false,
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,

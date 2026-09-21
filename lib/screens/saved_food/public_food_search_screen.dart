@@ -3,19 +3,19 @@ import 'package:flutter/material.dart';
 import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_empty_state.dart';
-import '../../widgets/common/app_loading_state.dart';
-import '../../widgets/common/app_text_field.dart';
-import '../../widgets/common/primary_button.dart';
-import '../../widgets/common/secondary_button.dart';
-import '../../widgets/layout/app_content_constraint.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/public_food_meal_add_flow.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
-import '../../widgets/saved_food/public_food_search_result_tile.dart';
 import '../food/food_form_screen.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
+import '../../utils/nutrition_format.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/settings_row.dart';
+import '../../widgets/design/weight_parts.dart';
 
 class PublicFoodSearchScreen extends StatefulWidget {
   const PublicFoodSearchScreen({
@@ -167,98 +167,79 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.selectForMealEntry ? '公開食品を選択' : '公開食品検索'),
-      ),
-      body: SafeArea(
-        child: AppContentConstraint(
-          expandVertically: true,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SegmentedButton<bool>(
-                        segments: const [
-                          ButtonSegment(
-                            value: false,
-                            label: Text('食品名'),
-                            icon: Icon(Icons.search),
-                          ),
-                          ButtonSegment(
-                            value: true,
-                            label: Text('バーコード'),
-                            icon: Icon(Icons.qr_code),
-                          ),
-                        ],
-                        selected: {_useBarcodeSearch},
-                        onSelectionChanged: (selection) {
-                          setState(() => _useBarcodeSearch = selection.first);
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (!_useBarcodeSearch) ...[
-                        AppTextField(
-                          controller: _queryController,
-                          label: '食品名で検索',
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        PrimaryButton(
-                          label: _isSearching ? '検索中...' : '検索',
-                          icon: Icons.search,
-                          loading: _isSearching,
-                          onPressed: _isSearching ? null : () => _search(),
-                        ),
-                      ] else ...[
-                        AppTextField(
-                          controller: _barcodeController,
-                          label: 'バーコード',
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        SecondaryButton(
-                          label: 'バーコードで検索',
-                          icon: Icons.qr_code,
-                          onPressed: _isSearching ? null : _searchByBarcode,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: _isSearching
-                    ? const AppLoadingState()
-                    : _errorMessage != null && _results.isEmpty
-                    ? AppEmptyState(message: _errorMessage!)
-                    : _results.isEmpty
-                    ? AppEmptyState(
-                        message: _hasSearched
-                            ? '該当する公開食品が見つかりませんでした'
-                            : '食品名またはバーコードで検索してください',
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                        ),
-                        itemCount: _results.length,
-                        itemBuilder: (context, index) {
-                          final match = _results[index];
-                          return PublicFoodSearchResultTile(
-                            controller: widget.controller,
-                            match: match,
-                            onTap: () => _openMatch(match),
-                          );
-                        },
-                      ),
-              ),
-            ],
+    return DesignPage(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DesignTitleBlock(
+            title: widget.selectForMealEntry ? '公開食品を選ぶ' : '公開食品から追加',
+            subtitle: 'みんなが登録した食品から探して追加できます。',
           ),
-        ),
+          DesignChipGroup<bool>(
+            values: const [false, true],
+            labelOf: (barcode) => barcode ? 'バーコード' : '食品名',
+            selected: _useBarcodeSearch,
+            onChanged: (barcode) => setState(() => _useBarcodeSearch = barcode),
+          ),
+          const SizedBox(height: 12),
+          DesignSearchField(
+            controller: _useBarcodeSearch
+                ? _barcodeController
+                : _queryController,
+            hintText: _useBarcodeSearch ? '例）4901001234567' : '食品名で検索',
+            keyboardType: _useBarcodeSearch ? TextInputType.number : null,
+            onSubmitted: (_) {
+              if (_isSearching) return;
+              _useBarcodeSearch ? _searchByBarcode() : _search();
+            },
+          ),
+          const SizedBox(height: 10),
+          DesignButton(
+            label: _isSearching ? '検索中...' : '検索',
+            showTrailingIcon: false,
+            height: 52,
+            loading: _isSearching,
+            onPressed: _isSearching
+                ? null
+                : () => _useBarcodeSearch ? _searchByBarcode() : _search(),
+          ),
+          const SizedBox(height: 18),
+          if (_isSearching)
+            const SizedBox.shrink()
+          else if (_results.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Text(
+                _errorMessage != null
+                    ? _errorMessage!
+                    : _hasSearched
+                    ? '該当する公開食品が見つかりませんでした'
+                    : '食品名またはバーコードで検索してください',
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              ),
+            )
+          else
+            for (final match in _results) ...[
+              SettingsRow(
+                icon: AppIcons.meal,
+                title: match.food.name,
+                subtitle:
+                    '${widget.controller.formatSavedFoodBaseLabel(match.food)} ・ '
+                    '${formatNullableNutrient(match.food.kcalPerBase)} kcal ・ '
+                    '${match.hasLowRating ? '評価に注意' : 'Good ${match.goodCount}'}',
+                onTap: () => _openMatch(match),
+              ),
+              const SizedBox(height: 8),
+            ],
+          if (_results.isNotEmpty)
+            Text(
+              '気になる食品を選ぶと、内容を確認してから追加できます。',
+              textAlign: TextAlign.center,
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }

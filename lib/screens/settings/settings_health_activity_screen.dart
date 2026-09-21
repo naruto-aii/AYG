@@ -4,7 +4,12 @@ import '../../constants/app_strings.dart';
 import '../../models/activity_level.dart';
 import '../../repositories/health_repository.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_spacing.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_icon.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/select_card.dart';
 
 class SettingsHealthActivityScreen extends StatefulWidget {
   const SettingsHealthActivityScreen({
@@ -111,86 +116,88 @@ class _SettingsHealthActivityScreenState
     ).showSnackBar(const SnackBar(content: Text('保存しました')));
   }
 
+  Future<void> _selectHealth(bool enabled) async {
+    if (_isBusy || enabled == _useHealthIntegration) {
+      return;
+    }
+    setState(() => _useHealthIntegration = enabled);
+    await _toggleHealth(enabled);
+  }
+
   @override
   Widget build(BuildContext context) {
     final useHealth = _useHealthIntegration;
+    final available = widget.healthRepository.isAvailable;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.settingsHealthActivity)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(AppStrings.healthIntegration),
-              subtitle: widget.healthRepository.isAvailable
-                  ? null
-                  : const Text(AppStrings.healthUnavailableOnDevice),
-              value: useHealth,
-              onChanged: _isBusy || !widget.healthRepository.isAvailable
-                  ? null
-                  : (value) async {
-                      setState(() => _useHealthIntegration = value);
-                      await _toggleHealth(value);
-                    },
+    return DesignPage(
+      bottomBar: useHealth
+          ? null
+          : DesignButton(
+              label: AppStrings.save,
+              showTrailingIcon: false,
+              loading: _isBusy,
+              onPressed: _isBusy ? null : _saveActivityLevel,
             ),
-            if (useHealth) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                AppStrings.healthUsingActiveEnergy,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const DesignTitleBlock(
+            title: '活動・Health',
+            subtitle: '歩数や運動の取り込み方を決めます。',
+          ),
+          SelectCard(
+            title: '連携する（推奨）',
+            description: available
+                ? '歩数や運動のデータを自動で取り込み、\nよりカンタンに記録できます。'
+                : AppStrings.healthUnavailableOnDevice,
+            selected: useHealth,
+            onTap: _isBusy || !available ? null : () => _selectHealth(true),
+          ),
+          const SizedBox(height: 14),
+          SelectCard(
+            title: '連携しない',
+            description: 'すべて手動で入力します。\nあとから切り替えられます。',
+            selected: !useHealth,
+            onTap: _isBusy ? null : () => _selectHealth(false),
+          ),
+          if (useHealth) ...[
+            const SizedBox(height: 14),
+            Text(
+              AppStrings.healthUsingActiveEnergy,
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 14),
+            DesignButton(
+              label: AppStrings.healthResync,
+              style: DesignButtonStyle.outline,
+              showTrailingIcon: false,
+              loading: _isBusy,
+              leading: const DesignIcon(
+                Symbols.sync_rounded,
+                size: 20,
+                color: AppColors.textBrand,
               ),
-              const SizedBox(height: AppSpacing.md),
-              OutlinedButton.icon(
-                onPressed: _isBusy ? null : _resyncHealth,
-                icon: const Icon(Icons.sync),
-                label: const Text(AppStrings.healthResync),
+              onPressed: _isBusy ? null : _resyncHealth,
+            ),
+          ] else ...[
+            const SizedBox(height: 22),
+            Text(AppStrings.activityLevel, style: AppTypography.titleS),
+            const SizedBox(height: 10),
+            for (final level in ActivityLevel.values) ...[
+              SelectCard(
+                title: AppStrings.activityLevelLabel(level),
+                description: AppStrings.activityLevelDescription(level),
+                selected: _activityLevel == level,
+                minHeight: 0,
+                onTap: _isBusy
+                    ? null
+                    : () => setState(() => _activityLevel = level),
               ),
-            ],
-            if (!useHealth) ...[
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                AppStrings.activityLevel,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              ...ActivityLevel.values.map(
-                (level) => RadioListTile<ActivityLevel>(
-                  title: Text(AppStrings.activityLevelLabel(level)),
-                  subtitle: Text(AppStrings.activityLevelDescription(level)),
-                  value: level,
-                  groupValue: _activityLevel,
-                  onChanged: _isBusy
-                      ? null
-                      : (value) {
-                          if (value != null) {
-                            setState(() => _activityLevel = value);
-                          }
-                        },
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              FilledButton(
-                onPressed: _isBusy ? null : _saveActivityLevel,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: _isBusy
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text(AppStrings.save),
-                ),
-              ),
+              const SizedBox(height: 10),
             ],
           ],
-        ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }

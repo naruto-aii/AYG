@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../models/meal_template.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_spacing.dart';
+import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
-import '../../widgets/common/compact_macro_display.dart';
-import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_empty_state.dart';
-import '../../widgets/common/app_loading_state.dart';
-import '../../widgets/common/app_text_field.dart';
-import '../../widgets/layout/app_content_constraint.dart';
 import 'meal_template_form_screen.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_icon.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/select_card.dart';
 
 /// テンプレート選択専用画面（食事登録への展開用）。
 class MealTemplatePickerScreen extends StatefulWidget {
@@ -27,6 +28,7 @@ class _MealTemplatePickerScreenState extends State<MealTemplatePickerScreen> {
   final _searchController = TextEditingController();
   List<MealTemplate> _templates = const [];
   bool _isLoading = true;
+  MealTemplate? _selected;
 
   @override
   void initState() {
@@ -73,65 +75,63 @@ class _MealTemplatePickerScreenState extends State<MealTemplatePickerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('テンプレートを選択'),
-        actions: [
-          IconButton(onPressed: _openCreate, icon: const Icon(Icons.add)),
-        ],
+    final selected = _selected;
+
+    return DesignPage(
+      bottomBar: DesignButton(
+        label: 'この内容で追加',
+        onPressed: selected == null ? null : () => _select(selected),
       ),
-      body: SafeArea(
-        child: AppContentConstraint(
-          expandVertically: true,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: AppTextField(
-                  controller: _searchController,
-                  label: 'テンプレート名で検索',
-                  suffixIcon: const Icon(Icons.search),
-                ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DesignTitleBlock(
+            title: 'テンプレートから追加',
+            subtitle: '選んだ組み合わせを、そのまま記録します。',
+            trailing: IconButton(
+              tooltip: 'テンプレートを作成',
+              onPressed: _openCreate,
+              icon: const DesignIcon(
+                Symbols.add_rounded,
+                size: 26,
+                color: AppColors.iconPrimary,
               ),
-              Expanded(
-                child: _isLoading
-                    ? const AppLoadingState()
-                    : _templates.isEmpty
-                    ? const AppEmptyState(message: '食事テンプレートがありません')
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                        ),
-                        itemCount: _templates.length,
-                        itemBuilder: (context, index) {
-                          final template = _templates[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.sm,
-                            ),
-                            child: AppCard(
-                              onTap: () => _select(template),
-                              child: ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(template.name),
-                                subtitle: CompactMacroDisplay(
-                                  kcal: template.totalKcal,
-                                  proteinG: template.totalProteinG,
-                                  fatG: template.totalFatG,
-                                  carbG: template.totalCarbG,
-                                ),
-                                trailing: Text(
-                                  '${formatNullableNutrient(template.totalKcal)} kcal',
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
+            ),
           ),
-        ),
+          DesignSearchField(
+            controller: _searchController,
+            hintText: 'テンプレートを検索',
+          ),
+          const SizedBox(height: 16),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_templates.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Text(
+                '食事テンプレートがありません',
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              ),
+            )
+          else
+            for (final template in _templates) ...[
+              SelectCard(
+                title: template.name,
+                description:
+                    '${formatNullableNutrient(template.totalKcal)} kcal ・ '
+                    '${formatMacroSummaryInline(proteinG: template.totalProteinG, fatG: template.totalFatG, carbG: template.totalCarbG)}',
+                selected: selected?.templateId == template.templateId,
+                minHeight: 0,
+                onTap: () => setState(() => _selected = template),
+              ),
+              const SizedBox(height: 14),
+            ],
+          const SizedBox(height: 10),
+        ],
       ),
     );
   }

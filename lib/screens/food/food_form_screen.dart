@@ -882,6 +882,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                     ),
                     decoration: const InputDecoration(
                       isDense: true,
+                      filled: false,
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,

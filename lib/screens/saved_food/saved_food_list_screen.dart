@@ -3,21 +3,22 @@ import 'package:flutter/material.dart';
 import '../../models/food_visibility.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
-import '../../constants/app_strings.dart';
 import '../../utils/nutrition_format.dart';
-import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_display_labels.dart';
-import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_empty_state.dart';
-import '../../widgets/common/app_loading_state.dart';
-import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
-import '../../widgets/common/app_card.dart';
-import '../../widgets/layout/app_content_constraint.dart';
 import '../../services/open_food_facts_service.dart';
 import 'public_food_search_screen.dart';
 import 'saved_food_form_screen.dart';
 import 'saved_food_publish_flow.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_icon.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/settings_row.dart';
+import '../../widgets/design/weight_parts.dart';
 
 enum _MyFoodVisibilityFilter { all, private, public }
 
@@ -177,177 +178,105 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('マイ食品'),
-        actions: [
-          Semantics(
-            label: '公開食品検索',
-            button: true,
-            child: IconButton(
+    final foods = _filteredFoods;
+
+    return DesignPage(
+      bottomBar: DesignButton(label: '食品を登録', onPressed: _openCreate),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DesignTitleBlock(
+            title: '保存食品',
+            subtitle: 'よく食べる食品を登録しておくと、次から選ぶだけです。',
+            trailing: IconButton(
+              tooltip: '公開食品検索',
               onPressed: _openPublicSearch,
-              icon: const Icon(Icons.public),
+              icon: const AppIcon(
+                AppIcons.search,
+                size: 24,
+                color: AppColors.iconPrimary,
+              ),
             ),
           ),
-          Semantics(
-            label: '新規作成',
-            button: true,
-            child: IconButton(
-              onPressed: _openCreate,
-              icon: const Icon(Icons.add),
-            ),
+          DesignSearchField(controller: _searchController, hintText: '食品を検索'),
+          const SizedBox(height: 12),
+          DesignChipGroup<_MyFoodVisibilityFilter>(
+            values: _MyFoodVisibilityFilter.values,
+            labelOf: (filter) => switch (filter) {
+              _MyFoodVisibilityFilter.all => 'すべて',
+              _MyFoodVisibilityFilter.private => '非公開',
+              _MyFoodVisibilityFilter.public => '公開中',
+            },
+            selected: _visibilityFilter,
+            onChanged: (filter) => setState(() => _visibilityFilter = filter),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: AppContentConstraint(
-          expandVertically: true,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.md,
-                  AppSpacing.sm,
-                ),
-                child: SegmentedButton<_MyFoodVisibilityFilter>(
-                  segments: const [
-                    ButtonSegment(
-                      value: _MyFoodVisibilityFilter.all,
-                      label: Text('すべて'),
-                    ),
-                    ButtonSegment(
-                      value: _MyFoodVisibilityFilter.private,
-                      label: Text('非公開'),
-                    ),
-                    ButtonSegment(
-                      value: _MyFoodVisibilityFilter.public,
-                      label: Text('公開'),
-                    ),
-                  ],
-                  selected: {_visibilityFilter},
-                  onSelectionChanged: (selection) {
-                    setState(() => _visibilityFilter = selection.first);
+          const SizedBox(height: 16),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_errorMessage != null || foods.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Text(
+                _errorMessage ??
+                    (_foods.isEmpty ? 'マイ食品がありません' : '該当する食品がありません'),
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              ),
+            )
+          else
+            for (final food in foods) ...[
+              SettingsRow(
+                icon: AppIcons.bookmark,
+                title: food.name,
+                subtitle:
+                    '${widget.controller.formatSavedFoodBaseLabel(food)} ・ '
+                    '${formatNullableNutrient(food.kcalPerBase)} kcal ・ '
+                    '${SavedFoodDisplayLabels.visibility(food.visibility)}',
+                onTap: () => _openEdit(food),
+                trailing: PopupMenuButton<String>(
+                  tooltip: 'メニュー',
+                  icon: const DesignIcon(
+                    Symbols.more_horiz_rounded,
+                    size: 22,
+                    color: AppColors.iconMuted,
+                  ),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        _openEdit(food);
+                      case 'publish':
+                        _startPublish(food);
+                      case 'unpublish':
+                        _unpublish(food);
+                      case 'delete':
+                        _confirmDelete(food);
+                    }
                   },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                child: AppTextField(
-                  controller: _searchController,
-                  label: '食品名で検索',
-                  suffixIcon: const Icon(Icons.search),
-                ),
-              ),
-              Expanded(
-                child: _isLoading
-                    ? const AppLoadingState()
-                    : _errorMessage != null
-                    ? AppEmptyState(message: _errorMessage!)
-                    : _filteredFoods.isEmpty
-                    ? AppEmptyState(
-                        message: _foods.isEmpty ? 'マイ食品がありません' : '該当する食品がありません',
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                        ),
-                        itemCount: _filteredFoods.length,
-                        itemBuilder: (context, index) {
-                          final food = _filteredFoods[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.sm,
-                            ),
-                            child: AppCard(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                                vertical: AppSpacing.xs,
-                              ),
-                              onTap: () => _openEdit(food),
-                              child: ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(food.name),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.controller
-                                          .formatSavedFoodBaseLabel(food),
-                                    ),
-                                    CompactMacroDisplay(
-                                      kcal: food.kcalPerBase,
-                                      proteinG: food.proteinPerBase,
-                                      fatG: food.fatPerBase,
-                                      carbG: food.carbPerBase,
-                                    ),
-                                    if (food.brand != null &&
-                                        food.brand!.isNotEmpty)
-                                      Text('ブランド: ${food.brand}'),
-                                    Text(
-                                      '${SavedFoodDisplayLabels.visibility(food.visibility)} · '
-                                      '${SavedFoodDisplayLabels.sourceType(food.sourceType)} · '
-                                      '更新 ${_formatDateTime(food.updatedAt)}',
-                                    ),
-                                  ],
-                                ),
-                                isThreeLine: true,
-                                trailing: PopupMenuButton<String>(
-                                  onSelected: (value) {
-                                    switch (value) {
-                                      case 'edit':
-                                        _openEdit(food);
-                                      case 'publish':
-                                        _startPublish(food);
-                                      case 'unpublish':
-                                        _unpublish(food);
-                                      case 'delete':
-                                        _confirmDelete(food);
-                                    }
-                                  },
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text('編集'),
-                                    ),
-                                    if (food.visibility ==
-                                        FoodVisibility.private)
-                                      const PopupMenuItem(
-                                        value: 'publish',
-                                        child: Text('公開する'),
-                                      ),
-                                    if (food.visibility ==
-                                        FoodVisibility.public)
-                                      const PopupMenuItem(
-                                        value: 'unpublish',
-                                        child: Text('非公開にする'),
-                                      ),
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('削除'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'edit', child: Text('編集')),
+                    if (food.visibility == FoodVisibility.private)
+                      const PopupMenuItem(
+                        value: 'publish',
+                        child: Text('公開する'),
                       ),
+                    if (food.visibility == FoodVisibility.public)
+                      const PopupMenuItem(
+                        value: 'unpublish',
+                        child: Text('非公開にする'),
+                      ),
+                    const PopupMenuItem(value: 'delete', child: Text('削除')),
+                  ],
+                ),
               ),
+              const SizedBox(height: 8),
             ],
-          ),
-        ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
 
-  String _formatDateTime(DateTime value) {
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '${local.year}/$month/$day $hour:$minute';
-  }
 }

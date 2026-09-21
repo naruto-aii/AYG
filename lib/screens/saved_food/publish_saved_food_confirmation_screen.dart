@@ -5,9 +5,13 @@ import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
 import '../../constants/app_strings.dart';
 import '../../utils/nutrition_format.dart';
-import '../../utils/macro_display.dart';
 import '../../utils/saved_food_display_labels.dart';
 import '../../widgets/saved_food/public_food_match_card.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/warn_banner.dart';
 
 enum PublishConfirmationAction { publish, keepPrivate, editInput, cancel }
 
@@ -75,148 +79,192 @@ class _PublishSavedFoodConfirmationScreenState
   @override
   Widget build(BuildContext context) {
     final food = widget.food;
-    return Scaffold(
-      appBar: AppBar(title: const Text('公開前確認')),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text(food.name, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 12),
-            _infoRow('基準量', widget.controller.formatSavedFoodBaseLabel(food)),
-            _infoRow('kcal', formatNullableNutrient(food.kcalPerBase)),
-            _infoRow(
-              AppStrings.macroProtein,
-              formatNullableNutrient(food.proteinPerBase),
+    Widget danger(String text) => Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        text,
+        style: AppTypography.bodyS.copyWith(color: AppColors.textDanger),
+      ),
+    );
+
+    return DesignPage(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const DesignTitleBlock(
+            title: '公開前の確認',
+            subtitle: 'この内容で、ほかの人にも見えるようになります。',
+          ),
+          const WarnBanner(
+            title: '公開すると取り消しに手間がかかります。',
+            description:
+                '公開後は他のユーザーが検索・利用できるようになります。'
+                '作成者本人のみ元食品を編集・削除できます。'
+                'すでに記録済みの食事内容は変更されません。',
+          ),
+          const SizedBox(height: 16),
+          DesignCard(
+            elevated: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('公開する内容', style: AppTypography.titleM),
+                const SizedBox(height: 8),
+                Text(food.name, style: AppTypography.titleL),
+                const SizedBox(height: 8),
+                _infoRow(
+                  '基準量',
+                  widget.controller.formatSavedFoodBaseLabel(food),
+                ),
+                _infoRow('kcal', formatNullableNutrient(food.kcalPerBase)),
+                _infoRow(
+                  AppStrings.macroProtein,
+                  formatNullableNutrient(food.proteinPerBase),
+                ),
+                _infoRow(
+                  AppStrings.macroFat,
+                  formatNullableNutrient(food.fatPerBase),
+                ),
+                _infoRow(
+                  AppStrings.macroCarb,
+                  formatNullableNutrient(food.carbPerBase),
+                ),
+                if (food.brand != null) _infoRow('ブランド', food.brand!),
+                if (food.barcode != null) _infoRow('バーコード', food.barcode!),
+                _infoRow(
+                  '登録元',
+                  SavedFoodDisplayLabels.sourceType(food.sourceType),
+                ),
+              ],
             ),
-            _infoRow(
-              AppStrings.macroFat,
-              formatNullableNutrient(food.fatPerBase),
+          ),
+          const SizedBox(height: 16),
+          Text('ほかの公開食品との比較', style: AppTypography.titleS),
+          const SizedBox(height: 6),
+          if (widget.duplicate != null) ...[
+            danger('完全重複'),
+            PublicFoodMatchCard.fromMatch(
+              controller: widget.controller,
+              match: widget.duplicate!,
             ),
-            _infoRow(
-              AppStrings.macroCarb,
-              formatNullableNutrient(food.carbPerBase),
+          ] else
+            Text(
+              '完全重複: なし',
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
             ),
-            if (food.brand != null) _infoRow('ブランド', food.brand!),
-            if (food.barcode != null) _infoRow('バーコード', food.barcode!),
-            _infoRow(
-              'sourceType',
-              SavedFoodDisplayLabels.sourceType(food.sourceType),
-            ),
-            const SizedBox(height: 16),
-            if (widget.duplicate != null) ...[
-              Text(
-                '完全重複',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              PublicFoodMatchCard.fromMatch(
+          const SizedBox(height: 6),
+          if (widget.similarFoods.isNotEmpty) ...[
+            Text('類似食品', style: AppTypography.bodyS),
+            ...widget.similarFoods.map(
+              (match) => PublicFoodMatchCard.fromSimilar(
                 controller: widget.controller,
-                match: widget.duplicate!,
+                match: match,
               ),
-            ] else
-              const Text('完全重複: なし'),
-            const SizedBox(height: 12),
-            if (widget.similarFoods.isNotEmpty) ...[
-              const Text('類似食品'),
-              ...widget.similarFoods.map(
-                (match) => PublicFoodMatchCard.fromSimilar(
-                  controller: widget.controller,
-                  match: match,
-                ),
-              ),
-            ] else
-              const Text('類似食品: なし'),
-            const SizedBox(height: 12),
-            if (widget.manualMacroConsistent != null)
-              Text(
+            ),
+          ] else
+            Text(
+              '類似食品: なし',
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+          if (widget.manualMacroConsistent != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
                 widget.manualMacroConsistent! ? '4/9/4 整合: OK' : '4/9/4 整合: NG',
-                style: TextStyle(
+                style: AppTypography.bodyS.copyWith(
                   color: widget.manualMacroConsistent!
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.error,
+                      ? AppColors.textBrand
+                      : AppColors.textDanger,
                 ),
               ),
-            if (widget.validationErrors.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              ...widget.validationErrors.map(
-                (error) => Text(
-                  error,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ...widget.validationErrors.map(danger),
+          const SizedBox(height: 12),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: _confirmed,
+            onChanged: widget.canPublish && !_isPublishing
+                ? (value) => setState(() => _confirmed = value ?? false)
+                : null,
+            title: Text(
+              '入力した食品情報と栄養値が正しいことを確認しました',
+              style: AppTypography.bodyS.copyWith(color: AppColors.textPrimary),
+            ),
+          ),
+          if (_errorMessage != null) danger(_errorMessage!),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: widget.canPublish && _confirmed && !_isPublishing
+                ? _publish
+                : null,
+            child: Text(_isPublishing ? '公開中...' : '公開する'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _isPublishing
+                ? null
+                : () => Navigator.of(
+                    context,
+                  ).pop(PublishConfirmationAction.keepPrivate),
+            child: const Text('非公開のままにする'),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: _isPublishing
+                      ? null
+                      : () => Navigator.of(
+                          context,
+                        ).pop(PublishConfirmationAction.editInput),
+                  child: const Text('入力内容を修正'),
+                ),
+              ),
+              Expanded(
+                child: TextButton(
+                  onPressed: _isPublishing
+                      ? null
+                      : () => Navigator.of(
+                          context,
+                        ).pop(PublishConfirmationAction.cancel),
+                  child: const Text('キャンセル'),
                 ),
               ),
             ],
-            const SizedBox(height: 16),
-            const Text(
-              '公開後は他のユーザーが検索・利用できるようになります。'
-              '作成者本人のみ元食品を編集・削除できます。'
-              'すでに記録済みの食事内容は変更されません。',
-            ),
-            const SizedBox(height: 12),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _confirmed,
-              onChanged: widget.canPublish && !_isPublishing
-                  ? (value) => setState(() => _confirmed = value ?? false)
-                  : null,
-              title: const Text('入力した食品情報と栄養値が正しいことを確認しました'),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: widget.canPublish && _confirmed && !_isPublishing
-                  ? _publish
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Text(_isPublishing ? '公開中...' : '公開する'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: _isPublishing
-                  ? null
-                  : () => Navigator.of(
-                      context,
-                    ).pop(PublishConfirmationAction.keepPrivate),
-              child: const Text('privateのまま保存'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: _isPublishing
-                  ? null
-                  : () => Navigator.of(
-                      context,
-                    ).pop(PublishConfirmationAction.editInput),
-              child: const Text('入力内容を修正'),
-            ),
-            TextButton(
-              onPressed: _isPublishing
-                  ? null
-                  : () => Navigator.of(
-                      context,
-                    ).pop(PublishConfirmationAction.cancel),
-              child: const Text('キャンセル'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
 
   Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.borderSubtle)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 96, child: Text(label)),
-          Expanded(child: Text(value)),
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: AppTypography.bodyS.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: AppTypography.titleS,
+            ),
+          ),
         ],
       ),
     );

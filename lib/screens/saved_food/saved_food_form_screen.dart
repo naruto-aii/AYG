@@ -8,22 +8,21 @@ import '../../models/saved_food_draft.dart';
 import '../../services/saved_food_version_policy.dart';
 import '../../state/app_controller.dart';
 import '../../constants/app_strings.dart';
-import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
 import '../../utils/saved_food_base_serving_format.dart';
-import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/app_text_field.dart';
-import '../../widgets/common/primary_button.dart';
-import '../../widgets/common/secondary_button.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
-import '../../widgets/layout/app_constrained_bottom_bar.dart';
-import '../../widgets/layout/app_form_constraint.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/saved_food/confirm_public_food_update_dialog.dart';
-import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../../widgets/saved_food/serving_amount_fields.dart';
 import 'saved_food_publish_flow.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/design_segment.dart';
 
 class SavedFoodFormScreen extends StatefulWidget {
   const SavedFoodFormScreen({super.key, required this.controller, this.food});
@@ -283,19 +282,6 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  String? Function(String?) _validateRequiredNumber(String label) {
-    return (value) {
-      if (value == null || value.trim().isEmpty) {
-        return '$label を入力してください';
-      }
-      final parsed = double.tryParse(value.trim());
-      if (parsed == null || parsed <= 0) {
-        return '$label は0より大きい数値を入力してください';
-      }
-      return null;
-    };
-  }
-
   String? Function(String?) _validateOptionalNonNegativeNumber(String label) {
     return (value) {
       if (value == null || value.trim().isEmpty) {
@@ -309,155 +295,148 @@ class _SavedFoodFormScreenState extends State<SavedFoodFormScreen> {
     };
   }
 
+  Widget _section(String title, List<Widget> children) {
+    return DesignCard(
+      elevated: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: AppTypography.titleM),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? '食品を編集' : '食品を追加')),
-      body: SafeArea(
-        child: AppFormConstraint(
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenPadding,
-                AppSpacing.md,
-                AppSpacing.screenPadding,
-                100,
-              ),
-              children: [
-                if (_isPublicFood)
-                  AppCard(
-                    child: Row(
-                      children: [
-                        const Icon(Icons.public),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '公開食品',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              Text('version ${widget.food!.version}'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_isPublicFood) const SizedBox(height: AppSpacing.md),
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const AppSectionHeader(title: '基本情報'),
-                      AppTextField(
-                        controller: _nameController,
-                        label: '食品名 *',
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return '食品名を入力してください';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      ServingAmountFields(
-                        quantityController: _baseAmountController,
-                        unitController: _servingUnitController,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const AppSectionHeader(title: '栄養'),
-                      MacroNutritionFields(
-                        controller: _macroInput,
-                        validator: (value, label) =>
-                            _validateOptionalNonNegativeNumber(label)(value),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const AppSectionHeader(title: 'オプション'),
-                      AppTextField(
-                        controller: _brandController,
-                        label: 'ブランド・メーカー',
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      AppTextField(
-                        controller: _barcodeController,
-                        label: 'バーコード',
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      AppTextField(
-                        controller: _supplementaryWeightController,
-                        label: '補助重量・内容量',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                if (!widget.isEditing)
-                  AppCard(
-                    child: SavedFoodVisibilitySelector(
-                      value: _createVisibility,
-                      onChanged: (value) =>
-                          setState(() => _createVisibility = value),
-                    ),
-                  )
-                else
-                  AppCard(
-                    child: InputDecorator(
-                      decoration: const InputDecoration(labelText: '保存範囲'),
-                      child: Text(_isPublicFood ? '公開' : '非公開'),
-                    ),
-                  ),
-                if (_isPrivateFood && widget.isEditing) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  SecondaryButton(
-                    label: '公開する',
-                    icon: Icons.public,
-                    onPressed:
-                        _isSaving ||
-                            widget.controller.isPublishOperationInProgress
-                        ? null
-                        : _startPublish,
-                  ),
-                ],
-                if (_isPublicFood) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  SecondaryButton(
-                    label: '非公開にする',
-                    icon: Icons.lock,
-                    onPressed:
-                        _isSaving ||
-                            widget.controller.isPublishOperationInProgress
-                        ? null
-                        : _unpublish,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
+    final busy = _isSaving || widget.controller.isPublishOperationInProgress;
+
+    return DesignPage(
+      bottomBar: DesignButton(
+        label: _isSaving ? '保存中...' : '保存する',
+        showTrailingIcon: false,
+        loading: _isSaving,
+        onPressed: _isSaving ? null : _save,
       ),
-      bottomNavigationBar: AppConstrainedBottomBar(
-        child: PrimaryButton(
-          label: _isSaving ? '保存中...' : '保存',
-          loading: _isSaving,
-          onPressed: _isSaving ? null : _save,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DesignTitleBlock(
+              title: widget.isEditing ? '食品を編集' : '食品を登録',
+              subtitle: '基準量あたりの栄養素を入れておきます。',
+            ),
+            if (_isPublicFood) ...[
+              DesignCard(
+                elevated: false,
+                color: AppColors.bgSurfaceGreenSoft,
+                child: Row(
+                  children: [
+                    const AppIcon(
+                      AppIcons.shield,
+                      size: 24,
+                      color: AppColors.iconPrimary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '公開中の食品です（version ${widget.food!.version}）',
+                        style: AppTypography.titleS,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            _section('基本情報', [
+              AppTextField(
+                controller: _nameController,
+                label: '食品名 *',
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return '食品名を入力してください';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              ServingAmountFields(
+                quantityController: _baseAmountController,
+                unitController: _servingUnitController,
+              ),
+            ]),
+            const SizedBox(height: 12),
+            _section('基準量あたりの栄養素', [
+              MacroNutritionFields(
+                controller: _macroInput,
+                compact: true,
+                validator: (value, label) =>
+                    _validateOptionalNonNegativeNumber(label)(value),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            _section('オプション', [
+              AppTextField(controller: _brandController, label: 'ブランド・メーカー'),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _barcodeController,
+                label: 'バーコード',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _supplementaryWeightController,
+                label: '補助重量・内容量',
+              ),
+            ]),
+            const SizedBox(height: 18),
+            Text('公開範囲', style: AppTypography.titleS),
+            const SizedBox(height: 10),
+            if (!widget.isEditing) ...[
+              DesignSegmentGroup<FoodVisibility>(
+                values: const [FoodVisibility.private, FoodVisibility.public],
+                labelOf: (v) => v == FoodVisibility.public ? '公開' : '非公開',
+                selected: _createVisibility,
+                onChanged: (v) => setState(() => _createVisibility = v),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _createVisibility == FoodVisibility.public
+                    ? '公開すると、ほかの人の検索結果にも出るようになります。'
+                    : 'あなただけが利用できます。公開食品検索には表示されません。',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ] else ...[
+              Text(
+                _isPublicFood ? '公開中' : '非公開',
+                style: AppTypography.bodyM.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_isPrivateFood)
+                DesignButton(
+                  label: '公開する',
+                  style: DesignButtonStyle.outline,
+                  showTrailingIcon: false,
+                  onPressed: busy ? null : _startPublish,
+                ),
+              if (_isPublicFood)
+                DesignButton(
+                  label: '非公開にする',
+                  style: DesignButtonStyle.secondary,
+                  showTrailingIcon: false,
+                  onPressed: busy ? null : _unpublish,
+                ),
+            ],
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );

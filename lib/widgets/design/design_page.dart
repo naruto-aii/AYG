@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../theme/app_typography.dart';
 import '../layout/design_screen.dart';
+import 'design_icon.dart';
 
 /// Figma の画面構成（StatusBar / header / body / bottom / TabBar）を
 /// そのまま組み立てる土台。
@@ -120,7 +122,7 @@ class DesignHeader extends StatelessWidget {
   }
 }
 
-/// Figma: 「← 戻る」。
+/// Figma: 「‹ 戻る」（chevron_left 18 ＋ Label/M）。
 class DesignBackButton extends StatelessWidget {
   const DesignBackButton({super.key, this.onPressed, this.label = '戻る'});
 
@@ -133,28 +135,79 @@ class DesignBackButton extends StatelessWidget {
       onTap: onPressed ?? () => Navigator.of(context).maybePop(),
       borderRadius: BorderRadius.circular(999),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 16,
-              color: AppColors.textSecondary,
+            const DesignIcon(
+              Symbols.chevron_left_rounded,
+              size: 18,
+              color: AppColors.iconMuted,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
-                fontFamily: 'ZenMaruGothic',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+              style: AppTypography.labelM.copyWith(
                 color: AppColors.textSecondary,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Figma の画面冒頭（戻る・見出し・リード文）。
+///
+/// 押し出し画面は「戻る」付き、タブ直下の画面は [showBack] を false にする。
+class DesignTitleBlock extends StatelessWidget {
+  const DesignTitleBlock({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.showBack = true,
+    this.onBack,
+    this.trailing,
+  });
+
+  final String title;
+  final String? subtitle;
+  final bool showBack;
+  final VoidCallback? onBack;
+
+  /// 見出しの右端に置くもの（カレンダーや追加ボタンなど）。
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: showBack ? 14 : 20),
+        if (showBack) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: DesignBackButton(onPressed: onBack),
+          ),
+          const SizedBox(height: 2),
+        ],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: Text(title, style: AppTypography.headingL)),
+            ?trailing,
+          ],
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            subtitle!,
+            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+          ),
+        ],
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

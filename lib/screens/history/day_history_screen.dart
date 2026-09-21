@@ -6,18 +6,17 @@ import '../../models/food_entry.dart';
 import '../../models/weight_entry.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
-import '../../constants/app_strings.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_spacing.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/home_parts.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
 import '../../widgets/history/history_tab_body.dart';
 import '../../utils/nutrition_format.dart';
-import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/delete_with_undo.dart';
-import '../../widgets/common/compact_macro_display.dart';
-import '../../widgets/layout/app_content_constraint.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../exercise/exercise_form_screen.dart';
 import '../food/food_form_navigation.dart';
@@ -37,11 +36,6 @@ class DayHistoryScreen extends StatelessWidget {
   final OpenFoodFactsService openFoodFactsService;
   final DateTime selectedDay;
   final FoodFormScreenBuilder? foodFormBuilder;
-
-  String get _title {
-    final day = selectedDay.toLocal();
-    return '${day.year}/${day.month}/${day.day}';
-  }
 
   String _formatTime(DateTime time) {
     final local = time.toLocal();
@@ -171,10 +165,6 @@ class DayHistoryScreen extends StatelessWidget {
     );
   }
 
-  String _foodEntryQuantityLine(FoodEntry entry) {
-    return '${AppStrings.quantityLabel} ${entry.quantity.toStringAsFixed(1)}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final day = localDayStart(selectedDay.toLocal());
@@ -203,299 +193,166 @@ class DayHistoryScreen extends StatelessWidget {
                 .toList()
               ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
 
-        return Scaffold(
-          appBar: AppBar(title: Text(_title)),
-          body: SafeArea(
-            child: AppContentConstraint(
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                children: [
-                  Text(
-                    '食事',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+        final foodKcal = foodItems.fold<double>(
+          0,
+          (sum, e) => sum + (e.kcalPerUnit == null ? 0 : e.totalKcal),
+        );
+        final alcoholKcal = alcoholItems.fold<double>(
+          0,
+          (sum, e) => sum + e.totalCalories,
+        );
+        final burnKcal = exerciseItems.fold<double>(
+          0,
+          (sum, e) => sum + e.effectiveNetKcal,
+        );
+        final intakeKcal = foodKcal + alcoholKcal;
+
+        Widget section({
+          required String icon,
+          required String title,
+          required String emptyMessage,
+          required List<Widget> rows,
+          VoidCallback? onAdd,
+        }) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DesignSectionHeader(
+                icon: icon,
+                title: title,
+                actionLabel: onAdd != null ? '追加' : null,
+                onAction: onAdd,
+              ),
+              const SizedBox(height: 4),
+              if (rows.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text(
+                    emptyMessage,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyS.copyWith(
+                      color: AppColors.textMuted,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (foodItems.isEmpty)
-                    AppEmptyState(
-                      message: 'この日の食事記録はありません',
-                      actionLabel: _canAdd ? '食事を追加' : null,
-                      onAction: _canAdd ? () => _openFoodForm(context) : null,
-                    )
-                  else
-                    AppCard(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < foodItems.length; i++) ...[
-                            if (i > 0) const Divider(height: 1),
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                                vertical: AppSpacing.xxs,
-                              ),
-                              onTap: () =>
-                                  _openFoodForm(context, entry: foodItems[i]),
-                              title: Text(foodItems[i].name),
-                              subtitle: VerticalMacroDisplay(
-                                leading: Text(
-                                  _formatTime(foodItems[i].loggedAt),
-                                ),
-                                kcal: foodItems[i].kcalPerUnit == null
-                                    ? null
-                                    : foodItems[i].totalKcal,
-                                proteinG: foodItems[i].proteinPerUnit == null
-                                    ? null
-                                    : foodItems[i].totalProteinG,
-                                fatG: foodItems[i].fatPerUnit == null
-                                    ? null
-                                    : foodItems[i].totalFatG,
-                                carbG: foodItems[i].carbPerUnit == null
-                                    ? null
-                                    : foodItems[i].totalCarbG,
-                                showKcal: false,
-                                trailing: Text(
-                                  _foodEntryQuantityLine(foodItems[i]),
-                                ),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${formatNullableNutrient(foodItems[i].kcalPerUnit == null ? null : foodItems[i].totalKcal)} kcal',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(
-                                          color: AppColors.primaryGreen,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => _confirmDeleteFood(
-                                      context,
-                                      foodItems[i],
-                                    ),
-                                    color: AppColors.secondaryText,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                )
+              else
+                ...rows,
+              const SizedBox(height: 16),
+            ],
+          );
+        }
+
+        return DesignPage(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DesignTitleBlock(
+                title: formatJapaneseDateWithWeekday(day),
+                subtitle: 'この日の記録をまとめて見られます。長押しで削除できます。',
+              ),
+              DesignCard(
+                elevated: false,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: StatItem(
+                        label: '摂取',
+                        value: intakeKcal.toStringAsFixed(0),
                       ),
                     ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'アルコール',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (alcoholItems.isEmpty)
-                    AppEmptyState(
-                      message: 'この日のアルコール記録はありません',
-                      actionLabel: _canAdd ? 'アルコールを追加' : null,
-                      onAction: _canAdd
-                          ? () => _openAlcoholForm(context)
-                          : null,
-                    )
-                  else
-                    AppCard(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < alcoholItems.length; i++) ...[
-                            if (i > 0) const Divider(height: 1),
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                                vertical: AppSpacing.xxs,
-                              ),
-                              onTap: () => _openAlcoholForm(
-                                context,
-                                entry: alcoholItems[i],
-                              ),
-                              title: Text(alcoholItems[i].beverageName),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${alcoholItems[i].amount}${alcoholItems[i].unit} / '
-                                    '${alcoholItems[i].alcoholPercentage}%',
-                                  ),
-                                  Text(
-                                    '純アルコール ${formatNullableNutrient(alcoholItems[i].pureAlcoholGrams, fractionDigits: 1)}g · '
-                                    'アルコール由来 ${formatNullableNutrient(alcoholItems[i].alcoholCalories, fractionDigits: 0)}kcal',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.secondaryText,
-                                        ),
-                                  ),
-                                  Text(_formatTime(alcoholItems[i].consumedAt)),
-                                ],
-                              ),
-                              isThreeLine: true,
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${formatNullableNutrient(alcoholItems[i].totalCalories, fractionDigits: 0)} kcal',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(
-                                          color: AppColors.accentWine,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => _confirmDeleteAlcohol(
-                                      context,
-                                      alcoholItems[i],
-                                    ),
-                                    color: AppColors.secondaryText,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                    Expanded(
+                      child: StatItem(
+                        label: '消費',
+                        value: '+${burnKcal.toStringAsFixed(0)}',
                       ),
                     ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    '運動',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (exerciseItems.isEmpty)
-                    AppEmptyState(
-                      message: 'この日の運動記録はありません',
-                      actionLabel: _canAdd ? '運動を追加' : null,
-                      onAction: _canAdd
-                          ? () => _openExerciseForm(context)
-                          : null,
-                    )
-                  else
-                    AppCard(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < exerciseItems.length; i++) ...[
-                            if (i > 0) const Divider(height: 1),
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                                vertical: AppSpacing.xxs,
-                              ),
-                              onTap: () => _openExerciseForm(
-                                context,
-                                entry: exerciseItems[i],
-                              ),
-                              title: Text(exerciseItems[i].name),
-                              subtitle: Text(
-                                '${_formatTime(exerciseItems[i].loggedAt)} · '
-                                '${exerciseItems[i].durationMin} 分',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${exerciseItems[i].effectiveNetKcal.toStringAsFixed(0)} kcal',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(
-                                          color: AppColors.accentOrange,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => _confirmDeleteExercise(
-                                      context,
-                                      exerciseItems[i],
-                                    ),
-                                    color: AppColors.secondaryText,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                    Expanded(
+                      child: StatItem(
+                        label: '差し引き',
+                        value: (intakeKcal - burnKcal).toStringAsFixed(0),
                       ),
                     ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    '体重',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (weightItems.isEmpty)
-                    AppEmptyState(
-                      message: 'この日の体重記録はありません',
-                      actionLabel: _canAdd ? '体重を追加' : null,
-                      onAction: _canAdd ? () => _openWeightForm(context) : null,
-                    )
-                  else
-                    AppCard(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < weightItems.length; i++) ...[
-                            if (i > 0) const Divider(height: 1),
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                                vertical: AppSpacing.xxs,
-                              ),
-                              onTap: () => _openWeightForm(
-                                context,
-                                entry: weightItems[i],
-                              ),
-                              title: Text(
-                                '${weightItems[i].weightKg.toStringAsFixed(1)} kg',
-                              ),
-                              subtitle: Text(
-                                _formatTime(weightItems[i].recordedAt),
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  size: 20,
-                                ),
-                                onPressed: () => _confirmDeleteWeight(
-                                  context,
-                                  weightItems[i],
-                                ),
-                                color: AppColors.secondaryText,
-                              ),
-                            ),
-                          ],
-                        ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              section(
+                icon: AppIcons.meal,
+                title: '食事',
+                emptyMessage: 'この日の食事記録はありません',
+                onAdd: _canAdd ? () => _openFoodForm(context) : null,
+                rows: [
+                  for (final e in foodItems)
+                    DesignListRow(
+                      icon: AppIcons.meal,
+                      time: _formatTime(e.loggedAt),
+                      title: e.name,
+                      value: formatNullableNutrient(
+                        e.kcalPerUnit == null ? null : e.totalKcal,
                       ),
+                      onTap: () => _openFoodForm(context, entry: e),
+                      onLongPress: () => _confirmDeleteFood(context, e),
                     ),
                 ],
               ),
-            ),
+              section(
+                icon: AppIcons.alcohol,
+                title: 'アルコール',
+                emptyMessage: 'この日のアルコール記録はありません',
+                onAdd: _canAdd ? () => _openAlcoholForm(context) : null,
+                rows: [
+                  for (final e in alcoholItems)
+                    DesignListRow(
+                      icon: AppIcons.alcohol,
+                      time: _formatTime(e.consumedAt),
+                      title: e.beverageName,
+                      value: formatNullableNutrient(
+                        e.totalCalories,
+                        fractionDigits: 0,
+                      ),
+                      onTap: () => _openAlcoholForm(context, entry: e),
+                      onLongPress: () => _confirmDeleteAlcohol(context, e),
+                    ),
+                ],
+              ),
+              section(
+                icon: AppIcons.exercise,
+                title: '運動',
+                emptyMessage: 'この日の運動記録はありません',
+                onAdd: _canAdd ? () => _openExerciseForm(context) : null,
+                rows: [
+                  for (final e in exerciseItems)
+                    DesignListRow(
+                      icon: AppIcons.exercise,
+                      time: _formatTime(e.loggedAt),
+                      title: '${e.name}（${e.durationMin}分）',
+                      value: '+${e.effectiveNetKcal.toStringAsFixed(0)}',
+                      onTap: () => _openExerciseForm(context, entry: e),
+                      onLongPress: () => _confirmDeleteExercise(context, e),
+                    ),
+                ],
+              ),
+              section(
+                icon: AppIcons.scale,
+                title: '体重',
+                emptyMessage: 'この日の体重記録はありません',
+                onAdd: _canAdd ? () => _openWeightForm(context) : null,
+                rows: [
+                  for (final e in weightItems)
+                    DesignListRow(
+                      icon: AppIcons.scale,
+                      time: _formatTime(e.recordedAt),
+                      title: '体重',
+                      value: e.weightKg.toStringAsFixed(1),
+                      unit: 'kg',
+                      onTap: () => _openWeightForm(context, entry: e),
+                      onLongPress: () => _confirmDeleteWeight(context, e),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         );
       },

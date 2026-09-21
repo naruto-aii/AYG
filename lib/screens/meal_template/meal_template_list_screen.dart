@@ -6,14 +6,16 @@ import '../../models/meal_template_draft.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
-import '../../widgets/common/compact_macro_display.dart';
-import '../../widgets/common/app_card.dart';
 import '../../widgets/common/delete_with_undo.dart';
-import '../../widgets/common/app_empty_state.dart';
-import '../../widgets/common/app_loading_state.dart';
-import '../../widgets/common/app_text_field.dart';
-import '../../widgets/layout/app_content_constraint.dart';
 import 'meal_template_form_screen.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_icon.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/settings_row.dart';
 
 class MealTemplateListScreen extends StatefulWidget {
   const MealTemplateListScreen({super.key, required this.controller});
@@ -172,111 +174,72 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('食事テンプレート'),
-        actions: [
-          Semantics(
-            label: 'テンプレート作成',
-            button: true,
-            child: IconButton(
-              onPressed: _openCreate,
-              icon: const Icon(Icons.add),
-            ),
+    return DesignPage(
+      bottomBar: DesignButton(label: 'テンプレートを作成', onPressed: _openCreate),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const DesignTitleBlock(
+            title: '食事テンプレート',
+            subtitle: 'よく食べる組み合わせを、まとめて登録できます。',
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: AppContentConstraint(
-          expandVertically: true,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: AppTextField(
-                  controller: _searchController,
-                  label: 'テンプレート名で検索',
-                  suffixIcon: const Icon(Icons.search),
+          DesignSearchField(
+            controller: _searchController,
+            hintText: 'テンプレートを検索',
+          ),
+          const SizedBox(height: 16),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_templates.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Text(
+                '食事テンプレートがありません',
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              ),
+            )
+          else
+            for (final template in _templates) ...[
+              SettingsRow(
+                icon: AppIcons.template,
+                title: template.name,
+                subtitle:
+                    '${formatNullableNutrient(template.totalKcal)} kcal ・ '
+                    '最終利用 ${_formatLastUsed(template.lastUsedAt)} ・ '
+                    '${template.useCount}回',
+                onTap: _isApplying ? null : () => _applyTemplate(template),
+                trailing: PopupMenuButton<String>(
+                  tooltip: 'メニュー',
+                  icon: const DesignIcon(
+                    Symbols.more_horiz_rounded,
+                    size: 22,
+                    color: AppColors.iconMuted,
+                  ),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'apply':
+                        _applyTemplate(template);
+                      case 'edit':
+                        _openEdit(template);
+                      case 'delete':
+                        _deleteTemplate(template);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'apply', child: Text('利用')),
+                    PopupMenuItem(value: 'edit', child: Text('編集')),
+                    PopupMenuItem(value: 'delete', child: Text('削除')),
+                  ],
                 ),
               ),
-              Expanded(
-                child: _isLoading
-                    ? const AppLoadingState()
-                    : _templates.isEmpty
-                    ? const AppEmptyState(message: '食事テンプレートがありません')
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                        ),
-                        itemCount: _templates.length,
-                        itemBuilder: (context, index) {
-                          final template = _templates[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.sm,
-                            ),
-                            child: AppCard(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                                vertical: AppSpacing.xs,
-                              ),
-                              onTap: _isApplying
-                                  ? null
-                                  : () => _applyTemplate(template),
-                              child: ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(template.name),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    CompactMacroDisplay(
-                                      kcal: template.totalKcal,
-                                      proteinG: template.totalProteinG,
-                                      fatG: template.totalFatG,
-                                      carbG: template.totalCarbG,
-                                    ),
-                                    Text(
-                                      '最終利用 ${_formatLastUsed(template.lastUsedAt)} · '
-                                      '利用 ${template.useCount} 回',
-                                    ),
-                                  ],
-                                ),
-                                isThreeLine: true,
-                                trailing: PopupMenuButton<String>(
-                                  onSelected: (value) {
-                                    switch (value) {
-                                      case 'apply':
-                                        _applyTemplate(template);
-                                      case 'edit':
-                                        _openEdit(template);
-                                      case 'delete':
-                                        _deleteTemplate(template);
-                                    }
-                                  },
-                                  itemBuilder: (context) => const [
-                                    PopupMenuItem(
-                                      value: 'apply',
-                                      child: Text('利用'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text('編集'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('削除'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
+              const SizedBox(height: 8),
             ],
-          ),
-        ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }

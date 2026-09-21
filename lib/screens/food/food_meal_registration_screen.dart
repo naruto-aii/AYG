@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../models/meal_template.dart';
-import '../../models/meal_template_apply.dart';
 import '../../models/meal_template_draft.dart';
 import '../../models/food_unit_type.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_text_field.dart';
-import '../../widgets/common/compact_macro_display.dart';
-import '../../widgets/common/logged_at_picker_field.dart';
-import '../../widgets/common/primary_button.dart';
-import '../../widgets/layout/app_constrained_bottom_bar.dart';
-import '../../widgets/layout/app_form_constraint.dart';
+import '../../utils/macro_display.dart';
 import '../meal_template/meal_template_list_screen.dart';
 import '../meal_template/meal_template_picker_screen.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
+import '../../utils/local_date.dart';
+import '../../utils/nutrition_format.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/food_parts.dart';
+import '../../widgets/design/home_parts.dart';
+import '../../widgets/design/icon_circle.dart';
 
 /// テンプレート展開後の複数食品を確認・編集して食事登録する画面。
 class FoodMealRegistrationScreen extends StatefulWidget {
@@ -120,83 +124,203 @@ class _FoodMealRegistrationScreenState
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('${widget.mealGroupName} を登録')),
-      body: SafeArea(
-        child: AppFormConstraint(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenPadding,
-              AppSpacing.md,
-              AppSpacing.screenPadding,
-              100,
+  double _sum(double? Function(MealTemplateItemDraft item) perBase) {
+    var total = 0.0;
+    for (var i = 0; i < _items.length; i++) {
+      total += _itemTotal(_items[i], i, perBase(_items[i])) ?? 0;
+    }
+    return total;
+  }
+
+  Future<void> _pickLoggedAt() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _loggedAt,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (pickedDate == null || !mounted) {
+      return;
+    }
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_loggedAt),
+    );
+    if (pickedTime == null) {
+      return;
+    }
+    setState(() {
+      _loggedAt = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
+  }
+
+  Widget _itemCard(int i) {
+    final item = _items[i];
+    return DesignCard(
+      elevated: false,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        children: [
+          IconCircle(
+            size: 34,
+            child: AppIcon(
+              AppIcons.meal,
+              size: 24,
+              color: IconCircle.foregroundOf(IconCircleTone.green),
             ),
-            children: [
-              LoggedAtPickerField(
-                loggedAt: _loggedAt,
-                onChanged: (value) => setState(() => _loggedAt = value),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '登録する食品 (${_items.length}件)',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              for (var i = 0; i < _items.length; i++) ...[
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        _items[i].name,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        '基準: ${widget.controller.formatBaseAmountLabel(baseAmount: _items[i].baseAmount, unitType: _items[i].unitType)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      AppTextField(
-                        controller: _quantityControllers[i],
-                        label: '摂取量（${_items[i].unitType.label}）',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      CompactMacroDisplay(
-                        kcal: _itemTotal(_items[i], i, _items[i].kcalPerBase),
-                        proteinG: _itemTotal(
-                          _items[i],
-                          i,
-                          _items[i].proteinPerBase,
-                        ),
-                        fatG: _itemTotal(_items[i], i, _items[i].fatPerBase),
-                        carbG: _itemTotal(_items[i], i, _items[i].carbPerBase),
-                      ),
-                    ],
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.titleS,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '基準: ${widget.controller.formatBaseAmountLabel(baseAmount: item.baseAmount, unitType: item.unitType)}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: 2),
+                Text(
+                  '${formatNullableNutrient(_itemTotal(item, i, item.kcalPerBase))} kcal ・ '
+                  '${formatMacroSummaryInline(proteinG: _itemTotal(item, i, item.proteinPerBase), fatG: _itemTotal(item, i, item.fatPerBase), carbG: _itemTotal(item, i, item.carbPerBase))}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textBrand,
+                  ),
+                ),
               ],
-            ],
+            ),
           ),
-        ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 104,
+            child: MiniField(
+              label: '摂取量',
+              unit: item.unitType.label,
+              child: TextField(
+                controller: _quantityControllers[i],
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                onChanged: (_) => setState(() {}),
+                style: AppTypography.bodyM.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      bottomNavigationBar: AppConstrainedBottomBar(
-        child: PrimaryButton(
-          label: '食事として登録',
-          loading: _isSaving,
-          onPressed: _isSaving ? null : _save,
-        ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final local = _loggedAt.toLocal();
+    final totalKcal = _sum((item) => item.kcalPerBase);
+
+    return DesignPage(
+      bottomBar: DesignButton(
+        label: '食事として登録',
+        loading: _isSaving,
+        onPressed: _isSaving ? null : _save,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const DesignTitleBlock(
+            title: 'まとめて登録',
+            subtitle: '内容を確認して、必要なら数量を直してください。',
+          ),
+          DesignSectionHeader(
+            icon: AppIcons.template,
+            title: '${widget.mealGroupName}（${_items.length}件）',
+          ),
+          const SizedBox(height: 8),
+          for (var i = 0; i < _items.length; i++) ...[
+            _itemCard(i),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 4),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('合計', style: AppTypography.titleM),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      totalKcal.toStringAsFixed(0),
+                      style: AppTypography.valueXl,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'kcal',
+                      style: AppTypography.titleM.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  formatMacroSummaryInline(
+                    proteinG: _sum((item) => item.proteinPerBase),
+                    fatG: _sum((item) => item.fatPerBase),
+                    carbG: _sum((item) => item.carbPerBase),
+                  ),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          DesignFieldCard(
+            icon: AppIcon(
+              AppIcons.calendar,
+              size: 24,
+              color: IconCircle.foregroundOf(IconCircleTone.green),
+            ),
+            label: '記録日時',
+            child: DesignInputBox(
+              onTap: _pickLoggedAt,
+              child: Text(
+                '${formatJapaneseDateWithWeekday(local)} '
+                '${local.hour}:${local.minute.toString().padLeft(2, '0')}',
+                style: AppTypography.bodyL.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }

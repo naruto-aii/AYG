@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_typography.dart';
 import 'icon_circle.dart';
@@ -152,6 +153,7 @@ class DesignTextInput extends StatelessWidget {
       style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
       decoration: InputDecoration(
         isDense: true,
+        filled: false,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
@@ -195,6 +197,63 @@ class DesignRowField extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+/// Figma: 検索欄（白地・枠線・右端に虫めがね）。
+class DesignSearchField extends StatelessWidget {
+  const DesignSearchField({
+    super.key,
+    required this.controller,
+    required this.hintText,
+    this.onSubmitted,
+    this.keyboardType,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String>? onSubmitted;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: BoxDecoration(
+        color: AppColors.bgSurface,
+        border: Border.all(color: AppColors.borderDefault),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              onSubmitted: onSubmitted,
+              textInputAction: TextInputAction.search,
+              cursorColor: AppColors.textBrand,
+              style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: hintText,
+                hintStyle: AppTypography.bodyL.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const AppIcon(AppIcons.search, size: 18, color: AppColors.iconMuted),
         ],
       ),
     );

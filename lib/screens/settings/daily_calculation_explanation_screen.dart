@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../models/daily_summary.dart';
 import '../../models/goal.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
 import '../../utils/nutrition_format.dart';
-import '../../widgets/common/app_card.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/settings_row.dart';
 import 'calculation_references_screen.dart';
 
 /// ホームの「あと○kcal」と PFC の計算根拠。
@@ -19,19 +24,18 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
     final macro = summary.macroBreakdown;
     final remaining = summary.remainingBreakdown;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('計算根拠')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+    return DesignPage(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
-            '医療上の診断や治療を目的としたものではありません。',
-            style: TextStyle(fontSize: 13),
+          const DesignTitleBlock(
+            title: 'この数値の計算根拠',
+            subtitle:
+                '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
+                '医療上の診断や治療を目的としたものではありません。',
           ),
-          const SizedBox(height: AppSpacing.md),
           if (energy?.unavailableReason != null) ...[
-            AppCard(
+            DesignCard(
               child: Text(
                 energy!.unavailableReason!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -39,18 +43,16 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
           ],
-          AppCard(
+          DesignCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('カロリー根拠', style: Theme.of(context).textTheme.titleMedium),
+                Text('カロリー根拠', style: AppTypography.titleM),
                 const SizedBox(height: AppSpacing.sm),
                 if (energy != null && energy.canEstimateRee) ...[
                   Text(
                     '基礎代謝（安静時エネルギー消費量の推定）',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.titleS,
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
@@ -139,11 +141,11 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           if (macro != null)
-            AppCard(
+            DesignCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('PFC根拠', style: Theme.of(context).textTheme.titleMedium),
+                  Text('PFC根拠', style: AppTypography.titleM),
                   const SizedBox(height: AppSpacing.sm),
                   _row(
                     '基準体重',
@@ -184,29 +186,50 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
               ),
             ),
           const SizedBox(height: AppSpacing.md),
-          TextButton(
-            onPressed: () {
+          SettingsRow(
+            icon: AppIcons.document,
+            title: '参考文献・計算式の詳細',
+            subtitle: '計算式の出典をまとめています',
+            onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (context) => const CalculationReferencesScreen(),
                 ),
               );
             },
-            child: const Text('参考文献・計算式の詳細'),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
+  /// Figma: ラベル左・値右、下に細い区切り線。
   Widget _row(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.borderSubtle)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 140, child: Text(label)),
-          Expanded(child: Text(value)),
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: AppTypography.bodyS.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: AppTypography.titleS,
+            ),
+          ),
         ],
       ),
     );

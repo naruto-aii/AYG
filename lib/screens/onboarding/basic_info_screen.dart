@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
 
-import '../../constants/app_strings.dart';
 import '../../models/health_profile_data.dart';
 import '../../models/user_profile.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_text_field.dart';
-import '../../widgets/common/primary_button.dart';
-import '../../widgets/onboarding/onboarding_scaffold.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/design_segment.dart';
+import '../../widgets/design/icon_circle.dart';
+import '../../widgets/design/step_indicator.dart';
 import 'goal_setup_screen.dart';
 
+/// 初回オンボーディング: 基本情報の入力。
+///
+/// Figma: SP / 03 初回設定 2-3 基本情報（23:201）
+///
+/// Health から取得できた項目もあらかじめ入れたうえで表示する（Figma と同じく
+/// 4 項目を常に見せる）。取得できた値もその場で直せる。
 class BasicInfoScreen extends StatefulWidget {
   const BasicInfoScreen({
     super.key,
@@ -31,31 +41,23 @@ class BasicInfoScreen extends StatefulWidget {
 }
 
 class _BasicInfoScreenState extends State<BasicInfoScreen> {
-  final _formKey = GlobalKey<FormState>();
   DateTime? _birthDate;
   Gender? _gender;
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
-
-  bool get _needsBirthDate => widget.healthPrefill.birthDate == null;
-  bool get _needsGender => widget.healthPrefill.gender == null;
-  bool get _needsHeight => widget.healthPrefill.heightCm == null;
-  bool get _needsWeight => widget.healthPrefill.weightKg == null;
 
   @override
   void initState() {
     super.initState();
     _birthDate = widget.healthPrefill.birthDate;
     _gender = widget.healthPrefill.gender;
-    if (widget.healthPrefill.heightCm != null) {
-      _heightController.text = widget.healthPrefill.heightCm!.toStringAsFixed(
-        0,
-      );
+    final height = widget.healthPrefill.heightCm;
+    if (height != null) {
+      _heightController.text = height.toStringAsFixed(0);
     }
-    if (widget.healthPrefill.weightKg != null) {
-      _weightController.text = widget.healthPrefill.weightKg!.toStringAsFixed(
-        1,
-      );
+    final weight = widget.healthPrefill.weightKg;
+    if (weight != null) {
+      _weightController.text = weight.toStringAsFixed(1);
     }
   }
 
@@ -79,35 +81,43 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
     }
   }
 
+  void _warn(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _goNext() {
-    if (_needsBirthDate && _birthDate == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('生年月日を選択してください')));
+    final birthDate = _birthDate;
+    if (birthDate == null) {
+      _warn('生年月日を選択してください');
       return;
     }
 
-    if (_needsGender && _gender == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('性別を選択してください')));
+    final gender = _gender;
+    if (gender == null) {
+      _warn('性別を選択してください');
       return;
     }
 
-    if (_formKey.currentState?.validate() != true) {
+    final height = double.tryParse(_heightController.text.trim());
+    if (height == null || height < 100 || height > 250) {
+      _warn('身長は 100〜250 cm の範囲で入力してください');
+      return;
+    }
+
+    final weight = double.tryParse(_weightController.text.trim());
+    if (weight == null || weight < 30 || weight > 300) {
+      _warn('現在体重は 30〜300 kg の範囲で入力してください');
       return;
     }
 
     widget.controller.setProfile(
       UserProfile(
-        birthDate: widget.healthPrefill.birthDate ?? _birthDate!,
-        gender: widget.healthPrefill.gender ?? _gender!,
-        heightCm:
-            widget.healthPrefill.heightCm ??
-            double.parse(_heightController.text),
-        weightKg:
-            widget.healthPrefill.weightKg ??
-            double.parse(_weightController.text),
+        birthDate: birthDate,
+        gender: gender,
+        heightCm: height,
+        weightKg: weight,
       ),
     );
 
@@ -124,103 +134,113 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final birthDateLabel = _birthDate == null
-        ? AppStrings.notSelected
-        : '${_birthDate!.year}/${_birthDate!.month}/${_birthDate!.day}';
+    final birthDate = _birthDate;
+    final birthDateLabel = birthDate == null
+        ? '選択してください'
+        : '${birthDate.year}年 ${birthDate.month}月 ${birthDate.day}日';
 
-    return Form(
-      key: _formKey,
-      child: OnboardingScaffold(
-        title: '基礎情報入力',
-        subtitle: 'あなたの基礎情報を入力してください',
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!_needsBirthDate ||
-                !_needsGender ||
-                !_needsHeight ||
-                !_needsWeight)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: Text(
-                  'Health から取得済みの項目は入力不要です。',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            if (_needsBirthDate) ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(AppStrings.birthDate),
-                subtitle: Text(birthDateLabel),
-                trailing: const Icon(Icons.calendar_today_outlined),
-                onTap: _pickBirthDate,
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
-            if (_needsGender) ...[
-              DropdownButtonFormField<Gender>(
-                initialValue: _gender,
-                decoration: InputDecoration(labelText: AppStrings.gender),
-                items: Gender.values
-                    .map(
-                      (gender) => DropdownMenuItem(
-                        value: gender,
-                        child: Text(gender.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _gender = value),
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
-            if (_needsHeight) ...[
-              AppTextField(
-                controller: _heightController,
-                label: AppStrings.heightCm,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  if (!_needsHeight) {
-                    return null;
-                  }
-                  if (value == null || value.isEmpty) {
-                    return '身長を入力してください';
-                  }
-                  final parsed = double.tryParse(value);
-                  if (parsed == null || parsed < 100 || parsed > 250) {
-                    return '100〜250 cm の範囲で入力してください';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
-            if (_needsWeight)
-              AppTextField(
-                controller: _weightController,
-                label: AppStrings.currentWeightKg,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  if (!_needsWeight) {
-                    return null;
-                  }
-                  if (value == null || value.isEmpty) {
-                    return '現在体重を入力してください';
-                  }
-                  final parsed = double.tryParse(value);
-                  if (parsed == null || parsed < 30 || parsed > 300) {
-                    return '30〜300 kg の範囲で入力してください';
-                  }
-                  return null;
-                },
-              ),
-          ],
+    return DesignPage(
+      bodyPadding: const EdgeInsets.symmetric(horizontal: 20),
+      header: const SizedBox(
+        height: 56,
+        child: Padding(
+          padding: EdgeInsets.only(top: 12),
+          child: Center(child: StepIndicator(current: 2)),
         ),
-        action: PrimaryButton(label: AppStrings.next, onPressed: _goNext),
       ),
+      bottomBar: Row(
+        children: [
+          Expanded(
+            child: DesignButton(
+              label: '戻る',
+              style: DesignButtonStyle.outline,
+              showTrailingIcon: false,
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: DesignButton(label: '次へ', onPressed: _goNext)),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 10),
+          Text('基本情報を入力', style: AppTypography.headingXl),
+          const SizedBox(height: 4),
+          Text(
+            '取得できなかった項目は手入力してください',
+            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 12),
+          DesignFieldCard(
+            icon: _fieldIcon(AppIcons.calendar),
+            label: '生年月日',
+            child: DesignInputBox(
+              onTap: _pickBirthDate,
+              child: Text(
+                birthDateLabel,
+                style: AppTypography.bodyL.copyWith(
+                  color: birthDate == null
+                      ? AppColors.textMuted
+                      : AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          DesignFieldCard(
+            icon: _fieldIcon(AppIcons.gender),
+            label: '性別',
+            verticalPadding: 18,
+            child: DesignSegmentGroup<Gender>(
+              values: Gender.values,
+              labelOf: (gender) => gender.label,
+              selected: _gender ?? Gender.male,
+              onChanged: (gender) => setState(() => _gender = gender),
+            ),
+          ),
+          const SizedBox(height: 10),
+          DesignFieldCard(
+            icon: _fieldIcon(AppIcons.height),
+            label: '身長（cm）',
+            child: DesignInputBox(
+              suffix: 'cm',
+              child: DesignTextInput(
+                controller: _heightController,
+                hintText: '170',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          DesignFieldCard(
+            icon: _fieldIcon(AppIcons.scale),
+            label: '現在体重（kg）',
+            child: DesignInputBox(
+              suffix: 'kg',
+              child: DesignTextInput(
+                controller: _weightController,
+                hintText: '60.0',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _fieldIcon(String asset) {
+    return AppIcon(
+      asset,
+      size: 24,
+      color: IconCircle.foregroundOf(IconCircleTone.green),
     );
   }
 }

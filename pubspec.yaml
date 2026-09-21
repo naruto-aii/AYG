@@ -48,6 +48,7 @@ dependencies:
   uuid: ^4.6.0
   sign_in_with_apple: ^8.2.0
   crypto: ^3.0.7
+  material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
   flutter_test:
@@ -72,6 +73,7 @@ flutter:
 
   assets:
     - assets/brand/
+    - assets/icons/
     - legal/terms.html
     - legal/privacy.html
     - legal/support.html

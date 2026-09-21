@@ -40,6 +40,12 @@ build/
 
 # Web related
 
+# Isar native library downloaded when running `flutter test` locally
+libisar.so
+libisar_*.so
+libisar.dylib
+isar_windows_x64.dll
+
 # Symbolication related
 app.*.symbols
 

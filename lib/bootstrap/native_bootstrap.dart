@@ -138,6 +138,7 @@ Future<void> bootstrapApp() async {
       openFoodFactsService: openFoodFactsService,
       healthRepository: healthRepository,
       authenticationRepository: authenticationRepository,
+      showSplash: true,
     ),
   );
 }

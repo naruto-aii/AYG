@@ -56,16 +56,25 @@ class CalorieProgressRing extends StatelessWidget {
                 isCalorieOverage ? '超過' : 'あと',
                 style: AppTypography.heroLabel(context),
               ),
-              Text(
-                displayValue.toStringAsFixed(0),
-                style: AppTypography.heroValue(context)?.copyWith(
-                  color: isCalorieOverage ? AppColors.accentOrange : null,
+              // Figma: Display/Number 64px。桁数が増えたら収まる範囲で縮める。
+              SizedBox(
+                width: math.max(0, size - strokeWidth * 2 - 16),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    displayValue.toStringAsFixed(0),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: AppTypography.heroValue(context).copyWith(
+                      color: isCalorieOverage ? AppColors.accentOrange : null,
+                    ),
+                  ),
                 ),
               ),
               Text(
                 'kcal',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.secondaryText,
+                style: AppTypography.valueM.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],

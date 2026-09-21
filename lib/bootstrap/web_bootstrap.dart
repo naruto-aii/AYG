@@ -245,6 +245,7 @@ Future<void> bootstrapWebApp() async {
         healthRepository: healthRepository,
         authenticationRepository: authenticationRepository,
         authStorageAvailable: diagnostics.authStorageAvailable,
+        showSplash: true,
       ),
     );
   } on WebInitException catch (error, stackTrace) {

@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../constants/app_strings.dart';
 import '../../platform/web/in_app_browser_detector.dart';
@@ -13,6 +12,7 @@ import '../../theme/app_typography.dart';
 import '../../widgets/auth/auth_button.dart';
 import '../../widgets/brand/app_brand_mark.dart';
 import '../../widgets/brand/brand_assets.dart';
+import '../../widgets/brand/login_background.dart';
 import '../../widgets/layout/design_canvas.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
@@ -126,7 +126,8 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         const AppBrandMark(size: _markWidth),
         SizedBox(
-          height: _wordmarkTop - _markTop - _markWidth * AppBrandMark.heightRatio,
+          height:
+              _wordmarkTop - _markTop - _markWidth * AppBrandMark.heightRatio,
         ),
         Text(
           AppStrings.appTitle,
@@ -172,102 +173,106 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bgPage,
-      body: DesignCanvas(
-        background: SvgPicture.asset(
-          BrandAssets.loginBackgroundSvg,
-          fit: BoxFit.fill,
-          placeholderBuilder: (_) => const SizedBox.shrink(),
-        ),
-        child: Stack(
-          children: [
-            // ロゴ（マーク＋カロナビ）
-            Positioned(
-              top: _markTop,
-              left: 0,
-              right: 0,
-              child: Center(child: _buildLogo()),
-            ),
-            // タグライン
-            Positioned(
-              top: _taglineTop,
-              left: _contentLeft,
-              width: _contentWidth,
-              child: Text(
-                AppStrings.loginTaglineMultiline,
-                textAlign: TextAlign.center,
-                style: AppTypography.tagline,
-              ),
-            ),
-            // 説明文
-            Positioned(
-              top: _descTop,
-              left: _contentLeft,
-              width: _contentWidth,
-              child: Text(
-                AppStrings.loginDescription,
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyS.copyWith(
-                  color: AppColors.textMuted,
+      body: Stack(
+        children: [
+          // 背景は3層に分けて画面の端に貼り付ける（帯も見切れも出さない）
+          const LoginBackground(),
+          DesignCanvas(
+            child: Stack(
+              children: [
+                // ロゴ（マーク＋カロナビ）
+                Positioned(
+                  top: _markTop,
+                  left: 0,
+                  right: 0,
+                  child: Center(child: _buildLogo()),
                 ),
-              ),
-            ),
-            // 認証ボタン
-            Positioned(
-              top: _buttonTop,
-              left: _contentLeft,
-              width: _contentWidth,
-              child: Column(
-                children: [
-                  AuthButton(
-                    label: AppStrings.loginWithGoogle,
-                    background: AuthButtonStyles.googleBackground,
-                    foreground: AuthButtonStyles.googleForeground,
-                    markAssetPath: BrandAssets.googleMarkSvg,
-                    markBackground: AppColors.cream0,
-                    loading: _isLoading,
-                    onPressed: _isLoading ? null : _signInWithGoogle,
+                // タグライン
+                Positioned(
+                  top: _taglineTop,
+                  left: _contentLeft,
+                  width: _contentWidth,
+                  child: Text(
+                    AppStrings.loginTaglineMultiline,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.tagline,
                   ),
-                  const SizedBox(height: _buttonGap),
-                  AuthButton(
-                    label: AppStrings.loginWithApple,
-                    background: AuthButtonStyles.appleBackground,
-                    foreground: AuthButtonStyles.appleForeground,
-                    markAssetPath: BrandAssets.appleMarkSvg,
-                    glyphSize: 24,
-                    onPressed: _isLoading ? null : _signInWithApple,
+                ),
+                // 説明文
+                Positioned(
+                  top: _descTop,
+                  left: _contentLeft,
+                  width: _contentWidth,
+                  child: Text(
+                    AppStrings.loginDescription,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyS.copyWith(
+                      color: AppColors.textMuted,
+                    ),
                   ),
-                ],
-              ),
+                ),
+                // 認証ボタン
+                Positioned(
+                  top: _buttonTop,
+                  left: _contentLeft,
+                  width: _contentWidth,
+                  child: Column(
+                    children: [
+                      AuthButton(
+                        label: AppStrings.loginWithGoogle,
+                        background: AuthButtonStyles.googleBackground,
+                        foreground: AuthButtonStyles.googleForeground,
+                        markAssetPath: BrandAssets.googleMarkSvg,
+                        markBackground: AppColors.cream0,
+                        loading: _isLoading,
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                      ),
+                      const SizedBox(height: _buttonGap),
+                      AuthButton(
+                        label: AppStrings.loginWithApple,
+                        background: AuthButtonStyles.appleBackground,
+                        foreground: AuthButtonStyles.appleForeground,
+                        markAssetPath: BrandAssets.appleMarkSvg,
+                        glyphSize: 24,
+                        onPressed: _isLoading ? null : _signInWithApple,
+                      ),
+                    ],
+                  ),
+                ),
+                // 同意文言（Figma には無いが法務表示として残す）
+                Positioned(
+                  top: _consentTop,
+                  left: _contentLeft,
+                  width: _contentWidth,
+                  child: Text(
+                    AppStrings.loginLegalAgreement,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.caption,
+                  ),
+                ),
+                // 規約リンク
+                Positioned(
+                  top: _footerTop,
+                  left: 0,
+                  right: 0,
+                  height: _footerHeight,
+                  child: _buildFooter(context),
+                ),
+                // Web 固有の注意書き
+                if (notices.isNotEmpty)
+                  Positioned(
+                    top: 47,
+                    left: 8,
+                    right: 8,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: notices,
+                    ),
+                  ),
+              ],
             ),
-            // 同意文言（Figma には無いが法務表示として残す）
-            Positioned(
-              top: _consentTop,
-              left: _contentLeft,
-              width: _contentWidth,
-              child: Text(
-                AppStrings.loginLegalAgreement,
-                textAlign: TextAlign.center,
-                style: AppTypography.caption,
-              ),
-            ),
-            // 規約リンク
-            Positioned(
-              top: _footerTop,
-              left: 0,
-              right: 0,
-              height: _footerHeight,
-              child: _buildFooter(context),
-            ),
-            // Web 固有の注意書き
-            if (notices.isNotEmpty)
-              Positioned(
-                top: 47,
-                left: 8,
-                right: 8,
-                child: Column(mainAxisSize: MainAxisSize.min, children: notices),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

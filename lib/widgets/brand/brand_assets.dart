@@ -6,8 +6,17 @@ abstract final class BrandAssets {
   /// スプラッシュ用のマーク。オレンジの点を含まない（点は別途アニメーションする）。
   static const String splashMarkSvg = 'assets/brand/splash_mark.svg';
 
-  /// ログイン画面の背景（波・アーク・葉）。390×844 の viewBox。
+  /// ログイン画面の背景（波・アーク・葉）を1枚にまとめたもの。390×844。
   static const String loginBackgroundSvg = 'assets/brand/login_background.svg';
+
+  /// 背景の下の丘（波3本）。画面の下端に貼り付ける。
+  static const String backgroundHillsSvg = 'assets/brand/bg_hills.svg';
+
+  /// 背景の左上のアーク。画面の左上に貼り付ける。
+  static const String backgroundArcSvg = 'assets/brand/bg_arc.svg';
+
+  /// 背景の右の葉。画面の右端に貼り付ける。
+  static const String backgroundPlantSvg = 'assets/brand/bg_plant.svg';
 
   /// Google ブランドマーク（4色の G）。20×20。
   static const String googleMarkSvg = 'assets/brand/google_mark.svg';

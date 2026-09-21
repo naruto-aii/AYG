@@ -36,7 +36,7 @@ class MacroProgressBar extends StatelessWidget {
             Text(label, style: AppTypography.macroLabel(context)),
             const Spacer(),
             Text(
-              '残り ${remaining.toStringAsFixed(0)} g',
+              'あと ${remaining.toStringAsFixed(0)} g',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

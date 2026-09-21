@@ -67,7 +67,11 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
     );
   }
 
-  void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
+  void _openFoodForm(
+    BuildContext context, {
+    FoodEntry? entry,
+    bool autoStartBarcodeScan = false,
+  }) {
     if (entry == null && !canAddRecordOnDay(_selectedDate)) {
       showFutureDayAddBlockedSnackBar(context);
       return;
@@ -80,6 +84,7 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
       entry: entry,
       initialLoggedAt: entry == null ? _initialLoggedAtForNewEntry : null,
       foodFormBuilder: widget.foodFormBuilder,
+      autoStartBarcodeScan: autoStartBarcodeScan,
     );
   }
 
@@ -159,12 +164,18 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
                     switch (value) {
                       case 'food':
                         _openFoodForm(context);
+                      case 'scan':
+                        _openFoodForm(context, autoStartBarcodeScan: true);
                       case 'alcohol':
                         _openAlcoholForm(context);
                     }
                   },
                   itemBuilder: (context) => const [
                     PopupMenuItem(value: 'food', child: Text('食事を追加')),
+                    PopupMenuItem(
+                      value: 'scan',
+                      child: Text('バーコードをスキャン'),
+                    ),
                     PopupMenuItem(value: 'alcohol', child: Text('アルコールを追加')),
                   ],
                 ),

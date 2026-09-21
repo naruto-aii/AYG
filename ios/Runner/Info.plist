@@ -29,16 +29,22 @@
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.narutoaii.ayg</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.narutoaii.ayg</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
 	</array>
-	<key>GIDClientID</key>
-	<string>$(GID_CLIENT_ID)</string>
-	<key>GIDServerClientID</key>
-	<string>$(GID_SERVER_CLIENT_ID)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -65,9 +71,9 @@
   <key>NSCameraUsageDescription</key>
   <string>商品バーコードを読み取り、食事登録を簡単にするためにカメラを使用します。</string>
   <key>NSHealthShareUsageDescription</key>
-  <string>消費カロリーや体重を取得し、栄養目標を正確に計算するためにHealthデータを使用します。</string>
+  <string>生年月日、性別、身長、体重、アクティブエネルギー、ワークアウトを取得し、カロリー目標の計算にだけ使います。広告やマーケティングには使いません。</string>
   <key>NSHealthUpdateUsageDescription</key>
-  <string>必要に応じてHealthデータを更新するために使用します。</string>
+  <string>許諾いただいた範囲で、カロナビの記録を Health に書き戻すために使います。広告やマーケティングには使いません。</string>
   <key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -182,6 +182,7 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
               ),
               if (food.brand != null && food.brand!.isNotEmpty)
                 Text('ブランド: ${food.brand}'),
+              Text('作成者: ${food.creatorLabel}'),
               Text(
                 '登録元: ${SavedFoodDisplayLabels.sourceType(food.sourceType)}',
               ),

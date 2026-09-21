@@ -21,16 +21,28 @@ void openFoodFormScreen(
   FoodEntry? entry,
   DateTime? initialLoggedAt,
   FoodFormScreenBuilder? foodFormBuilder,
+  bool autoStartBarcodeScan = false,
 }) {
   final builder = foodFormBuilder ?? defaultFoodFormScreenBuilder;
   Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (context) => builder(
-        controller: controller,
-        openFoodFactsService: openFoodFactsService,
-        entry: entry,
-        initialLoggedAt: initialLoggedAt,
-      ),
+      builder: (context) {
+        if (autoStartBarcodeScan && foodFormBuilder == null) {
+          return FoodFormScreen(
+            controller: controller,
+            openFoodFactsService: openFoodFactsService,
+            entry: entry,
+            initialLoggedAt: initialLoggedAt,
+            autoStartBarcodeScan: true,
+          );
+        }
+        return builder(
+          controller: controller,
+          openFoodFactsService: openFoodFactsService,
+          entry: entry,
+          initialLoggedAt: initialLoggedAt,
+        );
+      },
     ),
   );
 }

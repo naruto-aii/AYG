@@ -8,10 +8,13 @@ import '../../services/exercise_calorie_calculator.dart';
 import '../../services/exercise_weight_resolver.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../../widgets/common/app_keyboard_dismiss.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/layout/app_form_constraint.dart';
+import '../../repositories/subscription_exceptions.dart';
+import '../subscription/calonavi_plus_screen.dart';
 import '../workout_template/workout_template_screens.dart';
 
 Future<void> openWorkoutTemplatePicker({
@@ -48,8 +51,16 @@ Future<void> openWorkoutTemplatePicker({
 Future<void> openWorkoutTemplateCreate(
   BuildContext context,
   AppController controller,
-) {
-  return Navigator.of(context).push<void>(
+) async {
+  final allowed = await guardPlusFeature(
+    context: context,
+    controller: controller,
+    ensure: controller.ensureCanCreateWorkoutTemplate,
+  );
+  if (!allowed || !context.mounted) {
+    return;
+  }
+  await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       builder: (context) => WorkoutTemplateFormScreen(controller: controller),
     ),
@@ -70,6 +81,9 @@ Future<void> saveCurrentExerciseAsTemplate({
         controller: nameController,
         decoration: const InputDecoration(labelText: 'テンプレート名'),
         autofocus: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => dismissAppKeyboard(),
+        onTapOutside: (_) => dismissAppKeyboard(),
       ),
       actions: [
         TextButton(
@@ -99,6 +113,7 @@ Future<void> saveCurrentExerciseAsTemplate({
   }
 
   try {
+    await controller.ensureCanCreateWorkoutTemplate();
     await controller.saveWorkoutTemplate(
       draft: WorkoutTemplateDraft(name: name, items: [itemDraft]),
     );
@@ -108,6 +123,10 @@ Future<void> saveCurrentExerciseAsTemplate({
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('テンプレートを保存しました')));
+  } on SubscriptionLimitExceededException {
+    if (context.mounted) {
+      await showCalonaviPlus(context, controller.subscriptionRepository);
+    }
   } catch (error) {
     if (!context.mounted) {
       return;

@@ -7,6 +7,7 @@ import 'screens/shell/web_main_shell_screen.dart';
 import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
+import 'widgets/common/app_keyboard_dismiss.dart';
 
 class AygWebApp extends StatelessWidget {
   const AygWebApp({
@@ -25,6 +26,9 @@ class AygWebApp extends StatelessWidget {
     return MaterialApp(
       title: 'カロナビ（開発用プレビュー）',
       theme: AppTheme.light,
+      builder: (context, child) {
+        return AppKeyboardHost(child: child ?? const SizedBox.shrink());
+      },
       home: ListenableBuilder(
         listenable: controller,
         builder: (context, child) {

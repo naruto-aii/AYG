@@ -1,18 +1,29 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/common/app_keyboard_dismiss.dart';
 import '../../models/food_unit_type.dart';
+import '../../repositories/subscription_exceptions.dart';
 import '../../models/macro_field.dart';
 import '../../models/meal_template_draft.dart';
 import '../../state/app_controller.dart';
 import '../meal_template/meal_template_form_screen.dart';
+import '../subscription/calonavi_plus_screen.dart';
 import 'food_meal_registration_screen.dart';
 
 /// 食事フォームからテンプレート関連の導線を開く。
 Future<void> openFoodTemplateCreate(
   BuildContext context,
   AppController controller,
-) {
-  return Navigator.of(context).push<void>(
+) async {
+  final allowed = await guardPlusFeature(
+    context: context,
+    controller: controller,
+    ensure: controller.ensureCanCreateMealTemplate,
+  );
+  if (!allowed || !context.mounted) {
+    return;
+  }
+  await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       builder: (context) => MealTemplateFormScreen(controller: controller),
     ),
@@ -52,6 +63,9 @@ Future<void> saveCurrentFoodAsTemplate({
           border: OutlineInputBorder(),
         ),
         autofocus: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => dismissAppKeyboard(),
+        onTapOutside: (_) => dismissAppKeyboard(),
       ),
       actions: [
         TextButton(
@@ -81,6 +95,7 @@ Future<void> saveCurrentFoodAsTemplate({
   }
 
   try {
+    await controller.ensureCanCreateMealTemplate();
     await controller.saveMealTemplate(
       draft: MealTemplateDraft(name: name, items: [itemDraft]),
     );
@@ -90,6 +105,10 @@ Future<void> saveCurrentFoodAsTemplate({
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('「$name」をテンプレートとして保存しました')));
+  } on SubscriptionLimitExceededException {
+    if (context.mounted) {
+      await showCalonaviPlus(context, controller.subscriptionRepository);
+    }
   } catch (error) {
     if (!context.mounted) {
       return;

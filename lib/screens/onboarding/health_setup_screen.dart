@@ -7,6 +7,7 @@ import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
+import '../../widgets/common/choice_card.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/onboarding/onboarding_scaffold.dart';
 import 'basic_info_screen.dart';
@@ -53,10 +54,13 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
 
     setState(() => _isLoading = false);
 
-    if (!granted) {
+    if (!granted || !profileData.hasAnyValue) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
+        SnackBar(
+          content: Text(
+            widget.healthRepository.lastFailureMessage ??
+                'Healthデータを取得できませんでした。取得できない項目は手入力してください。',
+          ),
         ),
       );
     }
@@ -108,40 +112,43 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return OnboardingScaffold(
-      title: 'Health連携',
-      subtitle: 'Apple Health / Health Connect と連携しますか？',
+      showLogo: false,
+      wrapBodyInCard: false,
+      stepLabel: '初回設定 1/3',
+      stepIndex: 0,
+      title: 'Healthと連携しますか？',
+      subtitle: 'Appleのヘルスケアと連携すると、歩数や運動のデータが自動で取り込まれ、入力の手間を減らすことができます。',
       body: Column(
         children: [
-          RadioListTile<bool>(
-            title: const Text('利用する（推奨）'),
-            value: true,
-            groupValue: _useHealthIntegration,
-            onChanged: _isLoading
+          ChoiceCard(
+            title: '連携する（推奨）',
+            subtitle: '歩数や運動のデータを自動で取り込み、よりかんたんに記録できます。',
+            selected: _useHealthIntegration == true,
+            onTap: _isLoading
                 ? null
-                : (value) => setState(() => _useHealthIntegration = value),
+                : () => setState(() => _useHealthIntegration = true),
           ),
-          RadioListTile<bool>(
-            title: const Text('利用しない'),
-            value: false,
-            groupValue: _useHealthIntegration,
-            onChanged: _isLoading
+          const SizedBox(height: AppSpacing.sm),
+          ChoiceCard(
+            title: '連携しない',
+            subtitle: 'あとから設定することもできます。すべて手動で入力します。',
+            selected: _useHealthIntegration == false,
+            onTap: _isLoading
                 ? null
-                : (value) => setState(() => _useHealthIntegration = value),
+                : () => setState(() => _useHealthIntegration = false),
           ),
-          if (!widget.healthRepository.isAvailable)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.xs),
-              child: Text(
-                'この端末では Health 連携に対応していません。',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                ),
-              ),
-            ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            widget.healthRepository.isAvailable
+                ? 'お使いの端末がHealthに対応していない場合は、手動での入力方法をご案内します。'
+                : 'この端末では Health 連携に対応していません。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ],
       ),
       action: PrimaryButton(
         label: '次へ',
+        trailingChevron: true,
         loading: _isLoading,
         onPressed: _isLoading ? null : _continueNext,
       ),

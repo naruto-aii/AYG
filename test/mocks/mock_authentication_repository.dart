@@ -13,10 +13,17 @@ class MockAuthenticationRepository extends AuthenticationRepository {
 
   bool restoreSessionCalled = false;
   bool loginWithGoogleCalled = false;
+  bool loginWithAppleCalled = false;
   bool logoutCalled = false;
+  bool deleteOwnAccountCalled = false;
+  bool simulateDeleteUnavailable = false;
   bool simulateGoogleSignInCancelled = false;
   bool simulateGoogleSignInFailure = false;
+  bool simulateAppleSignInCancelled = false;
+  bool simulateAppleSignInFailure = false;
+  bool simulateAppleSignInUnavailable = false;
   String googleSignInFailureMessage = 'Google sign-in failed.';
+  String appleSignInFailureMessage = 'Apple sign-in failed.';
 
   void setCurrentUser(AuthUser? user) {
     _currentUser = user;
@@ -52,7 +59,21 @@ class MockAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> loginWithApple() async {
-    throw UnimplementedError('Apple Sign-In is not implemented yet.');
+    loginWithAppleCalled = true;
+    if (simulateAppleSignInCancelled) {
+      throw AppleSignInCancelledException();
+    }
+    if (simulateAppleSignInUnavailable) {
+      throw AppleSignInUnavailableException();
+    }
+    if (simulateAppleSignInFailure) {
+      throw AppleSignInFailedException(appleSignInFailureMessage);
+    }
+    _currentUser = const AuthUser(
+      id: 'test-user-id',
+      email: 'test@example.com',
+    );
+    _controller.add(_currentUser);
   }
 
   @override
@@ -60,6 +81,14 @@ class MockAuthenticationRepository extends AuthenticationRepository {
     logoutCalled = true;
     _currentUser = null;
     _controller.add(null);
+  }
+
+  @override
+  Future<void> deleteOwnAccount() async {
+    deleteOwnAccountCalled = true;
+    if (simulateDeleteUnavailable) {
+      throw AccountDeletionUnavailableException();
+    }
   }
 
   Future<void> dispose() async {

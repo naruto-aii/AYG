@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/common/app_keyboard_dismiss.dart';
 import '../../constants/app_strings.dart';
 import '../../models/user_profile.dart';
 import '../../state/app_controller.dart';
@@ -127,6 +128,9 @@ class _SettingsBasicInfoScreenState extends State<SettingsBasicInfoScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => dismissAppKeyboard(),
+                onTapOutside: (_) => dismissAppKeyboard(),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return '身長を入力してください';
@@ -151,6 +155,9 @@ class _SettingsBasicInfoScreenState extends State<SettingsBasicInfoScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => dismissAppKeyboard(),
+                onTapOutside: (_) => dismissAppKeyboard(),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return '現在体重を入力してください';

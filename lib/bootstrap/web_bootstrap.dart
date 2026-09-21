@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app.dart';
@@ -26,6 +27,7 @@ import '../repositories/data_sync_repository.dart';
 import '../repositories/food_master_repositories.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/local_session_store.dart';
+import '../repositories/local_subscription_usage_store.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase/supabase_food_rating_repository.dart';
 import '../repositories/supabase/supabase_food_report_repository.dart';
@@ -188,6 +190,7 @@ Future<void> bootstrapWebApp() async {
       workoutTemplateRepository: workoutTemplateRepository,
     );
 
+    final preferences = await SharedPreferences.getInstance();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authenticationRepository,
@@ -206,6 +209,9 @@ Future<void> bootstrapWebApp() async {
       blockedCreatorRepository: foodMasterRepositories.blockedCreators,
       mealTemplateRepository: mealTemplateRepository,
       workoutTemplateRepository: workoutTemplateRepository,
+      subscriptionUsageStore: LocalSubscriptionUsageStore(
+        preferences: preferences,
+      ),
     );
 
     if (kDebugMode) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 
 class PrimaryButton extends StatelessWidget {
@@ -8,15 +9,19 @@ class PrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.leading,
     this.loading = false,
     this.expand = true,
+    this.trailingChevron = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
+  final Widget? leading;
   final bool loading;
   final bool expand;
+  final bool trailingChevron;
 
   @override
   Widget build(BuildContext context) {
@@ -26,18 +31,33 @@ class PrimaryButton extends StatelessWidget {
             height: 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.white,
+              color: AppColors.textOnPrimary,
             ),
           )
-        : Text(label);
-
-    final button = icon == null
-        ? FilledButton(onPressed: loading ? null : onPressed, child: child)
-        : FilledButton.icon(
-            onPressed: loading ? null : onPressed,
-            icon: loading ? const SizedBox.shrink() : Icon(icon),
-            label: child,
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (leading != null) ...[
+                leading!,
+                const SizedBox(width: 10),
+              ] else if (icon != null) ...[
+                Icon(icon, size: 22),
+                const SizedBox(width: 10),
+              ],
+              Flexible(
+                child: Text(label, overflow: TextOverflow.ellipsis),
+              ),
+              if (trailingChevron) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right, size: 22),
+              ],
+            ],
           );
+
+    final button = FilledButton(
+      onPressed: loading ? null : onPressed,
+      child: child,
+    );
 
     if (!expand) {
       return button;

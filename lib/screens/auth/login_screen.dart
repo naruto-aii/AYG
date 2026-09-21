@@ -8,8 +8,8 @@ import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_spacing.dart';
 import '../../widgets/brand/app_logo.dart';
+import '../../widgets/brand/brand_assets.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
 import '../../widgets/layout/app_form_constraint.dart';
@@ -46,6 +46,13 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.controller.handleAuthenticatedSession();
     } on GoogleSignInCancelledException {
       return;
+    } on GoogleSignInFailedException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       if (!mounted) {
         return;
@@ -61,16 +68,40 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signInWithApple() async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Appleログインは準備中です（TODO）')));
+    setState(() => _isLoading = true);
+    try {
+      await widget.authenticationRepository.loginWithApple();
+      if (kIsWeb) {
+        return;
+      }
+      await widget.controller.handleAuthenticatedSession();
+    } on AppleSignInCancelledException {
+      return;
+    } on AppleSignInUnavailableException {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.loginAppleUnavailableOnWeb)),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Appleログインに失敗しました: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget _buildLoginContent(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (InAppBrowserDetector.shouldRecommendExternalBrowser) ...[
+        if (InAppBrowserDetector.shouldRecommendExternalBrowser)
           MaterialBanner(
             content: const Text(
               'アプリ内ブラウザではGoogleログインが制限される場合があります。SafariまたはChromeで開いてください。',
@@ -82,47 +113,69 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-        if (!widget.authStorageAvailable) ...[
-          MaterialBanner(
-            content: const Text(
+        if (!widget.authStorageAvailable)
+          const MaterialBanner(
+            content: Text(
               'ブラウザのストレージが利用できないため、ログイン状態を保持できません。プライベートブラウズを解除するか、通常モードで開いてください。',
             ),
-            actions: const [SizedBox.shrink()],
+            actions: [SizedBox.shrink()],
           ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-        const Spacer(),
-        const Center(child: AppLogo(markSize: 72, vertical: true)),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          AppStrings.loginTagline,
-          textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(color: AppColors.secondaryText),
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 335),
+              child: Column(
+                children: [
+                  const SizedBox(height: 48),
+                  const AppLogo(markSize: 120, vertical: true),
+                  const SizedBox(height: 24),
+                  Text(
+                    AppStrings.loginTagline,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: AppColors.textBrand,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    AppStrings.loginBody,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const Spacer(),
+                  PrimaryButton(
+                    label: 'Googleでログイン',
+                    leading: const _GoogleMark(),
+                    trailingChevron: true,
+                    loading: _isLoading,
+                    onPressed: _isLoading ? null : _signInWithGoogle,
+                  ),
+                  const SizedBox(height: 13),
+                  SecondaryButton(
+                    label: 'Appleでログイン',
+                    icon: Icons.apple,
+                    trailingChevron: true,
+                    onPressed: _isLoading ? null : _signInWithApple,
+                  ),
+                  const SizedBox(height: 28),
+                ],
+              ),
+            ),
+          ),
         ),
-        const Spacer(),
-        PrimaryButton(
-          label: 'Googleでログイン',
-          icon: Icons.login,
-          loading: _isLoading,
-          onPressed: _isLoading ? null : _signInWithGoogle,
-        ),
-        SecondaryButton(
-          label: 'Appleでログイン',
-          icon: Icons.apple,
-          onPressed: _isLoading ? null : _signInWithApple,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: AppSpacing.md,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton(
               onPressed: () => showLegalDocument(context, LegalDocument.terms),
               child: const Text('利用規約'),
+            ),
+            Text(
+              '|',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
             ),
             TextButton(
               onPressed: () =>
@@ -131,30 +184,55 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          AppStrings.loginLegalAgreement,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final content = Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: _buildLoginContent(context),
-    );
+    final content = _buildLoginContent(context);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundCream,
-      body: SafeArea(
-        child: Center(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppColors.backgroundCream,
+          image: DecorationImage(
+            image: AssetImage(BrandAssets.loginBackground),
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          ),
+        ),
+        child: SafeArea(
           child: isDesktopLayout(context)
-              ? AppFormConstraint(child: content)
+              ? Center(child: AppFormConstraint(child: content))
               : content,
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
+      child: const Text(
+        'G',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF4285F4),
+          height: 1,
         ),
       ),
     );

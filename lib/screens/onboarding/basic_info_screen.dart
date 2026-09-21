@@ -131,8 +131,12 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
     return Form(
       key: _formKey,
       child: OnboardingScaffold(
-        title: '基礎情報入力',
-        subtitle: 'あなたの基礎情報を入力してください',
+        showLogo: false,
+        wrapBodyInCard: false,
+        stepLabel: '初回設定 2/3',
+        stepIndex: 1,
+        title: '基本情報を入力',
+        subtitle: '取得できなかった項目は手入力してください',
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -219,7 +223,11 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
               ),
           ],
         ),
-        action: PrimaryButton(label: AppStrings.next, onPressed: _goNext),
+        action: PrimaryButton(
+          label: AppStrings.next,
+          trailingChevron: true,
+          onPressed: _goNext,
+        ),
       ),
     );
   }

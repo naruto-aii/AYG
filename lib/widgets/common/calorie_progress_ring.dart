@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 
@@ -53,20 +54,22 @@ class CalorieProgressRing extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                isCalorieOverage ? '超過' : 'あと',
+                isCalorieOverage ? '超過' : AppStrings.remainingToday,
                 style: AppTypography.heroLabel(context),
               ),
               Text(
                 displayValue.toStringAsFixed(0),
-                style: AppTypography.heroValue(context)?.copyWith(
-                  color: isCalorieOverage ? AppColors.accentOrange : null,
+                style: AppTypography.heroValue(context).copyWith(
+                  color: isCalorieOverage
+                      ? AppColors.accentOrange
+                      : AppColors.textPrimary,
                 ),
               ),
               Text(
                 'kcal',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.secondaryText,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(color: AppColors.textMuted),
               ),
             ],
           ),
@@ -92,35 +95,36 @@ class _RingPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width - strokeWidth) / 2;
     final rect = Rect.fromCircle(center: center, radius: radius);
+    const start = -math.pi / 2;
+    final sweep = 2 * math.pi * progress;
 
     final track = Paint()
-      ..color = AppColors.softGreen.withValues(alpha: 0.35)
+      ..color = AppColors.bgTrack
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
     final progressPaint = Paint()
-      ..shader = SweepGradient(
-        colors: isOverage
-            ? [
-                AppColors.accentOrange,
-                AppColors.accentOrange.withValues(alpha: 0.7),
-              ]
-            : [AppColors.primaryGreen, AppColors.accentOrange],
-        startAngle: -math.pi / 2,
-        endAngle: 3 * math.pi / 2,
-      ).createShader(rect)
+      ..color = isOverage ? AppColors.accentOrange : AppColors.bgPrimary
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(rect, 0, 2 * math.pi, false, track);
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      2 * math.pi * progress,
-      false,
-      progressPaint,
+    if (progress <= 0) {
+      return;
+    }
+    canvas.drawArc(rect, start, sweep, false, progressPaint);
+
+    final endAngle = start + sweep;
+    final capCenter = Offset(
+      center.dx + radius * math.cos(endAngle),
+      center.dy + radius * math.sin(endAngle),
+    );
+    canvas.drawCircle(
+      capCenter,
+      strokeWidth * 0.55,
+      Paint()..color = AppColors.accentOrange,
     );
   }
 

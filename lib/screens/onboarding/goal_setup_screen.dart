@@ -123,8 +123,12 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     return Form(
       key: _formKey,
       child: OnboardingScaffold(
-        title: AppStrings.settingsGoal,
-        subtitle: '目標を設定してください',
+        showLogo: false,
+        wrapBodyInCard: false,
+        stepLabel: '初回設定 3/3',
+        stepIndex: 2,
+        title: '目標を設定',
+        subtitle: 'あなたの理想に合わせて、無理のないペースで始めましょう。',
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -172,7 +176,11 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
             ),
           ],
         ),
-        action: PrimaryButton(label: AppStrings.next, onPressed: _complete),
+        action: PrimaryButton(
+          label: AppStrings.next,
+          trailingChevron: true,
+          onPressed: _complete,
+        ),
       ),
     );
   }

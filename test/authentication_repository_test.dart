@@ -66,10 +66,42 @@ void main() {
       expect(authRepository.isAuthenticated, isFalse);
     });
 
-    test('loginWithApple is not implemented', () {
+    test('loginWithApple sets current user', () async {
+      await authRepository.loginWithApple();
+
+      expect(authRepository.loginWithAppleCalled, isTrue);
+      expect(authRepository.currentUser?.id, 'test-user-id');
+      expect(authRepository.isAuthenticated, isTrue);
+    });
+
+    test('loginWithApple cancel throws AppleSignInCancelledException', () {
+      authRepository.simulateAppleSignInCancelled = true;
+
       expect(
         authRepository.loginWithApple(),
-        throwsA(isA<UnimplementedError>()),
+        throwsA(isA<AppleSignInCancelledException>()),
+      );
+    });
+
+    test('loginWithApple failure throws AppleSignInFailedException', () {
+      authRepository.simulateAppleSignInFailure = true;
+
+      expect(
+        authRepository.loginWithApple(),
+        throwsA(isA<AppleSignInFailedException>()),
+      );
+    });
+
+    test('deleteOwnAccount records the call', () async {
+      await authRepository.deleteOwnAccount();
+      expect(authRepository.deleteOwnAccountCalled, isTrue);
+    });
+
+    test('deleteOwnAccount can simulate missing RPC', () {
+      authRepository.simulateDeleteUnavailable = true;
+      expect(
+        authRepository.deleteOwnAccount(),
+        throwsA(isA<AccountDeletionUnavailableException>()),
       );
     });
   });
@@ -80,6 +112,22 @@ void main() {
 
       expect(repository.isAuthenticated, isFalse);
       expect(repository.currentUser, isNull);
+    });
+
+    test('deleteOwnAccount is unavailable', () {
+      final repository = UnconfiguredAuthenticationRepository();
+      expect(
+        repository.deleteOwnAccount(),
+        throwsA(isA<AccountDeletionUnavailableException>()),
+      );
+    });
+
+    test('loginWithApple is unavailable without Supabase', () {
+      final repository = UnconfiguredAuthenticationRepository();
+      expect(
+        repository.loginWithApple(),
+        throwsA(isA<AppleSignInFailedException>()),
+      );
     });
   });
 

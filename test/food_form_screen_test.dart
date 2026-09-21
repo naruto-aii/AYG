@@ -54,6 +54,8 @@ void main() {
       await tester.tap(find.text('open form'));
       await tester.pumpAndSettle();
 
+      expect(find.text('カメラでバーコードを読み取る'), findsOneWidget);
+
       await tester.enterText(
         find.byKey(const ValueKey('food_name_field')),
         'テスト食品',

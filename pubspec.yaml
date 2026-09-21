@@ -43,9 +43,12 @@ dependencies:
   path_provider: ^2.1.5
   supabase_flutter: ^2.9.1
   google_sign_in: ^6.3.0
+  sign_in_with_apple: ^6.1.4
+  crypto: ^3.0.6
   url_launcher: ^6.3.2
   shared_preferences: ^2.5.3
   uuid: ^4.6.0
+  in_app_purchase: ^3.2.3
 
 dev_dependencies:
   flutter_test:
@@ -70,11 +73,22 @@ flutter:
 
   assets:
     - assets/brand/
+    - assets/icons/
     - legal/terms.html
     - legal/privacy.html
     - legal/support.html
     - legal/account-deletion.html
     - legal/tokushoho.html
+
+  fonts:
+    - family: Zen Maru Gothic
+      fonts:
+        - asset: fonts/ZenMaruGothic-Regular.ttf
+          weight: 400
+        - asset: fonts/ZenMaruGothic-Medium.ttf
+          weight: 500
+        - asset: fonts/ZenMaruGothic-Bold.ttf
+          weight: 700
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

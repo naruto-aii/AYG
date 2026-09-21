@@ -24,12 +24,25 @@ key, path = sys.argv[1], sys.argv[2]
 try:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
-    value = data.get(key, "")
-    if value is None:
-        value = ""
-    print(value)
 except FileNotFoundError:
     print("")
+    raise SystemExit(0)
+except json.JSONDecodeError as error:
+    print(
+        "error: tool/dart_defines.local.json の JSON が壊れています。"
+        f" {error}",
+        file=sys.stderr,
+    )
+    print(
+        "直し方: Finder で tool/repair_local_defines.command をダブルクリックするか、"
+        "GOOGLE_WEB_CLIENT_ID の行の末尾にカンマがあるか確認してください。",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+value = data.get(key, "")
+if value is None:
+    value = ""
+print(value)
 PY
 }
 
@@ -48,12 +61,14 @@ write_config() {
   output_file="$1"
   if [ -z "$CLIENT_ID" ]; then
     cat > "$output_file" <<'EOF'
-// GOOGLE_IOS_CLIENT_ID is not set. Google Sign-In URL scheme is not configured.
+// GOOGLE_IOS_CLIENT_ID is not set. Do not write empty GID_CLIENT_ID values.
+// An empty GIDClientID in Info.plist crashes iOS:
+// You must specify |clientID| in |GIDConfiguration|.
 GID_CLIENT_ID=
 GID_SERVER_CLIENT_ID=
 GOOGLE_REVERSED_CLIENT_ID=
 EOF
-    echo "Wrote ${output_file} (empty — set GOOGLE_IOS_CLIENT_ID to enable Google Sign-In)."
+    echo "Wrote ${output_file} (empty — set GOOGLE_IOS_CLIENT_ID to enable native Google Sign-In)."
     return 0
   fi
 
@@ -69,6 +84,7 @@ EOF
 if [ -z "$CLIENT_ID" ]; then
   write_config "$IOS_OUTPUT_FILE"
   write_config "$MACOS_OUTPUT_FILE"
+  echo "GOOGLE_IOS_CLIENT_ID が空です。Google Cloud で iOS クライアント（Bundle ID com.narutoaii.ayg）を作り、tool/dart_defines.local.json に入れてください。" >&2
   exit 0
 fi
 

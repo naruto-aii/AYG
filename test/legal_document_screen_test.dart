@@ -122,6 +122,25 @@ void main() {
     expect(find.text('特定商取引法に基づく表記'), findsOneWidget);
     expect(find.textContaining('麹池成'), findsWidgets);
     expect(find.textContaining('アプリ内課金'), findsOneWidget);
+    expect(find.textContaining('380'), findsOneWidget);
+    expect(find.textContaining('4,180'), findsOneWidget);
+    expect(find.byTooltip('閉じる'), findsOneWidget);
+  });
+
+  testWidgets('account deletion screen renders in-app steps from assets', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LegalDocumentScreen(document: LegalDocument.accountDeletion),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('アカウント削除'), findsOneWidget);
+    expect(find.textContaining('アプリ内からの削除'), findsOneWidget);
+    expect(find.textContaining('公開食品'), findsOneWidget);
+    expect(find.textContaining('削除済みユーザー'), findsOneWidget);
     expect(find.byTooltip('閉じる'), findsOneWidget);
   });
 }

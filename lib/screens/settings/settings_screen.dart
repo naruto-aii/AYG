@@ -8,16 +8,17 @@ import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_card.dart';
 import '../../widgets/common/settings_list_tile.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
-import 'settings_basic_info_screen.dart';
+import 'account_deletion_screen.dart';
 import 'calculation_references_screen.dart';
+import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
+import '../subscription/calonavi_plus_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -59,171 +60,210 @@ class SettingsScreen extends StatelessWidget {
     final contactEmail = (supportEmail ?? AppContactConfig.contactEmail).trim();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('設定')),
       body: SafeArea(
         child: AppContentConstraint(
           child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.xl,
+            ),
             children: [
-              if (email != null) ...[
-                Text(
-                  '${AppStrings.settingsLoggedInAs}: $email',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: AppSpacing.md),
-              ],
-              AppCard(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    SettingsListTile(
-                      icon: Icons.person_outline,
-                      title: AppStrings.settingsBasicInfo,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) =>
-                                SettingsBasicInfoScreen(controller: controller),
-                          ),
-                        );
-                      },
+              Text(
+                AppStrings.settingsTitle,
+                style: Theme.of(context).textTheme.headlineLarge,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                AppStrings.settingsLead,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.person_outline,
+                iconName: 'user',
+                title: AppStrings.settingsLoggedInAs,
+                subtitle: email ?? AppStrings.settingsLoggedInSubtitle,
+                onTap: null,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.badge_outlined,
+                iconName: 'document',
+                title: AppStrings.settingsBasicInfo,
+                subtitle: AppStrings.settingsBasicInfoSubtitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) =>
+                          SettingsBasicInfoScreen(controller: controller),
                     ),
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.flag_outlined,
-                      title: AppStrings.settingsGoal,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) =>
-                                SettingsGoalScreen(controller: controller),
-                          ),
-                        );
-                      },
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.flag_outlined,
+                iconName: 'goal',
+                title: AppStrings.settingsGoal,
+                subtitle: AppStrings.settingsGoalSubtitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) =>
+                          SettingsGoalScreen(controller: controller),
                     ),
-                    if (!hideHealthSettings) ...[
-                      const Divider(height: 1),
-                      SettingsListTile(
-                        icon: Icons.favorite_outline,
-                        title: AppStrings.settingsHealthActivity,
-                        onTap: healthRepository == null
-                            ? null
-                            : () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (context) =>
-                                        SettingsHealthActivityScreen(
-                                          controller: controller,
-                                          healthRepository: healthRepository!,
-                                        ),
-                                  ),
-                                );
-                              },
-                      ),
-                    ],
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.restaurant_menu_outlined,
-                      title: AppStrings.settingsFoodMaster,
-                      onTap: () {
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.directions_run_outlined,
+                iconName: 'exercise',
+                title: AppStrings.settingsHealthActivity,
+                subtitle: hideHealthSettings
+                    ? AppStrings.webHealthUnavailable
+                    : AppStrings.settingsHealthActivitySubtitle,
+                enabled: !hideHealthSettings && healthRepository != null,
+                onTap: hideHealthSettings || healthRepository == null
+                    ? null
+                    : () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (context) => SettingsFoodMasterScreen(
+                            builder: (context) => SettingsHealthActivityScreen(
                               controller: controller,
-                              openFoodFactsService: openFoodFactsService,
+                              healthRepository: healthRepository!,
                             ),
                           ),
                         );
                       },
-                    ),
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.calculate_outlined,
-                      title: '計算根拠・参考文献',
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) =>
-                                const CalculationReferencesScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    if (hideHealthSettings) ...[
-                      const Divider(height: 1),
-                      SettingsListTile(
-                        icon: Icons.favorite_outline,
-                        title: AppStrings.settingsHealthActivity,
-                        subtitle: AppStrings.webHealthUnavailable,
-                        enabled: false,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.restaurant_outlined,
+                iconName: 'meal',
+                title: AppStrings.settingsFoodMaster,
+                subtitle: AppStrings.settingsFoodMasterSubtitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => SettingsFoodMasterScreen(
+                        controller: controller,
+                        openFoodFactsService: openFoodFactsService,
                       ),
-                    ],
-                  ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.calculate_outlined,
+                iconName: 'calculator',
+                title: AppStrings.settingsCalculation,
+                subtitle: AppStrings.settingsCalculationSubtitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) =>
+                          const CalculationReferencesScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.workspace_premium_outlined,
+                iconName: 'calorie',
+                title: AppStrings.plusTitle,
+                subtitle: controller.isCalonaviPlusActive
+                    ? AppStrings.plusActive
+                    : AppStrings.plusInactive,
+                onTap: () => showCalonaviPlus(
+                  context,
+                  controller.subscriptionRepository,
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
-              AppCard(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    SettingsListTile(
-                      icon: Icons.description_outlined,
-                      title: '利用規約',
-                      onTap: () =>
-                          showLegalDocument(context, LegalDocument.terms),
-                    ),
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.privacy_tip_outlined,
-                      title: 'プライバシーポリシー',
-                      onTap: () =>
-                          showLegalDocument(context, LegalDocument.privacy),
-                    ),
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.receipt_long_outlined,
-                      title: AppStrings.settingsTokushoho,
-                      onTap: () =>
-                          showLegalDocument(context, LegalDocument.tokushoho),
-                    ),
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.help_outline,
-                      title: AppStrings.settingsSupport,
-                      onTap: () =>
-                          showLegalDocument(context, LegalDocument.support),
-                    ),
-                    const Divider(height: 1),
-                    SettingsListTile(
-                      icon: Icons.person_off_outlined,
-                      title: AppStrings.settingsAccountDeletion,
-                      subtitle: AppStrings.settingsAccountDeletionSubtitle,
-                      onTap: () => showLegalDocument(
-                        context,
-                        LegalDocument.accountDeletion,
-                      ),
-                    ),
-                    if (contactEmail.isNotEmpty) ...[
-                      const Divider(height: 1),
-                      SettingsListTile(
-                        icon: Icons.mail_outline,
-                        title: AppStrings.settingsContactOperator,
-                        subtitle: contactEmail,
-                        onTap: () => _openUrl(context, 'mailto:$contactEmail'),
-                      ),
-                    ],
-                  ],
-                ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.description_outlined,
+                iconName: 'document',
+                title: '利用規約',
+                subtitle: 'サービスのご利用条件',
+                onTap: () => showLegalDocument(context, LegalDocument.terms),
               ),
-              const SizedBox(height: AppSpacing.md),
-              AppCard(
-                padding: EdgeInsets.zero,
-                child: SettingsListTile(
-                  icon: Icons.logout,
-                  title: AppStrings.settingsLogout,
-                  destructive: true,
-                  onTap: () => _logout(context),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.privacy_tip_outlined,
+                iconName: 'shield',
+                title: 'プライバシーポリシー',
+                onTap: () => showLegalDocument(context, LegalDocument.privacy),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.receipt_long_outlined,
+                iconName: 'document',
+                title: AppStrings.settingsTokushoho,
+                onTap: () =>
+                    showLegalDocument(context, LegalDocument.tokushoho),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.help_outline,
+                iconName: 'information',
+                title: AppStrings.settingsSupport,
+                onTap: () =>
+                    showLegalDocument(context, LegalDocument.support),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.person_off_outlined,
+                iconName: 'trash',
+                title: AppStrings.settingsAccountDeletion,
+                subtitle: AppStrings.settingsAccountDeletionSubtitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => AccountDeletionScreen(
+                        controller: controller,
+                        authenticationRepository: authenticationRepository,
+                        supportEmail: contactEmail,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              if (contactEmail.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                SettingsListTile(
+                  asCard: true,
+                  icon: Icons.mail_outline,
+                  iconName: 'mail',
+                  title: AppStrings.settingsContactOperator,
+                  subtitle: contactEmail,
+                  onTap: () => _openUrl(context, 'mailto:$contactEmail'),
                 ),
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              SettingsListTile(
+                asCard: true,
+                icon: Icons.logout,
+                iconName: 'logout',
+                title: AppStrings.settingsLogout,
+                destructive: true,
+                onTap: () => _logout(context),
               ),
               const SizedBox(height: AppSpacing.lg),
               Center(

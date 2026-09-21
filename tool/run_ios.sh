@@ -11,6 +11,24 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 LOCAL_DEFINES="${ROOT_DIR}/tool/dart_defines.local.json"
 
+if [ -f "$LOCAL_DEFINES" ]; then
+  python3 "${ROOT_DIR}/tool/repair_local_defines.py" "$LOCAL_DEFINES"
+  python3 - "$LOCAL_DEFINES" <<'PY'
+import json, sys
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as handle:
+        json.load(handle)
+except json.JSONDecodeError as error:
+    print(
+        "error: tool/dart_defines.local.json の JSON が壊れています。"
+        f" {error}",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+PY
+fi
+
 chmod +x "${ROOT_DIR}/tool/configure_google_signin_ios.sh"
 "${ROOT_DIR}/tool/configure_google_signin_ios.sh"
 

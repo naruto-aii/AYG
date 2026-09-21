@@ -1,19 +1,19 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
 import '../../models/alcohol_entry.dart';
 import '../../models/exercise_entry.dart';
+import '../../models/strength_workout_log.dart';
 import '../../models/food_entry.dart';
 import '../../models/goal.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
-import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/brand/app_logo.dart';
+import '../../widgets/brand/calonavi_icon.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -21,7 +21,6 @@ import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/calorie_progress_ring.dart';
 import '../../widgets/common/macro_progress_bar.dart';
 import '../../widgets/layout/app_content_constraint.dart';
-import '../../widgets/layout/app_responsive.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../food/food_form_navigation.dart';
 import '../exercise/exercise_form_screen.dart';
@@ -130,12 +129,6 @@ class HomeScreen extends StatelessWidget {
     return '$h:$m';
   }
 
-  String _goalSummaryLabel(Goal goal) {
-    final daysLeft = daysUntilGoalDate(goal.targetDate);
-    final daysText = daysLeft >= 0 ? 'あと $daysLeft 日' : '期限超過';
-    return '${goal.type.label} / 目標日まで$daysText';
-  }
-
   List<FoodEntry> _todayFoodEntries(List<FoodEntry> entries) {
     final now = DateTime.now();
     return entries
@@ -191,117 +184,93 @@ class HomeScreen extends StatelessWidget {
           body: SafeArea(
             child: AppContentConstraint(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.screenPadding),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Align(
                       alignment: Alignment.centerLeft,
-                      child: AppLogo(height: 30),
+                      child: AppLogo(height: 36),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final twoColumn =
-                            isDesktopLayout(context) &&
-                            isWideSummaryLayout(constraints.maxWidth);
-                        final ringCard = AppCard(
-                          large: true,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm + 2,
+                    Center(
+                      child: CalorieProgressRing(
+                        intakeKcal: summary.intakeKcal,
+                        targetKcal: summary.targetKcal,
+                        remainingKcal: summary.remainingKcal,
+                        isCalorieOverage: summary.isCalorieOverage,
+                        calorieOverageKcal: summary.calorieOverageKcal,
+                        size: 164,
+                        strokeWidth: 12,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _HomeStatRow(
+                      targetKcal: summary.targetKcal,
+                      intakeKcal: summary.intakeKcal,
+                      exerciseKcal: summary.exerciseBurnKcal,
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                DailyCalculationExplanationScreen(
+                                  summary: summary,
+                                ),
                           ),
-                          child: Column(
-                            children: [
-                              CalorieProgressRing(
-                                intakeKcal: summary.intakeKcal,
-                                targetKcal: summary.targetKcal,
-                                remainingKcal: summary.remainingKcal,
-                                isCalorieOverage: summary.isCalorieOverage,
-                                calorieOverageKcal: summary.calorieOverageKcal,
-                                size: twoColumn ? 132 : 148,
-                                strokeWidth: 11,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Text(
-                                summary.isCalorieOverage
-                                    ? '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
-                                          '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal（超過）'
-                                    : '目標 ${summary.targetKcal.toStringAsFixed(0)} kcal / '
-                                          '摂取 ${summary.intakeKcal.toStringAsFixed(0)} kcal',
-                                style: Theme.of(context).textTheme.bodySmall,
-                                textAlign: TextAlign.center,
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (context) =>
-                                          DailyCalculationExplanationScreen(
-                                            summary: summary,
-                                          ),
-                                    ),
-                                  );
-                                },
-                                child: const Text('この数値の計算根拠'),
-                              ),
-                            ],
-                          ),
-                        );
-                        final macroCard = AppCard(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm,
-                          ),
-                          child: Column(
-                            children: [
-                              MacroProgressBar(
-                                label: AppStrings.macroProtein,
-                                intakeG: summary.intakeProteinG,
-                                targetG: summary.targetProteinG,
-                                color: AppColors.macroProtein,
-                                compact: true,
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              MacroProgressBar(
-                                label: AppStrings.macroFat,
-                                intakeG: summary.intakeFatG,
-                                targetG: summary.targetFatG,
-                                color: AppColors.macroFat,
-                                compact: true,
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              MacroProgressBar(
-                                label: AppStrings.macroCarb,
-                                intakeG: summary.intakeCarbG,
-                                targetG: summary.targetCarbG,
-                                color: AppColors.macroCarb,
-                                compact: true,
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (twoColumn) {
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: ringCard),
-                              const SizedBox(width: AppSpacing.sm),
-                              Expanded(child: macroCard),
-                            ],
-                          );
-                        }
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ringCard,
-                            const SizedBox(height: AppSpacing.sm),
-                            macroCard,
-                          ],
                         );
                       },
+                      child: const Text('この数値の計算根拠'),
+                    ),
+                    AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.md,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PFCバランス',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: MacroProgressBar(
+                                  label: AppStrings.macroProtein,
+                                  intakeG: summary.intakeProteinG,
+                                  targetG: summary.targetProteinG,
+                                  color: AppColors.macroProtein,
+                                  compact: true,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: MacroProgressBar(
+                                  label: AppStrings.macroFat,
+                                  intakeG: summary.intakeFatG,
+                                  targetG: summary.targetFatG,
+                                  color: AppColors.macroFat,
+                                  compact: true,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: MacroProgressBar(
+                                  label: AppStrings.macroCarb,
+                                  intakeG: summary.intakeCarbG,
+                                  targetG: summary.targetCarbG,
+                                  color: AppColors.macroCarb,
+                                  compact: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     _QuickActionsRow(
@@ -313,35 +282,9 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '今日のサマリー',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          _SummaryRow(
-                            label: '消費 kcal',
-                            value:
-                                '${summary.exerciseBurnKcal.toStringAsFixed(0)} kcal',
-                          ),
-                          _SummaryRow(
-                            label: '現在体重',
-                            value: '${profile.weightKg.toStringAsFixed(1)} kg',
-                          ),
-                          _SummaryRow(
-                            label: '目標',
-                            value: _goalSummaryLabel(goal),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
                     AppSectionHeader(
                       title: '今日の食事',
-                      actionLabel: onOpenHistoryCalendar != null ? '履歴' : null,
+                      actionLabel: onOpenHistoryCalendar != null ? 'すべて見る' : null,
                       onAction: onOpenHistoryCalendar,
                     ),
                     if (todayFood.isEmpty)
@@ -435,6 +378,57 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+class _HomeStatRow extends StatelessWidget {
+  const _HomeStatRow({
+    required this.targetKcal,
+    required this.intakeKcal,
+    required this.exerciseKcal,
+  });
+
+  final double targetKcal;
+  final double intakeKcal;
+  final double exerciseKcal;
+
+  String _kcal(double value, {bool signed = false}) {
+    final rounded = value.round();
+    final digits = rounded.abs().toString();
+    final withComma = digits.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (match) => '${match[1]},',
+    );
+    if (signed && rounded > 0) {
+      return '+$withComma';
+    }
+    return withComma;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget item(String label, String value) {
+      return Expanded(
+        child: Column(
+          children: [
+            Text(label, style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 2),
+            Text(
+              '$value kcal',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        item('目標', _kcal(targetKcal)),
+        item('摂取', _kcal(intakeKcal)),
+        item('運動', _kcal(exerciseKcal, signed: true)),
+      ],
+    );
+  }
+}
+
 class _QuickActionsRow extends StatelessWidget {
   const _QuickActionsRow({
     required this.onAddFood,
@@ -448,32 +442,36 @@ class _QuickActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.restaurant_outlined,
-            label: '食事追加',
-            onTap: onAddFood,
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuickActionButton(
+              icon: 'meal',
+              label: '食事追加',
+              onTap: onAddFood,
+            ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.directions_run_outlined,
-            label: '運動追加',
-            onTap: onAddWorkout,
+          Expanded(
+            child: _QuickActionButton(
+              icon: 'exercise',
+              label: '運動追加',
+              onTap: onAddWorkout,
+            ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.monitor_weight_outlined,
-            label: '体重記録',
-            onTap: onRecordWeight,
+          Expanded(
+            child: _QuickActionButton(
+              icon: 'scale',
+              label: '体重記録',
+              onTap: onRecordWeight,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -485,62 +483,36 @@ class _QuickActionButton extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final String icon;
   final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
+    return InkWell(
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.sm,
-        horizontal: AppSpacing.xxs,
-      ),
+      borderRadius: BorderRadius.circular(12),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
-        child: Column(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 22, color: AppColors.primaryGreen),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            CalonaviIcon(icon, size: 18),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const Icon(Icons.chevron_right, size: 16, color: AppColors.iconMuted),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText),
-            ),
-          ),
-          Text(value, style: Theme.of(context).textTheme.bodyMedium),
-        ],
       ),
     );
   }
@@ -674,7 +646,12 @@ class _TodayExerciseTile extends StatelessWidget {
       ),
       onTap: onTap,
       title: Text(entry.name),
-      subtitle: Text(timeLabel),
+      subtitle: Text(
+        [
+          timeLabel,
+          if (entry.strengthSummary != null) entry.strengthSummary!,
+        ].join(' · '),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

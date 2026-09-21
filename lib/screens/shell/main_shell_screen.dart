@@ -13,7 +13,7 @@ import '../food/food_tab_screen.dart';
 import '../history/history_calendar_screen.dart';
 import '../home/home_screen.dart';
 import '../settings/settings_screen.dart';
-import '../weight/weight_placeholder_screen.dart';
+import '../weight/weight_tab_screen.dart';
 import '../workout/workout_tab_screen.dart';
 
 /// タブの並び。Figma のタブバーと同じで、ホームが中央。
@@ -79,7 +79,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         onOpenWorkoutTab: () => _selectTab(ShellTab.workout),
         onOpenWeightTab: () => _selectTab(ShellTab.weight),
       ),
-      const WeightPlaceholderScreen(),
+      WeightTabScreen(controller: widget.controller),
       SettingsScreen(
         controller: widget.controller,
         authenticationRepository: widget.authenticationRepository,

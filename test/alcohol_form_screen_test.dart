@@ -21,16 +21,16 @@ void main() {
       expect(find.text('単位'), findsOneWidget);
       expect(find.text('アルコール度数 (%)'), findsOneWidget);
 
-      final fields = find.byType(TextFormField);
+      final fields = find.byType(TextField);
       await tester.enterText(fields.at(0), 'ビール');
       await tester.enterText(fields.at(1), '500');
       await tester.enterText(fields.at(2), 'ml');
       await tester.enterText(fields.at(3), '5');
       await tester.pump();
 
-      expect(find.textContaining('純アルコール量'), findsOneWidget);
+      expect(find.text('純アルコール量 (g)'), findsOneWidget);
       expect(find.textContaining('140'), findsWidgets);
-      expect(find.text('摂取カロリーへの反映'), findsOneWidget);
+      expect(find.text('摂取への反映'), findsOneWidget);
     });
 
     testWidgets('shows manual pure alcohol field for non-ml unit', (
@@ -43,7 +43,7 @@ void main() {
         MaterialApp(home: AlcoholFormScreen(controller: controller)),
       );
 
-      await tester.enterText(find.byType(TextFormField).at(2), '缶');
+      await tester.enterText(find.byType(TextField).at(2), '缶');
       await tester.pump();
 
       expect(find.text('純アルコール量 (g)'), findsOneWidget);

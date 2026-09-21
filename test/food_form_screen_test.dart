@@ -75,11 +75,14 @@ void main() {
         '10',
       );
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -400),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.text('追加する'));
       await tester.pumpAndSettle();
 
       expect(controller.foodEntries, hasLength(1));

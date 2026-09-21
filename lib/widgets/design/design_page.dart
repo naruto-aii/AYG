@@ -42,38 +42,42 @@ class DesignPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DesignScreen(
-      background: background,
-      backgroundColor: backgroundColor,
-      child: Builder(
-        builder: (context) {
-          final padding = MediaQuery.paddingOf(context);
-          final content = Padding(padding: bodyPadding, child: body);
+    // Scaffold は Material の祖先とキーボード回避のために必要。
+    return Scaffold(
+      backgroundColor: backgroundColor ?? AppColors.bgPage,
+      body: DesignScreen(
+        background: background,
+        backgroundColor: backgroundColor,
+        child: Builder(
+          builder: (context) {
+            final padding = MediaQuery.paddingOf(context);
+            final content = Padding(padding: bodyPadding, child: body);
 
-          return Column(
-            children: [
-              SizedBox(height: padding.top),
-              ?header,
-              Expanded(
-                child: scrollable
-                    ? SingleChildScrollView(
-                        controller: scrollController,
-                        child: content,
-                      )
-                    : content,
-              ),
-              if (bottomBar != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                  child: bottomBar,
+            return Column(
+              children: [
+                SizedBox(height: padding.top),
+                ?header,
+                Expanded(
+                  child: scrollable
+                      ? SingleChildScrollView(
+                          controller: scrollController,
+                          child: content,
+                        )
+                      : content,
                 ),
-              if (tabBar != null)
-                tabBar!
-              else
-                SizedBox(height: padding.bottom),
-            ],
-          );
-        },
+                if (bottomBar != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                    child: bottomBar,
+                  ),
+                if (tabBar != null)
+                  tabBar!
+                else
+                  SizedBox(height: padding.bottom),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

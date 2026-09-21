@@ -62,6 +62,8 @@ class DesignInputBox extends StatelessWidget {
     this.suffix,
     this.onTap,
     this.trailing,
+    this.radius = AppRadius.md,
+    this.verticalPadding = 13,
   });
 
   final Widget child;
@@ -75,14 +77,17 @@ class DesignInputBox extends StatelessWidget {
   /// 単位ではなくアイコンを置く場合。
   final Widget? trailing;
 
+  final double radius;
+  final double verticalPadding;
+
   @override
   Widget build(BuildContext context) {
     final box = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+      padding: EdgeInsets.symmetric(horizontal: 18, vertical: verticalPadding),
       decoration: BoxDecoration(
         color: AppColors.bgSurface,
         border: Border.all(color: AppColors.borderDefault),
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(radius),
       ),
       child: Row(
         children: [
@@ -104,7 +109,7 @@ class DesignInputBox extends StatelessWidget {
     }
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderRadius: BorderRadius.circular(radius),
       child: box,
     );
   }
@@ -154,6 +159,43 @@ class DesignTextInput extends StatelessWidget {
         contentPadding: EdgeInsets.zero,
         hintText: hintText,
         hintStyle: AppTypography.bodyL.copyWith(color: AppColors.textMuted),
+      ),
+    );
+  }
+}
+
+/// Figma: ラベルを左、入力欄を右に置く横並びの行（07 アルコールを追加など）。
+class DesignRowField extends StatelessWidget {
+  const DesignRowField({
+    super.key,
+    required this.label,
+    required this.child,
+    this.labelWidth = 120,
+  });
+
+  final String label;
+  final Widget child;
+
+  /// Figma の実測値（120 または 138）。
+  final double labelWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.bgSurfaceAlt,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: labelWidth,
+            child: Text(label, style: AppTypography.titleS),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: child),
+        ],
       ),
     );
   }

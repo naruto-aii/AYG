@@ -10,6 +10,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/local_date.dart';
+import '../../utils/nutrition_format.dart';
 import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/delete_with_undo.dart';
@@ -55,9 +56,7 @@ class HomeScreen extends StatelessWidget {
         final summary = controller.summary;
 
         if (profile == null || goal == null || summary == null) {
-          return const DesignPage(
-            body: AppEmptyState(message: 'データがありません'),
-          );
+          return const DesignPage(body: AppEmptyState(message: 'データがありません'));
         }
 
         final todayFood = _todayFood(controller.foodEntries);
@@ -98,10 +97,11 @@ class HomeScreen extends StatelessWidget {
     final target = summary.targetKcal;
     return CalorieRing(
       label: summary.isCalorieOverage ? '超過' : '今日あと',
-      value: (summary.isCalorieOverage
-              ? summary.calorieOverageKcal
-              : summary.remainingKcal.clamp(0, double.infinity))
-          .toStringAsFixed(0),
+      value:
+          (summary.isCalorieOverage
+                  ? summary.calorieOverageKcal
+                  : summary.remainingKcal.clamp(0, double.infinity))
+              .toStringAsFixed(0),
       progress: target > 0 ? summary.intakeKcal / target : 0,
       progressColor: summary.isCalorieOverage ? AppColors.orange500 : null,
     );
@@ -266,9 +266,9 @@ class HomeScreen extends StatelessWidget {
             icon: AppIcons.meal,
             time: _time(entry.loggedAt),
             title: entry.name,
-            value: entry.kcalPerUnit == null
-                ? '—'
-                : entry.totalKcal.toStringAsFixed(0),
+            value: formatNullableNutrient(
+              entry.kcalPerUnit == null ? null : entry.totalKcal,
+            ),
             onTap: () => _openFoodForm(context, entry: entry),
             onLongPress: () => confirmDeleteWithUndo<FoodEntry>(
               context: context,
@@ -365,9 +365,7 @@ class HomeScreen extends StatelessWidget {
               child: Text(
                 emptyMessage,
                 textAlign: TextAlign.center,
-                style: AppTypography.bodyS.copyWith(
-                  color: AppColors.textMuted,
-                ),
+                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
               ),
             )
           else

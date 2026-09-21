@@ -19,6 +19,8 @@ import 'screens/onboarding/activity_level_screen.dart';
 import 'screens/onboarding/basic_info_screen.dart';
 import 'screens/onboarding/goal_setup_screen.dart';
 import 'screens/onboarding/health_setup_screen.dart';
+import 'screens/alcohol/alcohol_form_screen.dart';
+import 'screens/food/food_form_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
 import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
@@ -29,30 +31,31 @@ import 'theme/app_typography.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final controller = AppController(
-    authenticationRepository: UnconfiguredAuthenticationRepository(),
-  )
-    ..setProfile(
-      UserProfile(
-        birthDate: DateTime(1990, 5, 12),
-        gender: Gender.male,
-        heightCm: 172,
-        weightKg: 70,
-      ),
-    )
-    ..setNutritionSettings(
-      const NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: ActivityLevel.moderate,
-      ),
-    )
-    ..setGoal(
-      Goal(
-        type: GoalType.lose,
-        targetWeightKg: 62,
-        targetDate: DateTime.now().add(const Duration(days: 92)),
-      ),
-    );
+  final controller =
+      AppController(
+          authenticationRepository: UnconfiguredAuthenticationRepository(),
+        )
+        ..setProfile(
+          UserProfile(
+            birthDate: DateTime(1990, 5, 12),
+            gender: Gender.male,
+            heightCm: 172,
+            weightKg: 70,
+          ),
+        )
+        ..setNutritionSettings(
+          const NutritionSettings(
+            useHealthIntegration: false,
+            activityLevel: ActivityLevel.moderate,
+          ),
+        )
+        ..setGoal(
+          Goal(
+            type: GoalType.lose,
+            targetWeightKg: 62,
+            targetDate: DateTime.now().add(const Duration(days: 92)),
+          ),
+        );
 
   _seedToday(controller);
 
@@ -173,6 +176,17 @@ class DesignPreviewApp extends StatelessWidget {
           authenticationRepository: authenticationRepository,
           healthRepository: healthRepository,
         ),
+      ),
+      _PreviewEntry(
+        '06 食事を追加',
+        () => FoodFormScreen(
+          controller: controller,
+          openFoodFactsService: openFoodFactsService,
+        ),
+      ),
+      _PreviewEntry(
+        '07 アルコールを追加',
+        () => AlcoholFormScreen(controller: controller),
       ),
       _PreviewEntry(
         '（参考）活動量',

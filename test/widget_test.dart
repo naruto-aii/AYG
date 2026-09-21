@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ayg/widgets/design/design_tab_bar.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ayg/constants/app_strings.dart';
@@ -287,13 +288,13 @@ void main() {
       ),
     );
 
-    expect(find.text(AppStrings.navHome), findsWidgets);
+    expect(find.byType(DesignTabBar), findsOneWidget);
 
     await controller.logout();
     await tester.pumpAndSettle();
 
     expect(find.text('Googleでログイン'), findsOneWidget);
-    expect(find.text(AppStrings.navHome), findsNothing);
+    expect(find.byType(DesignTabBar), findsNothing);
 
     await authRepository.dispose();
   });
@@ -345,7 +346,7 @@ void main() {
       ),
     );
 
-    expect(find.text(AppStrings.navHome), findsWidgets);
+    expect(find.byType(DesignTabBar), findsOneWidget);
 
     await authRepository.dispose();
   });
@@ -462,6 +463,6 @@ void main() {
       ),
     );
 
-    expect(find.textContaining('-- kcal'), findsOneWidget);
+    expect(find.text('--'), findsOneWidget);
   });
 }

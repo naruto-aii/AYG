@@ -6,8 +6,10 @@ import '../../services/nutrition_value_calculator.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
 import '../../utils/macro_display.dart';
 import '../common/app_text_field.dart';
+import '../design/food_parts.dart';
 import 'macro_nutrition_input_controller.dart';
 
 /// kcal / P / F / C 入力欄（Mobile / Web 共通）。
@@ -17,17 +19,49 @@ class MacroNutritionFields extends StatelessWidget {
     required this.controller,
     required this.validator,
     this.readOnly = false,
+    this.compact = false,
   });
 
   final MacroNutritionInputController controller;
   final String? Function(String? value, String label) validator;
   final bool readOnly;
 
+  /// Figma の「栄養素」行（MiniField 4 つ）で並べる。
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final field in MacroField.values) ...[
+                    if (field != MacroField.kcal) const SizedBox(width: 8),
+                    Expanded(child: _buildMiniField(field)),
+                  ],
+                ],
+              ),
+              if (controller.negativeMessage != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  controller.negativeMessage!,
+                  style: const TextStyle(color: AppColors.error),
+                ),
+              ],
+              if (controller.showExternalMismatchNotice) ...[
+                const SizedBox(height: AppSpacing.sm),
+                _ExternalMismatchNotice(controller: controller),
+              ],
+            ],
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -68,6 +102,39 @@ class MacroNutritionFields extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  /// Figma: 栄養素の MiniField。自動計算された欄は文字色で示す。
+  Widget _buildMiniField(MacroField field) {
+    final textController = controller.controllerFor(field);
+    final isAuto = controller.sourceOf(field) == MacroFieldSource.auto;
+
+    return MiniField(
+      label: isAuto
+          ? '${macroFieldShortLabel(field)}（自動）'
+          : macroFieldShortLabel(field),
+      unit: field == MacroField.kcal ? 'kcal' : 'g',
+      child: TextField(
+        key: ValueKey('macro_field_${field.name}'),
+        controller: textController,
+        readOnly: readOnly,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onTap: () => controller.onFieldFocus(field),
+        onChanged: (_) => controller.onFieldChanged(field),
+        style: AppTypography.bodyM.copyWith(
+          color: isAuto ? AppColors.textBrand : AppColors.textPrimary,
+        ),
+        decoration: const InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          hintText: '0',
+        ),
+      ),
     );
   }
 

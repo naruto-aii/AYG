@@ -36,7 +36,7 @@ class AppStrings {
   static const settingsAccount = 'アカウント';
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';
-  static const settingsContactOperator = '運営への連絡';
+  static const settingsContactOperator = '運営連絡';
   static const settingsSupport = 'サポート';
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
@@ -47,7 +47,6 @@ class AppStrings {
   /// 端末ごとに折り返し位置が変わらないよう、改行位置を明示する。
   static const loginLegalAgreementMultiline =
       'ログインにより、利用規約とプライバシーポリシーに\n同意したものとします。';
-
 
   static const birthDate = '生年月日';
   static const gender = '性別';

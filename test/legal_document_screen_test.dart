@@ -73,6 +73,8 @@ void main() {
       ),
     );
 
+    await tester.ensureVisible(find.text('利用規約'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('利用規約'));
     await tester.pumpAndSettle();
 

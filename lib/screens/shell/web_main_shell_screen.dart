@@ -11,7 +11,7 @@ import '../food/food_tab_screen.dart';
 import '../food/web_food_form_screen.dart';
 import '../home/home_screen.dart';
 import '../settings/settings_screen.dart';
-import '../weight/weight_placeholder_screen.dart';
+import '../weight/weight_tab_screen.dart';
 import '../workout/workout_tab_screen.dart';
 
 class WebMainShellScreen extends StatefulWidget {
@@ -51,7 +51,7 @@ class _WebMainShellScreenState extends State<WebMainShellScreen> {
         openFoodFactsService: widget.openFoodFactsService,
         foodFormBuilder: webFoodFormScreenBuilder,
       ),
-      const WeightPlaceholderScreen(),
+      WeightTabScreen(controller: widget.controller),
       SettingsScreen(
         controller: widget.controller,
         authenticationRepository: widget.authenticationRepository,

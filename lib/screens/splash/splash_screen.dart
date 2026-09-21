@@ -58,7 +58,9 @@ class _SplashScreenState extends State<SplashScreen>
   static const _DotState _dotFallen = _DotState(260.7, 387.3, 18.3, 28);
   static const _DotState _dotSquashed = _DotState(260.7, 394.6, 31.2, 13.3);
   static const _DotState _dotBounced = _DotState(268.7, 338.6, 21.5, 21.5);
-  static const _DotState _dotExpanded = _DotState(268.7, 338.6, 1200, 1200);
+  /// 拡大後の直径。実際の画面を覆いきる大きさを実行時に計算するため、
+  /// ここでは中心だけ使う（Figma の 1200 は 390x844 専用の値）。
+  static const double _expandedMinDiameter = 1200;
 
   late final AnimationController _controller;
   bool _notified = false;
@@ -126,9 +128,31 @@ class _SplashScreenState extends State<SplashScreen>
                 _dotBounced,
                 _progress(nowMs, _bounce, Curves.linear),
               );
+              // 跳ねた位置から画面の一番遠い角までの距離を半径にする。
+              // これで画面サイズや縦横比が変わっても必ず埋まる。
+              final apex = Offset(
+                offsetX + _dotBounced.centerX * scale,
+                offsetY + _dotBounced.centerY * scale,
+              );
+              final farthest = [
+                Offset.zero,
+                Offset(constraints.maxWidth, 0),
+                Offset(0, constraints.maxHeight),
+                Offset(constraints.maxWidth, constraints.maxHeight),
+              ].map((c) => (c - apex).distance).reduce(math.max);
+              final expandedDiameter = math.max(
+                _expandedMinDiameter * scale,
+                farthest * 2 + 8,
+              );
+              final expanded = _DotState(
+                _dotBounced.centerX,
+                _dotBounced.centerY,
+                expandedDiameter / scale,
+                expandedDiameter / scale,
+              );
               dot = _DotState.lerp(
                 dot,
-                _dotExpanded,
+                expanded,
                 _progress(nowMs, _expand, Curves.easeOut),
               );
 
@@ -158,7 +182,8 @@ class _SplashScreenState extends State<SplashScreen>
                     width: _markWidth,
                     height: _markHeight,
                     child: SvgPicture.asset(
-                      BrandAssets.brandMarkSvg,
+                      // 点はアニメーションで落ちてくるので、マーク側には含めない
+                      BrandAssets.splashMarkSvg,
                       fit: BoxFit.fill,
                     ),
                   ),
@@ -172,6 +197,7 @@ class _SplashScreenState extends State<SplashScreen>
                       children: [
                         for (var i = 0; i < AppStrings.appTitle.length; i++)
                           Opacity(
+                            key: ValueKey('splash-char-$i'),
                             opacity: _progress(
                               nowMs,
                               _charSpans[i],
@@ -201,6 +227,7 @@ class _SplashScreenState extends State<SplashScreen>
                     width: dot.width,
                     height: dot.height,
                     child: const DecoratedBox(
+                      key: ValueKey('splash-dot'),
                       decoration: BoxDecoration(
                         color: AppColors.accentOrange,
                         shape: BoxShape.circle,

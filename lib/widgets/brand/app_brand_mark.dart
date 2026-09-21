@@ -11,7 +11,10 @@ import 'brand_assets.dart';
 class AppBrandMark extends StatelessWidget {
   const AppBrandMark({super.key, this.size = 32});
 
-  /// マークの一辺（論理ピクセル）。
+  /// Figma の BrandMark/Tight は 66 x 67.1。わずかに縦長。
+  static const double heightRatio = 67.1 / 66;
+
+  /// マークの幅（論理ピクセル）。高さは縦横比から決まる。
   final double size;
 
   @override
@@ -19,8 +22,8 @@ class AppBrandMark extends StatelessWidget {
     return SvgPicture.asset(
       BrandAssets.brandMarkSvg,
       width: size,
-      height: size,
-      fit: BoxFit.contain,
+      height: size * heightRatio,
+      fit: BoxFit.fill,
       placeholderBuilder: (_) => _FallbackMark(size: size),
     );
   }

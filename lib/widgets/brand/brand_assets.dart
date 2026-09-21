@@ -1,7 +1,10 @@
 /// ブランド Asset パス。すべて Figma から書き出したベクター。
 abstract final class BrandAssets {
-  /// ブランドマーク（円＋葉＋オレンジの点）。96×96 の viewBox。
+  /// ブランドマーク（円＋葉＋オレンジの点）。Figma の BrandMark/Tight。
   static const String brandMarkSvg = 'assets/brand/app_brand_mark.svg';
+
+  /// スプラッシュ用のマーク。オレンジの点を含まない（点は別途アニメーションする）。
+  static const String splashMarkSvg = 'assets/brand/splash_mark.svg';
 
   /// ログイン画面の背景（波・アーク・葉）。390×844 の viewBox。
   static const String loginBackgroundSvg = 'assets/brand/login_background.svg';

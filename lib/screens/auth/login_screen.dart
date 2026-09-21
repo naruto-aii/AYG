@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../constants/app_strings.dart';
 import '../../platform/web/in_app_browser_detector.dart';
@@ -10,15 +11,16 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/auth/auth_button.dart';
-import '../../widgets/brand/app_logo.dart';
+import '../../widgets/brand/app_brand_mark.dart';
 import '../../widgets/brand/brand_assets.dart';
-import '../../widgets/brand/login_background.dart';
-import '../../widgets/layout/app_form_constraint.dart';
-import '../../widgets/layout/app_responsive.dart';
+import '../../widgets/layout/design_canvas.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
 
-/// ログイン画面。レイアウトは Figma「01 ログイン」に準拠。
+/// ログイン画面。
+///
+/// レイアウトは Figma「01 ログイン」の 390×844 をそのまま座標で置き、
+/// [DesignCanvas] が画面サイズに合わせて丸ごと拡大縮小する。
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
@@ -36,33 +38,24 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // --- Figma 実測値（390×844 基準）-------------------------------------
-  /// 左右マージン。
-  static const double _sideMargin = 28;
+  // --- Figma「01 ログイン」実測値（390×844 基準）-----------------------
+  static const double _contentLeft = 28;
+  static const double _contentWidth = 335;
 
-  /// ステータスバー下からロゴ上端まで。
-  static const double _gapTopToLogo = 79;
+  static const double _markWidth = 130;
+  static const double _markTop = 126;
+  static const double _wordmarkTop = 266;
+  static const double _wordmarkSize = 40;
 
-  /// ロゴのマーク一辺。
-  static const double _logoMarkSize = 130;
+  static const double _taglineTop = 342;
+  static const double _descTop = 420;
 
-  /// 「カロナビ」の文字サイズ。
-  static const double _logoTitleSize = 40;
+  static const double _buttonTop = 518;
+  static const double _buttonGap = 13;
 
-  /// マークと「カロナビ」の間隔。
-  static const double _logoGap = 8;
-
-  /// ロゴ下端からタグラインまで。
-  static const double _gapLogoToTagline = 24;
-
-  /// タグラインから説明文まで。
-  static const double _gapTaglineToDesc = 18;
-
-  /// 説明文からボタンまで。
-  static const double _gapDescToButtons = 35;
-
-  /// ボタン同士の間隔。
-  static const double _gapBetweenButtons = 13;
+  static const double _consentTop = 762;
+  static const double _footerTop = 799;
+  static const double _footerHeight = 25;
 
   bool _isLoading = false;
 
@@ -96,6 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ).showSnackBar(const SnackBar(content: Text('Appleログインは準備中です（TODO）')));
   }
 
+  /// Web 固有の注意書き。通常は表示されない。
   List<Widget> _buildNotices() {
     final notices = <Widget>[];
     if (InAppBrowserDetector.shouldRecommendExternalBrowser) {
@@ -126,20 +120,43 @@ class _LoginScreenState extends State<LoginScreen> {
     return notices;
   }
 
+  Widget _buildLogo() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const AppBrandMark(size: _markWidth),
+        SizedBox(
+          height: _wordmarkTop - _markTop - _markWidth * AppBrandMark.heightRatio,
+        ),
+        Text(
+          AppStrings.appTitle,
+          textAlign: TextAlign.center,
+          style: AppTypography.headingXl.copyWith(
+            fontSize: _wordmarkSize,
+            height: 1.3,
+            letterSpacing: -_wordmarkSize * 0.025,
+            color: AppColors.textBrand,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildFooter(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _LegalLink(
           label: '利用規約',
           onTap: () => showLegalDocument(context, LegalDocument.terms),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('|', style: AppTypography.bodyS.copyWith(
-            color: AppColors.textMuted,
-          )),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Text(
+            '|',
+            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+          ),
         ),
         _LegalLink(
           label: 'プライバシーポリシー',
@@ -149,91 +166,108 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildContent(BuildContext context) {
-    final notices = _buildNotices();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (notices.isNotEmpty) ...[
-          ...notices,
-          const SizedBox(height: 16),
-        ],
-        const SizedBox(height: _gapTopToLogo),
-        const Center(
-          child: AppLogo(
-            vertical: true,
-            markSize: _logoMarkSize,
-            titleSize: _logoTitleSize,
-            gap: _logoGap,
-          ),
-        ),
-        const SizedBox(height: _gapLogoToTagline),
-        Text(
-          AppStrings.loginTaglineMultiline,
-          textAlign: TextAlign.center,
-          style: AppTypography.tagline,
-        ),
-        const SizedBox(height: _gapTaglineToDesc),
-        Text(
-          AppStrings.loginDescription,
-          textAlign: TextAlign.center,
-          style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-        ),
-        const SizedBox(height: _gapDescToButtons),
-        AuthButton(
-          label: AppStrings.loginWithGoogle,
-          background: AuthButtonStyles.googleBackground,
-          foreground: AuthButtonStyles.googleForeground,
-          markAssetPath: BrandAssets.googleMarkSvg,
-          markBackground: AppColors.cream0,
-          loading: _isLoading,
-          onPressed: _isLoading ? null : _signInWithGoogle,
-        ),
-        const SizedBox(height: _gapBetweenButtons),
-        AuthButton(
-          label: AppStrings.loginWithApple,
-          background: AuthButtonStyles.appleBackground,
-          foreground: AuthButtonStyles.appleForeground,
-          markAssetPath: BrandAssets.appleMarkSvg,
-          glyphSize: 24,
-          onPressed: _isLoading ? null : _signInWithApple,
-        ),
-        const SizedBox(height: 32),
-        _buildFooter(context),
-        const SizedBox(height: 8),
-        // Figma のログイン画面には無いが、法務上の同意表示なので残す。
-        Text(
-          AppStrings.loginLegalAgreement,
-          textAlign: TextAlign.center,
-          style: AppTypography.caption,
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: _sideMargin),
-      child: _buildContent(context),
-    );
+    final notices = _buildNotices();
 
     return Scaffold(
       backgroundColor: AppColors.bgPage,
-      body: Stack(
-        children: [
-          const LoginBackground(),
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Center(
-                child: isDesktopLayout(context)
-                    ? AppFormConstraint(child: content)
-                    : content,
+      body: DesignCanvas(
+        background: SvgPicture.asset(
+          BrandAssets.loginBackgroundSvg,
+          fit: BoxFit.fill,
+          placeholderBuilder: (_) => const SizedBox.shrink(),
+        ),
+        child: Stack(
+          children: [
+            // ロゴ（マーク＋カロナビ）
+            Positioned(
+              top: _markTop,
+              left: 0,
+              right: 0,
+              child: Center(child: _buildLogo()),
+            ),
+            // タグライン
+            Positioned(
+              top: _taglineTop,
+              left: _contentLeft,
+              width: _contentWidth,
+              child: Text(
+                AppStrings.loginTaglineMultiline,
+                textAlign: TextAlign.center,
+                style: AppTypography.tagline,
               ),
             ),
-          ),
-        ],
+            // 説明文
+            Positioned(
+              top: _descTop,
+              left: _contentLeft,
+              width: _contentWidth,
+              child: Text(
+                AppStrings.loginDescription,
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyS.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
+            // 認証ボタン
+            Positioned(
+              top: _buttonTop,
+              left: _contentLeft,
+              width: _contentWidth,
+              child: Column(
+                children: [
+                  AuthButton(
+                    label: AppStrings.loginWithGoogle,
+                    background: AuthButtonStyles.googleBackground,
+                    foreground: AuthButtonStyles.googleForeground,
+                    markAssetPath: BrandAssets.googleMarkSvg,
+                    markBackground: AppColors.cream0,
+                    loading: _isLoading,
+                    onPressed: _isLoading ? null : _signInWithGoogle,
+                  ),
+                  const SizedBox(height: _buttonGap),
+                  AuthButton(
+                    label: AppStrings.loginWithApple,
+                    background: AuthButtonStyles.appleBackground,
+                    foreground: AuthButtonStyles.appleForeground,
+                    markAssetPath: BrandAssets.appleMarkSvg,
+                    glyphSize: 24,
+                    onPressed: _isLoading ? null : _signInWithApple,
+                  ),
+                ],
+              ),
+            ),
+            // 同意文言（Figma には無いが法務表示として残す）
+            Positioned(
+              top: _consentTop,
+              left: _contentLeft,
+              width: _contentWidth,
+              child: Text(
+                AppStrings.loginLegalAgreement,
+                textAlign: TextAlign.center,
+                style: AppTypography.caption,
+              ),
+            ),
+            // 規約リンク
+            Positioned(
+              top: _footerTop,
+              left: 0,
+              right: 0,
+              height: _footerHeight,
+              child: _buildFooter(context),
+            ),
+            // Web 固有の注意書き
+            if (notices.isNotEmpty)
+              Positioned(
+                top: 47,
+                left: 8,
+                right: 8,
+                child: Column(mainAxisSize: MainAxisSize.min, children: notices),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -251,7 +285,7 @@ class _LegalLink extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(4),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
         child: Text(
           label,
           style: AppTypography.bodyS.copyWith(color: AppColors.textBrand),

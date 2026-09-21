@@ -245,8 +245,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   left: _contentLeft,
                   width: _contentWidth,
                   child: Text(
-                    AppStrings.loginLegalAgreement,
+                    AppStrings.loginLegalAgreementMultiline,
                     textAlign: TextAlign.center,
+                    maxLines: 2,
                     style: AppTypography.caption,
                   ),
                 ),

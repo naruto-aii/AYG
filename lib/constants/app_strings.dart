@@ -43,6 +43,11 @@ class AppStrings {
   static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で確認できます';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
 
+  /// ログイン画面の同意文言（Figma のとおり2行で固定表示）。
+  /// 端末ごとに折り返し位置が変わらないよう、改行位置を明示する。
+  static const loginLegalAgreementMultiline =
+      'ログインにより、利用規約とプライバシーポリシーに\n同意したものとします。';
+
 
   static const birthDate = '生年月日';
   static const gender = '性別';

@@ -16,7 +16,7 @@ abstract final class AppTheme {
       onPrimaryContainer: AppColors.primaryText,
       secondary: AppColors.accentOrange,
       onSecondary: AppColors.primaryText,
-      secondaryContainer: Color(0xFFFFE8CC),
+      secondaryContainer: AppColors.orange200,
       onSecondaryContainer: AppColors.primaryText,
       surface: AppColors.backgroundCream,
       onSurface: AppColors.primaryText,
@@ -31,6 +31,7 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      fontFamily: AppTypography.fontFamily,
       scaffoldBackgroundColor: AppColors.backgroundCream,
       textTheme: AppTypography.textTheme,
       appBarTheme: const AppBarTheme(
@@ -56,7 +57,7 @@ abstract final class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: AppTypography.buttonL,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -65,13 +66,13 @@ abstract final class AppTheme {
           minimumSize: const Size.fromHeight(52),
           side: const BorderSide(color: AppColors.borderGreen),
           shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: AppTypography.buttonL,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primaryGreen,
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          foregroundColor: AppColors.textBrand,
+          textStyle: AppTypography.link,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -83,7 +84,7 @@ abstract final class AppTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: AppRadius.input,
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: const BorderSide(color: AppColors.borderDefault),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.input,
@@ -96,8 +97,8 @@ abstract final class AppTheme {
             width: 1.5,
           ),
         ),
-        labelStyle: const TextStyle(color: AppColors.secondaryText),
-        hintStyle: const TextStyle(color: AppColors.secondaryText),
+        labelStyle: AppTypography.labelM,
+        hintStyle: AppTypography.bodyM.copyWith(color: AppColors.textMuted),
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 64,
@@ -147,7 +148,7 @@ abstract final class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.backgroundCream,
         selectedColor: AppColors.softGreen,
-        labelStyle: const TextStyle(color: AppColors.primaryText),
+        labelStyle: AppTypography.labelM.copyWith(color: AppColors.textPrimary),
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.chip,
           side: const BorderSide(color: AppColors.borderGreen),

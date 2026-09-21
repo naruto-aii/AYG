@@ -9,6 +9,16 @@ class AppStrings {
 
   static const loginTagline = '毎日の食事と運動を、やさしく見える化。';
 
+  /// ログイン画面のタグライン（Figma のとおり2行で表示）。
+  static const loginTaglineMultiline = '毎日の食事と運動を、\nやさしく見える化。';
+
+  /// ログイン画面の説明文（Figma のとおり3行で表示）。
+  static const loginDescription =
+      'がんばりすぎず、つづけられる。\nカロナビは、あなたの健康な毎日を\nやさしくサポートします。';
+
+  static const loginWithGoogle = 'Googleでログイン';
+  static const loginWithApple = 'Appleでログイン';
+
   /// 暫定アプリアイコン内の表示文字（正式アセット確定まで）。
   static const provisionalAppIconText = 'カ';
 

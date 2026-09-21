@@ -2,52 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../theme/app_colors.dart';
-import '../../theme/app_radius.dart';
 import 'brand_assets.dart';
 
-/// 暫定ブランドマーク（装飾SVGのみ。文字は [AppLogo] の Text で表示）。
+/// カロナビのブランドマーク（円＋葉＋オレンジの点）。
+///
+/// Figma の `BrandMark` コンポーネントをそのまま書き出したもの。
+/// 背景は透過なので、置いた場所の地色がそのまま見える。
 class AppBrandMark extends StatelessWidget {
-  const AppBrandMark({
-    super.key,
-    this.size = 32,
-    this.borderRadius = AppRadius.md,
-  });
+  const AppBrandMark({super.key, this.size = 32});
 
+  /// マークの一辺（論理ピクセル）。
   final double size;
-  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: SvgPicture.asset(
-        BrandAssets.brandMarkSvg,
-        width: size,
-        height: size,
-        placeholderBuilder: (_) =>
-            _FallbackMark(size: size, borderRadius: borderRadius),
-      ),
+    return SvgPicture.asset(
+      BrandAssets.brandMarkSvg,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      placeholderBuilder: (_) => _FallbackMark(size: size),
     );
   }
 }
 
+/// SVG 読み込み前／失敗時の代替表示。
 class _FallbackMark extends StatelessWidget {
-  const _FallbackMark({required this.size, required this.borderRadius});
+  const _FallbackMark({required this.size});
 
   final double size;
-  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      child: Icon(
+        Icons.eco_outlined,
         color: AppColors.primaryGreen,
-        borderRadius: BorderRadius.circular(borderRadius),
+        size: size * 0.8,
       ),
-      alignment: Alignment.center,
-      child: Icon(Icons.eco_outlined, color: Colors.white, size: size * 0.52),
     );
   }
 }

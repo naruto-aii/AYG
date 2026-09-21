@@ -9,6 +9,7 @@ class PrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.leading,
     this.loading = false,
     this.expand = true,
     this.trailingChevron = false,
@@ -17,6 +18,7 @@ class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
+  final Widget? leading;
   final bool loading;
   final bool expand;
   final bool trailingChevron;
@@ -35,7 +37,10 @@ class PrimaryButton extends StatelessWidget {
         : Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (icon != null) ...[
+              if (leading != null) ...[
+                leading!,
+                const SizedBox(width: 10),
+              ] else if (icon != null) ...[
                 Icon(icon, size: 22),
                 const SizedBox(width: 10),
               ],

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
@@ -11,10 +10,10 @@ import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
-import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/brand/app_logo.dart';
+import '../../widgets/brand/calonavi_icon.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -130,12 +129,6 @@ class HomeScreen extends StatelessWidget {
     return '$h:$m';
   }
 
-  String _goalSummaryLabel(Goal goal) {
-    final daysLeft = daysUntilGoalDate(goal.targetDate);
-    final daysText = daysLeft >= 0 ? 'あと $daysLeft 日' : '期限超過';
-    return '${goal.type.label} / 目標日まで$daysText';
-  }
-
   List<FoodEntry> _todayFoodEntries(List<FoodEntry> entries) {
     final now = DateTime.now();
     return entries
@@ -191,7 +184,7 @@ class HomeScreen extends StatelessWidget {
           body: SafeArea(
             child: AppContentConstraint(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.screenPadding),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -289,35 +282,9 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '今日のサマリー',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          _SummaryRow(
-                            label: '消費 kcal',
-                            value:
-                                '${summary.exerciseBurnKcal.toStringAsFixed(0)} kcal',
-                          ),
-                          _SummaryRow(
-                            label: '現在体重',
-                            value: '${profile.weightKg.toStringAsFixed(1)} kg',
-                          ),
-                          _SummaryRow(
-                            label: '目標',
-                            value: _goalSummaryLabel(goal),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
                     AppSectionHeader(
                       title: '今日の食事',
-                      actionLabel: onOpenHistoryCalendar != null ? '履歴' : null,
+                      actionLabel: onOpenHistoryCalendar != null ? 'すべて見る' : null,
                       onAction: onOpenHistoryCalendar,
                     ),
                     if (todayFood.isEmpty)
@@ -484,21 +451,21 @@ class _QuickActionsRow extends StatelessWidget {
         children: [
           Expanded(
             child: _QuickActionButton(
-              icon: Icons.restaurant_outlined,
+              icon: 'meal',
               label: '食事追加',
               onTap: onAddFood,
             ),
           ),
           Expanded(
             child: _QuickActionButton(
-              icon: Icons.directions_run_outlined,
+              icon: 'exercise',
               label: '運動追加',
               onTap: onAddWorkout,
             ),
           ),
           Expanded(
             child: _QuickActionButton(
-              icon: Icons.monitor_weight_outlined,
+              icon: 'scale',
               label: '体重記録',
               onTap: onRecordWeight,
             ),
@@ -516,7 +483,7 @@ class _QuickActionButton extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final String icon;
   final String label;
   final VoidCallback onTap;
 
@@ -530,7 +497,7 @@ class _QuickActionButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: AppColors.primaryGreen),
+            CalonaviIcon(icon, size: 18),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
@@ -546,33 +513,6 @@ class _QuickActionButton extends StatelessWidget {
             const Icon(Icons.chevron_right, size: 16, color: AppColors.iconMuted),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText),
-            ),
-          ),
-          Text(value, style: Theme.of(context).textTheme.bodyMedium),
-        ],
       ),
     );
   }

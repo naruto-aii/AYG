@@ -3,99 +3,98 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 /// カロナビ タイポグラフィ。Figma「Zen Maru Gothic」準拠。
+/// 日本語は行間を狭くしすぎない（潰れて文字化けに見えるため）。
 abstract final class AppTypography {
   static const String fontFamily = 'Zen Maru Gothic';
+  static const List<String> fontFamilyFallback = [
+    'Hiragino Maru Gothic ProN',
+    'Hiragino Sans',
+    'YuGothic',
+    'Noto Sans CJK JP',
+  ];
 
-  static const TextTheme textTheme = TextTheme(
-    displaySmall: TextStyle(
-      fontFamily: fontFamily,
+  static const TextStyle _base = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+  );
+
+  static TextTheme get textTheme => TextTheme(
+    displaySmall: _base.copyWith(
       fontSize: 34,
       fontWeight: FontWeight.w700,
       color: AppColors.textPrimary,
       height: 1.1,
       letterSpacing: -0.34,
     ),
-    headlineLarge: TextStyle(
-      fontFamily: fontFamily,
+    headlineLarge: _base.copyWith(
       fontSize: 28,
       fontWeight: FontWeight.w700,
       color: AppColors.textPrimary,
       height: 1.3,
       letterSpacing: -0.28,
     ),
-    headlineMedium: TextStyle(
-      fontFamily: fontFamily,
+    headlineMedium: _base.copyWith(
       fontSize: 24,
       fontWeight: FontWeight.w700,
       color: AppColors.textPrimary,
       height: 1.4,
       letterSpacing: -0.12,
     ),
-    headlineSmall: TextStyle(
-      fontFamily: fontFamily,
+    headlineSmall: _base.copyWith(
       fontSize: 20,
       fontWeight: FontWeight.w700,
       color: AppColors.textPrimary,
       height: 1.4,
     ),
-    titleLarge: TextStyle(
-      fontFamily: fontFamily,
+    titleLarge: _base.copyWith(
       fontSize: 18,
       fontWeight: FontWeight.w700,
       color: AppColors.textPrimary,
       height: 1.5,
     ),
-    titleMedium: TextStyle(
-      fontFamily: fontFamily,
+    titleMedium: _base.copyWith(
       fontSize: 16,
       fontWeight: FontWeight.w700,
       color: AppColors.textPrimary,
       height: 1.5,
     ),
-    titleSmall: TextStyle(
-      fontFamily: fontFamily,
+    titleSmall: _base.copyWith(
       fontSize: 15,
       fontWeight: FontWeight.w700,
       color: AppColors.textPrimary,
       height: 1.5,
     ),
-    bodyLarge: TextStyle(
-      fontFamily: fontFamily,
+    bodyLarge: _base.copyWith(
       fontSize: 16,
       fontWeight: FontWeight.w400,
       color: AppColors.textSecondary,
       height: 1.7,
     ),
-    bodyMedium: TextStyle(
-      fontFamily: fontFamily,
+    bodyMedium: _base.copyWith(
       fontSize: 15,
       fontWeight: FontWeight.w400,
       color: AppColors.textPrimary,
       height: 1.7,
     ),
-    bodySmall: TextStyle(
-      fontFamily: fontFamily,
+    bodySmall: _base.copyWith(
       fontSize: 13,
       fontWeight: FontWeight.w400,
       color: AppColors.textMuted,
       height: 1.6,
     ),
-    labelLarge: TextStyle(
-      fontFamily: fontFamily,
+    labelLarge: _base.copyWith(
       fontSize: 13,
       fontWeight: FontWeight.w500,
       color: AppColors.textSecondary,
       height: 1.4,
     ),
-    labelMedium: TextStyle(
-      fontFamily: fontFamily,
+    labelMedium: _base.copyWith(
       fontSize: 12,
       fontWeight: FontWeight.w500,
       color: AppColors.textMuted,
       height: 1.4,
     ),
-    labelSmall: TextStyle(
-      fontFamily: fontFamily,
+    labelSmall: _base.copyWith(
       fontSize: 11,
       fontWeight: FontWeight.w400,
       color: AppColors.textMuted,
@@ -104,18 +103,20 @@ abstract final class AppTypography {
   );
 
   static TextStyle heroValue(BuildContext context) {
-    return Theme.of(context).textTheme.displaySmall!.copyWith(
+    return _base.copyWith(
       color: AppColors.textPrimary,
       fontSize: 36,
       fontWeight: FontWeight.w700,
-      height: 1.1,
+      height: 1.0,
     );
   }
 
   static TextStyle heroLabel(BuildContext context) {
-    return Theme.of(context).textTheme.titleSmall!.copyWith(
+    return _base.copyWith(
       color: AppColors.textMuted,
+      fontSize: 15,
       fontWeight: FontWeight.w500,
+      height: 1.5,
     );
   }
 
@@ -134,8 +135,7 @@ abstract final class AppTypography {
   }
 
   static TextStyle buttonLarge(BuildContext context) {
-    return const TextStyle(
-      fontFamily: fontFamily,
+    return _base.copyWith(
       fontSize: 17,
       fontWeight: FontWeight.w700,
       height: 1.2,
@@ -147,12 +147,12 @@ abstract final class AppTypography {
     BuildContext context, {
     required double markSize,
   }) {
-    final fontSize = (markSize * 0.42).clamp(20.0, 34.0);
-    return Theme.of(context).textTheme.headlineSmall!.copyWith(
+    final fontSize = markSize >= 100 ? 28.0 : 20.0;
+    return _base.copyWith(
       color: AppColors.textBrand,
       fontSize: fontSize,
       fontWeight: FontWeight.w700,
-      height: 1.1,
+      height: 1.3,
       letterSpacing: 0,
     );
   }

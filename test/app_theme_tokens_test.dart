@@ -13,8 +13,13 @@ void main() {
     expect(AppColors.backgroundCream, AppColors.bgPage);
   });
 
-  test('typography uses Zen Maru Gothic', () {
+  test('typography uses Zen Maru Gothic with Japanese fallback', () {
     expect(AppTypography.fontFamily, 'Zen Maru Gothic');
     expect(AppTypography.textTheme.headlineLarge?.fontFamily, 'Zen Maru Gothic');
+    expect(
+      AppTypography.textTheme.headlineLarge?.fontFamilyFallback,
+      contains('Hiragino Sans'),
+    );
+    expect(AppTypography.textTheme.headlineLarge?.height, 1.3);
   });
 }

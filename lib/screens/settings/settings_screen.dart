@@ -83,6 +83,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.person_outline,
+                iconName: 'user',
                 title: AppStrings.settingsLoggedInAs,
                 subtitle: email ?? AppStrings.settingsLoggedInSubtitle,
                 onTap: null,
@@ -91,6 +92,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.badge_outlined,
+                iconName: 'document',
                 title: AppStrings.settingsBasicInfo,
                 subtitle: AppStrings.settingsBasicInfoSubtitle,
                 onTap: () {
@@ -106,6 +108,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.flag_outlined,
+                iconName: 'goal',
                 title: AppStrings.settingsGoal,
                 subtitle: AppStrings.settingsGoalSubtitle,
                 onTap: () {
@@ -121,6 +124,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.directions_run_outlined,
+                iconName: 'exercise',
                 title: AppStrings.settingsHealthActivity,
                 subtitle: hideHealthSettings
                     ? AppStrings.webHealthUnavailable
@@ -143,6 +147,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.restaurant_outlined,
+                iconName: 'meal',
                 title: AppStrings.settingsFoodMaster,
                 subtitle: AppStrings.settingsFoodMasterSubtitle,
                 onTap: () {
@@ -160,6 +165,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.calculate_outlined,
+                iconName: 'calculator',
                 title: AppStrings.settingsCalculation,
                 subtitle: AppStrings.settingsCalculationSubtitle,
                 onTap: () {
@@ -175,6 +181,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.workspace_premium_outlined,
+                iconName: 'calorie',
                 title: AppStrings.plusTitle,
                 subtitle: controller.isCalonaviPlusActive
                     ? AppStrings.plusActive
@@ -188,6 +195,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.description_outlined,
+                iconName: 'document',
                 title: '利用規約',
                 subtitle: 'サービスのご利用条件',
                 onTap: () => showLegalDocument(context, LegalDocument.terms),
@@ -196,6 +204,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.privacy_tip_outlined,
+                iconName: 'shield',
                 title: 'プライバシーポリシー',
                 onTap: () => showLegalDocument(context, LegalDocument.privacy),
               ),
@@ -203,6 +212,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.receipt_long_outlined,
+                iconName: 'document',
                 title: AppStrings.settingsTokushoho,
                 onTap: () =>
                     showLegalDocument(context, LegalDocument.tokushoho),
@@ -211,6 +221,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.help_outline,
+                iconName: 'information',
                 title: AppStrings.settingsSupport,
                 onTap: () =>
                     showLegalDocument(context, LegalDocument.support),
@@ -219,6 +230,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.person_off_outlined,
+                iconName: 'trash',
                 title: AppStrings.settingsAccountDeletion,
                 subtitle: AppStrings.settingsAccountDeletionSubtitle,
                 onTap: () {
@@ -238,6 +250,7 @@ class SettingsScreen extends StatelessWidget {
                 SettingsListTile(
                   asCard: true,
                   icon: Icons.mail_outline,
+                  iconName: 'mail',
                   title: AppStrings.settingsContactOperator,
                   subtitle: contactEmail,
                   onTap: () => _openUrl(context, 'mailto:$contactEmail'),
@@ -247,6 +260,7 @@ class SettingsScreen extends StatelessWidget {
               SettingsListTile(
                 asCard: true,
                 icon: Icons.logout,
+                iconName: 'logout',
                 title: AppStrings.settingsLogout,
                 destructive: true,
                 onTap: () => _logout(context),

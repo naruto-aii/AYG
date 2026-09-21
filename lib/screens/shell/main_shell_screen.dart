@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_colors.dart';
+import '../../widgets/navigation/calonavi_tab_bar.dart';
 import '../../widgets/layout/app_responsive.dart';
 import '../../widgets/layout/app_sidebar_navigation.dart';
 import '../food/food_form_navigation.dart';
@@ -107,40 +106,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        elevation: 0,
-        height: 72,
-        backgroundColor: AppColors.accentOrange,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        onDestinationSelected: _selectTab,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: AppStrings.navHome,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.restaurant_outlined),
-            selectedIcon: Icon(Icons.restaurant),
-            label: AppStrings.navFood,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.fitness_center_outlined),
-            selectedIcon: Icon(Icons.fitness_center),
-            label: AppStrings.navWorkout,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.monitor_weight_outlined),
-            selectedIcon: Icon(Icons.monitor_weight),
-            label: AppStrings.navWeight,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: AppStrings.navSettings,
-          ),
-        ],
+      bottomNavigationBar: CalonaviTabBar(
+        screenIndex: _selectedIndex,
+        onSelectScreen: _selectTab,
       ),
     );
   }

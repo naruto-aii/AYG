@@ -73,6 +73,7 @@ flutter:
 
   assets:
     - assets/brand/
+    - assets/icons/
     - legal/terms.html
     - legal/privacy.html
     - legal/support.html

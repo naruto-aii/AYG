@@ -19,7 +19,8 @@ class DesignTabItem {
 /// Figma: 画面下部のオレンジのタブバー。
 ///
 /// 選択中のタブだけがバーから丸く浮き上がり、バー側はその形に切り抜かれる。
-class DesignTabBar extends StatelessWidget {
+/// タブを変えると、切り欠きと丸が隣のタブまで滑らかに移動する。
+class DesignTabBar extends StatefulWidget {
   const DesignTabBar({
     super.key,
     required this.selectedIndex,
@@ -51,72 +52,130 @@ class DesignTabBar extends StatelessWidget {
   static const double _raisedRadius = 26;
   static const double _raisedTop = 3;
 
-  static double _centerXOf(int index) => _firstCenterX + _stepX * index;
+  /// タブを移るときの所要時間。
+  static const Duration moveDuration = Duration(milliseconds: 280);
+
+  static double centerXOf(int index) => _firstCenterX + _stepX * index;
+
+  @override
+  State<DesignTabBar> createState() => _DesignTabBarState();
+}
+
+class _DesignTabBarState extends State<DesignTabBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _centerX;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: DesignTabBar.moveDuration,
+    );
+    final start = DesignTabBar.centerXOf(widget.selectedIndex);
+    _centerX = AlwaysStoppedAnimation<double>(start);
+  }
+
+  @override
+  void didUpdateWidget(DesignTabBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex == widget.selectedIndex) {
+      return;
+    }
+    // 今いる位置から次のタブへ。連打されても途中から繋がる。
+    _centerX = Tween<double>(
+      begin: _centerX.value,
+      end: DesignTabBar.centerXOf(widget.selectedIndex),
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final items = widget.items;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     // Figma のバーは 80pt の中にホームインジケータ領域まで含んでいる。
     // 端末側の逃げがそれより大きいときだけ足りない分を伸ばす。
-    final height = barHeight + math.max(0.0, bottomInset - 34);
-    final activeCenterX = _centerXOf(selectedIndex);
+    final height = DesignTabBar.barHeight + math.max(0.0, bottomInset - 34);
 
     return SizedBox(
       height: height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _TabBarShapePainter(activeCenterX: activeCenterX),
-            ),
-          ),
-          Positioned(
-            left: activeCenterX - _raisedRadius,
-            top: _raisedTop,
-            child: Container(
-              width: _raisedRadius * 2,
-              height: _raisedRadius * 2,
-              decoration: BoxDecoration(
-                color: AppColors.green700,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.green700.withValues(alpha: 0.55),
-                    blurRadius: 10,
-                  ),
-                ],
+      child: AnimatedBuilder(
+        animation: _centerX,
+        builder: (context, child) {
+          final activeCenterX = _centerX.value;
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _TabBarShapePainter(activeCenterX: activeCenterX),
+                ),
               ),
-            ),
-          ),
-          for (var i = 0; i < items.length; i++)
-            Positioned(
-              left: _centerXOf(i) - _stepX / 2,
-              top: 0,
-              width: _stepX,
-              height: _iconTop + _iconSize + 6,
-              child: Semantics(
-                label: items[i].label,
-                selected: i == selectedIndex,
-                button: true,
-                child: InkResponse(
-                  onTap: () => onSelected(i),
-                  radius: 32,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: _iconTop),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: AppIcon(
-                        items[i].icon,
-                        size: _iconSize,
-                        color: AppColors.cream0,
+              Positioned(
+                left: activeCenterX - DesignTabBar._raisedRadius,
+                top: DesignTabBar._raisedTop,
+                child: Container(
+                  width: DesignTabBar._raisedRadius * 2,
+                  height: DesignTabBar._raisedRadius * 2,
+                  decoration: BoxDecoration(
+                    color: AppColors.green700,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.green700.withValues(alpha: 0.55),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              ?child,
+            ],
+          );
+        },
+        // アイコンは動かないので、毎フレーム作り直さない。
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (var i = 0; i < items.length; i++)
+              Positioned(
+                left: DesignTabBar.centerXOf(i) - DesignTabBar._stepX / 2,
+                top: 0,
+                width: DesignTabBar._stepX,
+                height: DesignTabBar._iconTop + DesignTabBar._iconSize + 6,
+                child: Semantics(
+                  label: items[i].label,
+                  selected: i == widget.selectedIndex,
+                  button: true,
+                  child: InkResponse(
+                    onTap: () => widget.onSelected(i),
+                    radius: 32,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        top: DesignTabBar._iconTop,
+                      ),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: AppIcon(
+                          items[i].icon,
+                          size: DesignTabBar._iconSize,
+                          color: AppColors.cream0,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -6,6 +6,9 @@
 import 'package:flutter/material.dart';
 
 import 'models/activity_level.dart';
+import 'models/alcohol_entry.dart';
+import 'models/exercise_entry.dart';
+import 'models/food_entry.dart';
 import 'models/goal.dart';
 import 'models/health_profile_data.dart';
 import 'models/nutrition_settings.dart';
@@ -16,6 +19,7 @@ import 'screens/onboarding/activity_level_screen.dart';
 import 'screens/onboarding/basic_info_screen.dart';
 import 'screens/onboarding/goal_setup_screen.dart';
 import 'screens/onboarding/health_setup_screen.dart';
+import 'screens/shell/main_shell_screen.dart';
 import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'theme/app_colors.dart';
@@ -50,7 +54,77 @@ void main() {
       ),
     );
 
+  _seedToday(controller);
+
   runApp(DesignPreviewApp(controller: controller));
+}
+
+/// 画面の見た目を確認するための当日ぶんのダミー記録。
+void _seedToday(AppController controller) {
+  DateTime at(int hour, int minute) {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour, minute);
+  }
+
+  controller
+    ..addFood(
+      FoodEntry(
+        id: 'preview-food-1',
+        name: 'オートミール（バナナ・ナッツ）',
+        quantity: 1,
+        kcalPerUnit: 320,
+        proteinPerUnit: 12,
+        fatPerUnit: 9,
+        carbPerUnit: 48,
+        loggedAt: at(7, 30),
+      ),
+    )
+    ..addFood(
+      FoodEntry(
+        id: 'preview-food-2',
+        name: '鶏むね肉のサラダ',
+        quantity: 1,
+        kcalPerUnit: 480,
+        proteinPerUnit: 42,
+        fatPerUnit: 18,
+        carbPerUnit: 24,
+        loggedAt: at(12, 15),
+      ),
+    )
+    ..addFood(
+      FoodEntry(
+        id: 'preview-food-3',
+        name: '鮭おにぎり',
+        quantity: 1,
+        kcalPerUnit: 230,
+        proteinPerUnit: 7,
+        fatPerUnit: 3,
+        carbPerUnit: 44,
+        loggedAt: at(18, 20),
+      ),
+    )
+    ..addAlcohol(
+      AlcoholEntry(
+        id: 'preview-alcohol-1',
+        beverageName: 'ビール（中ジョッキ）',
+        amount: 500,
+        unit: 'ml',
+        alcoholPercentage: 5,
+        pureAlcoholGrams: 20,
+        alcoholCalories: 140,
+        totalCalories: 200,
+        consumedAt: at(19, 0),
+      ),
+    )
+    ..addExercise(
+      ExerciseEntry(
+        id: 'preview-exercise-1',
+        name: 'ウォーキング（30分）',
+        durationMin: 30,
+        burnedKcal: 120,
+        loggedAt: at(8, 0),
+      ),
+    );
 }
 
 class DesignPreviewApp extends StatelessWidget {
@@ -89,6 +163,15 @@ class DesignPreviewApp extends StatelessWidget {
           controller: controller,
           openFoodFactsService: openFoodFactsService,
           authenticationRepository: authenticationRepository,
+        ),
+      ),
+      _PreviewEntry(
+        '05 ホーム（タブバー込み）',
+        () => MainShellScreen(
+          controller: controller,
+          openFoodFactsService: openFoodFactsService,
+          authenticationRepository: authenticationRepository,
+          healthRepository: healthRepository,
         ),
       ),
       _PreviewEntry(

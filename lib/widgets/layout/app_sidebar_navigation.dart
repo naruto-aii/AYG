@@ -16,21 +16,22 @@ class AppSidebarNavigation extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
 
+  /// Figma のタブ順（ホームが中央）に合わせる。
   static const _destinations = [
-    (
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home,
-      label: AppStrings.navHome,
-    ),
     (
       icon: Icons.restaurant_outlined,
       selectedIcon: Icons.restaurant,
       label: AppStrings.navFood,
     ),
     (
-      icon: Icons.fitness_center_outlined,
-      selectedIcon: Icons.fitness_center,
+      icon: Icons.directions_run_outlined,
+      selectedIcon: Icons.directions_run,
       label: AppStrings.navWorkout,
+    ),
+    (
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+      label: AppStrings.navHome,
     ),
     (
       icon: Icons.monitor_weight_outlined,

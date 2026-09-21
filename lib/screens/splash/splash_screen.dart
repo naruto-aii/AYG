@@ -31,12 +31,16 @@ class _SplashScreenState extends State<SplashScreen>
   /// ブランドマークの実描画サイズと中心。
   static const double _markWidth = 150;
   static const double _markHeight = 152;
-  static const Offset _markCenter = Offset(195, 422);
+  /// Figma はマーク単体の中心を画面の縦中央(422)に置いているが、その下に
+  /// 文字が来るぶん「マーク＋文字」のかたまりで見ると 32 px 下寄りになる。
+  /// かたまりの中心が画面中央に来るよう、全体を上へずらす。
+  static const double _groupShiftY = 32;
+  static const Offset _markCenter = Offset(195, 422 - _groupShiftY);
 
   /// 「カロナビ」1文字ぶんの送り幅と、文字ブロックの左上。
   static const double _charAdvance = 40;
   static const double _charFontSize = 40;
-  static const Offset _wordTopLeft = Offset(115, 524);
+  static const Offset _wordTopLeft = Offset(115, 524 - _groupShiftY);
   static const double _wordHeight = 58;
 
   // --- タイムライン（ミリ秒）-------------------------------------------

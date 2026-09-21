@@ -66,10 +66,28 @@ void main() {
       expect(authRepository.isAuthenticated, isFalse);
     });
 
-    test('loginWithApple is not implemented', () {
+    test('loginWithApple authenticates the user', () async {
+      await authRepository.loginWithApple();
+
+      expect(authRepository.loginWithAppleCalled, isTrue);
+      expect(authRepository.isAuthenticated, isTrue);
+    });
+
+    test('loginWithApple surfaces cancellation', () {
+      authRepository.simulateAppleSignInCancelled = true;
+
       expect(
         authRepository.loginWithApple(),
-        throwsA(isA<UnimplementedError>()),
+        throwsA(isA<AppleSignInCancelledException>()),
+      );
+    });
+
+    test('loginWithApple surfaces failure', () {
+      authRepository.simulateAppleSignInFailure = true;
+
+      expect(
+        authRepository.loginWithApple(),
+        throwsA(isA<AppleSignInFailedException>()),
       );
     });
   });

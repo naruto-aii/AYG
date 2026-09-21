@@ -59,34 +59,43 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
 
-  Future<void> _signInWithGoogle() async {
+  Future<void> _signInWithGoogle() =>
+      _signIn(widget.authenticationRepository.loginWithGoogle, 'Google');
+
+  Future<void> _signInWithApple() =>
+      _signIn(widget.authenticationRepository.loginWithApple, 'Apple');
+
+  /// Google / Apple 共通のログイン処理。
+  /// キャンセルは何も出さず、失敗だけ通知する。
+  Future<void> _signIn(Future<void> Function() login, String label) async {
+    if (_isLoading) {
+      return;
+    }
     setState(() => _isLoading = true);
     try {
-      await widget.authenticationRepository.loginWithGoogle();
+      await login();
       if (kIsWeb) {
+        // Web は外部ブラウザへ遷移するので、戻ってきたときに復帰する。
         return;
       }
       await widget.controller.handleAuthenticatedSession();
-    } on GoogleSignInCancelledException {
+    } on SignInCancelledException {
       return;
     } catch (error) {
       if (!mounted) {
         return;
       }
+      final message = error is SignInFailedException
+          ? error.message
+          : error.toString();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Googleログインに失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text('$labelログインに失敗しました: $message')));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  Future<void> _signInWithApple() async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Appleログインは準備中です（TODO）')));
   }
 
   /// Web 固有の注意書き。通常は表示されない。

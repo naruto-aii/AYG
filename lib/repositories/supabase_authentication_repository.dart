@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -102,12 +106,72 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     }
   }
 
+  /// Apple ID でログインする。
+  ///
+  /// - iOS / macOS: OS 標準のシートを出し、受け取った ID トークンで Supabase に
+  ///   サインインする。Xcode で "Sign in with Apple" の Capability が必要。
+  /// - それ以外（Web / Android）: Supabase の OAuth リダイレクトを使う。
+  ///   Supabase 側で Apple プロバイダの設定が必要。
   @override
   Future<void> loginWithApple() async {
-    throw UnimplementedError(
-      'Apple Sign-In will be implemented in a later phase.',
-    );
+    if (kIsWeb || !_supportsNativeApple) {
+      final launched = await _client.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: WebAuthConfig.redirectUrl,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw AppleSignInFailedException(
+          'Could not launch Apple sign-in browser.',
+        );
+      }
+      return;
+    }
+
+    // リプレイ攻撃を防ぐため、生の nonce を Supabase に、
+    // その SHA-256 を Apple に渡す。
+    final rawNonce = _client.auth.generateRawNonce();
+    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+    final AuthorizationCredentialAppleID credential;
+    try {
+      credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+    } on SignInWithAppleAuthorizationException catch (error) {
+      if (error.code == AuthorizationErrorCode.canceled) {
+        throw AppleSignInCancelledException();
+      }
+      throw AppleSignInFailedException(error.message);
+    } on SignInWithAppleException catch (error) {
+      throw AppleSignInFailedException(error.toString());
+    }
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw AppleSignInFailedException('Apple ID token is missing.');
+    }
+
+    try {
+      await _client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        nonce: rawNonce,
+      );
+    } on AuthException catch (error) {
+      throw AppleSignInFailedException(error.message);
+    }
   }
+
+  /// OS 標準のシートが使えるか（iOS / macOS のみ）。
+  bool get _supportsNativeApple =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   @override
   Future<void> logout() async {
@@ -141,9 +205,7 @@ class UnconfiguredAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> loginWithApple() async {
-    throw UnimplementedError(
-      'Apple Sign-In will be implemented in a later phase.',
-    );
+    throw StateError('Supabase is not configured.');
   }
 
   @override

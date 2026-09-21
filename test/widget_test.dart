@@ -118,6 +118,99 @@ void main() {
     await authRepository.dispose();
   });
 
+  testWidgets('Apple login success navigates away from LoginScreen', (
+    WidgetTester tester,
+  ) async {
+    final openFoodFactsService = createOpenFoodFactsService();
+    final healthRepository = MockHealthRepository(isAvailable: false);
+    final authRepository = MockAuthenticationRepository();
+    final dataSyncRepository = MockDataSyncRepository();
+    final controller = AppController(
+      healthRepository: healthRepository,
+      authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
+    );
+
+    await tester.pumpWidget(
+      AygApp(
+        controller: controller,
+        openFoodFactsService: openFoodFactsService,
+        healthRepository: healthRepository,
+        authenticationRepository: authRepository,
+      ),
+    );
+
+    await tester.tap(find.text('Appleでログイン'));
+    await tester.pumpAndSettle();
+
+    expect(authRepository.loginWithAppleCalled, isTrue);
+    expect(find.text('Appleでログイン'), findsNothing);
+    expect(authRepository.isAuthenticated, isTrue);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('Apple login cancel does not show failure snackbar', (
+    WidgetTester tester,
+  ) async {
+    final openFoodFactsService = createOpenFoodFactsService();
+    final healthRepository = MockHealthRepository(isAvailable: false);
+    final authRepository = MockAuthenticationRepository()
+      ..simulateAppleSignInCancelled = true;
+    final controller = AppController(
+      healthRepository: healthRepository,
+      authenticationRepository: authRepository,
+      dataSyncRepository: MockDataSyncRepository(),
+    );
+
+    await tester.pumpWidget(
+      AygApp(
+        controller: controller,
+        openFoodFactsService: openFoodFactsService,
+        healthRepository: healthRepository,
+        authenticationRepository: authRepository,
+      ),
+    );
+
+    await tester.tap(find.text('Appleでログイン'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Appleでログイン'), findsOneWidget);
+    expect(find.textContaining('Appleログインに失敗しました'), findsNothing);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('Apple login failure shows snackbar', (
+    WidgetTester tester,
+  ) async {
+    final openFoodFactsService = createOpenFoodFactsService();
+    final healthRepository = MockHealthRepository(isAvailable: false);
+    final authRepository = MockAuthenticationRepository()
+      ..simulateAppleSignInFailure = true;
+    final controller = AppController(
+      healthRepository: healthRepository,
+      authenticationRepository: authRepository,
+      dataSyncRepository: MockDataSyncRepository(),
+    );
+
+    await tester.pumpWidget(
+      AygApp(
+        controller: controller,
+        openFoodFactsService: openFoodFactsService,
+        healthRepository: healthRepository,
+        authenticationRepository: authRepository,
+      ),
+    );
+
+    await tester.tap(find.text('Appleでログイン'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Appleログインに失敗しました'), findsOneWidget);
+
+    await authRepository.dispose();
+  });
+
   testWidgets('Google login failure shows snackbar', (
     WidgetTester tester,
   ) async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,8 +31,6 @@ import '../repositories/local_session_store.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase/supabase_food_rating_repository.dart';
 import '../repositories/supabase/supabase_food_report_repository.dart';
-import '../repositories/supabase/supabase_meal_template_repository.dart';
-import '../repositories/supabase/supabase_saved_food_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../platform/web/resilient_auth_local_storage.dart';
 import '../services/open_food_facts_service.dart';
@@ -212,27 +212,11 @@ Future<void> bootstrapWebApp() async {
       debugPrint('[AYG Web] controller.initialize');
     }
 
-    try {
-      await controller.initialize();
-      diagnostics.authRestore = authenticationRepository.isAuthenticated
-          ? 'success'
-          : 'no session';
-      diagnostics.initialSync = controller.hasInitialSyncCompleted
-          ? 'success'
-          : controller.lastSyncFailed
-          ? 'failed'
-          : 'skipped';
-    } catch (error, stackTrace) {
-      diagnostics.lastErrorCode = WebInitErrorCode.initControllerFailed.code;
-      diagnostics.authRestore = 'failed';
-      if (kDebugMode) {
-        debugPrint('[AYG Web] controller.initialize failed: $error');
-        debugPrintStack(stackTrace: stackTrace);
-      }
-      // コントローラ初期化失敗でもログイン画面へ進める。
-    }
-
-    _logDiagnostics(diagnostics, 'controller');
+    // セッション復元と初回同期を待ってから runApp すると、その間ずっと
+    // 白い画面になる。初期化は走らせるだけにして先に画面を出し、待ち時間は
+    // アプリ側の読み込み表示に任せる。initialize() は最初の await より前で
+    // isInitializing を立てるので、ログイン画面が一瞬見えることはない。
+    final initialization = controller.initialize();
 
     if (kDebugMode) {
       debugPrint('[AYG Web] runApp');
@@ -247,6 +231,32 @@ Future<void> bootstrapWebApp() async {
         authStorageAvailable: diagnostics.authStorageAvailable,
         showSplash: true,
       ),
+    );
+
+    unawaited(
+      initialization
+          .then((_) {
+            diagnostics.authRestore = authenticationRepository.isAuthenticated
+                ? 'success'
+                : 'no session';
+            diagnostics.initialSync = controller.hasInitialSyncCompleted
+                ? 'success'
+                : controller.lastSyncFailed
+                ? 'failed'
+                : 'skipped';
+            _logDiagnostics(diagnostics, 'controller');
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            diagnostics.lastErrorCode =
+                WebInitErrorCode.initControllerFailed.code;
+            diagnostics.authRestore = 'failed';
+            if (kDebugMode) {
+              debugPrint('[AYG Web] controller.initialize failed: $error');
+              debugPrintStack(stackTrace: stackTrace);
+            }
+            // コントローラ初期化失敗でもログイン画面へ進める。
+            _logDiagnostics(diagnostics, 'controller');
+          }),
     );
   } on WebInitException catch (error, stackTrace) {
     if (kDebugMode) {

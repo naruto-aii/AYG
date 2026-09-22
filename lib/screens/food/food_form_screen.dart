@@ -34,7 +34,6 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/food_parts.dart';
-import '../../widgets/design/settings_row.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/food/food_form_suggestion_list.dart';
@@ -435,10 +434,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
-  Future<void> _openTemplateCreate() {
-    return openFoodTemplateCreate(context, widget.controller);
-  }
-
   Future<void> _saveAsTemplate() async {
     final draft = _buildTemplateItemDraft();
     if (draft == null) {
@@ -717,35 +712,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             if (!widget.isEditing) ...[
               const SizedBox(height: 10),
               _barcodeCard(),
-              const SizedBox(height: 10),
-              SettingsRow(
-                icon: AppIcons.bookmark,
-                title: '保存食品から追加',
-                subtitle: '登録済みの食品から選んで追加',
-                onTap: _openMyFoods,
-              ),
-              const SizedBox(height: 8),
-              SettingsRow(
-                icon: AppIcons.search,
-                title: '公開食品から追加',
-                subtitle: 'みんなが登録した食品から検索して追加',
-                onTap: _openPublicFoodSearch,
-              ),
-              const SizedBox(height: 8),
-              SettingsRow(
-                icon: AppIcons.template,
-                title: 'テンプレートから追加',
-                subtitle: 'よく食べる組み合わせを一括で追加',
-                onTap: _openTemplatePicker,
-              ),
-              const SizedBox(height: 8),
-              // Figma にはないが、テンプレート作成の導線を残すために置いている。
-              SettingsRow(
-                icon: AppIcons.pen,
-                title: 'テンプレートを作成',
-                subtitle: 'よく食べる組み合わせを登録しておく',
-                onTap: _openTemplateCreate,
-              ),
             ],
             if (widget.isEditing) ...[
               const SizedBox(height: 16),

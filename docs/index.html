@@ -3,61 +3,375 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>今日、あと何kcalか。｜カロナビ（カロリー・食事・運動のエネルギー管理）</title>
     <meta
       name="description"
-      content="食事・運動・体重をまとめて、毎日の次の一手を短くするエネルギー管理アプリ「カロナビ」"
+      content="カロナビは、食事・運動・体重をまとめて「今日あと何kcalか」から次の一手を短くするエネルギー管理アプリ。記録で終わらない判断支援。診断アプリではありません。"
     />
-    <meta name="theme-color" content="#145c40" />
-    <title>今日、あと何kcalか。｜カロナビ</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23145c40'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23f4f1eb'/%3E%3C/svg%3E" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#14522f" />
+    <link rel="canonical" href="https://naruto-aii.github.io/AYG/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:site_name" content="カロナビ" />
+    <meta property="og:url" content="https://naruto-aii.github.io/AYG/" />
+    <meta
+      property="og:title"
+      content="今日、あと何kcalか。｜カロナビ（カロリー・食事・運動のエネルギー管理）"
+    />
+    <meta
+      property="og:description"
+      content="カロナビは、食事・運動・体重をまとめて「今日あと何kcalか」から次の一手を短くするエネルギー管理アプリ。記録で終わらない判断支援。診断アプリではありません。"
+    />
+    <meta
+      property="og:image"
+      content="https://naruto-aii.github.io/AYG/assets/lp/illust-01-og.png"
+    />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="カロナビのホームで今日あと何kcalかを表示しているイメージ"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="今日、あと何kcalか。｜カロナビ（カロリー・食事・運動のエネルギー管理）"
+    />
+    <meta
+      name="twitter:description"
+      content="カロナビは、食事・運動・体重をまとめて「今日あと何kcalか」から次の一手を短くするエネルギー管理アプリ。記録で終わらない判断支援。診断アプリではありません。"
+    />
+    <meta
+      name="twitter:image"
+      content="https://naruto-aii.github.io/AYG/assets/lp/illust-01-og.png"
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314522f'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23fef9ee'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&amp;display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "name": "カロナビ",
+            "applicationCategory": "HealthApplication",
+            "operatingSystem": "iOS",
+            "url": "https://naruto-aii.github.io/AYG/",
+            "inLanguage": "ja",
+            "image": "https://naruto-aii.github.io/AYG/assets/lp/illust-01-og.png",
+            "description": "カロナビは、食事・運動・体重をまとめて見るエネルギー管理アプリです。中心機能は「今日あと何kcalか」とPFCの目安で、毎日の次の一手を短くすることです。診断や治療のためのアプリではありません。有料オプション「カロナビ+」の予定価格は月額480円／年額4,800円で、最終は App Store の購入画面表示が正です。",
+            "offers": [
+              {
+                "@type": "Offer",
+                "name": "カロナビ+（月額・予定）",
+                "price": "480",
+                "priceCurrency": "JPY",
+                "description": "予定価格。最終の料金は App Store の購入画面表示が正です。"
+              },
+              {
+                "@type": "Offer",
+                "name": "カロナビ+（年額・予定）",
+                "price": "4800",
+                "priceCurrency": "JPY",
+                "description": "予定価格。最終の料金は App Store の購入画面表示が正です。"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "カロナビとは何ですか？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "食事・運動・体重をまとめて、「今日あと何kcalか」から次の一手を短くするエネルギー管理アプリです。診断や治療のアプリではありません。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "あすけんやカロミルとの違いは？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "他社を貶す比較はしません。記録やアドバイスが厚いサービスがある一方、カロナビは「今日のエネルギー判断」を主役にした設計です。用途の違いです。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "料金はいくらですか？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "基本機能は無料枠があります。カロナビ+の予定価格は月額480円／年額4,800円です。最終は App Store の購入画面表示が正です。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "いつ使えますか？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "App Storeで公開しています。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "医療目的で使えますか？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "いいえ。一般的な式に基づく推定であり、診断・治療目的ではありません。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#main">本文へスキップ</a>
 
-    <p class="notice" role="status">「本サービスはリリース前です。今月中のリリースを予定しています。」</p>
-
-    <header class="hero">
-      <div class="wrap">
-        <h1>今日、あと何kcalか。</h1>
-        <p class="lead">食事・運動・体重をまとめて、毎日の次の一手を短くするエネルギー管理アプリ「カロナビ」</p>
-        <button type="button" class="store-button" disabled>App Store 近日公開</button>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <p class="brand">カロナビ</p>
       </div>
     </header>
 
     <main id="main">
-      <section class="section" aria-label="Features">
-        <div class="wrap">
-          <ol class="features">
-            <li>今日の判断が主役 — 「今日あと何kcal」とPFCの目安</li>
-            <li>入力は最小 — 手入力・バーコード（カメラと番号）・テンプレート</li>
-            <li>記録で終わらない — エネルギー収支から次の行動へ</li>
-          </ol>
+      <section class="hero section" aria-labelledby="hero-heading">
+        <div class="wrap hero-grid">
+          <div class="hero-copy">
+            <h1 id="hero-heading">今日、あと何kcalか。</h1>
+            <p class="definition">
+              カロナビは、食事・運動・体重をまとめて見るエネルギー管理アプリです。中心機能は「今日あと何kcalか」とPFCの目安で、毎日の次の一手を短くすることです。診断や治療のためのアプリではありません。有料オプション「カロナビ+」の予定価格は月額480円／年額4,800円で、最終は App Store の購入画面表示が正です。
+            </p>
+            <p class="lead">
+              食事・運動・体重をまとめて、毎日の次の一手を短くする。記録アプリではなく、エネルギー管理アプリ「カロナビ」。
+            </p>
+            <p class="audience">
+              24歳前後の忙しい会社員向け。難しい計算は裏で、表には今日の判断だけ。
+            </p>
+            <!-- CTA のリンク先はページ末尾の STORE_URL だけを差し替える。未設定のあいだはリンクにしない。 -->
+            <p class="store-cta" data-store-cta>App Storeで公開中（リンク準備中）</p>
+          </div>
+          <img
+            class="visual"
+            src="assets/lp/illust-01.svg"
+            width="800"
+            height="600"
+            alt="カロナビのホームで今日あと何kcalかを表示しているイメージ"
+            fetchpriority="high"
+          />
         </div>
       </section>
 
-      <section class="section" aria-label="Plus">
+      <section class="section band-soft" id="problem" aria-labelledby="problem-heading">
         <div class="wrap">
-          <div class="plus">
-            <p>カロナビ+（任意）— 公開食品検索やテンプレートの上限を拡大。料金は公開時の購入画面が正です。</p>
-            <p class="plus-price">予定価格は月額480円／年額4,800円</p>
-            <p class="plus-note">最終はApp Storeの購入画面表示が正</p>
+          <div class="split">
+            <div>
+              <h2 id="problem-heading">「記録しただけ」で、終わってない？</h2>
+              <p>
+                食べたものを残しても、今日あとどれくらい食べられるかが曖昧なままなら、次の一手は遅れます。忙しい日ほど、細かい栄養アドバイスより先に必要なのは、今の収支です。
+              </p>
+            </div>
+            <img
+              class="visual"
+              src="assets/lp/illust-02.svg"
+              width="640"
+              height="400"
+              alt="忙しい会社員が時計を見ながら、曖昧なカロリーに迷っているイメージ"
+              loading="lazy"
+            />
           </div>
         </div>
       </section>
 
-      <section class="section trust" aria-label="Trust">
+      <section class="section band-white" id="solution" aria-labelledby="solution-heading">
         <div class="wrap">
-          <p>診断・治療のアプリではありません。運営: 麹池成／サポート: <a href="mailto:calonavi.ayg.support@gmail.com">calonavi.ayg.support@gmail.com</a></p>
-          <p>法務: <a href="https://naruto-aii.github.io/AYG/legal/">https://naruto-aii.github.io/AYG/legal/</a></p>
+          <div class="split">
+            <div>
+              <h2 id="solution-heading">カロナビは「今日のエネルギー判断」を主役にします。</h2>
+              <p>
+                減量・維持・増量の目標に対して、今日あと何kcalかと、タンパク質・脂質・炭水化物の目安をまとめて見せます。医療の診断や治療のためのアプリではありません。
+              </p>
+            </div>
+            <img
+              class="visual"
+              src="assets/lp/illust-03.svg"
+              width="640"
+              height="400"
+              alt="今日あと何kcalかとタンパク質・脂質・炭水化物の目安が一目で見える画面のイメージ"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="steps" aria-labelledby="steps-heading">
+        <div class="wrap">
+          <h2 id="steps-heading">毎日、短く3ステップ。</h2>
+          <ol class="steps">
+            <li>見る — 今日あと何kcalかとPFCの目安</li>
+            <li>入れる — 手入力・バーコード（カメラと番号）・テンプレート</li>
+            <li>戻す — 食べ過ぎた日も超過を事実として見て、次の日の感覚を残す</li>
+          </ol>
+          <img
+            class="visual section-visual"
+            src="assets/lp/illust-04.svg"
+            width="960"
+            height="320"
+            alt="見る、入れる、戻すの3ステップを横並びにしたイメージ"
+            loading="lazy"
+          />
+        </div>
+      </section>
+
+      <section class="section band-white" id="features" aria-labelledby="features-heading">
+        <div class="wrap">
+          <div class="split">
+            <div>
+              <h2 id="features-heading">できること</h2>
+              <ul class="feature-list">
+                <li>今日あと何kcal／PFCの目安</li>
+                <li>食事: 手入力・バーコード・保存食品・公開食品・テンプレート</li>
+                <li>アルコールは食事と別記録</li>
+                <li>運動: MET計算 or kcal直接入力</li>
+                <li>体重の一覧・追加・編集・削除</li>
+                <li>目標: 減量・維持・増量</li>
+                <li>ログイン: Google または Apple（ゲストなし）</li>
+              </ul>
+            </div>
+            <img
+              class="visual"
+              src="assets/lp/illust-05.svg"
+              width="640"
+              height="240"
+              alt="手入力、バーコード、テンプレートの入力手段を並べたイメージ"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="section band-soft" id="plans" aria-labelledby="plans-heading">
+        <div class="wrap">
+          <h2 id="plans-heading">まずは無料。必要ならカロナビ+。</h2>
+          <div class="plan-grid">
+            <article class="card">
+              <h3>無料の目安</h3>
+              <p>公開食品検索 5回/日、食事テンプレート 3、運動テンプレート 3。</p>
+            </article>
+            <article class="card">
+              <h3>カロナビ+（任意）</h3>
+              <p>公開食品検索やテンプレートの上限を拡大します。</p>
+            </article>
+          </div>
+          <p class="plan-price">予定価格（作業ベース）: 月額480円／年額4,800円（年額は月換算で約2ヶ月分お得）。</p>
+          <p class="plan-note"><strong>最終の料金は App Store の購入画面表示が正です。</strong></p>
+          <img
+            class="visual section-visual"
+            src="assets/lp/illust-06.svg"
+            width="640"
+            height="360"
+            alt="無料とカロナビ+を対比したカードのイメージ"
+            loading="lazy"
+          />
+        </div>
+      </section>
+
+      <section class="section band-white" id="fit" aria-labelledby="fit-heading">
+        <div class="wrap">
+          <h2 id="fit-heading">向いている人 / 向いていない人</h2>
+          <div class="fit-grid">
+            <article class="card">
+              <h3>向いている人</h3>
+              <ul>
+                <li>「今日あとどれくらい？」を先に知りたい</li>
+                <li>記録より判断を短くしたい会社員</li>
+                <li>減量・維持・増量を数字で見たい</li>
+              </ul>
+            </article>
+            <article class="card">
+              <h3>向いていない人</h3>
+              <ul>
+                <li>医師の診断や治療の代替を求める方</li>
+                <li>食事写真の自動解析だけが欲しい方（現状の主機能ではない）</li>
+                <li>ゲストのまま使いたい方（要ログイン）</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="faq" aria-labelledby="faq-heading">
+        <div class="wrap">
+          <h2 id="faq-heading">FAQ</h2>
+          <div class="faq-list">
+            <details class="faq-item" open>
+              <summary><h3>カロナビとは何ですか？</h3></summary>
+              <p>食事・運動・体重をまとめて、「今日あと何kcalか」から次の一手を短くするエネルギー管理アプリです。診断や治療のアプリではありません。</p>
+            </details>
+            <details class="faq-item">
+              <summary><h3>あすけんやカロミルとの違いは？</h3></summary>
+              <p>他社を貶す比較はしません。記録やアドバイスが厚いサービスがある一方、カロナビは「今日のエネルギー判断」を主役にした設計です。用途の違いです。</p>
+            </details>
+            <details class="faq-item">
+              <summary><h3>料金はいくらですか？</h3></summary>
+              <p>基本機能は無料枠があります。カロナビ+の予定価格は月額480円／年額4,800円です。最終は App Store の購入画面表示が正です。</p>
+            </details>
+            <details class="faq-item">
+              <summary><h3>いつ使えますか？</h3></summary>
+              <p>App Storeで公開しています。</p>
+            </details>
+            <details class="faq-item">
+              <summary><h3>医療目的で使えますか？</h3></summary>
+              <p>いいえ。一般的な式に基づく推定であり、診断・治療目的ではありません。</p>
+            </details>
+          </div>
         </div>
       </section>
     </main>
 
-    <footer class="site-footer">
+    <footer class="site-footer" id="trust">
       <div class="wrap">
-        <p>プレリリース情報。ストア公開後にこのページを更新します。</p>
+        <h2 id="trust-heading">診断・治療のアプリではありません。</h2>
+        <p>運営: 麹池成／サポート: <a href="mailto:calonavi.ayg.support@gmail.com">calonavi.ayg.support@gmail.com</a></p>
+        <p>法務: <a href="https://naruto-aii.github.io/AYG/legal/">https://naruto-aii.github.io/AYG/legal/</a></p>
+        <p class="updated">更新日: 2026-09-24</p>
+        <p class="store-cta" data-store-cta>App Storeで公開中（リンク準備中）</p>
       </div>
     </footer>
+
+    <!--
+      STORE_URL
+      生きた App Store の https URL。この定数だけを差し替えると、
+      data-store-cta が「今すぐダウンロード」のリンクになる。
+      空のときはリンクにせず、表示は「App Storeで公開中（リンク準備中）」のまま。
+      例: const STORE_URL = "https://apps.apple.com/jp/app/id0000000000";
+    -->
+    <script>
+      const STORE_URL = "";
+
+      (function () {
+        var url = String(STORE_URL || "").trim();
+        if (!/^https:\/\/.+/.test(url)) return;
+        var nodes = document.querySelectorAll("[data-store-cta]");
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          var link = document.createElement("a");
+          link.href = url;
+          link.className = el.className;
+          link.textContent = "今すぐダウンロード";
+          link.rel = "noopener noreferrer";
+          el.replaceWith(link);
+        }
+      })();
+    </script>
   </body>
 </html>

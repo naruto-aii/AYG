@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://naruto-aii.github.io/AYG/sitemap.xml

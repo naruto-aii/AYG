@@ -131,6 +131,21 @@ h1 {
   padding: 1.15rem 1.1rem;
 }
 
+.plus p {
+  margin: 0;
+}
+
+.plus .plus-price {
+  margin-top: 0.85rem;
+  font-weight: 700;
+}
+
+.plus .plus-note {
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .trust p {
   margin: 0.35rem 0;
 }

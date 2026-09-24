@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" font-family="Hiragino Sans, Yu Gothic, Noto Sans JP, WenQuanYi Micro Hei, Droid Sans Fallback, sans-serif">
+  <title>今日あと何kcalかとタンパク質・脂質・炭水化物の目安が一目で見える画面のイメージ</title>
+  <rect width="640" height="400" fill="#edf7f0"/>
+  <rect x="36" y="28" width="568" height="344" rx="28" fill="#ffffff"/>
+  <text x="68" y="78" fill="#55635b" font-size="18">今日</text>
+  <text x="68" y="156" fill="#14522f" font-size="28" font-weight="700">あと</text>
+  <text x="148" y="164" fill="#14522f" font-size="72" font-weight="700">420</text>
+  <text x="372" y="156" fill="#2d7448" font-size="28" font-weight="700">kcal</text>
+  <text x="68" y="214" fill="#55635b" font-size="16">タンパク質</text>
+  <text x="572" y="214" text-anchor="end" fill="#14522f" font-size="16" font-weight="700">90g</text>
+  <rect x="68" y="228" width="504" height="12" rx="6" fill="#edf7f0"/>
+  <rect x="68" y="228" width="360" height="12" rx="6" fill="#14522f"/>
+  <text x="68" y="272" fill="#55635b" font-size="16">脂質</text>
+  <text x="572" y="272" text-anchor="end" fill="#14522f" font-size="16" font-weight="700">45g</text>
+  <rect x="68" y="286" width="504" height="12" rx="6" fill="#edf7f0"/>
+  <rect x="68" y="286" width="210" height="12" rx="6" fill="#2d7448"/>
+  <text x="68" y="322" fill="#55635b" font-size="16">炭水化物</text>
+  <text x="572" y="322" text-anchor="end" fill="#14522f" font-size="16" font-weight="700">180g</text>
+  <rect x="68" y="336" width="504" height="12" rx="6" fill="#edf7f0"/>
+  <rect x="68" y="336" width="430" height="12" rx="6" fill="#7eae8e"/>
+</svg>

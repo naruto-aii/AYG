@@ -8,6 +8,9 @@ on:
       - "docs/index.html"
       - "docs/styles.css"
       - "docs/.nojekyll"
+      - "docs/robots.txt"
+      - "docs/sitemap.xml"
+      - "docs/assets/**"
       - "docs/legal/**"
       - ".github/workflows/publish-landing-page.yml"
   workflow_dispatch:
@@ -30,9 +33,10 @@ jobs:
 
       - name: Collect static site
         run: |
-          mkdir -p _site/legal
-          cp docs/index.html docs/styles.css docs/.nojekyll _site/
+          mkdir -p _site/legal _site/assets/lp
+          cp docs/index.html docs/styles.css docs/.nojekyll docs/robots.txt docs/sitemap.xml _site/
           cp docs/legal/* _site/legal/
+          cp docs/assets/lp/* _site/assets/lp/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

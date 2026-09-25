@@ -1,6 +1,6 @@
 # カロナビ（AYG）
 
-エネルギー管理アプリ。公開 Preview は https://naruto-aii.github.io/AYG/ です。
+エネルギー管理アプリ。公開 Preview は https://naruto-aii.github.io/AYG/ です。ランディングページは https://naruto-aii.github.io/AYG/lp/ です。
 
 ## デザイナー向け
 

@@ -49,6 +49,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   final SubscriptionEntitlementState _entitlement =
       SubscriptionEntitlementState();
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  Timer? _expiryTimer;
   bool _plus = false;
 
   @override
@@ -133,6 +134,15 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   }
 
   @override
+  Future<void> refreshEntitlement() async {
+    try {
+      await _refreshEntitlement();
+    } catch (_) {
+      await _persist();
+    }
+  }
+
+  @override
   Future<void> purchaseMonthly() {
     return _buy(SubscriptionCatalog.monthlyProductId);
   }
@@ -180,12 +190,17 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     for (final purchase in purchases) {
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        _entitlement.apply(
-          SubscriptionEntitlementRecord(
-            productId: purchase.productID,
-            expiresAt: _expiryOf(purchase),
-          ),
-        );
+        if (parseStoreRevocationDate(
+              purchase.verificationData.localVerificationData,
+            ) ==
+            null) {
+          _entitlement.apply(
+            SubscriptionEntitlementRecord(
+              productId: purchase.productID,
+              expiresAt: _expiryOf(purchase),
+            ),
+          );
+        }
       }
       if (purchase.pendingCompletePurchase && store != null) {
         await store.completePurchase(purchase);
@@ -198,7 +213,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     final load = _loadEntitlements ?? _loadStoreEntitlements;
     final result = await load();
     if (!result.authoritative) {
-      _plus = _entitlement.isActive(_clock());
+      await _persist();
       return;
     }
     _entitlement.replaceAll(result.records);
@@ -216,10 +231,12 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       return EntitlementLoad(
         records: [
           for (final transaction in transactions)
-            SubscriptionEntitlementRecord(
-              productId: transaction.productId,
-              expiresAt: parseStoreExpiryMillis(transaction.expirationDate),
-            ),
+            if (parseStoreRevocationDate(transaction.jsonRepresentation) ==
+                null)
+              SubscriptionEntitlementRecord(
+                productId: transaction.productId,
+                expiresAt: parseStoreExpiryMillis(transaction.expirationDate),
+              ),
         ],
         authoritative: true,
       );
@@ -280,6 +297,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     } else {
       await prefs.setInt(expiryKey, expiry.millisecondsSinceEpoch);
     }
+    _scheduleExpiryCheck();
     final active = _entitlement.isActive(_clock());
     if (active == _plus) {
       return;
@@ -290,11 +308,28 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     }
   }
 
+  void _scheduleExpiryCheck() {
+    _expiryTimer?.cancel();
+    _expiryTimer = null;
+    final expiry = _entitlement.latestExpiry;
+    if (expiry == null) {
+      return;
+    }
+    final remaining = expiry.difference(_clock());
+    if (remaining <= Duration.zero) {
+      return;
+    }
+    _expiryTimer = Timer(remaining, () {
+      unawaited(_persist());
+    });
+  }
+
   Future<SharedPreferences> _prefs() async {
     return _preferences ?? await SharedPreferences.getInstance();
   }
 
   Future<void> dispose() async {
+    _expiryTimer?.cancel();
     await _purchaseSubscription?.cancel();
     await _plusController.close();
   }

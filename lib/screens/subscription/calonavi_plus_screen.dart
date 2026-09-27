@@ -81,34 +81,67 @@ class _CalonaviPlusScreenState extends State<CalonaviPlusScreen> {
     });
   }
 
-  Future<void> _run(Future<void> Function() action) async {
-    setState(() => _busy = true);
-    try {
+  Future<void> _purchase(Future<void> Function() action) async {
+    await _guarded(() async {
       await action();
       if (!mounted) {
         return;
       }
-      if (widget.repository.isPlusActive && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      if (widget.repository.isPlusActive) {
+        _showMessage(AppStrings.plusPurchaseSuccess);
+        _closeIfPossible();
       }
+    }, failureMessage: AppStrings.plusPurchaseFailed);
+  }
+
+  Future<void> _restore() async {
+    await _guarded(() async {
+      await widget.repository.restore();
+      if (!mounted) {
+        return;
+      }
+      if (widget.repository.isPlusActive) {
+        _showMessage(AppStrings.plusRestoreSuccess);
+        _closeIfPossible();
+      } else {
+        _showMessage(AppStrings.plusRestoreEmpty);
+      }
+    }, failureMessage: AppStrings.plusRestoreFailed);
+  }
+
+  Future<void> _guarded(
+    Future<void> Function() action, {
+    required String failureMessage,
+  }) async {
+    setState(() => _busy = true);
+    try {
+      await action();
     } on SubscriptionPurchaseUnavailableException {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.plusPurchaseUnavailable)),
-      );
-    } catch (error) {
+      _showMessage(AppStrings.plusPurchaseUnavailable);
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$error')));
+      _showMessage(failureMessage);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
       }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _closeIfPossible() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
     }
   }
 
@@ -169,14 +202,14 @@ class _CalonaviPlusScreenState extends State<CalonaviPlusScreen> {
                     loading: _busy,
                     onPressed: _busy
                         ? null
-                        : () => _run(widget.repository.purchaseMonthly),
+                        : () => _purchase(widget.repository.purchaseMonthly),
                   ),
                 if (yearly != null && yearly.canPurchase)
                   SecondaryButton(
                     label: yearly.buttonLabel,
                     onPressed: _busy
                         ? null
-                        : () => _run(widget.repository.purchaseYearly),
+                        : () => _purchase(widget.repository.purchaseYearly),
                   ),
                 if (monthly?.canPurchase != true && yearly?.canPurchase != true)
                   Text(AppStrings.plusPriceUnavailable, style: body),
@@ -188,7 +221,7 @@ class _CalonaviPlusScreenState extends State<CalonaviPlusScreen> {
               ],
               const SizedBox(height: AppSpacing.sm),
               TextButton(
-                onPressed: _busy ? null : () => _run(widget.repository.restore),
+                onPressed: _busy ? null : _restore,
                 child: const Text(AppStrings.plusRestore),
               ),
               const SizedBox(height: AppSpacing.md),

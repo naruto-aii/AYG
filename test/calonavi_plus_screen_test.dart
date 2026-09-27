@@ -1,4 +1,5 @@
 import 'package:ayg/constants/app_strings.dart';
+import 'package:ayg/repositories/subscription_exceptions.dart';
 import 'package:ayg/screens/legal/legal_document_screen.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_screen.dart';
 import 'package:ayg/services/subscription_offer.dart';
@@ -124,6 +125,81 @@ void main() {
 
     expect(find.byType(LegalDocumentScreen), findsOneWidget);
     expect(find.textContaining('プライバシー'), findsWidgets);
+
+    await repository.dispose();
+  });
+
+  testWidgets('restore with nothing found shows a message', (tester) async {
+    final repository = MockSubscriptionRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: CalonaviPlusScreen(repository: repository),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text(AppStrings.plusRestore));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppStrings.plusRestoreEmpty), findsOneWidget);
+    expect(find.text(AppStrings.plusTitle), findsOneWidget);
+    expect(repository.plus, isFalse);
+
+    await repository.dispose();
+  });
+
+  testWidgets('restore success and failure use fixed messages', (tester) async {
+    final repository = MockSubscriptionRepository()..restoreGrantsPlus = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: CalonaviPlusScreen(repository: repository),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text(AppStrings.plusRestore));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStrings.plusRestoreSuccess), findsOneWidget);
+
+    ScaffoldMessenger.of(
+      tester.element(find.byType(Scaffold)),
+    ).hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+
+    repository.restoreGrantsPlus = false;
+    repository.restoreFails = true;
+    repository.setPlus(false);
+    await tester.ensureVisible(find.text(AppStrings.plusRestore));
+    await tester.tap(find.text(AppStrings.plusRestore));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStrings.plusRestoreFailed), findsOneWidget);
+    expect(find.textContaining('SKError'), findsNothing);
+    expect(find.textContaining('StateError'), findsNothing);
+
+    await repository.dispose();
+  });
+
+  testWidgets('purchase failure hides the store error', (tester) async {
+    final repository = MockSubscriptionRepository()
+      ..purchaseError = SubscriptionPurchaseFailedException(
+        'ASD: product unavailable',
+      );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: CalonaviPlusScreen(repository: repository),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('月額 US\$2.99'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppStrings.plusPurchaseFailed), findsOneWidget);
+    expect(find.textContaining('ASD'), findsNothing);
+    expect(repository.plus, isFalse);
 
     await repository.dispose();
   });

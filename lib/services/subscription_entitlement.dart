@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../config/subscription_catalog.dart';
 
 class SubscriptionEntitlementRecord {
@@ -63,4 +65,41 @@ DateTime? parseStoreExpiryMillis(String? raw) {
     return null;
   }
   return DateTime.fromMillisecondsSinceEpoch(millis);
+}
+
+/// Apple's Transaction.jsonRepresentation `revocationDate`.
+/// A value means the transaction was refunded or revoked and must not grant Plus.
+DateTime? parseStoreRevocationDate(String? jsonRepresentation) {
+  if (jsonRepresentation == null || jsonRepresentation.isEmpty) {
+    return null;
+  }
+  Object? decoded;
+  try {
+    decoded = jsonDecode(jsonRepresentation);
+  } catch (_) {
+    return null;
+  }
+  if (decoded is! Map) {
+    return null;
+  }
+  final raw = decoded['revocationDate'];
+  if (raw == null) {
+    return null;
+  }
+  if (raw is num) {
+    return _dateFromEpoch(raw);
+  }
+  if (raw is String) {
+    final asNum = num.tryParse(raw);
+    if (asNum != null) {
+      return _dateFromEpoch(asNum);
+    }
+    return DateTime.tryParse(raw);
+  }
+  return null;
+}
+
+DateTime _dateFromEpoch(num value) {
+  final millis = value.abs() >= 1000000000000 ? value : value * 1000;
+  return DateTime.fromMillisecondsSinceEpoch(millis.round(), isUtc: true);
 }

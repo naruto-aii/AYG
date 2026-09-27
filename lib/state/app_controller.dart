@@ -1544,7 +1544,7 @@ class AppController extends ChangeNotifier {
     )) {
       return;
     }
-    await _noteFreeLimitHit();
+    _noteFreeLimitHit();
     throw SubscriptionLimitExceededException(
       SubscriptionLimitKind.mealTemplate,
     );
@@ -1557,7 +1557,7 @@ class AppController extends ChangeNotifier {
     )) {
       return;
     }
-    await _noteFreeLimitHit();
+    _noteFreeLimitHit();
     throw SubscriptionLimitExceededException(
       SubscriptionLimitKind.workoutTemplate,
     );
@@ -1575,7 +1575,7 @@ class AppController extends ChangeNotifier {
       isPlus: false,
       usedToday: used,
     )) {
-      await _noteFreeLimitHit();
+      _noteFreeLimitHit();
       throw SubscriptionLimitExceededException(
         SubscriptionLimitKind.publicFoodSearch,
       );
@@ -1586,9 +1586,13 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<void> _noteFreeLimitHit() {
-    return _subscriptionEventReporter.recordFreeLimitHit(
-      _authenticationRepository?.currentUser?.id,
+  void _noteFreeLimitHit() {
+    final userId = _authenticationRepository?.currentUser?.id;
+    unawaited(
+      _subscriptionEventReporter
+          .recordFreeLimitHit(userId)
+          .timeout(const Duration(seconds: 2))
+          .then((_) {}, onError: (Object _) {}),
     );
   }
 

@@ -11,6 +11,9 @@ class MockSubscriptionRepository extends SubscriptionRepository {
   bool monthlyCalled = false;
   bool yearlyCalled = false;
   bool restoreCalled = false;
+  bool restoreGrantsPlus = false;
+  bool restoreFails = false;
+  Object? purchaseError;
   SubscriptionOfferings offerings = const SubscriptionOfferings(
     monthly: SubscriptionProductOffer(
       productId: SubscriptionCatalog.monthlyProductId,
@@ -44,13 +47,25 @@ class MockSubscriptionRepository extends SubscriptionRepository {
   @override
   Future<void> restore() async {
     restoreCalled = true;
+    if (restoreFails) {
+      throw StateError('SKErrorDomain');
+    }
+    if (restoreGrantsPlus) {
+      setPlus(true);
+    }
   }
+
+  @override
+  Future<void> refreshEntitlement() async {}
 
   @override
   Future<void> purchaseMonthly() async {
     monthlyCalled = true;
     if (purchaseUnavailable) {
       throw SubscriptionPurchaseUnavailableException();
+    }
+    if (purchaseError != null) {
+      throw purchaseError!;
     }
     setPlus(true);
   }
@@ -60,6 +75,9 @@ class MockSubscriptionRepository extends SubscriptionRepository {
     yearlyCalled = true;
     if (purchaseUnavailable) {
       throw SubscriptionPurchaseUnavailableException();
+    }
+    if (purchaseError != null) {
+      throw purchaseError!;
     }
     setPlus(true);
   }

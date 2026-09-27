@@ -26,6 +26,34 @@ void main() {
     expect(state.latestExpiry, now.add(const Duration(days: 30)));
   });
 
+  test('a revocation date blocks the transaction', () {
+    expect(parseStoreRevocationDate(null), isNull);
+    expect(parseStoreRevocationDate('not json'), isNull);
+    expect(parseStoreRevocationDate('{"productId":"x"}'), isNull);
+
+    final millis = parseStoreRevocationDate('{"revocationDate":1700000000000}');
+    expect(
+      millis,
+      DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+    );
+
+    final seconds = parseStoreRevocationDate('{"revocationDate":1700000000}');
+    expect(
+      seconds,
+      DateTime.fromMillisecondsSinceEpoch(1700000000000, isUtc: true),
+    );
+
+    final digits = parseStoreRevocationDate(
+      '{"revocationDate":"1700000000000"}',
+    );
+    expect(digits, millis);
+
+    final iso = parseStoreRevocationDate(
+      '{"revocationDate":"2026-01-01T00:00:00Z"}',
+    );
+    expect(iso, DateTime.utc(2026, 1, 1));
+  });
+
   test('a missing expiry does not keep a product active', () {
     final state = SubscriptionEntitlementState({
       SubscriptionCatalog.monthlyProductId: now.add(const Duration(days: 10)),

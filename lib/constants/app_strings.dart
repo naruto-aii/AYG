@@ -60,6 +60,11 @@ class AppStrings {
   static const plusLead = '公開食品検索とテンプレートの上限を外します。記録・Health・バーコードはこれまでどおり無料です。';
   static const plusFreeQuota = '無料枠: 公開食品検索 5回/日、食事テンプレート 3件、運動テンプレート 3件。';
   static const plusRestore = '購入を復元';
+  static const plusRestoreSuccess = '購入を復元しました';
+  static const plusRestoreEmpty = '復元できる購入が見つかりませんでした';
+  static const plusRestoreFailed = '購入を復元できませんでした。時間をおいて再度お試しください。';
+  static const plusPurchaseSuccess = '購入が完了しました';
+  static const plusPurchaseFailed = '購入できませんでした。時間をおいて再度お試しください。';
   static const plusPurchaseUnavailable = 'この画面では購入できません。iPhone のアプリから購入してください。';
   static const plusAutoRenew = 'サブスクリプションは、解約するまで自動更新されます。';
   static const plusCancelHow =

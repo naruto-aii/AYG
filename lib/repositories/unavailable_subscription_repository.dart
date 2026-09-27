@@ -19,6 +19,9 @@ class UnavailableSubscriptionRepository extends SubscriptionRepository {
   Future<void> restore() async {}
 
   @override
+  Future<void> refreshEntitlement() async {}
+
+  @override
   Future<void> purchaseMonthly() {
     throw SubscriptionPurchaseUnavailableException();
   }

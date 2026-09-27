@@ -21,12 +21,13 @@ void main() {
   SK2PurchaseDetails purchase({
     required String productId,
     String? expirationDate,
+    String localVerificationData = 'local',
   }) {
     return SK2PurchaseDetails(
       productID: productId,
       purchaseID: 'tx-$productId',
       verificationData: PurchaseVerificationData(
-        localVerificationData: 'local',
+        localVerificationData: localVerificationData,
         serverVerificationData: 'server',
         source: 'app_store',
       ),
@@ -185,4 +186,74 @@ void main() {
       await repository.dispose();
     },
   );
+
+  test('a revoked transaction does not grant plus', () async {
+    final prefs = await prefsWith({});
+    final updates = StreamController<List<PurchaseDetails>>();
+    final repository = StoreKitSubscriptionRepository(
+      preferences: prefs,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => now,
+    );
+    await repository.initialize();
+
+    final expiry = now.add(const Duration(days: 30));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${expiry.millisecondsSinceEpoch}',
+        localVerificationData: '{"revocationDate":1700000000000}',
+      ),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.isPlusActive, isFalse);
+
+    final becamePlus = repository.plusChanges.first;
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${expiry.millisecondsSinceEpoch}',
+      ),
+    ]);
+    expect(await becamePlus.timeout(const Duration(seconds: 2)), isTrue);
+
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${expiry.millisecondsSinceEpoch}',
+        localVerificationData: '{"revocationDate":"2026-01-01T00:00:00Z"}',
+      ),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.isPlusActive, isTrue);
+
+    await updates.close();
+    await repository.dispose();
+  });
+
+  test('refresh turns plus off after the cached expiry passes', () async {
+    final expiry = now.add(const Duration(hours: 1));
+    final prefs = await prefsWith({
+      StoreKitSubscriptionRepository.expiryKey: expiry.millisecondsSinceEpoch,
+    });
+    var clock = now;
+    final repository = StoreKitSubscriptionRepository(
+      preferences: prefs,
+      purchaseUpdates: const Stream.empty(),
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => clock,
+    );
+
+    await repository.initialize();
+    expect(repository.isPlusActive, isTrue);
+
+    clock = expiry.add(const Duration(minutes: 1));
+    await repository.refreshEntitlement();
+    expect(repository.isPlusActive, isFalse);
+
+    await repository.dispose();
+  });
 }

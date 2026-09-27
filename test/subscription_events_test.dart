@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ayg/models/meal_template.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/contracts/meal_template_repository_base.dart';
@@ -103,6 +105,32 @@ void main() {
     await auth.dispose();
   });
 
+  test('the limit exception does not wait for the event write', () async {
+    final release = Completer<void>();
+    final reporter = _GatedReporter(release);
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      mealTemplateRepository: _FixedMealTemplates(3),
+      subscriptionEventReporter: reporter,
+    );
+
+    final started = DateTime.now();
+    await expectLater(
+      controller.ensureCanCreateMealTemplate(),
+      throwsA(isA<SubscriptionLimitExceededException>()),
+    );
+    expect(DateTime.now().difference(started).inMilliseconds, lessThan(500));
+    expect(reporter.started, isTrue);
+
+    release.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    await auth.dispose();
+  });
+
   test('conversion is recorded once the signed-in user is known', () async {
     final reporter = _RecordingReporter();
     final auth = MockAuthenticationRepository();
@@ -138,6 +166,22 @@ void main() {
 
     await auth.dispose();
   });
+}
+
+class _GatedReporter extends SubscriptionEventReporter {
+  _GatedReporter(this.release);
+
+  final Completer<void> release;
+  bool started = false;
+
+  @override
+  Future<void> recordFreeLimitHit(String? userId) {
+    started = true;
+    return release.future;
+  }
+
+  @override
+  Future<void> recordConvertedToPaid(String? userId) async {}
 }
 
 class _RecordingReporter extends SubscriptionEventReporter {

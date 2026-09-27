@@ -11,18 +11,24 @@ const accountDeletionGenericFailure = 'account deletion failed';
 
 /// `delete-account` revokes the Sign in with Apple token, then deletes the
 /// account. The client does not call the database function itself. A missing
-/// function is unavailable. Other failures use a fixed message and drop the
-/// response body.
-Future<void> deleteOwnAccountWithClient(SupabaseClient client) {
+/// function throws [AccountDeletionUnavailableException] and leaves the account
+/// and the session unchanged. Other failures use a fixed message and drop the
+/// response body. [AccountDeletionOutcome.appleRevokeFailed] is set only when
+/// a stored Apple token could not be revoked; the account is already deleted.
+Future<AccountDeletionOutcome> deleteOwnAccountWithClient(
+  SupabaseClient client,
+) {
   return deleteOwnAccountWithInvoker(
     (functionName, {body}) => client.functions.invoke(functionName, body: body),
   );
 }
 
-Future<void> deleteOwnAccountWithInvoker(EdgeFunctionInvoke invoke) async {
+Future<AccountDeletionOutcome> deleteOwnAccountWithInvoker(
+  EdgeFunctionInvoke invoke,
+) async {
   try {
     final response = await invoke(deleteAccountFunction);
-    _throwIfDeleteFailed(response.status, response.data);
+    return _outcomeOrThrow(response.status, response.data);
   } on FunctionException catch (error) {
     if (error.status == 404) {
       throw AccountDeletionUnavailableException();
@@ -37,7 +43,7 @@ Future<void> deleteOwnAccountWithInvoker(EdgeFunctionInvoke invoke) async {
   }
 }
 
-void _throwIfDeleteFailed(int status, Object? data) {
+AccountDeletionOutcome _outcomeOrThrow(int status, Object? data) {
   if (status == 404) {
     throw AccountDeletionUnavailableException();
   }
@@ -47,4 +53,6 @@ void _throwIfDeleteFailed(int status, Object? data) {
   if (data is Map && data['ok'] == false) {
     throw const AccountDeletionFailedException(accountDeletionGenericFailure);
   }
+  final revokeFailed = data is Map && data['apple_revoke_failed'] == true;
+  return AccountDeletionOutcome(appleRevokeFailed: revokeFailed);
 }

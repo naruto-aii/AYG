@@ -112,14 +112,35 @@ void main() {
   test('delete account invokes the edge function', () async {
     final calls = <String>[];
 
-    await deleteOwnAccountWithInvoker((functionName, {body}) async {
+    final outcome = await deleteOwnAccountWithInvoker((
+      functionName, {
+      body,
+    }) async {
       calls.add(functionName);
       expect(body, isNull);
       return const FunctionResponse(status: 200, data: {'ok': true});
     });
 
     expect(calls, [deleteAccountFunction]);
+    expect(outcome.appleRevokeFailed, isFalse);
   });
+
+  test(
+    'a failed Apple revoke is reported after the account is deleted',
+    () async {
+      final outcome = await deleteOwnAccountWithInvoker((
+        functionName, {
+        body,
+      }) async {
+        return const FunctionResponse(
+          status: 200,
+          data: {'ok': true, 'apple_revoke_failed': true},
+        );
+      });
+
+      expect(outcome.appleRevokeFailed, isTrue);
+    },
+  );
 
   test('a missing delete function is unavailable', () {
     expect(
@@ -233,15 +254,17 @@ void main() {
     ).readAsStringSync();
     expect(rpc, contains("deleteAccountFunction = 'delete-account'"));
     expect(rpc.contains('.rpc('), isFalse);
-    final direct = RegExp(
-      '''\\.rpc\\(\\s*['"]delete_own_account''',
-    );
+    final direct = RegExp('''\\.rpc\\(\\s*['"]delete_own_account''');
     final sources = Directory('lib')
         .listSync(recursive: true)
         .whereType<File>()
         .where((file) => file.path.endsWith('.dart'));
     for (final file in sources) {
-      expect(direct.hasMatch(file.readAsStringSync()), isFalse, reason: file.path);
+      expect(
+        direct.hasMatch(file.readAsStringSync()),
+        isFalse,
+        reason: file.path,
+      );
     }
   });
 }

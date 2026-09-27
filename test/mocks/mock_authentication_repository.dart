@@ -18,6 +18,7 @@ class MockAuthenticationRepository extends AuthenticationRepository {
   bool deleteOwnAccountCalled = false;
   bool simulateDeleteUnavailable = false;
   bool simulateDeleteFailure = false;
+  bool simulateAppleRevokeFailed = false;
   String deleteFailureMessage = 'invalid_grant raw-token-body';
   bool simulateGoogleSignInCancelled = false;
   bool simulateGoogleSignInFailure = false;
@@ -82,7 +83,7 @@ class MockAuthenticationRepository extends AuthenticationRepository {
   }
 
   @override
-  Future<void> deleteOwnAccount() async {
+  Future<AccountDeletionOutcome> deleteOwnAccount() async {
     deleteOwnAccountCalled = true;
     if (simulateDeleteUnavailable) {
       throw AccountDeletionUnavailableException();
@@ -90,6 +91,7 @@ class MockAuthenticationRepository extends AuthenticationRepository {
     if (simulateDeleteFailure) {
       throw AccountDeletionFailedException(deleteFailureMessage);
     }
+    return AccountDeletionOutcome(appleRevokeFailed: simulateAppleRevokeFailed);
   }
 
   Future<void> dispose() async {

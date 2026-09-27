@@ -222,7 +222,7 @@ Deno.test("revoke failure still deletes the account and the stored token", async
   const response = await handleDeleteAccount(jsonRequest({}), deps);
   const text = await response.text();
   assert(response.status === 200, "status");
-  assert(text === '{"ok":true}', text);
+  assert(text === '{"ok":true,"apple_revoke_failed":true}', text);
   assert(!text.includes(refreshToken), "token in response");
   assert(calls.some((call) => call.url === "https://appleid.apple.com/auth/revoke"), "revoke");
   const revoke = calls.find((call) => call.url.includes("/auth/revoke"));
@@ -263,9 +263,23 @@ Deno.test("missing apple secrets do not block account deletion", async () => {
   deps.log = (message) => logs.push(message);
   const response = await handleDeleteAccount(jsonRequest({}), deps);
   assert(response.status === 200, "status");
+  assert(
+    await response.text() === '{"ok":true,"apple_revoke_failed":true}',
+    "revoke flagged",
+  );
   assert(!calls.some((call) => call.url.includes("appleid.apple.com")), "no apple");
   assert(calls.some((call) => call.url.endsWith("/rpc/delete_own_account")), "deleted");
   assert(logs.some((line) => line.includes("secrets_missing")), "logged");
+});
+
+Deno.test("no stored apple token deletes without the revoke flag", async () => {
+  const calls: Call[] = [];
+  const deps = deleteDepsFrom(platformEnv(), fakeFetch(calls, { refreshToken: null }));
+  const response = await handleDeleteAccount(jsonRequest({}), deps);
+  assert(response.status === 200, "status");
+  assert(await response.text() === '{"ok":true}', "no flag");
+  assert(!calls.some((call) => call.url.includes("appleid.apple.com")), "no apple");
+  assert(calls.some((call) => call.url.endsWith("/rpc/delete_own_account")), "deleted");
 });
 
 Deno.test("a body user id does not replace the authenticated user", async () => {
@@ -302,7 +316,7 @@ Deno.test("direct revoke failure still reaches delete_own_account", async () => 
     userId,
     deps,
   });
-  assert(result === "deleted", result);
+  assert(result === "deleted_revoke_failed", result);
   assert(deleted, "account deleted");
   assert(tokenDeleted, "token deleted");
 });
@@ -325,6 +339,7 @@ function fakeFetch(
     appleStatus?: number;
     appleBody?: unknown;
     deleteAccountStatus?: number;
+    refreshToken?: string | null;
   },
 ): FetchLike {
   return async (input, init) => {
@@ -341,7 +356,8 @@ function fakeFetch(
       return new Response(JSON.stringify({ id: userId }), { status: 200 });
     }
     if (input.endsWith("/rpc/read_apple_refresh_token")) {
-      return new Response(JSON.stringify(refreshToken), { status: 200 });
+      const token = "refreshToken" in options ? options.refreshToken : refreshToken;
+      return new Response(JSON.stringify(token), { status: 200 });
     }
     if (input.includes("appleid.apple.com")) {
       return new Response(JSON.stringify(options.appleBody ?? {}), {

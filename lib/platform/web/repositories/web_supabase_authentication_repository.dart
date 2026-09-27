@@ -60,7 +60,7 @@ class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
   }
 
   @override
-  Future<void> deleteOwnAccount() {
+  Future<AccountDeletionOutcome> deleteOwnAccount() {
     return deleteOwnAccountWithClient(_client);
   }
 

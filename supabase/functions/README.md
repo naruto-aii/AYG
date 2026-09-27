@@ -10,9 +10,12 @@ then calls `public.delete_own_account(uuid)` with the service role. The user
 id is the one returned by the Auth API for the caller's JWT. The request body
 is not used as a user id. `anon` and `authenticated` cannot execute the
 function, so an old client cannot skip revocation by calling the RPC.
-A failed revoke is logged and does not stop deletion. Responses to the app are
+A failed revoke is logged and does not stop deletion. The response is then
+`{ ok: true, apple_revoke_failed: true }` so the app can tell the user to
+remove the app from Sign in with Apple. Other responses are
 `{ stored: true|false }` or `{ ok: true|false }` with no Apple or database
-error text.
+error text. No stored token means revoke is skipped and `apple_revoke_failed`
+is omitted.
 
 Web and Android Apple OAuth do not give the app an authorization code, so those
 sessions have nothing to revoke. Deletion still runs.
@@ -47,15 +50,24 @@ by the platform. Do not commit those either.
 
 Keep `verify_jwt = true` for both functions.
 
-Deploy is a separate owner step after the migration is applied:
+Deploy, in this order, before the app that calls `delete-account` is released:
+
+1. Apply migrations in timestamp order through
+   `20260927180000_delete_own_account_service_role_only.sql`. That migration
+   drops the client-callable `delete_own_account()` and leaves deletion to the
+   service role.
+2. Set the four Apple secrets above.
+3. Deploy both functions:
 
 ```sh
 supabase functions deploy store-apple-refresh-token
 supabase functions deploy delete-account
 ```
 
-Until those functions exist, account deletion in the app shows the existing
-unavailable message and does not print the server response.
+4. Release the app only after steps 1–3 succeed.
+
+If `delete-account` is not deployed, the app shows that deletion did not happen
+and does not sign the user out. It does not call `delete_own_account` itself.
 
 ## Rollback
 

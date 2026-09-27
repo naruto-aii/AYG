@@ -234,7 +234,7 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
   }
 
   @override
-  Future<void> deleteOwnAccount() {
+  Future<AccountDeletionOutcome> deleteOwnAccount() {
     return deleteOwnAccountWithClient(_client);
   }
 
@@ -271,7 +271,7 @@ class UnconfiguredAuthenticationRepository extends AuthenticationRepository {
   Future<void> logout() async {}
 
   @override
-  Future<void> deleteOwnAccount() async {
+  Future<AccountDeletionOutcome> deleteOwnAccount() async {
     throw AccountDeletionUnavailableException();
   }
 }

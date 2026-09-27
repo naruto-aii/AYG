@@ -226,7 +226,7 @@ export function rpcRequest(args: {
 }
 
 export function jsonResponse(
-  body: { ok?: boolean; stored?: boolean },
+  body: { ok?: boolean; stored?: boolean; apple_revoke_failed?: boolean },
   status: number,
 ): Response {
   return new Response(JSON.stringify(body), {
@@ -451,7 +451,7 @@ export async function handleStoreAppleRefreshToken(
 export async function revokeThenDeleteAccount(args: {
   userId: string;
   deps: DeleteDeps;
-}): Promise<"deleted" | "delete_failed"> {
+}): Promise<"deleted" | "deleted_revoke_failed" | "delete_failed"> {
   let token: string | null = null;
   try {
     token = await args.deps.readToken(args.userId);
@@ -459,10 +459,12 @@ export async function revokeThenDeleteAccount(args: {
     args.deps.log("apple refresh token read failed");
   }
 
+  let revokeFailed = false;
   if (token) {
     try {
       const revoked = await args.deps.revoke(token);
       if (!revoked.ok) {
+        revokeFailed = true;
         const codePart = revoked.errorCode ? ` code=${revoked.errorCode}` : "";
         logWithoutSecrets(
           args.deps.log,
@@ -471,6 +473,7 @@ export async function revokeThenDeleteAccount(args: {
         );
       }
     } catch {
+      revokeFailed = true;
       args.deps.log("apple token revoke failed");
     }
   } else {
@@ -489,7 +492,7 @@ export async function revokeThenDeleteAccount(args: {
   } catch {
     args.deps.log("apple refresh token delete failed");
   }
-  return "deleted";
+  return revokeFailed ? "deleted_revoke_failed" : "deleted";
 }
 
 export async function handleDeleteAccount(
@@ -514,8 +517,13 @@ export async function handleDeleteAccount(
     userId,
     deps,
   });
-  if (result === "deleted") {
-    return jsonResponse({ ok: true }, 200);
+  if (result === "deleted" || result === "deleted_revoke_failed") {
+    return jsonResponse(
+      result === "deleted_revoke_failed"
+        ? { ok: true, apple_revoke_failed: true }
+        : { ok: true },
+      200,
+    );
   }
   return jsonResponse({ ok: false }, 500);
 }

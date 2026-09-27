@@ -47,10 +47,17 @@ class AppleSignInUnavailableException implements Exception {
   String toString() => 'Apple sign-in is not available.';
 }
 
-/// 本番に delete_own_account がまだ無い。
+/// 削除用の Edge Function が無い。アカウントもセッションも変わっていない。
 class AccountDeletionUnavailableException implements Exception {
   @override
   String toString() => 'Account deletion is not available.';
+}
+
+/// 削除は完了した。Apple 連携の解除だけ失敗したとき [appleRevokeFailed] が true。
+class AccountDeletionOutcome {
+  const AccountDeletionOutcome({this.appleRevokeFailed = false});
+
+  final bool appleRevokeFailed;
 }
 
 /// アカウント削除に失敗した。

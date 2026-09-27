@@ -105,10 +105,20 @@ void main() {
 
     expect(find.text('プライバシーポリシー'), findsOneWidget);
     expect(find.textContaining('Apple Health'), findsOneWidget);
+    expect(find.textContaining('アクティブエネルギー'), findsOneWidget);
     expect(find.textContaining('ユーザーID'), findsOneWidget);
     expect(find.textContaining('麹池成'), findsWidgets);
-    await tester.scrollUntilVisible(find.textContaining('サービスの改善'), 300);
-    expect(find.textContaining('サービスの改善'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.textContaining('無料枠の上限到達と有料プランへの切替の時期を分析'),
+      300,
+    );
+    expect(
+      find.textContaining('無料枠の上限到達と有料プランへの切替の時期を分析'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Supabase'), findsWidgets);
+    expect(find.textContaining('製品改善のため'), findsNothing);
+    expect(find.textContaining('歩数'), findsNothing);
     await tester.scrollUntilVisible(find.textContaining('アカウント削除時に削除します'), 300);
     expect(find.textContaining('アカウント削除時に削除します'), findsOneWidget);
     expect(find.textContaining('24歳'), findsNothing);

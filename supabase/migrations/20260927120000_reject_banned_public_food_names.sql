@@ -2,11 +2,15 @@
 -- name, normalized_name, brand, or serving_unit_label changes.
 -- Does not scan or rewrite existing rows.
 --
--- search_path is empty on every function below. Names are schema-qualified
--- (public. or pg_catalog.). publish_saved_food is SECURITY DEFINER, so a
--- caller-controlled search_path must not apply.
+-- search_path is empty on every function below. Real functions and types are
+-- schema-qualified (public. or pg_catalog.). publish_saved_food is SECURITY
+-- DEFINER, so a caller-controlled search_path must not apply.
+-- coalesce, greatest, and the NFKC argument are SQL syntax, not catalog
+-- objects. Leave them unqualified. A schema prefix on those three does not
+-- resolve and fails only when the function runs. pg_catalog is still searched
+-- when search_path is empty.
 
--- pg_catalog.normalize(text, NFKC) needs PostgreSQL 13 or newer.
+-- pg_catalog.normalize(text, 'NFKC') needs PostgreSQL 13 or newer.
 -- supabase/config.toml sets major_version = 17.
 -- Halfwidth dakuten (U+FF9E) and handakuten (U+FF9F) are composed before
 -- NFKC so Dart and Postgres agree even when one NFKC implementation does not.
@@ -18,7 +22,7 @@ immutable
 set search_path = ''
 as $$
 declare
-  v text := pg_catalog.coalesce(p_text, '');
+  v text := coalesce(p_text, '');
   v_out text := '';
   i integer := 1;
   n integer := pg_catalog.char_length(v);
@@ -65,8 +69,8 @@ set search_path = ''
 as $$
 declare
   v text := pg_catalog.normalize(
-    public.compose_halfwidth_voiced(pg_catalog.coalesce(p_name, '')),
-    'NFKC'::pg_catalog.normalization_form
+    public.compose_halfwidth_voiced(coalesce(p_name, '')),
+    'NFKC'
   );
   v_out text := '';
   i integer;
@@ -217,7 +221,7 @@ immutable
 set search_path = ''
 as $$
 declare
-  v text := pg_catalog.coalesce(p_name, '');
+  v text := coalesce(p_name, '');
   v_from integer := 1;
   v_at integer;
   v_before text;
@@ -246,10 +250,10 @@ begin
 
     if (v_before is null or not public.public_food_name_char_is_word(v_before))
        and (v_after is null or not public.public_food_name_char_is_word(v_after)) then
-      v := pg_catalog.substr(v, 1, pg_catalog.greatest(v_at - 1, 0))
+      v := pg_catalog.substr(v, 1, greatest(v_at - 1, 0))
         || ' '
         || pg_catalog.substr(v, v_at + pg_catalog.char_length(p_phrase));
-      v_from := pg_catalog.greatest(v_at, 1);
+      v_from := greatest(v_at, 1);
     else
       v_from := v_at + 1;
     end if;
@@ -432,19 +436,19 @@ begin
   end if;
 
   if new.brand is distinct from old.brand
-     and public.public_food_name_is_banned(pg_catalog.coalesce(new.brand, '')) then
+     and public.public_food_name_is_banned(coalesce(new.brand, '')) then
     raise exception 'public food name is not allowed';
   end if;
 
   if new.serving_unit_label is distinct from old.serving_unit_label
-     and public.public_food_name_is_banned(pg_catalog.coalesce(new.serving_unit_label, '')) then
+     and public.public_food_name_is_banned(coalesce(new.serving_unit_label, '')) then
     raise exception 'public food name is not allowed';
   end if;
 
-  if pg_catalog.coalesce(new.kcal_per_base, 0) < 0
-     or pg_catalog.coalesce(new.protein_per_base, 0) < 0
-     or pg_catalog.coalesce(new.fat_per_base, 0) < 0
-     or pg_catalog.coalesce(new.carb_per_base, 0) < 0 then
+  if coalesce(new.kcal_per_base, 0) < 0
+     or coalesce(new.protein_per_base, 0) < 0
+     or coalesce(new.fat_per_base, 0) < 0
+     or coalesce(new.carb_per_base, 0) < 0 then
     raise exception 'nutrition values must be non-negative';
   end if;
 
@@ -517,15 +521,15 @@ begin
 
   if public.public_food_name_is_banned(v_row.name)
      or public.public_food_name_is_banned(v_row.normalized_name)
-     or public.public_food_name_is_banned(pg_catalog.coalesce(v_row.brand, ''))
-     or public.public_food_name_is_banned(pg_catalog.coalesce(v_row.serving_unit_label, '')) then
+     or public.public_food_name_is_banned(coalesce(v_row.brand, ''))
+     or public.public_food_name_is_banned(coalesce(v_row.serving_unit_label, '')) then
     raise exception 'public food name is not allowed';
   end if;
 
-  if pg_catalog.coalesce(v_row.kcal_per_base, 0) < 0
-     or pg_catalog.coalesce(v_row.protein_per_base, 0) < 0
-     or pg_catalog.coalesce(v_row.fat_per_base, 0) < 0
-     or pg_catalog.coalesce(v_row.carb_per_base, 0) < 0 then
+  if coalesce(v_row.kcal_per_base, 0) < 0
+     or coalesce(v_row.protein_per_base, 0) < 0
+     or coalesce(v_row.fat_per_base, 0) < 0
+     or coalesce(v_row.carb_per_base, 0) < 0 then
     raise exception 'nutrition values must be non-negative';
   end if;
 

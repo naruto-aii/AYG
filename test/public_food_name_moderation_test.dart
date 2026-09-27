@@ -261,7 +261,7 @@ void main() {
       expect(
         migration,
         contains(
-          'public.compose_halfwidth_voiced(pg_catalog.coalesce(p_name, \'\'))',
+          'public.compose_halfwidth_voiced(coalesce(p_name, \'\'))',
         ),
       );
     });
@@ -319,7 +319,10 @@ void main() {
         publicFoodConfusableTo.runes.length,
       );
       expect(migration, contains('pg_catalog.normalize'));
-      expect(migration, contains('NFKC'));
+      expect(migration, contains("'NFKC'"));
+      expect(migration.contains('normalization_form'), isFalse);
+      expect(migration.contains('pg_catalog.coalesce'), isFalse);
+      expect(migration.contains('pg_catalog.greatest'), isFalse);
       expect(migration, contains('major_version = 17'));
       expect(migration, contains('cp between 768 and 879'));
       expect(migration, contains(publicFoodConfusableFrom));
@@ -355,13 +358,13 @@ void main() {
       expect(
         migration,
         contains(
-          "public.public_food_name_is_banned(pg_catalog.coalesce(v_row.brand, ''))",
+          "public.public_food_name_is_banned(coalesce(v_row.brand, ''))",
         ),
       );
       expect(
         migration,
         contains(
-          "public.public_food_name_is_banned(pg_catalog.coalesce(v_row.serving_unit_label, ''))",
+          "public.public_food_name_is_banned(coalesce(v_row.serving_unit_label, ''))",
         ),
       );
       expect(migration, contains('new.name is distinct from old.name'));

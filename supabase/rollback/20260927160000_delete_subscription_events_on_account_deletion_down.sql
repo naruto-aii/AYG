@@ -1,7 +1,14 @@
 -- Down for 20260927160000_delete_subscription_events_on_account_deletion.sql.
 -- Not under supabase/migrations, so `db push` does not apply it.
--- Restores delete_own_account to the 20260927150000 body, which does not
--- delete subscription_events. Does not drop the subscription_events table.
+-- Restores the zero-argument delete_own_account that sets owner_deleted
+-- and does not delete subscription_events. Does not drop the table.
+-- The auth.users email rewrite stays outside an exception handler.
+-- A failed anonymization aborts and rolls the deletion back.
+-- Run this after 20260927180000_delete_own_account_service_role_only_down.sql
+-- and before 20260927150000_protect_owner_deleted_and_revoke_sessions_down.sql.
+-- The 150000 down drops saved_foods.owner_deleted. Running it first, then
+-- this file, reinstalls a function that writes that column, and the next
+-- account deletion fails. Full order: supabase/rollback/README.md.
 
 begin;
 
@@ -63,22 +70,21 @@ begin
 
   -- Prevent the same Google/Apple identity from signing back into this row.
   -- Public foods stay attached to this anonymized user id.
-  -- Failures here are swallowed so a locked auth.users row does not abort
-  -- the personal-data delete. Session revocation below is NOT in this block.
-  begin
-    delete from auth.identities where user_id = uid;
-    update auth.users
-    set email = 'deleted+' || uid::text || '@invalid.local',
-        raw_user_meta_data = '{}'::pg_catalog.jsonb
-    where id = uid;
-  exception
-    when others then
-      raise notice 'delete_own_account: skipped auth.users update: %', sqlerrm;
-  end;
+  -- Do not catch errors here. A failed email rewrite must abort the function
+  -- so the address is not left in auth.users while deletion is reported as
+  -- success. The statement runs in the caller's transaction, so the personal
+  -- data deletes above roll back with it. Deleting the identities row
+  -- removes identity_data. Replacing raw_user_meta_data removes the Google
+  -- name and profile-image URL stored at sign-in.
+  delete from auth.identities where user_id = uid;
+  update auth.users
+  set email = 'deleted+' || uid::text || '@invalid.local',
+      raw_user_meta_data = '{}'::pg_catalog.jsonb
+  where id = uid;
 
   -- End existing logins immediately. user_id is uuid on sessions and often
-  -- varchar on refresh_tokens, so compare as text. These statements are
-  -- outside the exception handler above: a failure must not be swallowed.
+  -- varchar on refresh_tokens, so compare as text. A failure here also
+  -- aborts the function and rolls the deletion back.
   delete from auth.refresh_tokens where user_id::text = uid::text;
   delete from auth.sessions where user_id::text = uid::text;
 end;

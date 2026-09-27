@@ -23,9 +23,7 @@ void main() {
     );
     expect(
       sql,
-      contains(
-        'function public.delete_own_account(p_user_id pg_catalog.uuid)',
-      ),
+      contains('function public.delete_own_account(p_user_id pg_catalog.uuid)'),
     );
     expect(sql, contains("auth.role() is distinct from 'service_role'"));
     expect(sql, contains('uid := p_user_id'));
@@ -85,6 +83,8 @@ void main() {
       sql,
       contains("email = 'deleted+' || uid::text || '@invalid.local'"),
     );
+    expect(sql, contains('delete from auth.identities where user_id = uid'));
+    expect(sql, contains("raw_user_meta_data = '{}'::pg_catalog.jsonb"));
     final emailUpdate = sql.indexOf('update auth.users');
     final sessions = sql.indexOf(
       'delete from auth.sessions where user_id::text = uid::text',
@@ -97,6 +97,11 @@ void main() {
       downSql,
       contains("email = 'deleted+' || uid::text || '@invalid.local'"),
     );
+    expect(
+      downSql,
+      contains('delete from auth.identities where user_id = uid'),
+    );
+    expect(downSql, contains("raw_user_meta_data = '{}'::pg_catalog.jsonb"));
     final downEmailUpdate = downSql.indexOf('update auth.users');
     final downSessions = downSql.indexOf(
       'delete from auth.sessions where user_id::text = uid::text',

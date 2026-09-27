@@ -81,6 +81,9 @@ begin
 
   -- Prevent the same Google/Apple identity from signing back into this row.
   -- Public foods stay attached to this anonymized user id.
+  -- Deleting the identities row removes identity_data, including the Google
+  -- name and profile-image URL. Replacing raw_user_meta_data removes the
+  -- same claims from auth.users.
   -- Do not catch errors here. A failed email rewrite must abort the function
   -- so the address is not left in auth.users while deletion is reported as
   -- success. The statement runs in the caller's transaction, so the personal

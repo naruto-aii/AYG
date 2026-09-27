@@ -5,8 +5,9 @@
 -- The auth.users email rewrite stays outside an exception handler, matching
 -- 20260927180000. Rolling back must not restore the older behavior that
 -- ignores a failed anonymization.
--- Run this before the 20260927160000 down file if both are being rolled back.
--- The 20260927160000 down file still restores the older swallowing body.
+-- Run this before the 20260927160000 down file. That down keeps the
+-- email-anonymization error handling and must itself run before the
+-- 20260927150000 down. Full order: supabase/rollback/README.md.
 
 begin;
 

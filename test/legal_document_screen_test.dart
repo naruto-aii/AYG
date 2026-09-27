@@ -113,6 +113,11 @@ void main() {
     expect(find.textContaining('Health Connect'), findsNothing);
     expect(find.textContaining('更新用トークンを保存していないログイン'), findsOneWidget);
     expect(find.textContaining('認可コードを保存していないログイン'), findsNothing);
+    expect(
+      find.textContaining('Google アカウントの氏名とプロフィール画像の URL'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('アカウントの削除が完了したときに消去する'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.textContaining('有料プランへ最初に切り替えた日時を集計'),
       300,
@@ -155,10 +160,7 @@ void main() {
     );
     expect(find.textContaining('【バックアップの保持日数：社長確認後に記入】'), findsOneWidget);
     expect(find.textContaining('最初に切り替えた日時'), findsWidgets);
-    await tester.scrollUntilVisible(
-      find.textContaining('トークンが残ることがあります'),
-      300,
-    );
+    await tester.scrollUntilVisible(find.textContaining('トークンが残ることがあります'), 300);
     expect(find.textContaining('トークンが残ることがあります'), findsOneWidget);
     expect(find.textContaining('トークンの行が残ることがあります'), findsNothing);
     expect(find.textContaining('連携解除の通信は行いません'), findsWidgets);

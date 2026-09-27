@@ -9,6 +9,14 @@
 -- column that is already applied (public.users.deleted_at, or
 -- saved_foods.owner_deleted after this migration). Dropping owner_deleted
 -- is only this manual script, and it removes the 削除済みユーザー label.
+--
+-- Run this only after 20260927160000_delete_subscription_events_on_account_deletion_down.sql
+-- when that migration was applied. This file drops saved_foods.owner_deleted.
+-- The 160000 down reinstalls delete_own_account that writes owner_deleted.
+-- Running this file first makes the next account deletion fail.
+-- This file restores the already-applied 20260920120000 body, which still
+-- ignores a failed auth.users email rewrite. That is the production
+-- function this migration replaced. Full order: supabase/rollback/README.md.
 
 begin;
 

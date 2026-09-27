@@ -87,7 +87,7 @@ Product Personalization は選ばない。
 
 ### Contact Info > Name
 
-ポリシー（`legal/privacy.html`）にはまだ書いていない。ここは App Store Connect へ入れる前の案だけ。
+App Store Connect では、この表のとおり Contact Info > Name を申告する。
 
 | 項目 | 回答 |
 | --- | --- |
@@ -107,7 +107,7 @@ Product Personalization は選ばない。
 
 Sign in with Apple は上のとおり email のみで、こちらの Name には含めない。画像のファイルは受け取らない。Photos or Videos は収集しない、のままにする。残るのは URL の文字列だけ。
 
-`legal/privacy.html` 第3章への追記案（このファイルだけ。ポリシーには入れない）:
+`legal/privacy.html` 第3章に入れた文:
 
 > Google ログインに伴い保存される、Google アカウントの氏名とプロフィール画像の URL。アプリの画面では使わない。ログインの処理としてサーバーのアカウント情報に保存し、アカウントの削除が完了したときに消去する。
 

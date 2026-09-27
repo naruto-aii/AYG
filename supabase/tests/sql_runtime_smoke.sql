@@ -72,10 +72,20 @@ begin
 
   insert into auth.users (id, aud, role, email, raw_user_meta_data)
   values
-    (v_owner, 'authenticated', 'authenticated', 'owner@test.local', '{"provider":"apple"}'::jsonb),
+    (
+      v_owner,
+      'authenticated',
+      'authenticated',
+      'owner@test.local',
+      '{"provider":"google","full_name":"Ada","name":"Ada","avatar_url":"https://example.invalid/a.png","picture":"https://example.invalid/a.png"}'::jsonb
+    ),
     (v_reporter, 'authenticated', 'authenticated', 'reporter@test.local', '{}'::jsonb);
-  insert into auth.identities (user_id, provider)
-  values (v_owner, 'apple');
+  insert into auth.identities (user_id, provider, identity_data)
+  values (
+    v_owner,
+    'google',
+    '{"full_name":"Ada","name":"Ada","avatar_url":"https://example.invalid/a.png","picture":"https://example.invalid/a.png"}'::jsonb
+  );
   insert into public.users (id, email) values
     (v_owner, 'owner@test.local'),
     (v_reporter, 'reporter@test.local');
@@ -131,6 +141,18 @@ begin
         and owner_deleted
     ),
     'public food remains and is marked owner_deleted'
+  );
+  perform ayg_test.assert_true(
+    not exists (select 1 from auth.identities where user_id = v_owner),
+    'auth.identities rows, including identity_data, are removed'
+  );
+  perform ayg_test.assert_true(
+    (
+      select raw_user_meta_data
+      from auth.users
+      where id = v_owner
+    ) = '{}'::jsonb,
+    'raw_user_meta_data is cleared'
   );
 end
 $$;

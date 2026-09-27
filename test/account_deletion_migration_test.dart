@@ -171,6 +171,47 @@ void main() {
       eventsDownSql,
       contains('create or replace function public.delete_own_account()'),
     );
+    expect(eventsDownSql.contains('skipped auth.users update'), isFalse);
+    expect(eventsDownSql.contains('when others then'), isFalse);
+    expect(
+      eventsDownSql,
+      contains("email = 'deleted+' || uid::text || '@invalid.local'"),
+    );
+    expect(
+      eventsDownSql,
+      contains('delete from auth.identities where user_id = uid'),
+    );
+    expect(
+      eventsDownSql,
+      contains("raw_user_meta_data = '{}'::pg_catalog.jsonb"),
+    );
+    final rollbackReadme = File(
+      'supabase/rollback/README.md',
+    ).readAsStringSync();
+    final down180 = rollbackReadme.indexOf(
+      '20260927180000_delete_own_account_service_role_only_down.sql',
+    );
+    final down170 = rollbackReadme.indexOf(
+      '20260927170000_store_apple_refresh_tokens_down.sql',
+    );
+    final down160 = rollbackReadme.indexOf(
+      '20260927160000_delete_subscription_events_on_account_deletion_down.sql',
+    );
+    final down150 = rollbackReadme.indexOf(
+      '20260927150000_protect_owner_deleted_and_revoke_sessions_down.sql',
+    );
+    final down140 = rollbackReadme.indexOf(
+      '20260927140000_subscription_events_down.sql',
+    );
+    final down120 = rollbackReadme.indexOf(
+      '20260927120000_reject_banned_public_food_names_down.sql',
+    );
+    expect(down180, greaterThanOrEqualTo(0));
+    expect(down170, greaterThan(down180));
+    expect(down160, greaterThan(down170));
+    expect(down150, greaterThan(down160));
+    expect(down140, greaterThan(down150));
+    expect(down120, greaterThan(down140));
     expect(
       File(
         'supabase/migrations/20260927160000_delete_subscription_events_on_account_deletion_down.sql',

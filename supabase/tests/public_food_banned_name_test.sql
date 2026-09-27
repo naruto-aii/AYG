@@ -68,6 +68,66 @@ begin
     not public.public_food_name_is_banned('cocktail'),
     'cocktail stays allowed'
   );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('カフェラテ'),
+    'cafe latte stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('ポークソテー'),
+    'pork saute stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('ポークソーセージ'),
+    'pork sausage stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('ミルクソフト'),
+    'milk soft stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('スモークソルト'),
+    'smoked salt stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('サンマンコ'),
+    'sanmanko stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('Cock tail'),
+    'spaced cocktail phrase stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('rape seed oil'),
+    'rape seed oil stays allowed'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('くそ'),
+    'bare short kana term is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('フェラ'),
+    'bare kana term is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('まんこ'),
+    'bare short term is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('cock'),
+    'bare latin term is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('rape'),
+    'bare rape is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('fuck rape seed oil'),
+    'banned word beside an allowed phrase is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned(U&'\FF81\FF9D\FF8E\FF9F'),
+    'halfwidth handakuten is rejected'
+  );
 
   delete from public.saved_foods where user_id = v_user;
   delete from public.users where id = v_user;

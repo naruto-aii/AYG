@@ -6,8 +6,10 @@ import 'package:ayg/models/moderation_status.dart';
 import 'package:ayg/models/saved_food.dart';
 import 'package:ayg/repositories/contracts/saved_food_local_store.dart';
 import 'package:ayg/repositories/contracts/saved_food_remote_store.dart';
+import 'package:ayg/moderation/public_food_name_moderation.dart';
 import 'package:ayg/repositories/exceptions/food_master_exceptions.dart';
 import 'package:ayg/repositories/synced_saved_food_repository.dart';
+import 'package:ayg/services/publish_error_messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeLocalStore implements SavedFoodLocalStore {
@@ -212,6 +214,27 @@ void main() {
         throwsA(isA<PublishSavedFoodException>()),
       );
       expect(local.stored?.visibility, FoodVisibility.private);
+    });
+
+    test('banned-name publish failure keeps local private', () async {
+      final local = _FakeLocalStore()..stored = _sampleFood('u1', 'f1');
+      const failure = PublishSavedFoodException(
+        kind: PublishFailureKind.bannedName,
+        message: 'public food name is not allowed',
+      );
+      final remote = _FakeRemoteStore()..publishError = failure;
+      final repo = SyncedSavedFoodRepository(local: local, remote: remote);
+
+      await expectLater(
+        repo.publish(ownerUserId: 'u1', foodId: 'f1'),
+        throwsA(isA<PublishSavedFoodException>()),
+      );
+      expect(local.stored?.visibility, FoodVisibility.private);
+      expect(
+        PublishErrorMessages.messageFor(failure),
+        PublicFoodNameModeration.rejectionMessage,
+      );
+      expect(remote.publishError, same(failure));
     });
 
     test('searchPublic requires remote', () async {

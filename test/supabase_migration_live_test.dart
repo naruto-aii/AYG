@@ -187,6 +187,50 @@ void main() {
         't',
       );
       expect(
+        await _psql("SELECT public.public_food_name_is_banned('カフェラテ');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('ポークソテー');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('ポークソーセージ');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('ミルクソフト');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('スモークソルト');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('サンマンコ');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('Cock tail');"),
+        'f',
+      );
+      expect(
+        await _psql(
+          "SELECT public.public_food_name_is_banned('rape seed oil');",
+        ),
+        'f',
+      );
+      expect(
+        await _psql(
+          r"SELECT public.public_food_name_is_banned(U&'\FF81\FF9D\FF8E\FF9F');",
+        ),
+        't',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('くそ');"),
+        't',
+      );
+      expect(
         await _psql(
           "SELECT proname FROM pg_proc WHERE proname = 'publish_saved_food';",
         ),

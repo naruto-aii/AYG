@@ -35,6 +35,14 @@ void main() {
         'grape',
         'cocktail',
         'classic',
+        'カフェラテ',
+        'ポークソテー',
+        'ポークソーセージ',
+        'ミルクソフト',
+        'スモークソルト',
+        'サンマンコ',
+        'Cock tail',
+        'rape seed oil',
       ];
       for (final name in names) {
         expect(PublicFoodNameModeration.isBanned(name), isFalse, reason: name);
@@ -66,6 +74,24 @@ void main() {
           PublicFoodNameModeration.isBanned('\uFF77\uFF81\uFF76\uFF9E\uFF72'),
           isTrue,
         );
+        // ﾁﾝﾎﾟ — halfwidth ho plus handakuten (U+FF9F) becomes ぽ.
+        expect(
+          PublicFoodNameModeration.isBanned('\uFF81\uFF9D\uFF8E\uFF9F'),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'still rejects a whole short term and a term beside an allowed phrase',
+      () {
+        expect(PublicFoodNameModeration.isBanned('くそ'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('フェラ'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('まんこ'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('cock'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('rape'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('fuck rape seed oil'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('Cock tail sauce'), isFalse);
       },
     );
 
@@ -172,15 +198,79 @@ void main() {
     });
 
     test('SQL list matches the Dart list', () {
-      final start = migration.indexOf('-- PUBLIC_FOOD_BANNED_WORDS');
-      final end = migration.indexOf('-- /PUBLIC_FOOD_BANNED_WORDS');
-      expect(start, greaterThanOrEqualTo(0));
-      expect(end, greaterThan(start));
-      final block = migration.substring(start, end);
-      final sqlWords = RegExp(
-        "'([^']*)'",
-      ).allMatches(block).map((match) => match.group(1)!).toList();
-      expect(sqlWords, publicFoodBannedWords);
+      expect(
+        _sqlMarkedList(migration, 'PUBLIC_FOOD_BANNED_WORDS'),
+        publicFoodBannedWords,
+      );
+    });
+
+    test('SQL boundary terms and allowed phrases match Dart', () {
+      expect(
+        publicFoodHalfwidthDakutenBase.runes.length,
+        publicFoodHalfwidthDakutenTo.runes.length,
+      );
+      expect(
+        publicFoodHalfwidthHandakutenBase.runes.length,
+        publicFoodHalfwidthHandakutenTo.runes.length,
+      );
+      expect(
+        _sqlMarkedList(migration, 'PUBLIC_FOOD_BOUNDARY_ONLY'),
+        publicFoodBoundaryOnlyTerms,
+      );
+      expect(
+        _sqlMarkedList(migration, 'PUBLIC_FOOD_ALLOWED_PHRASES'),
+        publicFoodAllowedPhrases,
+      );
+      expect(migration, contains(publicFoodHalfwidthDakutenBase));
+      expect(migration, contains(publicFoodHalfwidthDakutenTo));
+      expect(migration, contains(publicFoodHalfwidthHandakutenBase));
+      expect(migration, contains(publicFoodHalfwidthHandakutenTo));
+      expect(
+        migration,
+        contains('public.compose_halfwidth_voiced(coalesce(p_name, \'\'))'),
+      );
+    });
+
+    test('rollback file restores publish without dropping the trigger', () {
+      final downPath =
+          'supabase/rollback/20260927120000_reject_banned_public_food_names_down.sql';
+      final down = File(downPath).readAsStringSync();
+      expect(
+        File(
+          'supabase/migrations/20260927120000_reject_banned_public_food_names_down.sql',
+        ).existsSync(),
+        isFalse,
+      );
+      expect(
+        down,
+        contains('create or replace function public.publish_saved_food'),
+      );
+      expect(
+        down,
+        contains(
+          'create or replace function public.validate_saved_foods_public_row',
+        ),
+      );
+      expect(down, isNot(contains('public food name is not allowed')));
+      expect(
+        down,
+        contains(
+          'drop function if exists public.compose_halfwidth_voiced(text)',
+        ),
+      );
+      expect(
+        down,
+        contains(
+          'drop function if exists public.public_food_name_strip_phrase(text, text)',
+        ),
+      );
+      expect(
+        down,
+        contains(
+          'grant execute on function public.publish_saved_food(text) to authenticated',
+        ),
+      );
+      expect(down.toLowerCase(), isNot(contains('drop trigger')));
     });
 
     test('SQL uses the same halfwidth katakana map', () {
@@ -241,6 +331,17 @@ void main() {
       expect(migration, contains("set visibility = 'public'"));
     });
   });
+}
+
+List<String> _sqlMarkedList(String migration, String name) {
+  final start = migration.indexOf('-- $name');
+  final end = migration.indexOf('-- /$name');
+  expect(start, greaterThanOrEqualTo(0));
+  expect(end, greaterThan(start));
+  final block = migration.substring(start, end);
+  return RegExp(
+    "'([^']*)'",
+  ).allMatches(block).map((match) => match.group(1)!).toList();
 }
 
 SavedFood _food(String name) {

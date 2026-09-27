@@ -4,6 +4,54 @@
 --
 -- pg_catalog.normalize(text, NFKC) needs PostgreSQL 13 or newer.
 -- supabase/config.toml sets major_version = 17.
+-- Halfwidth dakuten (U+FF9E) and handakuten (U+FF9F) are composed before
+-- NFKC so Dart and Postgres agree even when one NFKC implementation does not.
+
+create or replace function public.compose_halfwidth_voiced(p_text text)
+returns text
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  v text := coalesce(p_text, '');
+  v_out text := '';
+  i integer := 1;
+  n integer := char_length(v);
+  ch text;
+  nxt text;
+  base_at integer;
+  dakuten_base constant text := 'ｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾊﾋﾌﾍﾎ';
+  dakuten_to constant text := 'ガギグゲゴザジズゼゾダヂヅデドバビブベボ';
+  handakuten_base constant text := 'ﾊﾋﾌﾍﾎ';
+  handakuten_to constant text := 'パピプペポ';
+begin
+  while i <= n loop
+    ch := substr(v, i, 1);
+    if i < n then
+      nxt := substr(v, i + 1, 1);
+      if nxt = chr(65438) then
+        base_at := strpos(dakuten_base, ch);
+        if base_at > 0 then
+          v_out := v_out || substr(dakuten_to, base_at, 1);
+          i := i + 2;
+          continue;
+        end if;
+      elsif nxt = chr(65439) then
+        base_at := strpos(handakuten_base, ch);
+        if base_at > 0 then
+          v_out := v_out || substr(handakuten_to, base_at, 1);
+          i := i + 2;
+          continue;
+        end if;
+      end if;
+    end if;
+    v_out := v_out || ch;
+    i := i + 1;
+  end loop;
+  return v_out;
+end;
+$$;
 
 create or replace function public.normalize_public_food_name(p_name text)
 returns text
@@ -12,7 +60,10 @@ immutable
 set search_path = public
 as $$
 declare
-  v text := pg_catalog.normalize(coalesce(p_name, ''), NFKC);
+  v text := pg_catalog.normalize(
+    public.compose_halfwidth_voiced(coalesce(p_name, '')),
+    NFKC
+  );
   v_out text := '';
   i integer;
   ch text;
@@ -152,6 +203,58 @@ begin
 end;
 $$;
 
+create or replace function public.public_food_name_strip_phrase(
+  p_name text,
+  p_phrase text
+)
+returns text
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  v text := coalesce(p_name, '');
+  v_from integer := 1;
+  v_at integer;
+  v_before text;
+  v_after text;
+begin
+  if p_phrase is null or p_phrase = '' then
+    return v;
+  end if;
+
+  loop
+    v_at := strpos(substr(v, v_from), p_phrase);
+    exit when v_at = 0;
+    v_at := v_from + v_at - 1;
+
+    if v_at = 1 then
+      v_before := null;
+    else
+      v_before := substr(v, v_at - 1, 1);
+    end if;
+
+    if v_at + char_length(p_phrase) > char_length(v) then
+      v_after := null;
+    else
+      v_after := substr(v, v_at + char_length(p_phrase), 1);
+    end if;
+
+    if (v_before is null or not public.public_food_name_char_is_word(v_before))
+       and (v_after is null or not public.public_food_name_char_is_word(v_after)) then
+      v := substr(v, 1, greatest(v_at - 1, 0))
+        || ' '
+        || substr(v, v_at + char_length(p_phrase));
+      v_from := greatest(v_at, 1);
+    else
+      v_from := v_at + 1;
+    end if;
+  end loop;
+
+  return v;
+end;
+$$;
+
 create or replace function public.public_food_name_term_uses_substring(p_term text)
 returns boolean
 language sql
@@ -160,7 +263,14 @@ set search_path = public
 as $$
   select p_term !~ '[a-z0-9]'
      and char_length(p_term) >= 2
-     and p_term <> 'えろ';
+     and p_term not in (
+       -- PUBLIC_FOOD_BOUNDARY_ONLY
+       'えろ',
+       'くそ',
+       'ふぇら',
+       'まんこ'
+       -- /PUBLIC_FOOD_BOUNDARY_ONLY
+     );
 $$;
 
 create or replace function public.public_food_name_is_banned(p_name text)
@@ -171,9 +281,10 @@ set search_path = public
 as $$
 declare
   v_spaced text := public.normalize_public_food_name(p_name);
-  v_compact text := replace(v_spaced, ' ', '');
+  v_compact text;
   v_term text;
   v_norm text;
+  v_phrase text;
   v_words text[] := array[
     -- PUBLIC_FOOD_BANNED_WORDS
     'fuck',
@@ -214,10 +325,25 @@ declare
     'エロ'
     -- /PUBLIC_FOOD_BANNED_WORDS
   ];
+  v_phrases text[] := array[
+    -- PUBLIC_FOOD_ALLOWED_PHRASES
+    'cock tail',
+    'rape seed'
+    -- /PUBLIC_FOOD_ALLOWED_PHRASES
+  ];
 begin
   if v_spaced = '' then
     return false;
   end if;
+
+  foreach v_phrase in array v_phrases loop
+    v_spaced := public.public_food_name_strip_phrase(v_spaced, v_phrase);
+  end loop;
+  v_spaced := btrim(regexp_replace(v_spaced, ' +', ' ', 'g'));
+  if v_spaced = '' then
+    return false;
+  end if;
+  v_compact := replace(v_spaced, ' ', '');
 
   foreach v_term in array v_words loop
     v_norm := replace(public.normalize_public_food_name(v_term), ' ', '');
@@ -239,15 +365,19 @@ begin
 end;
 $$;
 
+revoke all on function public.compose_halfwidth_voiced(text) from public, anon;
 revoke all on function public.normalize_public_food_name(text) from public, anon;
 revoke all on function public.public_food_name_char_is_word(text) from public, anon;
 revoke all on function public.public_food_name_contains_term(text, text) from public, anon;
+revoke all on function public.public_food_name_strip_phrase(text, text) from public, anon;
 revoke all on function public.public_food_name_term_uses_substring(text) from public, anon;
 revoke all on function public.public_food_name_is_banned(text) from public, anon;
 
+grant execute on function public.compose_halfwidth_voiced(text) to authenticated;
 grant execute on function public.normalize_public_food_name(text) to authenticated;
 grant execute on function public.public_food_name_char_is_word(text) to authenticated;
 grant execute on function public.public_food_name_contains_term(text, text) to authenticated;
+grant execute on function public.public_food_name_strip_phrase(text, text) to authenticated;
 grant execute on function public.public_food_name_term_uses_substring(text) to authenticated;
 grant execute on function public.public_food_name_is_banned(text) to authenticated;
 

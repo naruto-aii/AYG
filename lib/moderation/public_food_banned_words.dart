@@ -56,3 +56,30 @@ const String publicFoodConfusableFrom =
 
 const String publicFoodConfusableTo =
     'aaaaaaaaaaaaeeeeeeeeiiiiiiiioooooooooouuuuuuuuyyyynnccaaeeooppccyyxxiijjssddoieastasi';
+
+/// Halfwidth katakana bases that take a dakuten (U+FF9E), and the fullwidth
+/// katakana they become. Both strings are the same length. Applied before NFKC.
+const String publicFoodHalfwidthDakutenBase = 'ｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾊﾋﾌﾍﾎ';
+
+const String publicFoodHalfwidthDakutenTo = 'ガギグゲゴザジズゼゾダヂヅデドバビブベボ';
+
+/// Halfwidth katakana bases that take a handakuten (U+FF9F).
+const String publicFoodHalfwidthHandakutenBase = 'ﾊﾋﾌﾍﾎ';
+
+const String publicFoodHalfwidthHandakutenTo = 'パピプペポ';
+
+/// Normalized terms that match only on a word boundary.
+/// Longer Japanese terms still match as substrings.
+const List<String> publicFoodBoundaryOnlyTerms = <String>[
+  'えろ',
+  'くそ',
+  'ふぇら',
+  'まんこ',
+];
+
+/// Normalized phrases removed before the banned-word scan.
+/// A banned word beside one of these phrases is still rejected.
+const List<String> publicFoodAllowedPhrases = <String>[
+  'cock tail',
+  'rape seed',
+];

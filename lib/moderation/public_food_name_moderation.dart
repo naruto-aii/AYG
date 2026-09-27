@@ -5,22 +5,23 @@ import 'public_food_banned_words.dart';
 
 /// Client check for public food text.
 ///
-/// Order: Unicode NFKC, strip combining marks U+0300–U+036F (kana voicing
-/// U+3099/U+309A stays), accent / lookalike / digit-symbol fold, then
-/// case fold, kana fold, and separator folding.
+/// Order: compose halfwidth voiced marks (U+FF9E / U+FF9F), Unicode NFKC,
+/// strip combining marks U+0300–U+036F (kana voicing U+3099/U+309A stays),
+/// accent / lookalike / digit-symbol fold, then case fold, kana fold, and
+/// separator folding. Allowed food phrases are removed before the scan.
+/// Latin terms and [publicFoodBoundaryOnlyTerms] match on a word boundary.
+/// Other Japanese terms of length >= 2 match as substrings.
 class PublicFoodNameModeration {
   const PublicFoodNameModeration._();
 
   static const rejectionMessage = 'この食品名は公開できません。別の名前を入力してください。';
 
-  /// Short Japanese terms that are common inside ordinary words.
-  /// These match only on a boundary. Longer Japanese terms match as substrings.
-  static const boundaryOnlyTerms = <String>{'えろ'};
-
   static final RegExp _combiningMarks = RegExp(r'[\u0300-\u036F]');
 
   static bool isBanned(String raw) {
-    final spaced = normalizeForMatch(prepareForMatch(raw));
+    final spaced = _stripAllowedPhrases(
+      normalizeForMatch(prepareForMatch(raw)),
+    );
     if (spaced.isEmpty) {
       return false;
     }
@@ -84,10 +85,75 @@ class PublicFoodNameModeration {
     return isBanned(after);
   }
 
-  /// NFKC, then confusable folding. Separator folding happens afterwards.
+  /// Halfwidth voiced marks, then NFKC, then confusable folding.
+  /// Separator folding happens afterwards.
   static String prepareForMatch(String raw) {
-    final composed = unorm.nfkc(raw).replaceAll(_combiningMarks, '');
+    final voiced = _composeHalfwidthVoiced(raw);
+    final composed = unorm.nfkc(voiced).replaceAll(_combiningMarks, '');
     return _foldConfusables(composed);
+  }
+
+  static String _composeHalfwidthVoiced(String raw) {
+    final runes = raw.runes.toList();
+    final buffer = StringBuffer();
+    for (var i = 0; i < runes.length; i++) {
+      if (i + 1 < runes.length) {
+        final mark = runes[i + 1];
+        final Map<int, int>? table = switch (mark) {
+          0xFF9E => _dakuten,
+          0xFF9F => _handakuten,
+          _ => null,
+        };
+        final mapped = table?[runes[i]];
+        if (mapped != null) {
+          buffer.writeCharCode(mapped);
+          i++;
+          continue;
+        }
+      }
+      buffer.writeCharCode(runes[i]);
+    }
+    return buffer.toString();
+  }
+
+  static String _stripAllowedPhrases(String spaced) {
+    var current = spaced;
+    for (final phrase in publicFoodAllowedPhrases) {
+      current = _removeBounded(current, phrase);
+    }
+    return current.replaceAll(RegExp(r' +'), ' ').trim();
+  }
+
+  /// Removes bounded [phrase] occurrences, leaving a space in their place.
+  static String _removeBounded(String haystack, String phrase) {
+    if (phrase.isEmpty || haystack.isEmpty) {
+      return haystack;
+    }
+    final buffer = StringBuffer();
+    var read = 0;
+    var from = 0;
+    while (from <= haystack.length) {
+      final index = haystack.indexOf(phrase, from);
+      if (index < 0) {
+        buffer.write(haystack.substring(read));
+        break;
+      }
+      final beforeOk =
+          index == 0 || !_isWordCode(haystack.codeUnitAt(index - 1));
+      final afterIndex = index + phrase.length;
+      final afterOk =
+          afterIndex >= haystack.length ||
+          !_isWordCode(haystack.codeUnitAt(afterIndex));
+      if (beforeOk && afterOk) {
+        buffer.write(haystack.substring(read, index));
+        buffer.write(' ');
+        read = afterIndex;
+        from = afterIndex;
+      } else {
+        from = index + 1;
+      }
+    }
+    return buffer.toString();
   }
 
   static String _foldConfusables(String value) {
@@ -133,7 +199,7 @@ class PublicFoodNameModeration {
     if (RegExp('[a-z0-9]').hasMatch(term)) {
       return false;
     }
-    if (boundaryOnlyTerms.contains(term)) {
+    if (publicFoodBoundaryOnlyTerms.contains(term)) {
       return false;
     }
     return term.runes.length >= 2;
@@ -215,20 +281,29 @@ class PublicFoodNameModeration {
 
   static final Map<int, int> _confusableMap = _buildConfusableMap();
   static final Map<int, int> _halfwidthKatakana = _buildHalfwidthMap();
+  static final Map<int, int> _dakuten = _pairMap(
+    publicFoodHalfwidthDakutenBase,
+    publicFoodHalfwidthDakutenTo,
+  );
+  static final Map<int, int> _handakuten = _pairMap(
+    publicFoodHalfwidthHandakutenBase,
+    publicFoodHalfwidthHandakutenTo,
+  );
 
   static Map<int, int> _buildConfusableMap() {
-    final from = publicFoodConfusableFrom.runes.toList();
-    final to = publicFoodConfusableTo.runes.toList();
-    final map = <int, int>{};
-    for (var i = 0; i < from.length && i < to.length; i++) {
-      map[from[i]] = to[i];
-    }
-    return map;
+    return _pairMap(publicFoodConfusableFrom, publicFoodConfusableTo);
   }
 
   static Map<int, int> _buildHalfwidthMap() {
-    final from = publicFoodHalfwidthKatakanaFrom.runes.toList();
-    final to = publicFoodHalfwidthKatakanaTo.runes.toList();
+    return _pairMap(
+      publicFoodHalfwidthKatakanaFrom,
+      publicFoodHalfwidthKatakanaTo,
+    );
+  }
+
+  static Map<int, int> _pairMap(String fromText, String toText) {
+    final from = fromText.runes.toList();
+    final to = toText.runes.toList();
     final map = <int, int>{};
     for (var i = 0; i < from.length && i < to.length; i++) {
       map[from[i]] = to[i];

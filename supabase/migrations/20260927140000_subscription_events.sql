@@ -2,8 +2,9 @@
 -- a server timestamp. No food names, measurements, purchase proof, or free text.
 --
 -- Authenticated clients may insert their own row. They cannot select, update,
--- or delete. Counts are available to the service role through
--- public.subscription_event_counts().
+-- or delete. Counts are readable only by service_role, via GRANT EXECUTE on
+-- public.subscription_event_counts(). Access is the EXECUTE grant only.
+-- The row trigger is not SECURITY DEFINER.
 
 begin;
 
@@ -13,7 +14,7 @@ create table if not exists public.subscription_events (
   event_type text not null check (
     event_type in ('free_limit_hit', 'converted_to_paid')
   ),
-  created_at timestamptz not null default timezone('utc', now()),
+  created_at timestamptz not null default pg_catalog.timezone('utc', pg_catalog.now()),
   unique (user_id, event_type)
 );
 
@@ -23,8 +24,7 @@ create index if not exists subscription_events_event_type_idx
 create or replace function public.subscription_events_force_row()
 returns trigger
 language plpgsql
-security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   if new.event_type not in ('free_limit_hit', 'converted_to_paid') then
@@ -35,7 +35,7 @@ begin
     raise exception 'subscription event user mismatch';
   end if;
 
-  new.created_at := timezone('utc', now());
+  new.created_at := pg_catalog.timezone('utc', pg_catalog.now());
   return new;
 end;
 $$;
@@ -62,18 +62,11 @@ create or replace function public.subscription_event_counts()
 returns table (event_type text, user_count bigint)
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
-declare
-  jwt_role text := coalesce(current_setting('request.jwt.claim.role', true), '');
 begin
-  if jwt_role is distinct from 'service_role'
-     and session_user not in ('postgres', 'supabase_admin') then
-    raise exception 'subscription_event_counts is restricted to admins';
-  end if;
-
   return query
-    select e.event_type, count(distinct e.user_id)::bigint
+    select e.event_type, pg_catalog.count(distinct e.user_id)::bigint
     from public.subscription_events e
     group by e.event_type;
 end;

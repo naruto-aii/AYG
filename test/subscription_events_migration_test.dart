@@ -20,7 +20,8 @@ void main() {
     expect(migration, isNot(contains('food_name')));
     expect(migration, isNot(contains('receipt_data')));
     expect(migration, isNot(contains('health_snapshot')));
-    expect(migration, contains('new.created_at := timezone'));
+    expect(migration, contains('new.created_at := pg_catalog.timezone'));
+    expect(migration, contains('pg_catalog.now()'));
   });
 
   test('clients can insert their own row and cannot read it back', () {
@@ -51,11 +52,31 @@ void main() {
     );
   });
 
-  test('counts are a security definer function for admins only', () {
-    expect(migration, contains('security definer'));
+  test('counts rely on the service_role grant', () {
+    final countsAt = migration.indexOf(
+      'function public.subscription_event_counts()',
+    );
+    final countsHeader = migration.substring(
+      countsAt,
+      migration.indexOf('as \$\$', countsAt),
+    );
+    expect(countsHeader, contains('security definer'));
+    expect(countsHeader, contains("set search_path = ''"));
+
+    final triggerAt = migration.indexOf(
+      'function public.subscription_events_force_row()',
+    );
+    final triggerHeader = migration
+        .substring(triggerAt, migration.indexOf('as \$\$', triggerAt))
+        .toLowerCase();
+    expect(triggerHeader.contains('security definer'), isFalse);
+    expect(triggerHeader, contains("set search_path = ''"));
+
+    expect(migration.contains('request.jwt.claim.role'), isFalse);
+    expect(migration.contains('jwt_role'), isFalse);
+    expect(migration.contains('session_user'), isFalse);
     expect(migration, contains('function public.subscription_event_counts()'));
-    expect(migration, contains("jwt_role is distinct from 'service_role'"));
-    expect(migration, contains('count(distinct e.user_id)'));
+    expect(migration, contains('pg_catalog.count(distinct e.user_id)'));
     expect(
       migration,
       contains('revoke all on function public.subscription_event_counts()'),

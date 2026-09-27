@@ -7,6 +7,7 @@ import {
   logWithoutSecrets,
   appleIdentityInAdminUser,
   deleteThenRevokeAccount,
+  publishedWebOrigin,
   storeDepsFrom,
   type AppleSecrets,
   type DeleteDeps,
@@ -466,6 +467,79 @@ function fakeFetch(
     return new Response(null, { status: 204 });
   };
 }
+
+Deno.test("web preflight allows only the app origins", async () => {
+  const calls: Call[] = [];
+  const deps = deleteDepsFrom(platformEnv(), fakeFetch(calls, {}));
+  const allowed = await handleDeleteAccount(
+    new Request("https://fn.local/fn", {
+      method: "OPTIONS",
+      headers: { Origin: publishedWebOrigin },
+    }),
+    deps,
+  );
+  assert(allowed.status === 204, "status");
+  assert(
+    allowed.headers.get("Access-Control-Allow-Origin") === publishedWebOrigin,
+    "origin echoed",
+  );
+  assert(
+    allowed.headers.get("Access-Control-Allow-Methods")?.includes("POST"),
+    "methods",
+  );
+  assert(
+    allowed.headers.get("Access-Control-Allow-Origin") !== "*",
+    "not wildcard",
+  );
+  assert(calls.length === 0, "preflight does no work");
+
+  const local = await handleStoreAppleRefreshToken(
+    new Request("https://fn.local/fn", {
+      method: "OPTIONS",
+      headers: { Origin: "http://127.0.0.1:54321" },
+    }),
+    storeDepsFrom(platformEnv(), fakeFetch([], {})),
+  );
+  assert(local.status === 204, "local status");
+  assert(
+    local.headers.get("Access-Control-Allow-Origin") === "http://127.0.0.1:54321",
+    "local origin",
+  );
+
+  const denied = await handleDeleteAccount(
+    new Request("https://fn.local/fn", {
+      method: "OPTIONS",
+      headers: { Origin: "https://evil.example" },
+    }),
+    deps,
+  );
+  assert(denied.status === 403, "denied");
+  assert(denied.headers.get("Access-Control-Allow-Origin") === null, "no header");
+});
+
+Deno.test("a web delete response carries the preview origin", async () => {
+  const calls: Call[] = [];
+  const deps = deleteDepsFrom(platformEnv(), fakeFetch(calls, {}));
+  const response = await handleDeleteAccount(
+    new Request("https://fn.local/fn", {
+      method: "POST",
+      headers: {
+        Authorization: userAuthorization(),
+        "Content-Type": "application/json",
+        Origin: publishedWebOrigin,
+      },
+      body: "{}",
+    }),
+    deps,
+  );
+  assert(response.status === 200, "status");
+  assert(
+    response.headers.get("Access-Control-Allow-Origin") === publishedWebOrigin,
+    "cors",
+  );
+  const native = await handleDeleteAccount(jsonRequest({}), deps);
+  assert(native.headers.get("Access-Control-Allow-Origin") === null, "native");
+});
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const copy = new ArrayBuffer(bytes.byteLength);

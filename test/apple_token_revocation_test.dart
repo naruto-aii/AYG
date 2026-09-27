@@ -228,6 +228,11 @@ void main() {
       expect(production, contains('https://appleid.apple.com/auth/token'));
       expect(production, contains('token_type_hint'));
       expect(production, contains('deleteThenRevokeAccount'));
+      expect(production, contains('https://naruto-aii.github.io'));
+      expect(production, contains('Access-Control-Allow-Origin'));
+      expect(production, contains("req.method === \"OPTIONS\""));
+      expect(production.contains("Access-Control-Allow-Origin', '*'"), isFalse);
+      expect(production.contains('Access-Control-Allow-Origin: *'), isFalse);
       expect(production, contains('fn: "delete_own_account"'));
       expect(production, contains('body: { p_user_id: userId }'));
       expect(production, contains('authorization: serviceRoleKey'));

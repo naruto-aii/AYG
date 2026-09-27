@@ -235,6 +235,53 @@ export function jsonResponse(
   });
 }
 
+// Web preview origin. The path is not part of the browser Origin header.
+export const publishedWebOrigin = "https://naruto-aii.github.io";
+
+const corsAllowHeaders = "authorization, x-client-info, apikey, content-type";
+
+export function isAllowedWebOrigin(origin: string | null): boolean {
+  if (!origin) {
+    return false;
+  }
+  if (origin === publishedWebOrigin) {
+    return true;
+  }
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" || url.username !== "" || url.password !== "") {
+    return false;
+  }
+  return url.hostname === "localhost" || url.hostname === "127.0.0.1";
+}
+
+export function withWebCors(req: Request, response: Response): Response {
+  const origin = req.headers.get("Origin");
+  if (!origin || !isAllowedWebOrigin(origin)) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", origin);
+  headers.set("Vary", "Origin");
+  headers.set("Access-Control-Allow-Headers", corsAllowHeaders);
+  headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  return new Response(response.body, { status: response.status, headers });
+}
+
+export function webPreflight(req: Request): Response {
+  if (!isAllowedWebOrigin(req.headers.get("Origin"))) {
+    return new Response(null, { status: 403 });
+  }
+  const response = withWebCors(req, new Response(null, { status: 204 }));
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Max-Age", "86400");
+  return new Response(null, { status: 204, headers });
+}
+
 async function appleFormRequest(args: {
   url: string;
   fields: Record<string, string>;
@@ -406,6 +453,16 @@ export async function handleStoreAppleRefreshToken(
   req: Request,
   deps: StoreDeps,
 ): Promise<Response> {
+  if (req.method === "OPTIONS") {
+    return webPreflight(req);
+  }
+  return withWebCors(req, await storeAppleRefreshToken(req, deps));
+}
+
+async function storeAppleRefreshToken(
+  req: Request,
+  deps: StoreDeps,
+): Promise<Response> {
   if (req.method !== "POST") {
     return jsonResponse({ stored: false }, 405);
   }
@@ -534,6 +591,16 @@ export async function deleteThenRevokeAccount(args: {
 }
 
 export async function handleDeleteAccount(
+  req: Request,
+  deps: DeleteDeps,
+): Promise<Response> {
+  if (req.method === "OPTIONS") {
+    return webPreflight(req);
+  }
+  return withWebCors(req, await deleteAccountResponse(req, deps));
+}
+
+async function deleteAccountResponse(
   req: Request,
   deps: DeleteDeps,
 ): Promise<Response> {

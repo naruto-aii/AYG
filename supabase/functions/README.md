@@ -59,6 +59,11 @@ by the platform. Do not commit those either.
 
 Keep `verify_jwt = true` for both functions.
 
+Browsers calling either function must send `Origin: https://naruto-aii.github.io`
+(the web preview) or `http://localhost` / `http://127.0.0.1` on any port.
+`OPTIONS` is answered for those origins only. Other origins get no
+`Access-Control-Allow-Origin` header. Native apps do not send `Origin`.
+
 Deploy, in this order, before the app that calls `delete-account` is released:
 
 1. Apply migrations in timestamp order through

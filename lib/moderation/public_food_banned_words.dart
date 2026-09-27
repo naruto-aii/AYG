@@ -39,6 +39,25 @@ const List<String> publicFoodBannedWords = <String>[
   'きちがい',
   '池沼',
   'エロ',
+  // Full explicit compounds. Not boundary-only, so they match as substrings.
+  // The short fragments above stay boundary-only.
+  'おまんこ',
+  'フェラチオ',
+  'イラマチオ',
+  'クンニ',
+  'パイズリ',
+  '顔射',
+  'ぶっかけ',
+  'ごっくん',
+  'ザーメン',
+  'オナニー',
+  '潮吹き',
+  '素股',
+  '手コキ',
+  '手マン',
+  '肉便器',
+  'fellatio',
+  'cunnilingus',
 ];
 
 /// Halfwidth katakana, mapped to hiragana. Both strings are the same length.

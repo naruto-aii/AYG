@@ -43,6 +43,8 @@ void main() {
         'サンマンコ',
         'Cock tail',
         'rape seed oil',
+        'ブラックソース',
+        'やくそう',
       ];
       for (final name in names) {
         expect(PublicFoodNameModeration.isBanned(name), isFalse, reason: name);
@@ -94,6 +96,37 @@ void main() {
         expect(PublicFoodNameModeration.isBanned('Cock tail sauce'), isFalse);
       },
     );
+
+    test('rejects explicit compounds and still allows ordinary foods', () {
+      const allowed = [
+        'カフェラテ',
+        'ポークソテー',
+        'スモークソルト',
+        'Cock tail',
+        'rape seed oil',
+        'ブラックソース',
+        'やくそう',
+        'サンマンコ',
+      ];
+      const rejected = [
+        'おまんこ',
+        'オマンコ',
+        'フェラチオ',
+        'ふぇらちお',
+        'イラマチオ',
+        'クンニ',
+        'パイズリ',
+        'おまんこカレー',
+        'fellatio',
+        'cunnilingus',
+      ];
+      for (final name in allowed) {
+        expect(PublicFoodNameModeration.isBanned(name), isFalse, reason: name);
+      }
+      for (final name in rejected) {
+        expect(PublicFoodNameModeration.isBanned(name), isTrue, reason: name);
+      }
+    });
 
     test('does not treat an unchanged public name as a new rejection', () {
       expect(

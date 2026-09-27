@@ -101,6 +101,42 @@ begin
     'rape seed oil stays allowed'
   );
   perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('ブラックソース'),
+    'black sauce stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('やくそう'),
+    'herbal medicine stays allowed'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('おまんこ'),
+    'explicit compound is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('オマンコ'),
+    'katakana explicit compound is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('フェラチオ'),
+    'explicit compound fellatio is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('ふぇらちお'),
+    'hiragana explicit compound is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('イラマチオ'),
+    'explicit compound irrumatio is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('おまんこカレー'),
+    'explicit compound beside a food word is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('fellatio'),
+    'latin explicit compound is rejected'
+  );
+  perform ayg_test.assert_true(
     public.public_food_name_is_banned('くそ'),
     'bare short kana term is rejected'
   );

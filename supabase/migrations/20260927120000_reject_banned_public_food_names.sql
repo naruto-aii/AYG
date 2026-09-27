@@ -2,6 +2,10 @@
 -- name, normalized_name, brand, or serving_unit_label changes.
 -- Does not scan or rewrite existing rows.
 --
+-- search_path is empty on every function below. Names are schema-qualified
+-- (public. or pg_catalog.). publish_saved_food is SECURITY DEFINER, so a
+-- caller-controlled search_path must not apply.
+
 -- pg_catalog.normalize(text, NFKC) needs PostgreSQL 13 or newer.
 -- supabase/config.toml sets major_version = 17.
 -- Halfwidth dakuten (U+FF9E) and handakuten (U+FF9F) are composed before
@@ -11,13 +15,13 @@ create or replace function public.compose_halfwidth_voiced(p_text text)
 returns text
 language plpgsql
 immutable
-set search_path = public
+set search_path = ''
 as $$
 declare
-  v text := coalesce(p_text, '');
+  v text := pg_catalog.coalesce(p_text, '');
   v_out text := '';
   i integer := 1;
-  n integer := char_length(v);
+  n integer := pg_catalog.char_length(v);
   ch text;
   nxt text;
   base_at integer;
@@ -27,20 +31,20 @@ declare
   handakuten_to constant text := 'パピプペポ';
 begin
   while i <= n loop
-    ch := substr(v, i, 1);
+    ch := pg_catalog.substr(v, i, 1);
     if i < n then
-      nxt := substr(v, i + 1, 1);
-      if nxt = chr(65438) then
-        base_at := strpos(dakuten_base, ch);
+      nxt := pg_catalog.substr(v, i + 1, 1);
+      if nxt = pg_catalog.chr(65438) then
+        base_at := pg_catalog.strpos(dakuten_base, ch);
         if base_at > 0 then
-          v_out := v_out || substr(dakuten_to, base_at, 1);
+          v_out := v_out || pg_catalog.substr(dakuten_to, base_at, 1);
           i := i + 2;
           continue;
         end if;
-      elsif nxt = chr(65439) then
-        base_at := strpos(handakuten_base, ch);
+      elsif nxt = pg_catalog.chr(65439) then
+        base_at := pg_catalog.strpos(handakuten_base, ch);
         if base_at > 0 then
-          v_out := v_out || substr(handakuten_to, base_at, 1);
+          v_out := v_out || pg_catalog.substr(handakuten_to, base_at, 1);
           i := i + 2;
           continue;
         end if;
@@ -57,12 +61,12 @@ create or replace function public.normalize_public_food_name(p_name text)
 returns text
 language plpgsql
 immutable
-set search_path = public
+set search_path = ''
 as $$
 declare
   v text := pg_catalog.normalize(
-    public.compose_halfwidth_voiced(coalesce(p_name, '')),
-    NFKC
+    public.compose_halfwidth_voiced(pg_catalog.coalesce(p_name, '')),
+    'NFKC'::pg_catalog.normalization_form
   );
   v_out text := '';
   i integer;
@@ -78,23 +82,23 @@ begin
   -- Multi-character folds, then the 1:1 confusable map. Separator folding
   -- is the loop below. Combining marks U+0300–U+036F are dropped there
   -- and are not turned into spaces. Kana voicing U+3099/U+309A is kept.
-  v := replace(v, 'ß', 'ss');
-  v := replace(v, 'æ', 'ae');
-  v := replace(v, 'Æ', 'ae');
-  v := replace(v, 'œ', 'oe');
-  v := replace(v, 'Œ', 'oe');
-  v := translate(v, fold_from, fold_to);
+  v := pg_catalog.replace(v, 'ß', 'ss');
+  v := pg_catalog.replace(v, 'æ', 'ae');
+  v := pg_catalog.replace(v, 'Æ', 'ae');
+  v := pg_catalog.replace(v, 'œ', 'oe');
+  v := pg_catalog.replace(v, 'Œ', 'oe');
+  v := pg_catalog.translate(v, fold_from, fold_to);
 
-  for i in 1..char_length(v) loop
-    ch := substr(v, i, 1);
-    cp := ascii(ch);
+  for i in 1..pg_catalog.char_length(v) loop
+    ch := pg_catalog.substr(v, i, 1);
+    cp := pg_catalog.ascii(ch);
 
     if cp between 768 and 879 then
       continue;
     end if;
 
     if cp = 12288 or cp = 32 or cp = 9 or cp = 10 or cp = 13 then
-      if v_out <> '' and right(v_out, 1) <> ' ' then
+      if v_out <> '' and pg_catalog.right(v_out, 1) <> ' ' then
         v_out := v_out || ' ';
       end if;
       continue;
@@ -107,10 +111,10 @@ begin
     elsif cp between 65345 and 65370 then
       cp := 97 + (cp - 65345);
     else
-      hw_at := strpos(hw_from, ch);
+      hw_at := pg_catalog.strpos(hw_from, ch);
       if hw_at > 0 then
-        ch := substr(hw_to, hw_at, 1);
-        cp := ascii(ch);
+        ch := pg_catalog.substr(hw_to, hw_at, 1);
+        cp := pg_catalog.ascii(ch);
       end if;
     end if;
 
@@ -128,13 +132,13 @@ begin
        or cp between 12449 and 12538
        or cp between 19968 and 40959
        or cp = 12540 then
-      v_out := v_out || chr(cp);
-    elsif v_out <> '' and right(v_out, 1) <> ' ' then
+      v_out := v_out || pg_catalog.chr(cp);
+    elsif v_out <> '' and pg_catalog.right(v_out, 1) <> ' ' then
       v_out := v_out || ' ';
     end if;
   end loop;
 
-  return btrim(v_out);
+  return pg_catalog.btrim(v_out);
 end;
 $$;
 
@@ -142,16 +146,16 @@ create or replace function public.public_food_name_char_is_word(p_char text)
 returns boolean
 language sql
 immutable
-set search_path = public
+set search_path = ''
 as $$
   select p_char is not null
      and (
-       ascii(p_char) between 48 and 57
-       or ascii(p_char) between 97 and 122
-       or ascii(p_char) between 12353 and 12438
-       or ascii(p_char) between 12449 and 12538
-       or ascii(p_char) between 19968 and 40959
-       or ascii(p_char) = 12540
+       pg_catalog.ascii(p_char) between 48 and 57
+       or pg_catalog.ascii(p_char) between 97 and 122
+       or pg_catalog.ascii(p_char) between 12353 and 12438
+       or pg_catalog.ascii(p_char) between 12449 and 12538
+       or pg_catalog.ascii(p_char) between 19968 and 40959
+       or pg_catalog.ascii(p_char) = 12540
      );
 $$;
 
@@ -162,7 +166,7 @@ create or replace function public.public_food_name_contains_term(
 returns boolean
 language plpgsql
 immutable
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_from integer := 1;
@@ -175,20 +179,20 @@ begin
   end if;
 
   loop
-    v_at := strpos(substr(p_name, v_from), p_term);
+    v_at := pg_catalog.strpos(pg_catalog.substr(p_name, v_from), p_term);
     exit when v_at = 0;
     v_at := v_from + v_at - 1;
 
     if v_at = 1 then
       v_before := null;
     else
-      v_before := substr(p_name, v_at - 1, 1);
+      v_before := pg_catalog.substr(p_name, v_at - 1, 1);
     end if;
 
-    if v_at + char_length(p_term) > char_length(p_name) then
+    if v_at + pg_catalog.char_length(p_term) > pg_catalog.char_length(p_name) then
       v_after := null;
     else
-      v_after := substr(p_name, v_at + char_length(p_term), 1);
+      v_after := pg_catalog.substr(p_name, v_at + pg_catalog.char_length(p_term), 1);
     end if;
 
     if (v_before is null or not public.public_food_name_char_is_word(v_before))
@@ -210,10 +214,10 @@ create or replace function public.public_food_name_strip_phrase(
 returns text
 language plpgsql
 immutable
-set search_path = public
+set search_path = ''
 as $$
 declare
-  v text := coalesce(p_name, '');
+  v text := pg_catalog.coalesce(p_name, '');
   v_from integer := 1;
   v_at integer;
   v_before text;
@@ -224,28 +228,28 @@ begin
   end if;
 
   loop
-    v_at := strpos(substr(v, v_from), p_phrase);
+    v_at := pg_catalog.strpos(pg_catalog.substr(v, v_from), p_phrase);
     exit when v_at = 0;
     v_at := v_from + v_at - 1;
 
     if v_at = 1 then
       v_before := null;
     else
-      v_before := substr(v, v_at - 1, 1);
+      v_before := pg_catalog.substr(v, v_at - 1, 1);
     end if;
 
-    if v_at + char_length(p_phrase) > char_length(v) then
+    if v_at + pg_catalog.char_length(p_phrase) > pg_catalog.char_length(v) then
       v_after := null;
     else
-      v_after := substr(v, v_at + char_length(p_phrase), 1);
+      v_after := pg_catalog.substr(v, v_at + pg_catalog.char_length(p_phrase), 1);
     end if;
 
     if (v_before is null or not public.public_food_name_char_is_word(v_before))
        and (v_after is null or not public.public_food_name_char_is_word(v_after)) then
-      v := substr(v, 1, greatest(v_at - 1, 0))
+      v := pg_catalog.substr(v, 1, pg_catalog.greatest(v_at - 1, 0))
         || ' '
-        || substr(v, v_at + char_length(p_phrase));
-      v_from := greatest(v_at, 1);
+        || pg_catalog.substr(v, v_at + pg_catalog.char_length(p_phrase));
+      v_from := pg_catalog.greatest(v_at, 1);
     else
       v_from := v_at + 1;
     end if;
@@ -259,10 +263,10 @@ create or replace function public.public_food_name_term_uses_substring(p_term te
 returns boolean
 language sql
 immutable
-set search_path = public
+set search_path = ''
 as $$
-  select p_term !~ '[a-z0-9]'
-     and char_length(p_term) >= 2
+  select not pg_catalog.regexp_like(p_term, '[a-z0-9]')
+     and pg_catalog.char_length(p_term) >= 2
      and p_term not in (
        -- PUBLIC_FOOD_BOUNDARY_ONLY
        'えろ',
@@ -277,7 +281,7 @@ create or replace function public.public_food_name_is_banned(p_name text)
 returns boolean
 language plpgsql
 immutable
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_spaced text := public.normalize_public_food_name(p_name);
@@ -339,20 +343,20 @@ begin
   foreach v_phrase in array v_phrases loop
     v_spaced := public.public_food_name_strip_phrase(v_spaced, v_phrase);
   end loop;
-  v_spaced := btrim(regexp_replace(v_spaced, ' +', ' ', 'g'));
+  v_spaced := pg_catalog.btrim(pg_catalog.regexp_replace(v_spaced, ' +', ' ', 'g'));
   if v_spaced = '' then
     return false;
   end if;
-  v_compact := replace(v_spaced, ' ', '');
+  v_compact := pg_catalog.replace(v_spaced, ' ', '');
 
   foreach v_term in array v_words loop
-    v_norm := replace(public.normalize_public_food_name(v_term), ' ', '');
+    v_norm := pg_catalog.replace(public.normalize_public_food_name(v_term), ' ', '');
     if v_norm = '' then
       continue;
     end if;
 
     if public.public_food_name_term_uses_substring(v_norm) then
-      if strpos(v_compact, v_norm) > 0 then
+      if pg_catalog.strpos(v_compact, v_norm) > 0 then
         return true;
       end if;
     elsif public.public_food_name_contains_term(v_spaced, v_norm)
@@ -385,7 +389,7 @@ grant execute on function public.public_food_name_is_banned(text) to authenticat
 create or replace function public.validate_saved_foods_public_row()
 returns trigger
 language plpgsql
-set search_path = public
+set search_path = ''
 as $$
 begin
   if old.visibility <> 'public' or new.visibility <> 'public' then
@@ -396,7 +400,7 @@ begin
     raise exception 'base_amount must be positive';
   end if;
 
-  if btrim(new.name) = '' or btrim(new.normalized_name) = '' then
+  if pg_catalog.btrim(new.name) = '' or pg_catalog.btrim(new.normalized_name) = '' then
     raise exception 'name and normalized_name are required';
   end if;
 
@@ -411,19 +415,19 @@ begin
   end if;
 
   if new.brand is distinct from old.brand
-     and public.public_food_name_is_banned(coalesce(new.brand, '')) then
+     and public.public_food_name_is_banned(pg_catalog.coalesce(new.brand, '')) then
     raise exception 'public food name is not allowed';
   end if;
 
   if new.serving_unit_label is distinct from old.serving_unit_label
-     and public.public_food_name_is_banned(coalesce(new.serving_unit_label, '')) then
+     and public.public_food_name_is_banned(pg_catalog.coalesce(new.serving_unit_label, '')) then
     raise exception 'public food name is not allowed';
   end if;
 
-  if coalesce(new.kcal_per_base, 0) < 0
-     or coalesce(new.protein_per_base, 0) < 0
-     or coalesce(new.fat_per_base, 0) < 0
-     or coalesce(new.carb_per_base, 0) < 0 then
+  if pg_catalog.coalesce(new.kcal_per_base, 0) < 0
+     or pg_catalog.coalesce(new.protein_per_base, 0) < 0
+     or pg_catalog.coalesce(new.fat_per_base, 0) < 0
+     or pg_catalog.coalesce(new.carb_per_base, 0) < 0 then
     raise exception 'nutrition values must be non-negative';
   end if;
 
@@ -451,10 +455,10 @@ create or replace function public.publish_saved_food(p_food_id text)
 returns public.saved_foods
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
-  v_owner uuid := auth.uid();
+  v_owner pg_catalog.uuid := auth.uid();
   v_row public.saved_foods%rowtype;
 begin
   if v_owner is null then
@@ -490,21 +494,21 @@ begin
     raise exception 'invalid unit_type';
   end if;
 
-  if btrim(v_row.name) = '' or btrim(v_row.normalized_name) = '' then
+  if pg_catalog.btrim(v_row.name) = '' or pg_catalog.btrim(v_row.normalized_name) = '' then
     raise exception 'name and normalized_name are required';
   end if;
 
   if public.public_food_name_is_banned(v_row.name)
      or public.public_food_name_is_banned(v_row.normalized_name)
-     or public.public_food_name_is_banned(coalesce(v_row.brand, ''))
-     or public.public_food_name_is_banned(coalesce(v_row.serving_unit_label, '')) then
+     or public.public_food_name_is_banned(pg_catalog.coalesce(v_row.brand, ''))
+     or public.public_food_name_is_banned(pg_catalog.coalesce(v_row.serving_unit_label, '')) then
     raise exception 'public food name is not allowed';
   end if;
 
-  if coalesce(v_row.kcal_per_base, 0) < 0
-     or coalesce(v_row.protein_per_base, 0) < 0
-     or coalesce(v_row.fat_per_base, 0) < 0
-     or coalesce(v_row.carb_per_base, 0) < 0 then
+  if pg_catalog.coalesce(v_row.kcal_per_base, 0) < 0
+     or pg_catalog.coalesce(v_row.protein_per_base, 0) < 0
+     or pg_catalog.coalesce(v_row.fat_per_base, 0) < 0
+     or pg_catalog.coalesce(v_row.carb_per_base, 0) < 0 then
     raise exception 'nutrition values must be non-negative';
   end if;
 
@@ -526,7 +530,7 @@ begin
   perform public.ensure_publish_rate_limit_headroom(v_owner);
 
   -- Step 5: publicize (any failure rolls back the whole transaction).
-  perform set_config('ayg.allow_saved_food_publish', 'on', true);
+  perform pg_catalog.set_config('ayg.allow_saved_food_publish', 'on', true);
 
   update public.saved_foods
   set visibility = 'public'

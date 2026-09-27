@@ -227,7 +227,9 @@ void main() {
       expect(migration, contains(publicFoodHalfwidthHandakutenTo));
       expect(
         migration,
-        contains('public.compose_halfwidth_voiced(coalesce(p_name, \'\'))'),
+        contains(
+          'public.compose_halfwidth_voiced(pg_catalog.coalesce(p_name, \'\'))',
+        ),
       );
     });
 
@@ -289,8 +291,23 @@ void main() {
       expect(migration, contains('cp between 768 and 879'));
       expect(migration, contains(publicFoodConfusableFrom));
       expect(migration, contains(publicFoodConfusableTo));
-      expect(migration, contains("replace(v, 'ß', 'ss')"));
-      expect(migration, contains("replace(v, 'œ', 'oe')"));
+      expect(migration, contains("pg_catalog.replace(v, 'ß', 'ss')"));
+      expect(migration, contains("pg_catalog.replace(v, 'œ', 'oe')"));
+    });
+
+    test('functions use an empty search_path and schema-qualified names', () {
+      expect("set search_path = ''".allMatches(migration).length, 9);
+      expect(migration.contains('set search_path = public'), isFalse);
+      final publish = migration.indexOf(
+        'function public.publish_saved_food',
+      );
+      expect(publish, greaterThanOrEqualTo(0));
+      final publishSql = migration.substring(publish);
+      expect(publishSql, contains('security definer'));
+      expect(publishSql, contains("set search_path = ''"));
+      expect(publishSql, contains('auth.uid()'));
+      expect(publishSql, contains('pg_catalog.set_config('));
+      expect(publishSql.contains('set search_path = public'), isFalse);
     });
 
     test('publish and public-field updates call the check', () {
@@ -305,13 +322,13 @@ void main() {
       expect(
         migration,
         contains(
-          "public.public_food_name_is_banned(coalesce(v_row.brand, ''))",
+          "public.public_food_name_is_banned(pg_catalog.coalesce(v_row.brand, ''))",
         ),
       );
       expect(
         migration,
         contains(
-          "public.public_food_name_is_banned(coalesce(v_row.serving_unit_label, ''))",
+          "public.public_food_name_is_banned(pg_catalog.coalesce(v_row.serving_unit_label, ''))",
         ),
       );
       expect(migration, contains('new.name is distinct from old.name'));

@@ -83,6 +83,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
       if (!mounted) {
         return;
       }
+      setState(() => _isDeleting = false);
       await _showUnavailable();
     } on AccountDeletionFailedException catch (error) {
       if (!mounted) {
@@ -180,10 +181,8 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
               const SizedBox(height: AppSpacing.sm),
               SecondaryButton(
                 label: AppStrings.accountDeletionReadPolicy,
-                onPressed: () => showLegalDocument(
-                  context,
-                  LegalDocument.accountDeletion,
-                ),
+                onPressed: () =>
+                    showLegalDocument(context, LegalDocument.accountDeletion),
               ),
             ],
           ),

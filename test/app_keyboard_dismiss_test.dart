@@ -19,15 +19,16 @@ void main() {
     await tester.pump();
 
     expect(find.text('完了'), findsOneWidget);
-    expect(find.byTooltip('閉じる'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
 
     await tester.tap(find.byType(TextField));
     await tester.pump();
-    expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
+    expect(_editableHasFocus(tester), isTrue);
 
     await tester.tap(find.text('完了'));
     await tester.pump();
-    expect(FocusManager.instance.primaryFocus?.hasFocus, isFalse);
+    expect(_editableHasFocus(tester), isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
   });
 
   testWidgets('tapping outside a field dismisses focus', (tester) async {
@@ -48,10 +49,18 @@ void main() {
 
     await tester.tap(find.byType(TextField));
     await tester.pump();
-    expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
+    expect(_editableHasFocus(tester), isTrue);
 
     await tester.tap(find.text('外'));
     await tester.pump();
-    expect(FocusManager.instance.primaryFocus?.hasFocus, isFalse);
+    expect(_editableHasFocus(tester), isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
   });
+}
+
+bool _editableHasFocus(WidgetTester tester) {
+  return tester
+      .widget<EditableText>(find.byType(EditableText))
+      .focusNode
+      .hasFocus;
 }

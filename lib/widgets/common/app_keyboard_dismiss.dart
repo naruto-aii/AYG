@@ -73,21 +73,24 @@ class AppKeyboardHost extends StatelessWidget {
                   bottom: false,
                   child: SizedBox(
                     height: AppKeyboardHost.accessoryHeight,
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 4),
-                        IconButton(
-                          tooltip: '閉じる',
-                          onPressed: dismissAppKeyboard,
-                          icon: const Icon(Icons.close),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: dismissAppKeyboard,
-                          child: const Text('完了'),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
+                    child: Focus(
+                      canRequestFocus: false,
+                      descendantsAreFocusable: false,
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 4),
+                          IconButton(
+                            onPressed: dismissAppKeyboard,
+                            icon: const Icon(Icons.close, semanticLabel: '閉じる'),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: dismissAppKeyboard,
+                            child: const Text('完了'),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
                     ),
                   ),
                 ),

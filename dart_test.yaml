@@ -1,0 +1,6 @@
+# Live Supabase tests. Run them only when the local CLI is up:
+#   flutter test --tags integration
+# Skip them (the default suite still skips each test when port 54321 is closed):
+#   flutter test --exclude-tags integration
+tags:
+  integration:

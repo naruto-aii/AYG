@@ -271,6 +271,7 @@ void main() {
     test('push pull round-trip and RLS isolation', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available');
+        return;
       }
 
       late SupabaseClient ownerClient;

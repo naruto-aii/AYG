@@ -66,16 +66,22 @@ class StrengthWorkoutLog {
           }
           final first = exercise.sets.first;
           final same = exercise.sets.every(
-            (set) =>
-                set.weightKg == first.weightKg && set.reps == first.reps,
+            (set) => set.weightKg == first.weightKg && set.reps == first.reps,
           );
           final setLabel = '${exercise.sets.length}セット';
           if (same && first.weightKg != null && first.reps != null) {
-            return '${exercise.name} $setLabel ${first.weightKg}kg×${first.reps}';
+            return '${exercise.name} $setLabel ${_formatKg(first.weightKg!)}kg×${first.reps}';
           }
           return '${exercise.name} $setLabel';
         })
         .join(' · ');
+  }
+
+  static String _formatKg(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toString();
   }
 
   Map<String, Object?> toJson() => {
@@ -140,10 +146,7 @@ class StrengthNotesCodec {
       final decoded = jsonDecode(jsonText);
       if (decoded is Map<String, dynamic>) {
         final log = StrengthWorkoutLog.fromJson(decoded);
-        return StrengthNotesPayload(
-          log: log.isEmpty ? null : log,
-          memo: memo,
-        );
+        return StrengthNotesPayload(log: log.isEmpty ? null : log, memo: memo);
       }
     } catch (_) {}
     return StrengthNotesPayload(memo: memo.isEmpty ? text.trim() : memo);

@@ -9,9 +9,10 @@ const deleteAccountFunction = 'delete-account';
 /// Shown if anything stringifies this exception. The screen uses its own copy.
 const accountDeletionGenericFailure = 'account deletion failed';
 
-/// `delete-account` revokes the Sign in with Apple token, then calls
-/// `delete_own_account` as the signed-in user. A missing function is
-/// unavailable. Other failures use a fixed message and drop the response body.
+/// `delete-account` revokes the Sign in with Apple token, then deletes the
+/// account. The client does not call the database function itself. A missing
+/// function is unavailable. Other failures use a fixed message and drop the
+/// response body.
 Future<void> deleteOwnAccountWithClient(SupabaseClient client) {
   return deleteOwnAccountWithInvoker(
     (functionName, {body}) => client.functions.invoke(functionName, body: body),

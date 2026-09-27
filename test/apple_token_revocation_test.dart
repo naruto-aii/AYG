@@ -204,6 +204,8 @@ void main() {
       expect(production, contains('token_type_hint'));
       expect(production, contains('revokeThenDeleteAccount'));
       expect(production, contains('fn: "delete_own_account"'));
+      expect(production, contains('body: { p_user_id: userId }'));
+      expect(production, contains('authorization: serviceRoleKey'));
       expect(
         RegExp(
           r'\[functions\.store-apple-refresh-token\]\s+verify_jwt = true',
@@ -224,4 +226,22 @@ void main() {
       expect(RegExp(r'APPLE_PRIVATE_KEY\s*=\s*"').hasMatch(config), isFalse);
     },
   );
+
+  test('the client deletes accounts only through the edge function', () {
+    final rpc = File(
+      'lib/repositories/account_deletion_rpc.dart',
+    ).readAsStringSync();
+    expect(rpc, contains("deleteAccountFunction = 'delete-account'"));
+    expect(rpc.contains('.rpc('), isFalse);
+    final direct = RegExp(
+      '''\\.rpc\\(\\s*['"]delete_own_account''',
+    );
+    final sources = Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.dart'));
+    for (final file in sources) {
+      expect(direct.hasMatch(file.readAsStringSync()), isFalse, reason: file.path);
+    }
+  });
 }

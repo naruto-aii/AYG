@@ -375,7 +375,7 @@ export type DeleteDeps = {
   resolveUserId(authorization: string | null): Promise<string | null>;
   readToken(userId: string): Promise<string | null>;
   revoke(refreshToken: string): Promise<{ ok: boolean; status: number; errorCode: string }>;
-  deleteAccount(authorization: string): Promise<void>;
+  deleteAccount(userId: string): Promise<void>;
   deleteStoredToken(userId: string): Promise<void>;
   log: LogFn;
 };
@@ -449,7 +449,6 @@ export async function handleStoreAppleRefreshToken(
 }
 
 export async function revokeThenDeleteAccount(args: {
-  authorization: string;
   userId: string;
   deps: DeleteDeps;
 }): Promise<"deleted" | "delete_failed"> {
@@ -479,7 +478,7 @@ export async function revokeThenDeleteAccount(args: {
   }
 
   try {
-    await args.deps.deleteAccount(args.authorization);
+    await args.deps.deleteAccount(args.userId);
   } catch {
     args.deps.log("delete_own_account failed");
     return "delete_failed";
@@ -512,7 +511,6 @@ export async function handleDeleteAccount(
     return jsonResponse({ ok: false }, 401);
   }
   const result = await revokeThenDeleteAccount({
-    authorization,
     userId,
     deps,
   });
@@ -621,18 +619,18 @@ export function deleteDepsFrom(env: EnvMap, fetchImpl: FetchLike): DeleteDeps {
       }
       return revokeRefreshToken({ refreshToken, secrets, fetchImpl });
     },
-    deleteAccount: async (authorization) => {
-      if (!supabaseUrl || !anonKey) {
+    deleteAccount: async (userId) => {
+      if (!supabaseUrl || !serviceRoleKey || !isUuid(userId)) {
         throw new Error("delete unconfigured");
       }
       await rpcOk(
         fetchImpl,
         rpcRequest({
           supabaseUrl,
-          apiKey: anonKey,
-          authorization,
+          apiKey: serviceRoleKey,
+          authorization: serviceRoleKey,
           fn: "delete_own_account",
-          body: {},
+          body: { p_user_id: userId },
           minimal: true,
         }),
       );

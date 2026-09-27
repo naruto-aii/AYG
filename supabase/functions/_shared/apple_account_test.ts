@@ -231,10 +231,10 @@ Deno.test("revoke failure still deletes the account and the stored token", async
     revoke?.body.includes(`token=${refreshToken}`), "revoke token");
   const deleted = calls.find((call) => call.url.endsWith("/rpc/delete_own_account"));
   assert(deleted, "delete account");
-  assert(deleted.authorization === userAuthorization(), "user jwt");
-  assert(deleted.apikey === "anon-key", "anon key");
-  assert(deleted.body === "{}", "empty body");
-  assert(!deleted.authorization.includes("service-key"), "not service role");
+  assert(deleted.authorization === "Bearer service-key", "service role");
+  assert(deleted.apikey === "service-key", "service apikey");
+  assert(JSON.parse(deleted.body).p_user_id === userId, "resolved user id");
+  assert(!deleted.authorization.includes(userAuthorization()), "not the user jwt");
   const removed = calls.find((call) => call.url.endsWith("/rpc/delete_apple_refresh_token"));
   assert(removed, "delete token");
   assert(removed.authorization === "Bearer service-key", "service role delete");
@@ -268,6 +268,19 @@ Deno.test("missing apple secrets do not block account deletion", async () => {
   assert(logs.some((line) => line.includes("secrets_missing")), "logged");
 });
 
+Deno.test("a body user id does not replace the authenticated user", async () => {
+  const calls: Call[] = [];
+  const deps = deleteDepsFrom(platformEnv(), fakeFetch(calls, {}));
+  const response = await handleDeleteAccount(jsonRequest({
+    p_user_id: "22222222-2222-4222-8222-222222222222",
+  }), deps);
+  assert(response.status === 200, "status");
+  const deleted = calls.find((call) => call.url.endsWith("/rpc/delete_own_account"));
+  assert(deleted, "delete account");
+  assert(JSON.parse(deleted.body).p_user_id === userId, "auth user");
+  assert(deleted.authorization === "Bearer service-key", "service role");
+});
+
 Deno.test("direct revoke failure still reaches delete_own_account", async () => {
   let deleted = false;
   let tokenDeleted = false;
@@ -286,7 +299,6 @@ Deno.test("direct revoke failure still reaches delete_own_account", async () => 
     },
   };
   const result = await revokeThenDeleteAccount({
-    authorization: userAuthorization(),
     userId,
     deps,
   });

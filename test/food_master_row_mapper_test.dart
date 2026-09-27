@@ -85,6 +85,28 @@ void main() {
 
       expect(parsed.version, 4);
     });
+
+    test('reads owner_deleted and does not let the client overwrite it', () {
+      final food = SavedFood(
+        foodId: 'f4',
+        ownerUserId: 'u1',
+        name: 'Left Rice',
+        normalizedName: 'left rice',
+        baseAmount: 100,
+        unitType: FoodUnitType.g,
+        createdAt: DateTime.utc(2026, 1, 1),
+        updatedAt: DateTime.utc(2026, 1, 2),
+      );
+      final row = FoodMasterRowMapper.savedFoodToRow(food, userId: 'u1');
+      row['owner_deleted'] = true;
+
+      final parsed = FoodMasterRowMapper.savedFoodFromRow(row);
+      expect(parsed.ownerDeleted, isTrue);
+      expect(parsed.creatorLabel, '削除済みユーザー');
+
+      final written = FoodMasterRowMapper.savedFoodToRow(parsed, userId: 'u1');
+      expect(written.containsKey('owner_deleted'), isFalse);
+    });
   });
 
   group('FoodMasterRowMapper.foodEntry', () {

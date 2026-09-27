@@ -517,10 +517,8 @@ class _ExerciseMetCalculationSectionState
                 },
               ),
               if (_manualOverride)
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: '手動 追加消費 kcal（net）',
-                  ),
+                AppTextField(
+                  label: '手動 追加消費 kcal（net）',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),

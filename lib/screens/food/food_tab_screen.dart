@@ -75,7 +75,11 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
     );
   }
 
-  void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
+  void _openFoodForm(
+    BuildContext context, {
+    FoodEntry? entry,
+    bool autoStartBarcodeScan = false,
+  }) {
     if (entry == null && !canAddRecordOnDay(_selectedDate)) {
       showFutureDayAddBlockedSnackBar(context);
       return;
@@ -88,6 +92,7 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
       entry: entry,
       initialLoggedAt: entry == null ? _initialLoggedAtForNewEntry : null,
       foodFormBuilder: widget.foodFormBuilder,
+      autoStartBarcodeScan: autoStartBarcodeScan,
     );
   }
 
@@ -196,6 +201,20 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    IconButton(
+                      tooltip: 'バーコードをスキャン',
+                      onPressed: canAdd
+                          ? () => _openFoodForm(
+                              context,
+                              autoStartBarcodeScan: true,
+                            )
+                          : null,
+                      icon: const AppIcon(
+                        AppIcons.barcode,
+                        size: 24,
+                        color: AppColors.iconPrimary,
+                      ),
+                    ),
                     IconButton(
                       tooltip: '食事テンプレート',
                       onPressed: _openTemplates,

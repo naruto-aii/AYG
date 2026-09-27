@@ -14,6 +14,9 @@ begin;
 alter table public.users
   add column if not exists deleted_at timestamptz;
 
+alter table public.saved_foods
+  add column if not exists owner_deleted boolean not null default false;
+
 create or replace function public.delete_own_account()
 returns void
 language plpgsql
@@ -45,6 +48,11 @@ begin
   delete from public.saved_foods
     where user_id = uid
       and visibility is distinct from 'public';
+
+  update public.saved_foods
+  set owner_deleted = true
+  where user_id = uid
+    and visibility = 'public';
 
   delete from public.food_entries where user_id = uid;
   delete from public.exercise_entries where user_id = uid;

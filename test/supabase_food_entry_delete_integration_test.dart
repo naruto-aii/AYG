@@ -94,7 +94,7 @@ void main() {
 
     test('deleteFoodEntry removes own row from Supabase', () async {
       if (!supabaseAvailable) {
-        return;
+        markTestSkipped('Local Supabase not available at $_localUrl');
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -130,7 +130,7 @@ void main() {
 
     test('deleteFoodEntry throws when row is missing', () async {
       if (!supabaseAvailable) {
-        return;
+        markTestSkipped('Local Supabase not available at $_localUrl');
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -157,7 +157,7 @@ void main() {
 
     test('deleteFoodEntry throws for other users row (RLS)', () async {
       if (!supabaseAvailable) {
-        return;
+        markTestSkipped('Local Supabase not available at $_localUrl');
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -248,7 +248,7 @@ void main() {
 
       test('deletes locally and stays deleted after remote pull', () async {
         if (!supabaseAvailable) {
-          return;
+          markTestSkipped('Local Supabase not available at $_localUrl');
         }
 
         final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -310,7 +310,7 @@ void main() {
 
       test('keeps local entry when remote delete finds no row', () async {
         if (!supabaseAvailable) {
-          return;
+          markTestSkipped('Local Supabase not available at $_localUrl');
         }
 
         final suffix = DateTime.now().microsecondsSinceEpoch;

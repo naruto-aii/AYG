@@ -76,6 +76,7 @@ void main() {
     expect(find.text(AppStrings.settingsSupport), findsOneWidget);
     expect(find.text(AppStrings.settingsTokushoho), findsOneWidget);
     expect(find.text(AppStrings.settingsAccountDeletion), findsOneWidget);
+    expect(find.text(AppStrings.plusTitle), findsOneWidget);
 
     await authRepository.dispose();
   });

@@ -56,6 +56,10 @@ class PublicFoodSearchResultTile extends StatelessWidget {
             if (food.brand != null && food.brand!.isNotEmpty)
               Text('ブランド: ${food.brand}', style: theme.textTheme.bodySmall),
             Text(
+              '作成者: ${food.creatorLabel}',
+              style: theme.textTheme.bodySmall,
+            ),
+            Text(
               '登録元: ${SavedFoodDisplayLabels.sourceType(food.sourceType)} · '
               'Good ${match.goodCount} / Bad ${match.badCount}',
               style: theme.textTheme.bodySmall,

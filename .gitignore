@@ -65,5 +65,8 @@ macos/Flutter/GoogleSignIn.generated.xcconfig
 tool/dart_defines.local.json
 tool/db_password.local
 
+# Supabase CLI local cache (not project source)
+supabase/.temp/
+
 # Local native binaries
 *.dylib

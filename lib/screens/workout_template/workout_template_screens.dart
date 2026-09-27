@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/exercise_category.dart';
 import '../../models/workout_template.dart';
+import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/id_generator.dart';
@@ -11,6 +12,7 @@ import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/layout/app_content_constraint.dart';
+import '../subscription/calonavi_plus_screen.dart';
 
 class WorkoutTemplateFormScreen extends StatefulWidget {
   const WorkoutTemplateFormScreen({
@@ -104,6 +106,11 @@ class _WorkoutTemplateFormScreenState extends State<WorkoutTemplateFormScreen> {
         return;
       }
       Navigator.of(context).pop(true);
+    } on SubscriptionLimitExceededException {
+      if (!mounted) {
+        return;
+      }
+      await showCalonaviPlus(context, widget.controller.subscriptionRepository);
     } catch (error) {
       if (!mounted) {
         return;
@@ -207,6 +214,14 @@ class _WorkoutTemplateListScreenState extends State<WorkoutTemplateListScreen> {
   }
 
   Future<void> _openCreate() async {
+    final allowed = await guardPlusFeature(
+      context: context,
+      controller: widget.controller,
+      ensure: widget.controller.ensureCanCreateWorkoutTemplate,
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) =>
@@ -478,6 +493,14 @@ class _WorkoutTemplatePickerScreenState
   }
 
   Future<void> _openCreate() async {
+    final allowed = await guardPlusFeature(
+      context: context,
+      controller: widget.controller,
+      ensure: widget.controller.ensureCanCreateWorkoutTemplate,
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) =>

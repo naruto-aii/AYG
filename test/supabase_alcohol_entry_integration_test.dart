@@ -73,7 +73,7 @@ void main() {
   group('alcohol_entries integration', () {
     test('CRUD with RLS isolation', () async {
       if (!supabaseAvailable) {
-        return;
+        markTestSkipped('Local Supabase not available at $_localUrl');
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -225,7 +225,7 @@ void main() {
 
       test('deletes locally and remotely without resurrection', () async {
         if (!supabaseAvailable) {
-          return;
+          markTestSkipped('Local Supabase not available at $_localUrl');
         }
 
         final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -273,7 +273,7 @@ void main() {
 
       test('keeps local entry when remote delete finds no row', () async {
         if (!supabaseAvailable) {
-          return;
+          markTestSkipped('Local Supabase not available at $_localUrl');
         }
 
         final suffix = DateTime.now().microsecondsSinceEpoch;

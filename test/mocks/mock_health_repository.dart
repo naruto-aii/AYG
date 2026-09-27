@@ -12,6 +12,9 @@ class MockHealthRepository implements HealthRepository {
   @override
   final bool isAvailable;
 
+  @override
+  String? lastFailureMessage;
+
   bool permissionsGranted;
   HealthProfileData profileData;
 

@@ -4,10 +4,11 @@ import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_entry.dart';
+import '../../models/strength_workout_log.dart';
+import '../../widgets/exercise/strength_workout_log_editor.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/secondary_button.dart';
@@ -39,10 +40,8 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _durationController;
   late final TextEditingController _burnedKcalController;
-  late final TextEditingController _setsController;
-  late final TextEditingController _repsController;
-  late final TextEditingController _liftWeightController;
   late final TextEditingController _notesController;
+  StrengthWorkoutLog _strengthLog = const StrengthWorkoutLog(exercises: []);
   late DateTime _loggedAt;
   bool _isSaving = false;
   ExerciseMetFormState _metState = ExerciseMetFormState();
@@ -60,16 +59,12 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     _burnedKcalController = TextEditingController(
       text: entry != null ? entry.effectiveGrossKcal.toString() : '',
     );
-    _setsController = TextEditingController(
-      text: entry?.sets?.toString() ?? '',
-    );
-    _repsController = TextEditingController(
-      text: entry?.reps?.toString() ?? '',
-    );
-    _liftWeightController = TextEditingController(
-      text: entry?.liftWeightKg?.toString() ?? '',
-    );
-    _notesController = TextEditingController(text: entry?.notes ?? '');
+    final parsedNotes = StrengthNotesCodec.parse(entry?.notes);
+    _strengthLog =
+        parsedNotes.log ??
+        entry?.legacyStrengthLog ??
+        const StrengthWorkoutLog(exercises: []);
+    _notesController = TextEditingController(text: parsedNotes.memo);
   }
 
   @override
@@ -77,30 +72,11 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     _nameController.dispose();
     _durationController.dispose();
     _burnedKcalController.dispose();
-    _setsController.dispose();
-    _repsController.dispose();
-    _liftWeightController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   bool get _isStrength => _metState.category == ExerciseCategory.strength;
-
-  int? _parseOptionalInt(TextEditingController controller) {
-    final raw = controller.text.trim();
-    if (raw.isEmpty) {
-      return null;
-    }
-    return int.tryParse(raw);
-  }
-
-  double? _parseOptionalDouble(TextEditingController controller) {
-    final raw = controller.text.trim();
-    if (raw.isEmpty) {
-      return null;
-    }
-    return double.tryParse(raw);
-  }
 
   ExerciseEntry? _buildEntry() {
     if (_formKey.currentState?.validate() != true) {
@@ -122,7 +98,19 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     }
     final gross = grossAndNet.$1;
     final net = grossAndNet.$2;
-    final notes = _notesController.text.trim();
+    StrengthSetLog? firstSet;
+    if (_isStrength) {
+      for (final exercise in _strengthLog.exercises) {
+        if (exercise.sets.isNotEmpty) {
+          firstSet = exercise.sets.first;
+          break;
+        }
+      }
+    }
+    final notes = StrengthNotesCodec.encode(
+      log: _isStrength ? _strengthLog : null,
+      memo: _notesController.text,
+    );
 
     return ExerciseEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
@@ -133,11 +121,11 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       category: _metState.category,
       activityId: _metState.activityId,
       intensity: _metState.intensity,
-      sets: _isStrength ? _parseOptionalInt(_setsController) : null,
-      reps: _isStrength ? _parseOptionalInt(_repsController) : null,
-      liftWeightKg: _isStrength
-          ? _parseOptionalDouble(_liftWeightController)
+      sets: _isStrength && _strengthLog.totalSets > 0
+          ? _strengthLog.totalSets
           : null,
+      reps: firstSet?.reps,
+      liftWeightKg: firstSet?.weightKg,
       metValue: _metState.metValue,
       grossKcal: gross,
       netKcal: net,
@@ -246,29 +234,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_isStrength)
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('セット・回数・重量（任意）'),
-            subtitle: const Text('消費カロリーは実施時間から計算します'),
-            children: [
-              AppTextField(
-                controller: _setsController,
-                label: 'セット',
-                keyboardType: TextInputType.number,
-              ),
-              AppTextField(
-                controller: _repsController,
-                label: '回数',
-                keyboardType: TextInputType.number,
-              ),
-              AppTextField(
-                controller: _liftWeightController,
-                label: '重量（kg）',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-            ],
+          StrengthWorkoutLogEditor(
+            initialLog: _strengthLog,
+            onChanged: (log) => _strengthLog = log,
           ),
         LoggedAtPickerField(
           loggedAt: _loggedAt,
@@ -287,6 +255,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
           child: Form(
             key: _formKey,
             child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.md,
                 AppSpacing.md,

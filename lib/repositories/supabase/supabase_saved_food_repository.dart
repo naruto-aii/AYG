@@ -372,6 +372,7 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
       updatedAt: now,
       deletedAt: null,
       version: SavedFoodVersionPolicy.initialVersion,
+      ownerDeleted: false,
     );
   }
 }

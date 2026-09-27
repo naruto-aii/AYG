@@ -174,12 +174,9 @@ Vision / Mission / 最上位目的は、今後 Owner が確定する。
 
 - カロナビの **正式プロダクトはモバイルアプリ** である
 - **iOS / Android の両方** を本線プラットフォームとして設計する
-- **初回の正式公開は Apple App Store を優先** する
-- Android も同時公開を意味する表現は用いない
-
-#### 【Open Question】
-
-- Google Play 公開時期
+- **初回の正式公開は Apple App Store のみ** とする
+- Android / Google Play は初回に出さない。時期は未定
+- 運営名義は法人化まで **個人・麹池成**
 
 ### Web Preview
 
@@ -236,7 +233,7 @@ github.io の `/AYG/` が必要なのは、Web プレビュー自身の Google �
 |------|-------------------|---------------------------|
 | ログイン方式 | Google **または** Apple ID | — |
 | Google ログイン | Version 1.1 正式スコープに含む | **実装済み** |
-| Apple ログイン | Version 1.1 正式スコープに含む | **未実装** |
+| Apple ログイン | Version 1.1 正式スコープに含む | **実装済み** |
 
 未実装であることは、正式スコープから外れる理由ではない。
 
@@ -400,11 +397,13 @@ Core Value は、プロダクト一言定義 **「エネルギー管理におけ
 以下は **【Owner Decision】** として Version 1.1 正式スコープに含まれるが、**現時点で未完成** の項目である。  
 「将来機能」ではなく、Version 1.1 リリース前に完了すべきタスクとして扱う。
 
-| # | タスク | 【Current Implementation】 |
-|---|--------|---------------------------|
-| 1 | **Apple ログイン** | 未実装（Google ログインは実装済み） |
-| 2 | **App Store 公開に必要な法務・Privacy・審査対応** | 未完了 |
-| 3 | **TestFlight 配布準備** | 未完了 |
+| # | レーン | タスク | 【Current Implementation】 |
+|---|--------|--------|---------------------------|
+| 1 | 今できる | **実機の機能確認** | 未完。仮デザインのまま。購入含む |
+| 2 | 今できる | **掲載テキスト** | URL / 年齢 / Privacy Labels / 審査メモ |
+| 3 | デザイン後 | **見た目・アイコン・スクショ・TestFlight** | デザイナー待ち |
+
+推奨着手順の本文は `docs/legal/README.md`。基本タスク完了のたびに「今できる / デザイン後」を出し直す。
 
 ---
 
@@ -415,12 +414,9 @@ Core Value は、プロダクト一言定義 **「エネルギー管理におけ
 ### 【Owner Decision】
 
 - カロナビは **Apple App Store での公開を予定** する
+- 初回は App Store のみ。Google Play は出さない
 - App Store 公開前に、法務、Privacy、Apple Sign-In、審査要件、セキュリティ、TestFlight 等を完了する
 - 詳細は後続の Release / Legal 文書で定義する
-
-### 【Open Question】
-
-- Google Play 公開時期
 
 ---
 
@@ -432,7 +428,7 @@ Core Value は、プロダクト一言定義 **「エネルギー管理におけ
 | Q2 | Core Value の具体的な問い・例 |
 | Q3 | 体重専用タブの本格 UI（履歴・グラフ等）を Version 1.1 に含めるか |
 | Q4 | Health から取得した Workout を運動履歴・消費カロリー計算へどう反映するか |
-| Q5 | Google Play 公開時期 |
+| Q5 | Google Play を後から出す時期（初回は出さない） |
 
 ---
 

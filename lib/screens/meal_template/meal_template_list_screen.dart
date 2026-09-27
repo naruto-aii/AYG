@@ -7,6 +7,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/delete_with_undo.dart';
+import '../subscription/calonavi_plus_screen.dart';
 import 'meal_template_form_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -60,6 +61,14 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   }
 
   Future<void> _openCreate() async {
+    final allowed = await guardPlusFeature(
+      context: context,
+      controller: widget.controller,
+      ensure: widget.controller.ensureCanCreateMealTemplate,
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) =>

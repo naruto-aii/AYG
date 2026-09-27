@@ -12,6 +12,10 @@ class SavedFoodDisplayLabels {
     };
   }
 
+  static String creator(bool ownerDeleted) {
+    return ownerDeleted ? '削除済みユーザー' : 'ユーザー';
+  }
+
   static String sourceType(FoodSourceType sourceType) {
     return switch (sourceType) {
       FoodSourceType.manual => '手入力',

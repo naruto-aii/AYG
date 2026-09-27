@@ -46,6 +46,14 @@ void main() {
     expect(info, contains('UIInterfaceOrientationPortrait'));
   });
 
+  test('Android manifest does not declare Health Connect reads', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+    expect(manifest, isNot(contains('android.permission.health.READ_')));
+    expect(manifest, isNot(contains('android.permission.health.WRITE_')));
+  });
+
   test('HealthKit entitlement is read access without clinical records', () {
     expect(entitlements, contains('com.apple.developer.healthkit'));
     expect(entitlements, contains('com.apple.developer.healthkit.access'));

@@ -82,7 +82,34 @@ Product Personalization は選ばない。
 
 - Google または Sign in with Apple がメールを渡した場合、`public.users.email`（`supabase/migrations/20260722130000_create_v1_1_schema.sql`）
 - マニフェスト: `NSPrivacyCollectedDataTypeEmailAddress`、目的は App Functionality
-- 氏名は要求しない。`lib/repositories/supabase_authentication_repository.dart` の `SignInWithApple.getAppleIDCredential` の scopes は `AppleIDAuthorizationScopes.email` のみ。givenName / familyName は受け取らず、保存もしない。Name は収集しない
+- Sign in with Apple は氏名を要求しない。`lib/repositories/supabase_authentication_repository.dart` の `SignInWithApple.getAppleIDCredential` の scopes は `AppleIDAuthorizationScopes.email` のみ。givenName / familyName は受け取らず、Apple のログインでは氏名を保存しない
+- Google ログインでサーバーに残る氏名は、下の Contact Info > Name で申告する。アプリの画面はその氏名を使わない
+
+### Contact Info > Name
+
+ポリシー（`legal/privacy.html`）にはまだ書いていない。ここは App Store Connect へ入れる前の案だけ。
+
+| 項目 | 回答 |
+| --- | --- |
+| 収集する | はい |
+| ユーザーに紐づく | はい |
+| トラッキング | いいえ |
+| 目的 | App Functionality |
+
+申告する理由: アプリは Google の氏名もプロフィール画像も表示しない。`AuthUser` は `id` と `email` だけ（`lib/repositories/supabase_authentication_repository.dart` の `_mapUser`）。`public.profiles` は生年月日・性別・身長・体重で、Google の氏名ではない。それでも Supabase Auth は Google ログインのとき、氏名と画像 URL を `auth.users.raw_user_meta_data` に入れる。既定のキーは `full_name`、`name`、`avatar_url`、`picture` で、同じ内容は `auth.identities.identity_data` にも残る。アカウント削除が成功すると、`delete_own_account` が `raw_user_meta_data` を `{}` にし、`auth.identities` の行を消す。
+
+保存を避けなかった理由:
+
+- ネイティブの Google ログインは `lib/repositories/google_sign_in_factory.dart` の `GoogleSignIn` で、追加スコープを渡していない。`google_sign_in` 6.3.0 の `scopes` は追加分だけ。iOS 実装（`google_sign_in_ios` 5.9.0 の `signInWithHint:additionalScopes:`）も、渡した配列を additional scopes として渡す。Google の Sign-In SDK は `openid`、`email`、`profile` を常に要求する。ID トークンには `name` と `picture` が入る
+- その ID トークンと access token を `signInWithIdToken`（`OAuthProvider.google`）で Supabase に渡す。氏名を落とす処理はアプリ側にない。次のログインで Supabase が同じクレームを書き戻すので、ログイン直後に `updateUser` で空にしても残る
+- Web と、iOS クライアント ID が無いときの Safari 経路は `signInWithOAuth` で、`scopes` を渡していない。`supabase/config.toml` に Google プロバイダのスコープ上書きはない。Supabase の Google プロバイダ既定は profile を含む
+- `auth.users` だけをトリガーで削っても `auth.identities.identity_data` に氏名が残る。auth スキーマへのトリガーは Supabase がサポートする保存方法ではなく、この変更では入れない。両方をログイン時に消すには、ダッシュボードの Auth Hook と関数のデプロイが要る。この PR はデプロイしない
+
+Sign in with Apple は上のとおり email のみで、こちらの Name には含めない。画像のファイルは受け取らない。Photos or Videos は収集しない、のままにする。残るのは URL の文字列だけ。
+
+`legal/privacy.html` 第3章への追記案（このファイルだけ。ポリシーには入れない）:
+
+> Google ログインに伴い保存される、Google アカウントの氏名とプロフィール画像の URL。アプリの画面では使わない。ログインの処理としてサーバーのアカウント情報に保存し、アカウントの削除が完了したときに消去する。
 
 ### Health & Fitness > Health
 
@@ -174,7 +201,7 @@ Product Personalization は選ばない。
 
 これは Sign in with Apple の refresh token です。
 
-申告する理由: Apple は、認証トークンをサーバー呼び出しで送るだけで保存しない場合は申告不要としています。このトークンは保存します。ネイティブの Sign in with Apple のあと、Edge Function `store-apple-refresh-token` が認可コードを refresh token に交換し、`public.store_apple_refresh_token` で Vault（`vault.secrets`、名前の接頭辞 `apple_refresh_token:`）に入れます。アカウント削除が完了したあと `delete_apple_refresh_token` で消します（`supabase/functions/delete-account`）。その削除に失敗したときは行が残ることがあります。保存しているので、「保存しないトークン」の例外には当たりません。
+申告する理由: Apple は、認証トークンをサーバー呼び出しで送るだけで保存しない場合は申告不要としています。このトークンは保存します。ネイティブの Sign in with Apple のあと、Edge Function `store-apple-refresh-token` が認可コードを refresh token に交換し、`public.store_apple_refresh_token` で Vault（`vault.secrets`、名前の接頭辞 `apple_refresh_token:`）に入れます。アカウント削除が完了したあと `delete_apple_refresh_token` で消します（`supabase/functions/delete-account`）。その削除に失敗したときはトークンが残ることがあります。保存しているので、「保存しないトークン」の例外には当たりません。
 
 用途は、アカウント削除が成功したあと `https://appleid.apple.com/auth/revoke` で Apple との連携を解除することだけです。削除に失敗したときは Apple を呼びません。トークンを保存していない Apple ログイン（この機能より前、または認可コードを受け取れないログイン）は revoke せず、アプリが設定画面での解除を案内します。Analytics には使いません。User ID としても申告しません。
 

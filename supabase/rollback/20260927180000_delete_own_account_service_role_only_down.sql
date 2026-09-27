@@ -1,8 +1,12 @@
 -- Down for 20260927180000_delete_own_account_service_role_only.sql.
 -- Not under supabase/migrations, so `db push` does not apply it.
 -- Drops the service_role-only function and restores the zero-argument
--- delete_own_account from 20260927160000, including EXECUTE for authenticated.
+-- delete_own_account, including EXECUTE for authenticated.
+-- The auth.users email rewrite stays outside an exception handler, matching
+-- 20260927180000. Rolling back must not restore the older behavior that
+-- ignores a failed anonymization.
 -- Run this before the 20260927160000 down file if both are being rolled back.
+-- The 20260927160000 down file still restores the older swallowing body.
 
 begin;
 
@@ -71,22 +75,19 @@ begin
 
   -- Prevent the same Google/Apple identity from signing back into this row.
   -- Public foods stay attached to this anonymized user id.
-  -- Failures here are swallowed so a locked auth.users row does not abort
-  -- the personal-data delete. Session revocation below is NOT in this block.
-  begin
-    delete from auth.identities where user_id = uid;
-    update auth.users
-    set email = 'deleted+' || uid::text || '@invalid.local',
-        raw_user_meta_data = '{}'::pg_catalog.jsonb
-    where id = uid;
-  exception
-    when others then
-      raise notice 'delete_own_account: skipped auth.users update: %', sqlerrm;
-  end;
+  -- Do not catch errors here. A failed email rewrite must abort the function
+  -- so the address is not left in auth.users while deletion is reported as
+  -- success. The statement runs in the caller's transaction, so the personal
+  -- data deletes above roll back with it.
+  delete from auth.identities where user_id = uid;
+  update auth.users
+  set email = 'deleted+' || uid::text || '@invalid.local',
+      raw_user_meta_data = '{}'::pg_catalog.jsonb
+  where id = uid;
 
   -- End existing logins immediately. user_id is uuid on sessions and often
-  -- varchar on refresh_tokens, so compare as text. These statements are
-  -- outside the exception handler above: a failure must not be swallowed.
+  -- varchar on refresh_tokens, so compare as text. A failure here also
+  -- aborts the function and rolls the deletion back.
   delete from auth.refresh_tokens where user_id::text = uid::text;
   delete from auth.sessions where user_id::text = uid::text;
 end;

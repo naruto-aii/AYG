@@ -111,6 +111,8 @@ void main() {
     expect(find.textContaining('【公表日：社長確認後に記入】'), findsWidgets);
     expect(find.textContaining('ソースには書かれていない'), findsNothing);
     expect(find.textContaining('Health Connect'), findsNothing);
+    expect(find.textContaining('更新用トークンを保存していないログイン'), findsOneWidget);
+    expect(find.textContaining('認可コードを保存していないログイン'), findsNothing);
     await tester.scrollUntilVisible(
       find.textContaining('有料プランへ最初に切り替えた日時を集計'),
       300,
@@ -154,10 +156,11 @@ void main() {
     expect(find.textContaining('【バックアップの保持日数：社長確認後に記入】'), findsOneWidget);
     expect(find.textContaining('最初に切り替えた日時'), findsWidgets);
     await tester.scrollUntilVisible(
-      find.textContaining('トークンの行が残ることがあります'),
+      find.textContaining('トークンが残ることがあります'),
       300,
     );
-    expect(find.textContaining('トークンの行が残ることがあります'), findsOneWidget);
+    expect(find.textContaining('トークンが残ることがあります'), findsOneWidget);
+    expect(find.textContaining('トークンの行が残ることがあります'), findsNothing);
     expect(find.textContaining('連携解除の通信は行いません'), findsWidgets);
     await tester.scrollUntilVisible(find.textContaining('【手数料：社長確認後に記入】'), 300);
     expect(find.textContaining('【手数料：社長確認後に記入】'), findsOneWidget);
@@ -200,6 +203,8 @@ void main() {
     expect(find.textContaining('アプリ内からの削除'), findsOneWidget);
     expect(find.textContaining('アカウント情報（メールアドレス等）と利用状況の記録'), findsOneWidget);
     expect(find.textContaining('Sign in with Apple の更新用トークン'), findsOneWidget);
+    expect(find.textContaining('トークンが残ることがあります'), findsOneWidget);
+    expect(find.textContaining('その行が残ることがあります'), findsNothing);
     expect(find.textContaining('Apple 側の連携を解除しません'), findsOneWidget);
     expect(find.textContaining('設定 > Apple ID > サインインとセキュリティ'), findsOneWidget);
     await tester.scrollUntilVisible(find.textContaining('公開食品'), 300);

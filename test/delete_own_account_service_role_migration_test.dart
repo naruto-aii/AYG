@@ -91,6 +91,17 @@ void main() {
     );
     expect(emailUpdate, greaterThan(0));
     expect(sessions, greaterThan(emailUpdate));
-    expect(downSql, contains('delete_own_account: skipped auth.users update'));
+    expect(downSql.contains('skipped auth.users update'), isFalse);
+    expect(downSql.contains('when others then'), isFalse);
+    expect(
+      downSql,
+      contains("email = 'deleted+' || uid::text || '@invalid.local'"),
+    );
+    final downEmailUpdate = downSql.indexOf('update auth.users');
+    final downSessions = downSql.indexOf(
+      'delete from auth.sessions where user_id::text = uid::text',
+    );
+    expect(downEmailUpdate, greaterThan(0));
+    expect(downSessions, greaterThan(downEmailUpdate));
   });
 }

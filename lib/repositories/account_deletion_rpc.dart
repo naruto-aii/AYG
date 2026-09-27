@@ -1,27 +1,49 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'apple_refresh_token.dart';
 import 'auth_exceptions.dart';
 
-/// `public.delete_own_account()` を呼ぶ。関数が無いときは unavailable。
-Future<void> deleteOwnAccountWithClient(SupabaseClient client) async {
+/// Edge Function that revokes the Apple refresh token, then deletes the account.
+const deleteAccountFunction = 'delete-account';
+
+/// Shown if anything stringifies this exception. The screen uses its own copy.
+const accountDeletionGenericFailure = 'account deletion failed';
+
+/// `delete-account` revokes the Sign in with Apple token, then calls
+/// `delete_own_account` as the signed-in user. A missing function is
+/// unavailable. Other failures use a fixed message and drop the response body.
+Future<void> deleteOwnAccountWithClient(SupabaseClient client) {
+  return deleteOwnAccountWithInvoker(
+    (functionName, {body}) => client.functions.invoke(functionName, body: body),
+  );
+}
+
+Future<void> deleteOwnAccountWithInvoker(EdgeFunctionInvoke invoke) async {
   try {
-    await client.rpc('delete_own_account');
-  } on PostgrestException catch (error) {
-    if (_isMissingFunction(error)) {
+    final response = await invoke(deleteAccountFunction);
+    _throwIfDeleteFailed(response.status, response.data);
+  } on FunctionException catch (error) {
+    if (error.status == 404) {
       throw AccountDeletionUnavailableException();
     }
-    throw AccountDeletionFailedException(error.message);
+    throw const AccountDeletionFailedException(accountDeletionGenericFailure);
+  } on AccountDeletionUnavailableException {
+    rethrow;
+  } on AccountDeletionFailedException {
+    rethrow;
+  } catch (_) {
+    throw const AccountDeletionFailedException(accountDeletionGenericFailure);
   }
 }
 
-bool _isMissingFunction(PostgrestException error) {
-  final code = error.code ?? '';
-  final message = error.message.toLowerCase();
-  if (code == 'PGRST202' || code == '42883') {
-    return true;
+void _throwIfDeleteFailed(int status, Object? data) {
+  if (status == 404) {
+    throw AccountDeletionUnavailableException();
   }
-  return message.contains('delete_own_account') &&
-      (message.contains('does not exist') ||
-          message.contains('not find') ||
-          message.contains('could not find'));
+  if (status < 200 || status >= 300) {
+    throw const AccountDeletionFailedException(accountDeletionGenericFailure);
+  }
+  if (data is Map && data['ok'] == false) {
+    throw const AccountDeletionFailedException(accountDeletionGenericFailure);
+  }
 }

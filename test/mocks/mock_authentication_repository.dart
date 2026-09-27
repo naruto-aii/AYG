@@ -17,6 +17,8 @@ class MockAuthenticationRepository extends AuthenticationRepository {
   bool logoutCalled = false;
   bool deleteOwnAccountCalled = false;
   bool simulateDeleteUnavailable = false;
+  bool simulateDeleteFailure = false;
+  String deleteFailureMessage = 'invalid_grant raw-token-body';
   bool simulateGoogleSignInCancelled = false;
   bool simulateGoogleSignInFailure = false;
   String googleSignInFailureMessage = 'Google sign-in failed.';
@@ -84,6 +86,9 @@ class MockAuthenticationRepository extends AuthenticationRepository {
     deleteOwnAccountCalled = true;
     if (simulateDeleteUnavailable) {
       throw AccountDeletionUnavailableException();
+    }
+    if (simulateDeleteFailure) {
+      throw AccountDeletionFailedException(deleteFailureMessage);
     }
   }
 

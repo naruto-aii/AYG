@@ -139,4 +139,46 @@ void main() {
 
     await authRepository.dispose();
   });
+
+  testWidgets('deletion failure shows the fixed Japanese message', (
+    tester,
+  ) async {
+    const raw = 'invalid_grant raw-token-body';
+    final authRepository =
+        MockAuthenticationRepository(
+            currentUser: const AuthUser(
+              id: 'user-1',
+              email: 'test@example.com',
+            ),
+          )
+          ..simulateDeleteFailure = true
+          ..deleteFailureMessage = raw;
+    final controller = createController(authRepository: authRepository);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: AccountDeletionScreen(
+          controller: controller,
+          authenticationRepository: authRepository,
+          supportEmail: 'calonavi.ayg.support@gmail.com',
+        ),
+      ),
+    );
+
+    await tester.tap(find.text(AppStrings.accountDeletionExecute));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppStrings.accountDeletionExecute).last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('${AppStrings.accountDeletionFailed}。時間をおいて再度お試しください。'),
+      findsOneWidget,
+    );
+    expect(find.textContaining(raw), findsNothing);
+    expect(find.textContaining('invalid_grant'), findsNothing);
+    expect(authRepository.logoutCalled, isFalse);
+
+    await authRepository.dispose();
+  });
 }

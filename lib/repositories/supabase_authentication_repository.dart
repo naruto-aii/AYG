@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 import '../config/supabase_config.dart';
 import '../config/web_auth_config.dart';
 import 'account_deletion_rpc.dart';
+import 'apple_refresh_token.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
 import 'google_sign_in_factory.dart';
@@ -153,9 +154,10 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
   /// Apple ID でログインする。
   ///
   /// - iOS / macOS: OS 標準のシートを出し、受け取った ID トークンで Supabase に
-  ///   サインインする。Xcode で "Sign in with Apple" の Capability が必要。
+  ///   サインインする。成功したあと、authorization code だけを Edge Function に
+  ///   渡す。交換に失敗してもログインは取り消さない。
   /// - それ以外（Web / Android）: Supabase の OAuth リダイレクトを使う。
-  ///   Supabase 側で Apple プロバイダの設定が必要。
+  ///   この経路は authorization code をアプリに返さない。
   @override
   Future<void> loginWithApple() async {
     if (kIsWeb || !_supportsNativeApple) {
@@ -201,10 +203,18 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     }
 
     try {
-      await _client.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: idToken,
-        nonce: rawNonce,
+      await finishNativeAppleSignIn(
+        signIn: () => _client.auth.signInWithIdToken(
+          provider: OAuthProvider.apple,
+          idToken: idToken,
+          nonce: rawNonce,
+        ),
+        authorizationCode: credential.authorizationCode,
+        storeCode: (code) => storeAppleAuthorizationCode(
+          invoke: (functionName, {body}) =>
+              _client.functions.invoke(functionName, body: body),
+          authorizationCode: code,
+        ),
       );
     } on AuthException catch (error) {
       throw AppleSignInFailedException(error.message);

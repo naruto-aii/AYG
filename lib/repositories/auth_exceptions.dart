@@ -55,7 +55,7 @@ class AccountDeletionUnavailableException implements Exception {
 
 /// アカウント削除に失敗した。
 class AccountDeletionFailedException implements Exception {
-  AccountDeletionFailedException(this.message);
+  const AccountDeletionFailedException(this.message);
 
   final String message;
 

@@ -382,6 +382,15 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# Sign in with Apple key material stays out of this file.
+# Names and the owner setup are in supabase/functions/README.md.
+
+[functions.store-apple-refresh-token]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

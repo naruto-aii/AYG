@@ -119,13 +119,13 @@ class _SavedFoodMealQuantitySheetState
       }
       _submitted = true;
       Navigator.of(context).pop(true);
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('食事の追加に失敗しました: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('食事の追加に失敗しました。時間をおいて再度お試しください。')),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

@@ -101,13 +101,13 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('「${copy.name}」を自分用食品としてコピーしました')));
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('コピーに失敗しました: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('コピーに失敗しました。時間をおいて再度お試しください。')),
+      );
     } finally {
       if (mounted) {
         setState(() => _isCopying = false);
@@ -182,6 +182,7 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
               ),
               if (food.brand != null && food.brand!.isNotEmpty)
                 Text('ブランド: ${food.brand}'),
+              Text('作成者: ${food.creatorLabel}'),
               Text(
                 '登録元: ${SavedFoodDisplayLabels.sourceType(food.sourceType)}',
               ),

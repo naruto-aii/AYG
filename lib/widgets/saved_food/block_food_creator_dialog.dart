@@ -41,11 +41,11 @@ Future<bool> confirmBlockFoodCreator({
       ).showSnackBar(const SnackBar(content: Text('作成者をブロックしました')));
     }
     return true;
-  } catch (error) {
+  } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('ブロックに失敗しました: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ブロックに失敗しました。時間をおいて再度お試しください。')),
+      );
     }
     return false;
   }
@@ -64,11 +64,11 @@ Future<bool> confirmUnblockFoodCreator({
       ).showSnackBar(const SnackBar(content: Text('ブロックを解除しました')));
     }
     return true;
-  } catch (error) {
+  } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('ブロック解除に失敗しました: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ブロック解除に失敗しました。時間をおいて再度お試しください。')),
+      );
     }
     return false;
   }

@@ -49,6 +49,7 @@ dependencies:
   sign_in_with_apple: ^8.2.0
   crypto: ^3.0.7
   material_symbols_icons: ^4.2960.0
+  in_app_purchase: ^3.2.3
 
 dev_dependencies:
   flutter_test:

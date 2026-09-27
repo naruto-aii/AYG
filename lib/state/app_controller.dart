@@ -40,6 +40,11 @@ import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
 import '../models/workout_template.dart';
 import '../repositories/authentication_repository.dart';
+import '../repositories/local_subscription_usage_store.dart';
+import '../repositories/subscription_exceptions.dart';
+import '../repositories/subscription_repository.dart';
+import '../repositories/unavailable_subscription_repository.dart';
+import '../services/subscription_policy.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
 import '../repositories/contracts/blocked_food_creator_repository_base.dart';
 import '../repositories/contracts/food_rating_repository_base.dart';
@@ -72,10 +77,10 @@ import '../services/saved_food_publish_validator.dart';
 import '../services/saved_food_search_service.dart';
 import '../services/saved_food_version_policy.dart';
 import '../services/search_suggestion_service.dart';
-import '../models/food_visibility.dart';
 import '../services/source_food_edit_policy.dart';
 import '../utils/food_name_normalizer.dart';
 import '../utils/id_generator.dart';
+import '../utils/user_facing_error.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -97,6 +102,8 @@ class AppController extends ChangeNotifier {
     BlockedFoodCreatorRepositoryBase? blockedCreatorRepository,
     MealTemplateRepositoryBase? mealTemplateRepository,
     WorkoutTemplateRepositoryBase? workoutTemplateRepository,
+    SubscriptionRepository? subscriptionRepository,
+    LocalSubscriptionUsageStore? subscriptionUsageStore,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -115,6 +122,10 @@ class AppController extends ChangeNotifier {
        _blockedCreatorRepository = blockedCreatorRepository,
        _mealTemplateRepository = mealTemplateRepository,
        _workoutTemplateRepository = workoutTemplateRepository,
+       _subscriptionRepository =
+           subscriptionRepository ?? UnavailableSubscriptionRepository(),
+       _subscriptionUsageStore =
+           subscriptionUsageStore ?? LocalSubscriptionUsageStore(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -124,7 +135,8 @@ class AppController extends ChangeNotifier {
        _mealTemplateTotalsService = const MealTemplateTotalsService(),
        _mealTemplateDependencyService = const MealTemplateDependencyService(),
        _mealTemplateApplyService = const MealTemplateApplyService(),
-       _searchSuggestionService = const SearchSuggestionService();
+       _searchSuggestionService = const SearchSuggestionService(),
+       _subscriptionPolicy = const SubscriptionPolicy();
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
@@ -144,6 +156,9 @@ class AppController extends ChangeNotifier {
   final BlockedFoodCreatorRepositoryBase? _blockedCreatorRepository;
   final MealTemplateRepositoryBase? _mealTemplateRepository;
   final WorkoutTemplateRepositoryBase? _workoutTemplateRepository;
+  final SubscriptionRepository _subscriptionRepository;
+  final LocalSubscriptionUsageStore _subscriptionUsageStore;
+  final SubscriptionPolicy _subscriptionPolicy;
   final SavedFoodSearchService _savedFoodSearchService;
   final SavedFoodDuplicateService _savedFoodDuplicateService;
   final SavedFoodEntryBuilder _savedFoodEntryBuilder;
@@ -200,6 +215,10 @@ class AppController extends ChangeNotifier {
 
   bool get isAuthenticated =>
       _authenticationRepository?.isAuthenticated ?? false;
+
+  SubscriptionRepository get subscriptionRepository => _subscriptionRepository;
+
+  bool get isCalonaviPlusActive => _subscriptionRepository.isPlusActive;
 
   String get currentOwnerUserId =>
       _authenticationRepository?.currentUser?.id ?? localOwnerUserId;
@@ -258,6 +277,13 @@ class AppController extends ChangeNotifier {
     } else {
       _clearInMemoryState();
     }
+
+    try {
+      await _subscriptionRepository.restore();
+    } catch (_) {}
+    _subscriptionRepository.plusChanges.listen((_) {
+      notifyListeners();
+    });
 
     _isInitializing = false;
     notifyListeners();
@@ -355,8 +381,8 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
-    if (_isSyncInProgress) {
+  Future<void> logout({bool force = false}) async {
+    if (_isSyncInProgress && !force) {
       return;
     }
     _resetSyncState();
@@ -668,8 +694,7 @@ class AppController extends ChangeNotifier {
 
     final profileData = await healthRepository.fetchProfileData();
     await applyHealthProfileData(profileData);
-    return profileData.weightKg != null ||
-        profileData.activeEnergyBurnedKcal != null;
+    return profileData.hasAnyValue;
   }
 
   void setGoal(Goal value) {
@@ -1484,6 +1509,52 @@ class AppController extends ChangeNotifier {
     return keys.map((key) => displayNames[key] ?? key).toList();
   }
 
+  Future<void> ensureCanCreateMealTemplate() async {
+    if (_subscriptionPolicy.canCreateMealTemplate(
+      isPlus: isCalonaviPlusActive,
+      currentCount: (await searchMealTemplates('')).length,
+    )) {
+      return;
+    }
+    throw SubscriptionLimitExceededException(
+      SubscriptionLimitKind.mealTemplate,
+    );
+  }
+
+  Future<void> ensureCanCreateWorkoutTemplate() async {
+    if (_subscriptionPolicy.canCreateWorkoutTemplate(
+      isPlus: isCalonaviPlusActive,
+      currentCount: (await searchWorkoutTemplates('')).length,
+    )) {
+      return;
+    }
+    throw SubscriptionLimitExceededException(
+      SubscriptionLimitKind.workoutTemplate,
+    );
+  }
+
+  Future<void> _consumePublicFoodSearchSlot() async {
+    if (isCalonaviPlusActive) {
+      return;
+    }
+    final used = await _subscriptionUsageStore.publicSearchCount(
+      userId: currentOwnerUserId,
+      day: DateTime.now(),
+    );
+    if (!_subscriptionPolicy.canSearchPublicFood(
+      isPlus: false,
+      usedToday: used,
+    )) {
+      throw SubscriptionLimitExceededException(
+        SubscriptionLimitKind.publicFoodSearch,
+      );
+    }
+    await _subscriptionUsageStore.incrementPublicSearch(
+      userId: currentOwnerUserId,
+      day: DateTime.now(),
+    );
+  }
+
   Future<List<PublicFoodSearchMatch>> searchPublicSavedFoods(
     String query,
   ) async {
@@ -1493,6 +1564,7 @@ class AppController extends ChangeNotifier {
     }
 
     try {
+      await _consumePublicFoodSearchSlot();
       final candidates = await repository.searchPublic(query: query);
       final ratingsByKey = <String, ({int goodCount, int badCount})>{};
       for (final food in candidates) {
@@ -1511,6 +1583,8 @@ class AppController extends ChangeNotifier {
         query: query,
         ratingsByKey: ratingsByKey,
       );
+    } on SubscriptionLimitExceededException {
+      rethrow;
     } catch (_) {
       return const [];
     }
@@ -1628,7 +1702,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodRatingResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userFacingErrorMessage(
+          error,
+          fallback: '評価を取り消せませんでした。時間をおいて再度お試しください。',
+        ),
       );
     } finally {
       _ratingOperationsInProgress.remove(key);
@@ -1667,7 +1744,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodRatingResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userFacingErrorMessage(
+          error,
+          fallback: '評価を保存できませんでした。時間をおいて再度お試しください。',
+        ),
       );
     } finally {
       _ratingOperationsInProgress.remove(key);
@@ -1726,7 +1806,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodReportResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userFacingErrorMessage(
+          error,
+          fallback: '通報を送信できませんでした。時間をおいて再度お試しください。',
+        ),
       );
     }
   }
@@ -1921,6 +2004,9 @@ class AppController extends ChangeNotifier {
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
     }
+    if (templateId == null) {
+      await ensureCanCreateWorkoutTemplate();
+    }
 
     final now = DateTime.now();
     final id = templateId ?? generateId();
@@ -2029,6 +2115,9 @@ class AppController extends ChangeNotifier {
     }
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
+    }
+    if (templateId == null) {
+      await ensureCanCreateMealTemplate();
     }
 
     final now = DateTime.now();
@@ -2229,7 +2318,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return MealTemplateApplyResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userFacingErrorMessage(
+          error,
+          fallback: 'テンプレートを適用できませんでした。時間をおいて再度お試しください。',
+        ),
       );
     }
   }
@@ -2308,7 +2400,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return SaveFoodEntryResult(
         foodEntrySaved: false,
-        savedFoodErrorMessage: error.toString(),
+        savedFoodErrorMessage: userFacingErrorMessage(
+          error,
+          fallback: '食事を保存できませんでした。時間をおいて再度お試しください。',
+        ),
       );
     }
 
@@ -2353,7 +2448,10 @@ class AppController extends ChangeNotifier {
         errorCode = error.errorCode;
         message = error.userMessage;
       } else {
-        message = error.toString();
+        message = userFacingErrorMessage(
+          error,
+          fallback: '食品の保存に失敗しました。時間をおいて再度お試しください。',
+        );
         if (kDebugMode) {
           debugPrint(
             '[AYG SavedFood] saveFoodEntryWithOptionalSavedFood: $error',

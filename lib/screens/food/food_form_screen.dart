@@ -56,6 +56,7 @@ class FoodFormScreen extends StatefulWidget {
     this.entry,
     this.initialPublicFood,
     this.initialLoggedAt,
+    this.autoStartBarcodeScan = false,
   });
 
   final AppController controller;
@@ -63,6 +64,7 @@ class FoodFormScreen extends StatefulWidget {
   final FoodEntry? entry;
   final SavedFood? initialPublicFood;
   final DateTime? initialLoggedAt;
+  final bool autoStartBarcodeScan;
 
   bool get isEditing => entry != null;
 
@@ -146,6 +148,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _applySavedFoodSelection(initialPublicFood);
+        }
+      });
+    } else if (!widget.isEditing &&
+        widget.autoStartBarcodeScan &&
+        _isMobilePlatform) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _openBarcodeScanner();
         }
       });
     }

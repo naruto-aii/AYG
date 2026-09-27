@@ -18,6 +18,9 @@ class UnsupportedHealthRepository implements HealthRepository {
   bool get isAvailable => false;
 
   @override
+  String? get lastFailureMessage => 'この端末では Health 連携に対応していません。';
+
+  @override
   Future<HealthProfileData> fetchProfileData() async {
     return HealthProfileData.empty;
   }

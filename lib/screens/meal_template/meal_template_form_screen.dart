@@ -4,7 +4,9 @@ import '../../models/food_unit_type.dart';
 import '../../models/meal_template_draft.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_entry_selection.dart';
+import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
+import '../subscription/calonavi_plus_screen.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
@@ -233,13 +235,18 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
         return;
       }
       Navigator.of(context).pop(true);
-    } catch (error) {
+    } on SubscriptionLimitExceededException {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+      await showCalonaviPlus(context, widget.controller.subscriptionRepository);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('保存に失敗しました。時間をおいて再度お試しください。')),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

@@ -10,6 +10,7 @@ import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'screens/splash/splash_screen.dart';
 import 'theme/app_theme.dart';
+import 'widgets/common/app_keyboard_dismiss.dart';
 import 'widgets/startup/app_startup_gate.dart';
 
 class AygApp extends StatelessWidget {
@@ -37,57 +38,60 @@ class AygApp extends StatelessWidget {
     return MaterialApp(
       title: AppStrings.appTitle,
       theme: AppTheme.light,
+      builder: (context, child) {
+        return AppKeyboardHost(child: child ?? const SizedBox.shrink());
+      },
       home: _buildHome(),
     );
   }
 
   Widget _buildHome() {
     final app = ListenableBuilder(
-        listenable: controller,
-        builder: (context, child) {
-          if (controller.isInitializing ||
-              (controller.isAuthenticated && controller.isSyncInProgress)) {
-            return const AppStartupLoadingScreen();
-          }
+      listenable: controller,
+      builder: (context, child) {
+        if (controller.isInitializing ||
+            (controller.isAuthenticated && controller.isSyncInProgress)) {
+          return const AppStartupLoadingScreen();
+        }
 
-          if (!controller.isAuthenticated) {
-            return LoginScreen(
-              controller: controller,
-              authenticationRepository: authenticationRepository,
-              authStorageAvailable: authStorageAvailable,
-            );
-          }
+        if (!controller.isAuthenticated) {
+          return LoginScreen(
+            controller: controller,
+            authenticationRepository: authenticationRepository,
+            authStorageAvailable: authStorageAvailable,
+          );
+        }
 
-          if (controller.requiresSyncRetry) {
-            return AppSyncRetryScreen(
-              controller: controller,
-              onLogout: () => controller.logout(),
-            );
-          }
-
-          if (controller.requiresOnboarding) {
-            return HealthSetupScreen(
-              controller: controller,
-              openFoodFactsService: openFoodFactsService,
-              healthRepository: healthRepository,
-              authenticationRepository: authenticationRepository,
-            );
-          }
-
-          if (_shouldShowMainShell(controller)) {
-            return MainShellScreen(
-              controller: controller,
-              openFoodFactsService: openFoodFactsService,
-              authenticationRepository: authenticationRepository,
-              healthRepository: healthRepository,
-            );
-          }
-
+        if (controller.requiresSyncRetry) {
           return AppSyncRetryScreen(
             controller: controller,
             onLogout: () => controller.logout(),
           );
-        },
+        }
+
+        if (controller.requiresOnboarding) {
+          return HealthSetupScreen(
+            controller: controller,
+            openFoodFactsService: openFoodFactsService,
+            healthRepository: healthRepository,
+            authenticationRepository: authenticationRepository,
+          );
+        }
+
+        if (_shouldShowMainShell(controller)) {
+          return MainShellScreen(
+            controller: controller,
+            openFoodFactsService: openFoodFactsService,
+            authenticationRepository: authenticationRepository,
+            healthRepository: healthRepository,
+          );
+        }
+
+        return AppSyncRetryScreen(
+          controller: controller,
+          onLogout: () => controller.logout(),
+        );
+      },
     );
     if (!showSplash) {
       return app;

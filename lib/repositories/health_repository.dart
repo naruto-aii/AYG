@@ -6,6 +6,9 @@ import '../models/health_profile_data.dart';
 abstract class HealthRepository {
   bool get isAvailable;
 
+  /// Last request/fetch failure, in Japanese when set by the platform impl.
+  String? get lastFailureMessage;
+
   Future<bool> requestPermissions();
 
   Future<HealthProfileData> fetchProfileData();

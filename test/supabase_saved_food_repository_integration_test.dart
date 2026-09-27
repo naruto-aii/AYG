@@ -116,6 +116,7 @@ void main() {
     test('private save, publish RPC, fetch public', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available at $_localUrl');
+        return;
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -153,6 +154,7 @@ void main() {
     test('duplicate publish maps to PublishSavedFoodException', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available at $_localUrl');
+        return;
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -204,6 +206,7 @@ void main() {
     test('not owner publish rejected', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available at $_localUrl');
+        return;
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -243,6 +246,7 @@ void main() {
     test('unpublish and public edit bump version', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available at $_localUrl');
+        return;
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -302,6 +306,7 @@ void main() {
     test('searchPublic returns public foods only', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available at $_localUrl');
+        return;
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -349,6 +354,7 @@ void main() {
     test('searchPublic finds barcode exact match', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available at $_localUrl');
+        return;
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -380,6 +386,7 @@ void main() {
     test('copyPublicToPrivate creates own private snapshot', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available at $_localUrl');
+        return;
       }
 
       final suffix = DateTime.now().microsecondsSinceEpoch;
@@ -436,6 +443,7 @@ void main() {
       () async {
         if (!available) {
           markTestSkipped('Local Supabase not available at $_localUrl');
+          return;
         }
 
         final suffix = DateTime.now().microsecondsSinceEpoch;

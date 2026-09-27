@@ -42,4 +42,12 @@ class SupabaseConfig {
   static bool get isConfigured => url.isNotEmpty && anonKey.isNotEmpty;
 
   static bool get isGoogleConfigured => googleWebClientId.isNotEmpty;
+
+  static bool get isGoogleNativeConfigured =>
+      googleWebClientId.isNotEmpty && googleIosClientId.isNotEmpty;
+
+  /// Native Google OAuth / Supabase の戻り先。
+  /// Supabase Auth の Redirect URLs に同じ値を入れる。
+  static const String nativeAuthRedirectUrl =
+      'com.narutoaii.ayg://login-callback';
 }

@@ -74,12 +74,12 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
         _foods = foods;
         _isLoading = false;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = '食品を読み込めませんでした。時間をおいて再度お試しください。';
         _isLoading = false;
       });
     }
@@ -166,13 +166,13 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
     try {
       await widget.controller.deleteSavedFood(food.foodId);
       await _reload();
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('削除に失敗しました。時間をおいて再度お試しください。')),
+      );
     }
   }
 
@@ -278,5 +278,4 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
       ),
     );
   }
-
 }

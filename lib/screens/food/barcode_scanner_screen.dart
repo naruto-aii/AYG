@@ -10,7 +10,7 @@ import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 
-/// カメラで EAN-13 / JAN バーコードを読み取る画面。
+/// カメラで EAN / JAN / UPC バーコードを読み取る画面。
 class BarcodeScannerScreen extends StatefulWidget {
   const BarcodeScannerScreen({super.key});
 
@@ -20,7 +20,14 @@ class BarcodeScannerScreen extends StatefulWidget {
 
 class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   final MobileScannerController _controller = MobileScannerController(
-    formats: [BarcodeFormat.ean13],
+    autoStart: true,
+    facing: CameraFacing.back,
+    formats: const [
+      BarcodeFormat.ean13,
+      BarcodeFormat.ean8,
+      BarcodeFormat.upcA,
+      BarcodeFormat.upcE,
+    ],
   );
 
   final _manualController = TextEditingController();
@@ -33,13 +40,17 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     super.dispose();
   }
 
+  Future<void> _toggleTorch() async {
+    await _controller.toggleTorch();
+  }
+
   /// 番号を手で入れた場合も、読み取りと同じ形で呼び出し元へ返す。
   void _submitManual() {
     final normalized = normalizeEan13Barcode(_manualController.text.trim());
     if (normalized == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('13桁のバーコード番号を入力してください')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('8桁、12桁、または13桁のバーコード番号を入力してください')),
+      );
       return;
     }
     _hasScanned = true;
@@ -106,7 +117,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'カメラを利用できません。番号の入力か、手入力をご利用ください。',
+                                  'カメラの使用が許可されていません。設定でカメラをオンにしてください。',
                                 ),
                               ),
                             );
@@ -121,7 +132,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                             padding: const EdgeInsets.all(24),
                             child: Text(
                               isPermissionDenied
-                                  ? 'カメラ権限が必要です'
+                                  ? 'カメラの使用が許可されていません'
                                   : 'カメラを起動できませんでした',
                               textAlign: TextAlign.center,
                               style: AppTypography.bodyS.copyWith(
@@ -143,6 +154,15 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                           border: Border.all(color: AppColors.cream0, width: 3),
                         ),
                       ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: IconButton(
+                      tooltip: 'ライト',
+                      onPressed: _toggleTorch,
+                      icon: const Icon(Icons.flash_on, color: AppColors.cream0),
                     ),
                   ),
                   Positioned(

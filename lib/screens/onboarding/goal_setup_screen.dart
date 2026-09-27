@@ -175,11 +175,11 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
 
     try {
       await widget.controller.completeOnboarding();
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      _warn('保存に失敗しました: $error');
+      _warn('保存に失敗しました。時間をおいて再度お試しください。');
       return;
     }
 
@@ -231,7 +231,9 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(child: DesignButton(label: 'はじめる', onPressed: _complete)),
+          Expanded(
+            child: DesignButton(label: 'はじめる', onPressed: _complete),
+          ),
         ],
       ),
       body: Column(
@@ -344,7 +346,8 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
             const SizedBox(height: 12),
             const WarnBanner(
               title: '期間がやや短めです。',
-              description: '目標達成のために、1日の摂取カロリーが\nやや少なめになる可能性があります。\n内容を確認して保存できます。',
+              description:
+                  '目標達成のために、1日の摂取カロリーが\nやや少なめになる可能性があります。\n内容を確認して保存できます。',
             ),
           ],
           const SizedBox(height: 24),
@@ -357,7 +360,9 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     return AppIcon(
       asset,
       size: 32,
-      color: _goalType == type ? AppColors.iconPrimary : AppColors.textSecondary,
+      color: _goalType == type
+          ? AppColors.iconPrimary
+          : AppColors.textSecondary,
     );
   }
 }

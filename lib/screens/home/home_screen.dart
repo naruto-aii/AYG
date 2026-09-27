@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/alcohol_entry.dart';
 import '../../models/daily_summary.dart';
 import '../../models/exercise_entry.dart';
+import '../../models/strength_workout_log.dart';
 import '../../models/food_entry.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
@@ -323,7 +324,9 @@ class HomeScreen extends StatelessWidget {
           DesignListRow(
             icon: AppIcons.exercise,
             time: _time(entry.loggedAt),
-            title: entry.name,
+            title: entry.strengthSummary == null
+                ? entry.name
+                : '${entry.name} · ${entry.strengthSummary}',
             value: '+${entry.effectiveNetKcal.toStringAsFixed(0)}',
             onTap: () => _openExerciseForm(context, entry: entry),
             onLongPress: () => confirmDeleteWithUndo<ExerciseEntry>(

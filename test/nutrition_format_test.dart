@@ -13,7 +13,12 @@ void main() {
       expect(normalizeEan13Barcode('301-7620-42200-3'), '3017620422003');
     });
 
-    test('returns null for non-13-digit input', () {
+    test('accepts UPC-A and EAN-8 as well as EAN-13', () {
+      expect(normalizeEan13Barcode('012345678905'), '0012345678905');
+      expect(normalizeEan13Barcode('12345670'), '12345670');
+    });
+
+    test('returns null for non-barcode input', () {
       expect(normalizeEan13Barcode('1234567'), isNull);
       expect(normalizeEan13Barcode(''), isNull);
       expect(normalizeEan13Barcode(null), isNull);

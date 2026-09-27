@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -5,30 +6,29 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../config/supabase_config.dart';
 import '../config/web_auth_config.dart';
+import 'account_deletion_rpc.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
+import 'google_sign_in_factory.dart';
 
-/// Supabase Auth + Google Sign-In 実装。
+/// Supabase Auth + Google / Apple Sign-In 実装。
+///
+/// Apple はここが唯一の実装。iOS / macOS は OS 標準シート、
+/// Web / Android は Supabase の OAuth リダイレクト。
 class SupabaseAuthenticationRepository extends AuthenticationRepository {
   SupabaseAuthenticationRepository({
     SupabaseClient? client,
     GoogleSignIn? googleSignIn,
   }) : _client = client ?? Supabase.instance.client,
-       _googleSignIn = kIsWeb
-           ? null
-           : googleSignIn ??
-                 GoogleSignIn(
-                   clientId: SupabaseConfig.googleIosClientId.isEmpty
-                       ? null
-                       : SupabaseConfig.googleIosClientId,
-                   serverClientId: SupabaseConfig.googleWebClientId.isEmpty
-                       ? null
-                       : SupabaseConfig.googleWebClientId,
-                 );
+       _googleSignIn =
+           googleSignIn ??
+           createGoogleSignIn(
+             iosClientId: SupabaseConfig.googleIosClientId,
+             webClientId: SupabaseConfig.googleWebClientId,
+           );
 
   final SupabaseClient _client;
   final GoogleSignIn? _googleSignIn;
@@ -62,7 +62,9 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
   @override
   Future<void> loginWithGoogle() async {
     if (!SupabaseConfig.isGoogleConfigured) {
-      throw GoogleSignInFailedException('Google Sign-In is not configured.');
+      throw GoogleSignInFailedException(
+        'Googleログインの設定がありません。tool/dart_defines.local.json の GOOGLE_WEB_CLIENT_ID を入れてください。',
+      );
     }
 
     if (kIsWeb) {
@@ -72,18 +74,21 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
         authScreenLaunchMode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        throw GoogleSignInFailedException(
-          'Could not launch Google sign-in browser.',
-        );
+        throw GoogleSignInFailedException('Googleログイン画面を開けませんでした。');
       }
       return;
     }
 
     final googleSignIn = _googleSignIn;
-    if (googleSignIn == null) {
-      throw GoogleSignInFailedException('Google Sign-In is not available.');
+    if (googleSignIn != null) {
+      await _loginWithNativeGoogle(googleSignIn);
+      return;
     }
 
+    await _loginWithGoogleOAuth();
+  }
+
+  Future<void> _loginWithNativeGoogle(GoogleSignIn googleSignIn) async {
     final googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
       throw GoogleSignInCancelledException();
@@ -92,7 +97,9 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     final googleAuth = await googleUser.authentication;
     final idToken = googleAuth.idToken;
     if (idToken == null) {
-      throw GoogleSignInFailedException('Google ID token is missing.');
+      throw GoogleSignInFailedException(
+        'Google の ID トークンを取得できませんでした。GOOGLE_IOS_CLIENT_ID と GOOGLE_WEB_CLIENT_ID を確認してください。',
+      );
     }
 
     try {
@@ -103,6 +110,43 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
       );
     } on AuthException catch (error) {
       throw GoogleSignInFailedException(error.message);
+    }
+  }
+
+  /// iOS クライアントがまだ無いときでも、既存の Web クライアントでログインできる。
+  Future<void> _loginWithGoogleOAuth() async {
+    if (_client.auth.currentSession != null) {
+      return;
+    }
+
+    final sessionReady = Completer<void>();
+    final subscription = _client.auth.onAuthStateChange.listen((event) {
+      if (event.session != null && !sessionReady.isCompleted) {
+        sessionReady.complete();
+      }
+    });
+
+    try {
+      final launched = await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: SupabaseConfig.nativeAuthRedirectUrl,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw GoogleSignInFailedException('Googleログイン画面を開けませんでした。');
+      }
+      await sessionReady.future.timeout(
+        const Duration(minutes: 2),
+        onTimeout: () {
+          throw GoogleSignInFailedException(
+            'Googleログインが完了しませんでした。Safari からカロナビに戻ったあと、もう一度試してください。Supabase の Redirect URLs に ${SupabaseConfig.nativeAuthRedirectUrl} があるかも確認してください。',
+          );
+        },
+      );
+    } on AuthException catch (error) {
+      throw GoogleSignInFailedException(error.message);
+    } finally {
+      await subscription.cancel();
     }
   }
 
@@ -179,6 +223,11 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     await _client.auth.signOut();
   }
 
+  @override
+  Future<void> deleteOwnAccount() {
+    return deleteOwnAccountWithClient(_client);
+  }
+
   AuthUser? _mapUser(User? user) {
     if (user == null) {
       return null;
@@ -205,9 +254,14 @@ class UnconfiguredAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> loginWithApple() async {
-    throw StateError('Supabase is not configured.');
+    throw AppleSignInFailedException('Supabase is not configured.');
   }
 
   @override
   Future<void> logout() async {}
+
+  @override
+  Future<void> deleteOwnAccount() async {
+    throw AccountDeletionUnavailableException();
+  }
 }

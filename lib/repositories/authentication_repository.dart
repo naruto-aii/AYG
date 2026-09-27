@@ -13,6 +13,10 @@ abstract class AuthenticationRepository {
   Future<void> loginWithApple();
 
   Future<void> logout();
+
+  /// 個人データを消し、公開食品は残す。本番に RPC が無いときは
+  /// [AccountDeletionUnavailableException] を投げる。
+  Future<void> deleteOwnAccount();
 }
 
 /// 認証済みユーザー情報。

@@ -1,4 +1,4 @@
-/// EAN-13 / JAN 向けバーコード正規化（Prototype）。
+/// EAN-13 / JAN / UPC 向けバーコード正規化。
 String? normalizeEan13Barcode(String? raw) {
   if (raw == null) {
     return null;
@@ -6,6 +6,12 @@ String? normalizeEan13Barcode(String? raw) {
 
   final digits = raw.replaceAll(RegExp(r'\D'), '');
   if (digits.length == 13) {
+    return digits;
+  }
+  if (digits.length == 12) {
+    return '0$digits';
+  }
+  if (digits.length == 8) {
     return digits;
   }
 

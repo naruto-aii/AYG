@@ -48,14 +48,14 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
 
     try {
       await widget.controller.completeOnboarding();
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('保存に失敗しました。時間をおいて再度お試しください。')),
+      );
       return;
     }
 

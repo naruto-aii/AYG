@@ -109,6 +109,34 @@ begin
     'herbal medicine stays allowed'
   );
   perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('ぶっかけうどん'),
+    'bukkake udon stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('冷やしぶっかけそば'),
+    'chilled bukkake soba stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('ごっくん馬路村'),
+    'drink name stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('潮吹き貝'),
+    'shellfish name stays allowed'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('クソまずい'),
+    'insulting compound is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('エロい'),
+    'eroi is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('エロすぎ'),
+    'erosugi is rejected'
+  );
+  perform ayg_test.assert_true(
     public.public_food_name_is_banned('おまんこ'),
     'explicit compound is rejected'
   );

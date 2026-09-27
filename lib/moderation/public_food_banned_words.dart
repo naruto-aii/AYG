@@ -39,19 +39,22 @@ const List<String> publicFoodBannedWords = <String>[
   'きちがい',
   '池沼',
   'エロ',
+  // Compounds that the short boundary-only fragments do not catch.
+  // くそ / えろ stay boundary-only so they do not reject ordinary foods.
+  'くそまずい',
+  'くそ不味い',
+  'えろい',
+  'えろすぎ',
+  'えろえろ',
   // Full explicit compounds. Not boundary-only, so they match as substrings.
-  // The short fragments above stay boundary-only.
   'おまんこ',
   'フェラチオ',
   'イラマチオ',
   'クンニ',
   'パイズリ',
   '顔射',
-  'ぶっかけ',
-  'ごっくん',
   'ザーメン',
   'オナニー',
-  '潮吹き',
   '素股',
   '手コキ',
   '手マン',

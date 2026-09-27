@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'constants/app_strings.dart';
@@ -7,6 +9,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/health_setup_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
 import 'services/open_food_facts_service.dart';
+import 'repositories/subscription_repository.dart';
 import 'state/app_controller.dart';
 import 'screens/splash/splash_screen.dart';
 import 'theme/app_theme.dart';
@@ -35,13 +38,16 @@ class AygApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppStrings.appTitle,
-      theme: AppTheme.light,
-      builder: (context, child) {
-        return AppKeyboardHost(child: child ?? const SizedBox.shrink());
-      },
-      home: _buildHome(),
+    return _EntitlementRefreshHost(
+      repository: controller.subscriptionRepository,
+      child: MaterialApp(
+        title: AppStrings.appTitle,
+        theme: AppTheme.light,
+        builder: (context, child) {
+          return AppKeyboardHost(child: child ?? const SizedBox.shrink());
+        },
+        home: _buildHome(),
+      ),
     );
   }
 
@@ -105,6 +111,45 @@ class AygApp extends StatelessWidget {
         controller.goal != null &&
         controller.nutritionSettings != null;
   }
+}
+
+class _EntitlementRefreshHost extends StatefulWidget {
+  const _EntitlementRefreshHost({
+    required this.repository,
+    required this.child,
+  });
+
+  final SubscriptionRepository repository;
+  final Widget child;
+
+  @override
+  State<_EntitlementRefreshHost> createState() =>
+      _EntitlementRefreshHostState();
+}
+
+class _EntitlementRefreshHostState extends State<_EntitlementRefreshHost>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(widget.repository.refreshEntitlement());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// 起動直後にスプラッシュ演出を流し、終わったら本編へディゾルブする。

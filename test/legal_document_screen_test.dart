@@ -105,7 +105,12 @@ void main() {
 
     expect(find.text('プライバシーポリシー'), findsOneWidget);
     expect(find.textContaining('Apple Health'), findsOneWidget);
+    expect(find.textContaining('ユーザーID'), findsOneWidget);
     expect(find.textContaining('麹池成'), findsWidgets);
+    await tester.scrollUntilVisible(find.textContaining('サービスの改善'), 300);
+    expect(find.textContaining('サービスの改善'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('アカウント削除時に削除します'), 300);
+    expect(find.textContaining('アカウント削除時に削除します'), findsOneWidget);
     expect(find.textContaining('24歳'), findsNothing);
     expect(find.textContaining('Web 版'), findsNothing);
     expect(find.byTooltip('閉じる'), findsOneWidget);
@@ -124,8 +129,9 @@ void main() {
     expect(find.text('特定商取引法に基づく表記'), findsOneWidget);
     expect(find.textContaining('麹池成'), findsWidgets);
     expect(find.textContaining('アプリ内課金'), findsOneWidget);
-    expect(find.textContaining('380'), findsOneWidget);
-    expect(find.textContaining('4,180'), findsOneWidget);
+    expect(find.textContaining('購入画面に表示される価格'), findsOneWidget);
+    expect(find.textContaining('380'), findsNothing);
+    expect(find.textContaining('4,180'), findsNothing);
     expect(find.byTooltip('閉じる'), findsOneWidget);
   });
 

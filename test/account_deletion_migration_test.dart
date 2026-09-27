@@ -9,23 +9,39 @@ void main() {
       'supabase/migrations/20260927150000_protect_owner_deleted_and_revoke_sessions.sql';
   const downName =
       'supabase/rollback/20260927150000_protect_owner_deleted_and_revoke_sessions_down.sql';
+  const eventsName =
+      'supabase/migrations/20260927160000_delete_subscription_events_on_account_deletion.sql';
+  const eventsDownName =
+      'supabase/rollback/20260927160000_delete_subscription_events_on_account_deletion_down.sql';
 
   late String appliedSql;
   late String followUpSql;
   late String downSql;
+  late String eventsSql;
+  late String eventsDownSql;
 
   setUpAll(() {
     appliedSql = File(appliedName).readAsStringSync();
     followUpSql = File(followUpName).readAsStringSync();
     downSql = File(downName).readAsStringSync();
+    eventsSql = File(eventsName).readAsStringSync();
+    eventsDownSql = File(eventsDownName).readAsStringSync();
   });
 
   test('already-applied delete_own_account migration is unchanged', () {
     expect(appliedSql.contains('owner_deleted'), isFalse);
     expect(appliedSql.contains('auth.sessions'), isFalse);
     expect(appliedSql.contains('auth.refresh_tokens'), isFalse);
-    expect(appliedSql, contains('create or replace function public.delete_own_account()'));
-    expect(appliedSql, contains('grant execute on function public.delete_own_account() to authenticated'));
+    expect(
+      appliedSql,
+      contains('create or replace function public.delete_own_account()'),
+    );
+    expect(
+      appliedSql,
+      contains(
+        'grant execute on function public.delete_own_account() to authenticated',
+      ),
+    );
   });
 
   test('follow-up migration adds owner_deleted idempotently', () {
@@ -56,7 +72,9 @@ void main() {
   test('authenticated cannot update owner_deleted', () {
     expect(
       followUpSql,
-      contains('revoke insert, update on table public.saved_foods from authenticated'),
+      contains(
+        'revoke insert, update on table public.saved_foods from authenticated',
+      ),
     );
     expect(
       followUpSql,
@@ -119,14 +137,45 @@ void main() {
     expect(downSql, contains('drop column if exists owner_deleted'));
     expect(
       downSql,
-      contains('drop function if exists public.saved_foods_reject_owner_deleted_change()'),
+      contains(
+        'drop function if exists public.saved_foods_reject_owner_deleted_change()',
+      ),
     );
     expect(
       downSql,
-      contains('grant select, insert, update on table public.saved_foods to authenticated'),
+      contains(
+        'grant select, insert, update on table public.saved_foods to authenticated',
+      ),
     );
     expect(downSql.contains('auth.sessions'), isFalse);
     expect(downSql.contains('auth.refresh_tokens'), isFalse);
     expect(downSql.contains('owner_deleted = true'), isFalse);
+  });
+
+  test('account deletion deletes subscription_events in a later migration', () {
+    expect(followUpSql.contains('subscription_events'), isFalse);
+    expect(eventsSql, contains("set search_path = ''"));
+    expect(
+      eventsSql,
+      contains("pg_catalog.to_regclass('public.subscription_events')"),
+    );
+    expect(
+      eventsSql,
+      contains('delete from public.subscription_events where user_id = uid'),
+    );
+    expect(
+      eventsDownSql.contains('delete from public.subscription_events'),
+      isFalse,
+    );
+    expect(
+      eventsDownSql,
+      contains('create or replace function public.delete_own_account()'),
+    );
+    expect(
+      File(
+        'supabase/migrations/20260927160000_delete_subscription_events_on_account_deletion_down.sql',
+      ).existsSync(),
+      isFalse,
+    );
   });
 }

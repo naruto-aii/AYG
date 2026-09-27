@@ -27,6 +27,7 @@ import '../repositories/supabase/supabase_workout_template_repository.dart';
 import '../repositories/user_repository.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/storekit_subscription_repository.dart';
+import '../repositories/supabase_subscription_event_reporter.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../repositories/local_subscription_usage_store.dart';
@@ -133,6 +134,9 @@ Future<void> bootstrapApp() async {
     alcoholRepository: alcoholRepository,
     weightRepository: weightRepository,
     savedFoodRepository: foodMasterRepositories.savedFoods,
+    subscriptionEventReporter: SupabaseConfig.isConfigured
+        ? SupabaseSubscriptionEventReporter()
+        : null,
     foodRatingRepository: foodMasterRepositories.foodRatings,
     foodReportRepository: foodMasterRepositories.foodReports,
     blockedCreatorRepository: foodMasterRepositories.blockedCreators,

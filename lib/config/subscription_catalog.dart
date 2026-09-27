@@ -6,14 +6,11 @@ class SubscriptionCatalog {
   static const monthlyProductId = 'calonavi_plus_monthly';
   static const yearlyProductId = 'calonavi_plus_yearly';
 
-  static const monthlyYen = 380;
-  static const yearlyYen = 4180;
-
   static const publicFoodSearchesPerDay = 5;
   static const mealTemplateLimit = 3;
   static const workoutTemplateLimit = 3;
 
-  static const monthlyLabel = '月額 380円';
-  static const yearlyLabel = '年額 4,180円';
-  static const yearlySavingLabel = '1ヶ月分お得';
+  static bool isPlusProduct(String productId) {
+    return productId == monthlyProductId || productId == yearlyProductId;
+  }
 }

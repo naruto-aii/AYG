@@ -1,3 +1,4 @@
+import '../services/subscription_offer.dart';
 import 'subscription_exceptions.dart';
 import 'subscription_repository.dart';
 
@@ -10,7 +11,15 @@ class UnavailableSubscriptionRepository extends SubscriptionRepository {
   Stream<bool> get plusChanges => const Stream.empty();
 
   @override
+  Future<SubscriptionOfferings> loadOfferings() async {
+    return SubscriptionOfferings.failed;
+  }
+
+  @override
   Future<void> restore() async {}
+
+  @override
+  Future<void> refreshEntitlement() async {}
 
   @override
   Future<void> purchaseMonthly() {

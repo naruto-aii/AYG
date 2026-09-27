@@ -34,6 +34,7 @@ import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase/supabase_food_rating_repository.dart';
 import '../repositories/supabase/supabase_food_report_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
+import '../repositories/supabase_subscription_event_reporter.dart';
 import '../platform/web/resilient_auth_local_storage.dart';
 import '../services/open_food_facts_service.dart';
 import '../state/app_controller.dart';
@@ -212,6 +213,9 @@ Future<void> bootstrapWebApp() async {
       subscriptionUsageStore: LocalSubscriptionUsageStore(
         preferences: preferences,
       ),
+      subscriptionEventReporter: SupabaseConfig.isConfigured
+          ? SupabaseSubscriptionEventReporter()
+          : null,
     );
 
     if (kDebugMode) {

@@ -7,8 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'supabase_saved_food_repository_integration_test.dart';
 
-Future<void> _applyMigration(String filename) async {
-  final sql = File('supabase/migrations/$filename').readAsStringSync();
+Future<void> _applySqlFile(String path) async {
+  final sql = File(path).readAsStringSync();
   final tempFile = File(
     '${Directory.systemTemp.path}/ayg_migration_${DateTime.now().microsecondsSinceEpoch}.sql',
   );
@@ -33,10 +33,12 @@ Future<void> _applyMigration(String filename) async {
     '/tmp/migration.sql',
   ]);
   if (apply.exitCode != 0) {
-    throw StateError(
-      'Migration $filename failed: ${apply.stderr}\n${apply.stdout}',
-    );
+    throw StateError('SQL $path failed: ${apply.stderr}\n${apply.stdout}');
   }
+}
+
+Future<void> _applyMigration(String filename) {
+  return _applySqlFile('supabase/migrations/$filename');
 }
 
 Future<String> _psql(String sql) async {
@@ -235,6 +237,60 @@ void main() {
           "SELECT proname FROM pg_proc WHERE proname = 'publish_saved_food';",
         ),
         'publish_saved_food',
+      );
+    });
+
+    test('subscription event counts are insert-only and reversible', () async {
+      if (!available) {
+        markTestSkipped('Local Supabase not available');
+        return;
+      }
+
+      await _applyMigration('20260927140000_subscription_events.sql');
+
+      expect(
+        await _psql(
+          "SELECT relrowsecurity FROM pg_class WHERE relname = 'subscription_events';",
+        ),
+        't',
+      );
+      expect(
+        await _psql(
+          "SELECT string_agg(privilege_type, ',' ORDER BY privilege_type) "
+          "FROM information_schema.role_table_grants "
+          "WHERE table_schema = 'public' "
+          "AND table_name = 'subscription_events' "
+          "AND grantee = 'authenticated';",
+        ),
+        'INSERT',
+      );
+      expect(
+        await _psql(
+          "SELECT has_function_privilege("
+          "'authenticated', 'public.subscription_event_counts()', 'EXECUTE');",
+        ),
+        'f',
+      );
+      expect(
+        await _psql(
+          "SELECT has_function_privilege("
+          "'service_role', 'public.subscription_event_counts()', 'EXECUTE');",
+        ),
+        't',
+      );
+      expect(
+        await _psql('SELECT count(*) FROM public.subscription_event_counts();'),
+        '0',
+      );
+
+      await _applySqlFile(
+        'supabase/rollback/20260927140000_subscription_events_down.sql',
+      );
+      expect(
+        await _psql(
+          "SELECT to_regclass('public.subscription_events') IS NULL;",
+        ),
+        't',
       );
     });
   });

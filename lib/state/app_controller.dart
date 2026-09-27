@@ -44,6 +44,7 @@ import '../repositories/local_subscription_usage_store.dart';
 import '../repositories/subscription_exceptions.dart';
 import '../repositories/subscription_repository.dart';
 import '../repositories/unavailable_subscription_repository.dart';
+import '../services/subscription_event_reporter.dart';
 import '../services/subscription_policy.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
 import '../repositories/contracts/blocked_food_creator_repository_base.dart';
@@ -105,6 +106,7 @@ class AppController extends ChangeNotifier {
     WorkoutTemplateRepositoryBase? workoutTemplateRepository,
     SubscriptionRepository? subscriptionRepository,
     LocalSubscriptionUsageStore? subscriptionUsageStore,
+    SubscriptionEventReporter? subscriptionEventReporter,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -127,6 +129,8 @@ class AppController extends ChangeNotifier {
            subscriptionRepository ?? UnavailableSubscriptionRepository(),
        _subscriptionUsageStore =
            subscriptionUsageStore ?? LocalSubscriptionUsageStore(),
+       _subscriptionEventReporter =
+           subscriptionEventReporter ?? const NoOpSubscriptionEventReporter(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -159,6 +163,7 @@ class AppController extends ChangeNotifier {
   final WorkoutTemplateRepositoryBase? _workoutTemplateRepository;
   final SubscriptionRepository _subscriptionRepository;
   final LocalSubscriptionUsageStore _subscriptionUsageStore;
+  final SubscriptionEventReporter _subscriptionEventReporter;
   final SubscriptionPolicy _subscriptionPolicy;
   final SavedFoodSearchService _savedFoodSearchService;
   final SavedFoodDuplicateService _savedFoodDuplicateService;
@@ -282,9 +287,15 @@ class AppController extends ChangeNotifier {
     try {
       await _subscriptionRepository.restore();
     } catch (_) {}
-    _subscriptionRepository.plusChanges.listen((_) {
+    _subscriptionRepository.plusChanges.listen((active) {
+      if (active) {
+        unawaited(_notePaidConversion());
+      }
       notifyListeners();
     });
+    if (_subscriptionRepository.isPlusActive) {
+      unawaited(_notePaidConversion());
+    }
 
     _isInitializing = false;
     notifyListeners();
@@ -300,6 +311,9 @@ class AppController extends ChangeNotifier {
 
     if (!_isSyncInProgress) {
       await handleAuthenticatedSession();
+    }
+    if (_subscriptionRepository.isPlusActive) {
+      unawaited(_notePaidConversion());
     }
     notifyListeners();
   }
@@ -1530,6 +1544,7 @@ class AppController extends ChangeNotifier {
     )) {
       return;
     }
+    _noteFreeLimitHit();
     throw SubscriptionLimitExceededException(
       SubscriptionLimitKind.mealTemplate,
     );
@@ -1542,6 +1557,7 @@ class AppController extends ChangeNotifier {
     )) {
       return;
     }
+    _noteFreeLimitHit();
     throw SubscriptionLimitExceededException(
       SubscriptionLimitKind.workoutTemplate,
     );
@@ -1559,6 +1575,7 @@ class AppController extends ChangeNotifier {
       isPlus: false,
       usedToday: used,
     )) {
+      _noteFreeLimitHit();
       throw SubscriptionLimitExceededException(
         SubscriptionLimitKind.publicFoodSearch,
       );
@@ -1566,6 +1583,22 @@ class AppController extends ChangeNotifier {
     await _subscriptionUsageStore.incrementPublicSearch(
       userId: currentOwnerUserId,
       day: DateTime.now(),
+    );
+  }
+
+  void _noteFreeLimitHit() {
+    final userId = _authenticationRepository?.currentUser?.id;
+    unawaited(
+      _subscriptionEventReporter
+          .recordFreeLimitHit(userId)
+          .timeout(const Duration(seconds: 2))
+          .then((_) {}, onError: (Object _) {}),
+    );
+  }
+
+  Future<void> _notePaidConversion() {
+    return _subscriptionEventReporter.recordConvertedToPaid(
+      _authenticationRepository?.currentUser?.id,
     );
   }
 

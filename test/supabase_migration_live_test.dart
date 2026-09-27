@@ -171,6 +171,22 @@ void main() {
         'f',
       );
       expect(
+        await _psql(r"SELECT public.public_food_name_is_banned(U&'f\00FAck');"),
+        't',
+      );
+      expect(
+        await _psql(r"SELECT public.public_food_name_is_banned(U&'fu\0441k');"),
+        't',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('5h1t');"),
+        't',
+      );
+      expect(
+        await _psql(r"SELECT public.public_food_name_is_banned('$hit');"),
+        't',
+      );
+      expect(
         await _psql(
           "SELECT proname FROM pg_proc WHERE proname = 'publish_saved_food';",
         ),

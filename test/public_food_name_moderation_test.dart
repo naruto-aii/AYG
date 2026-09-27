@@ -51,6 +51,24 @@ void main() {
       expect(PublicFoodNameModeration.isBanned('チンコ'), isTrue);
     });
 
+    test(
+      'rejects accent, combining, lookalike, digit, and symbol bypasses',
+      () {
+        expect(PublicFoodNameModeration.isBanned('fúck'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('fu\u0301ck'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('fu\u0441k'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('5h1t'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('c0ck'), isTrue);
+        expect(PublicFoodNameModeration.isBanned(r'$hit'), isTrue);
+        expect(PublicFoodNameModeration.isBanned('sh!t'), isTrue);
+        // ｷﾁｶﾞｲ — halfwidth ka plus voiced mark becomes が after NFKC.
+        expect(
+          PublicFoodNameModeration.isBanned('\uFF77\uFF81\uFF76\uFF9E\uFF72'),
+          isTrue,
+        );
+      },
+    );
+
     test('does not treat an unchanged public name as a new rejection', () {
       expect(
         PublicFoodNameModeration.rejectsPublicUpdate(
@@ -63,6 +81,24 @@ void main() {
         PublicFoodNameModeration.rejectsPublicUpdate(
           previousName: 'キャベツ',
           nextName: 'うんこ',
+        ),
+        isTrue,
+      );
+      expect(
+        PublicFoodNameModeration.rejectsPublicUpdate(
+          previousName: 'キャベツ',
+          nextName: 'キャベツ',
+          previousBrand: 'fuck',
+          nextBrand: 'fuck',
+        ),
+        isFalse,
+      );
+      expect(
+        PublicFoodNameModeration.rejectsPublicUpdate(
+          previousName: 'キャベツ',
+          nextName: 'キャベツ',
+          previousBrand: 'acme',
+          nextBrand: 'fúck',
         ),
         isTrue,
       );
@@ -83,6 +119,28 @@ void main() {
         contains(PublicFoodNameModeration.rejectionMessage),
       );
     });
+
+    test(
+      'rejects a clean name when brand, normalized name, or unit is banned',
+      () {
+        for (final food in [
+          _food('キャベツ').copyWith(brand: 'fuck'),
+          _food('キャベツ').copyWith(normalizedName: '5h1t'),
+          _food('キャベツ').copyWith(servingUnitLabel: r'$hit'),
+        ]) {
+          final result = validator.validate(food: food, ownerUserId: 'user-a');
+          expect(
+            result.isValid,
+            isFalse,
+            reason: food.brand ?? food.normalizedName,
+          );
+          expect(
+            result.errors,
+            contains(PublicFoodNameModeration.rejectionMessage),
+          );
+        }
+      },
+    );
   });
 
   group('banned name errors', () {
@@ -130,12 +188,54 @@ void main() {
       expect(migration, contains(publicFoodHalfwidthKatakanaTo));
     });
 
-    test('publish and public-name updates call the check', () {
+    test('SQL folds NFKC and the same confusable map', () {
+      expect(
+        publicFoodConfusableFrom.runes.length,
+        publicFoodConfusableTo.runes.length,
+      );
+      expect(migration, contains('pg_catalog.normalize'));
+      expect(migration, contains('NFKC'));
+      expect(migration, contains('major_version = 17'));
+      expect(migration, contains('cp between 768 and 879'));
+      expect(migration, contains(publicFoodConfusableFrom));
+      expect(migration, contains(publicFoodConfusableTo));
+      expect(migration, contains("replace(v, 'ß', 'ss')"));
+      expect(migration, contains("replace(v, 'œ', 'oe')"));
+    });
+
+    test('publish and public-field updates call the check', () {
       expect(
         migration,
         contains('public.public_food_name_is_banned(v_row.name)'),
       );
+      expect(
+        migration,
+        contains('public.public_food_name_is_banned(v_row.normalized_name)'),
+      );
+      expect(
+        migration,
+        contains(
+          "public.public_food_name_is_banned(coalesce(v_row.brand, ''))",
+        ),
+      );
+      expect(
+        migration,
+        contains(
+          "public.public_food_name_is_banned(coalesce(v_row.serving_unit_label, ''))",
+        ),
+      );
       expect(migration, contains('new.name is distinct from old.name'));
+      expect(
+        migration,
+        contains('new.normalized_name is distinct from old.normalized_name'),
+      );
+      expect(migration, contains('new.brand is distinct from old.brand'));
+      expect(
+        migration,
+        contains(
+          'new.serving_unit_label is distinct from old.serving_unit_label',
+        ),
+      );
       expect(migration, contains('public food name is not allowed'));
       expect('update public.saved_foods'.allMatches(migration).length, 1);
       expect(migration, contains("set visibility = 'public'"));

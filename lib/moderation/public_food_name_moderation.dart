@@ -1,10 +1,13 @@
+import 'package:unorm_dart/unorm_dart.dart' as unorm;
+
 import '../utils/food_name_normalizer.dart';
 import 'public_food_banned_words.dart';
 
-/// Client check for public food names.
+/// Client check for public food text.
 ///
-/// Normalization is trim, case fold, full-width ASCII to half-width,
-/// half-width and full-width katakana to hiragana, and separator folding.
+/// Order: Unicode NFKC, strip combining marks U+0300–U+036F (kana voicing
+/// U+3099/U+309A stays), accent / lookalike / digit-symbol fold, then
+/// case fold, kana fold, and separator folding.
 class PublicFoodNameModeration {
   const PublicFoodNameModeration._();
 
@@ -14,14 +17,18 @@ class PublicFoodNameModeration {
   /// These match only on a boundary. Longer Japanese terms match as substrings.
   static const boundaryOnlyTerms = <String>{'えろ'};
 
+  static final RegExp _combiningMarks = RegExp(r'[\u0300-\u036F]');
+
   static bool isBanned(String raw) {
-    final spaced = normalizeForMatch(raw);
+    final spaced = normalizeForMatch(prepareForMatch(raw));
     if (spaced.isEmpty) {
       return false;
     }
     final compact = spaced.replaceAll(' ', '');
     for (final term in publicFoodBannedWords) {
-      final normalizedTerm = normalizeForMatch(term).replaceAll(' ', '');
+      final normalizedTerm = normalizeForMatch(
+        prepareForMatch(term),
+      ).replaceAll(' ', '');
       if (normalizedTerm.isEmpty) {
         continue;
       }
@@ -37,17 +44,69 @@ class PublicFoodNameModeration {
     return false;
   }
 
-  /// True when a public row's name is changing into a banned name.
-  /// An unchanged name is left alone so older rows can still edit other fields.
+  /// True when a public field is changing into a banned value.
+  /// An unchanged field is left alone so older rows can still edit other fields.
   static bool rejectsPublicUpdate({
     required String previousName,
     required String nextName,
+    String? previousBrand,
+    String? nextBrand,
+    String? previousNormalizedName,
+    String? nextNormalizedName,
+    String? previousServingUnitLabel,
+    String? nextServingUnitLabel,
   }) {
-    if (FoodNameNormalizer.normalize(previousName) ==
-        FoodNameNormalizer.normalize(nextName)) {
+    return _changedIntoBanned(previousName, nextName) ||
+        _changedIntoBanned(previousBrand, nextBrand) ||
+        _changedIntoBanned(previousNormalizedName, nextNormalizedName) ||
+        _changedIntoBanned(previousServingUnitLabel, nextServingUnitLabel);
+  }
+
+  static bool anyFieldBanned({
+    required String name,
+    String? normalizedName,
+    String? brand,
+    String? servingUnitLabel,
+  }) {
+    return isBanned(name) ||
+        isBanned(normalizedName ?? '') ||
+        isBanned(brand ?? '') ||
+        isBanned(servingUnitLabel ?? '');
+  }
+
+  static bool _changedIntoBanned(String? previous, String? next) {
+    final before = previous ?? '';
+    final after = next ?? '';
+    if (FoodNameNormalizer.normalize(before) ==
+        FoodNameNormalizer.normalize(after)) {
       return false;
     }
-    return isBanned(nextName);
+    return isBanned(after);
+  }
+
+  /// NFKC, then confusable folding. Separator folding happens afterwards.
+  static String prepareForMatch(String raw) {
+    final composed = unorm.nfkc(raw).replaceAll(_combiningMarks, '');
+    return _foldConfusables(composed);
+  }
+
+  static String _foldConfusables(String value) {
+    final expanded = value
+        .replaceAll('ß', 'ss')
+        .replaceAll('æ', 'ae')
+        .replaceAll('Æ', 'ae')
+        .replaceAll('œ', 'oe')
+        .replaceAll('Œ', 'oe');
+    final buffer = StringBuffer();
+    for (final rune in expanded.runes) {
+      final mapped = _confusableMap[rune];
+      if (mapped == null) {
+        buffer.writeCharCode(rune);
+      } else {
+        buffer.writeCharCode(mapped);
+      }
+    }
+    return buffer.toString();
   }
 
   static String normalizeForMatch(String raw) {
@@ -154,7 +213,18 @@ class PublicFoodNameModeration {
     return code == 0x30FC;
   }
 
+  static final Map<int, int> _confusableMap = _buildConfusableMap();
   static final Map<int, int> _halfwidthKatakana = _buildHalfwidthMap();
+
+  static Map<int, int> _buildConfusableMap() {
+    final from = publicFoodConfusableFrom.runes.toList();
+    final to = publicFoodConfusableTo.runes.toList();
+    final map = <int, int>{};
+    for (var i = 0; i < from.length && i < to.length; i++) {
+      map[from[i]] = to[i];
+    }
+    return map;
+  }
 
   static Map<int, int> _buildHalfwidthMap() {
     final from = publicFoodHalfwidthKatakanaFrom.runes.toList();

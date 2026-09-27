@@ -1232,6 +1232,12 @@ class AppController extends ChangeNotifier {
     if (PublicFoodNameModeration.rejectsPublicUpdate(
       previousName: existing.name,
       nextName: food.name,
+      previousBrand: existing.brand,
+      nextBrand: food.brand,
+      previousNormalizedName: existing.normalizedName,
+      nextNormalizedName: food.normalizedName,
+      previousServingUnitLabel: existing.servingUnitLabel,
+      nextServingUnitLabel: food.servingUnitLabel,
     )) {
       throw const PublicFoodNameRejectedException();
     }

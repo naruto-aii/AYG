@@ -47,3 +47,12 @@ const String publicFoodHalfwidthKatakanaFrom =
 
 const String publicFoodHalfwidthKatakanaTo =
     'をぁぃぅぇぉゃゅょっーあいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん';
+
+/// 1:1 confusable fold applied after NFKC. Both strings are the same length.
+/// Accents, Cyrillic/Latin lookalikes, and symbol/digit substitutions.
+/// Kept identical to the translate() pair in the banned-name migration.
+const String publicFoodConfusableFrom =
+    'àáâãäåÀÁÂÃÄÅèéêëÈÉÊËìíîïÌÍÎÏòóôõöÒÓÔÕÖùúûüÙÚÛÜýÿÝŸñÑçÇаАеЕоОрРсСуУхХіІјЈѕЅԁԀ013457@\$!';
+
+const String publicFoodConfusableTo =
+    'aaaaaaaaaaaaeeeeeeeeiiiiiiiioooooooooouuuuuuuuyyyynnccaaeeooppccyyxxiijjssddoieastasi';

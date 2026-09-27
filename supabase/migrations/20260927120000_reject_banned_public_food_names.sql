@@ -1,5 +1,9 @@
--- Reject banned public food names at publish time and when a public row's
--- name changes. Does not scan or rewrite existing rows.
+-- Reject banned public food text at publish time and when a public row's
+-- name, normalized_name, brand, or serving_unit_label changes.
+-- Does not scan or rewrite existing rows.
+--
+-- pg_catalog.normalize(text, NFKC) needs PostgreSQL 13 or newer.
+-- supabase/config.toml sets major_version = 17.
 
 create or replace function public.normalize_public_food_name(p_name text)
 returns text
@@ -8,7 +12,7 @@ immutable
 set search_path = public
 as $$
 declare
-  v text := coalesce(p_name, '');
+  v text := pg_catalog.normalize(coalesce(p_name, ''), NFKC);
   v_out text := '';
   i integer;
   ch text;
@@ -16,10 +20,27 @@ declare
   hw_from constant text := 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ';
   hw_to constant text := 'をぁぃぅぇぉゃゅょっーあいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん';
   hw_at integer;
+  -- Same pair as publicFoodConfusableFrom / publicFoodConfusableTo.
+  fold_from constant text := 'àáâãäåÀÁÂÃÄÅèéêëÈÉÊËìíîïÌÍÎÏòóôõöÒÓÔÕÖùúûüÙÚÛÜýÿÝŸñÑçÇаАеЕоОрРсСуУхХіІјЈѕЅԁԀ013457@$!';
+  fold_to constant text := 'aaaaaaaaaaaaeeeeeeeeiiiiiiiioooooooooouuuuuuuuyyyynnccaaeeooppccyyxxiijjssddoieastasi';
 begin
+  -- Multi-character folds, then the 1:1 confusable map. Separator folding
+  -- is the loop below. Combining marks U+0300–U+036F are dropped there
+  -- and are not turned into spaces. Kana voicing U+3099/U+309A is kept.
+  v := replace(v, 'ß', 'ss');
+  v := replace(v, 'æ', 'ae');
+  v := replace(v, 'Æ', 'ae');
+  v := replace(v, 'œ', 'oe');
+  v := replace(v, 'Œ', 'oe');
+  v := translate(v, fold_from, fold_to);
+
   for i in 1..char_length(v) loop
     ch := substr(v, i, 1);
     cp := ascii(ch);
+
+    if cp between 768 and 879 then
+      continue;
+    end if;
 
     if cp = 12288 or cp = 32 or cp = 9 or cp = 10 or cp = 13 then
       if v_out <> '' and right(v_out, 1) <> ' ' then
@@ -254,6 +275,21 @@ begin
     raise exception 'public food name is not allowed';
   end if;
 
+  if new.normalized_name is distinct from old.normalized_name
+     and public.public_food_name_is_banned(new.normalized_name) then
+    raise exception 'public food name is not allowed';
+  end if;
+
+  if new.brand is distinct from old.brand
+     and public.public_food_name_is_banned(coalesce(new.brand, '')) then
+    raise exception 'public food name is not allowed';
+  end if;
+
+  if new.serving_unit_label is distinct from old.serving_unit_label
+     and public.public_food_name_is_banned(coalesce(new.serving_unit_label, '')) then
+    raise exception 'public food name is not allowed';
+  end if;
+
   if coalesce(new.kcal_per_base, 0) < 0
      or coalesce(new.protein_per_base, 0) < 0
      or coalesce(new.fat_per_base, 0) < 0
@@ -328,7 +364,10 @@ begin
     raise exception 'name and normalized_name are required';
   end if;
 
-  if public.public_food_name_is_banned(v_row.name) then
+  if public.public_food_name_is_banned(v_row.name)
+     or public.public_food_name_is_banned(v_row.normalized_name)
+     or public.public_food_name_is_banned(coalesce(v_row.brand, ''))
+     or public.public_food_name_is_banned(coalesce(v_row.serving_unit_label, '')) then
     raise exception 'public food name is not allowed';
   end if;
 

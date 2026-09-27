@@ -28,6 +28,46 @@ begin
     not public.public_food_name_is_banned('イエロー'),
     'yellow is not rejected by a short kana term'
   );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned(U&'f\00FAck'),
+    'precomposed accent is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned(U&'fu\0301ck'),
+    'combining accent is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned(U&'fu\0441k'),
+    'cyrillic lookalike is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('5h1t'),
+    'digit substitution is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('c0ck'),
+    'zero substitution is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('$hit'),
+    'dollar substitution is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned('sh!t'),
+    'exclamation substitution is rejected'
+  );
+  perform ayg_test.assert_true(
+    public.public_food_name_is_banned(U&'\FF77\FF81\FF76\FF9E\FF72'),
+    'halfwidth voiced kana is rejected'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('sea bass'),
+    'sea bass stays allowed'
+  );
+  perform ayg_test.assert_true(
+    not public.public_food_name_is_banned('cocktail'),
+    'cocktail stays allowed'
+  );
 
   delete from public.saved_foods where user_id = v_user;
   delete from public.users where id = v_user;
@@ -47,10 +87,19 @@ begin
     user_id, food_id, name, normalized_name, base_amount, unit_type, visibility
   ) values
     (v_user, 'banned-publish', 'fuck', 'fuck', 100, 'g', 'private'),
-    (v_user, 'ok-publish', 'キャベツ', 'キャベツ', 100, 'g', 'private');
+    (v_user, 'ok-publish', 'キャベツ', 'キャベツ', 100, 'g', 'private'),
+    (v_user, 'brand-banned', 'キャベツ', 'キャベツ', 100, 'g', 'private');
+
+  update public.saved_foods
+  set brand = 'shit'
+  where user_id = v_user and food_id = 'brand-banned';
 
   perform ayg_test.assert_raises(
     $sql$select public.publish_saved_food('banned-publish')$sql$,
+    '%public food name is not allowed%'
+  );
+  perform ayg_test.assert_raises(
+    $sql$select public.publish_saved_food('brand-banned')$sql$,
     '%public food name is not allowed%'
   );
 
@@ -60,6 +109,25 @@ begin
     format(
       $sql$update public.saved_foods
         set name = 'うんこ', normalized_name = 'うんこ'
+        where user_id = '%s' and food_id = 'ok-publish'$sql$,
+      v_user
+    ),
+    '%public food name is not allowed%'
+  );
+
+  perform ayg_test.assert_raises(
+    format(
+      $sql$update public.saved_foods
+        set brand = 'c0ck'
+        where user_id = '%s' and food_id = 'ok-publish'$sql$,
+      v_user
+    ),
+    '%public food name is not allowed%'
+  );
+  perform ayg_test.assert_raises(
+    format(
+      $sql$update public.saved_foods
+        set serving_unit_label = 'sh!t'
         where user_id = '%s' and food_id = 'ok-publish'$sql$,
       v_user
     ),

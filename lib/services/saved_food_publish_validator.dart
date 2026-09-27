@@ -37,7 +37,13 @@ class SavedFoodPublishValidator {
     final normalized = FoodNameNormalizer.normalize(food.name);
     if (normalized.isEmpty) {
       errors.add('食品名が無効です');
-    } else if (PublicFoodNameModeration.isBanned(food.name)) {
+    }
+    if (PublicFoodNameModeration.anyFieldBanned(
+      name: food.name,
+      normalizedName: food.normalizedName,
+      brand: food.brand,
+      servingUnitLabel: food.servingUnitLabel,
+    )) {
       errors.add(PublicFoodNameModeration.rejectionMessage);
     }
     if (food.baseAmount <= 0) {

@@ -55,13 +55,16 @@ the account owner. The function reads the names from the environment; it does
 not fall back to a committed client id.
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are injected
-by the platform. Do not commit those either.
+by the platform. Do not commit those either. Do not set
+`ALLOW_LOCALHOST_ORIGIN` on the production project. It is off when unset, and
+only `https://naruto-aii.github.io` can call these functions from a browser.
 
 Keep `verify_jwt = true` for both functions.
 
-Browsers calling either function must send `Origin: https://naruto-aii.github.io`
-(the web preview) or `http://localhost` / `http://127.0.0.1` on any port.
-`OPTIONS` is answered for those origins only. Other origins get no
+Production allows only `Origin: https://naruto-aii.github.io` (the web preview).
+`http://localhost` and `http://127.0.0.1` on any port are allowed only when
+`ALLOW_LOCALHOST_ORIGIN=true` is set. Leave that variable unset in production.
+Any other origin, including localhost while the variable is unset, gets no
 `Access-Control-Allow-Origin` header. Native apps do not send `Origin`.
 
 Deploy, in this order, before the app that calls `delete-account` is released:
@@ -112,5 +115,5 @@ supabase functions delete delete-account
 ## Tests
 
 ```sh
-deno test supabase/functions/_shared/apple_account_test.ts
+deno test --allow-env=ALLOW_LOCALHOST_ORIGIN --config supabase/functions/deno.json supabase/functions/_shared/apple_account_test.ts
 ```

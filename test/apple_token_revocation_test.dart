@@ -229,6 +229,7 @@ void main() {
       expect(production, contains('token_type_hint'));
       expect(production, contains('deleteThenRevokeAccount'));
       expect(production, contains('https://naruto-aii.github.io'));
+      expect(production, contains('ALLOW_LOCALHOST_ORIGIN'));
       expect(production, contains('Access-Control-Allow-Origin'));
       expect(production, contains("req.method === \"OPTIONS\""));
       expect(production.contains("Access-Control-Allow-Origin', '*'"), isFalse);

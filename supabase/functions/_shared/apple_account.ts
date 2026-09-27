@@ -240,12 +240,25 @@ export const publishedWebOrigin = "https://naruto-aii.github.io";
 
 const corsAllowHeaders = "authorization, x-client-info, apikey, content-type";
 
+// Local origins stay off unless this is set. Production must not set it.
+// A missing env permission is the same as unset: localhost stays closed.
+function localhostOriginsAllowed(): boolean {
+  try {
+    return Deno.env.get("ALLOW_LOCALHOST_ORIGIN") === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function isAllowedWebOrigin(origin: string | null): boolean {
   if (!origin) {
     return false;
   }
   if (origin === publishedWebOrigin) {
     return true;
+  }
+  if (!localhostOriginsAllowed()) {
+    return false;
   }
   let url: URL;
   try {

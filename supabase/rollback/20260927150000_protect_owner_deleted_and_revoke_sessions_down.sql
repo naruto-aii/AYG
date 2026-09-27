@@ -4,6 +4,11 @@
 -- 20260920120000 body (no owner_deleted, no session revoke),
 -- drops the guard, drops the column, and restores table-level
 -- INSERT/UPDATE for authenticated.
+--
+-- Reverting the pull request does not run this file and does not drop a
+-- column that is already applied (public.users.deleted_at, or
+-- saved_foods.owner_deleted after this migration). Dropping owner_deleted
+-- is only this manual script, and it removes the 削除済みユーザー label.
 
 begin;
 

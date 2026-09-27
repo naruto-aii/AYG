@@ -108,13 +108,13 @@ Future<void> saveCurrentFoodAsTemplate({
     if (context.mounted) {
       await showCalonaviPlus(context, controller.subscriptionRepository);
     }
-  } catch (error) {
+  } catch (_) {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('テンプレートの保存に失敗しました: $error')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('テンプレートの保存に失敗しました。時間をおいて再度お試しください。')),
+    );
   }
 }
 

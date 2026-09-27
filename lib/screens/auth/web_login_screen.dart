@@ -33,13 +33,13 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
       await widget.controller.handleAuthenticatedSession();
     } on GoogleSignInCancelledException {
       return;
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Googleログインに失敗しました: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Googleログインに失敗しました。時間をおいて再度お試しください。')),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

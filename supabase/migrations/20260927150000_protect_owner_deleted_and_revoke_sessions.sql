@@ -2,6 +2,10 @@
 -- That file is already applied in production and must stay unchanged.
 -- This migration is NOT applied to production by this change.
 --
+-- Reverting the pull request does not drop an already-applied column.
+-- users.deleted_at and, after this file is applied, saved_foods.owner_deleted
+-- stay until someone runs the down SQL by hand.
+--
 -- Idempotent: add owner_deleted if missing, replace delete_own_account,
 -- replace the guard trigger, and re-issue column grants.
 --

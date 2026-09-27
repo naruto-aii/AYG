@@ -126,13 +126,13 @@ Future<void> saveCurrentExerciseAsTemplate({
     if (context.mounted) {
       await showCalonaviPlus(context, controller.subscriptionRepository);
     }
-  } catch (error) {
+  } catch (_) {
     if (!context.mounted) {
       return;
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+    ).showSnackBar(const SnackBar(content: Text('保存に失敗しました。時間をおいて再度お試しください。')));
   }
 }
 

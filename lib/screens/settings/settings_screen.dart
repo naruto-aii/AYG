@@ -56,7 +56,7 @@ class SettingsScreen extends StatelessWidget {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
+      ).showSnackBar(const SnackBar(content: Text('リンクを開けませんでした。')));
     }
   }
 

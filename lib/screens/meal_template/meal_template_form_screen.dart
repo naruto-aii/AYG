@@ -240,13 +240,13 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
         return;
       }
       await showCalonaviPlus(context, widget.controller.subscriptionRepository);
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('保存に失敗しました。時間をおいて再度お試しください。')),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

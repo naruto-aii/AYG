@@ -80,6 +80,7 @@ import '../services/search_suggestion_service.dart';
 import '../services/source_food_edit_policy.dart';
 import '../utils/food_name_normalizer.dart';
 import '../utils/id_generator.dart';
+import '../utils/user_facing_error.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -1701,7 +1702,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodRatingResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userFacingErrorMessage(
+          error,
+          fallback: '評価を取り消せませんでした。時間をおいて再度お試しください。',
+        ),
       );
     } finally {
       _ratingOperationsInProgress.remove(key);
@@ -1740,7 +1744,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodRatingResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userFacingErrorMessage(
+          error,
+          fallback: '評価を保存できませんでした。時間をおいて再度お試しください。',
+        ),
       );
     } finally {
       _ratingOperationsInProgress.remove(key);
@@ -1799,7 +1806,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodReportResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userFacingErrorMessage(
+          error,
+          fallback: '通報を送信できませんでした。時間をおいて再度お試しください。',
+        ),
       );
     }
   }
@@ -2308,7 +2318,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return MealTemplateApplyResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userFacingErrorMessage(
+          error,
+          fallback: 'テンプレートを適用できませんでした。時間をおいて再度お試しください。',
+        ),
       );
     }
   }
@@ -2387,7 +2400,10 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return SaveFoodEntryResult(
         foodEntrySaved: false,
-        savedFoodErrorMessage: error.toString(),
+        savedFoodErrorMessage: userFacingErrorMessage(
+          error,
+          fallback: '食事を保存できませんでした。時間をおいて再度お試しください。',
+        ),
       );
     }
 
@@ -2432,7 +2448,10 @@ class AppController extends ChangeNotifier {
         errorCode = error.errorCode;
         message = error.userMessage;
       } else {
-        message = error.toString();
+        message = userFacingErrorMessage(
+          error,
+          fallback: '食品の保存に失敗しました。時間をおいて再度お試しください。',
+        );
         if (kDebugMode) {
           debugPrint(
             '[AYG SavedFood] saveFoodEntryWithOptionalSavedFood: $error',

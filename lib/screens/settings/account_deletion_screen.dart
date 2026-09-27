@@ -85,12 +85,14 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
       }
       setState(() => _isDeleting = false);
       await _showUnavailable();
-    } on AccountDeletionFailedException catch (error) {
+    } on AccountDeletionFailedException {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${AppStrings.accountDeletionFailed}: $error')),
+        const SnackBar(
+          content: Text('${AppStrings.accountDeletionFailed}。時間をおいて再度お試しください。'),
+        ),
       );
     } finally {
       if (mounted) {

@@ -81,16 +81,13 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.controller.handleAuthenticatedSession();
     } on SignInCancelledException {
       return;
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      final message = error is SignInFailedException
-          ? error.message
-          : error.toString();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$labelログインに失敗しました: $message')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$labelログインに失敗しました。時間をおいて再度お試しください。')),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

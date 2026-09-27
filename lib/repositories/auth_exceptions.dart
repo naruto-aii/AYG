@@ -53,7 +53,8 @@ class AccountDeletionUnavailableException implements Exception {
   String toString() => 'Account deletion is not available.';
 }
 
-/// 削除は完了した。Apple 連携の解除だけ失敗したとき [appleRevokeFailed] が true。
+/// 削除は完了した。保存した Apple トークンの解除に失敗したとき、または
+/// Apple ログインなのにトークンが無かったとき [appleRevokeFailed] が true。
 class AccountDeletionOutcome {
   const AccountDeletionOutcome({this.appleRevokeFailed = false});
 

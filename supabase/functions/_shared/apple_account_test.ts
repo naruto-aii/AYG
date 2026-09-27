@@ -5,7 +5,8 @@ import {
   handleDeleteAccount,
   handleStoreAppleRefreshToken,
   logWithoutSecrets,
-  revokeThenDeleteAccount,
+  appleIdentityInAdminUser,
+  deleteThenRevokeAccount,
   storeDepsFrom,
   type AppleSecrets,
   type DeleteDeps,
@@ -240,7 +241,7 @@ Deno.test("revoke failure still deletes the account and the stored token", async
   assert(removed.authorization === "Bearer service-key", "service role delete");
   const revokeIndex = calls.findIndex((call) => call.url.includes("/auth/revoke"));
   const deleteIndex = calls.findIndex((call) => call.url.endsWith("/rpc/delete_own_account"));
-  assert(revokeIndex >= 0 && deleteIndex > revokeIndex, "revoke then delete");
+  assert(deleteIndex >= 0 && revokeIndex > deleteIndex, "delete then revoke");
   assert(!logs.join("\n").includes(refreshToken), "token logged");
   assert(logs.some((line) => line.includes("status=400")), "failure logged");
 });
@@ -252,6 +253,7 @@ Deno.test("account deletion failure keeps the stored token", async () => {
   assert(response.status === 500, "status");
   assert(await response.text() === '{"ok":false}', "body");
   assert(!calls.some((call) => call.url.endsWith("/rpc/delete_apple_refresh_token")), "token kept");
+  assert(!calls.some((call) => call.url.includes("appleid.apple.com")), "apple untouched");
 });
 
 Deno.test("missing apple secrets do not block account deletion", async () => {
@@ -274,12 +276,62 @@ Deno.test("missing apple secrets do not block account deletion", async () => {
 
 Deno.test("no stored apple token deletes without the revoke flag", async () => {
   const calls: Call[] = [];
-  const deps = deleteDepsFrom(platformEnv(), fakeFetch(calls, { refreshToken: null }));
+  const deps = deleteDepsFrom(platformEnv(), fakeFetch(calls, {
+    refreshToken: null,
+    appleLinked: false,
+  }));
   const response = await handleDeleteAccount(jsonRequest({}), deps);
   assert(response.status === 200, "status");
   assert(await response.text() === '{"ok":true}', "no flag");
   assert(!calls.some((call) => call.url.includes("appleid.apple.com")), "no apple");
+  assert(calls.some((call) => call.url.includes("/auth/v1/admin/users/")), "identity lookup");
   assert(calls.some((call) => call.url.endsWith("/rpc/delete_own_account")), "deleted");
+});
+
+Deno.test("apple user without a stored token is told to unlink manually", async () => {
+  const calls: Call[] = [];
+  const deps = deleteDepsFrom(platformEnv(), fakeFetch(calls, {
+    refreshToken: null,
+    appleLinked: true,
+  }));
+  const response = await handleDeleteAccount(jsonRequest({}), deps);
+  assert(response.status === 200, "status");
+  assert(await response.text() === '{"ok":true,"apple_revoke_failed":true}', "flag");
+  assert(!calls.some((call) => call.url.includes("appleid.apple.com")), "no apple");
+  const lookup = calls.findIndex((call) => call.url.includes("/auth/v1/admin/users/"));
+  const deleted = calls.findIndex((call) => call.url.endsWith("/rpc/delete_own_account"));
+  assert(lookup >= 0 && deleted > lookup, "lookup before delete");
+});
+
+Deno.test("identity lookup failure without a token does not set the flag", async () => {
+  const calls: Call[] = [];
+  const logs: string[] = [];
+  const deps = deleteDepsFrom(platformEnv(), fakeFetch(calls, {
+    refreshToken: null,
+    appleLinked: null,
+  }));
+  deps.log = (message) => logs.push(message);
+  const response = await handleDeleteAccount(jsonRequest({}), deps);
+  assert(response.status === 200, "status");
+  assert(await response.text() === '{"ok":true}', "no flag");
+  assert(!calls.some((call) => call.url.includes("appleid.apple.com")), "no apple");
+  assert(logs.some((line) => line.includes("apple identity lookup failed")), "logged");
+});
+
+Deno.test("admin user json reports an apple identity", () => {
+  assert(
+    appleIdentityInAdminUser(JSON.stringify({
+      identities: [{ provider: "apple" }],
+    })) === true,
+    "identity",
+  );
+  assert(
+    appleIdentityInAdminUser(JSON.stringify({
+      app_metadata: { providers: ["google"] },
+    })) === false,
+    "google",
+  );
+  assert(appleIdentityInAdminUser("not-json") === null, "parse");
 });
 
 Deno.test("a body user id does not replace the authenticated user", async () => {
@@ -298,11 +350,17 @@ Deno.test("a body user id does not replace the authenticated user", async () => 
 Deno.test("direct revoke failure still reaches delete_own_account", async () => {
   let deleted = false;
   let tokenDeleted = false;
+  let revoked = false;
   const deps: DeleteDeps = {
     log: () => {},
     resolveUserId: async () => userId,
     readToken: async () => refreshToken,
+    appleLinked: async () => false,
     revoke: async () => {
+      revoked = true;
+      if (!deleted) {
+        throw new Error("revoked before delete");
+      }
       throw new Error("network");
     },
     deleteAccount: async () => {
@@ -312,13 +370,40 @@ Deno.test("direct revoke failure still reaches delete_own_account", async () => 
       tokenDeleted = true;
     },
   };
-  const result = await revokeThenDeleteAccount({
+  const result = await deleteThenRevokeAccount({
     userId,
     deps,
   });
   assert(result === "deleted_revoke_failed", result);
   assert(deleted, "account deleted");
+  assert(revoked, "revoke after delete");
   assert(tokenDeleted, "token deleted");
+});
+
+Deno.test("account deletion failure does not revoke", async () => {
+  let revoked = false;
+  const deps: DeleteDeps = {
+    log: () => {},
+    resolveUserId: async () => userId,
+    readToken: async () => refreshToken,
+    appleLinked: async () => true,
+    revoke: async () => {
+      revoked = true;
+      return { ok: true, status: 200, errorCode: "" };
+    },
+    deleteAccount: async () => {
+      throw new Error("db");
+    },
+    deleteStoredToken: async () => {
+      throw new Error("vault should stay");
+    },
+  };
+  const result = await deleteThenRevokeAccount({
+    userId,
+    deps,
+  });
+  assert(result === "delete_failed", result);
+  assert(!revoked, "apple untouched");
 });
 
 function jsonRequest(body: unknown): Request {
@@ -340,6 +425,7 @@ function fakeFetch(
     appleBody?: unknown;
     deleteAccountStatus?: number;
     refreshToken?: string | null;
+    appleLinked?: boolean | null;
   },
 ): FetchLike {
   return async (input, init) => {
@@ -349,6 +435,16 @@ function fakeFetch(
       apikey: header(init, "apikey"),
       body: typeof init?.body === "string" ? init.body : "",
     });
+    if (input.includes("/auth/v1/admin/users/")) {
+      if (options.appleLinked === null) {
+        return new Response("{}", { status: 500 });
+      }
+      const linked = options.appleLinked === true;
+      return new Response(JSON.stringify({
+        id: userId,
+        identities: [{ provider: linked ? "apple" : "email" }],
+      }), { status: 200 });
+    }
     if (input.endsWith("/auth/v1/user")) {
       if (options.userStatus && options.userStatus !== 200) {
         return new Response("{}", { status: options.userStatus });

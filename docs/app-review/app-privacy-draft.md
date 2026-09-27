@@ -174,9 +174,9 @@ Product Personalization は選ばない。
 
 これは Sign in with Apple の refresh token です。
 
-申告する理由: Apple は、認証トークンをサーバー呼び出しで送るだけで保存しない場合は申告不要としています。このトークンは保存します。ネイティブの Sign in with Apple のあと、Edge Function `store-apple-refresh-token` が認可コードを refresh token に交換し、`public.store_apple_refresh_token` で Vault（`vault.secrets`、名前の接頭辞 `apple_refresh_token:`）に入れます。アカウント削除が完了したあと `delete_apple_refresh_token` で消します（`supabase/functions/delete-account`）。保存しているので、「保存しないトークン」の例外には当たりません。
+申告する理由: Apple は、認証トークンをサーバー呼び出しで送るだけで保存しない場合は申告不要としています。このトークンは保存します。ネイティブの Sign in with Apple のあと、Edge Function `store-apple-refresh-token` が認可コードを refresh token に交換し、`public.store_apple_refresh_token` で Vault（`vault.secrets`、名前の接頭辞 `apple_refresh_token:`）に入れます。アカウント削除が完了したあと `delete_apple_refresh_token` で消します（`supabase/functions/delete-account`）。その削除に失敗したときは行が残ることがあります。保存しているので、「保存しないトークン」の例外には当たりません。
 
-用途は、アカウント削除時に `https://appleid.apple.com/auth/revoke` で Apple との連携を解除することだけです。Analytics には使いません。User ID としても申告しません。
+用途は、アカウント削除が成功したあと `https://appleid.apple.com/auth/revoke` で Apple との連携を解除することだけです。削除に失敗したときは Apple を呼びません。トークンを保存していない Apple ログイン（この機能より前、または認可コードを受け取れないログイン）は revoke せず、アプリが設定画面での解除を案内します。Analytics には使いません。User ID としても申告しません。
 
 マニフェスト: `NSPrivacyCollectedDataTypeOtherDataTypes`。関連付けあり、トラッキングなし、目的は App Functionality のみ。
 

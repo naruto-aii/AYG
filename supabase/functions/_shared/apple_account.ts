@@ -374,6 +374,9 @@ export type StoreDeps = {
 export type DeleteDeps = {
   resolveUserId(authorization: string | null): Promise<string | null>;
   readToken(userId: string): Promise<string | null>;
+  // true when Auth has an Apple identity, false when the lookup succeeded
+  // and there is none, null when the lookup failed.
+  appleLinked(userId: string): Promise<boolean | null>;
   revoke(refreshToken: string): Promise<{ ok: boolean; status: number; errorCode: string }>;
   deleteAccount(userId: string): Promise<void>;
   deleteStoredToken(userId: string): Promise<void>;
@@ -448,7 +451,27 @@ export async function handleStoreAppleRefreshToken(
   return jsonResponse({ stored: true }, 200);
 }
 
-export async function revokeThenDeleteAccount(args: {
+export function appleIdentityInAdminUser(text: string): boolean | null {
+  try {
+    const parsed = JSON.parse(text) as {
+      identities?: Array<{ provider?: string }>;
+      app_metadata?: { provider?: string; providers?: string[] };
+    };
+    const names = [
+      ...(parsed.identities ?? []).map((row) => row.provider),
+      parsed.app_metadata?.provider,
+      ...(parsed.app_metadata?.providers ?? []),
+    ];
+    return names.some((name) => name?.toLowerCase() === "apple");
+  } catch {
+    return null;
+  }
+}
+
+// Delete the account first. Apple is called only after that succeeds, and
+// only when a refresh token was already read into memory. A failed deletion
+// leaves the Apple link untouched.
+export async function deleteThenRevokeAccount(args: {
   userId: string;
   deps: DeleteDeps;
 }): Promise<"deleted" | "deleted_revoke_failed" | "delete_failed"> {
@@ -457,6 +480,25 @@ export async function revokeThenDeleteAccount(args: {
     token = await args.deps.readToken(args.userId);
   } catch {
     args.deps.log("apple refresh token read failed");
+  }
+
+  let appleLinked: boolean | null = false;
+  if (!token) {
+    try {
+      appleLinked = await args.deps.appleLinked(args.userId);
+    } catch {
+      appleLinked = null;
+    }
+    if (appleLinked === null) {
+      args.deps.log("apple identity lookup failed");
+    }
+  }
+
+  try {
+    await args.deps.deleteAccount(args.userId);
+  } catch {
+    args.deps.log("delete_own_account failed");
+    return "delete_failed";
   }
 
   let revokeFailed = false;
@@ -476,15 +518,11 @@ export async function revokeThenDeleteAccount(args: {
       revokeFailed = true;
       args.deps.log("apple token revoke failed");
     }
+  } else if (appleLinked) {
+    revokeFailed = true;
+    args.deps.log("apple token missing for linked account");
   } else {
     args.deps.log("apple token revoke skipped");
-  }
-
-  try {
-    await args.deps.deleteAccount(args.userId);
-  } catch {
-    args.deps.log("delete_own_account failed");
-    return "delete_failed";
   }
 
   try {
@@ -513,7 +551,7 @@ export async function handleDeleteAccount(
   if (!userId || !authorization) {
     return jsonResponse({ ok: false }, 401);
   }
-  const result = await revokeThenDeleteAccount({
+  const result = await deleteThenRevokeAccount({
     userId,
     deps,
   });
@@ -619,6 +657,24 @@ export function deleteDepsFrom(env: EnvMap, fetchImpl: FetchLike): DeleteDeps {
         }),
       );
       return refreshTokenFromRpcText(await response.text());
+    },
+    appleLinked: async (userId) => {
+      if (!supabaseUrl || !serviceRoleKey || !isUuid(userId)) {
+        return null;
+      }
+      const response = await fetchImpl(
+        `${supabaseUrl.replace(/\/$/, "")}/auth/v1/admin/users/${userId}`,
+        {
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: bearer(serviceRoleKey),
+          },
+        },
+      );
+      if (!response.ok) {
+        return null;
+      }
+      return appleIdentityInAdminUser(await response.text());
     },
     revoke: async (refreshToken) => {
       const secrets = appleSecretsFromEnv(env);

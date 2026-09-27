@@ -227,7 +227,7 @@ void main() {
       expect(production, contains('https://appleid.apple.com/auth/revoke'));
       expect(production, contains('https://appleid.apple.com/auth/token'));
       expect(production, contains('token_type_hint'));
-      expect(production, contains('revokeThenDeleteAccount'));
+      expect(production, contains('deleteThenRevokeAccount'));
       expect(production, contains('fn: "delete_own_account"'));
       expect(production, contains('body: { p_user_id: userId }'));
       expect(production, contains('authorization: serviceRoleKey'));

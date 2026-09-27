@@ -55,7 +55,7 @@ class AppStrings {
       'アカウント削除を完了できませんでした。削除は行われていません。サポートメールから依頼できます。';
   static const accountDeletionAppleRevokeFailedTitle = 'アカウントは削除しました';
   static const accountDeletionAppleRevokeFailed =
-      'Appleとの連携解除に失敗しました。設定 > Apple ID > サインインとセキュリティ から解除できます';
+      'Appleとの連携を自動では解除できませんでした。設定 > Apple ID > サインインとセキュリティ から解除できます';
   static const accountDeletionAppleRevokeFailedClose = '閉じる';
   static const accountDeletionMailSubject = 'アカウント削除';
   static const accountDeletionFailed = '削除に失敗しました';

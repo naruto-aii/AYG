@@ -5,20 +5,29 @@ Native Sign in with Apple (iOS / macOS) sends the authorization code to the
 for a refresh token and stores that token in Supabase Vault. The app never
 sees the refresh token.
 
-`delete-account` reads the token, calls `https://appleid.apple.com/auth/revoke`,
-then calls `public.delete_own_account(uuid)` with the service role. The user
-id is the one returned by the Auth API for the caller's JWT. The request body
-is not used as a user id. `anon` and `authenticated` cannot execute the
-function, so an old client cannot skip revocation by calling the RPC.
-A failed revoke is logged and does not stop deletion. The response is then
-`{ ok: true, apple_revoke_failed: true }` so the app can tell the user to
-remove the app from Sign in with Apple. Other responses are
-`{ stored: true|false }` or `{ ok: true|false }` with no Apple or database
-error text. No stored token means revoke is skipped and `apple_revoke_failed`
-is omitted.
+`delete-account` reads any stored token, then calls
+`public.delete_own_account(uuid)` with the service role. The user id is the
+one returned by the Auth API for the caller's JWT. The request body is not
+used as a user id. `anon` and `authenticated` cannot execute the function.
+Apple is called only after that deletion succeeds. A failed deletion does not
+call `https://appleid.apple.com/auth/revoke` and does not remove the Vault row.
 
-Web and Android Apple OAuth do not give the app an authorization code, so those
-sessions have nothing to revoke. Deletion still runs.
+When a refresh token was stored, a failed revoke is logged and the account
+stays deleted. The response is `{ ok: true, apple_revoke_failed: true }` so
+the app can tell the user to remove the app from Sign in with Apple. The
+Vault row is still deleted after that. If that delete fails, the row can
+remain; there is no later cleanup job.
+
+When no token is stored, the function asks the Auth admin API whether the
+user has an Apple identity. An Apple identity sets the same
+`apple_revoke_failed` flag and does not call Apple. No Apple identity omits
+the flag. If that lookup fails, the flag is omitted and the failure is logged.
+Other responses are `{ stored: true|false }` or `{ ok: true|false }` with no
+Apple or database error text.
+
+Web and Android Apple OAuth do not give the app an authorization code, so
+those sessions have nothing to revoke. Deletion still runs, and an Apple
+identity still sets the flag above.
 
 This change does not deploy functions and does not apply the migration.
 

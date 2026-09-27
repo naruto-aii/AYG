@@ -25,9 +25,17 @@ void main() {
     expect(privacy, contains('NSPrivacyCollectedDataTypeEmailAddress'));
     expect(privacy, contains('NSPrivacyCollectedDataTypeUserID'));
     expect(privacy, contains('NSPrivacyCollectedDataTypeHealth'));
+    expect(privacy, contains('NSPrivacyCollectedDataTypeFitness'));
     expect(privacy, contains('NSPrivacyCollectedDataTypeProductInteraction'));
+    expect(privacy, contains('NSPrivacyCollectedDataTypePurchaseHistory'));
+    expect(privacy, contains('NSPrivacyCollectedDataTypeOtherUserContent'));
+    expect(privacy, contains('NSPrivacyCollectedDataTypeOtherDataTypes'));
     expect(privacy, contains('NSPrivacyCollectedDataTypePurposeAnalytics'));
     expect(privacy, contains('NSPrivacyCollectedDataTypePurposeAppFunctionality'));
+    expect(
+      privacy,
+      isNot(contains('NSPrivacyCollectedDataTypePurposeProductPersonalization')),
+    );
   });
 
   test('privacy manifest is a Runner resource and the app is iPhone-only', () {
@@ -41,6 +49,12 @@ void main() {
     expect(project, isNot(contains('TARGETED_DEVICE_FAMILY = "1,2"')));
     expect('TARGETED_DEVICE_FAMILY = 1;'.allMatches(project).length, 6);
     expect(info, contains('NSHealthShareUsageDescription'));
+    expect(
+      info,
+      contains(
+        '生年月日、性別、身長、体重、アクティブエネルギー、ワークアウトを読み取り、カロリー目標の計算と記録の表示に使います。広告やマーケティングには使いません。',
+      ),
+    );
     expect(info, isNot(contains('NSHealthUpdateUsageDescription')));
     expect(info, isNot(contains('UISupportedInterfaceOrientations~ipad')));
     expect(info, contains('UIInterfaceOrientationPortrait'));

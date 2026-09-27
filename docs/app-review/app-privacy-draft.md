@@ -28,7 +28,7 @@
 - 利用状況の行は `public.subscription_events.user_id`（`supabase/migrations/20260927140000_subscription_events.sql`）
 - マニフェスト: `NSPrivacyCollectedDataTypeUserID`。目的は App Functionality と Analytics（`ios/Runner/PrivacyInfo.xcprivacy`）
 
-Sign in with Apple の refresh token は、ネイティブログインのあと Edge Function が Vault に保存します（`supabase/functions/store-apple-refresh-token`、`public.store_apple_refresh_token`）。アカウント削除時の失効にだけ使い、Analytics には使いません。App Store Connect に同じ名前の項目はないため、User ID とは別だと注記します。入力時の分類は運営が確認してください。
+Sign in with Apple の refresh token は User ID ではありません。下の Other Data Types に申告します。
 
 ### Usage Data > Product Interaction
 
@@ -63,8 +63,9 @@ Product Personalization は選ばない。
 
 - 有料プランへ切り替えた日時。`event_type = converted_to_paid`。同じ `public.subscription_events` の `user_id` と `created_at`
 - レシート、取引 ID、商品 ID はこの表に入らない（マイグレーション先頭のコメント、および `lib/services/subscription_event_reporter.dart`）
-- 加入の期限は端末の SharedPreferences `calonavi_plus_expires_at_ms`（`lib/repositories/storekit_subscription_repository.dart`）。サーバーでは検証していない
+- 加入の期限は端末の SharedPreferences `calonavi_plus_expires_at_ms`（`lib/repositories/storekit_subscription_repository.dart`）。`purchase.verificationData.localVerificationData` は端末内で失効日を読むためだけに使い、サーバーへは送りません
 - 購入そのものは StoreKit（`in_app_purchase` / `in_app_purchase_storekit`）経由で Apple が処理する。Product ID は `calonavi_plus_monthly` と `calonavi_plus_yearly`（`lib/config/subscription_catalog.dart`）
+- マニフェスト: `NSPrivacyCollectedDataTypePurchaseHistory`。目的は Analytics のみ
 
 カード番号はアプリが受け取りません。
 
@@ -87,7 +88,7 @@ Product Personalization は選ばない。
 
 | 項目 | 回答 |
 | --- | --- |
-| 収集する | はい（利用者が許可したとき） |
+| 収集する | はい。HealthKit の読み取りは許可したとき。食事・アルコール・手入力の体重などは、記録したときに保存します |
 | ユーザーに紐づく | はい |
 | トラッキング | いいえ |
 | 目的 | App Functionality |
@@ -103,16 +104,38 @@ Product Personalization は選ばない。
 
 歩数はリストにない。書き込み用の `NSHealthUpdateUsageDescription` は `ios/Runner/Info.plist` にない。権限要求は `HealthDataAccess.READ` だけ。
 
-保存先:
+保存先（Health として申告するもの）:
 
 - プロフィール（手入力も同じ列）: `public.profiles` の `birth_date`、`gender`、`height_cm`、`weight_kg`
-- 当日の活動量と体重: `public.health_snapshots` の `active_energy_burned_kcal`、`weight_kg`
+- 体重のスナップショット: `public.health_snapshots` の `weight_kg`
 - 体重の履歴: `public.weight_entries`（`source` は `health` または `manual`）
-- ワークアウトの記録: 端末内の Isar（`lib/repositories/health_workout_local_store.dart`）。Supabase の表はない
+- 食事とアルコール（保守的に Health として申告する）: `public.food_entries`、`public.alcohol_entries`（`supabase/migrations/20260801120000_create_alcohol_entries.sql`）。Apple は、特定の種類の入力をその種類として申告するよう求めており、Health には利用者が入力した健康データも含まれます。食事とアルコールは Other User Content には入れません
 
-マニフェスト: `NSPrivacyCollectedDataTypeHealth`、目的は App Functionality。広告やマーケティングの目的は宣言していない。
+端末内だけで処理し、収集には当たらないもの:
+
+- HealthKit のワークアウト行は Isar だけ（`lib/repositories/health_workout_local_store.dart`）。Supabase の表はありません。端末内だけで処理するデータは収集ではないため、収集データとしては宣言しません
+
+アクティブエネルギー（`public.health_snapshots.active_energy_burned_kcal`）と運動の記録は、下の Fitness で申告します。
+
+マニフェスト: `NSPrivacyCollectedDataTypeHealth`、目的は App Functionality。広告やマーケティングの目的は宣言していません。
 
 許可しなくてもアプリは使える。活動量は手選択になる。
+
+### Health & Fitness > Fitness
+
+| 項目 | 回答 |
+| --- | --- |
+| 収集する | はい |
+| ユーザーに紐づく | はい |
+| トラッキング | いいえ |
+| 目的 | App Functionality |
+
+根拠:
+
+- サーバーに保存するアクティブエネルギー: `public.health_snapshots.active_energy_burned_kcal`
+- 運動の記録: `public.exercise_entries`（`user_id` を持つ）
+- HealthKit のワークアウト行は上のとおり端末内の Isar だけなので、収集する Fitness には含めません。収集として宣言するのは、サーバーに残るアクティブエネルギーと運動記録です
+- マニフェスト: `NSPrivacyCollectedDataTypeFitness`。関連付けあり、トラッキングなし、目的は App Functionality のみ
 
 ### User Content > Other User Content
 
@@ -123,18 +146,39 @@ Product Personalization は選ばない。
 | トラッキング | いいえ |
 | 目的 | App Functionality |
 
+食事・アルコールは Health、運動記録は Fitness で申告します。ここには入れません。
+
 根拠（いずれも `user_id` を持つ）:
 
-- 食事: `public.food_entries`
-- アルコール: `public.alcohol_entries`（`supabase/migrations/20260801120000_create_alcohol_entries.sql`）
-- 運動: `public.exercise_entries`
 - 保存食品と公開食品: `public.saved_foods`（公開にしたものは他の利用者から検索できる）
 - 食事テンプレート、運動テンプレート: それぞれのマイグレーション
 - 目標: `public.goals`
+- 公開食品への評価: `public.food_ratings`（`supabase/migrations/20260723120000_add_food_master_public_v1_1.sql`）
+- 公開食品への通報: `public.food_reports`（同じマイグレーション）
+- 作成者のブロック: `public.blocked_food_creators`（同じマイグレーション）
+
+マニフェスト: `NSPrivacyCollectedDataTypeOtherUserContent`。関連付けあり、トラッキングなし、目的は App Functionality のみ。
 
 写真・動画・音声は保存しない。カメラはバーコード読み取りだけ（`ios/Runner/Info.plist` の `NSCameraUsageDescription`、`lib/screens/food/barcode_scanner_screen.dart`）。読んだ数字は食品のバーコードとして保存することがある。画像そのものは残さない。Photos or Videos は収集しない。
 
 公開食品の検索語を、検索履歴の表には書いていない。Search History は収集しない、がこのコードからの答え。
+
+### Other Data > Other Data Types
+
+| 項目 | 回答 |
+| --- | --- |
+| 収集する | はい |
+| ユーザーに紐づく | はい |
+| トラッキング | いいえ |
+| 目的 | App Functionality |
+
+これは Sign in with Apple の refresh token です。
+
+申告する理由: Apple は、認証トークンをサーバー呼び出しで送るだけで保存しない場合は申告不要としています。このトークンは保存します。ネイティブの Sign in with Apple のあと、Edge Function `store-apple-refresh-token` が認可コードを refresh token に交換し、`public.store_apple_refresh_token` で Vault（`vault.secrets`、名前の接頭辞 `apple_refresh_token:`）に入れます。アカウント削除が完了したあと `delete_apple_refresh_token` で消します（`supabase/functions/delete-account`）。保存しているので、「保存しないトークン」の例外には当たりません。
+
+用途は、アカウント削除時に `https://appleid.apple.com/auth/revoke` で Apple との連携を解除することだけです。Analytics には使いません。User ID としても申告しません。
+
+マニフェスト: `NSPrivacyCollectedDataTypeOtherDataTypes`。関連付けあり、トラッキングなし、目的は App Functionality のみ。
 
 ### 収集しないもの
 

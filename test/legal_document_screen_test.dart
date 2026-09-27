@@ -108,19 +108,48 @@ void main() {
     expect(find.textContaining('アクティブエネルギー'), findsOneWidget);
     expect(find.textContaining('ユーザーID'), findsOneWidget);
     expect(find.textContaining('麹池成'), findsWidgets);
+    expect(find.textContaining('【公表日：社長確認後に記入】'), findsWidgets);
+    expect(find.textContaining('ソースには書かれていない'), findsNothing);
+    expect(find.textContaining('Health Connect'), findsNothing);
     await tester.scrollUntilVisible(
-      find.textContaining('無料枠の上限到達と有料プランへの切替の時期を分析'),
+      find.textContaining('無料枠の上限に達した時期と有料プランへ切り替えた時期を集計'),
       300,
     );
     expect(
-      find.textContaining('無料枠の上限到達と有料プランへの切替の時期を分析'),
+      find.textContaining('無料枠の上限に達した時期と有料プランへ切り替えた時期を集計'),
       findsOneWidget,
     );
-    expect(find.textContaining('Supabase'), findsWidgets);
+    expect(find.textContaining('個別に勧誘を送ったりすることはありません'), findsOneWidget);
     expect(find.textContaining('製品改善のため'), findsNothing);
     expect(find.textContaining('歩数'), findsNothing);
-    await tester.scrollUntilVisible(find.textContaining('アカウント削除時に削除します'), 300);
+    await tester.scrollUntilVisible(
+      find.textContaining('【国名：社長確認後に記入】'),
+      300,
+    );
+    expect(find.textContaining('【国名：社長確認後に記入】'), findsWidgets);
+    expect(find.textContaining('Supabase'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.textContaining('アカウント削除時に削除します'),
+      300,
+    );
     expect(find.textContaining('アカウント削除時に削除します'), findsOneWidget);
+    expect(
+      find.textContaining('【バックアップの保持日数：社長確認後に記入】'),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('アカウントの削除が完了したときに削除します'),
+      300,
+    );
+    expect(
+      find.textContaining('アカウントの削除が完了したときに削除します'),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('【手数料：社長確認後に記入】'),
+      300,
+    );
+    expect(find.textContaining('【手数料：社長確認後に記入】'), findsOneWidget);
     expect(find.textContaining('24歳'), findsNothing);
     expect(find.textContaining('Web 版'), findsNothing);
     expect(find.byTooltip('閉じる'), findsOneWidget);
@@ -157,6 +186,12 @@ void main() {
 
     expect(find.text('アカウント削除'), findsOneWidget);
     expect(find.textContaining('アプリ内からの削除'), findsOneWidget);
+    expect(
+      find.textContaining('アカウント情報（メールアドレス等）と利用状況の記録'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Sign in with Apple の連携'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('公開食品'), 300);
     expect(find.textContaining('公開食品'), findsOneWidget);
     expect(find.textContaining('削除済みユーザー'), findsOneWidget);
     expect(find.byTooltip('閉じる'), findsOneWidget);

@@ -71,7 +71,7 @@
   <key>NSCameraUsageDescription</key>
   <string>商品バーコードを読み取り、食事登録を簡単にするためにカメラを使用します。</string>
   <key>NSHealthShareUsageDescription</key>
-  <string>生年月日、性別、身長、体重、アクティブエネルギー、ワークアウトを取得し、カロリー目標の計算にだけ使います。広告やマーケティングには使いません。</string>
+  <string>生年月日、性別、身長、体重、アクティブエネルギー、ワークアウトを読み取り、カロリー目標の計算と記録の表示に使います。広告やマーケティングには使いません。</string>
   <key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

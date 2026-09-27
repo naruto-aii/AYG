@@ -8,6 +8,7 @@ enum PublishFailureKind {
   validation,
   alreadyPublic,
   moderationBlocked,
+  bannedName,
   notAuthenticated,
   network,
   unknown,
@@ -72,6 +73,12 @@ class PublishSavedFoodException extends FoodMasterException {
     : super(message);
 
   final PublishFailureKind kind;
+}
+
+class PublicFoodNameRejectedException extends FoodMasterException {
+  const PublicFoodNameRejectedException([
+    super.message = 'public food name is not allowed',
+  ]);
 }
 
 class FoodMasterNotFoundException extends FoodMasterException {

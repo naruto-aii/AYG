@@ -1,4 +1,5 @@
 import '../constants/app_strings.dart';
+import '../moderation/public_food_name_moderation.dart';
 import '../models/food_source_type.dart';
 import '../models/food_status.dart';
 import '../models/moderation_status.dart';
@@ -36,6 +37,14 @@ class SavedFoodPublishValidator {
     final normalized = FoodNameNormalizer.normalize(food.name);
     if (normalized.isEmpty) {
       errors.add('食品名が無効です');
+    }
+    if (PublicFoodNameModeration.anyFieldBanned(
+      name: food.name,
+      normalizedName: food.normalizedName,
+      brand: food.brand,
+      servingUnitLabel: food.servingUnitLabel,
+    )) {
+      errors.add(PublicFoodNameModeration.rejectionMessage);
     }
     if (food.baseAmount <= 0) {
       errors.add('基準量は0より大きい値を入力してください');

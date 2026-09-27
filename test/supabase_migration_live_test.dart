@@ -147,5 +147,95 @@ void main() {
         );
       },
     );
+
+    test('banned public food name function is installed', () async {
+      if (!available) {
+        markTestSkipped('Local Supabase not available');
+        return;
+      }
+
+      await _applyMigration(
+        '20260927120000_reject_banned_public_food_names.sql',
+      );
+
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('キャベツ');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('f u c k');"),
+        't',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('shiitake');"),
+        'f',
+      );
+      expect(
+        await _psql(r"SELECT public.public_food_name_is_banned(U&'f\00FAck');"),
+        't',
+      );
+      expect(
+        await _psql(r"SELECT public.public_food_name_is_banned(U&'fu\0441k');"),
+        't',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('5h1t');"),
+        't',
+      );
+      expect(
+        await _psql(r"SELECT public.public_food_name_is_banned('$hit');"),
+        't',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('カフェラテ');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('ポークソテー');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('ポークソーセージ');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('ミルクソフト');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('スモークソルト');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('サンマンコ');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('Cock tail');"),
+        'f',
+      );
+      expect(
+        await _psql(
+          "SELECT public.public_food_name_is_banned('rape seed oil');",
+        ),
+        'f',
+      );
+      expect(
+        await _psql(
+          r"SELECT public.public_food_name_is_banned(U&'\FF81\FF9D\FF8E\FF9F');",
+        ),
+        't',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('くそ');"),
+        't',
+      );
+      expect(
+        await _psql(
+          "SELECT proname FROM pg_proc WHERE proname = 'publish_saved_food';",
+        ),
+        'publish_saved_food',
+      );
+    });
   });
 }

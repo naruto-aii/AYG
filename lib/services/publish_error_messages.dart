@@ -1,3 +1,4 @@
+import '../moderation/public_food_name_moderation.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
 
 /// publish_saved_food RPC 失敗のユーザー向けメッセージ。
@@ -17,7 +18,13 @@ class PublishErrorMessages {
     if (error is FoodMasterAuthenticationException) {
       return messageForKind(PublishFailureKind.notAuthenticated);
     }
+    if (error is PublicFoodNameRejectedException) {
+      return PublicFoodNameModeration.rejectionMessage;
+    }
     if (error is FoodMasterValidationException) {
+      if (error.message.contains(PublicFoodNameModeration.rejectionMessage)) {
+        return PublicFoodNameModeration.rejectionMessage;
+      }
       return messageForKind(PublishFailureKind.validation);
     }
     if (error is FoodMasterPermissionException) {
@@ -36,6 +43,8 @@ class PublishErrorMessages {
       PublishFailureKind.rateLimitDaily => '本日公開できる上限に達しました',
       PublishFailureKind.notOwner => 'この食品を公開する権限がありません',
       PublishFailureKind.invalidState => 'この食品は現在公開できません',
+      PublishFailureKind.bannedName =>
+        PublicFoodNameModeration.rejectionMessage,
       PublishFailureKind.validation => '公開前の入力内容を確認してください',
       PublishFailureKind.alreadyPublic => 'すでに公開されています',
       PublishFailureKind.moderationBlocked => 'モデレーション状態により公開できません',

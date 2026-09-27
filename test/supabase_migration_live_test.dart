@@ -147,5 +147,35 @@ void main() {
         );
       },
     );
+
+    test('banned public food name function is installed', () async {
+      if (!available) {
+        markTestSkipped('Local Supabase not available');
+        return;
+      }
+
+      await _applyMigration(
+        '20260927120000_reject_banned_public_food_names.sql',
+      );
+
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('キャベツ');"),
+        'f',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('f u c k');"),
+        't',
+      );
+      expect(
+        await _psql("SELECT public.public_food_name_is_banned('shiitake');"),
+        'f',
+      );
+      expect(
+        await _psql(
+          "SELECT proname FROM pg_proc WHERE proname = 'publish_saved_food';",
+        ),
+        'publish_saved_food',
+      );
+    });
   });
 }

@@ -67,6 +67,7 @@ import '../services/local_user_data_clearer_base.dart';
 import '../services/meal_template_apply_service.dart';
 import '../services/meal_template_dependency_service.dart';
 import '../services/meal_template_totals_service.dart';
+import '../moderation/public_food_name_moderation.dart';
 import '../services/nutrition_engine.dart';
 import '../services/public_food_search_service.dart';
 import '../services/public_food_similar_service.dart';
@@ -1226,6 +1227,13 @@ class AppController extends ChangeNotifier {
         ) &&
         !confirmedPublicUpdate) {
       throw StateError('Public update confirmation is required');
+    }
+
+    if (PublicFoodNameModeration.rejectsPublicUpdate(
+      previousName: existing.name,
+      nextName: food.name,
+    )) {
+      throw const PublicFoodNameRejectedException();
     }
 
     return _updateOwnSavedFood(food, previous: existing);

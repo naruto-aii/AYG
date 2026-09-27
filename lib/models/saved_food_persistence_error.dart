@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../moderation/public_food_name_moderation.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
 
 /// 食品保存失敗のユーザー向けエラーコード。
@@ -94,7 +95,11 @@ class SavedFoodPersistenceException implements Exception {
             .toLowerCase();
 
     SavedFoodErrorCode errorCode;
-    if (combined.contains('jwt') ||
+    var message = error.message;
+    if (combined.contains('public food name is not allowed')) {
+      errorCode = SavedFoodErrorCode.validationFailed;
+      message = PublicFoodNameModeration.rejectionMessage;
+    } else if (combined.contains('jwt') ||
         combined.contains('not authenticated') ||
         error.code == 'PGRST301') {
       errorCode = SavedFoodErrorCode.authRequired;
@@ -124,7 +129,7 @@ class SavedFoodPersistenceException implements Exception {
 
     return SavedFoodPersistenceException(
       errorCode: errorCode,
-      message: error.message,
+      message: message,
       repositoryStep: repositoryStep,
       tableName: tableName,
       operation: operation,
@@ -143,16 +148,21 @@ class SavedFoodPersistenceException implements Exception {
     final errorCode = switch (error) {
       FoodMasterAuthenticationException() => SavedFoodErrorCode.authRequired,
       FoodMasterPermissionException() => SavedFoodErrorCode.permissionDenied,
-      FoodMasterValidationException() => SavedFoodErrorCode.validationFailed,
+      FoodMasterValidationException() ||
+      PublicFoodNameRejectedException() => SavedFoodErrorCode.validationFailed,
       FoodMasterConflictException() => SavedFoodErrorCode.conflict,
       FoodMasterTableMissingException() => SavedFoodErrorCode.tableMissing,
       FoodMasterNetworkException() => SavedFoodErrorCode.networkFailed,
       _ => SavedFoodErrorCode.insertFailed,
     };
 
+    final message = error is PublicFoodNameRejectedException
+        ? PublicFoodNameModeration.rejectionMessage
+        : error.message;
+
     return SavedFoodPersistenceException(
       errorCode: errorCode,
-      message: error.message,
+      message: message,
       repositoryStep: repositoryStep,
       tableName: 'saved_foods',
       operation: operation,

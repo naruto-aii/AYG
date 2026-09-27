@@ -69,6 +69,13 @@ class SupabaseErrorMapper {
       );
     }
 
+    if (mapped is PublicFoodNameRejectedException) {
+      return PublishSavedFoodException(
+        kind: PublishFailureKind.bannedName,
+        message: mapped.message,
+      );
+    }
+
     if (mapped is FoodMasterValidationException) {
       return PublishSavedFoodException(
         kind: PublishFailureKind.validation,
@@ -96,6 +103,10 @@ class SupabaseErrorMapper {
     final message = error.message.toLowerCase();
     final details = (error.details?.toString() ?? '').toLowerCase();
     final combined = '$message $details';
+
+    if (combined.contains('public food name is not allowed')) {
+      return const PublicFoodNameRejectedException();
+    }
 
     if (combined.contains('duplicate public food') ||
         (combined.contains('duplicate key') && context.contains('publish'))) {

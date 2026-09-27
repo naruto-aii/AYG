@@ -184,7 +184,6 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
       credential = await SignInWithApple.getAppleIDCredential(
         scopes: const [
           AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
         ],
         nonce: hashedNonce,
       );

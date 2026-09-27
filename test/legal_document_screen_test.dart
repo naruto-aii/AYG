@@ -112,43 +112,53 @@ void main() {
     expect(find.textContaining('ソースには書かれていない'), findsNothing);
     expect(find.textContaining('Health Connect'), findsNothing);
     await tester.scrollUntilVisible(
-      find.textContaining('無料枠の上限に達した時期と有料プランへ切り替えた時期を集計'),
+      find.textContaining('有料プランへ最初に切り替えた日時を集計'),
       300,
     );
-    expect(
-      find.textContaining('無料枠の上限に達した時期と有料プランへ切り替えた時期を集計'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('有料プランへ最初に切り替えた日時を集計'), findsOneWidget);
     expect(find.textContaining('個別に勧誘を送ったりすることはありません'), findsOneWidget);
     expect(find.textContaining('製品改善のため'), findsNothing);
     expect(find.textContaining('歩数'), findsNothing);
-    await tester.scrollUntilVisible(
-      find.textContaining('【国名：社長確認後に記入】'),
-      300,
-    );
+    await tester.scrollUntilVisible(find.textContaining('【国名：社長確認後に記入】'), 300);
     expect(find.textContaining('【国名：社長確認後に記入】'), findsWidgets);
     expect(find.textContaining('Supabase'), findsWidgets);
+    expect(find.textContaining('確認が終わるまで委託先とは記載しません'), findsNothing);
+    expect(find.textContaining('国名を記入したあと'), findsNothing);
+    expect(find.textContaining('【運営主体と所在国：社長確認後に記入】'), findsNothing);
     await tester.scrollUntilVisible(
-      find.textContaining('アカウント削除時に削除します'),
+      find.textContaining('フランス法（1901年7月1日法）'),
       300,
     );
-    expect(find.textContaining('アカウント削除時に削除します'), findsOneWidget);
+    expect(find.textContaining('フランス法（1901年7月1日法）'), findsOneWidget);
     expect(
+      find.textContaining('https://world.openfoodfacts.org/privacy'),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('【その国の制度を踏まえた措置：社長確認後に記入】'),
+      300,
+    );
+    expect(find.textContaining('【その国の制度を踏まえた措置：社長確認後に記入】'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.textContaining('アカウントに紐づく公開食品への評価、通報、ブロック'),
+      300,
+    );
+    expect(
+      find.textContaining('アカウントに紐づく公開食品への評価、通報、ブロックは、アカウント削除時に削除します'),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
       find.textContaining('【バックアップの保持日数：社長確認後に記入】'),
-      findsOneWidget,
+      300,
     );
+    expect(find.textContaining('【バックアップの保持日数：社長確認後に記入】'), findsOneWidget);
+    expect(find.textContaining('最初に切り替えた日時'), findsWidgets);
     await tester.scrollUntilVisible(
       find.textContaining('アカウントの削除が完了したときに削除します'),
       300,
     );
-    expect(
-      find.textContaining('アカウントの削除が完了したときに削除します'),
-      findsOneWidget,
-    );
-    await tester.scrollUntilVisible(
-      find.textContaining('【手数料：社長確認後に記入】'),
-      300,
-    );
+    expect(find.textContaining('アカウントの削除が完了したときに削除します'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('【手数料：社長確認後に記入】'), 300);
     expect(find.textContaining('【手数料：社長確認後に記入】'), findsOneWidget);
     expect(find.textContaining('24歳'), findsNothing);
     expect(find.textContaining('Web 版'), findsNothing);
@@ -185,12 +195,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('アカウント削除'), findsOneWidget);
+    expect(find.textContaining('最終更新日: 2026-09-27'), findsOneWidget);
     expect(find.textContaining('アプリ内からの削除'), findsOneWidget);
-    expect(
-      find.textContaining('アカウント情報（メールアドレス等）と利用状況の記録'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('Sign in with Apple の連携'), findsOneWidget);
+    expect(find.textContaining('アカウント情報（メールアドレス等）と利用状況の記録'), findsOneWidget);
+    expect(find.textContaining('Sign in with Apple の連携'), findsWidgets);
+    expect(find.textContaining('設定 > Apple ID > サインインとセキュリティ'), findsOneWidget);
     await tester.scrollUntilVisible(find.textContaining('公開食品'), 300);
     expect(find.textContaining('公開食品'), findsOneWidget);
     expect(find.textContaining('削除済みユーザー'), findsOneWidget);

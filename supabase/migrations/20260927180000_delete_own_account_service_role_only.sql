@@ -81,22 +81,20 @@ begin
 
   -- Prevent the same Google/Apple identity from signing back into this row.
   -- Public foods stay attached to this anonymized user id.
-  -- Failures here are swallowed so a locked auth.users row does not abort
-  -- the personal-data delete. Session revocation below is NOT in this block.
-  begin
-    delete from auth.identities where user_id = uid;
-    update auth.users
-    set email = 'deleted+' || uid::text || '@invalid.local',
-        raw_user_meta_data = '{}'::pg_catalog.jsonb
-    where id = uid;
-  exception
-    when others then
-      raise notice 'delete_own_account: skipped auth.users update: %', sqlerrm;
-  end;
+  -- Do not catch errors here. A failed email rewrite must abort the function
+  -- so the address is not left in auth.users while deletion is reported as
+  -- success. The statement runs in the caller's transaction, so the personal
+  -- data deletes above roll back with it. The Edge Function then returns
+  -- failure and the app does not sign the user out. Retry is a new call.
+  delete from auth.identities where user_id = uid;
+  update auth.users
+  set email = 'deleted+' || uid::text || '@invalid.local',
+      raw_user_meta_data = '{}'::pg_catalog.jsonb
+  where id = uid;
 
   -- End existing logins immediately. user_id is uuid on sessions and often
-  -- varchar on refresh_tokens, so compare as text. These statements are
-  -- outside the exception handler above: a failure must not be swallowed.
+  -- varchar on refresh_tokens, so compare as text. A failure here also
+  -- aborts the function and rolls the deletion back.
   delete from auth.refresh_tokens where user_id::text = uid::text;
   delete from auth.sessions where user_id::text = uid::text;
 end;

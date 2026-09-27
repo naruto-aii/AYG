@@ -48,7 +48,7 @@ Product Personalization は選ばない。
 - 表の定義と「食品名・計測値・レシート・自由文は入れない」は `supabase/migrations/20260927140000_subscription_events.sql`
 - マニフェスト: `NSPrivacyCollectedDataTypeProductInteraction` の目的は Analytics のみ
 
-有料プランへの切替日時は、同じ表の別イベントです。下の Purchase History に書きます。
+有料プランへ最初に切り替えた日時は、同じ表の別イベントです。下の Purchase History に書きます。
 
 ### Purchases > Purchase History
 
@@ -61,7 +61,7 @@ Product Personalization は選ばない。
 
 根拠:
 
-- 有料プランへ切り替えた日時。`event_type = converted_to_paid`。同じ `public.subscription_events` の `user_id` と `created_at`
+- 有料プランへ最初に切り替えた日時。`event_type = converted_to_paid`。同じ `public.subscription_events` の `user_id` と `created_at`。`(user_id, event_type)` は一意なので、2回目以降の行は入りません
 - レシート、取引 ID、商品 ID はこの表に入らない（マイグレーション先頭のコメント、および `lib/services/subscription_event_reporter.dart`）
 - 加入の期限は端末の SharedPreferences `calonavi_plus_expires_at_ms`（`lib/repositories/storekit_subscription_repository.dart`）。`purchase.verificationData.localVerificationData` は端末内で失効日を読むためだけに使い、サーバーへは送りません
 - 購入そのものは StoreKit（`in_app_purchase` / `in_app_purchase_storekit`）経由で Apple が処理する。Product ID は `calonavi_plus_monthly` と `calonavi_plus_yearly`（`lib/config/subscription_catalog.dart`）
@@ -82,7 +82,7 @@ Product Personalization は選ばない。
 
 - Google または Sign in with Apple がメールを渡した場合、`public.users.email`（`supabase/migrations/20260722130000_create_v1_1_schema.sql`）
 - マニフェスト: `NSPrivacyCollectedDataTypeEmailAddress`、目的は App Functionality
-- 氏名は Sign in with Apple のスコープに含まれる（`lib/repositories/supabase_authentication_repository.dart` の `AppleIDAuthorizationScopes.fullName`）が、アプリはその givenName / familyName を保存しない。Name は収集しない、がこのコードからの答え
+- 氏名は要求しない。`lib/repositories/supabase_authentication_repository.dart` の `SignInWithApple.getAppleIDCredential` の scopes は `AppleIDAuthorizationScopes.email` のみ。givenName / familyName は受け取らず、保存もしない。Name は収集しない
 
 ### Health & Fitness > Health
 

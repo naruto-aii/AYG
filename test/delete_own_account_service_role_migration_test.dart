@@ -77,4 +77,20 @@ void main() {
     expect(downSql.contains('delete from public.subscription_events'), isTrue);
     expect(downSql.toLowerCase().contains('drop extension'), isFalse);
   });
+
+  test('auth.users email rewrite is not swallowed', () {
+    expect(sql.contains('skipped auth.users update'), isFalse);
+    expect(sql.contains('when others then'), isFalse);
+    expect(
+      sql,
+      contains("email = 'deleted+' || uid::text || '@invalid.local'"),
+    );
+    final emailUpdate = sql.indexOf('update auth.users');
+    final sessions = sql.indexOf(
+      'delete from auth.sessions where user_id::text = uid::text',
+    );
+    expect(emailUpdate, greaterThan(0));
+    expect(sessions, greaterThan(emailUpdate));
+    expect(downSql, contains('delete_own_account: skipped auth.users update'));
+  });
 }

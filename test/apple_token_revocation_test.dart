@@ -187,6 +187,10 @@ void main() {
     expect(source, contains('finishNativeAppleSignIn'));
     expect(source, contains('authorizationCode: credential.authorizationCode'));
     expect(source.contains('identityToken: credential'), isFalse);
+    expect(source, contains('AppleIDAuthorizationScopes.email'));
+    expect(source.contains('AppleIDAuthorizationScopes.fullName'), isFalse);
+    expect(source.contains('givenName'), isFalse);
+    expect(source.contains('familyName'), isFalse);
   });
 
   test(

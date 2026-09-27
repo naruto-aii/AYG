@@ -7,18 +7,9 @@ void main() {
   const policy = SubscriptionPolicy();
 
   test('free users can search five times a day', () {
-    expect(
-      policy.canSearchPublicFood(isPlus: false, usedToday: 4),
-      isTrue,
-    );
-    expect(
-      policy.canSearchPublicFood(isPlus: false, usedToday: 5),
-      isFalse,
-    );
-    expect(
-      policy.canSearchPublicFood(isPlus: true, usedToday: 20),
-      isTrue,
-    );
+    expect(policy.canSearchPublicFood(isPlus: false, usedToday: 4), isTrue);
+    expect(policy.canSearchPublicFood(isPlus: false, usedToday: 5), isFalse);
+    expect(policy.canSearchPublicFood(isPlus: true, usedToday: 20), isTrue);
   });
 
   test('free users can keep three templates', () {
@@ -36,9 +27,14 @@ void main() {
     );
   });
 
-  test('catalog matches the locked prices and limits', () {
-    expect(SubscriptionCatalog.monthlyYen, 380);
-    expect(SubscriptionCatalog.yearlyYen, 4180);
+  test('catalog keeps product ids and free limits', () {
+    expect(SubscriptionCatalog.monthlyProductId, 'calonavi_plus_monthly');
+    expect(SubscriptionCatalog.yearlyProductId, 'calonavi_plus_yearly');
+    expect(
+      SubscriptionCatalog.isPlusProduct(SubscriptionCatalog.monthlyProductId),
+      isTrue,
+    );
+    expect(SubscriptionCatalog.isPlusProduct('other_product'), isFalse);
     expect(SubscriptionCatalog.publicFoodSearchesPerDay, 5);
     expect(SubscriptionCatalog.mealTemplateLimit, 3);
     expect(SubscriptionCatalog.workoutTemplateLimit, 3);

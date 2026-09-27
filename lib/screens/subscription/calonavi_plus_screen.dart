@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../config/subscription_catalog.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../repositories/subscription_repository.dart';
+import '../../screens/legal/legal_document.dart';
+import '../../screens/legal/legal_document_screen.dart';
+import '../../services/subscription_offer.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -51,6 +53,33 @@ class CalonaviPlusScreen extends StatefulWidget {
 
 class _CalonaviPlusScreenState extends State<CalonaviPlusScreen> {
   bool _busy = false;
+  bool _loadingPrices = true;
+  SubscriptionOfferings? _offerings;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrices(showLoading: false);
+  }
+
+  Future<void> _loadPrices({bool showLoading = true}) async {
+    if (showLoading && mounted) {
+      setState(() => _loadingPrices = true);
+    }
+    SubscriptionOfferings offerings;
+    try {
+      offerings = await widget.repository.loadOfferings();
+    } catch (_) {
+      offerings = SubscriptionOfferings.failed;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _offerings = offerings;
+      _loadingPrices = false;
+    });
+  }
 
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
@@ -86,6 +115,9 @@ class _CalonaviPlusScreenState extends State<CalonaviPlusScreen> {
   @override
   Widget build(BuildContext context) {
     final body = Theme.of(context).textTheme.bodyMedium;
+    final offerings = _offerings;
+    final monthly = offerings?.monthly;
+    final yearly = offerings?.yearly;
 
     return Scaffold(
       appBar: AppBar(
@@ -119,31 +151,68 @@ class _CalonaviPlusScreenState extends State<CalonaviPlusScreen> {
                 style: body?.copyWith(color: AppColors.secondaryText),
               ),
               const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                label: '${SubscriptionCatalog.monthlyLabel}で続ける',
-                loading: _busy,
-                onPressed: _busy
-                    ? null
-                    : () => _run(widget.repository.purchaseMonthly),
-              ),
-              SecondaryButton(
-                label:
-                    '${SubscriptionCatalog.yearlyLabel}（${SubscriptionCatalog.yearlySavingLabel}）',
-                onPressed: _busy
-                    ? null
-                    : () => _run(widget.repository.purchaseYearly),
-              ),
+              if (_loadingPrices)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  child: Column(
+                    children: [
+                      Center(child: CircularProgressIndicator()),
+                      SizedBox(height: AppSpacing.sm),
+                      Text(AppStrings.plusPriceLoading),
+                    ],
+                  ),
+                )
+              else ...[
+                if (monthly != null && monthly.canPurchase)
+                  PrimaryButton(
+                    label: monthly.buttonLabel,
+                    loading: _busy,
+                    onPressed: _busy
+                        ? null
+                        : () => _run(widget.repository.purchaseMonthly),
+                  ),
+                if (yearly != null && yearly.canPurchase)
+                  SecondaryButton(
+                    label: yearly.buttonLabel,
+                    onPressed: _busy
+                        ? null
+                        : () => _run(widget.repository.purchaseYearly),
+                  ),
+                if (monthly?.canPurchase != true && yearly?.canPurchase != true)
+                  Text(AppStrings.plusPriceUnavailable, style: body),
+                if (monthly?.canPurchase != true && yearly?.canPurchase != true)
+                  TextButton(
+                    onPressed: _busy ? null : _loadPrices,
+                    child: const Text(AppStrings.plusRetryPrices),
+                  ),
+              ],
               const SizedBox(height: AppSpacing.sm),
               TextButton(
-                onPressed: _busy
-                    ? null
-                    : () => _run(widget.repository.restore),
+                onPressed: _busy ? null : () => _run(widget.repository.restore),
                 child: const Text(AppStrings.plusRestore),
               ),
               const SizedBox(height: AppSpacing.md),
+              Text(AppStrings.plusAutoRenew, style: body),
+              const SizedBox(height: AppSpacing.sm),
               Text(
-                AppStrings.plusLegalNote,
+                AppStrings.plusCancelHow,
                 style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.sm,
+                children: [
+                  TextButton(
+                    onPressed: () =>
+                        showLegalDocument(context, LegalDocument.terms),
+                    child: const Text(AppStrings.plusTermsLink),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        showLegalDocument(context, LegalDocument.privacy),
+                    child: const Text(AppStrings.plusPrivacyLink),
+                  ),
+                ],
               ),
             ],
           ),

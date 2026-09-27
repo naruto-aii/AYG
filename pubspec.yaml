@@ -50,6 +50,7 @@ dependencies:
   crypto: ^3.0.7
   material_symbols_icons: ^4.2960.0
   in_app_purchase: ^3.2.3
+  in_app_purchase_storekit: ^0.4.13
   unorm_dart: ^0.3.2
 
 dev_dependencies:

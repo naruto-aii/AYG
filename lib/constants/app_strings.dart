@@ -61,8 +61,15 @@ class AppStrings {
   static const plusFreeQuota = '無料枠: 公開食品検索 5回/日、食事テンプレート 3件、運動テンプレート 3件。';
   static const plusRestore = '購入を復元';
   static const plusPurchaseUnavailable = 'この画面では購入できません。iPhone のアプリから購入してください。';
-  static const plusLegalNote =
-      '価格は税込です。購入画面の表示が正です。定期購入の解約は App Store の設定から行います。';
+  static const plusAutoRenew = 'サブスクリプションは、解約するまで自動更新されます。';
+  static const plusCancelHow =
+      '解約は iPhone の「設定」> Apple ID >「サブスクリプション」から行えます。';
+  static const plusPriceLoading = '価格を読み込んでいます';
+  static const plusPriceUnavailable =
+      '価格を読み込めませんでした。価格が表示されるまで購入はできません。';
+  static const plusRetryPrices = '価格を再読み込み';
+  static const plusTermsLink = '利用規約';
+  static const plusPrivacyLink = 'プライバシーポリシー';
   static const plusActive = '加入中';
   static const plusInactive = '無料枠あり';
 

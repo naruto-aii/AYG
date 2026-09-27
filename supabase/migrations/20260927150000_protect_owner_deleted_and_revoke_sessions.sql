@@ -184,13 +184,15 @@ grant insert (owner_deleted), update (owner_deleted)
 -- Not SECURITY DEFINER. delete_own_account is SECURITY DEFINER, so while it
 -- runs, current_user is the function owner and this trigger allows the write.
 -- service_role requests run as service_role. Client updates run as authenticated.
+-- current_user is a SQL keyword. A schema prefix is parsed as a column
+-- reference and fails when the trigger runs.
 create or replace function public.saved_foods_reject_owner_deleted_change()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 begin
-  if pg_catalog.current_user in ('postgres', 'supabase_admin', 'service_role') then
+  if current_user in ('postgres', 'supabase_admin', 'service_role') then
     return new;
   end if;
 

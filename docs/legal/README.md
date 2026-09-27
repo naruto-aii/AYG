@@ -26,11 +26,14 @@
 
 ## アカウント削除 RPC（本番適用済み）
 
-`supabase/migrations/20260920120000_delete_own_account_keep_public_foods.sql`
+`supabase/migrations/20260920120000_delete_own_account_keep_public_foods.sql`（本番適用済み。このファイルは変えない）
 
 本番に `public.delete_own_account()` があり、`authenticated` から execute できる。
 設定 → アカウント削除で個人データが消え、公開食品は残る。
-作成者欄は「削除済みユーザー」になる（`saved_foods.owner_deleted`）。
+
+`owner_deleted` とセッション失効は別マイグレーション
+`supabase/migrations/20260927150000_protect_owner_deleted_and_revoke_sessions.sql`
+（未適用）。適用後、作成者欄は「削除済みユーザー」になる。
 
 ## 決まったこと（2026-09-20）
 

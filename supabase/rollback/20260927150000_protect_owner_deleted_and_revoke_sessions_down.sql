@@ -1,18 +1,11 @@
--- Account deletion: remove personal data, keep public foods.
--- Does not truncate or drop tables. Safe to re-run (create or replace).
---
--- Current schema: saved_foods.user_id references public.users on delete cascade,
--- and public.users references auth.users on delete cascade. Deleting the auth
--- user would delete public foods. This RPC therefore does NOT delete auth.users
--- or public.users. It anonymizes the row and deletes personal records only.
---
--- Apply on production from the Supabase SQL editor or CLI when ready.
--- Do not apply automatically from this agent.
+-- Down for 20260927150000_protect_owner_deleted_and_revoke_sessions.sql.
+-- Not under supabase/migrations, so `db push` does not apply it.
+-- Restores delete_own_account to the already-applied
+-- 20260920120000 body (no owner_deleted, no session revoke),
+-- drops the guard, drops the column, and restores table-level
+-- INSERT/UPDATE for authenticated.
 
 begin;
-
-alter table public.users
-  add column if not exists deleted_at timestamptz;
 
 create or replace function public.delete_own_account()
 returns void
@@ -65,8 +58,6 @@ begin
       deleted_at = timezone('utc', now())
   where id = uid;
 
-  -- Prevent the same Google/Apple identity from signing back into this row.
-  -- Public foods stay attached to this anonymized user id.
   begin
     delete from auth.identities where user_id = uid;
     update auth.users
@@ -84,5 +75,17 @@ revoke all on function public.delete_own_account() from public;
 revoke all on function public.delete_own_account() from anon;
 revoke all on function public.delete_own_account() from authenticated;
 grant execute on function public.delete_own_account() to authenticated;
+
+drop trigger if exists saved_foods_reject_owner_deleted_change
+  on public.saved_foods;
+
+drop function if exists public.saved_foods_reject_owner_deleted_change();
+
+alter table public.saved_foods
+  drop column if exists owner_deleted;
+
+-- Column privileges disappear with the column. Restore the table-level
+-- grant from 20260801200000_tighten_public_grants_v1.sql.
+grant select, insert, update on table public.saved_foods to authenticated;
 
 commit;

@@ -1,3 +1,4 @@
+import 'package:ayg/constants/official_food_limits.dart';
 import 'package:ayg/models/official_food.dart';
 import 'package:ayg/services/official_food_ranker.dart';
 import 'package:ayg/utils/food_search_normalizer.dart';
@@ -132,5 +133,24 @@ void main() {
     expect(rice.first.isCandidate, isFalse);
     expect(rice[1].foodCode, '01085');
     expect(rice[1].isCandidate, isTrue);
+  });
+
+  test('a query longer than 64 characters uses only the prefix', () {
+    final long = 'ご飯${'あ' * 100000}';
+    expect(OfficialFoodLimits.cap(long).runes.length, 64);
+    final capped = ranker.search(query: long, catalog: catalog);
+    final prefix = ranker.search(
+      query: OfficialFoodLimits.cap(long),
+      catalog: catalog,
+    );
+    expect(
+      capped.map((hit) => hit.foodCode),
+      prefix.map((hit) => hit.foodCode),
+    );
+    expect(capped.where((hit) => hit.foodCode == '01088'), isEmpty);
+    expect(
+      ranker.search(query: 'ご飯', catalog: catalog).first.foodCode,
+      '01088',
+    );
   });
 }

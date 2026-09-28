@@ -54,6 +54,55 @@ begin
 end
 $$;
 
+-- A LIKE on the stored normalized column must be able to use gin_trgm_ops.
+-- Sequential scans and plain btree index scans are disabled so the planner
+-- has to use the trigram GIN index. The alias table also has a btree on
+-- normalized, and that btree would otherwise win on a tiny table.
+set enable_seqscan = off;
+set enable_indexscan = off;
+set enable_indexonlyscan = off;
+do $$
+declare
+  line text;
+  saw_food boolean := false;
+  saw_alias boolean := false;
+  food_plan text := '';
+  alias_plan text := '';
+begin
+  for line in execute $q$
+    explain select food_code
+    from public.official_foods
+    where normalized_name like '%精白米うるち米%' escape '\'
+  $q$
+  loop
+    food_plan := food_plan || line || E'\n';
+    if line like '%official_foods_normalized_name_trgm_idx%' then
+      saw_food := true;
+    end if;
+  end loop;
+  for line in execute $q$
+    explain select food_code
+    from public.official_food_aliases
+    where normalized like '%ぎゅうどん%' escape '\'
+  $q$
+  loop
+    alias_plan := alias_plan || line || E'\n';
+    if line like '%official_food_aliases_normalized_trgm_idx%' then
+      saw_alias := true;
+    end if;
+  end loop;
+  if not saw_food then
+    raise exception 'normalized_name LIKE did not use the trigram index: %', food_plan;
+  end if;
+  if not saw_alias then
+    raise exception 'alias normalized LIKE did not use the trigram index: %', alias_plan;
+  end if;
+end
+$$;
+set enable_seqscan = on;
+set enable_indexscan = on;
+set enable_indexonlyscan = on;
+
 set role authenticated;
 
 do $$
@@ -62,6 +111,10 @@ declare
   got text;
   query text;
   expected text;
+  started timestamptz;
+  elapsed interval;
+  long_codes text;
+  short_codes text;
 begin
   select count(*) into n from public.official_foods;
   if n <> 44 then
@@ -128,6 +181,35 @@ begin
       and s.name like '%精白米%'
   ) then
     raise exception '牛丼 candidates do not include 精白米めし';
+  end if;
+
+  started := clock_timestamp();
+  perform 1 from public.search_official_foods(repeat('あ', 100000), 30);
+  elapsed := clock_timestamp() - started;
+  if elapsed > interval '2 seconds' then
+    raise exception '100000-char search took %', elapsed;
+  end if;
+
+  select coalesce(string_agg(s.food_code, ',' order by s.food_code), '')
+    into long_codes
+  from public.search_official_foods(repeat('米', 100000), 30) s;
+  select coalesce(string_agg(s.food_code, ',' order by s.food_code), '')
+    into short_codes
+  from public.search_official_foods(repeat('米', 64), 30) s;
+  if long_codes is distinct from short_codes then
+    raise exception 'long query was not truncated to 64 chars: % vs %',
+      long_codes, short_codes;
+  end if;
+
+  select coalesce(string_agg(s.food_code, ',' order by s.food_code), '')
+    into long_codes
+  from public.search_official_foods('ご飯' || repeat('あ', 100000), 30) s;
+  select coalesce(string_agg(s.food_code, ',' order by s.food_code), '')
+    into short_codes
+  from public.search_official_foods(left('ご飯' || repeat('あ', 100000), 64), 30) s;
+  if long_codes is distinct from short_codes then
+    raise exception 'search did not keep only the first 64 characters: % vs %',
+      long_codes, short_codes;
   end if;
 end
 $$;

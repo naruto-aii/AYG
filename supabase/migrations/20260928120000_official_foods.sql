@@ -226,156 +226,216 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_query text := public.normalize_food_search_text(p_query);
+  -- Character cap, same as OfficialFoodLimits.maxQueryLength. Applied
+  -- before normalization so a huge argument never enters the per-character
+  -- loop. The pattern is inlined as a literal so the planner can use the
+  -- gin_trgm_ops indexes on the stored columns.
+  v_raw text := pg_catalog.left(coalesce(p_query, ''), 64);
+  v_query text := pg_catalog.left(public.normalize_food_search_text(v_raw), 64);
+  v_pattern text;
   v_limit integer := least(greatest(coalesce(p_limit, 30), 0), 100);
 begin
   if v_query = '' or v_limit = 0 then
     return;
   end if;
 
-  return query
-  with hits as (
+  v_pattern :=
+    '%'
+    || pg_catalog.replace(
+         pg_catalog.replace(
+           pg_catalog.replace(v_query, '\', '\\'),
+           '%',
+           '\%'
+         ),
+         '_',
+         '\_'
+       )
+    || '%';
+
+  -- One indexed column per arm. OR would hide the index, and wrapping the
+  -- column in normalize_food_search_text would too. normalized_name and
+  -- aliases.normalized are already the search key. reading is stored text
+  -- (hiragana in the alias dictionary) and is compared as stored.
+  return query execute format(
+    $sql$
+    with hits as (
+      select
+        f.food_code,
+        f.food_group,
+        f.index_no,
+        f.name,
+        f.display_name,
+        f.reading,
+        f.base_amount,
+        f.unit_type,
+        f.refuse_pct,
+        f.kcal,
+        f.protein_g,
+        f.fat_g,
+        f.carb_g,
+        f.fiber_g,
+        f.salt_eq_g,
+        null::text as matched_alias,
+        null::text as matched_alias_reading,
+        100 as priority,
+        false as is_candidate,
+        null::integer as candidate_rank,
+        case
+          when f.normalized_name = %L then 0
+          when pg_catalog.strpos(f.normalized_name, %L) = 1 then 1
+          when pg_catalog.strpos(f.normalized_name, %L) > 0 then 2
+          else 9
+        end as rank_value
+      from public.official_foods f
+      where f.normalized_name like %L escape '\'
+      union all
+      select
+        f.food_code,
+        f.food_group,
+        f.index_no,
+        f.name,
+        f.display_name,
+        f.reading,
+        f.base_amount,
+        f.unit_type,
+        f.refuse_pct,
+        f.kcal,
+        f.protein_g,
+        f.fat_g,
+        f.carb_g,
+        f.fiber_g,
+        f.salt_eq_g,
+        null::text as matched_alias,
+        null::text as matched_alias_reading,
+        100 as priority,
+        false as is_candidate,
+        null::integer as candidate_rank,
+        case
+          when f.reading = %L then 0
+          when pg_catalog.strpos(f.reading, %L) = 1 then 1
+          when pg_catalog.strpos(f.reading, %L) > 0 then 2
+          else 9
+        end as rank_value
+      from public.official_foods f
+      where f.reading like %L escape '\'
+      union all
+      select
+        f.food_code,
+        f.food_group,
+        f.index_no,
+        f.name,
+        f.display_name,
+        f.reading,
+        f.base_amount,
+        f.unit_type,
+        f.refuse_pct,
+        f.kcal,
+        f.protein_g,
+        f.fat_g,
+        f.carb_g,
+        f.fiber_g,
+        f.salt_eq_g,
+        a.alias,
+        a.reading,
+        a.priority,
+        a.is_candidate,
+        a.candidate_rank,
+        case
+          when a.normalized = %L then 0
+          when pg_catalog.strpos(a.normalized, %L) = 1 then 1
+          when pg_catalog.strpos(a.normalized, %L) > 0 then 2
+          else 9
+        end as rank_value
+      from public.official_food_aliases a
+      join public.official_foods f on f.food_code = a.food_code
+      where a.normalized like %L escape '\'
+      union all
+      select
+        f.food_code,
+        f.food_group,
+        f.index_no,
+        f.name,
+        f.display_name,
+        f.reading,
+        f.base_amount,
+        f.unit_type,
+        f.refuse_pct,
+        f.kcal,
+        f.protein_g,
+        f.fat_g,
+        f.carb_g,
+        f.fiber_g,
+        f.salt_eq_g,
+        a.alias,
+        a.reading,
+        a.priority,
+        a.is_candidate,
+        a.candidate_rank,
+        case
+          when a.reading = %L then 0
+          when pg_catalog.strpos(a.reading, %L) = 1 then 1
+          when pg_catalog.strpos(a.reading, %L) > 0 then 2
+          else 9
+        end as rank_value
+      from public.official_food_aliases a
+      join public.official_foods f on f.food_code = a.food_code
+      where a.reading like %L escape '\'
+    ),
+    matched as (
+      select *
+      from hits
+      where rank_value < 9
+    ),
+    best as (
+      select distinct on (matched.food_code)
+        matched.*
+      from matched
+      order by
+        matched.food_code,
+        matched.rank_value,
+        matched.is_candidate,
+        matched.candidate_rank nulls last,
+        (matched.matched_alias is null),
+        matched.priority,
+        matched.matched_alias
+    )
     select
-      f.food_code,
-      f.food_group,
-      f.index_no,
-      f.name,
-      f.display_name,
-      f.reading,
-      f.base_amount,
-      f.unit_type,
-      f.refuse_pct,
-      f.kcal,
-      f.protein_g,
-      f.fat_g,
-      f.carb_g,
-      f.fiber_g,
-      f.salt_eq_g,
-      null::text as matched_alias,
-      null::text as matched_alias_reading,
-      100 as priority,
-      false as is_candidate,
-      null::integer as candidate_rank,
-      least(
-        case
-          when f.normalized_name = v_query then 0
-          when pg_catalog.strpos(f.normalized_name, v_query) = 1 then 1
-          when pg_catalog.strpos(f.normalized_name, v_query) > 0 then 2
-          else 9
-        end,
-        case
-          when public.normalize_food_search_text(coalesce(f.display_name, '')) = v_query then 0
-          when pg_catalog.strpos(public.normalize_food_search_text(coalesce(f.display_name, '')), v_query) = 1 then 1
-          when pg_catalog.strpos(public.normalize_food_search_text(coalesce(f.display_name, '')), v_query) > 0 then 2
-          else 9
-        end,
-        case
-          when public.normalize_food_search_text(f.name) = v_query then 0
-          when pg_catalog.strpos(public.normalize_food_search_text(f.name), v_query) = 1 then 1
-          when pg_catalog.strpos(public.normalize_food_search_text(f.name), v_query) > 0 then 2
-          else 9
-        end,
-        case
-          when public.normalize_food_search_text(coalesce(f.reading, '')) = v_query then 0
-          when pg_catalog.strpos(public.normalize_food_search_text(coalesce(f.reading, '')), v_query) = 1 then 1
-          when pg_catalog.strpos(public.normalize_food_search_text(coalesce(f.reading, '')), v_query) > 0 then 2
-          else 9
-        end
-      ) as rank_value
-    from public.official_foods f
-    union all
-    select
-      f.food_code,
-      f.food_group,
-      f.index_no,
-      f.name,
-      f.display_name,
-      f.reading,
-      f.base_amount,
-      f.unit_type,
-      f.refuse_pct,
-      f.kcal,
-      f.protein_g,
-      f.fat_g,
-      f.carb_g,
-      f.fiber_g,
-      f.salt_eq_g,
-      a.alias,
-      a.reading,
-      a.priority,
-      a.is_candidate,
-      a.candidate_rank,
-      least(
-        case
-          when a.normalized = v_query then 0
-          when pg_catalog.strpos(a.normalized, v_query) = 1 then 1
-          when pg_catalog.strpos(a.normalized, v_query) > 0 then 2
-          else 9
-        end,
-        case
-          when public.normalize_food_search_text(coalesce(a.reading, '')) = v_query then 0
-          when pg_catalog.strpos(public.normalize_food_search_text(coalesce(a.reading, '')), v_query) = 1 then 1
-          when pg_catalog.strpos(public.normalize_food_search_text(coalesce(a.reading, '')), v_query) > 0 then 2
-          else 9
-        end,
-        case
-          when public.normalize_food_search_text(a.alias) = v_query then 0
-          when pg_catalog.strpos(public.normalize_food_search_text(a.alias), v_query) = 1 then 1
-          when pg_catalog.strpos(public.normalize_food_search_text(a.alias), v_query) > 0 then 2
-          else 9
-        end
-      ) as rank_value
-    from public.official_food_aliases a
-    join public.official_foods f on f.food_code = a.food_code
-  ),
-  matched as (
-    select *
-    from hits
-    where rank_value < 9
-  ),
-  best as (
-    select distinct on (matched.food_code)
-      matched.*
-    from matched
+      best.food_code,
+      best.food_group,
+      best.index_no,
+      best.name,
+      best.display_name,
+      best.reading,
+      best.base_amount,
+      best.unit_type,
+      best.refuse_pct,
+      best.kcal,
+      best.protein_g,
+      best.fat_g,
+      best.carb_g,
+      best.fiber_g,
+      best.salt_eq_g,
+      best.matched_alias,
+      best.matched_alias_reading,
+      best.rank_value,
+      best.is_candidate,
+      best.candidate_rank
+    from best
     order by
-      matched.food_code,
-      matched.rank_value,
-      matched.is_candidate,
-      matched.candidate_rank nulls last,
-      (matched.matched_alias is null),
-      matched.priority,
-      matched.matched_alias
-  )
-  select
-    best.food_code,
-    best.food_group,
-    best.index_no,
-    best.name,
-    best.display_name,
-    best.reading,
-    best.base_amount,
-    best.unit_type,
-    best.refuse_pct,
-    best.kcal,
-    best.protein_g,
-    best.fat_g,
-    best.carb_g,
-    best.fiber_g,
-    best.salt_eq_g,
-    best.matched_alias,
-    best.matched_alias_reading,
-    best.rank_value,
-    best.is_candidate,
-    best.candidate_rank
-  from best
-  order by
-    best.rank_value,
-    best.is_candidate,
-    best.candidate_rank nulls last,
-    (best.matched_alias is null),
-    best.priority,
-    best.food_code
-  limit v_limit;
+      best.rank_value,
+      best.is_candidate,
+      best.candidate_rank nulls last,
+      (best.matched_alias is null),
+      best.priority,
+      best.food_code
+    limit %s
+    $sql$,
+    v_query, v_query, v_query, v_pattern,
+    v_query, v_query, v_query, v_pattern,
+    v_query, v_query, v_query, v_pattern,
+    v_query, v_query, v_query, v_pattern,
+    v_limit
+  );
 end;
 $$;
 

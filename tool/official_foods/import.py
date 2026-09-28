@@ -88,6 +88,78 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def food_payload(row: dict[str, str]) -> list:
+    raw_values = json.loads(row["raw_values"]) if row.get("raw_values") else {}
+    estimated = json.loads(row["estimated_fields"]) if row.get("estimated_fields") else []
+    return [
+        row["food_code"].strip(),
+        _blank(row.get("food_group")),
+        _blank(row.get("index_no")),
+        row["name"],
+        _blank(row.get("display_name")),
+        row["normalized_name"].strip(),
+        _blank(row.get("reading")),
+        _number(row.get("base_amount")) if _blank(row.get("base_amount")) else 100,
+        _blank(row.get("unit_type")) or "g",
+        _number(row.get("refuse_pct")),
+        _number(row.get("kcal")),
+        _number(row.get("protein_g")),
+        _number(row.get("protein_aa_g")),
+        _number(row.get("fat_g")),
+        _number(row.get("fat_tag_g")),
+        _number(row.get("carb_g")),
+        _number(row.get("carb_avail_g")),
+        _number(row.get("fiber_g")),
+        _number(row.get("salt_eq_g")),
+        json.dumps(raw_values, ensure_ascii=False),
+        estimated,
+        _blank(row.get("source")) or "mext_sfct",
+        _blank(row.get("edition")) or "八訂増補2023",
+        _blank(row.get("errata_version")),
+        _blank(row.get("source_url")),
+    ]
+
+
+def prepare_aliases(
+    rows: list[dict[str, str]], present: set[str]
+) -> tuple[list[dict], int]:
+    prepared: list[dict] = []
+    skipped = 0
+    for row in rows:
+        code = row["food_code"].strip()
+        if code not in present:
+            skipped += 1
+            continue
+        alias = row["alias"].strip()
+        normalized = normalize_food_search_text(alias)
+        if not normalized:
+            skipped += 1
+            continue
+        priority_text = _blank(row.get("priority"))
+        rank_text = _blank(row.get("candidate_rank"))
+        note = _blank(row.get("note"))
+        prepared.append(
+            {
+                "code": code,
+                "alias": alias,
+                "reading": _blank(row.get("reading")),
+                "normalized": normalized,
+                "priority": int(priority_text) if priority_text else 100,
+                "note": note,
+                "source": _blank(row.get("source")) or "karonavi_alias_v1",
+                "is_candidate": _is_candidate(row.get("is_candidate"), note),
+                "candidate_rank": int(rank_text) if rank_text else None,
+            }
+        )
+    foods_for_alias: dict[str, set[str]] = {}
+    for item in prepared:
+        foods_for_alias.setdefault(item["normalized"], set()).add(item["code"])
+    for item in prepared:
+        if len(foods_for_alias[item["normalized"]]) > 1:
+            item["is_candidate"] = True
+    return prepared, skipped
+
+
 def import_foods(connection: psycopg.Connection, rows: list[dict[str, str]]) -> int:
     columns = ("food_code",) + FOOD_UPDATE_COLUMNS
     assignments = ", ".join(
@@ -109,36 +181,7 @@ def import_foods(connection: psycopg.Connection, rows: list[dict[str, str]]) -> 
     """
     with connection.cursor() as cursor:
         for row in rows:
-            raw_values = json.loads(row["raw_values"]) if row.get("raw_values") else {}
-            estimated = json.loads(row["estimated_fields"]) if row.get("estimated_fields") else []
-            payload = [
-                row["food_code"].strip(),
-                _blank(row.get("food_group")),
-                _blank(row.get("index_no")),
-                row["name"],
-                _blank(row.get("display_name")),
-                row["normalized_name"].strip(),
-                _blank(row.get("reading")),
-                _number(row.get("base_amount")) if _blank(row.get("base_amount")) else 100,
-                _blank(row.get("unit_type")) or "g",
-                _number(row.get("refuse_pct")),
-                _number(row.get("kcal")),
-                _number(row.get("protein_g")),
-                _number(row.get("protein_aa_g")),
-                _number(row.get("fat_g")),
-                _number(row.get("fat_tag_g")),
-                _number(row.get("carb_g")),
-                _number(row.get("carb_avail_g")),
-                _number(row.get("fiber_g")),
-                _number(row.get("salt_eq_g")),
-                json.dumps(raw_values, ensure_ascii=False),
-                estimated,
-                _blank(row.get("source")) or "mext_sfct",
-                _blank(row.get("edition")) or "八訂増補2023",
-                _blank(row.get("errata_version")),
-                _blank(row.get("source_url")),
-            ]
-            cursor.execute(sql, payload)
+            cursor.execute(sql, food_payload(row))
     return len(rows)
 
 
@@ -160,41 +203,8 @@ def import_aliases(connection: psycopg.Connection, rows: list[dict[str, str]]) -
                 is_candidate = excluded.is_candidate,
                 candidate_rank = excluded.candidate_rank
         """
-        prepared: list[dict] = []
-        skipped = 0
-        for row in rows:
-            code = row["food_code"].strip()
-            if code not in present:
-                skipped += 1
-                continue
-            alias = row["alias"].strip()
-            normalized = normalize_food_search_text(alias)
-            if not normalized:
-                skipped += 1
-                continue
-            priority_text = _blank(row.get("priority"))
-            rank_text = _blank(row.get("candidate_rank"))
-            note = _blank(row.get("note"))
-            prepared.append(
-                {
-                    "code": code,
-                    "alias": alias,
-                    "reading": _blank(row.get("reading")),
-                    "normalized": normalized,
-                    "priority": int(priority_text) if priority_text else 100,
-                    "note": note,
-                    "source": _blank(row.get("source")) or "karonavi_alias_v1",
-                    "is_candidate": _is_candidate(row.get("is_candidate"), note),
-                    "candidate_rank": int(rank_text) if rank_text else None,
-                }
-            )
-        # The same alias text on more than one food is a choice, not one mapping.
-        foods_for_alias: dict[str, set[str]] = {}
+        prepared, skipped = prepare_aliases(rows, present)
         for item in prepared:
-            foods_for_alias.setdefault(item["normalized"], set()).add(item["code"])
-        for item in prepared:
-            if len(foods_for_alias[item["normalized"]]) > 1:
-                item["is_candidate"] = True
             cursor.execute(
                 sql,
                 (

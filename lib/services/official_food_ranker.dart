@@ -1,3 +1,4 @@
+import '../constants/official_food_limits.dart';
 import '../models/official_food.dart';
 import '../utils/food_search_normalizer.dart';
 
@@ -21,7 +22,9 @@ class OfficialFoodRanker {
     required List<OfficialFoodCatalogItem> catalog,
     int limit = 30,
   }) {
-    final key = FoodSearchNormalizer.normalize(query);
+    final key = OfficialFoodLimits.cap(
+      FoodSearchNormalizer.normalize(OfficialFoodLimits.cap(query)),
+    );
     final capped = limit.clamp(0, 100);
     if (key.isEmpty || capped == 0) {
       return const [];

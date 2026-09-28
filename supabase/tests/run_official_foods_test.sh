@@ -72,6 +72,78 @@ if "ENERC_KCAL" not in rice["raw_values"] or "NACL_EQ" not in rice["raw_values"]
 print("python normalizer and sample checks ok")
 PY
 
+python3 - <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+
+sys.path.insert(0, "tool/official_foods")
+from download import (
+    DATA_WORKBOOK_SHA256,
+    ERRATA_WORKBOOK_SHA256,
+    MextRedirectHandler,
+    MextUrlError,
+    assert_mext_url,
+    write_verified,
+)
+
+if DATA_WORKBOOK_SHA256 != (
+    "0d5a77077dd6cd91cbc2e6e317b8b218a38728c409eed452f1c10635a0d3099c"
+):
+    raise SystemExit("chapter 2 sha256 pin changed")
+if ERRATA_WORKBOOK_SHA256 != (
+    "fb61037c7f66af0db1fb0729977913a629bc17097bc3ff7bf75217f9110acabb"
+):
+    raise SystemExit("errata sha256 pin changed")
+
+allowed = "https://www.mext.go.jp/content/20260327-mxt_kagsei-mext-000029402_02.xlsx"
+assert_mext_url(allowed)
+rejected = [
+    "http://www.mext.go.jp/a.xlsx",
+    "https://fooddb.mext.go.jp/a.xlsx",
+    "https://www.mext.go.jp.evil.example/a.xlsx",
+    "https://user:pass@www.mext.go.jp/a.xlsx",
+    "https://evil.example/a.xlsx",
+    "https://www.mext.go.jp:8443/a.xlsx",
+]
+for url in rejected:
+    try:
+        assert_mext_url(url)
+    except MextUrlError:
+        pass
+    else:
+        raise SystemExit(f"allowed {url}")
+
+handler = MextRedirectHandler()
+try:
+    handler.redirect_request(None, None, 302, "Found", {}, "https://evil.example/a.xlsx")
+except MextUrlError:
+    pass
+else:
+    raise SystemExit("redirect left www.mext.go.jp")
+
+mismatch = Path("/tmp/official-foods-hash-mismatch.bin")
+mismatch.write_bytes(b"not-the-workbook")
+try:
+    write_verified(b"not-the-workbook", mismatch, DATA_WORKBOOK_SHA256, "chapter 2 workbook")
+except SystemExit as exc:
+    if "sha256 mismatch" not in str(exc):
+        raise
+else:
+    raise SystemExit("hash mismatch did not abort")
+if mismatch.exists() or Path(str(mismatch) + ".partial").exists():
+    raise SystemExit("hash mismatch left a file behind")
+
+ok = Path("/tmp/official-foods-hash-ok.bin")
+digest = hashlib.sha256(b"ok").hexdigest()
+write_verified(b"ok", ok, digest, "fixture")
+if ok.read_bytes() != b"ok":
+    raise SystemExit("verified write failed")
+ok.unlink()
+ok.with_suffix(ok.suffix + ".sha256").unlink()
+print("download host and sha256 checks ok")
+PY
+
 echo "production URL is refused"
 set +e
 DATABASE_URL="postgresql://postgres:ci@db.example.supabase.co:5432/postgres" \
@@ -119,6 +191,35 @@ for key in stored_foods stored_aliases; do
 done
 if [[ "$(count_of "$second" stored_foods)" != "44" ]]; then
   echo "expected 44 stored foods" >&2
+  exit 1
+fi
+
+echo "generate upsert sql"
+sql_dir="/tmp/official-foods-sql"
+rm -rf "$sql_dir"
+python3 tool/official_foods/export_sql.py \
+  --foods supabase/seed/official_foods_sample.csv \
+  --aliases supabase/seed/official_food_aliases.csv \
+  --out-dir "$sql_dir" \
+  --batch-size 20
+mapfile -t batches < <(find "$sql_dir" -name '*.sql' | sort)
+if [[ "${#batches[@]}" -lt 2 ]]; then
+  echo "expected foods and alias sql batches" >&2
+  exit 1
+fi
+before_aliases="$(psql_cmd -tA -c 'select count(*) from public.official_food_aliases')"
+for batch in "${batches[@]}"; do
+  echo "apply $batch"
+  if ! grep -q 'on conflict' "$batch"; then
+    echo "batch is missing on conflict: $batch" >&2
+    exit 1
+  fi
+  psql_cmd -f "$batch"
+done
+after_foods="$(psql_cmd -tA -c 'select count(*) from public.official_foods')"
+after_aliases="$(psql_cmd -tA -c 'select count(*) from public.official_food_aliases')"
+if [[ "$after_foods" != "44" || "$after_aliases" != "$before_aliases" ]]; then
+  echo "generated sql changed counts foods=$after_foods aliases=$after_aliases (was $before_aliases)" >&2
   exit 1
 fi
 

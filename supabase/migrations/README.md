@@ -38,7 +38,10 @@ They run with owner privileges.
 `anon` has no privileges. `INSERT` / `UPDATE` / `DELETE` / `TRUNCATE` are
 revoked from `anon` and `authenticated`. The import script writes as the
 database owner. `search_official_foods` and `normalize_food_search_text`
-grant `EXECUTE` to `authenticated` only.
+grant `EXECUTE` to `authenticated` only. The search function keeps the
+first 64 characters of the argument, then matches the stored
+`normalized_name`, alias `normalized`, and `reading` columns so the
+`pg_trgm` indexes can be used.
 
 ### `supabase_admin` default privileges
 

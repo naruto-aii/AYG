@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/official_foods_flag.dart';
+import '../constants/official_food_limits.dart';
 import '../models/official_food.dart';
 
 /// 食品成分表の検索。失敗しても食事記録の画面は止めない。
@@ -18,7 +19,7 @@ class SupabaseOfficialFoodRepository implements OfficialFoodRepository {
     if (!OfficialFoodsFlag.enabled) {
       return const [];
     }
-    final trimmed = query.trim();
+    final trimmed = OfficialFoodLimits.cap(query.trim());
     if (trimmed.isEmpty) {
       return const [];
     }

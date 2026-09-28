@@ -64,8 +64,8 @@ declare
   expected text;
 begin
   select count(*) into n from public.official_foods;
-  if n <> 40 then
-    raise exception 'authenticated select saw % official foods, expected 40', n;
+  if n <> 44 then
+    raise exception 'authenticated select saw % official foods, expected 44', n;
   end if;
 
   select count(*) into n from public.search_official_foods('', 30);
@@ -98,6 +98,37 @@ begin
       raise exception '% first food_code = %, expected %', query, got, expected;
     end if;
   end loop;
+
+  select s.is_candidate::text into got
+  from public.search_official_foods('ご飯', 5) s
+  limit 1;
+  if got::text is distinct from 'false' then
+    raise exception 'ご飯 first row is a candidate (%). Exact aliases sort first', got;
+  end if;
+
+  if (
+    select count(*)
+    from public.search_official_foods('牛丼', 30) s
+    where s.is_candidate
+  ) < 2 then
+    raise exception '牛丼 returned fewer than 2 candidates';
+  end if;
+  if not exists (
+    select 1
+    from public.search_official_foods('牛丼', 30) s
+    where s.is_candidate and s.name like '%牛飯の具%'
+  ) then
+    raise exception '牛丼 candidates do not include 牛飯の具';
+  end if;
+  if not exists (
+    select 1
+    from public.search_official_foods('牛丼', 30) s
+    where s.is_candidate
+      and s.name like '%水稲めし%'
+      and s.name like '%精白米%'
+  ) then
+    raise exception '牛丼 candidates do not include 精白米めし';
+  end if;
 end
 $$;
 

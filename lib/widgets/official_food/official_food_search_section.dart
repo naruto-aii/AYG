@@ -115,10 +115,15 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
         for (final match in _results) ...[
           SettingsRow(
             icon: AppIcons.rice,
-            title: match.recordName,
-            subtitle:
-                '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g ・ '
-                '${OfficialFoodCopy.shortAttribution}',
+            title: match.isCandidate
+                ? '${match.recordName}（候補）'
+                : match.recordName,
+            subtitle: match.isCandidate
+                ? '${match.name} ・ '
+                      '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g ・ '
+                      '${OfficialFoodCopy.shortAttribution}'
+                : '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g ・ '
+                      '${OfficialFoodCopy.shortAttribution}',
             onTap: () => widget.onSelected(match),
           ),
           const SizedBox(height: 8),

@@ -143,6 +143,13 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
             subtitle: '食品番号 ${match.foodCode}',
           ),
           Text(match.name, style: AppTypography.bodyM),
+          if (match.isCandidate) ...[
+            const SizedBox(height: 8),
+            Text(
+              '候補の一つです。食品名を確認してから選んでください。',
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
             '${formatNullableNutrient(match.kcal, fractionDigits: 1)} kcal ・ '

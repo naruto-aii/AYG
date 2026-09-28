@@ -23,11 +23,18 @@ OfficialFoodCatalogItem _food(
   );
 }
 
-OfficialFoodAlias _alias(String alias, String reading) {
+OfficialFoodAlias _alias(
+  String alias,
+  String reading, {
+  bool isCandidate = false,
+  int? candidateRank,
+}) {
   return OfficialFoodAlias(
     alias: alias,
     reading: reading,
     normalized: FoodSearchNormalizer.normalize(alias),
+    isCandidate: isCandidate,
+    candidateRank: candidateRank,
   );
 }
 
@@ -38,9 +45,11 @@ void main() {
       _alias('ご飯', 'ごはん'),
       _alias('白米', 'はくまい'),
       _alias('ライス', 'らいす'),
+      _alias('牛丼', 'ぎゅうどん', isCandidate: true, candidateRank: 2),
     ]),
     _food('01085', 'こめ　［水稲めし］　玄米', 152, [
       _alias('玄米ご飯', 'げんまいごはん'),
+      _alias('ご飯', 'ごはん', isCandidate: true, candidateRank: 1),
     ]),
     _food('01154', 'こめ　［水稲めし］　精白米　もち米', 156, [
       _alias('もち米', 'もちごめ'),
@@ -60,6 +69,9 @@ void main() {
     ]),
     _food('13003', '＜牛乳及び乳製品＞　（液状乳類）　普通牛乳', 61, [
       _alias('牛乳', 'ぎゅうにゅう'),
+    ]),
+    _food('18031', '和風料理　煮物類　牛飯の具', 147, [
+      _alias('牛丼', 'ぎゅうどん', isCandidate: true, candidateRank: 1),
     ]),
   ];
   const ranker = OfficialFoodRanker();
@@ -105,5 +117,20 @@ void main() {
 
   test('an empty query returns nothing', () {
     expect(ranker.search(query: '   ', catalog: catalog), isEmpty);
+  });
+
+  test('牛丼 returns every candidate and exact aliases stay first', () {
+    final gyudon = ranker.search(query: '牛丼', catalog: catalog);
+    expect(gyudon.map((hit) => hit.foodCode), ['18031', '01088']);
+    expect(gyudon.every((hit) => hit.isCandidate), isTrue);
+    expect(gyudon[0].name, contains('牛飯の具'));
+    expect(gyudon[1].name, contains('精白米'));
+    expect(gyudon[1].name, contains('水稲めし'));
+
+    final rice = ranker.search(query: 'ご飯', catalog: catalog);
+    expect(rice.first.foodCode, '01088');
+    expect(rice.first.isCandidate, isFalse);
+    expect(rice[1].foodCode, '01085');
+    expect(rice[1].isCandidate, isTrue);
   });
 }

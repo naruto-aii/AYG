@@ -56,6 +56,11 @@ create table public.official_food_aliases (
   priority integer not null default 100,
   note text,
   source text not null default 'karonavi_alias_v1',
+  -- One alias text may point at several foods. is_candidate marks a row the
+  -- user still has to choose. Confirmed aliases keep is_candidate false and
+  -- sort ahead of candidates. candidate_rank orders candidates of one alias.
+  is_candidate boolean not null default false,
+  candidate_rank integer,
   unique (food_code, normalized)
 );
 
@@ -211,7 +216,9 @@ returns table (
   salt_eq_g numeric,
   matched_alias text,
   matched_alias_reading text,
-  match_rank integer
+  match_rank integer,
+  is_candidate boolean,
+  candidate_rank integer
 )
 language plpgsql
 stable
@@ -247,6 +254,8 @@ begin
       null::text as matched_alias,
       null::text as matched_alias_reading,
       100 as priority,
+      false as is_candidate,
+      null::integer as candidate_rank,
       least(
         case
           when f.normalized_name = v_query then 0
@@ -294,6 +303,8 @@ begin
       a.alias,
       a.reading,
       a.priority,
+      a.is_candidate,
+      a.candidate_rank,
       least(
         case
           when a.normalized = v_query then 0
@@ -329,6 +340,8 @@ begin
     order by
       matched.food_code,
       matched.rank_value,
+      matched.is_candidate,
+      matched.candidate_rank nulls last,
       (matched.matched_alias is null),
       matched.priority,
       matched.matched_alias
@@ -351,10 +364,14 @@ begin
     best.salt_eq_g,
     best.matched_alias,
     best.matched_alias_reading,
-    best.rank_value
+    best.rank_value,
+    best.is_candidate,
+    best.candidate_rank
   from best
   order by
     best.rank_value,
+    best.is_candidate,
+    best.candidate_rank nulls last,
     (best.matched_alias is null),
     best.priority,
     best.food_code

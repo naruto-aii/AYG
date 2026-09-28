@@ -41,6 +41,10 @@ sys.path.insert(0, "tool/official_foods")
 from normalize import assert_shared_cases, normalize_food_search_text
 
 assert_shared_cases()
+from collections import defaultdict
+
+foods_for_alias = defaultdict(set)
+flagged = set()
 with Path("supabase/seed/official_food_aliases.csv").open(encoding="utf-8-sig", newline="") as handle:
     for row in csv.DictReader(handle):
         got = normalize_food_search_text(row["alias"])
@@ -48,6 +52,16 @@ with Path("supabase/seed/official_food_aliases.csv").open(encoding="utf-8-sig", 
             raise SystemExit(
                 f"alias normalized mismatch {row['alias']!r}: csv={row['normalized']!r} got={got!r}"
             )
+        foods_for_alias[row["normalized"]].add(row["food_code"])
+        note = row.get("note") or ""
+        marked = (row.get("is_candidate") or "").strip().lower() in ("true", "t", "1")
+        if "要確認" in note or marked:
+            flagged.add(row["normalized"])
+for key in sorted(flagged):
+    if len(foods_for_alias[key]) < 2:
+        raise SystemExit(
+            f"candidate alias {key} maps to one food {foods_for_alias[key]}"
+        )
 with Path("supabase/seed/official_foods_sample.csv").open(encoding="utf-8", newline="") as handle:
     foods = {row["food_code"]: row for row in csv.DictReader(handle)}
 rice = foods["01088"]
@@ -103,8 +117,8 @@ for key in stored_foods stored_aliases; do
     exit 1
   fi
 done
-if [[ "$(count_of "$second" stored_foods)" != "40" ]]; then
-  echo "expected 40 stored foods" >&2
+if [[ "$(count_of "$second" stored_foods)" != "44" ]]; then
+  echo "expected 44 stored foods" >&2
   exit 1
 fi
 

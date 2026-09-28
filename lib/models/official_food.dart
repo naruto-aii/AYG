@@ -19,6 +19,8 @@ class OfficialFoodMatch {
     this.matchedAliasReading,
     this.matchRank = 9,
     this.priority = 100,
+    this.isCandidate = false,
+    this.candidateRank,
   });
 
   final String foodCode;
@@ -39,6 +41,8 @@ class OfficialFoodMatch {
   final String? matchedAliasReading;
   final int matchRank;
   final int priority;
+  final bool isCandidate;
+  final int? candidateRank;
 
   /// 記録に残す名前。別名で当たったときはその別名。
   String get recordName {
@@ -68,6 +72,8 @@ class OfficialFoodMatch {
       matchedAlias: _text(row['matched_alias']),
       matchedAliasReading: _text(row['matched_alias_reading']),
       matchRank: _number(row['match_rank'])?.round() ?? 9,
+      isCandidate: _bool(row['is_candidate']),
+      candidateRank: _number(row['candidate_rank'])?.round(),
     );
   }
 
@@ -77,6 +83,17 @@ class OfficialFoodMatch {
     }
     final text = value.toString();
     return text.isEmpty ? null : text;
+  }
+
+  static bool _bool(Object? value) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    final text = value?.toString().toLowerCase();
+    return text == 'true' || text == 't' || text == '1';
   }
 
   static double? _number(Object? value) {
@@ -97,10 +114,14 @@ class OfficialFoodAlias {
     required this.normalized,
     this.reading,
     this.priority = 100,
+    this.isCandidate = false,
+    this.candidateRank,
   });
 
   final String alias;
   final String normalized;
   final String? reading;
   final int priority;
+  final bool isCandidate;
+  final int? candidateRank;
 }

@@ -44,6 +44,8 @@ class OfficialFoodRanker {
             alias: null,
             aliasReading: null,
             priority: 100,
+            isCandidate: false,
+            candidateRank: null,
           ),
         );
       }
@@ -61,6 +63,8 @@ class OfficialFoodRanker {
               alias: alias.alias,
               aliasReading: alias.reading,
               priority: alias.priority,
+              isCandidate: alias.isCandidate,
+              candidateRank: alias.candidateRank,
             ),
           );
         }
@@ -80,6 +84,14 @@ class OfficialFoodRanker {
         final rank = a.matchRank.compareTo(b.matchRank);
         if (rank != 0) {
           return rank;
+        }
+        final candidate = _candidateFlag(a).compareTo(_candidateFlag(b));
+        if (candidate != 0) {
+          return candidate;
+        }
+        final candidateRank = _candidateOrder(a).compareTo(_candidateOrder(b));
+        if (candidateRank != 0) {
+          return candidateRank;
         }
         final aliasPresence = _aliasMissing(a).compareTo(_aliasMissing(b));
         if (aliasPresence != 0) {
@@ -129,10 +141,27 @@ class OfficialFoodRanker {
     return (alias == null || alias.isEmpty) ? 1 : 0;
   }
 
-  /// SQL の `distinct on` と同じ順: rank、別名あり、priority、別名の文字。
+  static int _candidateFlag(OfficialFoodMatch match) => match.isCandidate ? 1 : 0;
+
+  static int _candidateOrder(OfficialFoodMatch match) =>
+      match.candidateRank ?? match.priority;
+
+  /// SQL の `distinct on` と同じ順。確定した別名が候補より前。
   static bool _prefer(OfficialFoodMatch candidate, OfficialFoodMatch current) {
     if (candidate.matchRank != current.matchRank) {
       return candidate.matchRank < current.matchRank;
+    }
+    final candidateFlag = _candidateFlag(candidate).compareTo(
+      _candidateFlag(current),
+    );
+    if (candidateFlag != 0) {
+      return candidateFlag < 0;
+    }
+    final candidateRank = _candidateOrder(candidate).compareTo(
+      _candidateOrder(current),
+    );
+    if (candidateRank != 0) {
+      return candidateRank < 0;
     }
     final alias = _aliasMissing(candidate).compareTo(_aliasMissing(current));
     if (alias != 0) {
@@ -151,6 +180,8 @@ class OfficialFoodRanker {
     required String? alias,
     required String? aliasReading,
     required int priority,
+    required bool isCandidate,
+    required int? candidateRank,
   }) {
     return OfficialFoodMatch(
       foodCode: food.foodCode,
@@ -171,6 +202,8 @@ class OfficialFoodRanker {
       matchedAliasReading: aliasReading,
       matchRank: rank,
       priority: priority,
+      isCandidate: isCandidate,
+      candidateRank: candidateRank,
     );
   }
 }

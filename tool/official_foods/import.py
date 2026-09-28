@@ -60,6 +60,15 @@ def assert_not_production(url: str) -> None:
         )
 
 
+def _is_candidate(raw: str | None, note: str | None) -> bool:
+    text = (raw or "").strip().lower()
+    if text in ("true", "t", "1", "yes"):
+        return True
+    if text in ("false", "f", "0", "no"):
+        return False
+    return note is not None and "要確認" in note
+
+
 def _blank(value: str | None) -> str | None:
     if value is None:
         return None
@@ -139,16 +148,19 @@ def import_aliases(connection: psycopg.Connection, rows: list[dict[str, str]]) -
         present = {code for (code,) in cursor.fetchall()}
         sql = """
             insert into public.official_food_aliases (
-              food_code, alias, reading, normalized, priority, note, source
-            ) values (%s, %s, %s, %s, %s, %s, %s)
+              food_code, alias, reading, normalized, priority, note, source,
+              is_candidate, candidate_rank
+            ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             on conflict (food_code, normalized) do update
             set alias = excluded.alias,
                 reading = excluded.reading,
                 priority = excluded.priority,
                 note = excluded.note,
-                source = excluded.source
+                source = excluded.source,
+                is_candidate = excluded.is_candidate,
+                candidate_rank = excluded.candidate_rank
         """
-        written = 0
+        prepared: list[dict] = []
         skipped = 0
         for row in rows:
             code = row["food_code"].strip()
@@ -161,19 +173,43 @@ def import_aliases(connection: psycopg.Connection, rows: list[dict[str, str]]) -
                 skipped += 1
                 continue
             priority_text = _blank(row.get("priority"))
+            rank_text = _blank(row.get("candidate_rank"))
+            note = _blank(row.get("note"))
+            prepared.append(
+                {
+                    "code": code,
+                    "alias": alias,
+                    "reading": _blank(row.get("reading")),
+                    "normalized": normalized,
+                    "priority": int(priority_text) if priority_text else 100,
+                    "note": note,
+                    "source": _blank(row.get("source")) or "karonavi_alias_v1",
+                    "is_candidate": _is_candidate(row.get("is_candidate"), note),
+                    "candidate_rank": int(rank_text) if rank_text else None,
+                }
+            )
+        # The same alias text on more than one food is a choice, not one mapping.
+        foods_for_alias: dict[str, set[str]] = {}
+        for item in prepared:
+            foods_for_alias.setdefault(item["normalized"], set()).add(item["code"])
+        for item in prepared:
+            if len(foods_for_alias[item["normalized"]]) > 1:
+                item["is_candidate"] = True
             cursor.execute(
                 sql,
                 (
-                    code,
-                    alias,
-                    _blank(row.get("reading")),
-                    normalized,
-                    int(priority_text) if priority_text else 100,
-                    _blank(row.get("note")),
-                    _blank(row.get("source")) or "karonavi_alias_v1",
+                    item["code"],
+                    item["alias"],
+                    item["reading"],
+                    item["normalized"],
+                    item["priority"],
+                    item["note"],
+                    item["source"],
+                    item["is_candidate"],
+                    item["candidate_rank"],
                 ),
             )
-            written += 1
+        written = len(prepared)
     return written, skipped
 
 

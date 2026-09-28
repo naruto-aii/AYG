@@ -122,3 +122,129 @@ pathlib.Path(dest).write_text(acc.replace(old, new, 1), encoding="utf-8")
 PY
 psql_cmd -f "$work/accept.sql"
 echo "acceptance finished"
+
+prov_down="$FEATURE_DIR/supabase/rollback/20260928140000_official_food_provenance_down.sql"
+foods_down="$FEATURE_DIR/supabase/rollback/20260928120000_official_foods_down.sql"
+if [[ ! -f "$prov_down" || ! -f "$foods_down" ]]; then
+  echo "missing rollback sql" >&2
+  exit 1
+fi
+
+echo "rollback leaves no public mext-derived rows"
+{
+  cat <<'SQL'
+begin;
+insert into auth.users (id) values
+  ('00000000-0000-4000-8000-000000000091'),
+  ('00000000-0000-4000-8000-000000000092');
+insert into public.users (id) values
+  ('00000000-0000-4000-8000-000000000091'),
+  ('00000000-0000-4000-8000-000000000092');
+select set_config('ayg.allow_saved_food_publish', 'on', true);
+insert into public.saved_foods (
+  user_id, food_id, visibility, status, name, normalized_name,
+  base_amount, unit_type, kcal_per_base, source_type,
+  official_food_code, official_food_name
+) values (
+  '00000000-0000-4000-8000-000000000091', 'of-rb-mext', 'public', 'active',
+  'rb mext', 'rb mext', 100, 'g', 156, 'mext_sfct', '01088', 'rb-official-name'
+);
+insert into public.saved_foods (
+  user_id, food_id, visibility, status, name, normalized_name,
+  base_amount, unit_type, kcal_per_base, source_type,
+  official_food_code, official_food_name
+) values (
+  '00000000-0000-4000-8000-000000000091', 'of-rb-private', 'private', 'active',
+  'rb private', 'rb private', 100, 'g', 156, 'mext_sfct', '01088', 'rb-official-name'
+);
+alter table public.saved_foods disable trigger enforce_mext_saved_food_attribution;
+insert into public.saved_foods (
+  user_id, food_id, visibility, status, name, normalized_name,
+  base_amount, unit_type, kcal_per_base, source_type,
+  copied_from_food_id, copied_from_owner_user_id
+) values (
+  '00000000-0000-4000-8000-000000000092', 'of-rb-copy', 'public', 'active',
+  'rb copy', 'rb copy', 120, 'g', 156, 'copied',
+  'of-rb-mext', '00000000-0000-4000-8000-000000000091'
+);
+alter table public.saved_foods enable trigger enforce_mext_saved_food_attribution;
+SQL
+  printf '\\i %s\n' "$prov_down"
+  cat <<'SQL'
+do $$
+declare
+  n bigint;
+  vis text;
+  src text;
+begin
+  select count(*) into n
+  from public.saved_foods
+  where visibility = 'public'
+    and food_id in ('of-rb-mext', 'of-rb-copy');
+  if n <> 0 then
+    raise exception 'ACCEPTANCE FAIL: provenance rollback left % public mext-derived rows', n;
+  end if;
+  select count(*) into n
+  from public.saved_foods
+  where visibility = 'public' and source_type = 'mext_sfct';
+  if n <> 0 then
+    raise exception 'ACCEPTANCE FAIL: public mext_sfct rows remain after provenance rollback: %', n;
+  end if;
+  select visibility, source_type into vis, src
+  from public.saved_foods
+  where food_id = 'of-rb-private';
+  if vis is distinct from 'private' or src is distinct from 'mext_sfct' then
+    raise exception 'ACCEPTANCE FAIL: private mext row changed during provenance rollback (% / %)', vis, src;
+  end if;
+end
+$$;
+SQL
+  printf '\\i %s\n' "$foods_down"
+  cat <<'SQL'
+do $$
+declare
+  n bigint;
+  vis text;
+  src text;
+begin
+  select count(*) into n
+  from public.saved_foods
+  where visibility = 'public'
+    and food_id in ('of-rb-mext', 'of-rb-copy', 'of-rb-private');
+  if n <> 0 then
+    raise exception 'ACCEPTANCE FAIL: rollback left % public mext-derived rows', n;
+  end if;
+  select count(*) into n
+  from public.saved_foods
+  where visibility = 'public' and source_type = 'mext_sfct';
+  if n <> 0 then
+    raise exception 'ACCEPTANCE FAIL: public mext_sfct rows remain after rollback: %', n;
+  end if;
+  select visibility, source_type into vis, src
+  from public.saved_foods
+  where food_id = 'of-rb-mext';
+  if vis is distinct from 'private' or src is distinct from 'copied' then
+    raise exception 'ACCEPTANCE FAIL: public mext row after rollback is % / %', vis, src;
+  end if;
+  select visibility, source_type into vis, src
+  from public.saved_foods
+  where food_id = 'of-rb-copy';
+  if vis is distinct from 'private' then
+    raise exception 'ACCEPTANCE FAIL: public mext copy after rollback is %', vis;
+  end if;
+  select visibility, source_type into vis, src
+  from public.saved_foods
+  where food_id = 'of-rb-private';
+  if vis is distinct from 'private' or src is distinct from 'copied' then
+    raise exception 'ACCEPTANCE FAIL: private mext row after rollback is % / %', vis, src;
+  end if;
+  if to_regclass('public.official_foods') is not null then
+    raise exception 'ACCEPTANCE FAIL: official_foods still exists after rollback';
+  end if;
+end
+$$;
+rollback;
+SQL
+} > "$work/rollback_check.sql"
+psql_cmd -f "$work/rollback_check.sql"
+echo "rollback check finished"

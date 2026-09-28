@@ -13,21 +13,25 @@
 -- Do not treat a notice as a pass. Do not commit this file with a production
 -- snapshot pasted in.
 --
--- Aligned to PR #31 (cursor/official-foods-import-0702 @ 251d82e).
+-- Aligned to PR #31 (cursor/official-foods-import-0702 @ e5668ae).
 -- Apply order after the snapshot:
 --   supabase/migrations/20260928120000_official_foods.sql
 --   supabase/migrations/20260928140000_official_food_provenance.sql
 -- search_official_foods orders by rank_value, so v_rank_column stays null.
--- v_exclude_* ignores brand-new objects only; it cannot silence a change to
--- a table that already existed. v_ignore_signature_for is the only signature
--- waiver, and row counts still have to match. 20260928120000 replaces
--- saved_foods_source_type_check to add mext_sfct. 20260928140000 adds
--- official_food_code, official_food_name, and source_attribution on
+-- It is security definer with an empty search_path: authenticated cannot
+-- execute normalize_food_search_text (capped at 256), and search is the
+-- caller. v_exclude_* ignores brand-new objects only; it cannot silence a
+-- change to a table that already existed. v_ignore_signature_for is the
+-- only signature waiver, and row counts still have to match. 20260928120000
+-- replaces saved_foods_source_type_check to add mext_sfct. 20260928140000
+-- adds official_food_code, official_food_name, and source_attribution on
 -- saved_foods, and official_food_code plus official_food_name on
 -- food_entries (and mext_sfct on that table's source_type check). Those are
 -- reviewed signature changes. Neither table is new, so neither name belongs
--- in v_exclude_tables. The new routine enforce_mext_saved_food_attribution
--- does belong in v_exclude_routines.
+-- in v_exclude_tables. enforce_mext_saved_food_attribution and
+-- enforce_mext_food_entry_code belong in v_exclude_routines. The attribution
+-- lock follows current_user (postgres, service_role, or the table owner may
+-- relabel). A session GUC does not bypass it.
 --
 -- Values below were read from the official workbook on 2026-09-28, sheet
 -- 表全体, component id ENERC_KCAL (per 100 g edible portion), not from memory.
@@ -94,9 +98,11 @@ declare
   v_auth_may_select boolean := true;
   v_live_dml_probe boolean := true;
 
-  -- ~64 character search cap. PR #31 is adding this guard. Do not raise it.
+  -- ~64 character search cap. The normalizer itself stops at 256 and is
+  -- not executable by anon or authenticated. Do not raise either cap.
   v_search_input_cap int := 64;
   v_require_search_input_cap boolean := true;
+  v_norm_input_cap int := 256;
 
   -- Provenance from 20260928140000 on meal rows (food_entries) and My Foods
   -- (saved_foods), and the non-removable full sentence on a published
@@ -125,7 +131,8 @@ declare
   v_exclude_routines text[] := array[
     'normalize_food_search_text',
     'search_official_foods',
-    'enforce_mext_saved_food_attribution'
+    'enforce_mext_saved_food_attribution',
+    'enforce_mext_food_entry_code'
   ];
   v_exclude_new_views text[] := array[]::text[];
   -- saved_foods: source_type check gains mext_sfct, then provenance and
@@ -224,6 +231,7 @@ declare
   v_fp_sql text;
   v_src text;
   v_uid uuid;
+  v_copier uuid;
   v_probe_name text;
   v_got_attr text;
   v_got_code text;
@@ -370,8 +378,16 @@ begin
     when too_many_rows then
       raise exception 'ACCEPTANCE FAIL: more than one %.%', v_schema, v_search_fn;
   end;
-  if v_secdef then
-    raise exception 'ACCEPTANCE FAIL: %.% must be security invoker', v_schema, v_search_fn;
+  if not v_secdef then
+    raise exception 'ACCEPTANCE FAIL: %.% must be security definer so authenticated search can call the normalizer', v_schema, v_search_fn;
+  end if;
+  select p.proconfig into v_proconfig
+  from pg_proc p
+  where p.oid = v_search_oid;
+  if v_proconfig is null or not exists (
+    select 1 from unnest(v_proconfig) c where c like 'search_path=%'
+  ) then
+    raise exception 'ACCEPTANCE FAIL: %.% must set search_path', v_schema, v_search_fn;
   end if;
   if v_volatile is distinct from 's' then
     raise exception 'ACCEPTANCE FAIL: %.% must be stable', v_schema, v_search_fn;
@@ -382,6 +398,25 @@ begin
   if not has_function_privilege(v_auth_role, v_search_oid, 'execute') then
     raise exception 'ACCEPTANCE FAIL: % cannot execute %', v_auth_role, v_search_fn;
   end if;
+  if has_function_privilege(v_anon_role, v_norm_oid, 'execute')
+     or has_function_privilege(v_auth_role, v_norm_oid, 'execute') then
+    raise exception 'ACCEPTANCE FAIL: anon or authenticated can execute %', v_norm_fn;
+  end if;
+  select p.prosrc into v_src from pg_proc p where p.oid = v_norm_oid;
+  if position(v_norm_input_cap::text in v_src) = 0 then
+    raise exception 'ACCEPTANCE FAIL: %.% does not cap input at % characters',
+      v_schema, v_norm_fn, v_norm_input_cap;
+  end if;
+  foreach v_role in array array[v_anon_role, v_auth_role] loop
+    begin
+      execute format('set local role %I', v_role);
+      execute format('select %I.%I($1)', v_schema, v_norm_fn) using 'あ';
+      raise exception 'ACCEPTANCE FAIL: % executed %', v_role, v_norm_fn;
+    exception
+      when insufficient_privilege then
+        null;
+    end;
+  end loop;
 
   v_step := 'counts';
   execute format(
@@ -792,9 +827,20 @@ begin
       raise exception 'ACCEPTANCE FAIL: no % trigger locks a published mext_sfct food to the attribution sentence',
         v_my_foods_table;
     end if;
+    select exists (
+      select 1
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = v_schema
+        and p.proname = 'enforce_mext_saved_food_attribution'
+        and p.prosecdef
+    ) into v_has;
+    if v_has then
+      raise exception 'ACCEPTANCE FAIL: enforce_mext_saved_food_attribution is security definer, so the lock would see the owner and never apply';
+    end if;
 
     -- Hosted Supabase auth.users has required columns this probe does not
-    -- fill. The trigger check above still applies there. The live publish
+    -- fill. The trigger text check above still applies there. The live
     -- probe runs when id is the only required column (local Postgres / CI).
     select count(*)::bigint into v_n
     from pg_attribute a
@@ -809,11 +855,12 @@ begin
       and a.attname <> 'id';
     if v_n = 0 then
     v_uid := '00000000-0000-4000-8000-000000000088';
+    v_copier := '00000000-0000-4000-8000-000000000089';
     v_probe_name := 'acceptance-original-name';
     begin
       begin
-        insert into auth.users (id) values (v_uid);
-        insert into public.users (id) values (v_uid);
+        insert into auth.users (id) values (v_uid), (v_copier);
+        insert into public.users (id) values (v_uid), (v_copier);
         begin
           execute format(
             'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, %I, %I, %I) values ($1, $2, ''private'', ''active'', $3, $3, 100, ''g'', 156, $4, $5, $6, null)',
@@ -826,11 +873,35 @@ begin
               v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col
             ) using v_uid, 'of-accept-probe', 'probe rice', v_source, '01088', v_probe_name, 'pending';
         end;
-        perform set_config('ayg.allow_saved_food_publish', 'on', true);
+        -- The table owner may relabel. This unattributed copy stays plain
+        -- only because the session user is the owner. authenticated publish
+        -- of it must fail.
         execute format(
-          'update %I.%I set visibility = ''public'' where user_id = $1 and food_id = $2',
-          v_schema, v_my_foods_table
-        ) using v_uid, 'of-accept-probe';
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 150, ''g'', 156, ''copied'', $4, $5)',
+          v_schema, v_my_foods_table, v_prov_source_col
+        ) using v_copier, 'of-accept-bridge', 'probe bridge', 'of-accept-probe', v_uid;
+        execute format(
+          'select %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_prov_source_col, v_attr_col, v_schema, v_my_foods_table
+        ) into v_got_source, v_got_attr
+        using v_copier, 'of-accept-bridge';
+        if v_got_source is distinct from 'copied' or v_got_attr is not null then
+          raise exception 'ACCEPTANCE FAIL: owner fixture for an unattributed copy was rewritten before the client call (% / %)',
+            v_got_source, v_got_attr;
+        end if;
+
+        perform set_config('request.jwt.claim.sub', v_uid::text, true);
+        perform set_config('request.jwt.claim.role', 'authenticated', true);
+        perform set_config('ayg.allow_mext_source_change', 'on', true);
+        execute format('set local role %I', v_auth_role);
+
+        execute format(
+          'update %I.%I set %I = $3, %I = null, %I = $4, %I = ''manual'' where user_id = $1 and food_id = $2',
+          v_schema, v_my_foods_table, v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col
+        ) using v_uid, 'of-accept-probe', 'removed', 'renamed';
+        if not found then
+          raise exception 'ACCEPTANCE FAIL: authenticated update did not see the mext food';
+        end if;
         execute format(
           'select %I, %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
           v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col,
@@ -841,46 +912,82 @@ begin
            or v_got_code is distinct from '01088'
            or v_got_orig is distinct from v_probe_name
            or v_got_source is distinct from v_source then
-          raise exception 'ACCEPTANCE FAIL: publishing a mext_sfct food did not keep attribution [%], food code [%], official food name [%], source [%]',
+          raise exception 'ACCEPTANCE FAIL: authenticated bypassed the attribution lock after set_config (now % / % / % / %)',
             v_got_attr, v_got_code, v_got_orig, v_got_source;
         end if;
+
+        perform public.publish_saved_food('of-accept-probe');
+        execute format(
+          'select %I, %I, %I, %I, visibility from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col,
+          v_schema, v_my_foods_table
+        ) into v_got_attr, v_got_code, v_got_orig, v_got_source, v_unit
+        using v_uid, 'of-accept-probe';
+        if v_got_attr is distinct from v_published_attribution
+           or v_got_code is distinct from '01088'
+           or v_got_orig is distinct from v_probe_name
+           or v_got_source is distinct from v_source
+           or v_unit is distinct from 'public' then
+          raise exception 'ACCEPTANCE FAIL: publishing a mext_sfct food did not keep attribution [%], food code [%], official food name [%], source [%], visibility [%]',
+            v_got_attr, v_got_code, v_got_orig, v_got_source, v_unit;
+        end if;
+
+        execute 'reset role';
+        perform set_config('request.jwt.claim.sub', v_copier::text, true);
+        perform set_config('request.jwt.claim.role', 'authenticated', true);
+        execute format('set local role %I', v_auth_role);
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id, %I, %I, %I) values ($1, $2, ''private'', ''active'', $3, $3, 180, ''g'', 156, ''copied'', $4, $5, null, null, null)',
+          v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col
+        ) using v_copier, 'of-accept-copy', 'probe copy', 'of-accept-probe', v_uid;
+        execute format(
+          'select %I, %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col,
+          v_schema, v_my_foods_table
+        ) into v_got_attr, v_got_code, v_got_orig, v_got_source
+        using v_copier, 'of-accept-copy';
+        if v_got_attr is distinct from v_published_attribution
+           or v_got_code is distinct from '01088'
+           or v_got_orig is distinct from v_probe_name
+           or v_got_source is distinct from v_source then
+          raise exception 'ACCEPTANCE FAIL: direct copy of a public mext food dropped attribution [%], food code [%], official food name [%], source [%]',
+            v_got_attr, v_got_code, v_got_orig, v_got_source;
+        end if;
+
         begin
-          execute format(
-            'update %I.%I set %I = $3, %I = null, %I = $4, %I = ''manual'' where user_id = $1 and food_id = $2',
-            v_schema, v_my_foods_table, v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col
-          ) using v_uid, 'of-accept-probe', 'removed', 'renamed';
-          execute format(
-            'select %I, %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
-            v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col,
-            v_schema, v_my_foods_table
-          ) into v_got_attr, v_got_code, v_got_orig, v_got_source
-          using v_uid, 'of-accept-probe';
-          if v_got_attr is distinct from v_published_attribution
-             or v_got_code is distinct from '01088'
-             or v_got_orig is distinct from v_probe_name
-             or v_got_source is distinct from v_source then
-            raise exception 'ACCEPTANCE FAIL: published mext_sfct attribution or provenance can be removed (now % / % / % / %)',
-              v_got_attr, v_got_code, v_got_orig, v_got_source;
-          end if;
+          perform public.publish_saved_food('of-accept-bridge');
+          raise exception 'ACCEPTANCE FAIL: unattributed composition-table copy was published';
         exception
           when others then
             if position('ACCEPTANCE FAIL:' in sqlerrm) = 1 then
               raise;
             end if;
+            if position('attribution' in sqlerrm) = 0 then
+              raise exception 'ACCEPTANCE FAIL: publish without attribution failed for another reason: % %', sqlstate, sqlerrm;
+            end if;
         end;
         execute format(
-          'select %I, %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
-          v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col,
+          'select visibility from %I.%I where user_id = $1 and food_id = $2',
           v_schema, v_my_foods_table
-        ) into v_got_attr, v_got_code, v_got_orig, v_got_source
-        using v_uid, 'of-accept-probe';
-        if v_got_attr is distinct from v_published_attribution
-           or v_got_code is distinct from '01088'
-           or v_got_orig is distinct from v_probe_name
-           or v_got_source is distinct from v_source then
-          raise exception 'ACCEPTANCE FAIL: published mext_sfct row lost attribution or provenance after a removal attempt (% / % / % / %)',
-            v_got_attr, v_got_code, v_got_orig, v_got_source;
+        ) into v_unit
+        using v_copier, 'of-accept-bridge';
+        if v_unit is distinct from 'private' then
+          raise exception 'ACCEPTANCE FAIL: failed publish left the unattributed copy %', v_unit;
         end if;
+
+        perform public.publish_saved_food('of-accept-copy');
+        execute format(
+          'select visibility, %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_source_col, v_schema, v_my_foods_table
+        ) into v_unit, v_got_attr, v_got_source
+        using v_copier, 'of-accept-copy';
+        if v_unit is distinct from 'public'
+           or v_got_attr is distinct from v_published_attribution
+           or v_got_source is distinct from v_source then
+          raise exception 'ACCEPTANCE FAIL: attributed copy did not stay public with the sentence (% / % / %)',
+            v_unit, v_got_attr, v_got_source;
+        end if;
+
         raise exception using errcode = 'P0001', message = 'ACCEPTANCE_PROBE_DONE';
       exception
         when sqlstate 'P0001' then

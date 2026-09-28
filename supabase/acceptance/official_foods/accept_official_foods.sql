@@ -13,7 +13,7 @@
 -- Do not treat a notice as a pass. Do not commit this file with a production
 -- snapshot pasted in.
 --
--- Aligned to PR #31 (cursor/official-foods-import-0702 @ 08dca4e).
+-- Aligned to PR #31 (cursor/official-foods-import-0702 @ 5eab90b).
 -- Apply order after the snapshot:
 --   supabase/migrations/20260928120000_official_foods.sql
 --   supabase/migrations/20260928140000_official_food_provenance.sql
@@ -232,6 +232,7 @@ declare
   v_src text;
   v_uid uuid;
   v_copier uuid;
+  v_other uuid;
   v_probe_name text;
   v_got_attr text;
   v_got_code text;
@@ -882,11 +883,12 @@ begin
     if v_n = 0 then
     v_uid := '00000000-0000-4000-8000-000000000088';
     v_copier := '00000000-0000-4000-8000-000000000089';
+    v_other := '00000000-0000-4000-8000-000000000090';
     v_probe_name := 'acceptance-original-name';
     begin
       begin
-        insert into auth.users (id) values (v_uid), (v_copier);
-        insert into public.users (id) values (v_uid), (v_copier);
+        insert into auth.users (id) values (v_uid), (v_copier), (v_other);
+        insert into public.users (id) values (v_uid), (v_copier), (v_other);
         begin
           execute format(
             'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, %I, %I, %I) values ($1, $2, ''private'', ''active'', $3, $3, 100, ''g'', 156, $4, $5, $6, null)',
@@ -899,6 +901,10 @@ begin
               v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col
             ) using v_uid, 'of-accept-probe', 'probe rice', v_source, '01088', v_probe_name, 'pending';
         end;
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I) values ($1, $2, ''private'', ''active'', $3, $3, 240, ''g'', 10, ''manual'')',
+          v_schema, v_my_foods_table, v_prov_source_col
+        ) using v_other, 'of-accept-secret', 'probe secret';
         perform set_config('request.jwt.claim.sub', v_uid::text, true);
         perform set_config('request.jwt.claim.role', 'authenticated', true);
         perform set_config('ayg.allow_mext_source_change', 'on', true);
@@ -1107,6 +1113,131 @@ begin
            or v_got_source is distinct from v_source then
           raise exception 'ACCEPTANCE FAIL: copy could not be edited after the source became private (% / % / %)',
             v_got_orig, v_got_attr, v_got_source;
+        end if;
+
+        -- PostgREST saves with POST, Prefer: resolution=merge-duplicates,
+        -- on_conflict=user_id,food_id. That is INSERT ... ON CONFLICT
+        -- (user_id, food_id) DO UPDATE, so the insert trigger runs on an
+        -- edit. The same copied_from must not be re-checked.
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, %I, %I, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 180, ''g'', 156, $4, $5, $6, $7, $8, $9) on conflict (user_id, food_id) do update set name = excluded.name, normalized_name = excluded.normalized_name, %I = excluded.%I, %I = excluded.%I, %I = excluded.%I, %I = excluded.%I, copied_from_food_id = excluded.copied_from_food_id, copied_from_owner_user_id = excluded.copied_from_owner_user_id',
+          v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col,
+          v_prov_source_col, v_prov_source_col, v_prov_code_col, v_prov_code_col, v_prov_name_col, v_prov_name_col, v_attr_col, v_attr_col
+        ) using v_copier, 'of-accept-copy', 'probe copy upsert private', v_source, '01088', v_probe_name, v_published_attribution, 'of-accept-probe', v_uid;
+        execute format(
+          'select name, %I, %I, copied_from_food_id from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_source_col, v_schema, v_my_foods_table
+        ) into v_got_orig, v_got_attr, v_got_source, v_got
+        using v_copier, 'of-accept-copy';
+        if v_got_orig is distinct from 'probe copy upsert private'
+           or v_got_attr is distinct from v_published_attribution
+           or v_got_source is distinct from v_source
+           or v_got is distinct from 'of-accept-probe' then
+          raise exception 'ACCEPTANCE FAIL: upsert could not edit a copy after the source became private (% / % / % / %)',
+            v_got_orig, v_got_attr, v_got_source, v_got;
+        end if;
+
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, %I, %I, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 180, ''g'', 156, ''manual'', null, null, null, $4, $5) on conflict (user_id, food_id) do update set name = excluded.name, normalized_name = excluded.normalized_name, %I = excluded.%I, %I = excluded.%I, %I = excluded.%I, %I = excluded.%I, copied_from_food_id = excluded.copied_from_food_id, copied_from_owner_user_id = excluded.copied_from_owner_user_id',
+          v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col,
+          v_prov_source_col, v_prov_source_col, v_prov_code_col, v_prov_code_col, v_prov_name_col, v_prov_name_col, v_attr_col, v_attr_col
+        ) using v_copier, 'of-accept-copy', 'probe copy upsert stripped', 'of-accept-probe', v_uid;
+        execute format(
+          'select name, %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_code_col, v_prov_source_col, v_schema, v_my_foods_table
+        ) into v_got_orig, v_got_attr, v_got_code, v_got_source
+        using v_copier, 'of-accept-copy';
+        if v_got_orig is distinct from 'probe copy upsert stripped'
+           or v_got_attr is distinct from v_published_attribution
+           or v_got_code is distinct from '01088'
+           or v_got_source is distinct from v_source then
+          raise exception 'ACCEPTANCE FAIL: upsert stripped attribution (% / % / % / %)',
+            v_got_orig, v_got_attr, v_got_code, v_got_source;
+        end if;
+
+        begin
+          execute format(
+            'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 180, ''g'', 156, ''copied'', $4, $5) on conflict (user_id, food_id) do update set name = excluded.name, normalized_name = excluded.normalized_name, copied_from_food_id = excluded.copied_from_food_id, copied_from_owner_user_id = excluded.copied_from_owner_user_id',
+            v_schema, v_my_foods_table, v_prov_source_col
+          ) using v_copier, 'of-accept-copy', 'probe copy upsert stolen', 'of-accept-secret', v_other;
+          raise exception 'ACCEPTANCE FAIL: upsert accepted someone else''s private copied_from';
+        exception
+          when others then
+            if position('ACCEPTANCE FAIL:' in sqlerrm) = 1 then
+              raise;
+            end if;
+            if position('copied_from' in sqlerrm) = 0
+               or position('attribution' in sqlerrm) > 0 then
+              raise exception 'ACCEPTANCE FAIL: upsert onto a private copied_from failed for another reason: % %',
+                sqlstate, sqlerrm;
+            end if;
+        end;
+        execute format(
+          'select copied_from_food_id, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_schema, v_my_foods_table
+        ) into v_got, v_got_attr
+        using v_copier, 'of-accept-copy';
+        if v_got is distinct from 'of-accept-probe'
+           or v_got_attr is distinct from v_published_attribution then
+          raise exception 'ACCEPTANCE FAIL: failed upsert changed the copy (% / %)', v_got, v_got_attr;
+        end if;
+
+        execute 'reset role';
+        execute format(
+          'delete from %I.%I where user_id = $1 and food_id = $2',
+          v_schema, v_my_foods_table
+        ) using v_uid, 'of-accept-probe';
+        perform set_config('request.jwt.claim.sub', v_copier::text, true);
+        perform set_config('request.jwt.claim.role', 'authenticated', true);
+        execute format('set local role %I', v_auth_role);
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, %I, %I, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 180, ''g'', 156, $4, $5, $6, $7, $8, $9) on conflict (user_id, food_id) do update set name = excluded.name, normalized_name = excluded.normalized_name, %I = excluded.%I, %I = excluded.%I, %I = excluded.%I, %I = excluded.%I, copied_from_food_id = excluded.copied_from_food_id, copied_from_owner_user_id = excluded.copied_from_owner_user_id',
+          v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col,
+          v_prov_source_col, v_prov_source_col, v_prov_code_col, v_prov_code_col, v_prov_name_col, v_prov_name_col, v_attr_col, v_attr_col
+        ) using v_copier, 'of-accept-copy', 'probe copy upsert deleted', v_source, '01088', v_probe_name, v_published_attribution, 'of-accept-probe', v_uid;
+        execute format(
+          'select name, %I, %I, copied_from_food_id from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_source_col, v_schema, v_my_foods_table
+        ) into v_got_orig, v_got_attr, v_got_source, v_got
+        using v_copier, 'of-accept-copy';
+        if v_got_orig is distinct from 'probe copy upsert deleted'
+           or v_got_attr is distinct from v_published_attribution
+           or v_got_source is distinct from v_source
+           or v_got is distinct from 'of-accept-probe' then
+          raise exception 'ACCEPTANCE FAIL: upsert could not edit a copy after the source was deleted (% / % / % / %)',
+            v_got_orig, v_got_attr, v_got_source, v_got;
+        end if;
+
+        execute 'reset role';
+        execute format(
+          'alter table %I.%I disable trigger enforce_mext_saved_food_attribution',
+          v_schema, v_my_foods_table
+        );
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 230, ''g'', 10, ''copied'', $4, null)',
+          v_schema, v_my_foods_table, v_prov_source_col
+        ) using v_copier, 'of-accept-legacy', 'probe legacy', 'of-accept-probe';
+        execute format(
+          'alter table %I.%I enable trigger enforce_mext_saved_food_attribution',
+          v_schema, v_my_foods_table
+        );
+        perform set_config('request.jwt.claim.sub', v_copier::text, true);
+        perform set_config('request.jwt.claim.role', 'authenticated', true);
+        execute format('set local role %I', v_auth_role);
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 230, ''g'', 10, ''copied'', $4, null) on conflict (user_id, food_id) do update set name = excluded.name, normalized_name = excluded.normalized_name, copied_from_food_id = excluded.copied_from_food_id, copied_from_owner_user_id = excluded.copied_from_owner_user_id',
+          v_schema, v_my_foods_table, v_prov_source_col
+        ) using v_copier, 'of-accept-legacy', 'probe legacy upsert', 'of-accept-probe';
+        execute format(
+          'select name, copied_from_food_id, copied_from_owner_user_id::text from %I.%I where user_id = $1 and food_id = $2',
+          v_schema, v_my_foods_table
+        ) into v_got_orig, v_got, v_unit
+        using v_copier, 'of-accept-legacy';
+        if v_got_orig is distinct from 'probe legacy upsert'
+           or v_got is distinct from 'of-accept-probe'
+           or v_unit is not null then
+          raise exception 'ACCEPTANCE FAIL: upsert could not edit a null-owner row (% / % / %)',
+            v_got_orig, v_got, v_unit;
         end if;
 
         raise exception using errcode = 'P0001', message = 'ACCEPTANCE_PROBE_DONE';

@@ -48,6 +48,14 @@ cp "$landing_docs/assets/lp/"* "$output/lp/assets/lp/"
 cp "$landing_docs/legal/"* "$output/legal/"
 cp "$landing_docs/.nojekyll" "$landing_docs/robots.txt" "$landing_docs/sitemap.xml" "$output/"
 
+if [ ! -f "$landing_docs/lingo/index.html" ]; then
+  echo "missing $landing_docs/lingo/index.html" >&2
+  exit 1
+fi
+rm -rf "$output/lingo"
+mkdir -p "$output/lingo"
+cp -a "$landing_docs/lingo"/. "$output/lingo/"
+
 # Voxel game lives on main next to docs/. Missing directory is fine for older checkouts.
 craft_dir="$(dirname "$landing_docs")/games/craft"
 if [ -f "$craft_dir/index.html" ]; then
@@ -68,5 +76,10 @@ fi
 
 if grep -q '今日、あと何kcalか' "$output/index.html"; then
   echo "landing page overwrote the web root" >&2
+  exit 1
+fi
+
+if ! grep -q 'lingo-ui-demo' "$output/lingo/index.html"; then
+  echo "lingo demo was not copied" >&2
   exit 1
 fi

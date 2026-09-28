@@ -13,14 +13,16 @@
 -- Do not treat a notice as a pass. Do not commit this file with a production
 -- snapshot pasted in.
 --
--- TODO(feature-pr): the CONFIG block is the only place that should need edits
--- once the feature PR lands. Defaults match the import brief, not a merged
--- schema. If a name differs, change it here. v_exclude_* ignores brand-new
+-- Aligned to PR #31 (cursor/official-foods-import-0702 @ 7988b2f), migration
+-- supabase/migrations/20260928120000_official_foods.sql. Table, column, and
+-- function names already matched this CONFIG; search_official_foods orders by
+-- rank_value, so v_rank_column stays null. v_exclude_* ignores brand-new
 -- objects only; it cannot silence a change to a table that already existed.
 -- v_ignore_signature_for is the only signature waiver, and row counts still
--- have to match. Leave it empty unless the reviewed migration alters a
--- pre-existing user table (the brief allows a saved_foods source_type check
--- only if official foods are copied into saved_foods).
+-- have to match. PR #31 replaces saved_foods_source_type_check to add
+-- mext_sfct (that file, the saved_foods block at the end). That is a reviewed
+-- signature change, so saved_foods is listed. It is not a new table and must
+-- not be added to v_exclude_tables.
 --
 -- Values below were read from the official workbook on 2026-09-28, sheet
 -- 表全体, component id ENERC_KCAL (per 100 g edible portion), not from memory.
@@ -100,7 +102,9 @@ declare
   v_exclude_tables text[] := array['official_foods', 'official_food_aliases'];
   v_exclude_routines text[] := array['normalize_food_search_text', 'search_official_foods'];
   v_exclude_new_views text[] := array[]::text[];
-  v_ignore_signature_for text[] := array[]::text[];
+  -- PR #31 drops and recreates saved_foods_source_type_check (adds mext_sfct).
+  -- Row count of saved_foods must still match the snapshot.
+  v_ignore_signature_for text[] := array['saved_foods'];
   v_count_match_required boolean := true;
 
   v_foods jsonb := jsonb_build_array(

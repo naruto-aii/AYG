@@ -12,10 +12,10 @@
 -- names are listed in its CONFIG block. Objects that already exist here are
 -- always compared, so adding saved_foods to that list cannot hide a change.
 --
--- TODO(feature-pr): no edit is required in this file when the feature PR
--- lands. Align names in accept_official_foods.sql. Take this snapshot before
--- applying the migration; a baseline that already contains official_foods is
--- rejected.
+-- No name edit is required in this file. PR #31 names are aligned in
+-- accept_official_foods.sql. Take this snapshot before applying
+-- 20260928120000_official_foods.sql; a baseline that already contains
+-- official_foods is rejected.
 
 begin read only;
 set local statement_timeout = '120s';

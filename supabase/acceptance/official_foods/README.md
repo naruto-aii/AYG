@@ -9,7 +9,7 @@
 
 手順、所要時間、ロールバックは `docs/ops/official-foods-apply.md` です。
 
-識別子の初期値は取込ブリーフに合わせています。機能 PR の名前が違えば `accept_official_foods.sql` 先頭の CONFIG だけを直します。`v_exclude_tables` と `v_exclude_routines` は、マイグレーションが新しく作ったオブジェクトだけを比較から外します。スナップショット時点で既にあったテーブルをそこに書いても、変更は隠せません。
+識別子は PR #31（`7988b2f`、`20260928120000_official_foods.sql`）の実名に合わせています。後続で名前が違えば `accept_official_foods.sql` 先頭の CONFIG だけを直します。`v_exclude_tables` と `v_exclude_routines` は、マイグレーションが新しく作ったオブジェクトだけを比較から外します。スナップショット時点で既にあったテーブルをそこに書いても、変更は隠せません。`saved_foods` の `source_type` 制約追加は `v_ignore_signature_for` にだけ書いてあります。
 
 エネルギーと食品名は、2026-09-28 に公式 Excel（表全体、成分識別子 `ENERC_KCAL`、可食部 100 g 当たり）を読んで入れています。
 

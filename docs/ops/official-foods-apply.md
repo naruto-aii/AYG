@@ -130,7 +130,7 @@ CSV から、食品を先、別名を後にした `INSERT ... ON CONFLICT DO UPD
 1. `accept_official_foods.sql` をローカルで複製する。リポジトリのファイルは `v_baseline jsonb := null` のままにする。
 2. 複製の CONFIG で、`v_baseline jsonb := null` を手順 3 の jsonb に差し替える。ドル引用符の例はファイル先頭に書いてあります。スナップショットの中に区切り文字 `$of_baseline$` が無いことを見てから貼ります。
 3. 機能 PR で名前が違っていれば、同じ CONFIG の識別子だけ直す。`v_search_limit` と `v_search_limit_cap` は 30 のままです。
-4. 既存テーブルの定義変更がレビュー済みのときだけ `v_ignore_signature_for` にそのテーブル名を入れる。件数の一致はそれでも必須です。`saved_foods` への `source_type` 追加が該当し得ます。レビュー前に入れません。
+4. リポジトリの CONFIG は PR #31（`cursor/official-foods-import-0702` @ `7988b2f`、`supabase/migrations/20260928120000_official_foods.sql`）の実名に合わせ済みです。テーブルは `official_foods` / `official_food_aliases`、列は `food_code` `name` `kcal` `source` `edition` `base_amount` `unit_type`、関数は `normalize_food_search_text` と `search_official_foods`（戻り順は関数内の `rank_value` なので `v_rank_column` は null）です。同マイグレーション末尾が `saved_foods_source_type_check` を作り直し `mext_sfct` を足すため、`v_ignore_signature_for` は `saved_foods` だけです。件数の一致はそれでも必須です。`saved_foods` を `v_exclude_tables` に入れてはいけません。後続の機能 PR が別名に変えたときだけ、識別子を CONFIG で直します。
 5. 複製の全文を `execute_sql` の `query` に貼る。
 6. スクリプトは anon と authenticated で INSERT / UPDATE / DELETE / TRUNCATE を試し、権限エラー（SQLSTATE 42501）でなければ失敗します。試行はサブトランザクションで巻き戻します。ツールが「破壊的な文」として確認を出しても、承認してよいのはこの受け入れを今走らせるときだけです。成功時に公式食品行もユーザテーブルもコミットされません。
 7. 結果が 1 行で `status` が `PASS` なら成功です。`detail` をチケットに貼ります（件数、検索の先頭コード、`牛丼` のコード、ユーザテーブルの差分）。差分が空でない PASS は、`v_count_match_required` を false にした再実行だけです。その差分の説明をチケットに書いてからフラグ検討に進みます。

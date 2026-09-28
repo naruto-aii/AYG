@@ -96,6 +96,8 @@ App Store Connect では、この表のとおり Contact Info > Name を申告�
 | トラッキング | いいえ |
 | 目的 | App Functionality |
 
+マニフェスト: `NSPrivacyCollectedDataTypeName`。関連付けあり、トラッキングなし、目的は App Functionality のみ（`ios/Runner/PrivacyInfo.xcprivacy`）。
+
 申告する理由: アプリは Google の氏名もプロフィール画像も表示しない。`AuthUser` は `id` と `email` だけ（`lib/repositories/supabase_authentication_repository.dart` の `_mapUser`）。`public.profiles` は生年月日・性別・身長・体重で、Google の氏名ではない。それでも Supabase Auth は Google ログインのとき、氏名と画像 URL を `auth.users.raw_user_meta_data` に入れる。既定のキーは `full_name`、`name`、`avatar_url`、`picture` で、同じ内容は `auth.identities.identity_data` にも残る。アカウント削除が成功すると、`delete_own_account` が `raw_user_meta_data` を `{}` にし、`auth.identities` の行を消す。
 
 保存を避けなかった理由:

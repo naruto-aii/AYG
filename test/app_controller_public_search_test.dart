@@ -256,6 +256,7 @@ void main() {
       expect(copy.visibility, FoodVisibility.private);
       expect(copy.sourceType, FoodSourceType.copied);
       expect(copy.copiedFromFoodId, 'src');
+      expect(copy.copiedFromOwnerUserId, source.ownerUserId);
       expect(copy.ownerUserId, AppController.localOwnerUserId);
     });
 

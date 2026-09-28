@@ -73,6 +73,7 @@ declare
   v_next_food text;
   v_next_owner uuid;
   v_depth integer := 0;
+  v_check_source boolean;
 begin
   v_may_relabel :=
     current_user in ('postgres', 'service_role')
@@ -84,36 +85,68 @@ begin
         and c.relname = 'saved_foods'
     );
 
-  -- The direct copied_from target must be a row this role can read.
-  -- Row level security hides the rest. A forged owner id or an unknown
-  -- food id used to end the walk early, so a row could keep an official
-  -- food code and still be published with no attribution.
-  -- The table owner is not rewritten, so rollback can relabel source_type.
+  -- Readability is checked only when the reference is set or replaced.
+  -- A later update, including publish_saved_food (security definer, which
+  -- only changes visibility), must still succeed after the source becomes
+  -- private or is deleted. The table owner is not rewritten, so rollback
+  -- can relabel source_type.
+  v_check_source := tg_op = 'INSERT';
+  if tg_op = 'UPDATE' then
+    v_check_source :=
+      new.copied_from_food_id is distinct from old.copied_from_food_id
+      or new.copied_from_owner_user_id is distinct from old.copied_from_owner_user_id;
+  end if;
+
+  if new.copied_from_food_id is not null
+     and v_check_source
+     and new.copied_from_owner_user_id is null then
+    raise exception 'copied_from_owner_user_id is required';
+  end if;
+
+  -- A null owner used to match any row with that food id. publish_saved_food
+  -- runs as the table owner and bypasses row level security, so that match
+  -- let its success or failure reveal whether someone else's private row
+  -- was a composition-table food. Follow only the writer's own row or a
+  -- public row, and never treat a null owner as a wildcard.
   v_food_id := new.copied_from_food_id;
   v_owner := new.copied_from_owner_user_id;
-  while v_food_id is not null and v_depth < 8 loop
-    v_depth := v_depth + 1;
-    select s.official_food_code, s.official_food_name, s.source_type,
-           s.copied_from_food_id, s.copied_from_owner_user_id
-      into v_from_code, v_from_name, v_row_source, v_next_food, v_next_owner
-    from public.saved_foods s
-    where s.food_id = v_food_id
-      and (v_owner is null or s.user_id = v_owner)
-    limit 1;
-    if not found then
-      if v_depth = 1 then
-        raise exception 'copied_from must reference a saved food you can read';
+  if v_owner is not null then
+    while v_food_id is not null and v_depth < 8 loop
+      v_depth := v_depth + 1;
+      select s.official_food_code, s.official_food_name, s.source_type,
+             s.copied_from_food_id, s.copied_from_owner_user_id
+        into v_from_code, v_from_name, v_row_source, v_next_food, v_next_owner
+      from public.saved_foods s
+      where s.food_id = v_food_id
+        and s.user_id = v_owner
+        and (
+          s.user_id = new.user_id
+          or public.is_saved_food_publicly_visible(
+            s.visibility,
+            s.status,
+            s.deleted_at,
+            s.moderation_status
+          )
+        )
+      limit 1;
+      if not found then
+        if v_depth = 1 and v_check_source then
+          raise exception
+            'copied_from must reference your own saved food or a public saved food';
+        end if;
+        exit;
       end if;
-      exit;
-    end if;
-    if v_row_source = 'mext_sfct' or v_from_code is not null then
-      v_chain_mext := true;
-      exit;
-    end if;
-    exit when v_next_food is null or v_next_food = v_food_id;
-    v_food_id := v_next_food;
-    v_owner := v_next_owner;
-  end loop;
+      if v_row_source = 'mext_sfct' or v_from_code is not null then
+        v_chain_mext := true;
+        exit;
+      end if;
+      exit when v_next_food is null
+        or v_next_owner is null
+        or v_next_food = v_food_id;
+      v_food_id := v_next_food;
+      v_owner := v_next_owner;
+    end loop;
+  end if;
 
   if v_chain_mext and not v_may_relabel then
     new.source_type := 'mext_sfct';
@@ -144,10 +177,10 @@ begin
       '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
   end if;
 
-  -- Publish checks do not trust copied_from. A food code without the
-  -- canonical attribution cannot be public. A readable copied_from chain
-  -- that reaches a composition-table row cannot be public unless this row
-  -- keeps mext_sfct provenance and that same attribution.
+  -- A food code without the canonical attribution cannot be public. This
+  -- does not depend on copied_from. A chain that reaches a still-visible
+  -- composition-table row (own row or a public row) cannot be public
+  -- unless this row keeps mext_sfct provenance and that same attribution.
   if new.visibility = 'public'
      and new.official_food_code is not null
      and new.source_attribution is distinct from

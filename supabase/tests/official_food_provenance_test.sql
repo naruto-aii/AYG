@@ -320,9 +320,9 @@ begin
 end
 $$;
 
--- Forged copied_from. A food code without the canonical attribution cannot
--- be published even when copied_from points at an ordinary food. copied_from
--- itself must be a row this role can read.
+-- Forged copied_from. (c) A food code without the canonical attribution
+-- cannot be published even when copied_from points at an ordinary food.
+-- copied_from must be the writer's own row or a public row.
 do $$
 declare
   uid uuid := '11111111-1111-1111-1111-111111111111';
@@ -405,5 +405,150 @@ begin
         raise;
       end if;
   end;
+end
+$$;
+
+-- (a) After the source becomes private, the copier can still edit and
+-- publish their own row. (b) A copied_from with a null owner is rejected.
+-- A private composition-table row and a private ordinary row fail the
+-- same way, so publish_saved_food cannot be used to tell them apart.
+do $$
+declare
+  uid uuid := '11111111-1111-1111-1111-111111111111';
+  copier uuid := '33333333-3333-3333-3333-333333333333';
+  stranger uuid := '55555555-5555-5555-5555-555555555555';
+  got_name text;
+  got_visibility text;
+  manual_err text;
+  mext_err text;
+begin
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, official_food_code, official_food_name, visibility
+  ) values (
+    uid, 'hide-source', '隠すご飯', '隠すご飯', 100, 'g',
+    'mext_sfct', '01088', 'こめ　［水稲めし］　精白米　うるち米', 'private'
+  );
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, official_food_code, official_food_name, visibility
+  ) values (
+    stranger, 'secret-mext', '秘密の成分表', '秘密の成分表', 100, 'g',
+    'mext_sfct', '01088', 'こめ　［水稲めし］　精白米　うるち米', 'private'
+  );
+
+  perform set_config('request.jwt.claim.sub', uid::text, true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  execute 'set local role authenticated';
+  perform public.publish_saved_food('hide-source');
+  execute 'reset role';
+
+  perform set_config('request.jwt.claim.sub', copier::text, true);
+  execute 'set local role authenticated';
+
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+  ) values (
+    copier, 'edit-after-private', '写し', '写し', 100, 'g',
+    'copied', 'hide-source', uid, 'private'
+  );
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+    ) values (
+      copier, 'null-owner', '所有者なし', '所有者なし', 100, 'g',
+      'copied', 'hide-source', null, 'private'
+    );
+    raise exception 'copied_from accepted a null owner';
+  exception
+    when others then
+      if sqlerrm not like '%copied_from_owner_user_id%' then
+        raise;
+      end if;
+  end;
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+    ) values (
+      copier, 'probe-manual', '探る', '探る', 100, 'g',
+      'copied', 'secret-food', stranger, 'private'
+    );
+    raise exception 'copied_from accepted a private ordinary food';
+  exception
+    when others then
+      manual_err := sqlerrm;
+  end;
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+    ) values (
+      copier, 'probe-mext', '探る成分表', '探る成分表', 100, 'g',
+      'copied', 'secret-mext', stranger, 'private'
+    );
+    raise exception 'copied_from accepted a private composition-table food';
+  exception
+    when others then
+      mext_err := sqlerrm;
+  end;
+
+  if manual_err not like '%copied_from%'
+     or mext_err not like '%copied_from%'
+     or manual_err like '%attribution%'
+     or mext_err like '%attribution%'
+     or manual_err like '%mext%'
+     or mext_err like '%mext%'
+     or manual_err is distinct from mext_err then
+    raise exception
+      'private foods were distinguishable: manual=% mext=%',
+      manual_err, mext_err;
+  end if;
+
+  execute 'reset role';
+  update public.saved_foods
+  set visibility = 'private'
+  where user_id = uid and food_id = 'hide-source';
+
+  execute 'set local role authenticated';
+  update public.saved_foods
+  set name = '編集できた', normalized_name = '編集できた'
+  where user_id = copier and food_id = 'edit-after-private';
+
+  select name into got_name
+  from public.saved_foods
+  where user_id = copier and food_id = 'edit-after-private';
+  if got_name is distinct from '編集できた' then
+    raise exception 'copy could not be edited after the source became private: %',
+      got_name;
+  end if;
+
+  perform public.publish_saved_food('edit-after-private');
+  select visibility into got_visibility
+  from public.saved_foods
+  where user_id = copier and food_id = 'edit-after-private';
+  if got_visibility is distinct from 'public' then
+    raise exception 'attributed copy could not be published after the source became private';
+  end if;
+
+  execute 'reset role';
+  delete from public.saved_foods
+  where user_id = uid and food_id = 'hide-source';
+
+  execute 'set local role authenticated';
+  update public.saved_foods
+  set brand = '残った'
+  where user_id = copier and food_id = 'edit-after-private';
+  if (
+    select brand from public.saved_foods
+    where user_id = copier and food_id = 'edit-after-private'
+  ) is distinct from '残った' then
+    raise exception 'copy could not be edited after the source was deleted';
+  end if;
 end
 $$;

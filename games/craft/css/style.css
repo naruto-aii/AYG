@@ -330,10 +330,10 @@ body.mobile #touch {
   font-weight: 800;
   font-size: 18px;
 }
-body.mobile #hud { bottom: 168px; }
-body.mobile .slot { width: 36px; height: 36px; }
-body.mobile .vitals { width: 320px; }
-body.mobile #air { margin-left: calc(50% - 160px); }
+body.mobile #hud { bottom: calc(236px + env(safe-area-inset-bottom)); }
+body.mobile .slot { width: 34px; height: 34px; }
+body.mobile .vitals { width: 300px; }
+body.mobile #air { margin-left: calc(50% - 150px); }
 
 @media (max-width: 860px) {
   .menu h1 { font-size: 26px; }

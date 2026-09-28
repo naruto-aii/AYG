@@ -25,7 +25,7 @@ function skyFor(time) {
   const t = (time % 24000) / 24000;
   const sunY = Math.sin(t * Math.PI * 2);
   const day = smoothstep(-0.05, 0.32, sunY);
-  const dusk = Math.exp(-(sunY * 3.1) ** 2) * (1 - day * 0.45);
+  const dusk = Math.exp(-((sunY * 3.1) ** 2)) * (1 - day * 0.45);
   const top = mix([0.015, 0.02, 0.06], [0.34, 0.6, 0.95], day);
   const horizon = mix(mix([0.07, 0.07, 0.12], [0.7, 0.83, 0.96], day), [0.96, 0.46, 0.26], dusk);
   return {
@@ -88,6 +88,7 @@ class Game {
     this.applySettings();
     this.ui.showTitle();
     const params = new URLSearchParams(location.search);
+    if (params.get("room") && !params.get("autostart")) this.ui.showMp();
     if (params.get("autostart")) this.startSingle(params.get("autostart") === "creative" ? "creative" : "survival");
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
@@ -282,7 +283,7 @@ class Game {
 
   async createRoom(mode) {
     this.audio.unlock();
-    this.playerName = (document.getElementById("player-name").value || "ホスト").slice(0, 12);
+    this.playerName = (document.getElementById("mp-name").value || document.getElementById("player-name").value || "ホスト").slice(0, 12);
     this.mode = mode;
     this.host = true;
     const code = randomCode();
@@ -302,7 +303,7 @@ class Game {
     this.audio.unlock();
     code = (code || "").trim().toUpperCase();
     if (code.length < 4) return this.ui.toast("部屋コードを入力してください");
-    this.playerName = (document.getElementById("player-name").value || "ゲスト").slice(0, 12);
+    this.playerName = (document.getElementById("mp-name").value || document.getElementById("player-name").value || "ゲスト").slice(0, 12);
     this.mode = mode || "survival";
     this.host = false;
     this.guestStarted = false;
@@ -357,6 +358,11 @@ class Game {
     };
     this.player = new Player(this.world, opts.mode);
     if (opts.player) this.player.importState(opts.player);
+    else if (this.player.creative) {
+      [1, 2, 3, 4, 9, 7, 20, 21, 5].forEach((id, i) => {
+        this.player.inventory.slots[i] = { id, count: 1 };
+      });
+    }
     this.mobs = new MobSystem();
     this.drops = new DropSystem();
     this.particles = [];

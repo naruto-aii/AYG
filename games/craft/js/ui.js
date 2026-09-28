@@ -143,7 +143,9 @@ export class UI {
   showMp() {
     this.hideAll();
     this.el.mp.classList.remove("hidden");
-    const name = this.el.nameInput.value.trim();
+    const mpName = document.getElementById("mp-name");
+    if (mpName && this.el.nameInput.value.trim()) mpName.value = this.el.nameInput.value.trim();
+    const name = (mpName?.value || this.el.nameInput.value).trim();
     if (name) this.game.playerName = name.slice(0, 12);
   }
 

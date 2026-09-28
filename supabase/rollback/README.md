@@ -8,7 +8,7 @@
 
 `supabase/rollback/20260928140000_official_food_provenance_down.sql`
 
-消えるもの: `saved_foods` の `official_food_code`、`official_food_name`、`source_attribution`、`food_entries` の `official_food_code`、`official_food_name`、出典を固定するトリガー。`food_entries.source_type = 'mext_sfct'` の行は削除せず `manual` に戻す。マイ食品の `source_type` は、その次の official foods のロールバックで `copied` に戻す。
+消えるもの: `saved_foods` の `official_food_code`、`official_food_name`、`source_attribution`、`food_entries` の `official_food_code`、`official_food_name`、出典を固定するトリガー、食品番号が `official_foods` に実在することを見る関数。`food_entries.source_type = 'mext_sfct'` の行は削除せず `manual` に戻す。その更新は新しい source が `mext_sfct` ではないので、`official_foods` が先に消えていても通る。マイ食品の `source_type` は、その次の official foods のロールバックで `copied` に戻す。
 
 ## 20260928120000 official foods
 
@@ -16,7 +16,7 @@
 
 `supabase/rollback/20260928120000_official_foods_down.sql`
 
-消えるもの: `search_official_foods`、`normalize_food_search_text`、`official_food_aliases`、`official_foods`。`pg_trgm` 拡張は残す。`saved_foods.source_type = 'mext_sfct'` の行は削除せず `copied` に戻してから、元の check 制約を付け直す。
+消えるもの: `search_official_foods`、`normalize_food_search_text`、`official_food_aliases`、`official_foods`。`pg_trgm` 拡張は残す。`saved_foods.source_type = 'mext_sfct'` の行は削除せず `copied` に戻してから、元の check 制約を付け直す。この更新は postgres、service_role、または `saved_foods` の所有者で実行する。出典ロックはセッション変数では外れない。
 
 データだけ戻す（テーブルは残す）:
 

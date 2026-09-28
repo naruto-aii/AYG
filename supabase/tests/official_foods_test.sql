@@ -51,6 +51,36 @@ begin
       raise exception 'normalize(%) = %, expected %', sample, got, expected;
     end if;
   end loop;
+
+  if public.normalize_food_search_text(repeat('ゴ', 50000))
+     is distinct from public.normalize_food_search_text(repeat('ゴ', 256)) then
+    raise exception 'normalize did not keep only the first 256 characters';
+  end if;
+end
+$$;
+
+do $$
+declare
+  started timestamptz := clock_timestamp();
+  elapsed interval;
+begin
+  perform public.normalize_food_search_text(repeat('あ', 50000));
+  elapsed := clock_timestamp() - started;
+  if elapsed > interval '2 seconds' then
+    raise exception '50000-char normalize took %', elapsed;
+  end if;
+  if has_function_privilege(
+       'authenticated',
+       'public.normalize_food_search_text(text)',
+       'execute'
+     )
+     or has_function_privilege(
+       'anon',
+       'public.normalize_food_search_text(text)',
+       'execute'
+     ) then
+    raise exception 'normalize_food_search_text is still granted to anon or authenticated';
+  end if;
 end
 $$;
 
@@ -211,6 +241,14 @@ begin
     raise exception 'search did not keep only the first 64 characters: % vs %',
       long_codes, short_codes;
   end if;
+
+  begin
+    perform public.normalize_food_search_text('ご飯');
+    raise exception 'authenticated normalize succeeded';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
 end
 $$;
 
@@ -242,6 +280,16 @@ do $$
 begin
   perform 1 from public.search_official_foods('ご飯', 1);
   raise exception 'anon search succeeded';
+exception
+  when insufficient_privilege then
+    null;
+end
+$$;
+
+do $$
+begin
+  perform public.normalize_food_search_text('ご飯');
+  raise exception 'anon normalize succeeded';
 exception
   when insufficient_privilege then
     null;

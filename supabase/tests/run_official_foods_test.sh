@@ -248,7 +248,8 @@ begin
     where table_schema = 'public'
       and table_name = 'food_entries'
       and column_name in ('official_food_code', 'official_food_name')
-  ) or to_regprocedure('public.enforce_mext_saved_food_attribution()') is not null then
+  ) or to_regprocedure('public.enforce_mext_saved_food_attribution()') is not null
+    or to_regprocedure('public.enforce_mext_food_entry_code()') is not null then
     raise exception 'provenance down left columns or the attribution trigger';
   end if;
   if exists (

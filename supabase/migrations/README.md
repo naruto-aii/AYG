@@ -37,14 +37,21 @@ They run with owner privileges.
 `official_foods` and `official_food_aliases` are authenticated-select only.
 `anon` has no privileges. `INSERT` / `UPDATE` / `DELETE` / `TRUNCATE` are
 revoked from `anon` and `authenticated`. The import script writes as the
-database owner. `search_official_foods` and `normalize_food_search_text`
-grant `EXECUTE` to `authenticated` only. The search function keeps the
-first 64 characters of the argument, then matches the stored
-`normalized_name`, alias `normalized`, and `reading` columns so the
-`pg_trgm` indexes can be used. `20260928140000` stores the food code,
-official name, and source attribution on `saved_foods` and the food code
-and official name on `food_entries`. A trigger keeps the attribution on
-`source_type = mext_sfct` rows.
+database owner. `search_official_foods` grants `EXECUTE` to
+`authenticated` only. It is `security definer` with `search_path = ''`
+so it can call `normalize_food_search_text`. That normalizer keeps the
+first 256 characters and does not grant `EXECUTE` to `anon`,
+`authenticated`, or `public`. Search keeps the first 64 characters of
+the argument, then matches the stored `normalized_name`, alias
+`normalized`, and `reading` columns so the `pg_trgm` indexes can be
+used. `20260928140000` stores the food code, official name, and source
+attribution on `saved_foods` and the food code and official name on
+`food_entries`. A trigger keeps the attribution on
+`source_type = mext_sfct` rows. The trigger functions are security
+invoker, so `authenticated` is granted `EXECUTE` on them and `anon` is
+not. Only `postgres`, `service_role`, or the `saved_foods` owner may
+change that source. A `mext_sfct` food code must exist in
+`official_foods`.
 
 ### `supabase_admin` default privileges
 

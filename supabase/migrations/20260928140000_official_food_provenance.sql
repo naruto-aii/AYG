@@ -59,14 +59,25 @@ returns trigger
 language plpgsql
 set search_path = ''
 as $$
+declare
+  -- Invoker, not definer: security definer would make current_user the
+  -- owner and the lock would never apply. Rollback runs as postgres,
+  -- service_role, or the table owner.
+  v_may_relabel boolean;
 begin
-  -- Official-foods rollback relabels mext_sfct to copied. That script sets
-  -- this flag so the attribution lock does not block the relabel.
-  if pg_catalog.current_setting('ayg.allow_mext_source_change', true) = 'on' then
-    return new;
-  end if;
+  v_may_relabel :=
+    current_user in ('postgres', 'service_role')
+    or current_user = (
+      select pg_catalog.pg_get_userbyid(c.relowner)
+      from pg_catalog.pg_class c
+      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relname = 'saved_foods'
+    );
 
-  if tg_op = 'UPDATE' and old.source_type = 'mext_sfct' then
+  if tg_op = 'UPDATE'
+     and old.source_type = 'mext_sfct'
+     and not v_may_relabel then
     new.source_type := 'mext_sfct';
     new.official_food_code := old.official_food_code;
     new.official_food_name := old.official_food_name;
@@ -76,10 +87,35 @@ begin
     if new.official_food_code is null or new.official_food_name is null then
       raise exception 'mext_sfct foods require official_food_code and official_food_name';
     end if;
+    if not exists (
+      select 1
+      from public.official_foods f
+      where f.food_code = new.official_food_code
+    ) then
+      raise exception 'mext_sfct official_food_code must exist in official_foods';
+    end if;
     new.source_attribution :=
       '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
   end if;
 
+  return new;
+end;
+$$;
+
+create or replace function public.enforce_mext_food_entry_code()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.source_type = 'mext_sfct'
+     and not exists (
+       select 1
+       from public.official_foods f
+       where f.food_code = new.official_food_code
+     ) then
+    raise exception 'mext_sfct official_food_code must exist in official_foods';
+  end if;
   return new;
 end;
 $$;
@@ -90,4 +126,14 @@ create trigger enforce_mext_saved_food_attribution
   for each row
   execute function public.enforce_mext_saved_food_attribution();
 
+drop trigger if exists enforce_mext_food_entry_code on public.food_entries;
+create trigger enforce_mext_food_entry_code
+  before insert or update on public.food_entries
+  for each row
+  execute function public.enforce_mext_food_entry_code();
+
+-- Trigger functions must be executable by the role that writes the row.
 revoke all on function public.enforce_mext_saved_food_attribution() from public, anon, authenticated;
+revoke all on function public.enforce_mext_food_entry_code() from public, anon, authenticated;
+grant execute on function public.enforce_mext_saved_food_attribution() to authenticated;
+grant execute on function public.enforce_mext_food_entry_code() to authenticated;

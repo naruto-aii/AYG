@@ -111,7 +111,9 @@ immutable
 set search_path = ''
 as $$
 declare
-  v text := coalesce(p_text, '');
+  -- Direct calls used to walk every character. Cap before that loop.
+  -- search_official_foods already caps at 64 and is the only caller.
+  v text := pg_catalog.left(coalesce(p_text, ''), 256);
   v_out text := '';
   i integer := 1;
   n integer;
@@ -222,7 +224,7 @@ returns table (
 )
 language plpgsql
 stable
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -466,8 +468,11 @@ revoke insert, update, delete, truncate on table public.official_food_aliases fr
 
 revoke all on sequence public.official_food_aliases_id_seq from public, anon, authenticated;
 
+-- Authenticated users search through search_official_foods. That function
+-- is security definer with a fixed search_path, so it can call the
+-- normalizer. The normalizer itself is not granted to anon, authenticated,
+-- or public.
 revoke all on function public.normalize_food_search_text(text) from public, anon, authenticated;
-grant execute on function public.normalize_food_search_text(text) to authenticated;
 
 revoke all on function public.search_official_foods(text, integer) from public, anon, authenticated;
 grant execute on function public.search_official_foods(text, integer) to authenticated;

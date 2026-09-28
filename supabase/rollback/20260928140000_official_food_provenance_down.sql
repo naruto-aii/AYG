@@ -4,7 +4,9 @@
 -- check can be restored. saved_foods.source_type is left for the official
 -- foods down script.
 
+drop trigger if exists enforce_mext_food_entry_code on public.food_entries;
 drop trigger if exists enforce_mext_saved_food_attribution on public.saved_foods;
+drop function if exists public.enforce_mext_food_entry_code();
 drop function if exists public.enforce_mext_saved_food_attribution();
 
 alter table public.saved_foods

@@ -1,5 +1,33 @@
 -- Food code and official name are real columns. Attribution on a
 -- composition-table My Food cannot be cleared, and the row can stay public.
+-- The trigger functions are not directly executable by authenticated.
+
+do $$
+begin
+  if has_function_privilege(
+       'authenticated',
+       'public.enforce_mext_saved_food_attribution()',
+       'execute'
+     )
+     or has_function_privilege(
+       'anon',
+       'public.enforce_mext_saved_food_attribution()',
+       'execute'
+     )
+     or has_function_privilege(
+       'authenticated',
+       'public.enforce_mext_food_entry_code()',
+       'execute'
+     )
+     or has_function_privilege(
+       'anon',
+       'public.enforce_mext_food_entry_code()',
+       'execute'
+     ) then
+    raise exception 'trigger functions are still executable by anon or authenticated';
+  end if;
+end
+$$;
 
 do $$
 declare

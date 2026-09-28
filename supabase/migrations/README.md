@@ -48,8 +48,8 @@ used. `20260928140000` stores the food code, official name, and source
 attribution on `saved_foods` and the food code and official name on
 `food_entries`. A trigger keeps the attribution on
 `source_type = mext_sfct` rows. The trigger functions are security
-invoker, so `authenticated` is granted `EXECUTE` on them and `anon` is
-not. Only `postgres`, `service_role`, or the `saved_foods` owner may
+invoker. `EXECUTE` is revoked from `public`, `anon`, and `authenticated`;
+row writes still fire the triggers. Only `postgres`, `service_role`, or the `saved_foods` owner may
 change that source. A `mext_sfct` food code must exist in
 `official_foods`. Copying a visible food keeps that source, food code, official name,
 and attribution when `copied_from` reaches a `mext_sfct` row directly

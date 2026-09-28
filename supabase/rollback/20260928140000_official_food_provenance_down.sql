@@ -78,6 +78,18 @@ $unpublish$;
 
 drop trigger if exists enforce_mext_food_entry_code on public.food_entries;
 drop trigger if exists enforce_mext_saved_food_attribution on public.saved_foods;
+
+do $revoke_trigger_fns$
+begin
+  if to_regprocedure('public.enforce_mext_saved_food_attribution()') is not null then
+    execute 'revoke all on function public.enforce_mext_saved_food_attribution() from public, anon, authenticated';
+  end if;
+  if to_regprocedure('public.enforce_mext_food_entry_code()') is not null then
+    execute 'revoke all on function public.enforce_mext_food_entry_code() from public, anon, authenticated';
+  end if;
+end
+$revoke_trigger_fns$;
+
 drop function if exists public.enforce_mext_food_entry_code();
 drop function if exists public.enforce_mext_saved_food_attribution();
 

@@ -236,11 +236,10 @@ create trigger enforce_mext_food_entry_code
   for each row
   execute function public.enforce_mext_food_entry_code();
 
--- Trigger functions must be executable by the role that writes the row.
+-- Row writes fire these triggers as the table owner. Direct EXECUTE is
+-- not granted to authenticated, anon, or public.
 revoke all on function public.enforce_mext_saved_food_attribution() from public, anon, authenticated;
 revoke all on function public.enforce_mext_food_entry_code() from public, anon, authenticated;
-grant execute on function public.enforce_mext_saved_food_attribution() to authenticated;
-grant execute on function public.enforce_mext_food_entry_code() to authenticated;
 
 -- 20260927150000 (PR #29) revokes table INSERT/UPDATE and replaces them
 -- with an explicit column list. Columns added after that list, including

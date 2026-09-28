@@ -53,4 +53,5 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter analyze lib test --no-fatal-infos --no-fatal-warnings
+        # integration tests need the local Supabase CLI. They are not part of this job.
       - run: flutter test --exclude-tags integration

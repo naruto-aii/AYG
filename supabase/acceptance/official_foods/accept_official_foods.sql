@@ -13,16 +13,21 @@
 -- Do not treat a notice as a pass. Do not commit this file with a production
 -- snapshot pasted in.
 --
--- Aligned to PR #31 (cursor/official-foods-import-0702 @ 7988b2f), migration
--- supabase/migrations/20260928120000_official_foods.sql. Table, column, and
--- function names already matched this CONFIG; search_official_foods orders by
--- rank_value, so v_rank_column stays null. v_exclude_* ignores brand-new
--- objects only; it cannot silence a change to a table that already existed.
--- v_ignore_signature_for is the only signature waiver, and row counts still
--- have to match. PR #31 replaces saved_foods_source_type_check to add
--- mext_sfct (that file, the saved_foods block at the end). That is a reviewed
--- signature change, so saved_foods is listed. It is not a new table and must
--- not be added to v_exclude_tables.
+-- Aligned to PR #31 (cursor/official-foods-import-0702 @ 251d82e).
+-- Apply order after the snapshot:
+--   supabase/migrations/20260928120000_official_foods.sql
+--   supabase/migrations/20260928140000_official_food_provenance.sql
+-- search_official_foods orders by rank_value, so v_rank_column stays null.
+-- v_exclude_* ignores brand-new objects only; it cannot silence a change to
+-- a table that already existed. v_ignore_signature_for is the only signature
+-- waiver, and row counts still have to match. 20260928120000 replaces
+-- saved_foods_source_type_check to add mext_sfct. 20260928140000 adds
+-- official_food_code, official_food_name, and source_attribution on
+-- saved_foods, and official_food_code plus official_food_name on
+-- food_entries (and mext_sfct on that table's source_type check). Those are
+-- reviewed signature changes. Neither table is new, so neither name belongs
+-- in v_exclude_tables. The new routine enforce_mext_saved_food_attribution
+-- does belong in v_exclude_routines.
 --
 -- Values below were read from the official workbook on 2026-09-28, sheet
 -- 表全体, component id ENERC_KCAL (per 100 g edible portion), not from memory.
@@ -93,15 +98,14 @@ declare
   v_search_input_cap int := 64;
   v_require_search_input_cap boolean := true;
 
-  -- Provenance on meal rows (food_entries) and My Foods (saved_foods), and
-  -- the non-removable sentence on a published mext_sfct food. Names are the
-  -- contract for that follow-up; if PR #31 picks different columns, change
-  -- them here only.
+  -- Provenance from 20260928140000 on meal rows (food_entries) and My Foods
+  -- (saved_foods), and the non-removable full sentence on a published
+  -- mext_sfct food. The compact UI fallback is not stored.
   v_require_published_attribution boolean := true;
   v_meal_table text := 'food_entries';
   v_my_foods_table text := 'saved_foods';
   v_prov_code_col text := 'official_food_code';
-  v_prov_name_col text := 'original_name';
+  v_prov_name_col text := 'official_food_name';
   v_prov_source_col text := 'source_type';
   v_attr_col text := 'source_attribution';
   v_published_attribution text :=
@@ -118,7 +122,11 @@ declare
   -- Brand-new objects created by the feature migration. A name that already
   -- existed in the snapshot is still compared; this list cannot hide that.
   v_exclude_tables text[] := array['official_foods', 'official_food_aliases'];
-  v_exclude_routines text[] := array['normalize_food_search_text', 'search_official_foods'];
+  v_exclude_routines text[] := array[
+    'normalize_food_search_text',
+    'search_official_foods',
+    'enforce_mext_saved_food_attribution'
+  ];
   v_exclude_new_views text[] := array[]::text[];
   -- saved_foods: source_type check gains mext_sfct, then provenance and
   -- attribution columns. food_entries: meal-row provenance and mext_sfct.
@@ -740,7 +748,7 @@ begin
           and table_name = v_table
           and column_name = v_col;
         if not found then
-          raise exception 'ACCEPTANCE FAIL: %.% is missing provenance column % (food code / original name). Align CONFIG if the feature PR used another name.',
+          raise exception 'ACCEPTANCE FAIL: %.% is missing provenance column % (official_food_code / official_food_name). Align CONFIG if the feature PR used another name.',
             v_schema, v_table, v_col;
         end if;
       end loop;
@@ -833,7 +841,7 @@ begin
            or v_got_code is distinct from '01088'
            or v_got_orig is distinct from v_probe_name
            or v_got_source is distinct from v_source then
-          raise exception 'ACCEPTANCE FAIL: publishing a mext_sfct food did not keep attribution [%], food code [%], original name [%], source [%]',
+          raise exception 'ACCEPTANCE FAIL: publishing a mext_sfct food did not keep attribution [%], food code [%], official food name [%], source [%]',
             v_got_attr, v_got_code, v_got_orig, v_got_source;
         end if;
         begin

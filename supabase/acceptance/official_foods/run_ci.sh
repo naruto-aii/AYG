@@ -44,7 +44,7 @@ psql_cmd -f "$FEATURE_DIR/supabase/tests/official_foods_pg_bootstrap.sql"
 echo "migrations before official foods"
 while IFS= read -r migration; do
   base="$(basename "$migration")"
-  if [[ "$base" == "20260928120000_official_foods.sql" ]]; then
+  if [[ "$base" == "20260928120000_official_foods.sql" || "$base" == "20260928140000_official_food_provenance.sql" ]]; then
     continue
   fi
   echo "apply $base"
@@ -68,9 +68,17 @@ open(dest, "w", encoding="utf-8").write(line.strip())
 print(f"snapshot tables={len(data['tables'])}")
 PY
 
-official="$FEATURE_DIR/supabase/migrations/20260928120000_official_foods.sql"
-echo "apply official foods migration"
-psql_cmd -f "$official"
+for official in \
+  "$FEATURE_DIR/supabase/migrations/20260928120000_official_foods.sql" \
+  "$FEATURE_DIR/supabase/migrations/20260928140000_official_food_provenance.sql"
+do
+  if [[ ! -f "$official" ]]; then
+    echo "missing migration $official" >&2
+    exit 1
+  fi
+  echo "apply $(basename "$official")"
+  psql_cmd -f "$official"
+done
 
 aliases="$FEATURE_DIR/supabase/seed/official_food_aliases.csv"
 if [[ -f "$FEATURE_DIR/tool/official_foods/export_sql.py" ]]; then

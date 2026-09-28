@@ -9,11 +9,11 @@
 
 手順、所要時間、ロールバックは `docs/ops/official-foods-apply.md` です。
 
-識別子は PR #31（`20260928120000_official_foods.sql`）の実名に合わせています。後続で名前が違えば `accept_official_foods.sql` 先頭の CONFIG だけを直します。`v_exclude_tables` と `v_exclude_routines` は、マイグレーションが新しく作ったオブジェクトだけを比較から外します。スナップショット時点で既にあったテーブルをそこに書いても、変更は隠せません。
+識別子は PR #31（`251d82e`）の実名に合わせています。スナップショットのあと `20260928120000_official_foods.sql`、そのあと `20260928140000_official_food_provenance.sql` です。後続で名前が違えば `accept_official_foods.sql` 先頭の CONFIG だけを直します。`v_exclude_tables` と `v_exclude_routines` は、マイグレーションが新しく作ったオブジェクトだけを比較から外します。新しい関数 `enforce_mext_saved_food_attribution` は `v_exclude_routines` に入っています。スナップショット時点で既にあったテーブルをそこに書いても、変更は隠せません。
 
-`v_ignore_signature_for` は `saved_foods` と `food_entries` が必須です。件数の一致は免除しません。検索入力の上限は 64 文字（`v_require_search_input_cap`）、公開した `mext_sfct` のマイ食品には全文出典が付き外せないこと（`v_require_published_attribution`）も見ます。列名は CONFIG の `official_food_code` / `original_name` / `source_type` / `source_attribution` です。
+`v_ignore_signature_for` は `saved_foods` と `food_entries` が必須です。件数の一致は免除しません。検索入力の上限は 64 文字（`v_require_search_input_cap`）、公開した `mext_sfct` のマイ食品には全文出典が付き外せないこと（`v_require_published_attribution`）も見ます。列名は CONFIG の `official_food_code` / `official_food_name` / `source_type` / `source_attribution` です。データベースに書く出典は全文 `出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成` です。画面が1行に収まらないときの短い文は SQL では見ません。
 
-CI は `.github/workflows/official-foods-acceptance.yml` です。Postgres 17 で、ブランチ `cursor/official-foods-import-0702` のマイグレーションと全 2,538 件を入れてから、この受け入れを流します。本番の投入は `tool/official_foods/export_sql.py` のバッチです。そのファイルが機能ブランチに無いあいだ、CI のローカルデータベースだけ `import.py` を使います。
+CI は `.github/workflows/official-foods-acceptance.yml` です。Postgres 17 で、ブランチ `cursor/official-foods-import-0702` のマイグレーションを、公式食品の2ファイルより前でスナップショットしてから、その2ファイルと全 2,538 件を入れて受け入れを流します。本番の投入は `tool/official_foods/export_sql.py` のバッチです。そのファイルが機能ブランチに無いあいだ、CI のローカルデータベースだけ `import.py` を使います。
 
 エネルギーと食品名は、2026-09-28 に公式 Excel（表全体、成分識別子 `ENERC_KCAL`、可食部 100 g 当たり）を読んで入れています。
 

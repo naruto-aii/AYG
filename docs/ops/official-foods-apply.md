@@ -33,7 +33,7 @@ SQL を流している正味の時間は数分です。確認とレビューを�
 ## 0. 機能 PR の SQL を固定する
 
 1. 適用する機能 PR のコミットを変更チケットに書く。
-2. そのコミットのマイグレーションファイル（ブリーフ上のパスは `supabase/migrations/20260928120000_official_foods.sql`。ファイル名が違えばチケットに実際のパスを書く）を開く。
+2. そのコミットのマイグレーションを開く。スナップショットは両方の前です。適用順はファイル名の時刻どおり、先に `supabase/migrations/20260928120000_official_foods.sql`、そのあと `supabase/migrations/20260928140000_official_food_provenance.sql` です。ファイル名が違えばチケットに実際のパスを書く。
 3. 次を目で確認する。どれか違えば本番に流す前に CONFIG を直し、差をチケットに残す。
    - 新テーブルは `public.official_foods` と `public.official_food_aliases` だけか。既存テーブル（とくに `saved_foods`）への `ALTER` があるか。
    - `auth.` を触っていないか。触っているならこの手順を止める。
@@ -103,14 +103,17 @@ create extension if not exists pg_trgm with schema extensions;
 
 ## 5. マイグレーションを適用する
 
-1. `list_migrations`（引数 `project_id`）。公式食品のマイグレーションが既にあれば止めて、下記「7. 受け入れ」に進むか、適用済みとして扱うかをチケットで決める。同じ DDL を重ねない。
-2. 本番に、このファイルより時刻が早いマイグレーション（#25〜#29。最新は `20260927180000`）が未適用なら、ファイル名の時刻が早い順に先へ入れる。公式食品 SQL の成否はそれらの前後どちらでも確認済みです。履歴の順番はファイル名の時刻に合わせます。
-3. 機能 PR のマイグレーションファイルの中身を、編集せず `apply_migration` の `query` に貼る。
+1. `list_migrations`（引数 `project_id`）。`20260928120000` または `20260928140000` が既にあれば止めて、下記「7. 受け入れ」に進むか、適用済みとして扱うかをチケットで決める。同じ DDL を重ねない。
+2. #25〜#29（`20260927120000` から `20260927180000`）は前提ではありません。機能 PR は web-preview に公式食品の2ファイルを足しただけで、その SQL は #25〜#29 のオブジェクトを参照しません。本番にそれらが無くても、この適用の前には入れません。
+3. `20260928120000_official_foods.sql` の中身を、編集せず `apply_migration` の `query` に貼る。
    - `name`: `official_foods_20260928120000`（snake_case。どのファイルを入れたか履歴の name から追える文字列。空白は入れない）
    - `project_id`: 手順 1 の id
-4. MCP の `apply_migration` が履歴に書く version は、適用時刻の採番です。リポジトリのファイル名 `20260928120000` とは一致しません。適用後の `list_migrations` の version と name をチケットに書き、同じファイルを Supabase CLI の `db push` で重ねません。CLI は version `20260928120000` を未適用とみなします。
-5. ツールが確認を求めたら、貼った SQL が手順 0 で読んだファイルと同一であることだけを確認してから承認する。
-6. もう一度 `list_migrations` を呼び、手順 3 の name が増えていることを見る。
+4. そのあと `20260928140000_official_food_provenance.sql` を、編集せず `apply_migration` に貼る。120000 より前には入れません。
+   - `name`: `official_food_provenance_20260928140000`
+   - `project_id`: 手順 1 の id
+5. MCP の `apply_migration` が履歴に書く version は、適用時刻の採番です。リポジトリのファイル名 `20260928120000` と `20260928140000` とは一致しません。適用後の `list_migrations` の version と name をチケットに書き、同じファイルを Supabase CLI の `db push` で重ねません。CLI はどちらの version も未適用とみなします。
+6. ツールが確認を求めたら、貼った SQL が手順 0 で読んだファイルと同一であることだけを確認してから承認する。
+7. もう一度 `list_migrations` を呼び、手順 3 と 4 の name が両方増えていることを見る。
 
 依存する関数（例: 既存の `normalize_public_food_name`）が本番に無くて失敗したら、公式食品用の SQL をその場で書き換えない。依存元の適用を別の変更として止めて判断します。`normalize_public_food_name` 自体はロールバックで drop しません。
 
@@ -147,7 +150,7 @@ python3 tool/official_foods/export_sql.py \
 1. `accept_official_foods.sql` をローカルで複製する。リポジトリのファイルは `v_baseline jsonb := null` のままにする。
 2. 複製の CONFIG で、`v_baseline jsonb := null` を手順 3 の jsonb に差し替える。ドル引用符の例はファイル先頭に書いてあります。スナップショットの中に区切り文字 `$of_baseline$` が無いことを見てから貼ります。
 3. 機能 PR で名前が違っていれば、同じ CONFIG の識別子だけ直す。`v_search_limit` と `v_search_limit_cap` は 30 のままです。
-4. `v_ignore_signature_for` は空にしない。必須です。外すと受け入れは既存テーブルの署名変化で FAIL します。いまの必須の中身は `saved_foods` と `food_entries` です。`saved_foods` は `saved_foods_source_type_check` の作り直し（`mext_sfct`）と、公開行に付く出典・食品番号・元の名前の列です。`food_entries` は食事記録に付く食品番号・元の名前と、`source_type` の `mext_sfct` です。件数の一致は免除しません。この2つを `v_exclude_tables` に入れてはいけません。テーブル名や列名が機能 PR と違うときだけ、CONFIG の識別子を直します。`v_search_input_cap` は 64 のまま、`v_require_search_input_cap` と `v_require_published_attribution` は true のままです。
+4. `v_ignore_signature_for` は空にしない。必須です。外すと受け入れは既存テーブルの署名変化で FAIL します。いまの必須の中身は `saved_foods` と `food_entries` です。`20260928120000` は `saved_foods_source_type_check` を作り直して `mext_sfct` を足します。`20260928140000` は `saved_foods` に `official_food_code`、`official_food_name`、`source_attribution` を足し、`food_entries` に `official_food_code`、`official_food_name` と `source_type` の `mext_sfct` を足します。件数の一致は免除しません。この2つを `v_exclude_tables` に入れてはいけません。`v_exclude_routines` には `normalize_food_search_text`、`search_official_foods`、`enforce_mext_saved_food_attribution` を入れます。テーブル名や列名が機能 PR と違うときだけ、CONFIG の識別子を直します。`v_search_input_cap` は 64 のまま、`v_require_search_input_cap` と `v_require_published_attribution` は true のままです。出典の値は全文 `出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成` です。
 5. 複製の全文を `execute_sql` の `query` に貼る。
 6. スクリプトは anon と authenticated で INSERT / UPDATE / DELETE / TRUNCATE を試し、権限エラー（SQLSTATE 42501）でなければ失敗します。試行はサブトランザクションで巻き戻します。ツールが「破壊的な文」として確認を出しても、承認してよいのはこの受け入れを今走らせるときだけです。成功時に公式食品行もユーザテーブルもコミットされません。
 7. 結果が 1 行で `status` が `PASS` なら成功です。`detail` をチケットに貼ります（件数、検索の先頭コード、`牛丼` のコード、ユーザテーブルの差分）。差分が空でない PASS は、`v_count_match_required` を false にした再実行だけです。その差分の説明をチケットに書いてからフラグ検討に進みます。
@@ -164,10 +167,10 @@ python3 tool/official_foods/export_sql.py \
 1. `officialFoodsEnabled` は dart-define の既定 false のままにする。
 2. 手順 7 が PASS してから、出典文言を含むビルドを出す。フラグはまだ false。フラグが off のとき検索は空で失敗し、アプリは落ちないこと。
 3. 社長承認のあと、別ビルドでフラグを true にする。マイグレーションと同じ操作でオンにしない。
-4. オンにするビルドの画面文言は、機能 PR の `OfficialFoodCopy` に合わせます。検索結果と食品詳細は、折りたたみの見出しが `出典：食品成分表2023（加工）`、開いた中に全文 `出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成` です。法務メモが詳細画面の最小表示に求めているのは全文の方で、折りたたみが短い点はメモと一致していません。**法務確認要**です。法務がこの折りたたみを認めるか、機能 PR が折りたたみを全文に変えるまで、フラグはオンにしません。
+4. オンにするビルドの画面文言は、機能 PR の `OfficialFoodCopy` に合わせます。検索結果と食品詳細に出す出典は全文 `出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成` です。1行に収まらないときだけ `OfficialFoodAttributionLine` が短い文 `出典：八訂成分表 増補2023年（文部科学省）を加工して作成` を使います。短い文は幅が取れないときの表示で、データベースに書く文ではありません。
    - 設定の出典画面には、文部科学省サイトへのリンク（外部ブラウザ。`文部科学省ウェブサイトへ移動します`）と、1 食分・別名・よみは当社の換算であり文部科学省の保証ではないこと、表示値は目安であることを書く。
-   - 課金画面は web-preview にまだありません。画面を足すときは同じ折りたたみ出典を置きます。フラグをオンにする条件は同じです。
-   - データベース側は、受け入れ SQL が公開された `mext_sfct` のマイ食品に全文出典を付け、食品番号と元の名前と `source_type` を外せずに残すことを見ます。画面の折りたたみは SQL では見ません。
+   - 課金画面は web-preview にまだありません。画面を足すときは同じ出典を置きます。全文が既定で、1行に収まらないときだけ短い文です。フラグをオンにする条件は、手順 7 の PASS と社長承認です。
+   - データベース側は、受け入れ SQL が公開された `mext_sfct` のマイ食品に全文出典を付け、`official_food_code` と `official_food_name` と `source_type` を外せずに残すことを見ます。画面の短い文は SQL では見ません。
 5. 文部科学省のロゴや「公認」は使わない。
 6. 受け入れが失敗したままフラグだけ戻す必要はありません。フラグはまだ false です。データベース側は手順 9 です。
 
@@ -202,20 +205,24 @@ where source = 'mext_sfct' and edition = '八訂増補2023';
 
 ### 9.2 オブジェクトを drop する
 
-機能 PR の down ファイル（`supabase/rollback/20260928120000_official_foods_down.sql`）があるなら、その全文を `apply_migration` に渡します。下の代替 DROP は使いません。
+戻す順番は新しいマイグレーションから先です。先に provenance（`20260928140000`）、そのあと official foods（`20260928120000`）です。逆にすると、出典トリガーが残ったまま `saved_foods.source_type` を書き換えようとして止まります。official foods の down は `ayg.allow_mext_source_change` を on にしてから書き換えますが、この順番ならトリガーは先に消えています。下の代替 DROP は、両方の down ファイルがピンしたコミットにあるあいだ使いません。
 
-- `name`: `rollback_official_foods_20260928120000`
-- `query`: down ファイルの全文
+1. `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文を `apply_migration` に渡す。
+   - `name`: `rollback_official_food_provenance_20260928140000`
+   - `query`: その down ファイルの全文
+   - トリガー `enforce_mext_saved_food_attribution` と関数を drop する。
+   - `saved_foods` から `source_attribution`、`official_food_name`、`official_food_code` を drop する。行自体は消さない。`saved_foods.source_type` はここでは変えない。
+   - `food_entries.source_type = 'mext_sfct'` の行は削除せず `manual` に書き換える。`official_food_name` と `official_food_code` を drop し、`food_entries` の `source_type` check から `mext_sfct` を外す。
+2. そのあと `supabase/rollback/20260928120000_official_foods_down.sql` の全文を `apply_migration` に渡す。
+   - `name`: `rollback_official_foods_20260928120000`
+   - `query`: その down ファイルの全文
+   - 関数2つとテーブル2つを drop する。`pg_trgm` は残す。
+   - `saved_foods.source_type = 'mext_sfct'` の行を削除しない。公開行を含めて `copied` に書き換える。成分表由来だったことは行から消えます。
+   - `saved_foods_source_type_check` を、`mext_sfct` の無い4値（`manual` / `open_food_facts` / `open_food_facts_derived` / `copied`）に戻す。
 
-down は次をします。
+down は2回実行できます。利用者の行の値を書き換える点が、テーブルを drop するだけではない理由です。実行前に、`food_entries` の `mext_sfct` が `manual` になり、公開中の `saved_foods` の `mext_sfct` が `copied` になることをチケットに書きます。
 
-- 関数2つとテーブル2つを drop する。`pg_trgm` は残す。
-- `saved_foods.source_type = 'mext_sfct'` の行を削除しない。公開行を含めて `copied` に書き換える。成分表由来だったことは行から消えます。
-- `saved_foods_source_type_check` を、`mext_sfct` の無い4値（`manual` / `open_food_facts` / `open_food_facts_derived` / `copied`）に戻す。
-
-down は2回実行できます。利用者の行の値を書き換える点が、テーブルを drop するだけではない理由です。実行前に、公開中の `mext_sfct` が `copied` になることをチケットに書きます。
-
-down ファイルがピンしたコミットに無いときだけ、次の順序を使います。CONFIG で名前を変えていたら、その名前を使います。`pg_trgm` は drop しません。`normalize_public_food_name` のように元からある関数は drop しません。この DROP は `saved_foods` の CHECK を戻しません。`mext_sfct` を許したままです。利用者の `mext_sfct` 行も `copied` に変わりません。down ファイルがあるなら、こちらを使ってはいけません。
+両方の down ファイルがピンしたコミットに無いときだけ、次の順序を使います。CONFIG で名前を変えていたら、その名前を使います。`pg_trgm` は drop しません。`normalize_public_food_name` のように元からある関数は drop しません。この DROP は出典トリガーも、`saved_foods` と `food_entries` の CHECK も、出典列も戻しません。利用者の `mext_sfct` 行も `copied` や `manual` に変わりません。down ファイルがあるなら、こちらを使ってはいけません。
 
 ```sql
 drop function if exists public.search_official_foods(text, integer);

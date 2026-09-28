@@ -14,8 +14,9 @@
 --
 -- No name edit is required in this file. PR #31 names are aligned in
 -- accept_official_foods.sql. Take this snapshot before applying
--- 20260928120000_official_foods.sql; a baseline that already contains
--- official_foods is rejected.
+-- 20260928120000_official_foods.sql and
+-- 20260928140000_official_food_provenance.sql. A baseline that already
+-- contains official_foods is rejected.
 
 begin read only;
 set local statement_timeout = '120s';

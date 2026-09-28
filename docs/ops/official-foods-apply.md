@@ -104,8 +104,9 @@ create extension if not exists pg_trgm with schema extensions;
 ## 5. マイグレーションを適用する
 
 1. `list_migrations`（引数 `project_id`）。`20260928120000` または `20260928140000` が既にあれば止めて、下記「7. 受け入れ」に進むか、適用済みとして扱うかをチケットで決める。同じ DDL を重ねない。
-2. 公式食品はこの2ファイルだけで適用できます。#25〜#29 は前提ではありません。本番にそれらが無くても、この適用の前には入れません。機能 PR は web-preview にこの2ファイルを足しただけで、公式食品 SQL は #25〜#29 のオブジェクトを参照しません。
-   - あとから #29 の `20260927150000_protect_owner_deleted_and_revoke_sessions.sql` を入れるときは、本番の前にそのファイルを開きます。テーブル権限の REVOKE のあとで、列が既にある場合に `official_food_code`、`official_food_name`、`source_attribution` を `authenticated` へ付け直す文が必要です。2026-09-28 時点ではブランチ `cursor/apple-token-revoke-on-delete-eb80` の `fca01f1` にその付け直しがあります。付け直しの無い版を公式食品のあとに入れると、REVOKE が列権限を落とし、authenticated のマイ食品の書き込みが失敗します。その確認が終わるまで、公式食品のあとに #29 を入れません。
+2. 公式食品はこの2ファイルだけで適用できます。#25〜#29 は前提ではありません。機能 PR は web-preview にこの2ファイルを足しただけで、公式食品 SQL は #25〜#29 のオブジェクトを参照しません。
+   - #29 を入れるなら `fca01f1` 以降です。対象ファイルは `20260927150000_protect_owner_deleted_and_revoke_sessions.sql` です。テーブル権限の REVOKE のあと、列が既にあるときは `official_food_code`、`official_food_name`、`source_attribution` を `authenticated` へ付け直します。それより前の #29 は使いません。
+   - 順はどちらでもよいです。公式食品（`20260928120000` のあと `20260928140000`）の次に #29 でも、#29 の次に公式食品でも適用できます。#29 が先のとき、付け直しは列がまだ無いのでスキップされ、公式食品側の GRANT が権限を付けます。公式食品が先のとき、#29 の REVOKE が列権限を落としたあと、同じファイルの付け直しが戻します。機能 PR の CI は `sql-with-pr29`（#29 のあと #31）と `sql-pr31-then-pr29`（#31 のあと #29）です。本番の前に、入れる #29 のコミットが `fca01f1` 以降であることをチケットに書きます。
 3. `20260928120000_official_foods.sql` の中身を、編集せず `apply_migration` の `query` に貼る。
    - `name`: `official_foods_20260928120000`（snake_case。どのファイルを入れたか履歴の name から追える文字列。空白は入れない）
    - `project_id`: 手順 1 の id
@@ -206,65 +207,26 @@ where source = 'mext_sfct' and edition = '八訂増補2023';
 
 ### 9.2 オブジェクトを drop する
 
-両方の down は1つのトランザクションです。`apply_migration` は1回だけ呼び、`query` に provenance の全文、その直後の確認、official foods の全文、最後の確認をこの順で入れます。呼び出しを2回に分けません。`execute_sql` に分けません。途中でコミットしません。確認が失敗したらそのトランザクションは残りません。ツールが文ごとにコミットするなら止めます。下の代替 DROP は、両方の down ファイルがピンしたコミットにあるあいだ使いません。
+機能 PR の `supabase/rollback/README.md` と同じです。各 down ファイルは先頭の `begin` から末尾の `commit` までが1トランザクションです。ファイルの中の文を分けて流しません。途中で失敗すると、そのファイルの変更は全部戻ります。下の代替 DROP は、両方の down ファイルがピンしたコミットにあるあいだ使いません。
 
 実行ロールは postgres、`service_role`、または `saved_foods` の所有者です。出典トリガーが残っているあいだ、`saved_foods.source_type` を書き換えられるのはそのロールだけです。
 
 実行前に、公開中の成分表由来マイ食品の `user_id` と `food_id` をチケットに書きます。対象は `visibility = 'public'` で、自身が `source_type = 'mext_sfct'` か、`official_food_code` または `source_attribution` を持つか、`copied_from` をたどるとそうなる行です。
 
-- `name`: `rollback_official_food_provenance_then_foods`
-- `query`: 次の順の1本
+通常はファイルごとに確定します。公式食品の down を先に確定しません。先に確定すると `official_foods` が消え、出典トリガーが残ります。
 
-1. `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文。このファイルの最初の文が、列を drop する前に、上の公開行の `visibility` を `private` にします。行は消さない。そのあとでトリガー `enforce_mext_saved_food_attribution` と `enforce_mext_food_entry_code`、関数、`saved_foods` の `source_attribution`、`official_food_name`、`official_food_code` を消します。`saved_foods.source_type` はここでは変えません。`food_entries.source_type = 'mext_sfct'` は削除せず `manual` にし、`food_entries` の食品番号の列を消し、`source_type` check から `mext_sfct` を外します。この非公開化をファイルから抜いて、列の drop だけを先に実行してはいけません。
-2. 同じ `query` の続きで、まだ `source_type` を書き換える前に確認します。`public` かつ `mext_sfct` が残っているか、控えた `food_id` が `public` のままなら例外になり、ここまでの非公開化と列の drop も戻ります。`food_id` の配列はチケットに書いた値へ置き換えます。控えた行が無いときは、その `if` を除きます。
+1. `apply_migration` を1回。`query` は `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文です。`begin` と `commit` は残します。足しません。外しません。
+   - `name`: `rollback_official_food_provenance_20260928140000`
+   - このファイルは、`source_attribution` 列があるときだけ、列を drop する前に上の公開行を `private` にします。行は消さない。そのあとトリガーと関数、`saved_foods` の `source_attribution`、`official_food_name`、`official_food_code` を `IF EXISTS` で消します。`saved_foods.source_type` はここでは変えません。`food_entries.source_type = 'mext_sfct'` は削除せず `manual` にし、食品番号の列を消し、`source_type` check から `mext_sfct` を外します。非公開化だけを抜いて、列の drop を先に実行してはいけません。
+   - この呼び出しが commit してから次へ進みます。確認は、控えた `food_id` が `public` でないこと、そして `public` かつ `source_type = 'mext_sfct'` が 0 であることです。
+2. そのあと別の `apply_migration`。`query` は `supabase/rollback/20260928120000_official_foods_down.sql` の全文です。こちらもファイルの `begin` と `commit` のままです。
+   - `name`: `rollback_official_foods_20260928120000`
+   - 関数2つとテーブル2つを drop します。`pg_trgm` は残します。`saved_foods.source_type = 'mext_sfct'` の行は削除せず `copied` にします。対象だった公開行は手順 1 で `private` です。`saved_foods_source_type_check` は `mext_sfct` の無い4値（`manual` / `open_food_facts` / `open_food_facts_derived` / `copied`）に戻します。
+   - 確認は、控えた行が `public` でないこと、`source_type = 'mext_sfct'` が 0 であること、`to_regclass('public.official_foods')` が null であることです。`copied_from` だけが成分表由来だった行の `source_type` は `copied` のままです。
 
-```sql
-do $$
-begin
-  if exists (
-    select 1
-    from public.saved_foods
-    where visibility = 'public'
-      and source_type = 'mext_sfct'
-  ) then
-    raise exception 'public mext_sfct rows remain before the foods rollback';
-  end if;
-  if exists (
-    select 1
-    from public.saved_foods
-    where visibility = 'public'
-      and food_id = any (array['置き換える food_id']::text[])
-  ) then
-    raise exception 'recorded mext-derived rows are still public';
-  end if;
-end
-$$;
-```
+2つを1つのトランザクションにまとめるときは、両方のファイルから `begin` と `commit` を外し、外側で1回だけ `begin` と `commit` します。中の `commit` を残すと、そこで確定してトランザクションが分かれます。順は同じで、provenance が先です。1回の `apply_migration` にします。`name` は `rollback_official_food_provenance_then_foods` です。
 
-3. 同じ `query` の続きに `supabase/rollback/20260928120000_official_foods_down.sql` の全文。関数2つとテーブル2つを drop します。`pg_trgm` は残します。`saved_foods.source_type = 'mext_sfct'` の行は削除せず `copied` にします。対象だった公開行は手順 1 で `private` です。`saved_foods_source_type_check` は `mext_sfct` の無い4値（`manual` / `open_food_facts` / `open_food_facts_derived` / `copied`）に戻します。
-4. 同じ `query` の最後で、`mext_sfct` が残っていないことと、控えた行が `public` のままではないことを確認します。`copied_from` だけが成分表由来だった行は `source_type` が `copied` のまま残ります。失敗したらトランザクション全体が戻ります。
-
-```sql
-do $$
-begin
-  if exists (
-    select 1 from public.saved_foods where source_type = 'mext_sfct'
-  ) then
-    raise exception 'mext_sfct rows remain';
-  end if;
-  if exists (
-    select 1
-    from public.saved_foods
-    where visibility = 'public'
-      and food_id = any (array['置き換える food_id']::text[])
-  ) then
-    raise exception 'recorded mext-derived rows are still public';
-  end if;
-end
-$$;
-```
-
-成功したロールバックは再実行しません。provenance down の先頭 UPDATE は、同じファイルが直後に drop する `official_food_code` と `source_attribution` を参照します。2回目は列が無くて失敗します。利用者の行を消さないのは、非公開化と `source_type` の書き換えが行の削除ではないからです。実行前に、`food_entries` の `mext_sfct` が `manual` になり、公開中の成分表由来マイ食品が `private` になってから `saved_foods` の `mext_sfct` が `copied` になることをチケットに書きます。
+どちらの down も、成功したあとに同じファイルをもう一度実行できます。受け入れ CI は、公開の成分表由来行を入れてから provenance down を2回、続けて official foods down を2回実行し、2回目も失敗せず、公開の成分表由来行が残らないことを見ています。provenance の2回目は列が無いので非公開化をスキップし、drop は `IF EXISTS` です。利用者の行を消さないのは、非公開化と `source_type` の書き換えが行の削除ではないからです。実行前に、`food_entries` の `mext_sfct` が `manual` になり、公開中の成分表由来マイ食品が `private` になってから `saved_foods` の `mext_sfct` が `copied` になることをチケットに書きます。
 
 両方の down ファイルがピンしたコミットに無いときだけ、次の順序を使います。CONFIG で名前を変えていたら、その名前を使います。`pg_trgm` は drop しません。`normalize_public_food_name` のように元からある関数は drop しません。この DROP は出典トリガーも、`saved_foods` と `food_entries` の CHECK も、出典列も戻しません。利用者の `mext_sfct` 行も `copied` や `manual` に変わりません。down ファイルがあるなら、こちらを使ってはいけません。
 

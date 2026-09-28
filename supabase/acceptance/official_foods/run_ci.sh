@@ -130,9 +130,11 @@ if [[ ! -f "$prov_down" || ! -f "$foods_down" ]]; then
   exit 1
 fi
 
-echo "rollback leaves no public mext-derived rows"
-{
-  cat <<'SQL'
+# Each down file commits itself. Seed first, then run the files as they ship.
+# A second run of each file must succeed; that is what allows the runbook to
+# say the down can be executed twice.
+echo "seed rollback fixtures"
+psql_cmd <<'SQL'
 begin;
 insert into auth.users (id) values
   ('00000000-0000-4000-8000-000000000091'),
@@ -168,15 +170,24 @@ insert into public.saved_foods (
   'of-rb-mext', '00000000-0000-4000-8000-000000000091'
 );
 alter table public.saved_foods enable trigger enforce_mext_saved_food_attribution;
+commit;
 SQL
-  printf '\\i %s\n' "$prov_down"
-  cat <<'SQL'
+
+assert_after_provenance() {
+  psql_cmd <<'SQL'
 do $$
 declare
   n bigint;
   vis text;
   src text;
 begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'saved_foods'
+      and column_name = 'source_attribution'
+  ) then
+    raise exception 'ACCEPTANCE FAIL: provenance down left source_attribution';
+  end if;
   select count(*) into n
   from public.saved_foods
   where visibility = 'public'
@@ -199,8 +210,10 @@ begin
 end
 $$;
 SQL
-  printf '\\i %s\n' "$foods_down"
-  cat <<'SQL'
+}
+
+assert_after_foods() {
+  psql_cmd <<'SQL'
 do $$
 declare
   n bigint;
@@ -216,9 +229,9 @@ begin
   end if;
   select count(*) into n
   from public.saved_foods
-  where visibility = 'public' and source_type = 'mext_sfct';
+  where source_type = 'mext_sfct';
   if n <> 0 then
-    raise exception 'ACCEPTANCE FAIL: public mext_sfct rows remain after rollback: %', n;
+    raise exception 'ACCEPTANCE FAIL: mext_sfct rows remain after foods rollback: %', n;
   end if;
   select visibility, source_type into vis, src
   from public.saved_foods
@@ -226,7 +239,7 @@ begin
   if vis is distinct from 'private' or src is distinct from 'copied' then
     raise exception 'ACCEPTANCE FAIL: public mext row after rollback is % / %', vis, src;
   end if;
-  select visibility, source_type into vis, src
+  select visibility into vis
   from public.saved_foods
   where food_id = 'of-rb-copy';
   if vis is distinct from 'private' then
@@ -241,10 +254,24 @@ begin
   if to_regclass('public.official_foods') is not null then
     raise exception 'ACCEPTANCE FAIL: official_foods still exists after rollback';
   end if;
+  if not exists (select 1 from pg_extension where extname = 'pg_trgm') then
+    raise exception 'ACCEPTANCE FAIL: rollback dropped pg_trgm';
+  end if;
 end
 $$;
-rollback;
 SQL
-} > "$work/rollback_check.sql"
-psql_cmd -f "$work/rollback_check.sql"
+}
+
+echo "provenance down"
+psql_cmd -f "$prov_down"
+assert_after_provenance
+echo "provenance down again"
+psql_cmd -f "$prov_down"
+assert_after_provenance
+echo "official foods down"
+psql_cmd -f "$foods_down"
+assert_after_foods
+echo "official foods down again"
+psql_cmd -f "$foods_down"
+assert_after_foods
 echo "rollback check finished"

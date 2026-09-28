@@ -65,3 +65,6 @@ tool/dart_defines.local.json
 
 # Local native binaries
 *.dylib
+
+# Lingo UI demo
+duolingo-web/node_modules/

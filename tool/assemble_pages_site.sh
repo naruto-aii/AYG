@@ -48,6 +48,14 @@ cp "$landing_docs/assets/lp/"* "$output/lp/assets/lp/"
 cp "$landing_docs/legal/"* "$output/legal/"
 cp "$landing_docs/.nojekyll" "$landing_docs/robots.txt" "$landing_docs/sitemap.xml" "$output/"
 
+# Voxel game lives on main next to docs/. Missing directory is fine for older checkouts.
+craft_dir="$(dirname "$landing_docs")/games/craft"
+if [ -f "$craft_dir/index.html" ]; then
+  mkdir -p "$output/craft"
+  cp "$craft_dir/index.html" "$craft_dir/favicon.svg" "$output/craft/"
+  cp -a "$craft_dir/css" "$craft_dir/js" "$craft_dir/vendor" "$output/craft/"
+fi
+
 if ! cmp -s "$web_build/index.html" "$output/index.html"; then
   echo "web root index.html was replaced" >&2
   exit 1

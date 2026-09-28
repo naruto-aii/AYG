@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="テラブロック。ブラウザで遊べる一人称のボクセルサンドボックス。">
+  <title>テラブロック</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    window.global = window;
+    window.process = window.process || { env: {}, browser: true, nextTick: (fn) => setTimeout(fn, 0) };
+    window.setImmediate = window.setImmediate || ((fn, ...args) => setTimeout(fn, 0, ...args));
+    window.clearImmediate = window.clearImmediate || ((id) => clearTimeout(id));
+  </script>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="crosshair" aria-hidden="true"></div>
+  <div id="nametags"></div>
+  <pre id="debug"></pre>
+
+  <section id="title" class="screen">
+    <div class="menu">
+      <div id="logo-blocks" class="logo-blocks" aria-hidden="true"></div>
+      <h1>テラブロック</h1>
+      <p class="lede">ブロックを置いて、掘って、ひらけた地形を歩こう。</p>
+      <label class="name-field">なまえ
+        <input id="player-name" maxlength="12" value="プレイヤー" autocomplete="nickname">
+      </label>
+      <button id="play-survival" class="btn primary">サバイバル</button>
+      <button id="play-creative" class="btn">クリエイティブ</button>
+      <button id="continue-btn" class="btn hidden">つづきから</button>
+      <button id="open-mp" class="btn">なかまと遊ぶ</button>
+      <button id="open-settings" class="btn ghost">設定</button>
+    </div>
+  </section>
+
+  <section id="mp" class="screen hidden">
+    <div class="menu">
+      <h1>なかまと遊ぶ</h1>
+      <p class="lede">部屋をつくる人の画面を開いたまま、コードを共有してください。通信は端末どうしで行います。</p>
+      <button id="host-survival" class="btn primary">部屋をつくる（サバイバル）</button>
+      <button id="host-creative" class="btn">部屋をつくる（クリエイティブ）</button>
+      <div id="room-box" class="room-box hidden">
+        <p>部屋コード <strong id="room-code"></strong></p>
+        <input id="room-link" readonly>
+        <button id="copy-link" class="btn">リンクをコピー</button>
+      </div>
+      <label class="name-field">参加コード
+        <input id="join-code" maxlength="8" placeholder="ABCDEF" autocapitalize="characters">
+      </label>
+      <label class="name-field">モード
+        <select id="join-mode">
+          <option value="survival">サバイバル</option>
+          <option value="creative">クリエイティブ</option>
+        </select>
+      </label>
+      <button id="join-btn" class="btn primary">参加する</button>
+      <button id="mp-back" class="btn ghost">もどる</button>
+    </div>
+  </section>
+
+  <section id="settings" class="screen hidden">
+    <div class="menu wide">
+      <h1>設定</h1>
+      <label>描画距離 <input id="set-distance" type="range" min="2" max="10" step="1"></label>
+      <label>マウス感度 <input id="set-sens" type="range" min="0.0008" max="0.006" step="0.0001"></label>
+      <label>タッチ感度 <input id="set-touch" type="range" min="0.002" max="0.02" step="0.0005"></label>
+      <label>視野 <input id="set-fov" type="range" min="60" max="100" step="1"></label>
+      <label>効果音 <input id="set-vol" type="range" min="0" max="1" step="0.05"></label>
+      <label>曲 <input id="set-music" type="range" min="0" max="1" step="0.05"></label>
+      <label class="check"><input id="set-bob" type="checkbox"> 歩行の揺れ</label>
+      <button id="settings-back" class="btn">もどる</button>
+    </div>
+  </section>
+
+  <section id="loading" class="screen hidden">
+    <div class="menu">
+      <h1>テラブロック</h1>
+      <p id="loading-text">読み込み中…</p>
+    </div>
+  </section>
+
+  <div id="hud" class="hidden">
+    <div id="air"></div>
+    <div class="vitals">
+      <div id="hearts"></div>
+      <div id="food"></div>
+    </div>
+    <div id="item-name"></div>
+    <div id="hotbar"></div>
+  </div>
+
+  <div id="panel" class="screen hidden"></div>
+
+  <section id="pause" class="screen hidden">
+    <div class="menu">
+      <h1>一時停止</h1>
+      <button id="resume" class="btn primary">ゲームにもどる</button>
+      <button id="pause-settings" class="btn">設定</button>
+      <button id="save-exit" class="btn">セーブしてタイトルへ</button>
+    </div>
+  </section>
+
+  <section id="death" class="screen hidden">
+    <div class="menu">
+      <h1>たおれた</h1>
+      <p class="lede">リスポーン地点にもどります。</p>
+      <button id="respawn" class="btn primary">リスポーン</button>
+    </div>
+  </section>
+
+  <div id="toast"></div>
+
+  <div id="look"></div>
+  <div id="touch">
+    <div id="stick" aria-hidden="true"><div id="knob"></div></div>
+    <div class="actions">
+      <button id="btn-pause" type="button">停</button>
+      <button id="btn-inventory" type="button">物</button>
+      <button id="btn-fly" type="button">飛</button>
+      <button id="btn-sneak" type="button">屈</button>
+      <button id="btn-jump" type="button">跳</button>
+      <button id="btn-break" type="button">壊</button>
+      <button id="btn-place" type="button">置</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

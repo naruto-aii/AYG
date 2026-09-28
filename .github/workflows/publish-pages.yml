@@ -13,6 +13,7 @@ on:
       - "docs/assets/**"
       - "docs/legal/**"
       - "tool/assemble_pages_site.sh"
+      - "games/craft/**"
       - ".github/workflows/publish-pages.yml"
       - ".github/workflows/deploy-web-preview.yml"
   workflow_dispatch:

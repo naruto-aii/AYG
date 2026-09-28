@@ -51,7 +51,11 @@ attribution on `saved_foods` and the food code and official name on
 invoker, so `authenticated` is granted `EXECUTE` on them and `anon` is
 not. Only `postgres`, `service_role`, or the `saved_foods` owner may
 change that source. A `mext_sfct` food code must exist in
-`official_foods`.
+`official_foods`. Copying a visible `mext_sfct` food keeps that source,
+food code, official name, and attribution. `authenticated` is granted
+`INSERT` and `UPDATE` on `official_food_code`, `official_food_name`,
+and `source_attribution`, because PR #29 replaces the table grant with
+a column list that cannot name columns added later.
 
 ### `supabase_admin` default privileges
 

@@ -9,6 +9,14 @@ drop trigger if exists enforce_mext_saved_food_attribution on public.saved_foods
 drop function if exists public.enforce_mext_food_entry_code();
 drop function if exists public.enforce_mext_saved_food_attribution();
 
+-- source_attribution is about to disappear. Take published composition-table
+-- foods off the public catalog first, so official-derived values do not stay
+-- public with no attribution. Private rows are kept and relabeled later.
+update public.saved_foods
+set visibility = 'private'
+where source_type = 'mext_sfct'
+  and visibility = 'public';
+
 alter table public.saved_foods
   drop constraint if exists saved_foods_official_food_code_check;
 alter table public.saved_foods

@@ -260,6 +260,14 @@ begin
   ) then
     raise exception 'food_entries source_type check still allows mext_sfct';
   end if;
+  if exists (
+    select 1
+    from public.saved_foods
+    where source_type = 'mext_sfct'
+      and visibility = 'public'
+  ) then
+    raise exception 'provenance down left a composition-table food public';
+  end if;
 end
 $$;
 SQL

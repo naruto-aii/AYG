@@ -8,7 +8,7 @@
 
 `supabase/rollback/20260928140000_official_food_provenance_down.sql`
 
-消えるもの: `saved_foods` の `official_food_code`、`official_food_name`、`source_attribution`、`food_entries` の `official_food_code`、`official_food_name`、出典を固定するトリガー、食品番号が `official_foods` に実在することを見る関数。`food_entries.source_type = 'mext_sfct'` の行は削除せず `manual` に戻す。その更新は新しい source が `mext_sfct` ではないので、`official_foods` が先に消えていても通る。マイ食品の `source_type` は、その次の official foods のロールバックで `copied` に戻す。
+消えるもの: `saved_foods` の `official_food_code`、`official_food_name`、`source_attribution`、`food_entries` の `official_food_code`、`official_food_name`、出典を固定するトリガー、食品番号が `official_foods` に実在することを見る関数。出典列を消す前に、`source_type = 'mext_sfct'` かつ `visibility = 'public'` のマイ食品を `private` に戻す。出典のない公式由来の値が公開のまま残らないようにするためで、行自体は消さない。`food_entries.source_type = 'mext_sfct'` の行は削除せず `manual` に戻す。その更新は新しい source が `mext_sfct` ではないので、`official_foods` が先に消えていても通る。マイ食品の `source_type` は、その次の official foods のロールバックで `copied` に戻す。
 
 ## 20260928120000 official foods
 

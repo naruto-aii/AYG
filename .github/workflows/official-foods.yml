@@ -42,6 +42,53 @@ jobs:
           export PATH="$PWD/.venv/bin:$PATH"
           bash supabase/tests/run_official_foods_test.sh
 
+  # web-preview CI never applies PR #29. That branch revokes table
+  # INSERT/UPDATE on saved_foods and grants a fixed column list, so columns
+  # added here are denied until this migration grants them.
+  sql-with-pr29:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Vault stand-in from PR #29
+        run: |
+          git fetch origin cursor/apple-token-revoke-on-delete-eb80
+          mkdir -p /tmp/pr29-vault
+          git show origin/cursor/apple-token-revoke-on-delete-eb80:supabase/tests/pg_ext/supabase_vault.control \
+            > /tmp/pr29-vault/supabase_vault.control
+          git show origin/cursor/apple-token-revoke-on-delete-eb80:supabase/tests/pg_ext/supabase_vault--1.0.sql \
+            > /tmp/pr29-vault/supabase_vault--1.0.sql
+          cid="$(docker ps -q --filter ancestor=postgres:17 | head -n 1)"
+          test -n "$cid"
+          sharedir="$(docker exec "$cid" pg_config --sharedir)"
+          docker cp /tmp/pr29-vault/supabase_vault.control \
+            "$cid:${sharedir}/extension/supabase_vault.control"
+          docker cp /tmp/pr29-vault/supabase_vault--1.0.sql \
+            "$cid:${sharedir}/extension/supabase_vault--1.0.sql"
+      - name: Migrations from PR #29, then My Food write
+        run: |
+          git fetch origin cursor/apple-token-revoke-on-delete-eb80
+          DATABASE_URL="$DATABASE_URL" \
+            PR29_GIT_REF=origin/cursor/apple-token-revoke-on-delete-eb80 \
+            bash supabase/tests/run_official_foods_with_pr29_test.sh
+
   flutter:
     runs-on: ubuntu-latest
     steps:

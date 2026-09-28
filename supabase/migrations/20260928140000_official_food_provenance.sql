@@ -64,6 +64,8 @@ declare
   -- owner and the lock would never apply. Rollback runs as postgres,
   -- service_role, or the table owner.
   v_may_relabel boolean;
+  v_from_code text;
+  v_from_name text;
 begin
   v_may_relabel :=
     current_user in ('postgres', 'service_role')
@@ -74,6 +76,29 @@ begin
       where n.nspname = 'public'
         and c.relname = 'saved_foods'
     );
+
+  -- A plain copy of a composition-table food must keep that provenance.
+  -- Row level security hides foods this role cannot read. The table owner
+  -- is skipped so rollback can relabel source_type to copied.
+  if not v_may_relabel and new.copied_from_food_id is not null then
+    select s.official_food_code, s.official_food_name
+      into v_from_code, v_from_name
+    from public.saved_foods s
+    where s.food_id = new.copied_from_food_id
+      and s.source_type = 'mext_sfct'
+      and s.official_food_code is not null
+      and s.official_food_name is not null
+      and (
+        new.copied_from_owner_user_id is null
+        or s.user_id = new.copied_from_owner_user_id
+      )
+    limit 1;
+    if v_from_code is not null then
+      new.source_type := 'mext_sfct';
+      new.official_food_code := v_from_code;
+      new.official_food_name := v_from_name;
+    end if;
+  end if;
 
   if tg_op = 'UPDATE'
      and old.source_type = 'mext_sfct'
@@ -137,3 +162,18 @@ revoke all on function public.enforce_mext_saved_food_attribution() from public,
 revoke all on function public.enforce_mext_food_entry_code() from public, anon, authenticated;
 grant execute on function public.enforce_mext_saved_food_attribution() to authenticated;
 grant execute on function public.enforce_mext_food_entry_code() to authenticated;
+
+-- 20260927150000 (PR #29) revokes table INSERT/UPDATE and replaces them
+-- with an explicit column list. Columns added after that list, including
+-- these three, are then denied to authenticated and every My Food write
+-- that mentions them fails. Column grants are redundant when the table
+-- grant is still in place, and they do not widen access to other columns.
+grant insert (
+  official_food_code,
+  official_food_name,
+  source_attribution
+), update (
+  official_food_code,
+  official_food_name,
+  source_attribution
+) on table public.saved_foods to authenticated;

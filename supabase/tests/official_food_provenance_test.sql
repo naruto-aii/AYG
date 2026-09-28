@@ -4,15 +4,20 @@
 do $$
 declare
   uid uuid := '11111111-1111-1111-1111-111111111111';
+  copier uuid := '33333333-3333-3333-3333-333333333333';
   attribution text;
   got_source text;
   got_code text;
   got_name text;
 begin
   insert into auth.users (id, email)
-  values (uid, 'provenance@example.com');
+  values
+    (uid, 'provenance@example.com'),
+    (copier, 'copier@example.com');
   insert into public.users (id, email)
-  values (uid, 'provenance@example.com');
+  values
+    (uid, 'provenance@example.com'),
+    (copier, 'copier@example.com');
 
   insert into public.saved_foods (
     user_id, food_id, name, normalized_name, base_amount, unit_type,
@@ -156,6 +161,81 @@ begin
   if got_code is distinct from '01088'
      or got_name is distinct from 'こめ　［水稲めし］　精白米　うるち米' then
     raise exception 'meal record lost provenance: % %', got_code, got_name;
+  end if;
+
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, visibility
+  ) values (
+    uid, 'plain-soup', '味噌汁', '味噌汁', 200, 'ml',
+    'manual', 'private'
+  );
+  perform public.publish_saved_food('plain-soup');
+
+  perform set_config('request.jwt.claim.sub', copier::text, true);
+
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id,
+    official_food_code, official_food_name, source_attribution, visibility
+  ) values (
+    copier, 'mext-copy', '白ごはん', '白ごはん', 100, 'g',
+    'copied', 'mext-rice', uid,
+    null, null, null, 'private'
+  );
+
+  select source_type, official_food_code, official_food_name, source_attribution
+    into got_source, got_code, got_name, attribution
+  from public.saved_foods
+  where user_id = copier and food_id = 'mext-copy';
+  if got_source is distinct from 'mext_sfct'
+     or got_code is distinct from '01088'
+     or got_name is distinct from 'こめ　［水稲めし］　精白米　うるち米'
+     or attribution is distinct from
+       '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成' then
+    raise exception 'copy dropped composition-table provenance: % % % %',
+      got_source, got_code, got_name, attribution;
+  end if;
+
+  update public.saved_foods
+  set source_type = 'copied',
+      official_food_code = null,
+      official_food_name = null,
+      source_attribution = null
+  where user_id = copier and food_id = 'mext-copy';
+
+  select source_type, source_attribution
+    into got_source, attribution
+  from public.saved_foods
+  where user_id = copier and food_id = 'mext-copy';
+  if got_source is distinct from 'mext_sfct'
+     or attribution is distinct from
+       '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成' then
+    raise exception 'copier cleared locked provenance: % %', got_source, attribution;
+  end if;
+
+  perform public.publish_saved_food('mext-copy');
+  if (
+    select visibility || ' ' || source_type || ' ' || source_attribution
+    from public.saved_foods
+    where user_id = copier and food_id = 'mext-copy'
+  ) is distinct from
+    'public mext_sfct 出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成' then
+    raise exception 'published copy lost attribution';
+  end if;
+
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+  ) values (
+    copier, 'plain-copy', 'うちのみそ汁', 'うちのみそ汁', 200, 'ml',
+    'copied', 'plain-soup', uid, 'private'
+  );
+  if (
+    select source_type from public.saved_foods
+    where user_id = copier and food_id = 'plain-copy'
+  ) is distinct from 'copied' then
+    raise exception 'ordinary public food was rewritten as composition-table';
   end if;
 end
 $$;

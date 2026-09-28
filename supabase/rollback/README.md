@@ -2,6 +2,14 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20260928140000 official food provenance
+
+先にこちらを戻す。
+
+`supabase/rollback/20260928140000_official_food_provenance_down.sql`
+
+消えるもの: `saved_foods` の `official_food_code`、`official_food_name`、`source_attribution`、`food_entries` の `official_food_code`、`official_food_name`、出典を固定するトリガー。`food_entries.source_type = 'mext_sfct'` の行は削除せず `manual` に戻す。マイ食品の `source_type` は、その次の official foods のロールバックで `copied` に戻す。
+
 ## 20260928120000 official foods
 
 スキーマを戻す:

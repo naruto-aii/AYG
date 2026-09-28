@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../constants/official_food_copy.dart';
 import '../../models/official_food.dart';
 import '../../services/official_food_logger.dart';
 import '../../state/app_controller.dart';
@@ -143,6 +144,18 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
             subtitle: '食品番号 ${match.foodCode}',
           ),
           Text(match.name, style: AppTypography.bodyM),
+          if (match.matchedAlias != null &&
+              match.matchedAlias!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              OfficialFoodCopy.aliasAttribution(
+                alias: match.matchedAlias!.trim(),
+                officialName: match.name,
+                foodCode: match.foodCode,
+              ),
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+          ],
           if (match.isCandidate) ...[
             const SizedBox(height: 8),
             Text(
@@ -177,6 +190,8 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
             ),
           ],
           const SizedBox(height: 16),
+          Text(OfficialFoodCopy.disclaimerSentence, style: muted),
+          const SizedBox(height: 8),
           OfficialFoodAttribution(launch: widget.launch),
           const SizedBox(height: 16),
           DesignButton(

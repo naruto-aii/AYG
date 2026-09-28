@@ -324,6 +324,8 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
       savedFoodId: _selectedSavedFoodId,
       sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
       sourceSavedFoodVersion: _sourceSavedFoodVersion,
+      officialFoodCode: widget.entry?.officialFoodCode,
+      officialFoodName: widget.entry?.officialFoodName,
       loggedAt: _loggedAt,
     );
   }

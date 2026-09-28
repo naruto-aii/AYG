@@ -20,20 +20,29 @@ void main() {
       );
     });
 
-    test('savedFood and template use preserveExternal mode', () {
-      expect(
-        MacroNutritionConsistencyPolicy.initialModeFor(
-          FoodEntrySource.savedFood,
-        ),
-        MacroNutritionConsistencyMode.preserveExternal,
-      );
-      expect(
-        MacroNutritionConsistencyPolicy.initialModeFor(
-          FoodEntrySource.template,
-        ),
-        MacroNutritionConsistencyMode.preserveExternal,
-      );
-    });
+    test(
+      'savedFood, template, and composition-table meals keep external values',
+      () {
+        expect(
+          MacroNutritionConsistencyPolicy.initialModeFor(
+            FoodEntrySource.savedFood,
+          ),
+          MacroNutritionConsistencyMode.preserveExternal,
+        );
+        expect(
+          MacroNutritionConsistencyPolicy.initialModeFor(
+            FoodEntrySource.template,
+          ),
+          MacroNutritionConsistencyMode.preserveExternal,
+        );
+        expect(
+          MacroNutritionConsistencyPolicy.initialModeFor(
+            FoodEntrySource.mextSfct,
+          ),
+          MacroNutritionConsistencyMode.preserveExternal,
+        );
+      },
+    );
 
     test('resolveSaveSourceType keeps source when not edited', () {
       expect(

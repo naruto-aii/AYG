@@ -3,16 +3,22 @@ import 'package:ayg/constants/official_food_copy.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
+import 'package:ayg/models/food_source_type.dart';
+import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/official_food.dart';
+import 'package:ayg/models/saved_food.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/official_food_repository.dart';
+import 'package:ayg/screens/official_food/official_food_detail_screen.dart';
 import 'package:ayg/screens/settings/data_source_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/services/official_food_link.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/widgets/official_food/official_food_attribution.dart';
+import 'package:ayg/widgets/official_food/official_food_attribution_line.dart';
+import 'package:ayg/widgets/saved_food/public_food_detail_sheet.dart';
 import 'package:ayg/widgets/official_food/official_food_search_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,9 +62,7 @@ void main() {
 
   testWidgets('attribution expands to the full source line', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: OfficialFoodAttribution()),
-      ),
+      const MaterialApp(home: Scaffold(body: OfficialFoodAttribution())),
     );
     expect(find.text(OfficialFoodCopy.shortAttribution), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('official_food_attribution')));
@@ -120,7 +124,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     expect(find.text('食品成分表'), findsOneWidget);
     expect(find.text('ご飯'), findsOneWidget);
-    expect(find.textContaining(OfficialFoodCopy.shortAttribution), findsOneWidget);
+    expect(
+      find.textContaining(OfficialFoodCopy.shortAttribution),
+      findsOneWidget,
+    );
   });
 
   testWidgets('data source screen shows the three required sentences', (
@@ -187,5 +194,89 @@ void main() {
     await pump();
     await tester.scrollUntilVisible(find.text('データの出典'), 200);
     expect(find.text('データの出典'), findsOneWidget);
+  });
+
+  testWidgets(
+    'attribution uses the short line only when the full line overflows',
+    (tester) async {
+      Future<void> pump(double width) {
+        return tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: width,
+                  child: const OfficialFoodAttributionLine(),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      await pump(2000);
+      expect(find.text(OfficialFoodCopy.fullAttribution), findsOneWidget);
+      await pump(1);
+      expect(find.text(OfficialFoodCopy.compactAttribution), findsOneWidget);
+    },
+  );
+
+  testWidgets('detail names an alias and always shows the estimate notice', (
+    tester,
+  ) async {
+    final controller = AppController(
+      healthRepository: MockHealthRepository(isAvailable: false),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: OfficialFoodDetailScreen(
+          controller: controller,
+          match: const OfficialFoodMatch(
+            foodCode: '01088',
+            name: 'こめ　［水稲めし］　精白米　うるち米',
+            kcal: 156,
+            matchedAlias: 'ご飯',
+          ),
+        ),
+      ),
+    );
+    expect(
+      find.text(
+        OfficialFoodCopy.aliasAttribution(
+          alias: 'ご飯',
+          officialName: 'こめ　［水稲めし］　精白米　うるち米',
+          foodCode: '01088',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(OfficialFoodCopy.disclaimerSentence), findsOneWidget);
+  });
+
+  testWidgets('public food display keeps the composition-table attribution', (
+    tester,
+  ) async {
+    final food = SavedFood(
+      foodId: 'mext-rice',
+      ownerUserId: 'user-a',
+      name: 'ご飯',
+      normalizedName: 'ご飯',
+      baseAmount: 100,
+      unitType: FoodUnitType.g,
+      sourceType: FoodSourceType.mextSfct,
+      officialFoodCode: '01088',
+      officialFoodName: 'こめ　［水稲めし］　精白米　うるち米',
+      sourceAttribution: '',
+      createdAt: DateTime.utc(2026, 9, 28),
+      updatedAt: DateTime.utc(2026, 9, 28),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: PublicFoodMextNotice(food: food)),
+      ),
+    );
+    expect(find.text(OfficialFoodCopy.fullAttribution), findsOneWidget);
+    expect(find.text('成分表の食品名：こめ　［水稲めし］　精白米　うるち米（食品番号 01088）'), findsOneWidget);
   });
 }

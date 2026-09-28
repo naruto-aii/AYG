@@ -5,6 +5,7 @@ import '../../models/food_visibility.dart';
 import '../../models/saved_food.dart';
 import '../../models/food_source_type.dart';
 import '../../models/saved_food_persistence_error.dart';
+import '../../constants/official_food_copy.dart';
 import '../../services/saved_food_version_policy.dart';
 import '../../utils/base_amount_normalizer.dart';
 import '../../utils/food_name_normalizer.dart';
@@ -362,7 +363,12 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
       name: source.name,
       normalizedName: FoodNameNormalizer.normalize(source.name),
       baseAmount: BaseAmountNormalizer.normalize(source.baseAmount),
-      sourceType: FoodSourceType.copied,
+      sourceType: source.sourceType == FoodSourceType.mextSfct
+          ? FoodSourceType.mextSfct
+          : FoodSourceType.copied,
+      sourceAttribution: source.sourceType == FoodSourceType.mextSfct
+          ? OfficialFoodCopy.fullAttribution
+          : source.sourceAttribution,
       copiedFromFoodId: source.foodId,
       copiedFromOwnerUserId: source.ownerUserId,
       reportCount: 0,

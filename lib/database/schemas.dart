@@ -59,6 +59,8 @@ class FoodEntryEntity {
   String? mealGroupId;
   String? mealGroupName;
   int? sortOrder;
+  String? officialFoodCode;
+  String? officialFoodName;
 }
 
 @collection
@@ -92,6 +94,9 @@ class SavedFoodEntity {
   String? barcode;
   String? brand;
   String? supplementaryWeight;
+  String? officialFoodCode;
+  String? officialFoodName;
+  String? sourceAttribution;
 
   String? copiedFromFoodId;
   String? copiedFromOwnerUserId;

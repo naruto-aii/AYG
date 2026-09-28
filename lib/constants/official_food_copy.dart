@@ -1,9 +1,11 @@
 /// 食品成分表の表示文。法務メモの文言をそのまま使う。
 abstract final class OfficialFoodCopy {
-  static const shortAttribution = '出典：食品成分表2023（加工）';
+  /// 検索結果と詳細の最初の表示。幅が足りないときだけ [compactAttribution]。
+  static const shortAttribution = '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
 
-  static const fullAttribution =
-      '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
+  static const fullAttribution = shortAttribution;
+
+  static const compactAttribution = '出典：八訂成分表 増補2023年（文部科学省）を加工して作成';
 
   static const sourceSentence =
       '出典：文部科学省「日本食品標準成分表（八訂）増補2023年」（https://www.mext.go.jp/a_menu/syokuhinseibun/mext_00001.html）を加工して作成';
@@ -15,6 +17,14 @@ abstract final class OfficialFoodCopy {
       '表示される栄養価は日本食品標準成分表の標準的な値にもとづく目安（計算値）です。実際の食品・商品の値とは異なることがあります。';
 
   static const externalLinkLabel = '文部科学省ウェブサイトへ移動します';
+
+  static String aliasAttribution({
+    required String alias,
+    required String officialName,
+    required String foodCode,
+  }) {
+    return '「$alias」は運営が付けた別名です。成分表の食品名：$officialName（食品番号 $foodCode）';
+  }
 
   static final sourcePage = Uri.parse(
     'https://www.mext.go.jp/a_menu/syokuhinseibun/mext_00001.html',

@@ -27,6 +27,9 @@ class SavedFood {
     this.barcode,
     this.brand,
     this.supplementaryWeight,
+    this.officialFoodCode,
+    this.officialFoodName,
+    this.sourceAttribution,
     this.copiedFromFoodId,
     this.copiedFromOwnerUserId,
     this.useCount = 0,
@@ -62,6 +65,15 @@ class SavedFood {
   final String? barcode;
   final String? brand;
   final String? supplementaryWeight;
+
+  /// 食品成分表の食品番号。
+  final String? officialFoodCode;
+
+  /// 成分表に載っている食品名。
+  final String? officialFoodName;
+
+  /// 公開表示に残す出典。成分表由来の食品では外せない。
+  final String? sourceAttribution;
 
   final String? copiedFromFoodId;
   final String? copiedFromOwnerUserId;
@@ -112,6 +124,9 @@ class SavedFood {
     String? barcode,
     String? brand,
     String? supplementaryWeight,
+    String? officialFoodCode,
+    String? officialFoodName,
+    String? sourceAttribution,
     String? copiedFromFoodId,
     String? copiedFromOwnerUserId,
     int? useCount,
@@ -141,6 +156,9 @@ class SavedFood {
       barcode: barcode ?? this.barcode,
       brand: brand ?? this.brand,
       supplementaryWeight: supplementaryWeight ?? this.supplementaryWeight,
+      officialFoodCode: officialFoodCode ?? this.officialFoodCode,
+      officialFoodName: officialFoodName ?? this.officialFoodName,
+      sourceAttribution: sourceAttribution ?? this.sourceAttribution,
       copiedFromFoodId: copiedFromFoodId ?? this.copiedFromFoodId,
       copiedFromOwnerUserId:
           copiedFromOwnerUserId ?? this.copiedFromOwnerUserId,

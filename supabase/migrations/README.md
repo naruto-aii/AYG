@@ -41,7 +41,10 @@ database owner. `search_official_foods` and `normalize_food_search_text`
 grant `EXECUTE` to `authenticated` only. The search function keeps the
 first 64 characters of the argument, then matches the stored
 `normalized_name`, alias `normalized`, and `reading` columns so the
-`pg_trgm` indexes can be used.
+`pg_trgm` indexes can be used. `20260928140000` stores the food code,
+official name, and source attribution on `saved_foods` and the food code
+and official name on `food_entries`. A trigger keeps the attribution on
+`source_type = mext_sfct` rows.
 
 ### `supabase_admin` default privileges
 

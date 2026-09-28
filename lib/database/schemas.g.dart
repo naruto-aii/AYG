@@ -2010,44 +2010,54 @@ const FoodEntryEntitySchema = CollectionSchema(
     ),
     r'name': PropertySchema(id: 9, name: r'name', type: IsarType.string),
     r'proteinPerUnit': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'proteinPerUnit',
       type: IsarType.double,
     ),
     r'quantity': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'quantity',
       type: IsarType.double,
     ),
     r'savedFoodId': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'savedFoodId',
       type: IsarType.string,
     ),
     r'sortOrder': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'sortOrder',
       type: IsarType.long,
     ),
     r'sourceFoodOwnerUserId': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'sourceFoodOwnerUserId',
       type: IsarType.string,
     ),
     r'sourceSavedFoodVersion': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'sourceSavedFoodVersion',
       type: IsarType.long,
     ),
     r'sourceTypeIndex': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'sourceTypeIndex',
       type: IsarType.long,
     ),
     r'unitTypeIndex': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'unitTypeIndex',
       type: IsarType.long,
+    ),
+    r'officialFoodCode': PropertySchema(
+      id: 10,
+      name: r'officialFoodCode',
+      type: IsarType.string,
+    ),
+    r'officialFoodName': PropertySchema(
+      id: 11,
+      name: r'officialFoodName',
+      type: IsarType.string,
     ),
   },
   estimateSize: _foodEntryEntityEstimateSize,
@@ -2110,6 +2120,18 @@ int _foodEntryEntityEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.officialFoodCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.officialFoodName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -2129,14 +2151,16 @@ void _foodEntryEntitySerialize(
   writer.writeString(offsets[7], object.mealGroupId);
   writer.writeString(offsets[8], object.mealGroupName);
   writer.writeString(offsets[9], object.name);
-  writer.writeDouble(offsets[10], object.proteinPerUnit);
-  writer.writeDouble(offsets[11], object.quantity);
-  writer.writeString(offsets[12], object.savedFoodId);
-  writer.writeLong(offsets[13], object.sortOrder);
-  writer.writeString(offsets[14], object.sourceFoodOwnerUserId);
-  writer.writeLong(offsets[15], object.sourceSavedFoodVersion);
-  writer.writeLong(offsets[16], object.sourceTypeIndex);
-  writer.writeLong(offsets[17], object.unitTypeIndex);
+  writer.writeDouble(offsets[12], object.proteinPerUnit);
+  writer.writeDouble(offsets[13], object.quantity);
+  writer.writeString(offsets[14], object.savedFoodId);
+  writer.writeLong(offsets[15], object.sortOrder);
+  writer.writeString(offsets[16], object.sourceFoodOwnerUserId);
+  writer.writeLong(offsets[17], object.sourceSavedFoodVersion);
+  writer.writeLong(offsets[18], object.sourceTypeIndex);
+  writer.writeLong(offsets[19], object.unitTypeIndex);
+  writer.writeString(offsets[10], object.officialFoodCode);
+  writer.writeString(offsets[11], object.officialFoodName);
 }
 
 FoodEntryEntity _foodEntryEntityDeserialize(
@@ -2157,14 +2181,16 @@ FoodEntryEntity _foodEntryEntityDeserialize(
   object.mealGroupId = reader.readStringOrNull(offsets[7]);
   object.mealGroupName = reader.readStringOrNull(offsets[8]);
   object.name = reader.readString(offsets[9]);
-  object.proteinPerUnit = reader.readDoubleOrNull(offsets[10]);
-  object.quantity = reader.readDouble(offsets[11]);
-  object.savedFoodId = reader.readStringOrNull(offsets[12]);
-  object.sortOrder = reader.readLongOrNull(offsets[13]);
-  object.sourceFoodOwnerUserId = reader.readStringOrNull(offsets[14]);
-  object.sourceSavedFoodVersion = reader.readLongOrNull(offsets[15]);
-  object.sourceTypeIndex = reader.readLongOrNull(offsets[16]);
-  object.unitTypeIndex = reader.readLongOrNull(offsets[17]);
+  object.proteinPerUnit = reader.readDoubleOrNull(offsets[12]);
+  object.quantity = reader.readDouble(offsets[13]);
+  object.savedFoodId = reader.readStringOrNull(offsets[14]);
+  object.sortOrder = reader.readLongOrNull(offsets[15]);
+  object.sourceFoodOwnerUserId = reader.readStringOrNull(offsets[16]);
+  object.sourceSavedFoodVersion = reader.readLongOrNull(offsets[17]);
+  object.sourceTypeIndex = reader.readLongOrNull(offsets[18]);
+  object.unitTypeIndex = reader.readLongOrNull(offsets[19]);
+  object.officialFoodCode = reader.readStringOrNull(offsets[10]);
+  object.officialFoodName = reader.readStringOrNull(offsets[11]);
   return object;
 }
 
@@ -2195,22 +2221,26 @@ P _foodEntryEntityDeserializeProp<P>(
       return (reader.readStringOrNull(offset)) as P;
     case 9:
       return (reader.readString(offset)) as P;
-    case 10:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 11:
-      return (reader.readDouble(offset)) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 13:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 14:
       return (reader.readStringOrNull(offset)) as P;
     case 15:
       return (reader.readLongOrNull(offset)) as P;
     case 16:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 17:
       return (reader.readLongOrNull(offset)) as P;
+    case 18:
+      return (reader.readLongOrNull(offset)) as P;
+    case 19:
+      return (reader.readLongOrNull(offset)) as P;
+    case 10:
+      return (reader.readStringOrNull(offset)) as P;
+    case 11:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -5218,56 +5248,71 @@ const SavedFoodEntitySchema = CollectionSchema(
       type: IsarType.string,
     ),
     r'ownerUserId': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'ownerUserId',
       type: IsarType.string,
     ),
     r'proteinPerBase': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'proteinPerBase',
       type: IsarType.double,
     ),
     r'reportCount': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'reportCount',
       type: IsarType.long,
     ),
     r'servingUnitLabel': PropertySchema(
-      id: 18,
+      id: 20,
       name: r'servingUnitLabel',
       type: IsarType.string,
     ),
     r'sourceTypeIndex': PropertySchema(
-      id: 19,
+      id: 22,
       name: r'sourceTypeIndex',
       type: IsarType.long,
     ),
     r'statusIndex': PropertySchema(
-      id: 20,
+      id: 23,
       name: r'statusIndex',
       type: IsarType.long,
     ),
     r'supplementaryWeight': PropertySchema(
-      id: 21,
+      id: 24,
       name: r'supplementaryWeight',
       type: IsarType.string,
     ),
     r'unitTypeIndex': PropertySchema(
-      id: 22,
+      id: 25,
       name: r'unitTypeIndex',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 23,
+      id: 26,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
-    r'useCount': PropertySchema(id: 24, name: r'useCount', type: IsarType.long),
-    r'version': PropertySchema(id: 25, name: r'version', type: IsarType.long),
+    r'useCount': PropertySchema(id: 27, name: r'useCount', type: IsarType.long),
+    r'version': PropertySchema(id: 28, name: r'version', type: IsarType.long),
     r'visibilityIndex': PropertySchema(
-      id: 26,
+      id: 29,
       name: r'visibilityIndex',
       type: IsarType.long,
+    ),
+    r'officialFoodCode': PropertySchema(
+      id: 15,
+      name: r'officialFoodCode',
+      type: IsarType.string,
+    ),
+    r'officialFoodName': PropertySchema(
+      id: 16,
+      name: r'officialFoodName',
+      type: IsarType.string,
+    ),
+    r'sourceAttribution': PropertySchema(
+      id: 21,
+      name: r'sourceAttribution',
+      type: IsarType.string,
     ),
   },
   estimateSize: _savedFoodEntityEstimateSize,
@@ -5370,6 +5415,24 @@ int _savedFoodEntityEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.officialFoodCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.officialFoodName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.sourceAttribution;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -5394,18 +5457,21 @@ void _savedFoodEntitySerialize(
   writer.writeLong(offsets[12], object.moderationStatusIndex);
   writer.writeString(offsets[13], object.name);
   writer.writeString(offsets[14], object.normalizedName);
-  writer.writeString(offsets[15], object.ownerUserId);
-  writer.writeDouble(offsets[16], object.proteinPerBase);
-  writer.writeLong(offsets[17], object.reportCount);
-  writer.writeString(offsets[18], object.servingUnitLabel);
-  writer.writeLong(offsets[19], object.sourceTypeIndex);
-  writer.writeLong(offsets[20], object.statusIndex);
-  writer.writeString(offsets[21], object.supplementaryWeight);
-  writer.writeLong(offsets[22], object.unitTypeIndex);
-  writer.writeDateTime(offsets[23], object.updatedAt);
-  writer.writeLong(offsets[24], object.useCount);
-  writer.writeLong(offsets[25], object.version);
-  writer.writeLong(offsets[26], object.visibilityIndex);
+  writer.writeString(offsets[17], object.ownerUserId);
+  writer.writeDouble(offsets[18], object.proteinPerBase);
+  writer.writeLong(offsets[19], object.reportCount);
+  writer.writeString(offsets[20], object.servingUnitLabel);
+  writer.writeLong(offsets[22], object.sourceTypeIndex);
+  writer.writeLong(offsets[23], object.statusIndex);
+  writer.writeString(offsets[24], object.supplementaryWeight);
+  writer.writeLong(offsets[25], object.unitTypeIndex);
+  writer.writeDateTime(offsets[26], object.updatedAt);
+  writer.writeLong(offsets[27], object.useCount);
+  writer.writeLong(offsets[28], object.version);
+  writer.writeLong(offsets[29], object.visibilityIndex);
+  writer.writeString(offsets[15], object.officialFoodCode);
+  writer.writeString(offsets[16], object.officialFoodName);
+  writer.writeString(offsets[21], object.sourceAttribution);
 }
 
 SavedFoodEntity _savedFoodEntityDeserialize(
@@ -5431,18 +5497,21 @@ SavedFoodEntity _savedFoodEntityDeserialize(
   object.moderationStatusIndex = reader.readLong(offsets[12]);
   object.name = reader.readString(offsets[13]);
   object.normalizedName = reader.readString(offsets[14]);
-  object.ownerUserId = reader.readString(offsets[15]);
-  object.proteinPerBase = reader.readDoubleOrNull(offsets[16]);
-  object.reportCount = reader.readLong(offsets[17]);
-  object.servingUnitLabel = reader.readStringOrNull(offsets[18]);
-  object.sourceTypeIndex = reader.readLong(offsets[19]);
-  object.statusIndex = reader.readLong(offsets[20]);
-  object.supplementaryWeight = reader.readStringOrNull(offsets[21]);
-  object.unitTypeIndex = reader.readLong(offsets[22]);
-  object.updatedAt = reader.readDateTime(offsets[23]);
-  object.useCount = reader.readLong(offsets[24]);
-  object.version = reader.readLong(offsets[25]);
-  object.visibilityIndex = reader.readLong(offsets[26]);
+  object.ownerUserId = reader.readString(offsets[17]);
+  object.proteinPerBase = reader.readDoubleOrNull(offsets[18]);
+  object.reportCount = reader.readLong(offsets[19]);
+  object.servingUnitLabel = reader.readStringOrNull(offsets[20]);
+  object.sourceTypeIndex = reader.readLong(offsets[22]);
+  object.statusIndex = reader.readLong(offsets[23]);
+  object.supplementaryWeight = reader.readStringOrNull(offsets[24]);
+  object.unitTypeIndex = reader.readLong(offsets[25]);
+  object.updatedAt = reader.readDateTime(offsets[26]);
+  object.useCount = reader.readLong(offsets[27]);
+  object.version = reader.readLong(offsets[28]);
+  object.visibilityIndex = reader.readLong(offsets[29]);
+  object.officialFoodCode = reader.readStringOrNull(offsets[15]);
+  object.officialFoodName = reader.readStringOrNull(offsets[16]);
+  object.sourceAttribution = reader.readStringOrNull(offsets[21]);
   return object;
 }
 
@@ -5483,30 +5552,36 @@ P _savedFoodEntityDeserializeProp<P>(
       return (reader.readString(offset)) as P;
     case 14:
       return (reader.readString(offset)) as P;
-    case 15:
-      return (reader.readString(offset)) as P;
-    case 16:
-      return (reader.readDoubleOrNull(offset)) as P;
     case 17:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 18:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 19:
       return (reader.readLong(offset)) as P;
     case 20:
-      return (reader.readLong(offset)) as P;
-    case 21:
       return (reader.readStringOrNull(offset)) as P;
     case 22:
       return (reader.readLong(offset)) as P;
     case 23:
-      return (reader.readDateTime(offset)) as P;
-    case 24:
       return (reader.readLong(offset)) as P;
+    case 24:
+      return (reader.readStringOrNull(offset)) as P;
     case 25:
       return (reader.readLong(offset)) as P;
     case 26:
+      return (reader.readDateTime(offset)) as P;
+    case 27:
       return (reader.readLong(offset)) as P;
+    case 28:
+      return (reader.readLong(offset)) as P;
+    case 29:
+      return (reader.readLong(offset)) as P;
+    case 15:
+      return (reader.readStringOrNull(offset)) as P;
+    case 16:
+      return (reader.readStringOrNull(offset)) as P;
+    case 21:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }

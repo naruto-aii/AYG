@@ -1,3 +1,4 @@
+import '../constants/official_food_copy.dart';
 import '../models/food_entry.dart';
 import '../models/food_entry_source.dart';
 import '../models/food_source_type.dart';
@@ -25,7 +26,9 @@ class OfficialFoodLogger {
       baseAmount: match.baseAmount <= 0 ? 100 : match.baseAmount,
       unitType: FoodUnitType.g,
       consumedAmount: grams,
-      sourceType: FoodEntrySource.manual,
+      sourceType: FoodEntrySource.mextSfct,
+      officialFoodCode: match.foodCode,
+      officialFoodName: match.name,
       loggedAt: loggedAt,
     );
   }
@@ -43,7 +46,9 @@ class OfficialFoodLogger {
       fatPerBase: match.fatG,
       carbPerBase: match.carbG,
       brand: showsAlias ? match.name : null,
-      supplementaryWeight: match.foodCode,
+      officialFoodCode: match.foodCode,
+      officialFoodName: match.name,
+      sourceAttribution: OfficialFoodCopy.fullAttribution,
       sourceType: FoodSourceType.mextSfct,
     );
   }

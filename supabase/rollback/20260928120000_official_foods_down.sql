@@ -9,6 +9,10 @@ drop function if exists public.normalize_food_search_text(text);
 drop table if exists public.official_food_aliases;
 drop table if exists public.official_foods;
 
+-- Lets enforce_mext_saved_food_attribution release the source type when
+-- that trigger is still installed.
+select set_config('ayg.allow_mext_source_change', 'on', false);
+
 update public.saved_foods
 set source_type = 'copied'
 where source_type = 'mext_sfct';

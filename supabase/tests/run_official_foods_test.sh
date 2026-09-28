@@ -226,6 +226,43 @@ fi
 echo "search and privileges"
 psql_cmd -f supabase/tests/official_foods_test.sql
 
+echo "provenance columns"
+psql_cmd -f supabase/tests/official_food_provenance_test.sql
+
+echo "down provenance"
+psql_cmd -f supabase/rollback/20260928140000_official_food_provenance_down.sql
+psql_cmd <<'SQL'
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'saved_foods'
+      and column_name in (
+        'official_food_code', 'official_food_name', 'source_attribution'
+      )
+  ) or exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'food_entries'
+      and column_name in ('official_food_code', 'official_food_name')
+  ) or to_regprocedure('public.enforce_mext_saved_food_attribution()') is not null then
+    raise exception 'provenance down left columns or the attribution trigger';
+  end if;
+  if exists (
+    select 1
+    from pg_constraint
+    where conname = 'food_entries_source_type_check'
+      and pg_get_constraintdef(oid) ilike '%mext_sfct%'
+  ) then
+    raise exception 'food_entries source_type check still allows mext_sfct';
+  end if;
+end
+$$;
+SQL
+
 echo "down migration"
 psql_cmd -f supabase/rollback/20260928120000_official_foods_down.sql
 psql_cmd <<'SQL'

@@ -63,6 +63,7 @@ import '../services/meal_template_apply_service.dart';
 import '../services/meal_template_dependency_service.dart';
 import '../services/meal_template_totals_service.dart';
 import '../services/nutrition_engine.dart';
+import '../services/official_food_provenance.dart';
 import '../services/public_food_search_service.dart';
 import '../services/public_food_similar_service.dart';
 import '../services/publish_error_messages.dart';
@@ -1125,17 +1126,21 @@ class AppController extends ChangeNotifier {
       brand: draft.brand,
       barcode: draft.barcode,
       supplementaryWeight: draft.supplementaryWeight,
+      officialFoodCode: draft.officialFoodCode,
+      officialFoodName: draft.officialFoodName,
+      sourceAttribution: draft.sourceAttribution,
       sourceType: draft.sourceType,
       visibility: FoodVisibility.private,
       status: FoodStatus.active,
       createdAt: now,
       updatedAt: now,
-    ).normalizedForSave();
+    );
+    final saved = OfficialFoodProvenance.attach(food).normalizedForSave();
 
-    await repository.savePrivate(food);
+    await repository.savePrivate(saved);
 
     if (draft.visibility == FoodVisibility.public) {
-      final validation = validateSavedFoodForPublish(food);
+      final validation = validateSavedFoodForPublish(saved);
       if (!validation.isValid) {
         throw SavedFoodPersistenceException(
           errorCode: SavedFoodErrorCode.validationFailed,
@@ -1145,7 +1150,7 @@ class AppController extends ChangeNotifier {
         );
       }
 
-      final duplicate = await checkPublicDuplicate(food);
+      final duplicate = await checkPublicDuplicate(saved);
       if (duplicate != null) {
         throw SavedFoodPersistenceException(
           errorCode: SavedFoodErrorCode.conflict,
@@ -1157,14 +1162,14 @@ class AppController extends ChangeNotifier {
 
       final published = await repository.publish(
         ownerUserId: authUser.id,
-        foodId: food.foodId,
+        foodId: saved.foodId,
       );
       _scheduleRemoteSync();
       return published;
     }
 
     _scheduleRemoteSync();
-    return food;
+    return saved;
   }
 
   Future<SavedFood> updateSavedFood(SavedFood food) async {
@@ -1217,7 +1222,7 @@ class AppController extends ChangeNotifier {
 
     await _ensureAuthenticatedUserProfile();
 
-    var updated = food
+    var updated = OfficialFoodProvenance.attach(food)
         .copyWith(
           updatedAt: DateTime.now(),
           normalizedName: FoodNameNormalizer.normalize(food.name),

@@ -101,7 +101,9 @@ class EntityMapper {
       ..sourceSavedFoodVersion = entry.sourceSavedFoodVersion
       ..mealGroupId = entry.mealGroupId
       ..mealGroupName = entry.mealGroupName
-      ..sortOrder = entry.sortOrder;
+      ..sortOrder = entry.sortOrder
+      ..officialFoodCode = entry.officialFoodCode
+      ..officialFoodName = entry.officialFoodName;
   }
 
   static FoodEntry fromFoodEntryEntity(FoodEntryEntity entity) {
@@ -130,6 +132,8 @@ class EntityMapper {
       mealGroupId: entity.mealGroupId,
       mealGroupName: entity.mealGroupName,
       sortOrder: entity.sortOrder,
+      officialFoodCode: entity.officialFoodCode,
+      officialFoodName: entity.officialFoodName,
       loggedAt: entity.loggedAt,
     );
   }
@@ -156,6 +160,9 @@ class EntityMapper {
       ..barcode = food.barcode
       ..brand = food.brand
       ..supplementaryWeight = food.supplementaryWeight
+      ..officialFoodCode = food.officialFoodCode
+      ..officialFoodName = food.officialFoodName
+      ..sourceAttribution = food.sourceAttribution
       ..copiedFromFoodId = food.copiedFromFoodId
       ..copiedFromOwnerUserId = food.copiedFromOwnerUserId
       ..useCount = food.useCount
@@ -193,6 +200,9 @@ class EntityMapper {
       barcode: entity.barcode,
       brand: entity.brand,
       supplementaryWeight: entity.supplementaryWeight,
+      officialFoodCode: entity.officialFoodCode,
+      officialFoodName: entity.officialFoodName,
+      sourceAttribution: entity.sourceAttribution,
       copiedFromFoodId: entity.copiedFromFoodId,
       copiedFromOwnerUserId: entity.copiedFromOwnerUserId,
       useCount: entity.useCount,

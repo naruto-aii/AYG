@@ -5,6 +5,7 @@ import '../../constants/official_food_copy.dart';
 import '../../services/official_food_link.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import 'official_food_attribution_line.dart';
 
 /// 短い出典。タップで全文と、外部ブラウザへのリンクを出す。
 class OfficialFoodAttribution extends StatefulWidget {
@@ -32,12 +33,18 @@ class _OfficialFoodAttributionState extends State<OfficialFoodAttribution> {
         GestureDetector(
           key: const ValueKey('official_food_attribution'),
           onTap: () => setState(() => _expanded = !_expanded),
-          child: Text(
-            _expanded
-                ? OfficialFoodCopy.fullAttribution
-                : OfficialFoodCopy.shortAttribution,
-            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
-          ),
+          child: _expanded
+              ? Text(
+                  OfficialFoodCopy.fullAttribution,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                )
+              : OfficialFoodAttributionLine(
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
         ),
         if (_expanded) ...[
           const SizedBox(height: 8),

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../config/official_foods_flag.dart';
-import '../../constants/official_food_copy.dart';
+import 'official_food_attribution_line.dart';
 import '../../models/official_food.dart';
 import '../../repositories/official_food_repository.dart';
 import '../../theme/app_colors.dart';
@@ -120,12 +120,11 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
                 : match.recordName,
             subtitle: match.isCandidate
                 ? '${match.name} ・ '
-                      '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g ・ '
-                      '${OfficialFoodCopy.shortAttribution}'
-                : '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g ・ '
-                      '${OfficialFoodCopy.shortAttribution}',
+                      '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g'
+                : '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g',
             onTap: () => widget.onSelected(match),
           ),
+          const OfficialFoodAttributionLine(),
           const SizedBox(height: 8),
         ],
       ],

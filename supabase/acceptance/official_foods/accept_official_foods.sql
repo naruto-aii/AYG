@@ -13,7 +13,7 @@
 -- Do not treat a notice as a pass. Do not commit this file with a production
 -- snapshot pasted in.
 --
--- Aligned to PR #31 (cursor/official-foods-import-0702 @ a4d8a7e).
+-- Aligned to PR #31 (cursor/official-foods-import-0702 @ dbb075b).
 -- Apply order after the snapshot:
 --   supabase/migrations/20260928120000_official_foods.sql
 --   supabase/migrations/20260928140000_official_food_provenance.sql
@@ -823,8 +823,10 @@ begin
       and c.relname = v_my_foods_table
       and not tg.tgisinternal;
     if position(v_published_attribution in v_src) = 0
-       or position('mext_sfct' in v_src) = 0 then
-      raise exception 'ACCEPTANCE FAIL: no % trigger locks a published mext_sfct food to the attribution sentence',
+       or position('mext_sfct' in v_src) = 0
+       or position('publishing a food with an official food code requires the composition-table attribution' in v_src) = 0
+       or position('copied_from must reference a saved food you can read' in v_src) = 0 then
+      raise exception 'ACCEPTANCE FAIL: no % trigger locks a published mext_sfct food to the attribution sentence, or it no longer rejects an unattributed official food code',
         v_my_foods_table;
     end if;
     select exists (
@@ -986,6 +988,49 @@ begin
            or v_got_source is distinct from v_source then
           raise exception 'ACCEPTANCE FAIL: attributed copy did not stay public with the sentence (% / % / %)',
             v_unit, v_got_attr, v_got_source;
+        end if;
+
+        -- Spoofed copied_from: the target is a plain food this role can
+        -- read, while this row carries an official food code and no
+        -- attribution. Publishing must fail and the row must stay private.
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I) values ($1, $2, ''private'', ''active'', $3, $3, 200, ''g'', 10, ''manual'')',
+          v_schema, v_my_foods_table, v_prov_source_col
+        ) using v_copier, 'of-accept-plain', 'probe plain';
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id, %I, %I, %I) values ($1, $2, ''private'', ''active'', $3, $3, 210, ''g'', 156, ''copied'', $4, $5, $6, $7, null)',
+          v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col
+        ) using v_copier, 'of-accept-forged', 'probe forged', 'of-accept-plain', v_copier, '01088', v_probe_name;
+        execute format(
+          'select %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_prov_source_col, v_prov_code_col, v_attr_col, v_schema, v_my_foods_table
+        ) into v_got_source, v_got_code, v_got_attr
+        using v_copier, 'of-accept-forged';
+        if v_got_source is distinct from 'copied'
+           or v_got_code is distinct from '01088'
+           or v_got_attr is not null then
+          raise exception 'ACCEPTANCE FAIL: spoofed copied_from was rewritten before publish (% / % / %)',
+            v_got_source, v_got_code, v_got_attr;
+        end if;
+        begin
+          perform public.publish_saved_food('of-accept-forged');
+          raise exception 'ACCEPTANCE FAIL: spoofed copied_from published an official food code without attribution';
+        exception
+          when others then
+            if position('ACCEPTANCE FAIL:' in sqlerrm) = 1 then
+              raise;
+            end if;
+            if position('attribution' in sqlerrm) = 0 then
+              raise exception 'ACCEPTANCE FAIL: spoofed publish failed for another reason: % %', sqlstate, sqlerrm;
+            end if;
+        end;
+        execute format(
+          'select visibility from %I.%I where user_id = $1 and food_id = $2',
+          v_schema, v_my_foods_table
+        ) into v_unit
+        using v_copier, 'of-accept-forged';
+        if v_unit is distinct from 'private' then
+          raise exception 'ACCEPTANCE FAIL: failed spoofed publish left the food %', v_unit;
         end if;
 
         raise exception using errcode = 'P0001', message = 'ACCEPTANCE_PROBE_DONE';

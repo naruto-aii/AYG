@@ -173,6 +173,44 @@ alter table public.saved_foods enable trigger enforce_mext_saved_food_attributio
 commit;
 SQL
 
+echo "reverse-order down stops"
+reverse_status=0
+reverse_out="$(psql_cmd -f "$foods_down" 2>&1)" || reverse_status=$?
+if [[ "$reverse_status" -eq 0 ]]; then
+  echo "ACCEPTANCE FAIL: official-foods down committed while provenance objects remain" >&2
+  printf '%s\n' "$reverse_out" >&2
+  exit 1
+fi
+if [[ "$reverse_out" != *20260928140000* ]]; then
+  echo "ACCEPTANCE FAIL: reverse-order down did not name the provenance down" >&2
+  printf '%s\n' "$reverse_out" >&2
+  exit 1
+fi
+psql_cmd <<'SQL'
+do $$
+begin
+  if to_regclass('public.official_foods') is null then
+    raise exception 'ACCEPTANCE FAIL: reverse-order down dropped official_foods';
+  end if;
+  if to_regprocedure('public.enforce_mext_saved_food_attribution()') is null
+     or to_regprocedure('public.enforce_mext_food_entry_code()') is null then
+    raise exception 'ACCEPTANCE FAIL: reverse-order down removed provenance functions';
+  end if;
+  insert into public.food_entries (
+    user_id, entry_id, name, quantity, logged_at, source_type
+  ) values (
+    '00000000-0000-4000-8000-000000000091',
+    'manual-after-reverse-down',
+    '手入力',
+    1,
+    timezone('utc', now()),
+    'manual'
+  );
+end
+$$;
+SQL
+echo "reverse-order down stopped"
+
 assert_after_provenance() {
   psql_cmd <<'SQL'
 do $$

@@ -106,7 +106,7 @@ create extension if not exists pg_trgm with schema extensions;
 1. `list_migrations`（引数 `project_id`）。`20260928120000` または `20260928140000` が既にあれば止めて、下記「7. 受け入れ」に進むか、適用済みとして扱うかをチケットで決める。同じ DDL を重ねない。
 2. 公式食品はこの2ファイルだけで適用できます。#25〜#29 は前提ではありません。機能 PR は web-preview にこの2ファイルを足しただけで、公式食品 SQL は #25〜#29 のオブジェクトを参照しません。
    - #29 を入れるなら `fca01f1` 以降です。対象ファイルは `20260927150000_protect_owner_deleted_and_revoke_sessions.sql` です。テーブル権限の REVOKE のあと、列が既にあるときは `official_food_code`、`official_food_name`、`source_attribution` を `authenticated` へ付け直します。それより前の #29 は使いません。
-   - 順はどちらでもよいです。公式食品（`20260928120000` のあと `20260928140000`）の次に #29 でも、#29 の次に公式食品でも適用できます。#29 が先のとき、付け直しは列がまだ無いのでスキップされ、公式食品側の GRANT が権限を付けます。公式食品が先のとき、#29 の REVOKE が列権限を落としたあと、同じファイルの付け直しが戻します。機能 PR の CI は `sql-with-pr29`（#29 のあと #31）と `sql-pr31-then-pr29`（#31 のあと #29）です。この PR の CI にも `accept-with-pr29` があり、#29 を `fca01f1` にピンして、公式食品のあと #29 を流し、`authenticated` のマイ食品書き込みを見ます。本番の前に、入れる #29 のコミットが `fca01f1` 以降であることをチケットに書きます。
+   - 順はどちらでもよいです。公式食品（`20260928120000` のあと `20260928140000`）の次に #29 でも、#29 の次に公式食品でも適用できます。#29 が先のとき、付け直しは列がまだ無いのでスキップされ、公式食品側の GRANT が権限を付けます。公式食品が先のとき、#29 の REVOKE が列権限を落としたあと、同じファイルの付け直しが戻します。機能 PR の CI は `sql-with-pr29`（#29 のあと #31）と `sql-pr31-then-pr29`（#31 のあと #29）です。この PR の CI にも `accept-with-pr29` があり、#31 の `dbb075b` の公式食品のあと #29 を `fca01f1` にピンして流し、`authenticated` のマイ食品書き込みを見ます。本番の前に、入れる #29 のコミットが `fca01f1` 以降であることをチケットに書きます。
 3. `20260928120000_official_foods.sql` の中身を、編集せず `apply_migration` の `query` に貼る。
    - `name`: `official_foods_20260928120000`（snake_case。どのファイルを入れたか履歴の name から追える文字列。空白は入れない）
    - `project_id`: 手順 1 の id
@@ -152,7 +152,7 @@ python3 tool/official_foods/export_sql.py \
 1. `accept_official_foods.sql` をローカルで複製する。リポジトリのファイルは `v_baseline jsonb := null` のままにする。
 2. 複製の CONFIG で、`v_baseline jsonb := null` を手順 3 の jsonb に差し替える。ドル引用符の例はファイル先頭に書いてあります。スナップショットの中に区切り文字 `$of_baseline$` が無いことを見てから貼ります。
 3. 機能 PR で名前が違っていれば、同じ CONFIG の識別子だけ直す。`v_search_limit` と `v_search_limit_cap` は 30 のままです。
-4. `v_ignore_signature_for` は空にしない。必須です。外すと受け入れは既存テーブルの署名変化で FAIL します。いまの必須の中身は `saved_foods` と `food_entries` です。`20260928120000` は `saved_foods_source_type_check` を作り直して `mext_sfct` を足します。`20260928140000` は `saved_foods` に `official_food_code`、`official_food_name`、`source_attribution` を足し、`food_entries` に `official_food_code`、`official_food_name` と `source_type` の `mext_sfct` を足します。同じファイルが、その3列の INSERT と UPDATE を `authenticated` に列単位で付与します。件数の一致は免除しません。この2つを `v_exclude_tables` に入れてはいけません。`v_exclude_routines` には `normalize_food_search_text`、`search_official_foods`、`enforce_mext_saved_food_attribution`、`enforce_mext_food_entry_code` を入れます。テーブル名や列名が機能 PR と違うときだけ、CONFIG の識別子を直します。`v_search_input_cap` は 64、`v_norm_input_cap` は 256 のままです。`v_require_search_input_cap` と `v_require_published_attribution` は true のままです。出典の値は全文 `出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成` です。受け入れは、正規化関数を `anon` と `authenticated` が実行できないこと、`set_config` のあとでも `authenticated` が出典ロックを外せないこと、公開された成分表食品の直接コピーが出典を引き継ぐこと、出典の無いコピーの公開が失敗することを見ます。
+4. `v_ignore_signature_for` は空にしない。必須です。外すと受け入れは既存テーブルの署名変化で FAIL します。いまの必須の中身は `saved_foods` と `food_entries` です。`20260928120000` は `saved_foods_source_type_check` を作り直して `mext_sfct` を足します。`20260928140000` は `saved_foods` に `official_food_code`、`official_food_name`、`source_attribution` を足し、`food_entries` に `official_food_code`、`official_food_name` と `source_type` の `mext_sfct` を足します。同じファイルが、その3列の INSERT と UPDATE を `authenticated` に列単位で付与します。件数の一致は免除しません。この2つを `v_exclude_tables` に入れてはいけません。`v_exclude_routines` には `normalize_food_search_text`、`search_official_foods`、`enforce_mext_saved_food_attribution`、`enforce_mext_food_entry_code` を入れます。テーブル名や列名が機能 PR と違うときだけ、CONFIG の識別子を直します。`v_search_input_cap` は 64、`v_norm_input_cap` は 256 のままです。`v_require_search_input_cap` と `v_require_published_attribution` は true のままです。出典の値は全文 `出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成` です。受け入れは、正規化関数を `anon` と `authenticated` が実行できないこと、`set_config` のあとでも `authenticated` が出典ロックを外せないこと、公開された成分表食品の直接コピーが出典を引き継ぐこと、出典の無いコピーの公開が失敗すること、`copied_from` を普通の食品へ向けて食品番号だけ載せた行は出典なしでは公開できないことを見ます。CI は、そのあと 120000 の down を先に流して止まることと、表とトリガーが残って手入力の食事記録が登録できることも見ます。
 5. 複製の全文を `execute_sql` の `query` に貼る。
 6. スクリプトは anon と authenticated で INSERT / UPDATE / DELETE / TRUNCATE を試し、権限エラー（SQLSTATE 42501）でなければ失敗します。試行はサブトランザクションで巻き戻します。ツールが「破壊的な文」として確認を出しても、承認してよいのはこの受け入れを今走らせるときだけです。成功時に公式食品行もユーザテーブルもコミットされません。
 7. 結果が 1 行で `status` が `PASS` なら成功です。`detail` をチケットに貼ります（件数、検索の先頭コード、`牛丼` のコード、ユーザテーブルの差分）。差分が空でない PASS は、`v_count_match_required` を false にした再実行だけです。その差分の説明をチケットに書いてからフラグ検討に進みます。
@@ -215,32 +215,86 @@ where source = 'mext_sfct' and edition = '八訂増補2023';
 
 実行前に、公開中の成分表由来マイ食品の `user_id` と `food_id` をチケットに書きます。対象は `visibility = 'public'` で、自身が `source_type = 'mext_sfct'` か、`official_food_code` または `source_attribution` を持つか、`copied_from` をたどるとそうなる行です。
 
-通常はファイルごとに確定します。公式食品の down を先に確定しません。先に確定すると `official_foods` が消え、出典トリガーが残ります。
+`dbb075b` 以降、120000 の down は先に流しても止まります。先頭で、140000 が作ったトリガー、関数、列（`saved_foods` の `official_food_code` / `official_food_name` / `source_attribution`、`food_entries` の `official_food_code` / `official_food_name`）が残っていれば、表を drop する前に例外で終わります。メッセージは `20260928140000` の down を先に流すよう伝えます。ファイルは1トランザクションなので、この失敗では `official_foods` は消えません。食事記録の登録も止まりません。止まったあとにすることは、140000 の down を流し、下の確認 SQL が期待どおりになってから、120000 の down を流し直すことです。
 
-120000 の down を先に確定して中途半端に戻ったときの直し方は、140000 の down を流すことです。その状態では `official_foods` と別名、検索関数は無く、`enforce_mext_saved_food_attribution` と `enforce_mext_food_entry_code` は残ります。食事記録の登録は、手入力を含めてすべて失敗します。残ったトリガーが消えた表を参照し、`relation "public.official_foods" does not exist` になります。120000 の down の途中で失敗したときは、そのファイルが1トランザクションなので表の削除は残りません。残るのは、そのファイルが commit したあとです。
+ガードが無い古い版で、120000 の down を先に commit して中途半端に戻ってしまった状態は、今のファイルでは新しく作れません。すでにその状態なら、復旧は 140000 の down を1回流すことです。その状態では `official_foods` と別名、検索関数は無く、`enforce_mext_saved_food_attribution` と `enforce_mext_food_entry_code` は残ります。食事記録の登録は、手入力を含めてすべて失敗します。残ったトリガーが消えた表を参照し、`relation "public.official_foods" does not exist` になります。120000 の down をもう一度流しても直りません。表は既に無いので、公式食品を入れ直してから戻す必要もありません。140000 の down が残っているトリガーと関数を drop し、列が残っているあいだは成分表由来の公開行を `private` にします。行は消しません。
 
-復旧は、まだ流していなければ `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文を1回流します。`apply_migration` の `name` は `rollback_official_food_provenance_20260928140000` です。`begin` と `commit` はファイルのままです。このファイルが残っているトリガーと関数を drop します。120000 の down をもう一度流しても直りません。表は既に無いので、公式食品を入れ直してから戻す必要もありません。確認は、その2つのトリガーが無いこと、手入力の食事記録を登録できること、控えた公開行が `public` でないことです。列が残っているあいだ、この down は成分表由来の公開行を `private` にします。行は消しません。
+本番の down は、必ずファイル単位で流します。`apply_migration` が使う `POST /v1/projects/{ref}/database/migrations` は、失敗すると変更をロールバックすると公式に書いてあります（[Supabase for Platforms](https://supabase.com/docs/guides/integrations/supabase-for-platforms) の “Make database changes”。処理時間は 3 分まで。[Management API](https://supabase.com/docs/reference/api/introduction)）。クエリ自身の `begin` / `commit` が、そのロールバックとどう重なるかは公式に書いてありません。PostgreSQL 17 では、すでにトランザクションの中の `BEGIN` は警告だけで状態は変わらず、`COMMIT` は現在のトランザクションを確定します（[BEGIN](https://www.postgresql.org/docs/17/sql-begin.html)、[COMMIT](https://www.postgresql.org/docs/17/sql-commit.html)）。重なりが公式に無いので、本番では2ファイルを1つの `query` にまとめません。`begin` / `commit` を外して外側で包む手順も使いません。SQL エディタも同じで、1回の実行にファイルを1つです。SQL エディタは 1 分で切れ、Dashboard はセッションを維持しません（[Avoiding timeouts](https://supabase.com/docs/guides/troubleshooting/avoiding-timeouts-in-long-running-queries-6nmbdN)、[PGAudit](https://supabase.com/docs/guides/database/extensions/pgaudit)）。1分を超える実行には使いません。
+
+1つのファイルを流したら、次のファイルの前に、必ずその段の確認 SQL を `execute_sql` で実行します。期待と違う行が返ったら、次のファイルは流しません。
 
 1. `apply_migration` を1回。`query` は `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文です。`begin` と `commit` は残します。足しません。外しません。
    - `name`: `rollback_official_food_provenance_20260928140000`
    - このファイルは、`source_attribution` 列があるときだけ、列を drop する前に上の公開行を `private` にします。行は消さない。そのあとトリガーと関数、`saved_foods` の `source_attribution`、`official_food_name`、`official_food_code` を `IF EXISTS` で消します。`saved_foods.source_type` はここでは変えません。`food_entries.source_type = 'mext_sfct'` は削除せず `manual` にし、食品番号の列を消し、`source_type` check から `mext_sfct` を外します。非公開化だけを抜いて、列の drop を先に実行してはいけません。
-   - この呼び出しが commit してから次へ進みます。確認は、控えた `food_id` が `public` でないこと、そして `public` かつ `source_type = 'mext_sfct'` が 0 であることです。
-2. そのあと別の `apply_migration`。`query` は `supabase/rollback/20260928120000_official_foods_down.sql` の全文です。こちらもファイルの `begin` と `commit` のままです。
+   - この呼び出しが戻ってから、次を実行します。`official_foods` はまだあり、関数2つは null、出典列は 0、公開の `mext_sfct` は 0 です。`ticket-food-id` は、実行前にチケットへ書いた `food_id` に置き換えます。置き換えずに 0 件でも、確認したことにはしません。
+
+```sql
+select
+  to_regclass('public.official_foods') as official_foods,
+  to_regprocedure('public.enforce_mext_saved_food_attribution()') as saved_food_fn,
+  to_regprocedure('public.enforce_mext_food_entry_code()') as food_entry_fn;
+```
+
+```sql
+select count(*) as provenance_columns
+from information_schema.columns
+where table_schema = 'public'
+  and (
+    (table_name = 'saved_foods' and column_name in ('official_food_code', 'official_food_name', 'source_attribution'))
+    or (table_name = 'food_entries' and column_name in ('official_food_code', 'official_food_name'))
+  );
+```
+
+```sql
+select count(*) as public_mext_sfct
+from public.saved_foods
+where visibility = 'public'
+  and source_type = 'mext_sfct';
+```
+
+```sql
+select user_id, food_id, visibility, source_type
+from public.saved_foods
+where food_id = any (array['ticket-food-id']::text[]);
+```
+
+2. その確認のあと、別の `apply_migration`。`query` は `supabase/rollback/20260928120000_official_foods_down.sql` の全文です。こちらもファイルの `begin` と `commit` のままです。手順 1 の確認が終わる前には流しません。
    - `name`: `rollback_official_foods_20260928120000`
-   - 関数2つとテーブル2つを drop します。`pg_trgm` は残します。`saved_foods.source_type = 'mext_sfct'` の行は削除せず `copied` にします。対象だった公開行は手順 1 で `private` です。`saved_foods_source_type_check` は `mext_sfct` の無い4値（`manual` / `open_food_facts` / `open_food_facts_derived` / `copied`）に戻します。
-   - 確認は、控えた行が `public` でないこと、`source_type = 'mext_sfct'` が 0 であること、`to_regclass('public.official_foods')` が null であることです。`copied_from` だけが成分表由来だった行の `source_type` は `copied` のままです。
+   - 関数2つとテーブル2つを drop します。`pg_trgm` は残します。`saved_foods.source_type = 'mext_sfct'` の行は削除せず `copied` にします。対象だった公開行は手順 1 で `private` です。`saved_foods_source_type_check` は `mext_sfct` の無い4値（`manual` / `open_food_facts` / `open_food_facts_derived` / `copied`）に戻します。`copied_from` だけが成分表由来だった行の `source_type` は `copied` のままです。
+   - この呼び出しが戻ってから、次を実行します。`official_foods` は null、`mext_sfct` は 0、`pg_trgm` は 1 行、チケットの `food_id` は `public` ではありません。
 
-2つを1つのトランザクションにまとめるときは、両方のファイルから `begin` と `commit` を外し、外側で1回だけ `begin` と `commit` します。中の `commit` を残すと、そこで確定してトランザクションが分かれます。順は同じで、provenance が先です。1回の `apply_migration` にします。`name` は `rollback_official_food_provenance_then_foods` です。
+```sql
+select
+  to_regclass('public.official_foods') as official_foods,
+  to_regclass('public.official_food_aliases') as aliases;
+```
 
-`begin` / `commit` を含むファイルを `apply_migration` または SQL エディタで流すとき、公式ドキュメントで確認できたのは次だけです。
+```sql
+select count(*) as mext_sfct_rows
+from public.saved_foods
+where source_type = 'mext_sfct';
+```
 
-- `apply_migration` が使う `POST /v1/projects/{ref}/database/migrations` はマイグレーションを実行し、失敗すると変更をロールバックします（[Supabase for Platforms](https://supabase.com/docs/guides/integrations/supabase-for-platforms) の “Make database changes”）。このエンドポイントの処理時間は 3 分までです（[Management API](https://supabase.com/docs/reference/api/introduction) の `POST /v1/projects/:ref/database/migrations`）。クエリ自身の `begin` / `commit` と、この失敗時のロールバックがどう重なるかは、そのページには書いてありません。
-- PostgreSQL 17 では、すでにトランザクションの中で `BEGIN` すると警告が出て、トランザクションの状態は変わりません。入れ子には `SAVEPOINT` を使います（[BEGIN](https://www.postgresql.org/docs/17/sql-begin.html)）。`COMMIT` は現在のトランザクションを確定します。トランザクションの外の `COMMIT` は警告です（[COMMIT](https://www.postgresql.org/docs/17/sql-commit.html)）。
-- SQL エディタの実行は 1 分で切れます（[Avoiding timeouts in long running queries](https://supabase.com/docs/guides/troubleshooting/avoiding-timeouts-in-long-running-queries-6nmbdN)）。Dashboard はトランザクション環境で、セッションを維持しません（[PGAudit](https://supabase.com/docs/guides/database/extensions/pgaudit)）。Dashboard のクエリは設定できる上限が 60 秒で、それより長いトランザクションは Supavisor のセッションモード（ポート 5432）か直接接続です（[Timeouts](https://supabase.com/docs/guides/database/postgres/timeouts)）。
+```sql
+select extname from pg_extension where extname = 'pg_trgm';
+```
 
-down はファイルごとに `apply_migration` を1回にし、その成否を見てから次へ進みます。SQL エディタで同じファイルを流すときも、1回の実行にファイルを1つにします。1分を超える実行には SQL エディタを使いません。
+```sql
+select user_id, food_id, visibility, source_type
+from public.saved_foods
+where food_id = any (array['ticket-food-id']::text[]);
+```
 
-どちらの down も、成功したあとに同じファイルをもう一度実行できます。受け入れ CI は、公開の成分表由来行を入れてから provenance down を2回、続けて official foods down を2回実行し、2回目も失敗せず、公開の成分表由来行が残らないことを見ています。provenance の2回目は列が無いので非公開化をスキップし、drop は `IF EXISTS` です。利用者の行を消さないのは、非公開化と `source_type` の書き換えが行の削除ではないからです。実行前に、`food_entries` の `mext_sfct` が `manual` になり、公開中の成分表由来マイ食品が `private` になってから `saved_foods` の `mext_sfct` が `copied` になることをチケットに書きます。
+120000 の down を先に流してガードで止まったとき（`dbb075b` 以降）は、次が両方とも null でないことを確認してから手順 1 に戻ります。`official_foods` が null で `food_entry_fn` が null でないなら、ガードの無い古い版の中途半端な状態です。そのときは 140000 の down だけを流し、手順 1 の確認で関数が null になることを見ます。`official_foods` は null のままです。
+
+```sql
+select
+  to_regclass('public.official_foods') as official_foods,
+  to_regprocedure('public.enforce_mext_saved_food_attribution()') as saved_food_fn,
+  to_regprocedure('public.enforce_mext_food_entry_code()') as food_entry_fn;
+```
+
+どちらの down も、成功したあとに同じファイルをもう一度実行できます。受け入れ CI は、公開の成分表由来行を入れてから 120000 の down を先に流し、止まること（`official_foods` とトリガーが残り、手入力の食事記録が登録できること）を見ます。そのあと provenance down を2回、続けて official foods down を2回実行し、2回目も失敗せず、公開の成分表由来行が残らないことを見ています。provenance の2回目は列が無いので非公開化をスキップし、drop は `IF EXISTS` です。利用者の行を消さないのは、非公開化と `source_type` の書き換えが行の削除ではないからです。実行前に、`food_entries` の `mext_sfct` が `manual` になり、公開中の成分表由来マイ食品が `private` になってから `saved_foods` の `mext_sfct` が `copied` になることをチケットに書きます。
 
 両方の down ファイルがピンしたコミットに無いときだけ、次の順序を使います。CONFIG で名前を変えていたら、その名前を使います。`pg_trgm` は drop しません。`normalize_public_food_name` のように元からある関数は drop しません。この DROP は出典トリガーも、`saved_foods` と `food_entries` の CHECK も、出典列も戻しません。利用者の `mext_sfct` 行も `copied` や `manual` に変わりません。down ファイルがあるなら、こちらを使ってはいけません。
 

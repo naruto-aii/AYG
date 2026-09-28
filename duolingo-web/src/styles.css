@@ -15,7 +15,7 @@
   --mask: #d7ffb8;
   --bad: #ffdfe0;
   --shadow: 0 2px 0 rgba(0, 0, 0, 0.04);
-  font-family: "M PLUS Rounded 1c", "Noto Sans KR", Nunito, "Hiragino Maru Gothic ProN", sans-serif;
+  font-family: "M PLUS Rounded 1c", "Noto Sans KR", "Noto Sans SC", Nunito, "Hiragino Maru Gothic ProN", sans-serif;
   color: var(--ink);
   background: var(--bg);
 }
@@ -129,7 +129,27 @@ h1, h2, h3, p { margin: 0; }
 }
 .float-card.c1 { top: 36px; left: 12px; }
 .float-card.c2 { right: 8px; top: 90px; }
-.float-card.c3 { bottom: 36px; left: 28px; color: var(--green-dark); }
+.float-card.c3 { top: 150px; left: 0; }
+.float-card.c4 { bottom: 36px; left: 28px; color: var(--green-dark); }
+.course-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 16px;
+  position: sticky;
+  top: 52px;
+  z-index: 3;
+  background: #fff;
+}
+.course-bar button {
+  border: 2px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.course-bar button.on { border-color: #58cc02; background: #d7ffb8; color: #46a302; }
 .lang-section h2, .page h1 { font-size: 28px; margin-bottom: 16px; }
 .lang-grid, .feature-section { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .lang-card, .feature-section article, .card, .practice-card, .shop-card {
@@ -423,7 +443,7 @@ input, select {
   justify-content: space-between;
   align-items: center;
   position: sticky;
-  top: 52px;
+  top: 112px;
   z-index: 2;
 }
 .unit-banner.slim { position: static; margin: 12px 0; }

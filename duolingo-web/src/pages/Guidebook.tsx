@@ -1,11 +1,14 @@
 import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Shell } from '../components/Shell'
-import { findUnit } from '../data'
+import { findUnit, getCourse } from '../data'
+import { useStore } from '../store'
 
 export function GuidebookPage() {
   const { unitId = '' } = useParams()
-  const unit = findUnit(unitId)
+  const { state } = useStore()
+  const course = getCourse(state.courseId)
+  const unit = findUnit(unitId, state.courseId)
 
   useEffect(() => {
     document.title = unit ? `${unit.title}のガイド` : 'ガイドブック'
@@ -25,8 +28,8 @@ export function GuidebookPage() {
             </header>
             <ul className="phrase-list">
               {unit.phrases.map((phrase) => (
-                <li key={phrase.ko}>
-                  <strong lang="ko">{phrase.ko}</strong>
+                <li key={phrase.text}>
+                  <strong lang={course.htmlLang}>{phrase.text}</strong>
                   <span>{phrase.ja}</span>
                 </li>
               ))}

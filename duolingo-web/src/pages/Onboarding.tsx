@@ -1,42 +1,34 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { goals, reasons } from '../data'
+import { courses, getCourse, goals, reasons } from '../data'
 import { useStore } from '../store'
 import { Icon } from '../components/Icons'
-
-const languages = [
-  { id: 'ko', label: '韓国語', open: true },
-  { id: 'en', label: '英語', open: false },
-  { id: 'es', label: 'スペイン語', open: false },
-  { id: 'fr', label: 'フランス語', open: false },
-]
+import type { CourseId } from '../types'
 
 export function OnboardingPage() {
-  const { setPending } = useStore()
+  const { state, setPending, setCourse } = useStore()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
-  const [language, setLanguage] = useState('ko')
+  const [language, setLanguage] = useState<CourseId>(state.courseId)
   const [reason, setReason] = useState(reasons[0])
   const [goal, setGoal] = useState(10)
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
+  const course = getCourse(language)
 
   useEffect(() => {
     document.title = 'コースをはじめる'
   }, [])
 
   const next = () => {
-    if (step === 0 && language !== 'ko') {
-      setNote('このデモで開けるのは韓国語コースだけです。')
-      return
-    }
     if (step === 3 && !name.trim()) return
     if (step < 3) {
       setNote('')
       setStep((value) => value + 1)
       return
     }
-    setPending({ reason, dailyGoal: goal, name: name.trim() })
+    setCourse(language)
+    setPending({ reason, dailyGoal: goal, name: name.trim(), courseId: language })
     navigate('/register')
   }
 
@@ -55,10 +47,10 @@ export function OnboardingPage() {
           <>
             <h1>どの言語を学びますか？</h1>
             <div className="option-list">
-              {languages.map((item) => (
-                <button key={item.id} type="button" className={`option${language === item.id ? ' selected' : ''}`} onClick={() => setLanguage(item.id)}>
+              {courses.map((item) => (
+                <button key={item.id} type="button" className={`option${language === item.id ? ' selected' : ''}`} onClick={() => { setLanguage(item.id); setCourse(item.id); setNote('') }}>
                   <strong>{item.label}</strong>
-                  <span>{item.open ? '日本語話者向け' : '近日公開'}</span>
+                  <span lang={item.htmlLang}>{item.sample} · {item.sampleJa}</span>
                 </button>
               ))}
             </div>
@@ -66,7 +58,7 @@ export function OnboardingPage() {
         )}
         {step === 1 && (
           <>
-            <h1>なぜ韓国語を学びますか？</h1>
+            <h1>なぜ{course.label}を学びますか？</h1>
             <div className="option-list">
               {reasons.map((item) => (
                 <button key={item} type="button" className={`option${reason === item ? ' selected' : ''}`} onClick={() => setReason(item)}>

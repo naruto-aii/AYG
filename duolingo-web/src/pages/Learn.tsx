@@ -2,19 +2,20 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Shell } from '../components/Shell'
 import { Icon } from '../components/Icons'
-import { allPathNodes, currentNodeId, isNodeDone, isUnlocked, sections } from '../data'
+import { allPathNodes, courses, currentNodeId, getCourse, isNodeDone, isUnlocked } from '../data'
 import { wave } from '../lib'
 import { playSound } from '../sound'
 import { useStore } from '../store'
 import type { PathNode } from '../types'
 
 export function LearnPage() {
-  const { state } = useStore()
+  const { state, setCourse } = useStore()
   const navigate = useNavigate()
   const [openId, setOpenId] = useState<string | null>(null)
   const [hint, setHint] = useState('')
   const [compact, setCompact] = useState(false)
-  const activeId = currentNodeId(state.completed, state.chests)
+  const course = getCourse(state.courseId)
+  const activeId = currentNodeId(state.completed, state.chests, state.courseId)
 
   useEffect(() => {
     document.title = '学習'
@@ -34,7 +35,7 @@ export function LearnPage() {
 
   const onNode = (node: PathNode) => {
     playSound('tap', state.sound)
-    if (!isUnlocked(node.id, state.completed, state.chests)) {
+    if (!isUnlocked(node.id, state.completed, state.chests, state.courseId)) {
       setHint('前のレッスンを終えると開きます')
       setOpenId(null)
       return
@@ -51,14 +52,30 @@ export function LearnPage() {
   return (
     <Shell>
       <div className="learn">
-        {sections.map((section) => (
+        <div className="course-bar" role="tablist" aria-label="コース">
+          {courses.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={item.id === course.id ? 'on' : ''}
+              onClick={() => {
+                setCourse(item.id)
+                setOpenId(null)
+                setHint('')
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {course.sections.map((section) => (
           <section key={section.id} className="course-section">
             <div className="section-label">
               <span>{section.title}</span>
               <strong>{section.kicker}</strong>
             </div>
             {section.units.map((unit) => {
-              const doneCount = unit.nodes.filter((node) => isNodeDone(node.id, state.completed, state.chests)).length
+              const doneCount = unit.nodes.filter((node) => isNodeDone(node.id, state.completed, state.chests, state.courseId)).length
               const amplitude = compact ? 72 : 100
               const height = unit.nodes.length * 112
               const points = unit.nodes.map((_, index) => `${160 + wave(index, amplitude)},${index * 112 + 56}`)
@@ -78,8 +95,8 @@ export function LearnPage() {
                       <polyline points={points.join(' ')} fill="none" stroke="#e5e5e5" strokeWidth="12" strokeLinejoin="round" strokeLinecap="round" />
                     </svg>
                     {unit.nodes.map((node, index) => {
-                      const done = isNodeDone(node.id, state.completed, state.chests)
-                      const unlocked = isUnlocked(node.id, state.completed, state.chests)
+                      const done = isNodeDone(node.id, state.completed, state.chests, state.courseId)
+                      const unlocked = isUnlocked(node.id, state.completed, state.chests, state.courseId)
                       const current = node.id === activeId && !done
                       const icon = node.kind === 'chest' ? 'chest' : node.kind === 'story' ? 'book' : node.kind === 'trophy' ? 'trophy' : 'star'
                       return (
@@ -118,7 +135,7 @@ export function LearnPage() {
             })}
           </section>
         ))}
-        <p className="path-end">ここまでがデモのコースです。全部で {allPathNodes().length} ステップあります。</p>
+        <p className="path-end">{course.label}コースは、ここまで {allPathNodes(state.courseId).length} ステップです。進み具合はコースごとに残ります。</p>
         {hint && <p className="toast">{hint}</p>}
         <button className="jump" type="button" onClick={jump}>現在地へ</button>
       </div>

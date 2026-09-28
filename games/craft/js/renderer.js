@@ -224,6 +224,21 @@ function program(gl, vs, fs) {
   return p;
 }
 
+// WebKit keeps vertex-attrib enables on the default VAO. A later drawArrays
+// that only binds attribute 0 then fails, and VAO draws can miss their buffers.
+// Bind the buffer and enable only the attributes this draw uses.
+function useAttribs(gl, buffer, layout) {
+  if (gl.bindVertexArray) gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  for (let i = 0; i < 4; i++) gl.disableVertexAttribArray(i);
+  for (const [index, size, stride, offset] of layout) {
+    gl.enableVertexAttribArray(index);
+    gl.vertexAttribPointer(index, size, gl.FLOAT, false, stride, offset);
+  }
+}
+
+const CHUNK_ATTRIBS = [[0, 3, 36, 0], [1, 2, 36, 12], [2, 1, 36, 20], [3, 3, 36, 24]];
+
 function perspective(out, fov, aspect, near, far) {
   out.fill(0);
   const f = 1 / Math.tan(fov * 0.5);
@@ -379,24 +394,14 @@ export class Renderer {
     }
     for (const pass of ["opaque", "cutout", "water", "lava"]) {
       const part = mesh[pass];
-      if (!rec[pass]) rec[pass] = { vao: gl.createVertexArray(), vbo: gl.createBuffer(), ibo: gl.createBuffer(), count: 0 };
+      if (!rec[pass]) rec[pass] = { vbo: gl.createBuffer(), ibo: gl.createBuffer(), count: 0 };
       const slot = rec[pass];
-      gl.bindVertexArray(slot.vao);
+      if (gl.bindVertexArray) gl.bindVertexArray(null);
       gl.bindBuffer(gl.ARRAY_BUFFER, slot.vbo);
       gl.bufferData(gl.ARRAY_BUFFER, part.verts, gl.DYNAMIC_DRAW);
-      const stride = 36;
-      gl.enableVertexAttribArray(0);
-      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
-      gl.enableVertexAttribArray(1);
-      gl.vertexAttribPointer(1, 2, gl.FLOAT, false, stride, 12);
-      gl.enableVertexAttribArray(2);
-      gl.vertexAttribPointer(2, 1, gl.FLOAT, false, stride, 20);
-      gl.enableVertexAttribArray(3);
-      gl.vertexAttribPointer(3, 3, gl.FLOAT, false, stride, 24);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.ibo);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, part.indices, gl.DYNAMIC_DRAW);
       slot.count = part.indices.length;
-      gl.bindVertexArray(null);
     }
   }
 
@@ -413,7 +418,7 @@ export class Renderer {
       if (!slot) continue;
       gl.deleteBuffer(slot.vbo);
       gl.deleteBuffer(slot.ibo);
-      gl.deleteVertexArray(slot.vao);
+      if (slot.vao) gl.deleteVertexArray(slot.vao);
     }
     this.chunks.delete(key);
   }
@@ -445,9 +450,7 @@ export class Renderer {
     gl.uniform1f(gl.getUniformLocation(this.skyProg, "uDay"), day);
     gl.uniform1f(gl.getUniformLocation(this.skyProg, "uFovX"), Math.tan(fov * 0.5) * aspect);
     gl.uniform1f(gl.getUniformLocation(this.skyProg, "uFovY"), Math.tan(fov * 0.5));
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.skyBuf);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    useAttribs(gl, this.skyBuf, [[0, 2, 0, 0]]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     if (day < 0.65) {
@@ -463,9 +466,7 @@ export class Renderer {
       gl.uniformMatrix4fv(gl.getUniformLocation(this.starProg, "uVP"), false, starVP);
       gl.uniform1f(gl.getUniformLocation(this.starProg, "uPoint"), Math.max(1.5, this.canvas.height / 420));
       gl.uniform1f(gl.getUniformLocation(this.starProg, "uAlpha"), (1 - day) * 0.9);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.starBuf);
-      gl.enableVertexAttribArray(0);
-      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+      useAttribs(gl, this.starBuf, [[0, 3, 0, 0]]);
       gl.drawArrays(gl.POINTS, 0, this.starCount);
       gl.depthMask(true);
       gl.disable(gl.BLEND);
@@ -493,9 +494,7 @@ export class Renderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.cloudTex);
     gl.uniform1i(gl.getUniformLocation(this.cloudProg, "uTex"), 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.cloudBuf);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    useAttribs(gl, this.cloudBuf, [[0, 2, 0, 0]]);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.depthMask(true);
 
@@ -505,6 +504,12 @@ export class Renderer {
     if (held) this.drawHeld(held, camera, skyFactor);
     gl.disable(gl.BLEND);
     gl.enable(gl.CULL_FACE);
+    const err = gl.getError();
+    if (err && !this.glNoted) {
+      this.glNoted = true;
+      const label = { 1280: "INVALID_ENUM", 1281: "INVALID_VALUE", 1282: "INVALID_OPERATION", 1285: "OUT_OF_MEMORY" }[err] || String(err);
+      this.onError?.("描画エラー: " + label);
+    }
   }
 
   drawChunks(planes, pass, camera, skyFactor, fog, fogNear, fogFar, cutoutOrTime, alpha, fluid) {
@@ -539,10 +544,10 @@ export class Renderer {
       const min = [cx * SIZE, 0, cz * SIZE];
       const max = [min[0] + SIZE, HEIGHT, min[2] + SIZE];
       if (culled(planes, min, max)) continue;
-      gl.bindVertexArray(slot.vao);
+      useAttribs(gl, slot.vbo, CHUNK_ATTRIBS);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, slot.ibo);
       gl.drawElements(gl.TRIANGLES, slot.count, gl.UNSIGNED_INT, 0);
     }
-    gl.bindVertexArray(null);
   }
 
   drawSolids(entities, particles, skyFactor) {
@@ -584,10 +589,7 @@ export class Renderer {
     gl.uniformMatrix4fv(gl.getUniformLocation(this.solidProg, "uVP"), false, this.vp);
     gl.uniform1f(gl.getUniformLocation(this.solidProg, "uAlpha"), 1);
     const buf = makeBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(verts), gl.STREAM_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+    useAttribs(gl, buf, [[0, 3, 24, 0], [1, 3, 24, 12]]);
     gl.drawArrays(gl.TRIANGLES, 0, verts.length / 6);
     gl.deleteBuffer(buf);
   }
@@ -611,10 +613,7 @@ export class Renderer {
     const src = this.outline;
     for (let i = 0; i < src.length; i += 3) line.push(src[i], src[i + 1], src[i + 2], 0.05, 0.05, 0.05);
     const buf = makeBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(line), gl.STREAM_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+    useAttribs(gl, buf, [[0, 3, 24, 0], [1, 3, 24, 12]]);
     gl.drawArrays(gl.LINES, 0, line.length / 6);
     gl.deleteBuffer(buf);
   }
@@ -660,14 +659,8 @@ export class Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.atlas);
     const vbo = makeBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(verts), gl.STREAM_DRAW);
     const ibo = makeBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STREAM_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 36, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 36, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 36, 20);
-    gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 36, 24);
+    useAttribs(gl, vbo, CHUNK_ATTRIBS);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
     gl.deleteBuffer(vbo);
     gl.deleteBuffer(ibo);
@@ -723,14 +716,8 @@ export class Renderer {
     gl.uniform1f(gl.getUniformLocation(this.chunkProg, "uRows"), this.rows);
     const vbo = makeBuffer(gl, gl.ARRAY_BUFFER, new Float32Array(verts), gl.STREAM_DRAW);
     const ibo = makeBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STREAM_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 36, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 36, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 36, 20);
-    gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 36, 24);
+    useAttribs(gl, vbo, CHUNK_ATTRIBS);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
     gl.deleteBuffer(vbo);
     gl.deleteBuffer(ibo);

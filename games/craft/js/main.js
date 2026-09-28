@@ -82,6 +82,7 @@ class Game {
       document.getElementById("loading-text").textContent = "このブラウザは WebGL2 に対応していません。";
       return;
     }
+    this.renderer.onError = (msg) => showBootError(msg);
     this.renderer.setTextures(this.textures);
     this.ui.setIcons(this.textures);
     this.bindInput();
@@ -344,6 +345,7 @@ class Game {
     if (opts.mods) this.world.importMods(opts.mods);
     if (opts.chests) for (const [k, v] of opts.chests) this.world.chests.set(k, v);
     if (opts.furnaces) for (const [k, v] of opts.furnaces) this.world.furnaces.set(k, v);
+    this.world.onError = (msg) => showBootError(msg);
     this.world.onUpload = (key, mesh) => this.renderer.upload(key, mesh);
     this.world.onDispose = (key) => this.renderer.drop(key);
     this.world.onBlock = (x, y, z, id) => {
@@ -368,11 +370,18 @@ class Game {
     this.particles = [];
     this.host = opts.host !== false;
     this.running = false;
+    const started = performance.now();
+    let stalled = false;
     const wait = () => {
       const radius = Math.min(2, this.settings.renderDistance);
       this.world.update(this.world.spawn.x, this.world.spawn.z, radius, 2);
       const key = `${Math.floor(this.world.spawn.x / 16)},${Math.floor(this.world.spawn.z / 16)}`;
       const chunk = this.world.chunks.get(key);
+      if (!chunk?.sky && performance.now() - started > 8000 && !stalled) {
+        stalled = true;
+        this.world.dropWorker("地形の生成が止まったため、本体で再生成しています");
+        this.world.update(this.world.spawn.x, this.world.spawn.z, radius, 4);
+      }
       if (chunk?.sky) {
         if (!opts.player) {
           const x = Math.floor(this.player.x);

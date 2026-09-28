@@ -115,6 +115,7 @@
   </section>
 
   <div id="toast"></div>
+  <div id="boot-error" hidden></div>
 
   <div id="look"></div>
   <div id="touch">
@@ -130,6 +131,19 @@
     </div>
   </div>
 
+  <script>
+    function showBootError(msg) {
+      const el = document.getElementById("boot-error");
+      if (!el || !msg) return;
+      const line = String(msg.message || msg);
+      if (!line || line === "undefined") return;
+      el.hidden = false;
+      el.textContent = el.textContent ? el.textContent + "\n" + line : line;
+    }
+    window.showBootError = showBootError;
+    window.addEventListener("error", (event) => showBootError(event.message || event.error));
+    window.addEventListener("unhandledrejection", (event) => showBootError(event.reason));
+  </script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

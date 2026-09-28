@@ -27,21 +27,39 @@ export class World {
   }
 
   attachWorker() {
-    if (this.worker || typeof Worker === "undefined") return;
+    if (this.worker || this.workerDisabled || typeof Worker === "undefined") return;
+    const ua = typeof navigator === "undefined" ? "" : navigator.userAgent || "";
+    const webkit = /AppleWebKit/.test(ua) && !/Chrom(e|ium)|Edg\//.test(ua);
+    if (webkit) return;
     try {
       this.worker = new Worker(new URL("./chunkWorker.js", import.meta.url), { type: "module" });
       this.worker.onmessage = (e) => {
         const { cx, cz, blocks, biomes } = e.data;
         this.install(cx, cz, blocks, biomes);
       };
-      this.worker.onerror = () => {
-        try { this.worker.terminate(); } catch { /* already stopped */ }
-        this.worker = null;
-        this.inflight.clear();
-      };
+      this.worker.onerror = () => this.dropWorker("チャンク生成を本体でやり直しています");
     } catch {
       this.worker = null;
     }
+  }
+
+  dropWorker(reason) {
+    this.workerDisabled = true;
+    try { this.worker?.terminate(); } catch { /* already stopped */ }
+    this.worker = null;
+    const pending = [...this.inflight];
+    this.inflight.clear();
+    this.inflightSince = 0;
+    for (const key of pending) {
+      const [cx, cz] = key.split(",").map(Number);
+      try {
+        const gen = generateChunk(this.seed, cx, cz, this.modsIn(cx, cz));
+        this.install(cx, cz, gen.blocks, gen.biomes);
+      } catch (error) {
+        this.onError?.("地形を生成できません: " + (error?.message || error));
+      }
+    }
+    if (reason) this.onError?.(reason);
   }
 
   modsIn(cx, cz) {
@@ -261,6 +279,10 @@ export class World {
       }
     }
     want.sort((a, b) => a[2] - b[2]);
+    if (this.worker && this.inflight.size) {
+      if (!this.inflightSince) this.inflightSince = performance.now();
+      if (performance.now() - this.inflightSince > 4000) this.dropWorker("チャンク生成を本体でやり直しています");
+    } else this.inflightSince = 0;
     let requested = 0;
     for (const [x, z] of want) {
       if (requested > 4) break;

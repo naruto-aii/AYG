@@ -275,6 +275,21 @@ body:has(#loading:not(.hidden)) #crosshair { opacity: 0; }
   transition: opacity 0.2s;
 }
 #toast.show { opacity: 1; }
+#boot-error {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: calc(8px + env(safe-area-inset-top));
+  z-index: 30;
+  background: rgba(90, 16, 16, 0.92);
+  color: #fff;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+#boot-error[hidden] { display: none; }
 
 #look { display: none; }
 #touch { display: none; }
@@ -338,4 +353,24 @@ body.mobile #air { margin-left: calc(50% - 150px); }
 @media (max-width: 860px) {
   .menu h1 { font-size: 26px; }
   .screen { align-items: flex-start; padding-top: 18px; }
+}
+
+@media (max-height: 520px) {
+  body.mobile #hud { bottom: calc(6px + env(safe-area-inset-bottom)); }
+  body.mobile .slot { width: 28px; height: 28px; }
+  body.mobile .vitals { width: auto; gap: 12px; }
+  body.mobile #hearts i, body.mobile #food i { width: 14px; height: 14px; }
+  body.mobile #air { margin-left: 0; align-self: center; }
+  body.mobile #stick {
+    width: 92px;
+    height: 92px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  body.mobile #knob { left: 26px; top: 26px; width: 40px; height: 40px; }
+  body.mobile .actions {
+    grid-template-columns: repeat(4, 48px);
+    gap: 6px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  body.mobile .actions button { width: 48px; height: 48px; font-size: 15px; }
 }

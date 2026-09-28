@@ -2,6 +2,13 @@
 -- Does not drop pg_trgm. Official rows go away with the tables.
 -- Private saved_foods copies that used source_type mext_sfct are relabeled
 -- copied so the previous check constraint can be restored. They are not deleted.
+--
+-- This file is one transaction. Run the provenance down first and commit it
+-- before this file. If this file runs while the attribution triggers are
+-- still installed, a failure rolls the table drop back with them. Committing
+-- this file alone leaves those triggers in place after official_foods is gone.
+
+begin;
 
 drop function if exists public.search_official_foods(text, integer);
 drop function if exists public.normalize_food_search_text(text);
@@ -33,16 +40,25 @@ begin
   loop
     execute format('alter table public.saved_foods drop constraint %I', cname);
   end loop;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.saved_foods'::regclass
+      and conname = 'saved_foods_source_type_check'
+  ) then
+    alter table public.saved_foods
+      add constraint saved_foods_source_type_check
+      check (
+        source_type in (
+          'manual',
+          'open_food_facts',
+          'open_food_facts_derived',
+          'copied'
+        )
+      );
+  end if;
 end
 $$;
 
-alter table public.saved_foods
-  add constraint saved_foods_source_type_check
-  check (
-    source_type in (
-      'manual',
-      'open_food_facts',
-      'open_food_facts_derived',
-      'copied'
-    )
-  );
+commit;

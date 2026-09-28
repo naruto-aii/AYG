@@ -229,6 +229,25 @@ psql_cmd -f supabase/tests/official_foods_test.sql
 echo "provenance columns"
 psql_cmd -f supabase/tests/official_food_provenance_test.sql
 
+echo "reverse-order down rolls back"
+if psql_cmd -v ON_ERROR_STOP=1 -f supabase/rollback/20260928120000_official_foods_down.sql; then
+  echo "official-foods down committed while attribution triggers still exist" >&2
+  exit 1
+fi
+psql_cmd <<'SQL'
+do $$
+begin
+  if to_regclass('public.official_foods') is null
+     or to_regclass('public.official_food_aliases') is null
+     or to_regprocedure('public.search_official_foods(text, integer)') is null
+     or to_regprocedure('public.enforce_mext_saved_food_attribution()') is null
+     or to_regprocedure('public.enforce_mext_food_entry_code()') is null then
+    raise exception 'reverse-order down left triggers without official foods';
+  end if;
+end
+$$;
+SQL
+
 echo "down provenance"
 psql_cmd -f supabase/rollback/20260928140000_official_food_provenance_down.sql
 psql_cmd <<'SQL'
@@ -272,6 +291,9 @@ end
 $$;
 SQL
 
+echo "down provenance again"
+psql_cmd -f supabase/rollback/20260928140000_official_food_provenance_down.sql
+
 echo "down migration"
 psql_cmd -f supabase/rollback/20260928120000_official_foods_down.sql
 psql_cmd <<'SQL'
@@ -297,5 +319,8 @@ begin
 end
 $$;
 SQL
+
+echo "down migration again"
+psql_cmd -f supabase/rollback/20260928120000_official_foods_down.sql
 
 echo "official foods sql test ok"

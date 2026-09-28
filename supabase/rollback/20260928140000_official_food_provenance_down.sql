@@ -4,59 +4,77 @@
 -- check can be restored. saved_foods.source_type is left for the official
 -- foods down script.
 --
+-- This file is one transaction. Running it again after it has succeeded
+-- is a no-op: the unpublish looks at columns only while they still exist,
+-- and every drop uses IF EXISTS.
+--
 -- Before any column is dropped, every public My Food that is composition-table
 -- derived (itself, or through copied_from) becomes private. The rows stay.
 
-update public.saved_foods as sf
-set visibility = 'private'
-where sf.visibility = 'public'
-  and (
-    sf.source_type = 'mext_sfct'
-    or sf.official_food_code is not null
-    or sf.source_attribution is not null
-    or exists (
-      with recursive walk as (
-        select
-          s.food_id,
-          s.user_id,
-          s.copied_from_food_id,
-          s.copied_from_owner_user_id,
-          s.source_type,
-          s.official_food_code,
-          s.source_attribution,
-          1 as depth
-        from public.saved_foods s
-        where s.user_id = sf.user_id
-          and s.food_id = sf.food_id
-        union all
-        select
-          p.food_id,
-          p.user_id,
-          p.copied_from_food_id,
-          p.copied_from_owner_user_id,
-          p.source_type,
-          p.official_food_code,
-          p.source_attribution,
-          walk.depth + 1
-        from walk
-        join public.saved_foods p
-          on p.food_id = walk.copied_from_food_id
-         and (
-           walk.copied_from_owner_user_id is null
-           or p.user_id = walk.copied_from_owner_user_id
-         )
-        where walk.depth < 8
-          and walk.source_type is distinct from 'mext_sfct'
-          and walk.official_food_code is null
-          and walk.source_attribution is null
-      )
-      select 1
-      from walk
-      where walk.source_type = 'mext_sfct'
-         or walk.official_food_code is not null
-         or walk.source_attribution is not null
-    )
-  );
+begin;
+
+do $unpublish$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'saved_foods'
+      and column_name = 'source_attribution'
+  ) then
+    update public.saved_foods as sf
+    set visibility = 'private'
+    where sf.visibility = 'public'
+      and (
+        sf.source_type = 'mext_sfct'
+        or sf.official_food_code is not null
+        or sf.source_attribution is not null
+        or exists (
+          with recursive walk as (
+            select
+              s.food_id,
+              s.user_id,
+              s.copied_from_food_id,
+              s.copied_from_owner_user_id,
+              s.source_type,
+              s.official_food_code,
+              s.source_attribution,
+              1 as depth
+            from public.saved_foods s
+            where s.user_id = sf.user_id
+              and s.food_id = sf.food_id
+            union all
+            select
+              p.food_id,
+              p.user_id,
+              p.copied_from_food_id,
+              p.copied_from_owner_user_id,
+              p.source_type,
+              p.official_food_code,
+              p.source_attribution,
+              walk.depth + 1
+            from walk
+            join public.saved_foods p
+              on p.food_id = walk.copied_from_food_id
+             and (
+               walk.copied_from_owner_user_id is null
+               or p.user_id = walk.copied_from_owner_user_id
+             )
+            where walk.depth < 8
+              and walk.source_type is distinct from 'mext_sfct'
+              and walk.official_food_code is null
+              and walk.source_attribution is null
+          )
+          select 1
+          from walk
+          where walk.source_type = 'mext_sfct'
+             or walk.official_food_code is not null
+             or walk.source_attribution is not null
+        )
+      );
+  end if;
+end
+$unpublish$;
 
 drop trigger if exists enforce_mext_food_entry_code on public.food_entries;
 drop trigger if exists enforce_mext_saved_food_attribution on public.saved_foods;
@@ -96,17 +114,26 @@ begin
   loop
     execute format('alter table public.food_entries drop constraint %I', cname);
   end loop;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.food_entries'::regclass
+      and conname = 'food_entries_source_type_check'
+  ) then
+    alter table public.food_entries
+      add constraint food_entries_source_type_check
+      check (
+        source_type is null
+        or source_type in (
+          'manual',
+          'saved_food',
+          'template',
+          'open_food_facts'
+        )
+      );
+  end if;
 end
 $$;
 
-alter table public.food_entries
-  add constraint food_entries_source_type_check
-  check (
-    source_type is null
-    or source_type in (
-      'manual',
-      'saved_food',
-      'template',
-      'open_food_facts'
-    )
-  );
+commit;

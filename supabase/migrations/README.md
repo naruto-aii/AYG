@@ -57,7 +57,11 @@ or through other copies. Publishing that copy without this provenance
 fails. `authenticated` is granted
 `INSERT` and `UPDATE` on `official_food_code`, `official_food_name`,
 and `source_attribution`, because PR #29 replaces the table grant with
-a column list that cannot name columns added later.
+a column list that cannot name columns added later. If that revoke runs
+after these columns already exist, `20260927150000` has to grant the
+three columns again. CI job `sql-pr31-then-pr29` applies this branch
+first and PR #29 second, then inserts, updates, and publishes a My Food
+as `authenticated`.
 
 ### `supabase_admin` default privileges
 

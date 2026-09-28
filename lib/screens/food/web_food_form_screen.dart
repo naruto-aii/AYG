@@ -22,6 +22,8 @@ import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/food/food_form_suggestion_list.dart';
+import '../../widgets/official_food/official_food_search_section.dart';
+import '../official_food/official_food_detail_screen.dart';
 import 'food_form_template_actions.dart';
 import 'food_meal_registration_screen.dart';
 import '../saved_food/public_food_search_screen.dart';
@@ -633,13 +635,19 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                   return null;
                 },
               ),
-              if (!widget.isEditing && !_fromSavedFoodSelection)
+              if (!widget.isEditing && !_fromSavedFoodSelection) ...[
                 FoodFormSuggestionList(
                   controller: widget.controller,
                   suggestions: _formSuggestions,
                   onSavedFoodSelected: _applySavedFoodSelection,
                   onMealTemplateSelected: _applyMealTemplateSuggestion,
                 ),
+                OfficialFoodSearchSection(
+                  query: _nameController,
+                  onSelected: (match) =>
+                      openOfficialFoodDetail(context, widget.controller, match),
+                ),
+              ],
               if (_usesSavedFoodBaseModel) ...[
                 const SizedBox(height: 12),
                 Text(

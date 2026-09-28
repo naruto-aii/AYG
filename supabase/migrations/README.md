@@ -32,6 +32,14 @@ early return in `plpgsql` when `auth.uid() is null`.
 Leave owned by `postgres`. Do not grant `EXECUTE` to `anon` / `authenticated`.
 They run with owner privileges.
 
+### Official foods (`20260928120000`)
+
+`official_foods` and `official_food_aliases` are authenticated-select only.
+`anon` has no privileges. `INSERT` / `UPDATE` / `DELETE` / `TRUNCATE` are
+revoked from `anon` and `authenticated`. The import script writes as the
+database owner. `search_official_foods` and `normalize_food_search_text`
+grant `EXECUTE` to `authenticated` only.
+
 ### `supabase_admin` default privileges
 
 Migration runner (`postgres`) may lack permission to

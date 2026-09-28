@@ -16,6 +16,8 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
 import '../../widgets/design/weight_parts.dart';
+import '../../widgets/official_food/official_food_search_section.dart';
+import '../official_food/official_food_detail_screen.dart';
 
 class PublicFoodSearchScreen extends StatefulWidget {
   const PublicFoodSearchScreen({
@@ -204,6 +206,12 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
                 : () => _useBarcodeSearch ? _searchByBarcode() : _search(),
           ),
           const SizedBox(height: 18),
+          OfficialFoodSearchSection(
+            query: _queryController,
+            active: !_useBarcodeSearch,
+            onSelected: (match) =>
+                openOfficialFoodDetail(context, widget.controller, match),
+          ),
           if (_isSearching)
             const SizedBox.shrink()
           else if (_results.isEmpty)

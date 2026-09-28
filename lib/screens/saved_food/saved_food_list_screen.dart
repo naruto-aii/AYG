@@ -19,6 +19,8 @@ import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
 import '../../widgets/design/weight_parts.dart';
+import '../../widgets/official_food/official_food_search_section.dart';
+import '../official_food/official_food_detail_screen.dart';
 
 enum _MyFoodVisibilityFilter { all, private, public }
 
@@ -211,6 +213,11 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
             onChanged: (filter) => setState(() => _visibilityFilter = filter),
           ),
           const SizedBox(height: 16),
+          OfficialFoodSearchSection(
+            query: _searchController,
+            onSelected: (match) =>
+                openOfficialFoodDetail(context, widget.controller, match),
+          ),
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),

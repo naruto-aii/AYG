@@ -1,0 +1,56 @@
+name: Official foods
+
+on:
+  pull_request:
+  push:
+    branches:
+      - cursor/official-foods-import-0702
+
+# Separate from .github/workflows/ci.yml, which PR #25 adds.
+# When that workflow lands, fold the sql steps in after run_sql_smoke.sh.
+
+jobs:
+  sql:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Python packages
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r tool/official_foods/requirements.txt
+      - name: Migration, sample import, search
+        run: |
+          export PATH="$PWD/.venv/bin:$PATH"
+          bash supabase/tests/run_official_foods_test.sh
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.5"
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze lib test --no-fatal-infos --no-fatal-warnings
+      - run: flutter test

@@ -100,6 +100,9 @@ begin
   -- own row is already there and copied_from is unchanged, skip the
   -- reference checks and let the UPDATE trigger decide. Look up only
   -- auth.uid()'s row so another user's food_id cannot be observed.
+  -- Lock that row. A delete that has not committed still looks present,
+  -- and ON CONFLICT would then insert once the delete commits. Without
+  -- the lock, the skipped checks would not run on that insert.
   v_check_source := tg_op = 'INSERT';
   if tg_op = 'UPDATE' then
     v_check_source :=
@@ -112,7 +115,8 @@ begin
       into v_existing_food, v_existing_owner
     from public.saved_foods s
     where s.user_id = auth.uid()
-      and s.food_id = new.food_id;
+      and s.food_id = new.food_id
+    for update;
     if found
        and new.copied_from_food_id is not distinct from v_existing_food
        and new.copied_from_owner_user_id is not distinct from v_existing_owner then

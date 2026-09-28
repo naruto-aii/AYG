@@ -239,3 +239,83 @@ begin
   end if;
 end
 $$;
+
+-- Direct API as authenticated. A private plain copy that only points at a
+-- composition-table food through another copy must still inherit provenance.
+-- Publishing the unattributed middle row must fail.
+do $$
+declare
+  uid uuid := '11111111-1111-1111-1111-111111111111';
+  copier uuid := '33333333-3333-3333-3333-333333333333';
+  got_source text;
+  got_code text;
+  attribution text;
+begin
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+  ) values (
+    copier, 'mext-bridge', '経由', '経由', 100, 'g',
+    'copied', 'mext-rice', uid, 'private'
+  );
+  if (
+    select source_type from public.saved_foods
+    where user_id = copier and food_id = 'mext-bridge'
+  ) is distinct from 'copied' then
+    raise exception 'owner fixture was rewritten before the client call';
+  end if;
+
+  perform set_config('request.jwt.claim.sub', copier::text, true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  execute 'set local role authenticated';
+
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id,
+    official_food_code, official_food_name, source_attribution, visibility
+  ) values (
+    copier, 'mext-chain', 'さらに写し', 'さらに写し', 100, 'g',
+    'copied', 'mext-bridge', copier,
+    null, null, null, 'private'
+  );
+
+  select source_type, official_food_code, source_attribution
+    into got_source, got_code, attribution
+  from public.saved_foods
+  where user_id = copier and food_id = 'mext-chain';
+  if got_source is distinct from 'mext_sfct'
+     or got_code is distinct from '01088'
+     or attribution is distinct from
+       '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成' then
+    raise exception 'transitive copy dropped provenance: % % %',
+      got_source, got_code, attribution;
+  end if;
+
+  begin
+    perform public.publish_saved_food('mext-bridge');
+    raise exception 'unattributed composition-table copy was published';
+  exception
+    when others then
+      if sqlerrm not like '%attribution%' then
+        raise;
+      end if;
+  end;
+
+  if (
+    select visibility from public.saved_foods
+    where user_id = copier and food_id = 'mext-bridge'
+  ) is distinct from 'private' then
+    raise exception 'failed publish left the copy public';
+  end if;
+
+  perform public.publish_saved_food('mext-chain');
+  if (
+    select visibility || ' ' || source_attribution
+    from public.saved_foods
+    where user_id = copier and food_id = 'mext-chain'
+  ) is distinct from
+    'public 出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成' then
+    raise exception 'attributed transitive copy could not be published';
+  end if;
+end
+$$;

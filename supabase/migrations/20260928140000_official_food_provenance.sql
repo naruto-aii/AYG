@@ -66,6 +66,13 @@ declare
   v_may_relabel boolean;
   v_from_code text;
   v_from_name text;
+  v_chain_mext boolean := false;
+  v_food_id text;
+  v_owner uuid;
+  v_row_source text;
+  v_next_food text;
+  v_next_owner uuid;
+  v_depth integer := 0;
 begin
   v_may_relabel :=
     current_user in ('postgres', 'service_role')
@@ -77,27 +84,35 @@ begin
         and c.relname = 'saved_foods'
     );
 
-  -- A plain copy of a composition-table food must keep that provenance.
+  -- Follow copied_from through plain copies until a composition-table row.
   -- Row level security hides foods this role cannot read. The table owner
-  -- is skipped so rollback can relabel source_type to copied.
-  if not v_may_relabel and new.copied_from_food_id is not null then
-    select s.official_food_code, s.official_food_name
-      into v_from_code, v_from_name
+  -- is not rewritten, so rollback can relabel source_type to copied.
+  -- Publishing a copy in that chain without provenance is rejected below.
+  v_food_id := new.copied_from_food_id;
+  v_owner := new.copied_from_owner_user_id;
+  while v_food_id is not null and v_depth < 8 loop
+    v_depth := v_depth + 1;
+    select s.official_food_code, s.official_food_name, s.source_type,
+           s.copied_from_food_id, s.copied_from_owner_user_id
+      into v_from_code, v_from_name, v_row_source, v_next_food, v_next_owner
     from public.saved_foods s
-    where s.food_id = new.copied_from_food_id
-      and s.source_type = 'mext_sfct'
-      and s.official_food_code is not null
-      and s.official_food_name is not null
-      and (
-        new.copied_from_owner_user_id is null
-        or s.user_id = new.copied_from_owner_user_id
-      )
+    where s.food_id = v_food_id
+      and (v_owner is null or s.user_id = v_owner)
     limit 1;
-    if v_from_code is not null then
-      new.source_type := 'mext_sfct';
-      new.official_food_code := v_from_code;
-      new.official_food_name := v_from_name;
+    exit when not found;
+    if v_row_source = 'mext_sfct' or v_from_code is not null then
+      v_chain_mext := true;
+      exit;
     end if;
+    exit when v_next_food is null or v_next_food = v_food_id;
+    v_food_id := v_next_food;
+    v_owner := v_next_owner;
+  end loop;
+
+  if v_chain_mext and not v_may_relabel then
+    new.source_type := 'mext_sfct';
+    new.official_food_code := v_from_code;
+    new.official_food_name := v_from_name;
   end if;
 
   if tg_op = 'UPDATE'
@@ -121,6 +136,19 @@ begin
     end if;
     new.source_attribution :=
       '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
+  end if;
+
+  if v_chain_mext
+     and new.visibility = 'public'
+     and (
+       new.source_type is distinct from 'mext_sfct'
+       or new.official_food_code is null
+       or new.official_food_name is null
+       or new.source_attribution is distinct from
+         '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成'
+     ) then
+    raise exception
+      'publishing a composition-table copy requires mext_sfct attribution';
   end if;
 
   return new;

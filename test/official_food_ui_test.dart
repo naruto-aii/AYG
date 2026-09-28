@@ -21,6 +21,7 @@ import 'package:ayg/widgets/official_food/official_food_attribution_line.dart';
 import 'package:ayg/widgets/saved_food/public_food_detail_sheet.dart';
 import 'package:ayg/widgets/official_food/official_food_search_section.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -218,6 +219,44 @@ void main() {
       expect(find.text(OfficialFoodCopy.fullAttribution), findsOneWidget);
       await pump(1);
       expect(find.text(OfficialFoodCopy.compactAttribution), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'attribution stays complete at text scale 2 and a narrow phone width',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: SizedBox(
+                width: 320,
+                child: OfficialFoodAttributionLine(),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(
+          of: find.byType(OfficialFoodAttributionLine),
+          matching: find.byType(Text),
+        ),
+      );
+      final shown = paragraph.text.toPlainText();
+      expect(
+        shown,
+        anyOf(
+          OfficialFoodCopy.fullAttribution,
+          OfficialFoodCopy.compactAttribution,
+        ),
+      );
+      expect(shown.contains('…'), isFalse);
+      expect(shown.contains('...'), isFalse);
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(shown, OfficialFoodCopy.compactAttribution);
     },
   );
 

@@ -8,7 +8,22 @@
 
 `supabase/rollback/20260928140000_official_food_provenance_down.sql`
 
-消えるもの: `saved_foods` の `official_food_code`、`official_food_name`、`source_attribution`、`food_entries` の `official_food_code`、`official_food_name`、出典を固定するトリガー、食品番号が `official_foods` に実在することを見る関数。出典列を消す前に、`source_type = 'mext_sfct'` かつ `visibility = 'public'` のマイ食品を `private` に戻す。出典のない公式由来の値が公開のまま残らないようにするためで、行自体は消さない。`food_entries.source_type = 'mext_sfct'` の行は削除せず `manual` に戻す。その更新は新しい source が `mext_sfct` ではないので、`official_foods` が先に消えていても通る。マイ食品の `source_type` は、その次の official foods のロールバックで `copied` に戻す。
+列を消す前に、公開中の成分表由来マイ食品を非公開にする。対象は `visibility = 'public'` で、自身が `source_type = 'mext_sfct'` か `official_food_code` / `source_attribution` を持つか、`copied_from` をたどるとそうなる行。`visibility` は `private` にする。行は消さない。
+
+そのあと消える列:
+
+- `saved_foods.official_food_code`（食品番号）
+- `saved_foods.official_food_name`（成分表の食品名）
+- `saved_foods.source_attribution`（固定の出典文）
+- `food_entries.official_food_code`
+- `food_entries.official_food_name`
+
+残る列:
+
+- `saved_foods` の名前、栄養、`visibility`（上の行は `private`）、`copied_from_food_id`、`copied_from_owner_user_id`。`source_type` はこの時点では `mext_sfct` のまま残り、次の official foods のロールバックで `copied` になる。
+- `food_entries` の食事の名前と量。`source_type = 'mext_sfct'` は削除せず `manual` に戻してから食品番号の列を消す。この更新は新しい source が `mext_sfct` ではないので、`official_foods` が先に消えていても通る。
+
+出典を固定するトリガーと、食品番号が `official_foods` に実在することを見る関数も消える。
 
 ## 20260928120000 official foods
 

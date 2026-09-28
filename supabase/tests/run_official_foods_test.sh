@@ -229,9 +229,17 @@ psql_cmd -f supabase/tests/official_foods_test.sql
 echo "provenance columns"
 psql_cmd -f supabase/tests/official_food_provenance_test.sql
 
-echo "reverse-order down rolls back"
-if psql_cmd -v ON_ERROR_STOP=1 -f supabase/rollback/20260928120000_official_foods_down.sql; then
-  echo "official-foods down committed while attribution triggers still exist" >&2
+echo "reverse-order down stops"
+reverse_status=0
+reverse_out="$(psql_cmd -f supabase/rollback/20260928120000_official_foods_down.sql 2>&1)" || reverse_status=$?
+if [[ "$reverse_status" -eq 0 ]]; then
+  echo "official-foods down committed while provenance objects remain" >&2
+  printf '%s\n' "$reverse_out" >&2
+  exit 1
+fi
+if [[ "$reverse_out" != *20260928140000* ]]; then
+  echo "reverse-order down did not tell the operator to run the provenance down" >&2
+  printf '%s\n' "$reverse_out" >&2
   exit 1
 fi
 psql_cmd <<'SQL'
@@ -244,6 +252,16 @@ begin
      or to_regprocedure('public.enforce_mext_food_entry_code()') is null then
     raise exception 'reverse-order down left triggers without official foods';
   end if;
+  insert into public.food_entries (
+    user_id, entry_id, name, quantity, logged_at, source_type
+  ) values (
+    '11111111-1111-1111-1111-111111111111',
+    'manual-after-reverse-down',
+    '手入力',
+    1,
+    timezone('utc', now()),
+    'manual'
+  );
 end
 $$;
 SQL

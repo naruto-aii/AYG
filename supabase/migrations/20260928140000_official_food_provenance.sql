@@ -84,10 +84,11 @@ begin
         and c.relname = 'saved_foods'
     );
 
-  -- Follow copied_from through plain copies until a composition-table row.
-  -- Row level security hides foods this role cannot read. The table owner
-  -- is not rewritten, so rollback can relabel source_type to copied.
-  -- Publishing a copy in that chain without provenance is rejected below.
+  -- The direct copied_from target must be a row this role can read.
+  -- Row level security hides the rest. A forged owner id or an unknown
+  -- food id used to end the walk early, so a row could keep an official
+  -- food code and still be published with no attribution.
+  -- The table owner is not rewritten, so rollback can relabel source_type.
   v_food_id := new.copied_from_food_id;
   v_owner := new.copied_from_owner_user_id;
   while v_food_id is not null and v_depth < 8 loop
@@ -99,7 +100,12 @@ begin
     where s.food_id = v_food_id
       and (v_owner is null or s.user_id = v_owner)
     limit 1;
-    exit when not found;
+    if not found then
+      if v_depth = 1 then
+        raise exception 'copied_from must reference a saved food you can read';
+      end if;
+      exit;
+    end if;
     if v_row_source = 'mext_sfct' or v_from_code is not null then
       v_chain_mext := true;
       exit;
@@ -136,6 +142,18 @@ begin
     end if;
     new.source_attribution :=
       '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
+  end if;
+
+  -- Publish checks do not trust copied_from. A food code without the
+  -- canonical attribution cannot be public. A readable copied_from chain
+  -- that reaches a composition-table row cannot be public unless this row
+  -- keeps mext_sfct provenance and that same attribution.
+  if new.visibility = 'public'
+     and new.official_food_code is not null
+     and new.source_attribution is distinct from
+       '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成' then
+    raise exception
+      'publishing a food with an official food code requires the composition-table attribution';
   end if;
 
   if v_chain_mext

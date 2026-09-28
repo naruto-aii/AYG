@@ -4,11 +4,55 @@
 -- copied so the previous check constraint can be restored. They are not deleted.
 --
 -- This file is one transaction. Run the provenance down first and commit it
--- before this file. If this file runs while the attribution triggers are
--- still installed, a failure rolls the table drop back with them. Committing
--- this file alone leaves those triggers in place after official_foods is gone.
+-- before this file. If provenance triggers or columns are still installed,
+-- this script stops before dropping official_foods. Otherwise the food-entry
+-- trigger keeps querying that table and every meal insert fails, including
+-- manual ones, while the official-foods down still commits when no public
+-- composition-table copy blocks the source relabel.
 
 begin;
+
+do $require_provenance_down$
+begin
+  if to_regprocedure('public.enforce_mext_saved_food_attribution()') is not null
+     or to_regprocedure('public.enforce_mext_food_entry_code()') is not null
+     or exists (
+       select 1
+       from pg_catalog.pg_trigger t
+       join pg_catalog.pg_class c on c.oid = t.tgrelid
+       join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public'
+         and c.relname in ('saved_foods', 'food_entries')
+         and t.tgname in (
+           'enforce_mext_saved_food_attribution',
+           'enforce_mext_food_entry_code'
+         )
+         and not t.tgisinternal
+     )
+     or exists (
+       select 1
+       from information_schema.columns
+       where table_schema = 'public'
+         and (
+           (
+             table_name = 'saved_foods'
+             and column_name in (
+               'official_food_code',
+               'official_food_name',
+               'source_attribution'
+             )
+           )
+           or (
+             table_name = 'food_entries'
+             and column_name in ('official_food_code', 'official_food_name')
+           )
+         )
+     ) then
+    raise exception
+      'provenance objects from 20260928140000 are still installed; run supabase/rollback/20260928140000_official_food_provenance_down.sql first. Dropping official_foods while enforce_mext_food_entry_code remains makes every food_entries insert fail, including manual meals';
+  end if;
+end
+$require_provenance_down$;
 
 drop function if exists public.search_official_foods(text, integer);
 drop function if exists public.normalize_food_search_text(text);

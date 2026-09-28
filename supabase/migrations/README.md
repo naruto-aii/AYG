@@ -53,8 +53,10 @@ not. Only `postgres`, `service_role`, or the `saved_foods` owner may
 change that source. A `mext_sfct` food code must exist in
 `official_foods`. Copying a visible food keeps that source, food code, official name,
 and attribution when `copied_from` reaches a `mext_sfct` row directly
-or through other copies. Publishing that copy without this provenance
-fails. `authenticated` is granted
+or through other copies. Publishing that copy without this provenance fails. A public row
+with `official_food_code` also fails unless `source_attribution` is
+the canonical sentence, even when `copied_from` points somewhere else.
+`copied_from` must name a saved food the writer can read. `authenticated` is granted
 `INSERT` and `UPDATE` on `official_food_code`, `official_food_name`,
 and `source_attribution`, because PR #29 replaces the table grant with
 a column list that cannot name columns added later. If that revoke runs

@@ -319,3 +319,91 @@ begin
   end if;
 end
 $$;
+
+-- Forged copied_from. A food code without the canonical attribution cannot
+-- be published even when copied_from points at an ordinary food. copied_from
+-- itself must be a row this role can read.
+do $$
+declare
+  uid uuid := '11111111-1111-1111-1111-111111111111';
+  copier uuid := '33333333-3333-3333-3333-333333333333';
+  stranger uuid := '55555555-5555-5555-5555-555555555555';
+begin
+  insert into auth.users (id, email)
+  values (stranger, 'stranger@example.com');
+  insert into public.users (id, email)
+  values (stranger, 'stranger@example.com');
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, visibility
+  ) values (
+    stranger, 'secret-food', '秘密の弁当', '秘密の弁当', 100, 'g',
+    'manual', 'private'
+  );
+
+  perform set_config('request.jwt.claim.sub', copier::text, true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  execute 'set local role authenticated';
+
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id,
+    official_food_code, official_food_name, source_attribution, visibility
+  ) values (
+    copier, 'forged-code', '偽装ごはん', '偽装ごはん', 100, 'g',
+    'copied', 'plain-soup', uid,
+    '01088', 'こめ　［水稲めし］　精白米　うるち米', null, 'private'
+  );
+
+  begin
+    perform public.publish_saved_food('forged-code');
+    raise exception 'forged copy with a food code was published without attribution';
+  exception
+    when others then
+      if sqlerrm not like '%attribution%' then
+        raise;
+      end if;
+  end;
+
+  if (
+    select visibility from public.saved_foods
+    where user_id = copier and food_id = 'forged-code'
+  ) is distinct from 'private' then
+    raise exception 'failed forged publish left the food public';
+  end if;
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+    ) values (
+      copier, 'forged-private', '見えない写し', '見えない写し', 100, 'g',
+      'copied', 'secret-food', stranger, 'private'
+    );
+    raise exception 'copied_from accepted a food the user cannot read';
+  exception
+    when others then
+      if sqlerrm not like '%copied_from%' then
+        raise;
+      end if;
+  end;
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id,
+      official_food_code, source_attribution, visibility
+    ) values (
+      copier, 'forged-owner', '所有者ちがい', '所有者ちがい', 100, 'g',
+      'copied', 'mext-rice', copier,
+      '01088', null, 'private'
+    );
+    raise exception 'copied_from accepted a food id with the wrong owner';
+  exception
+    when others then
+      if sqlerrm not like '%copied_from%' then
+        raise;
+      end if;
+  end;
+end
+$$;

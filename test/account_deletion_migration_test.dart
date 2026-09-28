@@ -92,10 +92,41 @@ void main() {
     final updateListStart = grantBody.lastIndexOf('update (');
     final updateList = grantBody.substring(updateListStart, authenticatedGrant);
     expect(updateList.contains('owner_deleted'), isFalse);
+    expect(updateList.contains('official_food_code'), isFalse);
     expect(updateList, contains('serving_unit_label'));
     expect(updateList, contains('version'));
     expect(updateList, contains('normalized_name'));
   });
+
+  test(
+    'official-food column grants are restored only when the columns exist',
+    () {
+      final revoke = followUpSql.indexOf(
+        'revoke insert, update on table public.saved_foods from authenticated',
+      );
+      final regrant = followUpSql.indexOf('\$regrant_official_food_columns\$');
+      expect(revoke, greaterThan(0));
+      expect(regrant, greaterThan(revoke));
+      final blockEnd = followUpSql.indexOf(
+        '\$regrant_official_food_columns\$;',
+        regrant + 1,
+      );
+      expect(blockEnd, greaterThan(regrant));
+      final block = followUpSql.substring(regrant, blockEnd);
+      expect(block, contains('information_schema.columns'));
+      expect(block, contains("'saved_foods'"));
+      expect(block, contains("'food_entries'"));
+      expect(block, contains("'official_food_code'"));
+      expect(block, contains("'official_food_name'"));
+      expect(block, contains("'source_attribution'"));
+      expect(
+        block,
+        contains(
+          'grant insert (%s), update (%s) on table public.%I to authenticated',
+        ),
+      );
+    },
+  );
 
   test('owner_deleted trigger is not security definer', () {
     final start = followUpSql.indexOf(

@@ -26,7 +26,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      FEATURE_REF: 5eab90b5eb2bf79ebb0459c56433b93a3bc9af24
+      FEATURE_REF: 240269574becd257d4a5c7823c28ee4e11ae2632
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: naruto-aii/AYG
-          ref: 5eab90b5eb2bf79ebb0459c56433b93a3bc9af24
+          ref: 240269574becd257d4a5c7823c28ee4e11ae2632
           path: feature
       - uses: actions/setup-python@v5
         with:
@@ -80,7 +80,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: naruto-aii/AYG
-          ref: 5eab90b5eb2bf79ebb0459c56433b93a3bc9af24
+          ref: 240269574becd257d4a5c7823c28ee4e11ae2632
           path: feature
           fetch-depth: 0
       - name: PostgreSQL client

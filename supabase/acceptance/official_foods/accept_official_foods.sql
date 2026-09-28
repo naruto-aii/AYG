@@ -13,7 +13,7 @@
 -- Do not treat a notice as a pass. Do not commit this file with a production
 -- snapshot pasted in.
 --
--- Aligned to PR #31 (cursor/official-foods-import-0702 @ 5eab90b).
+-- Aligned to PR #31 (cursor/official-foods-import-0702 @ 2402695).
 -- Apply order after the snapshot:
 --   supabase/migrations/20260928120000_official_foods.sql
 --   supabase/migrations/20260928140000_official_food_provenance.sql

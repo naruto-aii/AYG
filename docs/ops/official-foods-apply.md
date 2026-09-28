@@ -40,6 +40,7 @@ SQL を流している正味の時間は数分です。確認とレビューを�
    - 検索関数は security definer で stable、`search_path` は空か。正規化関数は immutable で `search_path` を空にし、入力を 256 文字で切るか。`anon` と `authenticated` に正規化関数の EXECUTE は無いか。検索関数だけが正規化関数を呼ぶ。
    - `enforce_mext_saved_food_attribution` と `enforce_mext_food_entry_code` は security invoker で、`public`、`anon`、`authenticated` に EXECUTE は無いか。行の書き込みは表の所有者としてトリガーを起動するので、直接の EXECUTE は要らない。
    - アプリのマイ食品保存は PostgREST の upsert か。`POST` に `Prefer: resolution=merge-duplicates` と `on_conflict=user_id,food_id` を付け、SQL は `INSERT ... ON CONFLICT (user_id, food_id) DO UPDATE` になる。同じ利用者の行が既にあり、`copied_from` とその所有者が変わっていなければ、INSERT 側の参照確認を飛ばす。見る行は `auth.uid()` の行だけか。
+   - その既存行の検索に `FOR UPDATE` が付いているか。未コミットの削除を、まだ存在する行として確認を飛ばさない。
    - `anon` / `authenticated` への INSERT、UPDATE、DELETE、TRUNCATE が無いこと。SELECT は `authenticated` のみ。
 4. `pg_trgm` を `extensions` スキーマに作る文がマイグレーションに含まれるなら、下記「4. `pg_trgm`」の単独作成は、既にあるのでスキップしてよい。
 5. ワークブックは次のファイルと一致させる。sha256 が違う版を投入しない。
@@ -108,7 +109,7 @@ create extension if not exists pg_trgm with schema extensions;
 1. `list_migrations`（引数 `project_id`）。`20260928120000` または `20260928140000` が既にあれば止めて、下記「7. 受け入れ」に進むか、適用済みとして扱うかをチケットで決める。同じ DDL を重ねない。
 2. 公式食品はこの2ファイルだけで適用できます。#25〜#29 は前提ではありません。機能 PR は web-preview にこの2ファイルを足しただけで、公式食品 SQL は #25〜#29 のオブジェクトを参照しません。
    - #29 を入れるなら `fca01f1` 以降です。対象ファイルは `20260927150000_protect_owner_deleted_and_revoke_sessions.sql` です。テーブル権限の REVOKE のあと、列が既にあるときは `official_food_code`、`official_food_name`、`source_attribution` を `authenticated` へ付け直します。それより前の #29 は使いません。
-   - 順はどちらでもよいです。公式食品（`20260928120000` のあと `20260928140000`）の次に #29 でも、#29 の次に公式食品でも適用できます。#29 が先のとき、付け直しは列がまだ無いのでスキップされ、公式食品側の GRANT が権限を付けます。公式食品が先のとき、#29 の REVOKE が列権限を落としたあと、同じファイルの付け直しが戻します。機能 PR の CI は `sql-with-pr29`（#29 のあと #31）と `sql-pr31-then-pr29`（#31 のあと #29）です。この PR の CI にも `accept-with-pr29` があり、#31 の `5eab90b` の公式食品のあと #29 を `fca01f1` にピンして流し、`authenticated` のマイ食品書き込みを見ます。本番の前に、入れる #29 のコミットが `fca01f1` 以降であることをチケットに書きます。
+   - 順はどちらでもよいです。公式食品（`20260928120000` のあと `20260928140000`）の次に #29 でも、#29 の次に公式食品でも適用できます。#29 が先のとき、付け直しは列がまだ無いのでスキップされ、公式食品側の GRANT が権限を付けます。公式食品が先のとき、#29 の REVOKE が列権限を落としたあと、同じファイルの付け直しが戻します。機能 PR の CI は `sql-with-pr29`（#29 のあと #31）と `sql-pr31-then-pr29`（#31 のあと #29）です。この PR の CI にも `accept-with-pr29` があり、#31 の `2402695` の公式食品のあと #29 を `fca01f1` にピンして流し、`authenticated` のマイ食品書き込みを見ます。本番の前に、入れる #29 のコミットが `fca01f1` 以降であることをチケットに書きます。
 3. `20260928120000_official_foods.sql` の中身を、編集せず `apply_migration` の `query` に貼る。
    - `name`: `official_foods_20260928120000`（snake_case。どのファイルを入れたか履歴の name から追える文字列。空白は入れない）
    - `project_id`: 手順 1 の id

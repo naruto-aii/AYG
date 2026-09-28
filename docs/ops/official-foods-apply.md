@@ -106,7 +106,7 @@ create extension if not exists pg_trgm with schema extensions;
 1. `list_migrations`（引数 `project_id`）。`20260928120000` または `20260928140000` が既にあれば止めて、下記「7. 受け入れ」に進むか、適用済みとして扱うかをチケットで決める。同じ DDL を重ねない。
 2. 公式食品はこの2ファイルだけで適用できます。#25〜#29 は前提ではありません。機能 PR は web-preview にこの2ファイルを足しただけで、公式食品 SQL は #25〜#29 のオブジェクトを参照しません。
    - #29 を入れるなら `fca01f1` 以降です。対象ファイルは `20260927150000_protect_owner_deleted_and_revoke_sessions.sql` です。テーブル権限の REVOKE のあと、列が既にあるときは `official_food_code`、`official_food_name`、`source_attribution` を `authenticated` へ付け直します。それより前の #29 は使いません。
-   - 順はどちらでもよいです。公式食品（`20260928120000` のあと `20260928140000`）の次に #29 でも、#29 の次に公式食品でも適用できます。#29 が先のとき、付け直しは列がまだ無いのでスキップされ、公式食品側の GRANT が権限を付けます。公式食品が先のとき、#29 の REVOKE が列権限を落としたあと、同じファイルの付け直しが戻します。機能 PR の CI は `sql-with-pr29`（#29 のあと #31）と `sql-pr31-then-pr29`（#31 のあと #29）です。本番の前に、入れる #29 のコミットが `fca01f1` 以降であることをチケットに書きます。
+   - 順はどちらでもよいです。公式食品（`20260928120000` のあと `20260928140000`）の次に #29 でも、#29 の次に公式食品でも適用できます。#29 が先のとき、付け直しは列がまだ無いのでスキップされ、公式食品側の GRANT が権限を付けます。公式食品が先のとき、#29 の REVOKE が列権限を落としたあと、同じファイルの付け直しが戻します。機能 PR の CI は `sql-with-pr29`（#29 のあと #31）と `sql-pr31-then-pr29`（#31 のあと #29）です。この PR の CI にも `accept-with-pr29` があり、#29 を `fca01f1` にピンして、公式食品のあと #29 を流し、`authenticated` のマイ食品書き込みを見ます。本番の前に、入れる #29 のコミットが `fca01f1` 以降であることをチケットに書きます。
 3. `20260928120000_official_foods.sql` の中身を、編集せず `apply_migration` の `query` に貼る。
    - `name`: `official_foods_20260928120000`（snake_case。どのファイルを入れたか履歴の name から追える文字列。空白は入れない）
    - `project_id`: 手順 1 の id
@@ -138,7 +138,7 @@ python3 tool/official_foods/export_sql.py \
 
 3. 出力は `01_official_foods_0001.sql` のあと `02_official_food_aliases_0001.sql` の順で、ファイル名のソート順に実行できます。各ファイルは `begin` から `commit` までです。中身は `INSERT ... ON CONFLICT DO UPDATE` です。文字列は SQL リテラル（`'` は二重）です。`COPY FROM`、サーバ上のファイル読み取り、動的 SQL の連結は含めません。先頭のコメントは「手で編集しない」です。
 4. バッチを開いて、食品が別名より先であること、1 ファイルがおおよそ 200 行であること、引用符が二重化されていることだけを見ます。値は直しません。おかしいファイルは捨て、スクリプト側を直してから作り直します。
-5. ソート順に、各ファイルの全文を `execute_sql` の `query` に貼ります。食品が全部終わってから別名です。別名は食品番号への外部キーがあります。
+5. ソート順に、各ファイルの全文を `execute_sql` の `query` に貼ります。食品が全部終わってから別名です。別名は食品番号への外部キーがあります。各ファイルは `begin` から `commit` までです。`apply_migration` や SQL エディタでこの形のファイルを流すときの、公式ドキュメントで確認できた注意は 9.2 にあります。
 6. ツールがペイロードを拒否したら、`--batch-size 50` で作り直して、最初から流します。途中まで入った食品は `ON CONFLICT` で上書きされるので、作り直した食品バッチを重ねて構いません。
 7. 先頭の食品バッチだけもう一度流し、エラーにならないことを見ます。食品バッチ全体の 2 周目は任意です。件数が 2,538 のままなら冪等です。受け入れの件数チェックが本線です。
 8. 列は生成スクリプトが `import.py` と同じ公式食品の列に書きます。受け入れ CONFIG の `food_code` / `name` / `kcal` / `source` / `edition` と一致していることを、バッチの INSERT 列で見ます。
@@ -205,6 +205,8 @@ where source = 'mext_sfct' and edition = '八訂増補2023';
 
 この DELETE が消すのは `official_foods` の行だけです。別名は cascade で消えます。`saved_foods` と食事記録（`food_entries`）へ写した利用者の行は残ります。`source_type = mext_sfct` の私的コピーも、公開したマイ食品も、成分表の行が無くなったあとも残ります。利用者データの削除ではありません。
 
+行は残りますが、出典トリガーと食事記録の食品番号トリガーは残ったまま、`official_food_code` が `official_foods` にあることを要求します。この DELETE のあと、成分表由来のマイ食品は編集も公開もできなくなります。成分表由来の食事記録（`food_entries.source_type = 'mext_sfct'`）は登録できなくなります。失敗時のメッセージは `mext_sfct official_food_code must exist in official_foods` です。食品行を戻すか、9.2 で出典側を戻すまで、その書き込みは失敗します。`mext_sfct` でない食事記録の登録は、この DELETE だけでは止まりません。
+
 ### 9.2 オブジェクトを drop する
 
 機能 PR の `supabase/rollback/README.md` と同じです。各 down ファイルは先頭の `begin` から末尾の `commit` までが1トランザクションです。ファイルの中の文を分けて流しません。途中で失敗すると、そのファイルの変更は全部戻ります。下の代替 DROP は、両方の down ファイルがピンしたコミットにあるあいだ使いません。
@@ -214,6 +216,10 @@ where source = 'mext_sfct' and edition = '八訂増補2023';
 実行前に、公開中の成分表由来マイ食品の `user_id` と `food_id` をチケットに書きます。対象は `visibility = 'public'` で、自身が `source_type = 'mext_sfct'` か、`official_food_code` または `source_attribution` を持つか、`copied_from` をたどるとそうなる行です。
 
 通常はファイルごとに確定します。公式食品の down を先に確定しません。先に確定すると `official_foods` が消え、出典トリガーが残ります。
+
+120000 の down を先に確定して中途半端に戻ったときの直し方は、140000 の down を流すことです。その状態では `official_foods` と別名、検索関数は無く、`enforce_mext_saved_food_attribution` と `enforce_mext_food_entry_code` は残ります。食事記録の登録は、手入力を含めてすべて失敗します。残ったトリガーが消えた表を参照し、`relation "public.official_foods" does not exist` になります。120000 の down の途中で失敗したときは、そのファイルが1トランザクションなので表の削除は残りません。残るのは、そのファイルが commit したあとです。
+
+復旧は、まだ流していなければ `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文を1回流します。`apply_migration` の `name` は `rollback_official_food_provenance_20260928140000` です。`begin` と `commit` はファイルのままです。このファイルが残っているトリガーと関数を drop します。120000 の down をもう一度流しても直りません。表は既に無いので、公式食品を入れ直してから戻す必要もありません。確認は、その2つのトリガーが無いこと、手入力の食事記録を登録できること、控えた公開行が `public` でないことです。列が残っているあいだ、この down は成分表由来の公開行を `private` にします。行は消しません。
 
 1. `apply_migration` を1回。`query` は `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文です。`begin` と `commit` は残します。足しません。外しません。
    - `name`: `rollback_official_food_provenance_20260928140000`
@@ -225,6 +231,14 @@ where source = 'mext_sfct' and edition = '八訂増補2023';
    - 確認は、控えた行が `public` でないこと、`source_type = 'mext_sfct'` が 0 であること、`to_regclass('public.official_foods')` が null であることです。`copied_from` だけが成分表由来だった行の `source_type` は `copied` のままです。
 
 2つを1つのトランザクションにまとめるときは、両方のファイルから `begin` と `commit` を外し、外側で1回だけ `begin` と `commit` します。中の `commit` を残すと、そこで確定してトランザクションが分かれます。順は同じで、provenance が先です。1回の `apply_migration` にします。`name` は `rollback_official_food_provenance_then_foods` です。
+
+`begin` / `commit` を含むファイルを `apply_migration` または SQL エディタで流すとき、公式ドキュメントで確認できたのは次だけです。
+
+- `apply_migration` が使う `POST /v1/projects/{ref}/database/migrations` はマイグレーションを実行し、失敗すると変更をロールバックします（[Supabase for Platforms](https://supabase.com/docs/guides/integrations/supabase-for-platforms) の “Make database changes”）。このエンドポイントの処理時間は 3 分までです（[Management API](https://supabase.com/docs/reference/api/introduction) の `POST /v1/projects/:ref/database/migrations`）。クエリ自身の `begin` / `commit` と、この失敗時のロールバックがどう重なるかは、そのページには書いてありません。
+- PostgreSQL 17 では、すでにトランザクションの中で `BEGIN` すると警告が出て、トランザクションの状態は変わりません。入れ子には `SAVEPOINT` を使います（[BEGIN](https://www.postgresql.org/docs/17/sql-begin.html)）。`COMMIT` は現在のトランザクションを確定します。トランザクションの外の `COMMIT` は警告です（[COMMIT](https://www.postgresql.org/docs/17/sql-commit.html)）。
+- SQL エディタの実行は 1 分で切れます（[Avoiding timeouts in long running queries](https://supabase.com/docs/guides/troubleshooting/avoiding-timeouts-in-long-running-queries-6nmbdN)）。Dashboard はトランザクション環境で、セッションを維持しません（[PGAudit](https://supabase.com/docs/guides/database/extensions/pgaudit)）。Dashboard のクエリは設定できる上限が 60 秒で、それより長いトランザクションは Supavisor のセッションモード（ポート 5432）か直接接続です（[Timeouts](https://supabase.com/docs/guides/database/postgres/timeouts)）。
+
+down はファイルごとに `apply_migration` を1回にし、その成否を見てから次へ進みます。SQL エディタで同じファイルを流すときも、1回の実行にファイルを1つにします。1分を超える実行には SQL エディタを使いません。
 
 どちらの down も、成功したあとに同じファイルをもう一度実行できます。受け入れ CI は、公開の成分表由来行を入れてから provenance down を2回、続けて official foods down を2回実行し、2回目も失敗せず、公開の成分表由来行が残らないことを見ています。provenance の2回目は列が無いので非公開化をスキップし、drop は `IF EXISTS` です。利用者の行を消さないのは、非公開化と `source_type` の書き換えが行の削除ではないからです。実行前に、`food_entries` の `mext_sfct` が `manual` になり、公開中の成分表由来マイ食品が `private` になってから `saved_foods` の `mext_sfct` が `copied` になることをチケットに書きます。
 

@@ -13,7 +13,7 @@
 
 `v_ignore_signature_for` は `saved_foods` と `food_entries` が必須です。件数の一致は免除しません。検索入力の上限は 64 文字です。正規化関数は 256 文字で切り、`anon` と `authenticated` は実行できません。検索関数は security definer です。公開した `mext_sfct` のマイ食品には全文出典が付き、`authenticated` は `set_config` のあとでも外せません。公開された成分表食品を直接コピーすると出典が引き継がれ、出典の無いコピーは公開できません。列名は CONFIG の `official_food_code` / `official_food_name` / `source_type` / `source_attribution` です。データベースに書く出典は全文 `出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成` です。画面が1行に収まらないときの短い文は SQL では見ません。
 
-CI は `.github/workflows/official-foods-acceptance.yml` です。Postgres 17 で、ブランチ `cursor/official-foods-import-0702` のマイグレーションを、公式食品の2ファイルより前でスナップショットしてから、その2ファイルと全 2,538 件を入れて受け入れを流します。そのあと provenance down を2回、official foods down を2回、ファイル自身の `begin` / `commit` のまま実行し、2回目も通り、成分表由来の公開行が残らないことを見ます。本番の投入は `tool/official_foods/export_sql.py` のバッチです。そのファイルが機能ブランチに無いあいだ、CI のローカルデータベースだけ `import.py` を使います。
+CI は `.github/workflows/official-foods-acceptance.yml` です。Postgres 17 で、ブランチ `cursor/official-foods-import-0702` のマイグレーションを、公式食品の2ファイルより前でスナップショットしてから、その2ファイルと全 2,538 件を入れて受け入れを流します。そのあと provenance down を2回、official foods down を2回、ファイル自身の `begin` / `commit` のまま実行し、2回目も通り、成分表由来の公開行が残らないことを見ます。別ジョブ `accept-with-pr29` は、同じ機能ブランチの公式食品マイグレーションのあと #29 の `fca01f1` を流し、`authenticated` のマイ食品書き込みを見ます。本番の投入は `tool/official_foods/export_sql.py` のバッチです。そのファイルが機能ブランチに無いあいだ、CI のローカルデータベースだけ `import.py` を使います。
 
 エネルギーと食品名は、2026-09-28 に公式 Excel（表全体、成分識別子 `ENERC_KCAL`、可食部 100 g 当たり）を読んで入れています。
 

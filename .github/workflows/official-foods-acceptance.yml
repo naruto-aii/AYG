@@ -55,3 +55,58 @@ jobs:
         run: |
           export PATH="$PWD/.venv/bin:$PATH"
           bash acceptance/supabase/acceptance/official_foods/run_ci.sh
+
+  # PR #29 at fca01f1 after the official-foods migrations. That commit
+  # re-grants the provenance columns after its saved_foods revoke.
+  accept-with-pr29:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres
+      PR29_SHA: fca01f11c155ae58c2e774e480b41ae9254da7ef
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: naruto-aii/AYG
+          ref: cursor/official-foods-import-0702
+          path: feature
+          fetch-depth: 0
+      - name: PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Vault stand-in from PR #29
+        working-directory: feature
+        run: |
+          git fetch origin cursor/apple-token-revoke-on-delete-eb80
+          git rev-parse --verify "$PR29_SHA"
+          mkdir -p /tmp/pr29-vault
+          git show "${PR29_SHA}:supabase/tests/pg_ext/supabase_vault.control" \
+            > /tmp/pr29-vault/supabase_vault.control
+          git show "${PR29_SHA}:supabase/tests/pg_ext/supabase_vault--1.0.sql" \
+            > /tmp/pr29-vault/supabase_vault--1.0.sql
+          cid="$(docker ps -q --filter ancestor=postgres:17 | head -n 1)"
+          test -n "$cid"
+          sharedir="$(docker exec "$cid" pg_config --sharedir)"
+          docker cp /tmp/pr29-vault/supabase_vault.control \
+            "$cid:${sharedir}/extension/supabase_vault.control"
+          docker cp /tmp/pr29-vault/supabase_vault--1.0.sql \
+            "$cid:${sharedir}/extension/supabase_vault--1.0.sql"
+      - name: Official foods, then PR #29 at fca01f1
+        working-directory: feature
+        run: |
+          git fetch origin cursor/apple-token-revoke-on-delete-eb80
+          git merge-base --is-ancestor "$PR29_SHA" FETCH_HEAD
+          DATABASE_URL="$DATABASE_URL" \
+            PR29_GIT_REF="$PR29_SHA" \
+            bash supabase/tests/run_official_foods_pr31_then_pr29_test.sh

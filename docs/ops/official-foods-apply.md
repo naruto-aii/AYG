@@ -104,7 +104,8 @@ create extension if not exists pg_trgm with schema extensions;
 ## 5. マイグレーションを適用する
 
 1. `list_migrations`（引数 `project_id`）。`20260928120000` または `20260928140000` が既にあれば止めて、下記「7. 受け入れ」に進むか、適用済みとして扱うかをチケットで決める。同じ DDL を重ねない。
-2. #25〜#29（`20260927120000` から `20260927180000`）は前提ではありません。機能 PR は web-preview に公式食品の2ファイルを足しただけで、その SQL は #25〜#29 のオブジェクトを参照しません。本番にそれらが無くても、この適用の前には入れません。
+2. 公式食品はこの2ファイルだけで適用できます。#25〜#29 は前提ではありません。本番にそれらが無くても、この適用の前には入れません。機能 PR は web-preview にこの2ファイルを足しただけで、公式食品 SQL は #25〜#29 のオブジェクトを参照しません。
+   - あとから #29 の `20260927150000_protect_owner_deleted_and_revoke_sessions.sql` を入れるときは、本番の前にそのファイルを開きます。テーブル権限の REVOKE のあとで、列が既にある場合に `official_food_code`、`official_food_name`、`source_attribution` を `authenticated` へ付け直す文が必要です。2026-09-28 時点ではブランチ `cursor/apple-token-revoke-on-delete-eb80` の `fca01f1` にその付け直しがあります。付け直しの無い版を公式食品のあとに入れると、REVOKE が列権限を落とし、authenticated のマイ食品の書き込みが失敗します。その確認が終わるまで、公式食品のあとに #29 を入れません。
 3. `20260928120000_official_foods.sql` の中身を、編集せず `apply_migration` の `query` に貼る。
    - `name`: `official_foods_20260928120000`（snake_case。どのファイルを入れたか履歴の name から追える文字列。空白は入れない）
    - `project_id`: 手順 1 の id
@@ -205,27 +206,65 @@ where source = 'mext_sfct' and edition = '八訂増補2023';
 
 ### 9.2 オブジェクトを drop する
 
-戻す順番は新しいマイグレーションから先です。先に provenance（`20260928140000`）、そのあと official foods（`20260928120000`）です。列を消す前に、公開中の成分表由来マイ食品を非公開にします。セッション変数では出典ロックは外れません。`ayg.allow_mext_source_change` は使いません。下の代替 DROP は、両方の down ファイルがピンしたコミットにあるあいだ使いません。
+両方の down は1つのトランザクションです。`apply_migration` は1回だけ呼び、`query` に provenance の全文、続けて official foods の全文、最後に下の確認用 `do` を入れます。呼び出しを2回に分けません。`execute_sql` に分けません。途中でコミットしません。確認が失敗したらそのトランザクションは残りません。ツールが文ごとにコミットするなら止めます。下の代替 DROP は、両方の down ファイルがピンしたコミットにあるあいだ使いません。
+
+実行ロールは postgres、`service_role`、または `saved_foods` の所有者です。出典トリガーが残っているあいだ、`saved_foods.source_type` を書き換えられるのはそのロールだけです。
 
 実行前に、公開中の成分表由来マイ食品の `user_id` と `food_id` をチケットに書きます。対象は `visibility = 'public'` で、自身が `source_type = 'mext_sfct'` か、`official_food_code` または `source_attribution` を持つか、`copied_from` をたどるとそうなる行です。
 
-1. `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文を `apply_migration` に渡す。実行ロールは postgres、`service_role`、または `saved_foods` の所有者です。
-   - `name`: `rollback_official_food_provenance_20260928140000`
-   - `query`: その down ファイルの全文
-   - 列を drop する前に、上の公開行の `visibility` を `private` にする。行は消さない。
-   - トリガー `enforce_mext_saved_food_attribution` と `enforce_mext_food_entry_code`、およびその関数を drop する。
-   - `saved_foods` から `source_attribution`、`official_food_name`、`official_food_code` を drop する。`saved_foods.source_type` はここでは変えない。
-   - `food_entries.source_type = 'mext_sfct'` の行は削除せず `manual` に書き換える。`official_food_name` と `official_food_code` を drop し、`food_entries` の `source_type` check から `mext_sfct` を外す。
-   - 確認は `select count(*) from public.saved_foods where visibility = 'public' and source_type = 'mext_sfct';` が 0 であること、そして手順の前に控えた公開行がすべて `private` であることです。成分表由来の公開行が残っていたら、次の down に進みません。
-2. そのあと `supabase/rollback/20260928120000_official_foods_down.sql` の全文を `apply_migration` に渡す。同じロールで実行します。出典トリガーがまだ残っている場合、`source_type` を書き換えられるのは postgres、`service_role`、`saved_foods` の所有者だけです。
-   - `name`: `rollback_official_foods_20260928120000`
-   - `query`: その down ファイルの全文
-   - 関数2つとテーブル2つを drop する。`pg_trgm` は残す。
-   - `saved_foods.source_type = 'mext_sfct'` の行を削除しない。`copied` に書き換える。この時点で公開だった行は、手順 1 で `private` になっています。
-   - `saved_foods_source_type_check` を、`mext_sfct` の無い4値（`manual` / `open_food_facts` / `open_food_facts_derived` / `copied`）に戻す。
-   - 確認は、控えた行が `private` のままで `source_type = 'copied'` であること、そして `public` かつ `mext_sfct` の行が 0 であることです。
+- `name`: `rollback_official_food_provenance_then_foods`
+- `query`: 次の順の1本
 
-down は2回実行できます。利用者の行の値を書き換える点が、テーブルを drop するだけではない理由です。実行前に、`food_entries` の `mext_sfct` が `manual` になり、公開中の成分表由来マイ食品が `private` になってから `saved_foods` の `mext_sfct` が `copied` になることをチケットに書きます。
+1. `supabase/rollback/20260928140000_official_food_provenance_down.sql` の全文。このファイルの最初の文が、列を drop する前に、上の公開行の `visibility` を `private` にします。行は消さない。そのあとでトリガー `enforce_mext_saved_food_attribution` と `enforce_mext_food_entry_code`、関数、`saved_foods` の `source_attribution`、`official_food_name`、`official_food_code` を消します。`saved_foods.source_type` はここでは変えません。`food_entries.source_type = 'mext_sfct'` は削除せず `manual` にし、`food_entries` の食品番号の列を消し、`source_type` check から `mext_sfct` を外します。この非公開化をファイルから抜いて、列の drop だけを先に実行してはいけません。
+2. 同じ `query` の続きで、まだ `source_type` を書き換える前に確認します。`public` かつ `mext_sfct` が残っているか、控えた `food_id` が `public` のままなら例外になり、ここまでの非公開化と列の drop も戻ります。`food_id` の配列はチケットに書いた値へ置き換えます。控えた行が無いときは、その `if` を除きます。
+
+```sql
+do $$
+begin
+  if exists (
+    select 1
+    from public.saved_foods
+    where visibility = 'public'
+      and source_type = 'mext_sfct'
+  ) then
+    raise exception 'public mext_sfct rows remain before the foods rollback';
+  end if;
+  if exists (
+    select 1
+    from public.saved_foods
+    where visibility = 'public'
+      and food_id = any (array['置き換える food_id']::text[])
+  ) then
+    raise exception 'recorded mext-derived rows are still public';
+  end if;
+end
+$$;
+```
+
+3. 同じ `query` の続きに `supabase/rollback/20260928120000_official_foods_down.sql` の全文。関数2つとテーブル2つを drop します。`pg_trgm` は残します。`saved_foods.source_type = 'mext_sfct'` の行は削除せず `copied` にします。対象だった公開行は手順 1 で `private` です。`saved_foods_source_type_check` は `mext_sfct` の無い4値（`manual` / `open_food_facts` / `open_food_facts_derived` / `copied`）に戻します。
+4. 同じ `query` の最後で、`mext_sfct` が残っていないことと、控えた行が `public` のままではないことを確認します。`copied_from` だけが成分表由来だった行は `source_type` が `copied` のまま残ります。失敗したらトランザクション全体が戻ります。
+
+```sql
+do $$
+begin
+  if exists (
+    select 1 from public.saved_foods where source_type = 'mext_sfct'
+  ) then
+    raise exception 'mext_sfct rows remain';
+  end if;
+  if exists (
+    select 1
+    from public.saved_foods
+    where visibility = 'public'
+      and food_id = any (array['置き換える food_id']::text[])
+  ) then
+    raise exception 'recorded mext-derived rows are still public';
+  end if;
+end
+$$;
+```
+
+成功したロールバックは再実行しません。provenance down の先頭 UPDATE は、同じファイルが直後に drop する `official_food_code` と `source_attribution` を参照します。2回目は列が無くて失敗します。利用者の行を消さないのは、非公開化と `source_type` の書き換えが行の削除ではないからです。実行前に、`food_entries` の `mext_sfct` が `manual` になり、公開中の成分表由来マイ食品が `private` になってから `saved_foods` の `mext_sfct` が `copied` になることをチケットに書きます。
 
 両方の down ファイルがピンしたコミットに無いときだけ、次の順序を使います。CONFIG で名前を変えていたら、その名前を使います。`pg_trgm` は drop しません。`normalize_public_food_name` のように元からある関数は drop しません。この DROP は出典トリガーも、`saved_foods` と `food_entries` の CHECK も、出典列も戻しません。利用者の `mext_sfct` 行も `copied` や `manual` に変わりません。down ファイルがあるなら、こちらを使ってはいけません。
 

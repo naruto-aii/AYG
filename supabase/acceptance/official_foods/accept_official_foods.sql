@@ -13,7 +13,7 @@
 -- Do not treat a notice as a pass. Do not commit this file with a production
 -- snapshot pasted in.
 --
--- Aligned to PR #31 (cursor/official-foods-import-0702 @ a5199d4).
+-- Aligned to PR #31 (cursor/official-foods-import-0702 @ 08dca4e).
 -- Apply order after the snapshot:
 --   supabase/migrations/20260928120000_official_foods.sql
 --   supabase/migrations/20260928140000_official_food_provenance.sql
@@ -416,6 +416,29 @@ begin
       when insufficient_privilege then
         null;
     end;
+  end loop;
+
+  -- Direct EXECUTE on the composition-table triggers is revoked. Row
+  -- writes still fire them as the table owner. A trigger-only error
+  -- means the role could still execute the function, so it fails the check.
+  foreach v_ident in array array[
+    'enforce_mext_saved_food_attribution',
+    'enforce_mext_food_entry_code'
+  ] loop
+    if has_function_privilege(v_anon_role, format('%I.%I()', v_schema, v_ident)::regprocedure, 'execute')
+       or has_function_privilege(v_auth_role, format('%I.%I()', v_schema, v_ident)::regprocedure, 'execute') then
+      raise exception 'ACCEPTANCE FAIL: anon or authenticated can execute %', v_ident;
+    end if;
+    foreach v_role in array array[v_anon_role, v_auth_role] loop
+      begin
+        execute format('set local role %I', v_role);
+        execute format('select %I.%I()', v_schema, v_ident);
+        raise exception 'ACCEPTANCE FAIL: % executed %', v_role, v_ident;
+      exception
+        when insufficient_privilege then
+          null;
+      end;
+    end loop;
   end loop;
 
   v_step := 'counts';

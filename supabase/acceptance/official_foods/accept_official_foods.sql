@@ -13,7 +13,7 @@
 -- Do not treat a notice as a pass. Do not commit this file with a production
 -- snapshot pasted in.
 --
--- Aligned to PR #31 (cursor/official-foods-import-0702 @ dbb075b).
+-- Aligned to PR #31 (cursor/official-foods-import-0702 @ a5199d4).
 -- Apply order after the snapshot:
 --   supabase/migrations/20260928120000_official_foods.sql
 --   supabase/migrations/20260928140000_official_food_provenance.sql
@@ -825,7 +825,8 @@ begin
     if position(v_published_attribution in v_src) = 0
        or position('mext_sfct' in v_src) = 0
        or position('publishing a food with an official food code requires the composition-table attribution' in v_src) = 0
-       or position('copied_from must reference a saved food you can read' in v_src) = 0 then
+       or position('copied_from_owner_user_id is required' in v_src) = 0
+       or position('copied_from must reference your own saved food or a public saved food' in v_src) = 0 then
       raise exception 'ACCEPTANCE FAIL: no % trigger locks a published mext_sfct food to the attribution sentence, or it no longer rejects an unattributed official food code',
         v_my_foods_table;
     end if;
@@ -875,23 +876,6 @@ begin
               v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col
             ) using v_uid, 'of-accept-probe', 'probe rice', v_source, '01088', v_probe_name, 'pending';
         end;
-        -- The table owner may relabel. This unattributed copy stays plain
-        -- only because the session user is the owner. authenticated publish
-        -- of it must fail.
-        execute format(
-          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 150, ''g'', 156, ''copied'', $4, $5)',
-          v_schema, v_my_foods_table, v_prov_source_col
-        ) using v_copier, 'of-accept-bridge', 'probe bridge', 'of-accept-probe', v_uid;
-        execute format(
-          'select %I, %I from %I.%I where user_id = $1 and food_id = $2',
-          v_prov_source_col, v_attr_col, v_schema, v_my_foods_table
-        ) into v_got_source, v_got_attr
-        using v_copier, 'of-accept-bridge';
-        if v_got_source is distinct from 'copied' or v_got_attr is not null then
-          raise exception 'ACCEPTANCE FAIL: owner fixture for an unattributed copy was rewritten before the client call (% / %)',
-            v_got_source, v_got_attr;
-        end if;
-
         perform set_config('request.jwt.claim.sub', v_uid::text, true);
         perform set_config('request.jwt.claim.role', 'authenticated', true);
         perform set_config('ayg.allow_mext_source_change', 'on', true);
@@ -935,6 +919,24 @@ begin
         end if;
 
         execute 'reset role';
+        -- The source is public. postgres may relabel, so this copy stays
+        -- unattributed. A private source would be rejected: copied_from may
+        -- name only the writer's own row or a public row. authenticated
+        -- publish of the copy must still fail.
+        execute format(
+          'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 150, ''g'', 156, ''copied'', $4, $5)',
+          v_schema, v_my_foods_table, v_prov_source_col
+        ) using v_copier, 'of-accept-bridge', 'probe bridge', 'of-accept-probe', v_uid;
+        execute format(
+          'select %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_prov_source_col, v_attr_col, v_schema, v_my_foods_table
+        ) into v_got_source, v_got_attr
+        using v_copier, 'of-accept-bridge';
+        if v_got_source is distinct from 'copied' or v_got_attr is not null then
+          raise exception 'ACCEPTANCE FAIL: owner fixture for an unattributed copy was rewritten before the client call (% / %)',
+            v_got_source, v_got_attr;
+        end if;
+
         perform set_config('request.jwt.claim.sub', v_copier::text, true);
         perform set_config('request.jwt.claim.role', 'authenticated', true);
         execute format('set local role %I', v_auth_role);
@@ -1031,6 +1033,57 @@ begin
         using v_copier, 'of-accept-forged';
         if v_unit is distinct from 'private' then
           raise exception 'ACCEPTANCE FAIL: failed spoofed publish left the food %', v_unit;
+        end if;
+
+        begin
+          execute format(
+            'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, copied_from_food_id, copied_from_owner_user_id) values ($1, $2, ''private'', ''active'', $3, $3, 220, ''g'', 10, ''copied'', $4, null)',
+            v_schema, v_my_foods_table, v_prov_source_col
+          ) using v_copier, 'of-accept-null-owner', 'probe null owner', 'of-accept-plain';
+          raise exception 'ACCEPTANCE FAIL: copied_from accepted a null owner';
+        exception
+          when others then
+            if position('ACCEPTANCE FAIL:' in sqlerrm) = 1 then
+              raise;
+            end if;
+            if position('copied_from_owner_user_id' in sqlerrm) = 0 then
+              raise exception 'ACCEPTANCE FAIL: null owner failed for another reason: % %', sqlstate, sqlerrm;
+            end if;
+        end;
+        execute format(
+          'select count(*) from %I.%I where user_id = $1 and food_id = $2',
+          v_schema, v_my_foods_table
+        ) into v_n
+        using v_copier, 'of-accept-null-owner';
+        if v_n <> 0 then
+          raise exception 'ACCEPTANCE FAIL: rejected null-owner insert left a row';
+        end if;
+
+        execute 'reset role';
+        execute format(
+          'update %I.%I set visibility = ''private'' where user_id = $1 and food_id = $2',
+          v_schema, v_my_foods_table
+        ) using v_uid, 'of-accept-probe';
+        perform set_config('request.jwt.claim.sub', v_copier::text, true);
+        perform set_config('request.jwt.claim.role', 'authenticated', true);
+        execute format('set local role %I', v_auth_role);
+        execute format(
+          'update %I.%I set name = $3, normalized_name = $3 where user_id = $1 and food_id = $2',
+          v_schema, v_my_foods_table
+        ) using v_copier, 'of-accept-copy', 'probe copy edited';
+        if not found then
+          raise exception 'ACCEPTANCE FAIL: copy update after the source became private did not see the row';
+        end if;
+        execute format(
+          'select name, %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_source_col, v_schema, v_my_foods_table
+        ) into v_got_orig, v_got_attr, v_got_source
+        using v_copier, 'of-accept-copy';
+        if v_got_orig is distinct from 'probe copy edited'
+           or v_got_attr is distinct from v_published_attribution
+           or v_got_source is distinct from v_source then
+          raise exception 'ACCEPTANCE FAIL: copy could not be edited after the source became private (% / % / %)',
+            v_got_orig, v_got_attr, v_got_source;
         end if;
 
         raise exception using errcode = 'P0001', message = 'ACCEPTANCE_PROBE_DONE';

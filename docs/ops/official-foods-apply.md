@@ -206,7 +206,7 @@ where source = 'mext_sfct' and edition = '八訂増補2023';
 
 ### 9.2 オブジェクトを drop する
 
-両方の down は1つのトランザクションです。`apply_migration` は1回だけ呼び、`query` に provenance の全文、続けて official foods の全文、最後に下の確認用 `do` を入れます。呼び出しを2回に分けません。`execute_sql` に分けません。途中でコミットしません。確認が失敗したらそのトランザクションは残りません。ツールが文ごとにコミットするなら止めます。下の代替 DROP は、両方の down ファイルがピンしたコミットにあるあいだ使いません。
+両方の down は1つのトランザクションです。`apply_migration` は1回だけ呼び、`query` に provenance の全文、その直後の確認、official foods の全文、最後の確認をこの順で入れます。呼び出しを2回に分けません。`execute_sql` に分けません。途中でコミットしません。確認が失敗したらそのトランザクションは残りません。ツールが文ごとにコミットするなら止めます。下の代替 DROP は、両方の down ファイルがピンしたコミットにあるあいだ使いません。
 
 実行ロールは postgres、`service_role`、または `saved_foods` の所有者です。出典トリガーが残っているあいだ、`saved_foods.source_type` を書き換えられるのはそのロールだけです。
 

@@ -1,4 +1,5 @@
-import type { LessonNode, Question, Rival, Section } from './types'
+import { extraCourses } from './extraCourses'
+import type { Course, CourseId, LessonNode, Question, Rival, Section } from './types'
 
 const greetBasic: Question[] = [
   {
@@ -609,12 +610,12 @@ export const sections: Section[] = [
         color: '#58cc02',
         dark: '#46a302',
         phrases: [
-          { ko: '안녕하세요', ja: 'こんにちは' },
-          { ko: '감사합니다', ja: 'ありがとう' },
-          { ko: '죄송합니다', ja: 'ごめんなさい' },
-          { ko: '안녕히 가세요', ja: '行ってらっしゃい' },
-          { ko: '안녕히 계세요', ja: 'お先に失礼します' },
-          { ko: '만나서 반갑습니다', ja: 'はじめまして' },
+          { text: '안녕하세요', ja: 'こんにちは' },
+          { text: '감사합니다', ja: 'ありがとう' },
+          { text: '죄송합니다', ja: 'ごめんなさい' },
+          { text: '안녕히 가세요', ja: '行ってらっしゃい' },
+          { text: '안녕히 계세요', ja: 'お先に失礼します' },
+          { text: '만나서 반갑습니다', ja: 'はじめまして' },
         ],
         nodes: [
           lesson('u1l1', 'lesson', '基本のあいさつ', 15, greetBasic),
@@ -637,11 +638,11 @@ export const sections: Section[] = [
         color: '#ce82ff',
         dark: '#a568cc',
         phrases: [
-          { ko: '저는 하나예요', ja: '私はハナです' },
-          { ko: '학생이에요', ja: '学生です' },
-          { ko: '일본 사람이에요', ja: '日本人です' },
-          { ko: '이름이 뭐예요?', ja: 'お名前は何ですか' },
-          { ko: '제 이름은 켄이에요', ja: '私の名前はケンです' },
+          { text: '저는 하나예요', ja: '私はハナです' },
+          { text: '학생이에요', ja: '学生です' },
+          { text: '일본 사람이에요', ja: '日本人です' },
+          { text: '이름이 뭐예요?', ja: 'お名前は何ですか' },
+          { text: '제 이름은 켄이에요', ja: '私の名前はケンです' },
         ],
         nodes: [
           lesson('u2l1', 'lesson', '名前', 15, nameLesson),
@@ -664,11 +665,11 @@ export const sections: Section[] = [
         color: '#1cb0f6',
         dark: '#1899d6',
         phrases: [
-          { ko: '커피 주세요', ja: 'コーヒーをください' },
-          { ko: '물 주세요', ja: '水をください' },
-          { ko: '메뉴 주세요', ja: 'メニューをください' },
-          { ko: '맛있어요', ja: 'おいしいです' },
-          { ko: '이거 얼마예요?', ja: 'これはいくらですか' },
+          { text: '커피 주세요', ja: 'コーヒーをください' },
+          { text: '물 주세요', ja: '水をください' },
+          { text: '메뉴 주세요', ja: 'メニューをください' },
+          { text: '맛있어요', ja: 'おいしいです' },
+          { text: '이거 얼마예요?', ja: 'これはいくらですか' },
         ],
         nodes: [
           lesson('u3l1', 'lesson', '注文', 15, order),
@@ -698,12 +699,12 @@ export const sections: Section[] = [
         color: '#ff86d0',
         dark: '#e066b0',
         phrases: [
-          { ko: '역이 어디예요?', ja: '駅はどこですか' },
-          { ko: '왼쪽으로 가세요', ja: '左に行ってください' },
-          { ko: '오른쪽으로 가세요', ja: '右に行ってください' },
-          { ko: '곧장 가세요', ja: 'まっすぐ行ってください' },
-          { ko: '얼마예요?', ja: 'いくらですか' },
-          { ko: '서울행 표 주세요', ja: 'ソウル行きの切符をください' },
+          { text: '역이 어디예요?', ja: '駅はどこですか' },
+          { text: '왼쪽으로 가세요', ja: '左に行ってください' },
+          { text: '오른쪽으로 가세요', ja: '右に行ってください' },
+          { text: '곧장 가세요', ja: 'まっすぐ行ってください' },
+          { text: '얼마예요?', ja: 'いくらですか' },
+          { text: '서울행 표 주세요', ja: 'ソウル行きの切符をください' },
         ],
         nodes: [
           lesson('u4l1', 'lesson', '方向', 15, where),
@@ -726,12 +727,12 @@ export const sections: Section[] = [
         color: '#ff9600',
         dark: '#e08600',
         phrases: [
-          { ko: '일곱 시에 일어나요', ja: '7時に起きます' },
-          { ko: '아침을 먹어요', ja: '朝ごはんを食べます' },
-          { ko: '걸어서 회사에 가요', ja: '歩いて会社へ行きます' },
-          { ko: '밤에 책을 읽어요', ja: '夜に本を読みます' },
-          { ko: '피곤해요', ja: '疲れました' },
-          { ko: '내일 봐요', ja: 'また明日' },
+          { text: '일곱 시에 일어나요', ja: '7時に起きます' },
+          { text: '아침을 먹어요', ja: '朝ごはんを食べます' },
+          { text: '걸어서 회사에 가요', ja: '歩いて会社へ行きます' },
+          { text: '밤에 책을 읽어요', ja: '夜に本を読みます' },
+          { text: '피곤해요', ja: '疲れました' },
+          { text: '내일 봐요', ja: 'また明日' },
         ],
         nodes: [
           lesson('u5l1', 'lesson', '朝', 15, routine),
@@ -754,11 +755,34 @@ export const sections: Section[] = [
   },
 ]
 
-export const practiceLessons: LessonNode[] = [
+const practiceLessons: LessonNode[] = [
   lesson('p-listen', 'lesson', 'リスニング', 10, [greetBasic[2], greetPolite[2], order[3], where[2]]),
   lesson('p-match', 'lesson', 'ハングルマッチ', 10, [greetLeave[3], taste[2], where[3]]),
   lesson('p-build', 'lesson', '文を作る', 10, [greetBasic[1], nameLesson[1], ticket[2], evening[2]]),
 ]
+
+export const courses: Course[] = [
+  {
+    id: 'ko',
+    label: '韓国語',
+    speechLang: 'ko-KR',
+    htmlLang: 'ko',
+    script: 'ハングル',
+    sample: '안녕하세요',
+    sampleJa: 'こんにちは',
+    sections,
+    practice: practiceLessons,
+  },
+  ...extraCourses,
+]
+
+export function isCourseId(value: unknown): value is CourseId {
+  return typeof value === 'string' && courses.some((course) => course.id === value)
+}
+
+export function getCourse(id?: string | null): Course {
+  return courses.find((course) => course.id === id) ?? courses[0]
+}
 
 export const rivals: Rival[] = [
   { id: 'haru', name: 'はると', xp: 920 },
@@ -811,20 +835,20 @@ export function goalXp(minutes: number) {
   return goals.find((goal) => goal.minutes === minutes)?.xp ?? 10
 }
 
-export function allUnits() {
-  return sections.flatMap((section) => section.units)
+export function allUnits(courseId?: string | null) {
+  return getCourse(courseId).sections.flatMap((section) => section.units)
 }
 
-export function allPathNodes() {
-  return allUnits().flatMap((unit) => unit.nodes)
+export function allPathNodes(courseId?: string | null) {
+  return allUnits(courseId).flatMap((unit) => unit.nodes)
 }
 
-export function findUnit(unitId: string) {
-  return allUnits().find((unit) => unit.id === unitId) ?? null
+export function findUnit(unitId: string, courseId?: string | null) {
+  return allUnits(courseId).find((unit) => unit.id === unitId) ?? null
 }
 
-export function findPathNode(nodeId: string) {
-  for (const section of sections) {
+export function findPathNode(nodeId: string, courseId?: string | null) {
+  for (const section of getCourse(courseId).sections) {
     for (const unit of section.units) {
       const node = unit.nodes.find((item) => item.id === nodeId)
       if (node) return { section, unit, node }
@@ -833,33 +857,33 @@ export function findPathNode(nodeId: string) {
   return null
 }
 
-export function findPractice(id: string) {
-  return practiceLessons.find((item) => item.id === id) ?? null
+export function findPractice(id: string, courseId?: string | null) {
+  return getCourse(courseId).practice.find((item) => item.id === id) ?? null
 }
 
-export function isNodeDone(nodeId: string, completed: string[], chests: string[]) {
-  const found = findPathNode(nodeId)
+export function isNodeDone(nodeId: string, completed: string[], chests: string[], courseId?: string | null) {
+  const found = findPathNode(nodeId, courseId)
   if (!found) return false
   if (found.node.kind === 'chest') return chests.includes(nodeId)
   return completed.includes(nodeId)
 }
 
-export function isUnlocked(nodeId: string, completed: string[], chests: string[]) {
-  const nodes = allPathNodes()
+export function isUnlocked(nodeId: string, completed: string[], chests: string[], courseId?: string | null) {
+  const nodes = allPathNodes(courseId)
   const index = nodes.findIndex((node) => node.id === nodeId)
   if (index < 0) return false
   if (index === 0) return true
-  return isNodeDone(nodes[index - 1].id, completed, chests)
+  return isNodeDone(nodes[index - 1].id, completed, chests, courseId)
 }
 
-export function currentNodeId(completed: string[], chests: string[]) {
-  const nodes = allPathNodes()
-  const next = nodes.find((node) => !isNodeDone(node.id, completed, chests))
+export function currentNodeId(completed: string[], chests: string[], courseId?: string | null) {
+  const nodes = allPathNodes(courseId)
+  const next = nodes.find((node) => !isNodeDone(node.id, completed, chests, courseId))
   return next?.id ?? nodes[nodes.length - 1]?.id ?? null
 }
 
 export function lessonXp(node: LessonNode, already: boolean) {
-  if (node.id.startsWith('p-')) return 10
+  if (/(^|-)p-/.test(node.id)) return 10
   return already ? 5 : node.xp
 }
 

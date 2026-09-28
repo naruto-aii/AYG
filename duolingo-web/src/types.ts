@@ -62,12 +62,14 @@ export type ChestNode = {
 
 export type PathNode = LessonNode | ChestNode
 
+export type CourseId = 'ko' | 'en' | 'es' | 'fr' | 'zh' | 'de'
+
 export type Unit = {
   id: string
   title: string
   color: string
   dark: string
-  phrases: { ko: string; ja: string }[]
+  phrases: { text: string; ja: string }[]
   nodes: PathNode[]
 }
 
@@ -76,6 +78,18 @@ export type Section = {
   title: string
   kicker: string
   units: Unit[]
+}
+
+export type Course = {
+  id: CourseId
+  label: string
+  speechLang: string
+  htmlLang: string
+  script: string
+  sample: string
+  sampleJa: string
+  sections: Section[]
+  practice: LessonNode[]
 }
 
 export type Rival = {
@@ -103,6 +117,7 @@ export type PendingProfile = {
   reason: string
   dailyGoal: number
   name: string
+  courseId?: CourseId
 }
 
 export type Persisted = {
@@ -134,4 +149,5 @@ export type Persisted = {
   following: string[]
   questClaimed: string | null
   pending: PendingProfile | null
+  courseId: CourseId
 }

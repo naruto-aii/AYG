@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Owl, Wordmark } from '../components/Owl'
+import { courses } from '../data'
 import { useStore } from '../store'
 
-const languages = ['韓国語', '英語', 'スペイン語', 'フランス語', '中国語', 'ドイツ語']
-
 export function LandingPage() {
-  const { state } = useStore()
+  const { state, setCourse } = useStore()
   const navigate = useNavigate()
   const [notice, setNotice] = useState('')
 
@@ -28,7 +27,7 @@ export function LandingPage() {
       <section className="hero">
         <div className="hero-copy">
           <h1>無料で、楽しく、続く。言葉のレッスンをはじめよう。</h1>
-          <p>日本語で意味を確認しながら、ハングルのあいさつから一日の表現まで進めます。問題の文は、このデモ用の見本です。</p>
+          <p>日本語で意味を確認しながら、韓国語・英語・スペイン語・フランス語・中国語・ドイツ語のあいさつから街の表現まで進めます。問題の文は、このデモ用の見本です。</p>
           <button className="btn btn-green btn-wide" type="button" onClick={() => navigate(state.user ? '/learn' : '/onboarding')}>
             {state.user ? '学習を続ける' : '今すぐ始める'}
           </button>
@@ -39,26 +38,28 @@ export function LandingPage() {
           <div className="blob" />
           <Owl mood="happy" size={230} />
           <span className="float-card c1" lang="ko">안녕하세요</span>
-          <span className="float-card c2">こんにちは</span>
-          <span className="float-card c3">+15 XP</span>
+          <span className="float-card c2" lang="en">Hello</span>
+          <span className="float-card c3" lang="zh">你好</span>
+          <span className="float-card c4">+15 XP</span>
         </div>
       </section>
       <section className="lang-section">
         <h2>学びたいコース</h2>
         <div className="lang-grid">
-          {languages.map((language) => (
+          {courses.map((course) => (
             <button
-              key={language}
+              key={course.id}
               className="lang-card"
               type="button"
               onClick={() => {
-                if (language === '韓国語') navigate(state.user ? '/learn' : '/onboarding')
-                else setNotice(`${language}コースは、このデモではまだ開けません。韓国語コースでハングルと日本語の問題を確認できます。`)
+                setCourse(course.id)
+                setNotice('')
+                navigate(state.user ? '/learn' : '/onboarding')
               }}
             >
-              <span className="flag">{language.slice(0, 1)}</span>
-              <strong>{language}</strong>
-              <span>日本語話者向け</span>
+              <span className="flag">{course.label.slice(0, 1)}</span>
+              <strong>{course.label}</strong>
+              <span lang={course.htmlLang}>{course.sample}</span>
             </button>
           ))}
         </div>

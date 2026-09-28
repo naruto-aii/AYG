@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Avatar, Shell } from '../components/Shell'
-import { leagueFor, rivals } from '../data'
+import { getCourse, leagueFor, rivals } from '../data'
 import { useStore } from '../store'
 
 export function ProfilePage() {
@@ -38,7 +38,7 @@ export function ProfilePage() {
           <div>
             <h1>{name}</h1>
             <p className="muted">{mine ? `@${state.user?.username}` : 'リーグの学習者'}</p>
-            {mine ? <p className="muted">開始 {state.user?.joined} · 韓国語 · {state.reason || '入門'}</p> : null}
+            {mine ? <p className="muted">開始 {state.user?.joined} · {getCourse(state.courseId).label} · {state.reason || '入門'}</p> : null}
           </div>
           {!mine && rival && (
             <button className="btn btn-white" type="button" onClick={() => toggleFollow(rival.id)}>

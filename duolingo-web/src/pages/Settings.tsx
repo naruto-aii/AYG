@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Shell } from '../components/Shell'
-import { goals } from '../data'
+import { courses, goals } from '../data'
 import { useStore } from '../store'
 
 export function SettingsPage() {
-  const { state, setSound, setNotifications, setDailyGoal, setName, logout, resetAll } = useStore()
+  const { state, setSound, setNotifications, setDailyGoal, setName, logout, resetAll, setCourse } = useStore()
   const navigate = useNavigate()
   const [name, setLocalName] = useState(state.user?.name ?? '')
   const [confirm, setConfirm] = useState(false)
@@ -29,6 +29,15 @@ export function SettingsPage() {
         </section>
         <section className="card flat">
           <h2>学習</h2>
+          <label>
+            コース
+            <select value={state.courseId} onChange={(event) => setCourse(event.target.value as typeof state.courseId)}>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>{course.label}</option>
+              ))}
+            </select>
+          </label>
+          <p className="muted">進み具合はコースごとに残ります。XP・連続記録・宝石は共通です。</p>
           <label>
             1日の目標
             <select value={state.dailyGoal} onChange={(event) => setDailyGoal(Number(event.target.value))}>

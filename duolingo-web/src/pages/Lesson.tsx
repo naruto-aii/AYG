@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../components/Icons'
 import { Owl } from '../components/Owl'
-import { correctLabel, findPathNode, findPractice, isUnlocked } from '../data'
+import { correctLabel, findPathNode, findPractice, getCourse, isUnlocked } from '../data'
 import { praise, shuffle } from '../lib'
-import { playSound, speakKorean } from '../sound'
+import { playSound, speak } from '../sound'
 import { useStore } from '../store'
 import type { Question } from '../types'
 
@@ -14,8 +14,9 @@ export function LessonPage({ practice = false }: { practice?: boolean }) {
   const { nodeId = '' } = useParams()
   const navigate = useNavigate()
   const { state, loseHeart, finishLesson, openChest } = useStore()
-  const found = practice ? null : findPathNode(nodeId)
-  const practiceNode = practice ? findPractice(nodeId) : null
+  const course = getCourse(state.courseId)
+  const found = practice ? null : findPathNode(nodeId, state.courseId)
+  const practiceNode = practice ? findPractice(nodeId, state.courseId) : null
   const node = practiceNode ?? (found && found.node.kind !== 'chest' ? found.node : null)
   const chest = !practice && found?.node.kind === 'chest' ? found.node : null
   const [phase, setPhase] = useState<Phase>(chest ? 'chest' : node?.passage ? 'passage' : 'ask')
@@ -49,12 +50,12 @@ export function LessonPage({ practice = false }: { practice?: boolean }) {
   }, [state.user, navigate])
 
   useEffect(() => {
-    if (!practice && found && !isUnlocked(nodeId, state.completed, state.chests)) navigate('/learn', { replace: true })
-  }, [practice, found, nodeId, state.completed, state.chests, navigate])
+    if (!practice && found && !isUnlocked(nodeId, state.completed, state.chests, state.courseId)) navigate('/learn', { replace: true })
+  }, [practice, found, nodeId, state.completed, state.chests, state.courseId, navigate])
 
   useEffect(() => {
-    if (question?.type === 'listen') speakKorean(question.speak, state.sound)
-  }, [question, state.sound])
+    if (question?.type === 'listen') speak(question.speak, course.speechLang, state.sound)
+  }, [question, course.speechLang, state.sound])
 
   if (!state.user) return null
   if (!node && !chest) {
@@ -246,7 +247,7 @@ export function LessonPage({ practice = false }: { practice?: boolean }) {
             </div>
           </div>
           {question.type === 'listen' && (
-            <button className="speaker" type="button" onClick={() => speakKorean(question.speak, true)}>
+            <button className="speaker" type="button" onClick={() => speak(question.speak, course.speechLang, true)}>
               <Icon name="speaker" size={42} color="#1cb0f6" />
               もう一度聞く
             </button>
@@ -273,7 +274,7 @@ export function LessonPage({ practice = false }: { practice?: boolean }) {
           )}
           {question.type === 'blank' && (
             <div className="blank-block">
-              <p className="sentence" lang="ko">{question.before}<em>{picked === null ? '______' : question.choices[picked]}</em>{question.after}</p>
+              <p className="sentence" lang={course.htmlLang}>{question.before}<em>{picked === null ? '______' : question.choices[picked]}</em>{question.after}</p>
               <div className="chips">
                 {question.choices.map((choice, choiceIndex) => (
                   <button

@@ -7,9 +7,9 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { findPathNode, findPractice, lessonXp } from './data'
+import { findPathNode, findPractice, isCourseId, lessonXp } from './data'
 import { shiftDay, todayKey, usernameFrom } from './lib'
-import type { LessonNode, Persisted, User } from './types'
+import type { CourseId, LessonNode, Persisted, User } from './types'
 
 const KEY = 'ayg-lingo-ui-v1'
 const HEART_MS = 4 * 60 * 60 * 1000
@@ -44,6 +44,7 @@ function blank(): Persisted {
     following: [],
     questClaimed: null,
     pending: null,
+    courseId: 'ko',
   }
 }
 
@@ -77,6 +78,7 @@ function sanitize(raw: Partial<Persisted>): Persisted {
       following: Array.isArray(raw.following) ? raw.following : [],
       user: raw.user ?? null,
       pending: raw.pending ?? null,
+      courseId: isCourseId(raw.courseId) ? raw.courseId : 'ko',
     }),
   )
 }
@@ -117,6 +119,7 @@ type Store = {
   setName: (name: string) => void
   claimQuest: () => boolean
   resetAll: () => void
+  setCourse: (courseId: CourseId) => void
 }
 
 const StoreContext = createContext<Store | null>(null)
@@ -158,6 +161,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           user,
           reason: snapshot.pending?.reason || snapshot.reason,
           dailyGoal: snapshot.pending?.dailyGoal || snapshot.dailyGoal,
+          courseId: isCourseId(snapshot.pending?.courseId) ? snapshot.pending.courseId : snapshot.courseId,
           pending: null,
           accounts: [
             ...snapshot.accounts,
@@ -190,6 +194,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           user: { name: clean, username, email: '', joined: todayKey() },
           reason: current.pending?.reason || current.reason,
           dailyGoal: current.pending?.dailyGoal || current.dailyGoal,
+          courseId: isCourseId(current.pending?.courseId) ? current.pending.courseId : current.courseId,
           pending: null,
         }))
       },
@@ -207,8 +212,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return next.super ? 5 : next.hearts
       },
       finishLesson: (nodeId, correct, total) => {
-        const practice = findPractice(nodeId)
-        const found = findPathNode(nodeId)
+        const practice = findPractice(nodeId, ref.current.courseId)
+        const found = findPathNode(nodeId, ref.current.courseId)
         const node: LessonNode | null =
           practice ?? (found && found.node.kind !== 'chest' ? found.node : null)
         if (!node) return null
@@ -256,7 +261,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
       openChest: (nodeId) => {
-        const found = findPathNode(nodeId)
+        const found = findPathNode(nodeId, ref.current.courseId)
         if (!found || found.node.kind !== 'chest') return 0
         if (ref.current.chests.includes(nodeId)) return 0
         const gems = found.node.gems
@@ -318,6 +323,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const next = blank()
         ref.current = next
         setState(next)
+      },
+      setCourse: (courseId) => {
+        if (!isCourseId(courseId)) return
+        commit((current) => ({ ...current, courseId }))
       },
     }
   }, [state])

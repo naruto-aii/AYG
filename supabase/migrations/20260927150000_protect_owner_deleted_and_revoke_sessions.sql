@@ -13,6 +13,10 @@
 -- owner_deleted. A table-level UPDATE grant would cover owner_deleted
 -- (including columns added later), so the table privilege is revoked
 -- and replaced with an explicit column list.
+-- That REVOKE also drops column privileges. If official_food_code,
+-- official_food_name, or source_attribution already exist (they are
+-- added by a later migration that may already have been applied),
+-- INSERT/UPDATE on those columns is granted again for authenticated.
 -- The trigger is a second check: client roles cannot set the flag.
 -- delete_own_account is SECURITY DEFINER, so inside it current_user is
 -- the function owner (postgres / supabase_admin) and the trigger allows
@@ -177,6 +181,46 @@ grant insert (
   version,
   serving_unit_label
 ) on table public.saved_foods to authenticated;
+
+-- The REVOKE above removes column privileges as well as the table
+-- privilege. Re-grant the official-food columns when they already exist,
+-- matching the column grant in 20260928140000. Names that are not columns
+-- yet are skipped, so this file still applies without that migration.
+-- saved_foods carries all three. food_entries carries the names it has.
+do $regrant_official_food_columns$
+declare
+  v_table text;
+  v_cols text;
+begin
+  foreach v_table in array array['saved_foods', 'food_entries']
+  loop
+    select string_agg(format('%I', wanted.column_name), ', '
+             order by wanted.ordinality)
+      into v_cols
+    from unnest(array[
+      'official_food_code',
+      'official_food_name',
+      'source_attribution'
+    ]) with ordinality as wanted(column_name, ordinality)
+    where exists (
+      select 1
+      from information_schema.columns as cols
+      where cols.table_schema = 'public'
+        and cols.table_name = v_table
+        and cols.column_name = wanted.column_name
+    );
+
+    if v_cols is not null then
+      execute format(
+        'grant insert (%s), update (%s) on table public.%I to authenticated',
+        v_cols,
+        v_cols,
+        v_table
+      );
+    end if;
+  end loop;
+end
+$regrant_official_food_columns$;
 
 grant insert (owner_deleted), update (owner_deleted)
   on table public.saved_foods to service_role;

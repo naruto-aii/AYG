@@ -108,6 +108,52 @@ void main() {
 
     expect(authRepository.deleteOwnAccountCalled, isTrue);
     expect(authRepository.logoutCalled, isTrue);
+    expect(
+      find.text(AppStrings.accountDeletionAppleRevokeFailed),
+      findsNothing,
+    );
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('failed Apple revoke is shown before logout', (tester) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    )..simulateAppleRevokeFailed = true;
+    final controller = createController(authRepository: authRepository);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: AccountDeletionScreen(
+          controller: controller,
+          authenticationRepository: authRepository,
+          supportEmail: 'calonavi.ayg.support@gmail.com',
+        ),
+      ),
+    );
+
+    await tester.tap(find.text(AppStrings.accountDeletionExecute));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppStrings.accountDeletionExecute).last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(AppStrings.accountDeletionAppleRevokeFailed),
+      findsOneWidget,
+    );
+    expect(
+      find.text(AppStrings.accountDeletionAppleRevokeFailedTitle),
+      findsOneWidget,
+    );
+    expect(authRepository.logoutCalled, isFalse);
+
+    await tester.tap(
+      find.text(AppStrings.accountDeletionAppleRevokeFailedClose),
+    );
+    await tester.pumpAndSettle();
+
+    expect(authRepository.logoutCalled, isTrue);
 
     await authRepository.dispose();
   });
@@ -135,6 +181,48 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(AppStrings.accountDeletionUnavailable), findsOneWidget);
+    expect(authRepository.logoutCalled, isFalse);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('deletion failure shows the fixed Japanese message', (
+    tester,
+  ) async {
+    const raw = 'invalid_grant raw-token-body';
+    final authRepository =
+        MockAuthenticationRepository(
+            currentUser: const AuthUser(
+              id: 'user-1',
+              email: 'test@example.com',
+            ),
+          )
+          ..simulateDeleteFailure = true
+          ..deleteFailureMessage = raw;
+    final controller = createController(authRepository: authRepository);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: AccountDeletionScreen(
+          controller: controller,
+          authenticationRepository: authRepository,
+          supportEmail: 'calonavi.ayg.support@gmail.com',
+        ),
+      ),
+    );
+
+    await tester.tap(find.text(AppStrings.accountDeletionExecute));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppStrings.accountDeletionExecute).last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('${AppStrings.accountDeletionFailed}。時間をおいて再度お試しください。'),
+      findsOneWidget,
+    );
+    expect(find.textContaining(raw), findsNothing);
+    expect(find.textContaining('invalid_grant'), findsNothing);
     expect(authRepository.logoutCalled, isFalse);
 
     await authRepository.dispose();

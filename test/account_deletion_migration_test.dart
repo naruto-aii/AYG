@@ -92,10 +92,41 @@ void main() {
     final updateListStart = grantBody.lastIndexOf('update (');
     final updateList = grantBody.substring(updateListStart, authenticatedGrant);
     expect(updateList.contains('owner_deleted'), isFalse);
+    expect(updateList.contains('official_food_code'), isFalse);
     expect(updateList, contains('serving_unit_label'));
     expect(updateList, contains('version'));
     expect(updateList, contains('normalized_name'));
   });
+
+  test(
+    'official-food column grants are restored only when the columns exist',
+    () {
+      final revoke = followUpSql.indexOf(
+        'revoke insert, update on table public.saved_foods from authenticated',
+      );
+      final regrant = followUpSql.indexOf('\$regrant_official_food_columns\$');
+      expect(revoke, greaterThan(0));
+      expect(regrant, greaterThan(revoke));
+      final blockEnd = followUpSql.indexOf(
+        '\$regrant_official_food_columns\$;',
+        regrant + 1,
+      );
+      expect(blockEnd, greaterThan(regrant));
+      final block = followUpSql.substring(regrant, blockEnd);
+      expect(block, contains('information_schema.columns'));
+      expect(block, contains("'saved_foods'"));
+      expect(block, contains("'food_entries'"));
+      expect(block, contains("'official_food_code'"));
+      expect(block, contains("'official_food_name'"));
+      expect(block, contains("'source_attribution'"));
+      expect(
+        block,
+        contains(
+          'grant insert (%s), update (%s) on table public.%I to authenticated',
+        ),
+      );
+    },
+  );
 
   test('owner_deleted trigger is not security definer', () {
     final start = followUpSql.indexOf(
@@ -171,6 +202,47 @@ void main() {
       eventsDownSql,
       contains('create or replace function public.delete_own_account()'),
     );
+    expect(eventsDownSql.contains('skipped auth.users update'), isFalse);
+    expect(eventsDownSql.contains('when others then'), isFalse);
+    expect(
+      eventsDownSql,
+      contains("email = 'deleted+' || uid::text || '@invalid.local'"),
+    );
+    expect(
+      eventsDownSql,
+      contains('delete from auth.identities where user_id = uid'),
+    );
+    expect(
+      eventsDownSql,
+      contains("raw_user_meta_data = '{}'::pg_catalog.jsonb"),
+    );
+    final rollbackReadme = File(
+      'supabase/rollback/README.md',
+    ).readAsStringSync();
+    final down180 = rollbackReadme.indexOf(
+      '20260927180000_delete_own_account_service_role_only_down.sql',
+    );
+    final down170 = rollbackReadme.indexOf(
+      '20260927170000_store_apple_refresh_tokens_down.sql',
+    );
+    final down160 = rollbackReadme.indexOf(
+      '20260927160000_delete_subscription_events_on_account_deletion_down.sql',
+    );
+    final down150 = rollbackReadme.indexOf(
+      '20260927150000_protect_owner_deleted_and_revoke_sessions_down.sql',
+    );
+    final down140 = rollbackReadme.indexOf(
+      '20260927140000_subscription_events_down.sql',
+    );
+    final down120 = rollbackReadme.indexOf(
+      '20260927120000_reject_banned_public_food_names_down.sql',
+    );
+    expect(down180, greaterThanOrEqualTo(0));
+    expect(down170, greaterThan(down180));
+    expect(down160, greaterThan(down170));
+    expect(down150, greaterThan(down160));
+    expect(down140, greaterThan(down150));
+    expect(down120, greaterThan(down140));
     expect(
       File(
         'supabase/migrations/20260927160000_delete_subscription_events_on_account_deletion_down.sql',

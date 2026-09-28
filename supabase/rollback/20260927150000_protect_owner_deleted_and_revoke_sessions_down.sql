@@ -9,6 +9,14 @@
 -- column that is already applied (public.users.deleted_at, or
 -- saved_foods.owner_deleted after this migration). Dropping owner_deleted
 -- is only this manual script, and it removes the 削除済みユーザー label.
+--
+-- Run this only after 20260927160000_delete_subscription_events_on_account_deletion_down.sql
+-- when that migration was applied. This file drops saved_foods.owner_deleted.
+-- The 160000 down reinstalls delete_own_account that writes owner_deleted.
+-- Running this file first makes the next account deletion fail.
+-- This file restores the already-applied 20260920120000 body, which still
+-- ignores a failed auth.users email rewrite. That is the production
+-- function this migration replaced. Full order: supabase/rollback/README.md.
 
 begin;
 
@@ -89,8 +97,11 @@ drop function if exists public.saved_foods_reject_owner_deleted_change();
 alter table public.saved_foods
   drop column if exists owner_deleted;
 
--- Column privileges disappear with the column. Restore the table-level
--- grant from 20260801200000_tighten_public_grants_v1.sql.
+-- Column privileges disappear with owner_deleted. Restore the table-level
+-- grant from 20260801200000_tighten_public_grants_v1.sql. That grant
+-- covers official_food_code, official_food_name, and source_attribution
+-- when those columns exist, so this file does not issue a separate
+-- column grant.
 grant select, insert, update on table public.saved_foods to authenticated;
 
 commit;

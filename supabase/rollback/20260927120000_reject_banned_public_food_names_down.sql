@@ -1,5 +1,6 @@
 -- Down for 20260927120000_reject_banned_public_food_names.sql.
 -- Not under supabase/migrations, so `db push` does not apply it.
+-- Full down-order: supabase/rollback/README.md. Run this last.
 -- Restores validate_saved_foods_public_row and publish_saved_food to the
 -- bodies from 20260723120000_add_food_master_public_v1_1.sql.
 -- Does not drop the validate_saved_foods_public_row trigger.

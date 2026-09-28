@@ -1,16 +1,18 @@
--- Down for 20260927160000_delete_subscription_events_on_account_deletion.sql.
+-- Down for 20260927180000_delete_own_account_service_role_only.sql.
 -- Not under supabase/migrations, so `db push` does not apply it.
--- Restores the zero-argument delete_own_account that sets owner_deleted
--- and does not delete subscription_events. Does not drop the table.
--- The auth.users email rewrite stays outside an exception handler.
--- A failed anonymization aborts and rolls the deletion back.
--- Run this after 20260927180000_delete_own_account_service_role_only_down.sql
--- and before 20260927150000_protect_owner_deleted_and_revoke_sessions_down.sql.
--- The 150000 down drops saved_foods.owner_deleted. Running it first, then
--- this file, reinstalls a function that writes that column, and the next
--- account deletion fails. Full order: supabase/rollback/README.md.
+-- Drops the service_role-only function and restores the zero-argument
+-- delete_own_account, including EXECUTE for authenticated.
+-- The auth.users email rewrite stays outside an exception handler, matching
+-- 20260927180000. Rolling back must not restore the older behavior that
+-- ignores a failed anonymization.
+-- Run this before the 20260927160000 down file. That down keeps the
+-- email-anonymization error handling and must itself run before the
+-- 20260927150000 down. Full order: supabase/rollback/README.md.
 
 begin;
+
+drop function if exists public.delete_own_account(pg_catalog.uuid);
+
 
 create or replace function public.delete_own_account()
 returns void
@@ -63,6 +65,10 @@ begin
   delete from public.profiles where user_id = uid;
   delete from public.rate_limit_buckets where user_id = uid;
 
+  if pg_catalog.to_regclass('public.subscription_events') is not null then
+    delete from public.subscription_events where user_id = uid;
+  end if;
+
   update public.users
   set email = null,
       deleted_at = pg_catalog.timezone('utc', pg_catalog.now())
@@ -73,9 +79,7 @@ begin
   -- Do not catch errors here. A failed email rewrite must abort the function
   -- so the address is not left in auth.users while deletion is reported as
   -- success. The statement runs in the caller's transaction, so the personal
-  -- data deletes above roll back with it. Deleting the identities row
-  -- removes identity_data. Replacing raw_user_meta_data removes the Google
-  -- name and profile-image URL stored at sign-in.
+  -- data deletes above roll back with it.
   delete from auth.identities where user_id = uid;
   update auth.users
   set email = 'deleted+' || uid::text || '@invalid.local',

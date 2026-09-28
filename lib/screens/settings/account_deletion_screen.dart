@@ -77,7 +77,11 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
 
     setState(() => _isDeleting = true);
     try {
-      await widget.authenticationRepository.deleteOwnAccount();
+      final outcome = await widget.authenticationRepository.deleteOwnAccount();
+      if (outcome.appleRevokeFailed && mounted) {
+        setState(() => _isDeleting = false);
+        await _showAppleRevokeFailed();
+      }
       await widget.controller.logout(force: true);
     } on AccountDeletionUnavailableException {
       if (!mounted) {
@@ -99,6 +103,27 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
         setState(() => _isDeleting = false);
       }
     }
+  }
+
+  Future<void> _showAppleRevokeFailed() async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text(AppStrings.accountDeletionAppleRevokeFailedTitle),
+          content: const Text(AppStrings.accountDeletionAppleRevokeFailed),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                AppStrings.accountDeletionAppleRevokeFailedClose,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _showUnavailable() async {

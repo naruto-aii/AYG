@@ -89,6 +89,24 @@ declare
   v_auth_may_select boolean := true;
   v_live_dml_probe boolean := true;
 
+  -- ~64 character search cap. PR #31 is adding this guard. Do not raise it.
+  v_search_input_cap int := 64;
+  v_require_search_input_cap boolean := true;
+
+  -- Provenance on meal rows (food_entries) and My Foods (saved_foods), and
+  -- the non-removable sentence on a published mext_sfct food. Names are the
+  -- contract for that follow-up; if PR #31 picks different columns, change
+  -- them here only.
+  v_require_published_attribution boolean := true;
+  v_meal_table text := 'food_entries';
+  v_my_foods_table text := 'saved_foods';
+  v_prov_code_col text := 'official_food_code';
+  v_prov_name_col text := 'original_name';
+  v_prov_source_col text := 'source_type';
+  v_attr_col text := 'source_attribution';
+  v_published_attribution text :=
+    '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
+
   v_require_trgm boolean := true;
   v_trgm_targets text[] := array[
     'official_foods.normalized_name',
@@ -102,9 +120,11 @@ declare
   v_exclude_tables text[] := array['official_foods', 'official_food_aliases'];
   v_exclude_routines text[] := array['normalize_food_search_text', 'search_official_foods'];
   v_exclude_new_views text[] := array[]::text[];
-  -- PR #31 drops and recreates saved_foods_source_type_check (adds mext_sfct).
-  -- Row count of saved_foods must still match the snapshot.
-  v_ignore_signature_for text[] := array['saved_foods'];
+  -- saved_foods: source_type check gains mext_sfct, then provenance and
+  -- attribution columns. food_entries: meal-row provenance and mext_sfct.
+  -- Row counts of both tables must still match the snapshot. Do not move
+  -- either name into v_exclude_tables.
+  v_ignore_signature_for text[] := array['saved_foods', 'food_entries'];
   v_count_match_required boolean := true;
 
   v_foods jsonb := jsonb_build_array(
@@ -194,6 +214,13 @@ declare
   v_canary bigint;
   v_seen bigint;
   v_fp_sql text;
+  v_src text;
+  v_uid uuid;
+  v_probe_name text;
+  v_got_attr text;
+  v_got_code text;
+  v_got_orig text;
+  v_got_source text;
   v_current jsonb;
   v_key text;
   v_rname text;
@@ -229,10 +256,15 @@ begin
   end if;
   v_queries := array['ご飯', 'ゴハン', v_half, '白米', 'ライス'];
 
+  if v_require_search_input_cap
+     and (v_search_input_cap is null or v_search_input_cap < 1 or v_search_input_cap > 64) then
+    raise exception 'ACCEPTANCE FAIL: v_search_input_cap must be between 1 and 64';
+  end if;
   foreach v_ident in array array[
     v_schema, v_foods_table, v_aliases_table, v_food_code_col, v_name_col,
     v_kcal_col, v_source_col, v_edition_col, v_norm_fn, v_search_fn,
-    v_out_food_code, v_anon_role, v_auth_role
+    v_out_food_code, v_anon_role, v_auth_role, v_meal_table, v_my_foods_table,
+    v_prov_code_col, v_prov_name_col, v_prov_source_col, v_attr_col
   ] loop
     if v_ident is null or v_ident !~ '^[a-z_][a-z0-9_]*$' then
       raise exception 'ACCEPTANCE FAIL: [%] is not a simple lowercase identifier', v_ident;
@@ -659,6 +691,204 @@ begin
     raise exception 'ACCEPTANCE FAIL: row count changed during probes (%); the script must not commit writes', v_n;
   end if;
 
+  v_step := 'search-input-cap';
+  if v_require_search_input_cap then
+    select coalesce(string_agg(p.prosrc, E'\n'), '')
+      into v_src
+    from pg_proc p
+    where p.oid in (v_norm_oid, v_search_oid);
+    if position(v_search_input_cap::text in v_src) = 0 then
+      raise exception 'ACCEPTANCE FAIL: search input cap: %.% and %.% do not enforce a % character limit',
+        v_schema, v_norm_fn, v_schema, v_search_fn, v_search_input_cap;
+    end if;
+    begin
+      begin
+        execute 'set local statement_timeout = ''8s''';
+        execute format('set local role %I', v_auth_role);
+        execute format(
+          'select count(*)::bigint from %I.%I($1, $2)',
+          v_schema, v_search_fn
+        ) into v_seen using repeat('あ', 100000), v_search_limit;
+        raise exception using errcode = 'P0001', message = 'ACCEPTANCE_PROBE_DONE';
+      exception
+        when sqlstate 'P0001' then
+          if sqlerrm is distinct from 'ACCEPTANCE_PROBE_DONE' then
+            raise;
+          end if;
+        when query_canceled then
+          raise exception 'ACCEPTANCE FAIL: search input cap: 100000-character query did not finish within 8s';
+      end;
+    exception when others then
+      if position('ACCEPTANCE FAIL:' in sqlerrm) = 1 then
+        raise;
+      end if;
+      if position(v_search_input_cap::text in sqlerrm) = 0
+         and position('too long' in lower(sqlerrm)) = 0
+         and position('exceed' in lower(sqlerrm)) = 0 then
+        raise exception 'ACCEPTANCE FAIL: search input cap probe failed: % %', sqlstate, sqlerrm;
+      end if;
+    end;
+  end if;
+
+  v_step := 'published-attribution';
+  if v_require_published_attribution then
+    foreach v_table in array array[v_meal_table, v_my_foods_table] loop
+      foreach v_col in array array[v_prov_code_col, v_prov_name_col] loop
+        perform 1
+        from information_schema.columns
+        where table_schema = v_schema
+          and table_name = v_table
+          and column_name = v_col;
+        if not found then
+          raise exception 'ACCEPTANCE FAIL: %.% is missing provenance column % (food code / original name). Align CONFIG if the feature PR used another name.',
+            v_schema, v_table, v_col;
+        end if;
+      end loop;
+      select exists (
+        select 1
+        from pg_constraint con
+        join pg_class rel on rel.oid = con.conrelid
+        join pg_namespace nsp on nsp.oid = rel.relnamespace
+        where nsp.nspname = v_schema
+          and rel.relname = v_table
+          and con.contype = 'c'
+          and pg_get_constraintdef(con.oid) ilike '%source_type%'
+          and pg_get_constraintdef(con.oid) ilike '%mext_sfct%'
+      ) into v_has;
+      if not v_has then
+        raise exception 'ACCEPTANCE FAIL: %.% source_type check does not allow mext_sfct',
+          v_schema, v_table;
+      end if;
+    end loop;
+    perform 1
+    from information_schema.columns
+    where table_schema = v_schema
+      and table_name = v_my_foods_table
+      and column_name = v_attr_col;
+    if not found then
+      raise exception 'ACCEPTANCE FAIL: %.% is missing % for the non-removable published attribution',
+        v_schema, v_my_foods_table, v_attr_col;
+    end if;
+
+    select coalesce(string_agg(p.prosrc, E'\n'), '')
+      into v_src
+    from pg_trigger tg
+    join pg_proc p on p.oid = tg.tgfoid
+    join pg_class c on c.oid = tg.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = v_schema
+      and c.relname = v_my_foods_table
+      and not tg.tgisinternal;
+    if position(v_published_attribution in v_src) = 0
+       or position('mext_sfct' in v_src) = 0 then
+      raise exception 'ACCEPTANCE FAIL: no % trigger locks a published mext_sfct food to the attribution sentence',
+        v_my_foods_table;
+    end if;
+
+    -- Hosted Supabase auth.users has required columns this probe does not
+    -- fill. The trigger check above still applies there. The live publish
+    -- probe runs when id is the only required column (local Postgres / CI).
+    select count(*)::bigint into v_n
+    from pg_attribute a
+    join pg_class c on c.oid = a.attrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'auth'
+      and c.relname = 'users'
+      and a.attnum > 0
+      and not a.attisdropped
+      and a.attnotnull
+      and not a.atthasdef
+      and a.attname <> 'id';
+    if v_n = 0 then
+    v_uid := '00000000-0000-4000-8000-000000000088';
+    v_probe_name := 'acceptance-original-name';
+    begin
+      begin
+        insert into auth.users (id) values (v_uid);
+        insert into public.users (id) values (v_uid);
+        begin
+          execute format(
+            'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, %I, %I, %I) values ($1, $2, ''private'', ''active'', $3, $3, 100, ''g'', 156, $4, $5, $6, null)',
+            v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col
+          ) using v_uid, 'of-accept-probe', 'probe rice', v_source, '01088', v_probe_name;
+        exception
+          when not_null_violation then
+            execute format(
+              'insert into %I.%I (user_id, food_id, visibility, status, name, normalized_name, base_amount, unit_type, kcal_per_base, %I, %I, %I, %I) values ($1, $2, ''private'', ''active'', $3, $3, 100, ''g'', 156, $4, $5, $6, $7)',
+              v_schema, v_my_foods_table, v_prov_source_col, v_prov_code_col, v_prov_name_col, v_attr_col
+            ) using v_uid, 'of-accept-probe', 'probe rice', v_source, '01088', v_probe_name, 'pending';
+        end;
+        perform set_config('ayg.allow_saved_food_publish', 'on', true);
+        execute format(
+          'update %I.%I set visibility = ''public'' where user_id = $1 and food_id = $2',
+          v_schema, v_my_foods_table
+        ) using v_uid, 'of-accept-probe';
+        execute format(
+          'select %I, %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col,
+          v_schema, v_my_foods_table
+        ) into v_got_attr, v_got_code, v_got_orig, v_got_source
+        using v_uid, 'of-accept-probe';
+        if v_got_attr is distinct from v_published_attribution
+           or v_got_code is distinct from '01088'
+           or v_got_orig is distinct from v_probe_name
+           or v_got_source is distinct from v_source then
+          raise exception 'ACCEPTANCE FAIL: publishing a mext_sfct food did not keep attribution [%], food code [%], original name [%], source [%]',
+            v_got_attr, v_got_code, v_got_orig, v_got_source;
+        end if;
+        begin
+          execute format(
+            'update %I.%I set %I = $3, %I = null, %I = $4, %I = ''manual'' where user_id = $1 and food_id = $2',
+            v_schema, v_my_foods_table, v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col
+          ) using v_uid, 'of-accept-probe', 'removed', 'renamed';
+          execute format(
+            'select %I, %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
+            v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col,
+            v_schema, v_my_foods_table
+          ) into v_got_attr, v_got_code, v_got_orig, v_got_source
+          using v_uid, 'of-accept-probe';
+          if v_got_attr is distinct from v_published_attribution
+             or v_got_code is distinct from '01088'
+             or v_got_orig is distinct from v_probe_name
+             or v_got_source is distinct from v_source then
+            raise exception 'ACCEPTANCE FAIL: published mext_sfct attribution or provenance can be removed (now % / % / % / %)',
+              v_got_attr, v_got_code, v_got_orig, v_got_source;
+          end if;
+        exception
+          when others then
+            if position('ACCEPTANCE FAIL:' in sqlerrm) = 1 then
+              raise;
+            end if;
+        end;
+        execute format(
+          'select %I, %I, %I, %I from %I.%I where user_id = $1 and food_id = $2',
+          v_attr_col, v_prov_code_col, v_prov_name_col, v_prov_source_col,
+          v_schema, v_my_foods_table
+        ) into v_got_attr, v_got_code, v_got_orig, v_got_source
+        using v_uid, 'of-accept-probe';
+        if v_got_attr is distinct from v_published_attribution
+           or v_got_code is distinct from '01088'
+           or v_got_orig is distinct from v_probe_name
+           or v_got_source is distinct from v_source then
+          raise exception 'ACCEPTANCE FAIL: published mext_sfct row lost attribution or provenance after a removal attempt (% / % / % / %)',
+            v_got_attr, v_got_code, v_got_orig, v_got_source;
+        end if;
+        raise exception using errcode = 'P0001', message = 'ACCEPTANCE_PROBE_DONE';
+      exception
+        when sqlstate 'P0001' then
+          if sqlerrm is distinct from 'ACCEPTANCE_PROBE_DONE' then
+            raise;
+          end if;
+      end;
+    exception when others then
+      if position('ACCEPTANCE FAIL:' in sqlerrm) = 1 then
+        raise;
+      end if;
+      raise exception 'ACCEPTANCE FAIL: published attribution probe failed: % %', sqlstate, sqlerrm;
+    end;
+    end if;
+  end if;
+
   v_step := 'user-objects';
   v_fp_sql := $fp$
 select jsonb_build_object(
@@ -937,7 +1167,9 @@ $fp$;
     'user_table_count_deltas', v_deltas,
     'user_sequence_deltas', v_seq_deltas,
     'ignored_signature', v_ignored,
-    'count_match_required', v_count_match_required
+    'count_match_required', v_count_match_required,
+    'search_input_cap', v_search_input_cap,
+    'published_attribution', v_published_attribution
   );
 
   create temp table official_foods_acceptance_result (

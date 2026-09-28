@@ -1,0 +1,57 @@
+name: Official foods acceptance
+
+on:
+  pull_request:
+  push:
+    branches:
+      - cursor/official-foods-acceptance-944d
+
+permissions:
+  contents: read
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      FEATURE_REF: cursor/official-foods-import-0702
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: acceptance
+      - uses: actions/checkout@v4
+        with:
+          repository: naruto-aii/AYG
+          ref: cursor/official-foods-import-0702
+          path: feature
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Python packages
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r feature/tool/official_foods/requirements.txt
+      - name: Create database
+        run: psql "postgres://postgres@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 -c "create database official_accept"
+      - name: Migrations, full import, acceptance
+        env:
+          DATABASE_URL: postgres://postgres@127.0.0.1:5432/official_accept
+          FEATURE_DIR: feature
+          ACCEPT_DIR: acceptance
+        run: |
+          export PATH="$PWD/.venv/bin:$PATH"
+          bash acceptance/supabase/acceptance/official_foods/run_ci.sh

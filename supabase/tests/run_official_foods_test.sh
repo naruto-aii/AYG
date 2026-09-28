@@ -229,6 +229,11 @@ psql_cmd -f supabase/tests/official_foods_test.sql
 echo "provenance columns"
 psql_cmd -f supabase/tests/official_food_provenance_test.sql
 
+echo "app upsert reproductions"
+psql_cmd -f supabase/tests/food_master_v1_1_test_helpers.sql
+psql_cmd -f supabase/tests/repro_upsert_regression.sql
+psql_cmd -f supabase/tests/repro_softdelete.sql
+
 echo "reverse-order down stops"
 reverse_status=0
 reverse_out="$(psql_cmd -f supabase/rollback/20260928120000_official_foods_down.sql 2>&1)" || reverse_status=$?

@@ -74,6 +74,8 @@ declare
   v_next_owner uuid;
   v_depth integer := 0;
   v_check_source boolean;
+  v_existing_food text;
+  v_existing_owner uuid;
 begin
   v_may_relabel :=
     current_user in ('postgres', 'service_role')
@@ -90,11 +92,32 @@ begin
   -- only changes visibility), must still succeed after the source becomes
   -- private or is deleted. The table owner is not rewritten, so rollback
   -- can relabel source_type.
+  --
+  -- The app saves with PostgREST upsert: POST, Prefer
+  -- resolution=merge-duplicates, on_conflict=user_id,food_id. That is
+  -- INSERT ... ON CONFLICT (user_id, food_id) DO UPDATE, so the BEFORE
+  -- INSERT trigger runs even when the row already exists. If this user's
+  -- own row is already there and copied_from is unchanged, skip the
+  -- reference checks and let the UPDATE trigger decide. Look up only
+  -- auth.uid()'s row so another user's food_id cannot be observed.
   v_check_source := tg_op = 'INSERT';
   if tg_op = 'UPDATE' then
     v_check_source :=
       new.copied_from_food_id is distinct from old.copied_from_food_id
       or new.copied_from_owner_user_id is distinct from old.copied_from_owner_user_id;
+  elsif tg_op = 'INSERT'
+        and auth.uid() is not null
+        and new.user_id = auth.uid() then
+    select s.copied_from_food_id, s.copied_from_owner_user_id
+      into v_existing_food, v_existing_owner
+    from public.saved_foods s
+    where s.user_id = auth.uid()
+      and s.food_id = new.food_id;
+    if found
+       and new.copied_from_food_id is not distinct from v_existing_food
+       and new.copied_from_owner_user_id is not distinct from v_existing_owner then
+      v_check_source := false;
+    end if;
   end if;
 
   if new.copied_from_food_id is not null

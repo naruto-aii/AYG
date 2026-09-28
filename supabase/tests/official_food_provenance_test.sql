@@ -580,3 +580,301 @@ begin
   end if;
 end
 $$;
+
+-- The app saves My Foods with PostgREST upsert:
+--   POST, Prefer: resolution=merge-duplicates, on_conflict=user_id,food_id
+-- which is INSERT ... ON CONFLICT (user_id, food_id) DO UPDATE.
+-- (a) edit a copy after the source is private, and after it is deleted
+-- (b) edit an existing row whose copied_from owner is null
+-- (c) changing copied_from to someone else's private row fails, same text
+-- (d) an upsert cannot strip composition-table attribution
+-- (e) a fresh insert is still rejected
+-- A public row with the same food_id belongs to someone else. The existence
+-- check must ignore it and read only auth.uid()'s row.
+do $$
+declare
+  uid uuid := '11111111-1111-1111-1111-111111111111';
+  copier uuid := '33333333-3333-3333-3333-333333333333';
+  stranger uuid := '55555555-5555-5555-5555-555555555555';
+  attribution constant text :=
+    '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
+  got_name text;
+  got_count integer;
+  got_source text;
+  got_code text;
+  got_attr text;
+  got_from text;
+  manual_err text;
+  mext_err text;
+begin
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, official_food_code, official_food_name, visibility
+  ) values (
+    uid, 'upsert-src', 'upsert元', 'upsert元', 100, 'g',
+    'mext_sfct', '01088', 'こめ　［水稲めし］　精白米　うるち米', 'private'
+  );
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+  ) values (
+    stranger, 'upsert-copy', '他人の同番号', '他人の同番号', 150, 'g',
+    'manual', 'secret-food', stranger, 'private'
+  );
+
+  perform set_config('request.jwt.claim.sub', uid::text, true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  execute 'set local role authenticated';
+  perform public.publish_saved_food('upsert-src');
+  execute 'reset role';
+  perform set_config('request.jwt.claim.sub', stranger::text, true);
+  execute 'set local role authenticated';
+  perform public.publish_saved_food('upsert-copy');
+  execute 'reset role';
+
+  perform set_config('request.jwt.claim.sub', copier::text, true);
+  execute 'set local role authenticated';
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+  ) values (
+    copier, 'upsert-copy', '写し', '写し', 100, 'g',
+    'copied', 'upsert-src', uid, 'private'
+  );
+  execute 'reset role';
+
+  update public.saved_foods
+  set visibility = 'private'
+  where user_id = uid and food_id = 'upsert-src';
+
+  execute 'set local role authenticated';
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, official_food_code, official_food_name, source_attribution,
+    copied_from_food_id, copied_from_owner_user_id, use_count, visibility
+  ) values (
+    copier, 'upsert-copy', '編集後', '編集後', 100, 'g',
+    'mext_sfct', '01088', 'こめ　［水稲めし］　精白米　うるち米', attribution,
+    'upsert-src', uid, 4, 'private'
+  )
+  on conflict (user_id, food_id) do update set
+    name = excluded.name,
+    normalized_name = excluded.normalized_name,
+    use_count = excluded.use_count,
+    source_type = excluded.source_type,
+    official_food_code = excluded.official_food_code,
+    official_food_name = excluded.official_food_name,
+    source_attribution = excluded.source_attribution,
+    copied_from_food_id = excluded.copied_from_food_id,
+    copied_from_owner_user_id = excluded.copied_from_owner_user_id,
+    visibility = excluded.visibility;
+
+  select name, use_count into got_name, got_count
+  from public.saved_foods
+  where user_id = copier and food_id = 'upsert-copy';
+  if got_name is distinct from '編集後' or got_count is distinct from 4 then
+    raise exception
+      'upsert could not edit a copy after the source became private: % %',
+      got_name, got_count;
+  end if;
+
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, official_food_code, official_food_name, source_attribution,
+    copied_from_food_id, copied_from_owner_user_id, use_count, visibility
+  ) values (
+    copier, 'upsert-copy', '出典なし', '出典なし', 100, 'g',
+    'manual', null, null, null,
+    'upsert-src', uid, 5, 'private'
+  )
+  on conflict (user_id, food_id) do update set
+    name = excluded.name,
+    normalized_name = excluded.normalized_name,
+    use_count = excluded.use_count,
+    source_type = excluded.source_type,
+    official_food_code = excluded.official_food_code,
+    official_food_name = excluded.official_food_name,
+    source_attribution = excluded.source_attribution,
+    copied_from_food_id = excluded.copied_from_food_id,
+    copied_from_owner_user_id = excluded.copied_from_owner_user_id,
+    visibility = excluded.visibility;
+
+  select source_type, official_food_code, source_attribution
+    into got_source, got_code, got_attr
+  from public.saved_foods
+  where user_id = copier and food_id = 'upsert-copy';
+  if got_source is distinct from 'mext_sfct'
+     or got_code is distinct from '01088'
+     or got_attr is distinct from attribution then
+    raise exception 'upsert stripped attribution: % % %',
+      got_source, got_code, got_attr;
+  end if;
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id,
+      use_count, visibility
+    ) values (
+      copier, 'upsert-copy', '差し替え', '差し替え', 100, 'g',
+      'copied', 'secret-food', stranger, 6, 'private'
+    )
+    on conflict (user_id, food_id) do update set
+      name = excluded.name,
+      use_count = excluded.use_count,
+      copied_from_food_id = excluded.copied_from_food_id,
+      copied_from_owner_user_id = excluded.copied_from_owner_user_id;
+    raise exception 'upsert accepted a private ordinary food';
+  exception
+    when others then
+      manual_err := sqlerrm;
+  end;
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id,
+      use_count, visibility
+    ) values (
+      copier, 'upsert-copy', '差し替え成分表', '差し替え成分表', 100, 'g',
+      'copied', 'secret-mext', stranger, 6, 'private'
+    )
+    on conflict (user_id, food_id) do update set
+      name = excluded.name,
+      use_count = excluded.use_count,
+      copied_from_food_id = excluded.copied_from_food_id,
+      copied_from_owner_user_id = excluded.copied_from_owner_user_id;
+    raise exception 'upsert accepted a private composition-table food';
+  exception
+    when others then
+      mext_err := sqlerrm;
+  end;
+
+  if manual_err not like '%copied_from%'
+     or mext_err not like '%copied_from%'
+     or manual_err like '%attribution%'
+     or mext_err like '%attribution%'
+     or manual_err like '%mext%'
+     or mext_err like '%mext%'
+     or manual_err is distinct from mext_err then
+    raise exception
+      'upsert private foods were distinguishable: manual=% mext=%',
+      manual_err, mext_err;
+  end if;
+
+  select copied_from_food_id into got_from
+  from public.saved_foods
+  where user_id = copier and food_id = 'upsert-copy';
+  if got_from is distinct from 'upsert-src' then
+    raise exception 'failed upsert changed copied_from to %', got_from;
+  end if;
+
+  execute 'reset role';
+  delete from public.saved_foods
+  where user_id = uid and food_id = 'upsert-src';
+
+  execute 'set local role authenticated';
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, official_food_code, official_food_name, source_attribution,
+    copied_from_food_id, copied_from_owner_user_id, use_count, visibility
+  ) values (
+    copier, 'upsert-copy', '削除後', '削除後', 100, 'g',
+    'mext_sfct', '01088', 'こめ　［水稲めし］　精白米　うるち米', attribution,
+    'upsert-src', uid, 7, 'private'
+  )
+  on conflict (user_id, food_id) do update set
+    name = excluded.name,
+    normalized_name = excluded.normalized_name,
+    use_count = excluded.use_count,
+    copied_from_food_id = excluded.copied_from_food_id,
+    copied_from_owner_user_id = excluded.copied_from_owner_user_id;
+
+  select name, use_count into got_name, got_count
+  from public.saved_foods
+  where user_id = copier and food_id = 'upsert-copy';
+  if got_name is distinct from '削除後' or got_count is distinct from 7 then
+    raise exception
+      'upsert could not edit a copy after the source was deleted: % %',
+      got_name, got_count;
+  end if;
+
+  execute 'reset role';
+  alter table public.saved_foods disable trigger enforce_mext_saved_food_attribution;
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+  ) values (
+    copier, 'null-legacy', '古い写し', '古い写し', 100, 'g',
+    'copied', 'upsert-src', null, 'private'
+  );
+  alter table public.saved_foods enable trigger enforce_mext_saved_food_attribution;
+
+  execute 'set local role authenticated';
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type,
+    source_type, copied_from_food_id, copied_from_owner_user_id,
+    use_count, visibility
+  ) values (
+    copier, 'null-legacy', '古い写しを編集', '古い写しを編集', 100, 'g',
+    'copied', 'upsert-src', null, 2, 'private'
+  )
+  on conflict (user_id, food_id) do update set
+    name = excluded.name,
+    normalized_name = excluded.normalized_name,
+    use_count = excluded.use_count,
+    copied_from_food_id = excluded.copied_from_food_id,
+    copied_from_owner_user_id = excluded.copied_from_owner_user_id;
+
+  select name, use_count, copied_from_owner_user_id::text
+    into got_name, got_count, got_from
+  from public.saved_foods
+  where user_id = copier and food_id = 'null-legacy';
+  if got_name is distinct from '古い写しを編集'
+     or got_count is distinct from 2
+     or got_from is not null then
+    raise exception 'upsert could not edit a null-owner row: % % owner=%',
+      got_name, got_count, got_from;
+  end if;
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+    ) values (
+      copier, 'fresh-null-owner', '新規', '新規', 100, 'g',
+      'copied', 'secret-food', null, 'private'
+    )
+    on conflict (user_id, food_id) do update set
+      name = excluded.name,
+      copied_from_food_id = excluded.copied_from_food_id,
+      copied_from_owner_user_id = excluded.copied_from_owner_user_id;
+    raise exception 'fresh upsert accepted a null owner';
+  exception
+    when others then
+      if sqlerrm not like '%copied_from_owner_user_id%' then
+        raise;
+      end if;
+  end;
+
+  begin
+    insert into public.saved_foods (
+      user_id, food_id, name, normalized_name, base_amount, unit_type,
+      source_type, copied_from_food_id, copied_from_owner_user_id, visibility
+    ) values (
+      copier, 'fresh-private', '新規の他人', '新規の他人', 100, 'g',
+      'copied', 'secret-food', stranger, 'private'
+    )
+    on conflict (user_id, food_id) do update set
+      name = excluded.name,
+      copied_from_food_id = excluded.copied_from_food_id,
+      copied_from_owner_user_id = excluded.copied_from_owner_user_id;
+    raise exception 'fresh upsert accepted a private food';
+  exception
+    when others then
+      if sqlerrm not like '%copied_from%' then
+        raise;
+      end if;
+  end;
+end
+$$;

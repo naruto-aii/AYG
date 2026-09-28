@@ -58,8 +58,13 @@ when the chain is still the writer's own row or a public row. A public row
 with `official_food_code` also fails unless `source_attribution` is
 the canonical sentence, even when `copied_from` points somewhere else.
 The reference is checked only on insert and when `copied_from` changes,
-including inside `publish_saved_food`. `copied_from_owner_user_id` is
-required, and the target must be the writer's own row or a public row.
+including inside `publish_saved_food`. The app upserts My Foods with
+PostgREST `on_conflict=user_id,food_id` and
+`Prefer: resolution=merge-duplicates`, which still runs the insert
+trigger. If that user's own row already exists and `copied_from` is
+unchanged, the reference check waits for the update trigger. The
+existence lookup reads only `auth.uid()`'s row. `copied_from_owner_user_id` is
+required on a new reference, and the target must be the writer's own row or a public row.
 A later edit still succeeds after that source becomes private or is
 deleted. `authenticated` is granted
 `INSERT` and `UPDATE` on `official_food_code`, `official_food_name`,

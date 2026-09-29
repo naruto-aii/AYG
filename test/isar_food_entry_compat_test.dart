@@ -2,6 +2,7 @@ import 'package:ayg/database/entity_mapper.dart';
 import 'package:ayg/database/schemas.dart';
 import 'package:ayg/models/food_entry.dart';
 import 'package:ayg/models/food_entry_source.dart';
+import 'package:ayg/models/food_source_type.dart';
 import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/meal_template.dart';
 import 'package:ayg/models/saved_food.dart';
@@ -127,6 +128,56 @@ void main() {
       expect(loaded.sortOrder, 2);
     });
 
+    test('persists composition-table food code and official name', () async {
+      final harness = await setUpIsarHarness();
+      const officialName = 'こめ　［水稲めし］　精白米　うるち米';
+
+      await harness.foodRepository.save(
+        FoodEntry(
+          id: 'mext-meal',
+          name: 'ご飯',
+          kcalPerBase: 156,
+          baseAmount: 100,
+          unitType: FoodUnitType.g,
+          consumedAmount: 150,
+          sourceType: FoodEntrySource.mextSfct,
+          officialFoodCode: '01088',
+          officialFoodName: officialName,
+          loggedAt: DateTime(2026, 9, 28),
+        ),
+      );
+      final meal = (await harness.foodRepository.loadAll()).single;
+      expect(meal.sourceType, FoodEntrySource.mextSfct);
+      expect(meal.officialFoodCode, '01088');
+      expect(meal.officialFoodName, officialName);
+
+      final now = DateTime(2026, 9, 28);
+      await harness.savedFoodRepository.save(
+        SavedFood(
+          foodId: 'mext-food',
+          ownerUserId: 'user-a',
+          name: 'ご飯',
+          normalizedName: 'ご飯',
+          baseAmount: 100,
+          unitType: FoodUnitType.g,
+          sourceType: FoodSourceType.mextSfct,
+          officialFoodCode: '01088',
+          officialFoodName: officialName,
+          sourceAttribution: '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      final food = (await harness.savedFoodRepository.getAllOwn(
+        'user-a',
+      )).single;
+      expect(food.sourceType, FoodSourceType.mextSfct);
+      expect(food.officialFoodCode, '01088');
+      expect(food.officialFoodName, officialName);
+      expect(food.supplementaryWeight, isNull);
+      expect(food.sourceAttribution, '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成');
+    });
+
     test('entity mapper keeps legacy quantity column in sync', () async {
       final entry = FoodEntry(
         id: 'sync-1',
@@ -154,9 +205,11 @@ void main() {
         settingsRepository: harness.settingsRepository,
         foodRepository: harness.foodRepository,
         exerciseRepository: harness.exerciseRepository,
+        alcoholRepository: harness.alcoholRepository,
         weightRepository: harness.weightRepository,
         savedFoodRepository: harness.savedFoodRepository,
         mealTemplateRepository: harness.mealTemplateRepository,
+        workoutTemplateRepository: harness.workoutTemplateRepository,
       );
 
       await harness.savedFoodRepository.save(

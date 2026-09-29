@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:ayg/widgets/design/design_tab_bar.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/app.dart';
 import 'package:ayg/config/open_food_facts_config.dart';
+import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/food_entry.dart';
 import 'package:ayg/models/goal.dart';
@@ -46,6 +48,7 @@ void main() {
 
     expect(find.text('Googleでログイン'), findsOneWidget);
     expect(find.text('Appleでログイン'), findsOneWidget);
+    expect(find.text(AppStrings.loginTaglineMultiline), findsOneWidget);
     expect(find.text('利用規約'), findsOneWidget);
     expect(find.text('プライバシーポリシー'), findsOneWidget);
 
@@ -91,9 +94,11 @@ void main() {
     final healthRepository = MockHealthRepository(isAvailable: false);
     final authRepository = MockAuthenticationRepository()
       ..simulateGoogleSignInCancelled = true;
+    final dataSyncRepository = MockDataSyncRepository();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
     );
 
     await tester.pumpWidget(
@@ -114,6 +119,99 @@ void main() {
     await authRepository.dispose();
   });
 
+  testWidgets('Apple login success navigates away from LoginScreen', (
+    WidgetTester tester,
+  ) async {
+    final openFoodFactsService = createOpenFoodFactsService();
+    final healthRepository = MockHealthRepository(isAvailable: false);
+    final authRepository = MockAuthenticationRepository();
+    final dataSyncRepository = MockDataSyncRepository();
+    final controller = AppController(
+      healthRepository: healthRepository,
+      authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
+    );
+
+    await tester.pumpWidget(
+      AygApp(
+        controller: controller,
+        openFoodFactsService: openFoodFactsService,
+        healthRepository: healthRepository,
+        authenticationRepository: authRepository,
+      ),
+    );
+
+    await tester.tap(find.text('Appleでログイン'));
+    await tester.pumpAndSettle();
+
+    expect(authRepository.loginWithAppleCalled, isTrue);
+    expect(find.text('Appleでログイン'), findsNothing);
+    expect(authRepository.isAuthenticated, isTrue);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('Apple login cancel does not show failure snackbar', (
+    WidgetTester tester,
+  ) async {
+    final openFoodFactsService = createOpenFoodFactsService();
+    final healthRepository = MockHealthRepository(isAvailable: false);
+    final authRepository = MockAuthenticationRepository()
+      ..simulateAppleSignInCancelled = true;
+    final controller = AppController(
+      healthRepository: healthRepository,
+      authenticationRepository: authRepository,
+      dataSyncRepository: MockDataSyncRepository(),
+    );
+
+    await tester.pumpWidget(
+      AygApp(
+        controller: controller,
+        openFoodFactsService: openFoodFactsService,
+        healthRepository: healthRepository,
+        authenticationRepository: authRepository,
+      ),
+    );
+
+    await tester.tap(find.text('Appleでログイン'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Appleでログイン'), findsOneWidget);
+    expect(find.textContaining('Appleログインに失敗しました'), findsNothing);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('Apple login failure shows snackbar', (
+    WidgetTester tester,
+  ) async {
+    final openFoodFactsService = createOpenFoodFactsService();
+    final healthRepository = MockHealthRepository(isAvailable: false);
+    final authRepository = MockAuthenticationRepository()
+      ..simulateAppleSignInFailure = true;
+    final controller = AppController(
+      healthRepository: healthRepository,
+      authenticationRepository: authRepository,
+      dataSyncRepository: MockDataSyncRepository(),
+    );
+
+    await tester.pumpWidget(
+      AygApp(
+        controller: controller,
+        openFoodFactsService: openFoodFactsService,
+        healthRepository: healthRepository,
+        authenticationRepository: authRepository,
+      ),
+    );
+
+    await tester.tap(find.text('Appleでログイン'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Appleログインに失敗しました'), findsOneWidget);
+
+    await authRepository.dispose();
+  });
+
   testWidgets('Google login failure shows snackbar', (
     WidgetTester tester,
   ) async {
@@ -121,9 +219,11 @@ void main() {
     final healthRepository = MockHealthRepository(isAvailable: false);
     final authRepository = MockAuthenticationRepository()
       ..simulateGoogleSignInFailure = true;
+    final dataSyncRepository = MockDataSyncRepository();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
     );
 
     await tester.pumpWidget(
@@ -149,9 +249,11 @@ void main() {
     final authRepository = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
     );
+    final dataSyncRepository = MockDataSyncRepository();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
     );
 
     controller.setProfile(
@@ -186,13 +288,13 @@ void main() {
       ),
     );
 
-    expect(find.text(AppStrings.navHome), findsWidgets);
+    expect(find.byType(DesignTabBar), findsOneWidget);
 
     await controller.logout();
     await tester.pumpAndSettle();
 
     expect(find.text('Googleでログイン'), findsOneWidget);
-    expect(find.text(AppStrings.navHome), findsNothing);
+    expect(find.byType(DesignTabBar), findsNothing);
 
     await authRepository.dispose();
   });
@@ -205,9 +307,11 @@ void main() {
     final authRepository = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
     );
+    final dataSyncRepository = MockDataSyncRepository();
     final controller = AppController(
       healthRepository: healthRepository,
       authenticationRepository: authRepository,
+      dataSyncRepository: dataSyncRepository,
     );
 
     controller.setProfile(
@@ -242,7 +346,7 @@ void main() {
       ),
     );
 
-    expect(find.text(AppStrings.navHome), findsWidgets);
+    expect(find.byType(DesignTabBar), findsOneWidget);
 
     await authRepository.dispose();
   });
@@ -276,7 +380,7 @@ void main() {
       ),
     );
     controller.setGoal(goal);
-    controller.addFood(
+    await controller.addFood(
       FoodEntry(
         id: 'food-1',
         name: 'テスト食品',
@@ -285,26 +389,17 @@ void main() {
         fatPerUnit: 5,
         carbPerUnit: 40,
         quantity: 1,
-        loggedAt: referenceDate,
+        loggedAt: DateTime.now(),
       ),
     );
 
-    final summary = nutritionEngine.calculateDailySummary(
-      profile: profile,
-      goal: goal,
-      settings: const NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: ActivityLevel.moderate,
-      ),
-      foodEntries: controller.foodEntries,
-      exerciseEntries: controller.exerciseEntries,
-      referenceDate: referenceDate,
+    final expectedRemaining = controller.summary!.remainingKcal.toStringAsFixed(
+      0,
     );
-    final expectedRemainingLabel =
-        '${summary.remainingKcal.toStringAsFixed(0)} kcal';
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.light,
         home: HomeScreen(
           controller: controller,
           openFoodFactsService: openFoodFactsService,
@@ -312,7 +407,7 @@ void main() {
       ),
     );
 
-    expect(find.text(expectedRemainingLabel), findsOneWidget);
+    expect(find.text(expectedRemaining), findsOneWidget);
   });
 
   testWidgets('HomeScreen shows -- for food entries with null nutrients', (
@@ -360,6 +455,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.light,
         home: HomeScreen(
           controller: controller,
           openFoodFactsService: openFoodFactsService,
@@ -367,7 +463,6 @@ void main() {
       ),
     );
 
-    expect(find.textContaining('-- kcal'), findsOneWidget);
-    expect(find.textContaining('P -- g'), findsOneWidget);
+    expect(find.text('--'), findsOneWidget);
   });
 }

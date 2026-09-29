@@ -5,6 +5,7 @@ import '../models/food_unit_type.dart';
 import '../models/food_visibility.dart';
 import '../models/meal_template.dart';
 import '../models/moderation_status.dart';
+import '../models/workout_template.dart';
 
 /// Isar Entity と Domain enum の相互変換。
 class EntityEnumCodec {
@@ -74,5 +75,12 @@ class EntityEnumCodec {
 
   static ItemDependencyStatus itemDependencyStatusFromIndex(int index) {
     return ItemDependencyStatus.values[index];
+  }
+
+  static int workoutTemplateStatusIndex(WorkoutTemplateStatus value) =>
+      value.index;
+
+  static WorkoutTemplateStatus workoutTemplateStatusFromIndex(int index) {
+    return WorkoutTemplateStatus.values[index];
   }
 }

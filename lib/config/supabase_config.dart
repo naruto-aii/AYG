@@ -20,11 +20,23 @@ class SupabaseConfig {
 
   static const String termsUrl = String.fromEnvironment(
     'TERMS_URL',
-    defaultValue: 'https://ayg.app/terms',
+    defaultValue: 'https://naruto-aii.github.io/AYG/legal/terms.html',
   );
   static const String privacyUrl = String.fromEnvironment(
     'PRIVACY_URL',
-    defaultValue: 'https://ayg.app/privacy',
+    defaultValue: 'https://naruto-aii.github.io/AYG/legal/privacy.html',
+  );
+  static const String supportUrl = String.fromEnvironment(
+    'SUPPORT_URL',
+    defaultValue: 'https://naruto-aii.github.io/AYG/legal/support.html',
+  );
+  static const String accountDeletionUrl = String.fromEnvironment(
+    'ACCOUNT_DELETION_URL',
+    defaultValue: 'https://naruto-aii.github.io/AYG/legal/account-deletion.html',
+  );
+  static const String tokushohoUrl = String.fromEnvironment(
+    'TOKUSHOHO_URL',
+    defaultValue: 'https://naruto-aii.github.io/AYG/legal/tokushoho.html',
   );
 
   static bool get isConfigured => url.isNotEmpty && anonKey.isNotEmpty;

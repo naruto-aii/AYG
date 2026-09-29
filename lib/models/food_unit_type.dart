@@ -23,4 +23,15 @@ extension FoodUnitTypeX on FoodUnitType {
   }
 
   String get storageValue => name;
+
+  /// 自由入力の基準単位から DB 制約用 enum へ変換する。
+  static FoodUnitType inferFromUnitLabel(String unitLabel) {
+    final unit = unitLabel.trim();
+    return switch (unit) {
+      'g' => FoodUnitType.g,
+      'ml' => FoodUnitType.ml,
+      '個' => FoodUnitType.piece,
+      _ => FoodUnitType.serving,
+    };
+  }
 }

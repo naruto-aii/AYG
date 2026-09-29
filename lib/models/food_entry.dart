@@ -21,9 +21,12 @@ class FoodEntry {
     this.sourceType = FoodEntrySource.manual,
     this.savedFoodId,
     this.sourceFoodOwnerUserId,
+    this.sourceSavedFoodVersion,
     this.mealGroupId,
     this.mealGroupName,
     this.sortOrder,
+    this.officialFoodCode,
+    this.officialFoodName,
     required this.loggedAt,
   }) : kcalPerBase = kcalPerBase ?? kcalPerUnit,
        proteinPerBase = proteinPerBase ?? proteinPerUnit,
@@ -51,10 +54,17 @@ class FoodEntry {
   final FoodEntrySource sourceType;
   final String? savedFoodId;
   final String? sourceFoodOwnerUserId;
+  final int? sourceSavedFoodVersion;
 
   final String? mealGroupId;
   final String? mealGroupName;
   final int? sortOrder;
+
+  /// 食品成分表の食品番号。補助重量の欄には入れない。
+  final String? officialFoodCode;
+
+  /// 成分表に載っている食品名。記録の [name] が別名でもこちらに残す。
+  final String? officialFoodName;
 
   final DateTime loggedAt;
 
@@ -92,9 +102,12 @@ class FoodEntry {
     FoodEntrySource? sourceType,
     String? savedFoodId,
     String? sourceFoodOwnerUserId,
+    int? sourceSavedFoodVersion,
     String? mealGroupId,
     String? mealGroupName,
     int? sortOrder,
+    String? officialFoodCode,
+    String? officialFoodName,
     DateTime? loggedAt,
   }) {
     return FoodEntry(
@@ -111,9 +124,13 @@ class FoodEntry {
       savedFoodId: savedFoodId ?? this.savedFoodId,
       sourceFoodOwnerUserId:
           sourceFoodOwnerUserId ?? this.sourceFoodOwnerUserId,
+      sourceSavedFoodVersion:
+          sourceSavedFoodVersion ?? this.sourceSavedFoodVersion,
       mealGroupId: mealGroupId ?? this.mealGroupId,
       mealGroupName: mealGroupName ?? this.mealGroupName,
       sortOrder: sortOrder ?? this.sortOrder,
+      officialFoodCode: officialFoodCode ?? this.officialFoodCode,
+      officialFoodName: officialFoodName ?? this.officialFoodName,
       loggedAt: loggedAt ?? this.loggedAt,
     );
   }

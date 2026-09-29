@@ -15,6 +15,7 @@ class SavedFood {
     required this.normalizedName,
     required this.baseAmount,
     required this.unitType,
+    this.servingUnitLabel,
     this.visibility = FoodVisibility.private,
     this.status = FoodStatus.active,
     this.moderationStatus = ModerationStatus.none,
@@ -26,11 +27,15 @@ class SavedFood {
     this.barcode,
     this.brand,
     this.supplementaryWeight,
+    this.officialFoodCode,
+    this.officialFoodName,
+    this.sourceAttribution,
     this.copiedFromFoodId,
     this.copiedFromOwnerUserId,
     this.useCount = 0,
     this.lastUsedAt,
     this.reportCount = 0,
+    this.version = 1,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -48,6 +53,9 @@ class SavedFood {
   final double baseAmount;
   final FoodUnitType unitType;
 
+  /// ユーザー入力の基準単位（g / 食 / 缶 など）。null = レガシー未設定。
+  final String? servingUnitLabel;
+
   final double? kcalPerBase;
   final double? proteinPerBase;
   final double? fatPerBase;
@@ -58,12 +66,24 @@ class SavedFood {
   final String? brand;
   final String? supplementaryWeight;
 
+  /// 食品成分表の食品番号。
+  final String? officialFoodCode;
+
+  /// 成分表に載っている食品名。
+  final String? officialFoodName;
+
+  /// 公開表示に残す出典。成分表由来の食品では外せない。
+  final String? sourceAttribution;
+
   final String? copiedFromFoodId;
   final String? copiedFromOwnerUserId;
 
   final int useCount;
   final DateTime? lastUsedAt;
   final int reportCount;
+
+  /// 公開食品の利用者向け内容変更回数（V1.1 は履歴なし・将来互換用）。
+  final int version;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -76,6 +96,15 @@ class SavedFood {
       moderationStatus != ModerationStatus.hidden &&
       moderationStatus != ModerationStatus.suspended;
 
+  /// 基準数量・基準単位が明示的に設定されているか。
+  bool get baseServingDefined {
+    final unit = servingUnitLabel?.trim();
+    return unit != null && unit.isNotEmpty && baseAmount > 0;
+  }
+
+  /// 表示用の基準単位文字列。
+  String get baseUnit => servingUnitLabel?.trim() ?? '';
+
   SavedFood copyWith({
     String? foodId,
     String? ownerUserId,
@@ -86,6 +115,7 @@ class SavedFood {
     String? normalizedName,
     double? baseAmount,
     FoodUnitType? unitType,
+    String? servingUnitLabel,
     double? kcalPerBase,
     double? proteinPerBase,
     double? fatPerBase,
@@ -94,11 +124,15 @@ class SavedFood {
     String? barcode,
     String? brand,
     String? supplementaryWeight,
+    String? officialFoodCode,
+    String? officialFoodName,
+    String? sourceAttribution,
     String? copiedFromFoodId,
     String? copiedFromOwnerUserId,
     int? useCount,
     DateTime? lastUsedAt,
     int? reportCount,
+    int? version,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
@@ -113,6 +147,7 @@ class SavedFood {
       normalizedName: normalizedName ?? this.normalizedName,
       baseAmount: baseAmount ?? this.baseAmount,
       unitType: unitType ?? this.unitType,
+      servingUnitLabel: servingUnitLabel ?? this.servingUnitLabel,
       kcalPerBase: kcalPerBase ?? this.kcalPerBase,
       proteinPerBase: proteinPerBase ?? this.proteinPerBase,
       fatPerBase: fatPerBase ?? this.fatPerBase,
@@ -121,12 +156,16 @@ class SavedFood {
       barcode: barcode ?? this.barcode,
       brand: brand ?? this.brand,
       supplementaryWeight: supplementaryWeight ?? this.supplementaryWeight,
+      officialFoodCode: officialFoodCode ?? this.officialFoodCode,
+      officialFoodName: officialFoodName ?? this.officialFoodName,
+      sourceAttribution: sourceAttribution ?? this.sourceAttribution,
       copiedFromFoodId: copiedFromFoodId ?? this.copiedFromFoodId,
       copiedFromOwnerUserId:
           copiedFromOwnerUserId ?? this.copiedFromOwnerUserId,
       useCount: useCount ?? this.useCount,
       lastUsedAt: lastUsedAt ?? this.lastUsedAt,
       reportCount: reportCount ?? this.reportCount,
+      version: version ?? this.version,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,

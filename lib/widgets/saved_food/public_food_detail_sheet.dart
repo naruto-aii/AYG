@@ -1,0 +1,265 @@
+import 'package:flutter/material.dart';
+
+import '../../constants/official_food_copy.dart';
+import '../../models/food_source_type.dart';
+import '../../models/public_food_rating_view.dart';
+import '../../models/public_food_search_match.dart';
+import '../../models/saved_food.dart';
+import '../../state/app_controller.dart';
+import '../../constants/app_strings.dart';
+import '../../utils/nutrition_format.dart';
+import '../../widgets/common/compact_macro_display.dart';
+import '../../utils/saved_food_display_labels.dart';
+import '../common/app_bottom_sheet.dart';
+import 'block_food_creator_dialog.dart';
+import 'public_food_rating_bar.dart';
+import 'public_food_report_dialog.dart';
+
+Future<SavedFood?> showPublicFoodDetailSheet({
+  required BuildContext context,
+  required AppController controller,
+  required PublicFoodSearchMatch match,
+  required bool selectForMealEntry,
+  VoidCallback? onCopied,
+  VoidCallback? onBlocked,
+}) async {
+  return showAppBottomSheet<SavedFood?>(
+    context: context,
+    builder: (sheetContext) {
+      return _PublicFoodDetailSheet(
+        controller: controller,
+        match: match,
+        selectForMealEntry: selectForMealEntry,
+        onCopied: onCopied,
+        onBlocked: onBlocked,
+      );
+    },
+  );
+}
+
+class _PublicFoodDetailSheet extends StatefulWidget {
+  const _PublicFoodDetailSheet({
+    required this.controller,
+    required this.match,
+    required this.selectForMealEntry,
+    this.onCopied,
+    this.onBlocked,
+  });
+
+  final AppController controller;
+  final PublicFoodSearchMatch match;
+  final bool selectForMealEntry;
+  final VoidCallback? onCopied;
+  final VoidCallback? onBlocked;
+
+  @override
+  State<_PublicFoodDetailSheet> createState() => _PublicFoodDetailSheetState();
+}
+
+class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
+  bool _isCopying = false;
+  bool _hasReported = false;
+  bool _isCreatorBlocked = false;
+  bool _isLoadingMeta = true;
+  PublicFoodRatingView? _ratingView;
+
+  SavedFood get _food => widget.match.food;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMeta();
+  }
+
+  Future<void> _loadMeta() async {
+    final ratingView = await widget.controller.getPublicFoodRatingView(_food);
+    final hasReported = await widget.controller.hasReportedPublicFood(_food);
+    final isBlocked = await widget.controller.isFoodCreatorBlocked(
+      _food.ownerUserId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _ratingView = ratingView;
+      _hasReported = hasReported;
+      _isCreatorBlocked = isBlocked;
+      _isLoadingMeta = false;
+    });
+  }
+
+  Future<void> _copyToPrivate() async {
+    if (_isCopying) {
+      return;
+    }
+    setState(() => _isCopying = true);
+    try {
+      final copy = await widget.controller.copyPublicFoodToPrivate(_food);
+      if (!mounted) {
+        return;
+      }
+      widget.onCopied?.call();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('「${copy.name}」を自分用食品としてコピーしました')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('コピーに失敗しました: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isCopying = false);
+      }
+    }
+  }
+
+  void _useForMeal() {
+    Navigator.of(context).pop(_food);
+  }
+
+  Future<void> _report() async {
+    final submitted = await showPublicFoodReportDialog(
+      context: context,
+      controller: widget.controller,
+      food: _food,
+    );
+    if (submitted && mounted) {
+      setState(() => _hasReported = true);
+    }
+  }
+
+  Future<void> _toggleBlock() async {
+    if (_isCreatorBlocked) {
+      final unblocked = await confirmUnblockFoodCreator(
+        context: context,
+        controller: widget.controller,
+        creatorUserId: _food.ownerUserId,
+      );
+      if (unblocked && mounted) {
+        setState(() => _isCreatorBlocked = false);
+      }
+      return;
+    }
+
+    final blocked = await confirmBlockFoodCreator(
+      context: context,
+      controller: widget.controller,
+      creatorUserId: _food.ownerUserId,
+    );
+    if (blocked && mounted) {
+      setState(() => _isCreatorBlocked = true);
+      widget.onBlocked?.call();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final food = _food;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final canModerate =
+        widget.controller.isAuthenticated &&
+        food.ownerUserId != widget.controller.currentOwnerUserId;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(food.name, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Text(widget.controller.formatSavedFoodBaseLabel(food)),
+              const SizedBox(height: 4),
+              CompactMacroDisplay(
+                kcal: food.kcalPerBase,
+                proteinG: food.proteinPerBase,
+                fatG: food.fatPerBase,
+                carbG: food.carbPerBase,
+              ),
+              if (food.brand != null && food.brand!.isNotEmpty)
+                Text('ブランド: ${food.brand}'),
+              Text(
+                '登録元: ${SavedFoodDisplayLabels.sourceType(food.sourceType)}',
+              ),
+              PublicFoodMextNotice(food: food),
+              Text('更新: ${food.updatedAt.toLocal()} · v${food.version}'),
+              const SizedBox(height: 8),
+              const Text('ユーザー登録食品'),
+              const SizedBox(height: 12),
+              if (_isLoadingMeta)
+                const Center(child: CircularProgressIndicator())
+              else if (_ratingView != null)
+                PublicFoodRatingBar(
+                  controller: widget.controller,
+                  food: food,
+                  initialView: _ratingView!,
+                  onViewChanged: (view) => setState(() => _ratingView = view),
+                ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _useForMeal,
+                child: Text(widget.selectForMealEntry ? '食事に追加' : '食事に追加'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: _isCopying ? null : _copyToPrivate,
+                child: _isCopying
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('自分用食品としてコピー'),
+              ),
+              if (canModerate) ...[
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: _hasReported ? null : _report,
+                  child: Text(_hasReported ? '通報済み' : '通報'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: _toggleBlock,
+                  child: Text(_isCreatorBlocked ? 'ブロック解除' : '作成者をブロック'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 公開食品の成分表出典。付いていれば表示し、空でも定型文を出す。
+class PublicFoodMextNotice extends StatelessWidget {
+  const PublicFoodMextNotice({super.key, required this.food});
+
+  final SavedFood food;
+
+  @override
+  Widget build(BuildContext context) {
+    if (food.sourceType != FoodSourceType.mextSfct) {
+      return const SizedBox.shrink();
+    }
+    final stored = food.sourceAttribution?.trim();
+    final attribution = stored == null || stored.isEmpty
+        ? OfficialFoodCopy.fullAttribution
+        : stored;
+    final officialName = food.officialFoodName?.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(attribution),
+        if (officialName != null && officialName.isNotEmpty)
+          Text('成分表の食品名：$officialName（食品番号 ${food.officialFoodCode ?? ''}）'),
+      ],
+    );
+  }
+}

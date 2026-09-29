@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_breakpoints.dart';
 import '../../theme/app_spacing.dart';
 
 class ResponsiveSummaryGrid extends StatelessWidget {
@@ -11,7 +12,7 @@ class ResponsiveSummaryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 480;
+        final wide = constraints.maxWidth >= AppBreakpoints.summaryGrid;
         if (!wide) {
           return Column(
             children: [

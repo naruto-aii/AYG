@@ -728,18 +728,23 @@ const GoalEntitySchema = CollectionSchema(
   name: r'GoalEntity',
   id: -5725872661757418951,
   properties: {
-    r'goalTypeIndex': PropertySchema(
+    r'goalPaceIndex': PropertySchema(
       id: 0,
+      name: r'goalPaceIndex',
+      type: IsarType.long,
+    ),
+    r'goalTypeIndex': PropertySchema(
+      id: 1,
       name: r'goalTypeIndex',
       type: IsarType.long,
     ),
     r'targetDate': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'targetDate',
       type: IsarType.dateTime,
     ),
     r'targetWeightKg': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'targetWeightKg',
       type: IsarType.double,
     ),
@@ -773,9 +778,10 @@ void _goalEntitySerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeLong(offsets[0], object.goalTypeIndex);
-  writer.writeDateTime(offsets[1], object.targetDate);
-  writer.writeDouble(offsets[2], object.targetWeightKg);
+  writer.writeLong(offsets[0], object.goalPaceIndex);
+  writer.writeLong(offsets[1], object.goalTypeIndex);
+  writer.writeDateTime(offsets[2], object.targetDate);
+  writer.writeDouble(offsets[3], object.targetWeightKg);
 }
 
 GoalEntity _goalEntityDeserialize(
@@ -785,10 +791,11 @@ GoalEntity _goalEntityDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = GoalEntity();
-  object.goalTypeIndex = reader.readLong(offsets[0]);
+  object.goalPaceIndex = reader.readLongOrNull(offsets[0]);
+  object.goalTypeIndex = reader.readLong(offsets[1]);
   object.id = id;
-  object.targetDate = reader.readDateTime(offsets[1]);
-  object.targetWeightKg = reader.readDouble(offsets[2]);
+  object.targetDate = reader.readDateTime(offsets[2]);
+  object.targetWeightKg = reader.readDouble(offsets[3]);
   return object;
 }
 
@@ -800,10 +807,12 @@ P _goalEntityDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readLong(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 1:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 2:
+      return (reader.readDateTime(offset)) as P;
+    case 3:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -904,6 +913,79 @@ extension GoalEntityQueryWhere
 
 extension GoalEntityQueryFilter
     on QueryBuilder<GoalEntity, GoalEntity, QFilterCondition> {
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'goalPaceIndex'),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'goalPaceIndex'),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'goalPaceIndex', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'goalPaceIndex',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'goalPaceIndex',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
+  goalPaceIndexBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'goalPaceIndex',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
   QueryBuilder<GoalEntity, GoalEntity, QAfterFilterCondition>
   goalTypeIndexEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
@@ -1153,6 +1235,18 @@ extension GoalEntityQueryLinks
 
 extension GoalEntityQuerySortBy
     on QueryBuilder<GoalEntity, GoalEntity, QSortBy> {
+  QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> sortByGoalPaceIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'goalPaceIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> sortByGoalPaceIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'goalPaceIndex', Sort.desc);
+    });
+  }
+
   QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> sortByGoalTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'goalTypeIndex', Sort.asc);
@@ -1193,6 +1287,18 @@ extension GoalEntityQuerySortBy
 
 extension GoalEntityQuerySortThenBy
     on QueryBuilder<GoalEntity, GoalEntity, QSortThenBy> {
+  QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> thenByGoalPaceIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'goalPaceIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> thenByGoalPaceIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'goalPaceIndex', Sort.desc);
+    });
+  }
+
   QueryBuilder<GoalEntity, GoalEntity, QAfterSortBy> thenByGoalTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'goalTypeIndex', Sort.asc);
@@ -1245,6 +1351,12 @@ extension GoalEntityQuerySortThenBy
 
 extension GoalEntityQueryWhereDistinct
     on QueryBuilder<GoalEntity, GoalEntity, QDistinct> {
+  QueryBuilder<GoalEntity, GoalEntity, QDistinct> distinctByGoalPaceIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'goalPaceIndex');
+    });
+  }
+
   QueryBuilder<GoalEntity, GoalEntity, QDistinct> distinctByGoalTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'goalTypeIndex');
@@ -1269,6 +1381,12 @@ extension GoalEntityQueryProperty
   QueryBuilder<GoalEntity, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<GoalEntity, int?, QQueryOperations> goalPaceIndexProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'goalPaceIndex');
     });
   }
 
@@ -1892,39 +2010,54 @@ const FoodEntryEntitySchema = CollectionSchema(
     ),
     r'name': PropertySchema(id: 9, name: r'name', type: IsarType.string),
     r'proteinPerUnit': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'proteinPerUnit',
       type: IsarType.double,
     ),
     r'quantity': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'quantity',
       type: IsarType.double,
     ),
     r'savedFoodId': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'savedFoodId',
       type: IsarType.string,
     ),
     r'sortOrder': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'sortOrder',
       type: IsarType.long,
     ),
     r'sourceFoodOwnerUserId': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'sourceFoodOwnerUserId',
       type: IsarType.string,
     ),
+    r'sourceSavedFoodVersion': PropertySchema(
+      id: 17,
+      name: r'sourceSavedFoodVersion',
+      type: IsarType.long,
+    ),
     r'sourceTypeIndex': PropertySchema(
-      id: 15,
+      id: 18,
       name: r'sourceTypeIndex',
       type: IsarType.long,
     ),
     r'unitTypeIndex': PropertySchema(
-      id: 16,
+      id: 19,
       name: r'unitTypeIndex',
       type: IsarType.long,
+    ),
+    r'officialFoodCode': PropertySchema(
+      id: 10,
+      name: r'officialFoodCode',
+      type: IsarType.string,
+    ),
+    r'officialFoodName': PropertySchema(
+      id: 11,
+      name: r'officialFoodName',
+      type: IsarType.string,
     ),
   },
   estimateSize: _foodEntryEntityEstimateSize,
@@ -1987,6 +2120,18 @@ int _foodEntryEntityEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.officialFoodCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.officialFoodName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -2006,13 +2151,16 @@ void _foodEntryEntitySerialize(
   writer.writeString(offsets[7], object.mealGroupId);
   writer.writeString(offsets[8], object.mealGroupName);
   writer.writeString(offsets[9], object.name);
-  writer.writeDouble(offsets[10], object.proteinPerUnit);
-  writer.writeDouble(offsets[11], object.quantity);
-  writer.writeString(offsets[12], object.savedFoodId);
-  writer.writeLong(offsets[13], object.sortOrder);
-  writer.writeString(offsets[14], object.sourceFoodOwnerUserId);
-  writer.writeLong(offsets[15], object.sourceTypeIndex);
-  writer.writeLong(offsets[16], object.unitTypeIndex);
+  writer.writeDouble(offsets[12], object.proteinPerUnit);
+  writer.writeDouble(offsets[13], object.quantity);
+  writer.writeString(offsets[14], object.savedFoodId);
+  writer.writeLong(offsets[15], object.sortOrder);
+  writer.writeString(offsets[16], object.sourceFoodOwnerUserId);
+  writer.writeLong(offsets[17], object.sourceSavedFoodVersion);
+  writer.writeLong(offsets[18], object.sourceTypeIndex);
+  writer.writeLong(offsets[19], object.unitTypeIndex);
+  writer.writeString(offsets[10], object.officialFoodCode);
+  writer.writeString(offsets[11], object.officialFoodName);
 }
 
 FoodEntryEntity _foodEntryEntityDeserialize(
@@ -2033,13 +2181,16 @@ FoodEntryEntity _foodEntryEntityDeserialize(
   object.mealGroupId = reader.readStringOrNull(offsets[7]);
   object.mealGroupName = reader.readStringOrNull(offsets[8]);
   object.name = reader.readString(offsets[9]);
-  object.proteinPerUnit = reader.readDoubleOrNull(offsets[10]);
-  object.quantity = reader.readDouble(offsets[11]);
-  object.savedFoodId = reader.readStringOrNull(offsets[12]);
-  object.sortOrder = reader.readLongOrNull(offsets[13]);
-  object.sourceFoodOwnerUserId = reader.readStringOrNull(offsets[14]);
-  object.sourceTypeIndex = reader.readLongOrNull(offsets[15]);
-  object.unitTypeIndex = reader.readLongOrNull(offsets[16]);
+  object.proteinPerUnit = reader.readDoubleOrNull(offsets[12]);
+  object.quantity = reader.readDouble(offsets[13]);
+  object.savedFoodId = reader.readStringOrNull(offsets[14]);
+  object.sortOrder = reader.readLongOrNull(offsets[15]);
+  object.sourceFoodOwnerUserId = reader.readStringOrNull(offsets[16]);
+  object.sourceSavedFoodVersion = reader.readLongOrNull(offsets[17]);
+  object.sourceTypeIndex = reader.readLongOrNull(offsets[18]);
+  object.unitTypeIndex = reader.readLongOrNull(offsets[19]);
+  object.officialFoodCode = reader.readStringOrNull(offsets[10]);
+  object.officialFoodName = reader.readStringOrNull(offsets[11]);
   return object;
 }
 
@@ -2070,20 +2221,26 @@ P _foodEntryEntityDeserializeProp<P>(
       return (reader.readStringOrNull(offset)) as P;
     case 9:
       return (reader.readString(offset)) as P;
-    case 10:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 11:
-      return (reader.readDouble(offset)) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 13:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 14:
       return (reader.readStringOrNull(offset)) as P;
     case 15:
       return (reader.readLongOrNull(offset)) as P;
     case 16:
+      return (reader.readStringOrNull(offset)) as P;
+    case 17:
       return (reader.readLongOrNull(offset)) as P;
+    case 18:
+      return (reader.readLongOrNull(offset)) as P;
+    case 19:
+      return (reader.readLongOrNull(offset)) as P;
+    case 10:
+      return (reader.readStringOrNull(offset)) as P;
+    case 11:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -4007,6 +4164,82 @@ extension FoodEntryEntityQueryFilter
   }
 
   QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'sourceSavedFoodVersion'),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'sourceSavedFoodVersion'),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'sourceSavedFoodVersion',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceSavedFoodVersion',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceSavedFoodVersion',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
+  sourceSavedFoodVersionBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceSavedFoodVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterFilterCondition>
   sourceTypeIndexIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -4370,6 +4603,20 @@ extension FoodEntryEntityQuerySortBy
   }
 
   QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
+  sortBySourceSavedFoodVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceSavedFoodVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
+  sortBySourceSavedFoodVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceSavedFoodVersion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
   sortBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceTypeIndex', Sort.asc);
@@ -4621,6 +4868,20 @@ extension FoodEntryEntityQuerySortThenBy
   }
 
   QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
+  thenBySourceSavedFoodVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceSavedFoodVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
+  thenBySourceSavedFoodVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceSavedFoodVersion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QAfterSortBy>
   thenBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceTypeIndex', Sort.asc);
@@ -4765,6 +5026,13 @@ extension FoodEntryEntityQueryWhereDistinct
   }
 
   QueryBuilder<FoodEntryEntity, FoodEntryEntity, QDistinct>
+  distinctBySourceSavedFoodVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sourceSavedFoodVersion');
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, FoodEntryEntity, QDistinct>
   distinctBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourceTypeIndex');
@@ -4888,6 +5156,13 @@ extension FoodEntryEntityQueryProperty
   }
 
   QueryBuilder<FoodEntryEntity, int?, QQueryOperations>
+  sourceSavedFoodVersionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sourceSavedFoodVersion');
+    });
+  }
+
+  QueryBuilder<FoodEntryEntity, int?, QQueryOperations>
   sourceTypeIndexProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'sourceTypeIndex');
@@ -4973,50 +5248,71 @@ const SavedFoodEntitySchema = CollectionSchema(
       type: IsarType.string,
     ),
     r'ownerUserId': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'ownerUserId',
       type: IsarType.string,
     ),
     r'proteinPerBase': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'proteinPerBase',
       type: IsarType.double,
     ),
     r'reportCount': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'reportCount',
       type: IsarType.long,
     ),
+    r'servingUnitLabel': PropertySchema(
+      id: 20,
+      name: r'servingUnitLabel',
+      type: IsarType.string,
+    ),
     r'sourceTypeIndex': PropertySchema(
-      id: 18,
+      id: 22,
       name: r'sourceTypeIndex',
       type: IsarType.long,
     ),
     r'statusIndex': PropertySchema(
-      id: 19,
+      id: 23,
       name: r'statusIndex',
       type: IsarType.long,
     ),
     r'supplementaryWeight': PropertySchema(
-      id: 20,
+      id: 24,
       name: r'supplementaryWeight',
       type: IsarType.string,
     ),
     r'unitTypeIndex': PropertySchema(
-      id: 21,
+      id: 25,
       name: r'unitTypeIndex',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 22,
+      id: 26,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
-    r'useCount': PropertySchema(id: 23, name: r'useCount', type: IsarType.long),
+    r'useCount': PropertySchema(id: 27, name: r'useCount', type: IsarType.long),
+    r'version': PropertySchema(id: 28, name: r'version', type: IsarType.long),
     r'visibilityIndex': PropertySchema(
-      id: 24,
+      id: 29,
       name: r'visibilityIndex',
       type: IsarType.long,
+    ),
+    r'officialFoodCode': PropertySchema(
+      id: 15,
+      name: r'officialFoodCode',
+      type: IsarType.string,
+    ),
+    r'officialFoodName': PropertySchema(
+      id: 16,
+      name: r'officialFoodName',
+      type: IsarType.string,
+    ),
+    r'sourceAttribution': PropertySchema(
+      id: 21,
+      name: r'sourceAttribution',
+      type: IsarType.string,
     ),
   },
   estimateSize: _savedFoodEntityEstimateSize,
@@ -5108,7 +5404,31 @@ int _savedFoodEntityEstimateSize(
   bytesCount += 3 + object.normalizedName.length * 3;
   bytesCount += 3 + object.ownerUserId.length * 3;
   {
+    final value = object.servingUnitLabel;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.supplementaryWeight;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.officialFoodCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.officialFoodName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.sourceAttribution;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -5137,16 +5457,21 @@ void _savedFoodEntitySerialize(
   writer.writeLong(offsets[12], object.moderationStatusIndex);
   writer.writeString(offsets[13], object.name);
   writer.writeString(offsets[14], object.normalizedName);
-  writer.writeString(offsets[15], object.ownerUserId);
-  writer.writeDouble(offsets[16], object.proteinPerBase);
-  writer.writeLong(offsets[17], object.reportCount);
-  writer.writeLong(offsets[18], object.sourceTypeIndex);
-  writer.writeLong(offsets[19], object.statusIndex);
-  writer.writeString(offsets[20], object.supplementaryWeight);
-  writer.writeLong(offsets[21], object.unitTypeIndex);
-  writer.writeDateTime(offsets[22], object.updatedAt);
-  writer.writeLong(offsets[23], object.useCount);
-  writer.writeLong(offsets[24], object.visibilityIndex);
+  writer.writeString(offsets[17], object.ownerUserId);
+  writer.writeDouble(offsets[18], object.proteinPerBase);
+  writer.writeLong(offsets[19], object.reportCount);
+  writer.writeString(offsets[20], object.servingUnitLabel);
+  writer.writeLong(offsets[22], object.sourceTypeIndex);
+  writer.writeLong(offsets[23], object.statusIndex);
+  writer.writeString(offsets[24], object.supplementaryWeight);
+  writer.writeLong(offsets[25], object.unitTypeIndex);
+  writer.writeDateTime(offsets[26], object.updatedAt);
+  writer.writeLong(offsets[27], object.useCount);
+  writer.writeLong(offsets[28], object.version);
+  writer.writeLong(offsets[29], object.visibilityIndex);
+  writer.writeString(offsets[15], object.officialFoodCode);
+  writer.writeString(offsets[16], object.officialFoodName);
+  writer.writeString(offsets[21], object.sourceAttribution);
 }
 
 SavedFoodEntity _savedFoodEntityDeserialize(
@@ -5172,16 +5497,21 @@ SavedFoodEntity _savedFoodEntityDeserialize(
   object.moderationStatusIndex = reader.readLong(offsets[12]);
   object.name = reader.readString(offsets[13]);
   object.normalizedName = reader.readString(offsets[14]);
-  object.ownerUserId = reader.readString(offsets[15]);
-  object.proteinPerBase = reader.readDoubleOrNull(offsets[16]);
-  object.reportCount = reader.readLong(offsets[17]);
-  object.sourceTypeIndex = reader.readLong(offsets[18]);
-  object.statusIndex = reader.readLong(offsets[19]);
-  object.supplementaryWeight = reader.readStringOrNull(offsets[20]);
-  object.unitTypeIndex = reader.readLong(offsets[21]);
-  object.updatedAt = reader.readDateTime(offsets[22]);
-  object.useCount = reader.readLong(offsets[23]);
-  object.visibilityIndex = reader.readLong(offsets[24]);
+  object.ownerUserId = reader.readString(offsets[17]);
+  object.proteinPerBase = reader.readDoubleOrNull(offsets[18]);
+  object.reportCount = reader.readLong(offsets[19]);
+  object.servingUnitLabel = reader.readStringOrNull(offsets[20]);
+  object.sourceTypeIndex = reader.readLong(offsets[22]);
+  object.statusIndex = reader.readLong(offsets[23]);
+  object.supplementaryWeight = reader.readStringOrNull(offsets[24]);
+  object.unitTypeIndex = reader.readLong(offsets[25]);
+  object.updatedAt = reader.readDateTime(offsets[26]);
+  object.useCount = reader.readLong(offsets[27]);
+  object.version = reader.readLong(offsets[28]);
+  object.visibilityIndex = reader.readLong(offsets[29]);
+  object.officialFoodCode = reader.readStringOrNull(offsets[15]);
+  object.officialFoodName = reader.readStringOrNull(offsets[16]);
+  object.sourceAttribution = reader.readStringOrNull(offsets[21]);
   return object;
 }
 
@@ -5222,26 +5552,36 @@ P _savedFoodEntityDeserializeProp<P>(
       return (reader.readString(offset)) as P;
     case 14:
       return (reader.readString(offset)) as P;
-    case 15:
-      return (reader.readString(offset)) as P;
-    case 16:
-      return (reader.readDoubleOrNull(offset)) as P;
     case 17:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 18:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 19:
       return (reader.readLong(offset)) as P;
     case 20:
       return (reader.readStringOrNull(offset)) as P;
-    case 21:
-      return (reader.readLong(offset)) as P;
     case 22:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 23:
       return (reader.readLong(offset)) as P;
     case 24:
+      return (reader.readStringOrNull(offset)) as P;
+    case 25:
       return (reader.readLong(offset)) as P;
+    case 26:
+      return (reader.readDateTime(offset)) as P;
+    case 27:
+      return (reader.readLong(offset)) as P;
+    case 28:
+      return (reader.readLong(offset)) as P;
+    case 29:
+      return (reader.readLong(offset)) as P;
+    case 15:
+      return (reader.readStringOrNull(offset)) as P;
+    case 16:
+      return (reader.readStringOrNull(offset)) as P;
+    case 21:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -7565,6 +7905,165 @@ extension SavedFoodEntityQueryFilter
   }
 
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'servingUnitLabel'),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'servingUnitLabel'),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'servingUnitLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'servingUnitLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'servingUnitLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'servingUnitLabel',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'servingUnitLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'servingUnitLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'servingUnitLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'servingUnitLabel',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'servingUnitLabel', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  servingUnitLabelIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'servingUnitLabel', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
   sourceTypeIndexEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -8002,6 +8501,61 @@ extension SavedFoodEntityQueryFilter
   }
 
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  versionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  versionGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  versionLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
+  versionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterFilterCondition>
   visibilityIndexEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -8314,6 +8868,20 @@ extension SavedFoodEntityQuerySortBy
   }
 
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
+  sortByServingUnitLabel() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'servingUnitLabel', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
+  sortByServingUnitLabelDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'servingUnitLabel', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
   sortBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceTypeIndex', Sort.asc);
@@ -8394,6 +8962,19 @@ extension SavedFoodEntityQuerySortBy
   sortByUseCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useCount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy> sortByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
+  sortByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
     });
   }
 
@@ -8675,6 +9256,20 @@ extension SavedFoodEntityQuerySortThenBy
   }
 
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
+  thenByServingUnitLabel() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'servingUnitLabel', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
+  thenByServingUnitLabelDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'servingUnitLabel', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
   thenBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceTypeIndex', Sort.asc);
@@ -8755,6 +9350,19 @@ extension SavedFoodEntityQuerySortThenBy
   thenByUseCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useCount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy> thenByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QAfterSortBy>
+  thenByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
     });
   }
 
@@ -8915,6 +9523,16 @@ extension SavedFoodEntityQueryWhereDistinct
   }
 
   QueryBuilder<SavedFoodEntity, SavedFoodEntity, QDistinct>
+  distinctByServingUnitLabel({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'servingUnitLabel',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QDistinct>
   distinctBySourceTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourceTypeIndex');
@@ -8956,6 +9574,13 @@ extension SavedFoodEntityQueryWhereDistinct
   distinctByUseCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'useCount');
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, SavedFoodEntity, QDistinct>
+  distinctByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'version');
     });
   }
 
@@ -9095,6 +9720,13 @@ extension SavedFoodEntityQueryProperty
     });
   }
 
+  QueryBuilder<SavedFoodEntity, String?, QQueryOperations>
+  servingUnitLabelProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'servingUnitLabel');
+    });
+  }
+
   QueryBuilder<SavedFoodEntity, int, QQueryOperations>
   sourceTypeIndexProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -9131,6 +9763,12 @@ extension SavedFoodEntityQueryProperty
   QueryBuilder<SavedFoodEntity, int, QQueryOperations> useCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'useCount');
+    });
+  }
+
+  QueryBuilder<SavedFoodEntity, int, QQueryOperations> versionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'version');
     });
   }
 
@@ -15571,23 +16209,77 @@ const ExerciseEntryEntitySchema = CollectionSchema(
   name: r'ExerciseEntryEntity',
   id: -824924797514527953,
   properties: {
-    r'burnedKcal': PropertySchema(
+    r'activityId': PropertySchema(
       id: 0,
+      name: r'activityId',
+      type: IsarType.string,
+    ),
+    r'burnedKcal': PropertySchema(
+      id: 1,
       name: r'burnedKcal',
       type: IsarType.double,
     ),
+    r'calculationSource': PropertySchema(
+      id: 2,
+      name: r'calculationSource',
+      type: IsarType.string,
+    ),
+    r'calculationVersion': PropertySchema(
+      id: 3,
+      name: r'calculationVersion',
+      type: IsarType.string,
+    ),
+    r'categoryKey': PropertySchema(
+      id: 4,
+      name: r'categoryKey',
+      type: IsarType.string,
+    ),
     r'durationMin': PropertySchema(
-      id: 1,
+      id: 5,
       name: r'durationMin',
       type: IsarType.long,
     ),
-    r'entryId': PropertySchema(id: 2, name: r'entryId', type: IsarType.string),
+    r'entryId': PropertySchema(id: 6, name: r'entryId', type: IsarType.string),
+    r'grossKcal': PropertySchema(
+      id: 7,
+      name: r'grossKcal',
+      type: IsarType.double,
+    ),
+    r'intensity': PropertySchema(
+      id: 8,
+      name: r'intensity',
+      type: IsarType.string,
+    ),
+    r'liftWeightKg': PropertySchema(
+      id: 9,
+      name: r'liftWeightKg',
+      type: IsarType.double,
+    ),
     r'loggedAt': PropertySchema(
-      id: 3,
+      id: 10,
       name: r'loggedAt',
       type: IsarType.dateTime,
     ),
-    r'name': PropertySchema(id: 4, name: r'name', type: IsarType.string),
+    r'metValue': PropertySchema(
+      id: 11,
+      name: r'metValue',
+      type: IsarType.double,
+    ),
+    r'name': PropertySchema(id: 12, name: r'name', type: IsarType.string),
+    r'netKcal': PropertySchema(id: 13, name: r'netKcal', type: IsarType.double),
+    r'notes': PropertySchema(id: 14, name: r'notes', type: IsarType.string),
+    r'reps': PropertySchema(id: 15, name: r'reps', type: IsarType.long),
+    r'sets': PropertySchema(id: 16, name: r'sets', type: IsarType.long),
+    r'sourceKey': PropertySchema(
+      id: 17,
+      name: r'sourceKey',
+      type: IsarType.string,
+    ),
+    r'weightKgSnapshot': PropertySchema(
+      id: 18,
+      name: r'weightKgSnapshot',
+      type: IsarType.double,
+    ),
   },
   estimateSize: _exerciseEntryEntityEstimateSize,
   serialize: _exerciseEntryEntitySerialize,
@@ -15623,8 +16315,50 @@ int _exerciseEntryEntityEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.activityId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.calculationSource;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.calculationVersion;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.categoryKey;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.entryId.length * 3;
+  {
+    final value = object.intensity;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.name.length * 3;
+  {
+    final value = object.notes;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.sourceKey;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -15634,11 +16368,25 @@ void _exerciseEntryEntitySerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeDouble(offsets[0], object.burnedKcal);
-  writer.writeLong(offsets[1], object.durationMin);
-  writer.writeString(offsets[2], object.entryId);
-  writer.writeDateTime(offsets[3], object.loggedAt);
-  writer.writeString(offsets[4], object.name);
+  writer.writeString(offsets[0], object.activityId);
+  writer.writeDouble(offsets[1], object.burnedKcal);
+  writer.writeString(offsets[2], object.calculationSource);
+  writer.writeString(offsets[3], object.calculationVersion);
+  writer.writeString(offsets[4], object.categoryKey);
+  writer.writeLong(offsets[5], object.durationMin);
+  writer.writeString(offsets[6], object.entryId);
+  writer.writeDouble(offsets[7], object.grossKcal);
+  writer.writeString(offsets[8], object.intensity);
+  writer.writeDouble(offsets[9], object.liftWeightKg);
+  writer.writeDateTime(offsets[10], object.loggedAt);
+  writer.writeDouble(offsets[11], object.metValue);
+  writer.writeString(offsets[12], object.name);
+  writer.writeDouble(offsets[13], object.netKcal);
+  writer.writeString(offsets[14], object.notes);
+  writer.writeLong(offsets[15], object.reps);
+  writer.writeLong(offsets[16], object.sets);
+  writer.writeString(offsets[17], object.sourceKey);
+  writer.writeDouble(offsets[18], object.weightKgSnapshot);
 }
 
 ExerciseEntryEntity _exerciseEntryEntityDeserialize(
@@ -15648,12 +16396,26 @@ ExerciseEntryEntity _exerciseEntryEntityDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = ExerciseEntryEntity();
-  object.burnedKcal = reader.readDouble(offsets[0]);
-  object.durationMin = reader.readLong(offsets[1]);
-  object.entryId = reader.readString(offsets[2]);
+  object.activityId = reader.readStringOrNull(offsets[0]);
+  object.burnedKcal = reader.readDouble(offsets[1]);
+  object.calculationSource = reader.readStringOrNull(offsets[2]);
+  object.calculationVersion = reader.readStringOrNull(offsets[3]);
+  object.categoryKey = reader.readStringOrNull(offsets[4]);
+  object.durationMin = reader.readLong(offsets[5]);
+  object.entryId = reader.readString(offsets[6]);
+  object.grossKcal = reader.readDoubleOrNull(offsets[7]);
   object.id = id;
-  object.loggedAt = reader.readDateTime(offsets[3]);
-  object.name = reader.readString(offsets[4]);
+  object.intensity = reader.readStringOrNull(offsets[8]);
+  object.liftWeightKg = reader.readDoubleOrNull(offsets[9]);
+  object.loggedAt = reader.readDateTime(offsets[10]);
+  object.metValue = reader.readDoubleOrNull(offsets[11]);
+  object.name = reader.readString(offsets[12]);
+  object.netKcal = reader.readDoubleOrNull(offsets[13]);
+  object.notes = reader.readStringOrNull(offsets[14]);
+  object.reps = reader.readLongOrNull(offsets[15]);
+  object.sets = reader.readLongOrNull(offsets[16]);
+  object.sourceKey = reader.readStringOrNull(offsets[17]);
+  object.weightKgSnapshot = reader.readDoubleOrNull(offsets[18]);
   return object;
 }
 
@@ -15665,15 +16427,43 @@ P _exerciseEntryEntityDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 2:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 4:
+      return (reader.readStringOrNull(offset)) as P;
+    case 5:
+      return (reader.readLong(offset)) as P;
+    case 6:
       return (reader.readString(offset)) as P;
+    case 7:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 10:
+      return (reader.readDateTime(offset)) as P;
+    case 11:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 12:
+      return (reader.readString(offset)) as P;
+    case 13:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 14:
+      return (reader.readStringOrNull(offset)) as P;
+    case 15:
+      return (reader.readLongOrNull(offset)) as P;
+    case 16:
+      return (reader.readLongOrNull(offset)) as P;
+    case 17:
+      return (reader.readStringOrNull(offset)) as P;
+    case 18:
+      return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -15895,6 +16685,165 @@ extension ExerciseEntryEntityQueryFilter
           QFilterCondition
         > {
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'activityId'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'activityId'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'activityId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'activityId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'activityId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  activityIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'activityId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
   burnedKcalEqualTo(double value, {double epsilon = Query.epsilon}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -15961,6 +16910,483 @@ extension ExerciseEntryEntityQueryFilter
           includeUpper: includeUpper,
           epsilon: epsilon,
         ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'calculationSource'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'calculationSource'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'calculationSource',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'calculationSource',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'calculationSource',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'calculationSource',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'calculationSource',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'calculationSource',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'calculationSource',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'calculationSource',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'calculationSource', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationSourceIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'calculationSource', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'calculationVersion'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'calculationVersion'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'calculationVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'calculationVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'calculationVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'calculationVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'calculationVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'calculationVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'calculationVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'calculationVersion',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'calculationVersion', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  calculationVersionIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'calculationVersion', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'categoryKey'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'categoryKey'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'categoryKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'categoryKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'categoryKey', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  categoryKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'categoryKey', value: ''),
       );
     });
   }
@@ -16162,6 +17588,95 @@ extension ExerciseEntryEntityQueryFilter
   }
 
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  grossKcalIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'grossKcal'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  grossKcalIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'grossKcal'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  grossKcalEqualTo(double? value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'grossKcal',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  grossKcalGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'grossKcal',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  grossKcalLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'grossKcal',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  grossKcalBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'grossKcal',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
   idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -16217,6 +17732,254 @@ extension ExerciseEntryEntityQueryFilter
   }
 
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'intensity'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'intensity'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'intensity',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'intensity',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'intensity', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  intensityIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'intensity', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  liftWeightKgIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'liftWeightKg'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  liftWeightKgIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'liftWeightKg'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  liftWeightKgEqualTo(double? value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'liftWeightKg',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  liftWeightKgGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'liftWeightKg',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  liftWeightKgLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'liftWeightKg',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  liftWeightKgBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'liftWeightKg',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
   loggedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -16266,6 +18029,95 @@ extension ExerciseEntryEntityQueryFilter
           includeLower: includeLower,
           upper: upper,
           includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  metValueIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'metValue'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  metValueIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'metValue'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  metValueEqualTo(double? value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'metValue',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  metValueGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'metValue',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  metValueLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'metValue',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  metValueBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'metValue',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
         ),
       );
     });
@@ -16411,6 +18263,648 @@ extension ExerciseEntryEntityQueryFilter
       );
     });
   }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  netKcalIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'netKcal'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  netKcalIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'netKcal'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  netKcalEqualTo(double? value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'netKcal',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  netKcalGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'netKcal',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  netKcalLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'netKcal',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  netKcalBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'netKcal',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'notes'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'notes'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'notes',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'notes',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'notes', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  notesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'notes', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  repsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'reps'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  repsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'reps'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  repsEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'reps', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  repsGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reps',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  repsLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reps',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  repsBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reps',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  setsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'sets'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  setsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'sets'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  setsEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sets', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  setsGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sets',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  setsLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sets',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  setsBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sets',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'sourceKey'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'sourceKey'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'sourceKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sourceKey', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  sourceKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'sourceKey', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  weightKgSnapshotIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'weightKgSnapshot'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  weightKgSnapshotIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'weightKgSnapshot'),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  weightKgSnapshotEqualTo(double? value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'weightKgSnapshot',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  weightKgSnapshotGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'weightKgSnapshot',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  weightKgSnapshotLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'weightKgSnapshot',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterFilterCondition>
+  weightKgSnapshotBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'weightKgSnapshot',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
 }
 
 extension ExerciseEntryEntityQueryObject
@@ -16432,6 +18926,20 @@ extension ExerciseEntryEntityQueryLinks
 extension ExerciseEntryEntityQuerySortBy
     on QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QSortBy> {
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByActivityId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByActivityIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
   sortByBurnedKcal() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'burnedKcal', Sort.asc);
@@ -16442,6 +18950,48 @@ extension ExerciseEntryEntityQuerySortBy
   sortByBurnedKcalDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'burnedKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByCalculationSource() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calculationSource', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByCalculationSourceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calculationSource', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByCalculationVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calculationVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByCalculationVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calculationVersion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByCategoryKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'categoryKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByCategoryKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'categoryKey', Sort.desc);
     });
   }
 
@@ -16474,6 +19024,48 @@ extension ExerciseEntryEntityQuerySortBy
   }
 
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByGrossKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'grossKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByGrossKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'grossKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByIntensity() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intensity', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByIntensityDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intensity', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByLiftWeightKg() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'liftWeightKg', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByLiftWeightKgDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'liftWeightKg', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
   sortByLoggedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedAt', Sort.asc);
@@ -16484,6 +19076,20 @@ extension ExerciseEntryEntityQuerySortBy
   sortByLoggedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByMetValue() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metValue', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByMetValueDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metValue', Sort.desc);
     });
   }
 
@@ -16500,10 +19106,108 @@ extension ExerciseEntryEntityQuerySortBy
       return query.addSortBy(r'name', Sort.desc);
     });
   }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByNetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'netKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByNetKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'netKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByNotes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByNotesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByReps() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reps', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByRepsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reps', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortBySets() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sets', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortBySetsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sets', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortBySourceKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortBySourceKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByWeightKgSnapshot() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weightKgSnapshot', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  sortByWeightKgSnapshotDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weightKgSnapshot', Sort.desc);
+    });
+  }
 }
 
 extension ExerciseEntryEntityQuerySortThenBy
     on QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QSortThenBy> {
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByActivityId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByActivityIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityId', Sort.desc);
+    });
+  }
+
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
   thenByBurnedKcal() {
     return QueryBuilder.apply(this, (query) {
@@ -16515,6 +19219,48 @@ extension ExerciseEntryEntityQuerySortThenBy
   thenByBurnedKcalDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'burnedKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByCalculationSource() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calculationSource', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByCalculationSourceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calculationSource', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByCalculationVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calculationVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByCalculationVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calculationVersion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByCategoryKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'categoryKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByCategoryKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'categoryKey', Sort.desc);
     });
   }
 
@@ -16547,6 +19293,20 @@ extension ExerciseEntryEntityQuerySortThenBy
   }
 
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByGrossKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'grossKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByGrossKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'grossKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
   thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -16557,6 +19317,34 @@ extension ExerciseEntryEntityQuerySortThenBy
   thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByIntensity() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intensity', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByIntensityDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intensity', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByLiftWeightKg() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'liftWeightKg', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByLiftWeightKgDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'liftWeightKg', Sort.desc);
     });
   }
 
@@ -16575,6 +19363,20 @@ extension ExerciseEntryEntityQuerySortThenBy
   }
 
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByMetValue() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metValue', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByMetValueDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metValue', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
   thenByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'name', Sort.asc);
@@ -16587,14 +19389,132 @@ extension ExerciseEntryEntityQuerySortThenBy
       return query.addSortBy(r'name', Sort.desc);
     });
   }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByNetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'netKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByNetKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'netKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByNotes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByNotesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByReps() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reps', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByRepsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reps', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenBySets() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sets', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenBySetsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sets', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenBySourceKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenBySourceKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByWeightKgSnapshot() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weightKgSnapshot', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QAfterSortBy>
+  thenByWeightKgSnapshotDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weightKgSnapshot', Sort.desc);
+    });
+  }
 }
 
 extension ExerciseEntryEntityQueryWhereDistinct
     on QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct> {
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByActivityId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'activityId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
   distinctByBurnedKcal() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'burnedKcal');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByCalculationSource({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'calculationSource',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByCalculationVersion({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'calculationVersion',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByCategoryKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'categoryKey', caseSensitive: caseSensitive);
     });
   }
 
@@ -16613,6 +19533,27 @@ extension ExerciseEntryEntityQueryWhereDistinct
   }
 
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByGrossKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'grossKcal');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByIntensity({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'intensity', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByLiftWeightKg() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'liftWeightKg');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
   distinctByLoggedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'loggedAt');
@@ -16620,9 +19561,58 @@ extension ExerciseEntryEntityQueryWhereDistinct
   }
 
   QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByMetValue() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'metValue');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
   distinctByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'name', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByNetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'netKcal');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByNotes({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'notes', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByReps() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'reps');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctBySets() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sets');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctBySourceKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sourceKey', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, ExerciseEntryEntity, QDistinct>
+  distinctByWeightKgSnapshot() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'weightKgSnapshot');
     });
   }
 }
@@ -16635,10 +19625,38 @@ extension ExerciseEntryEntityQueryProperty
     });
   }
 
+  QueryBuilder<ExerciseEntryEntity, String?, QQueryOperations>
+  activityIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'activityId');
+    });
+  }
+
   QueryBuilder<ExerciseEntryEntity, double, QQueryOperations>
   burnedKcalProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'burnedKcal');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, String?, QQueryOperations>
+  calculationSourceProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'calculationSource');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, String?, QQueryOperations>
+  calculationVersionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'calculationVersion');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, String?, QQueryOperations>
+  categoryKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'categoryKey');
     });
   }
 
@@ -16656,6 +19674,27 @@ extension ExerciseEntryEntityQueryProperty
     });
   }
 
+  QueryBuilder<ExerciseEntryEntity, double?, QQueryOperations>
+  grossKcalProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'grossKcal');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, String?, QQueryOperations>
+  intensityProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'intensity');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, double?, QQueryOperations>
+  liftWeightKgProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'liftWeightKg');
+    });
+  }
+
   QueryBuilder<ExerciseEntryEntity, DateTime, QQueryOperations>
   loggedAtProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -16663,9 +19702,8127 @@ extension ExerciseEntryEntityQueryProperty
     });
   }
 
+  QueryBuilder<ExerciseEntryEntity, double?, QQueryOperations>
+  metValueProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'metValue');
+    });
+  }
+
   QueryBuilder<ExerciseEntryEntity, String, QQueryOperations> nameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'name');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, double?, QQueryOperations>
+  netKcalProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'netKcal');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, String?, QQueryOperations> notesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'notes');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, int?, QQueryOperations> repsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'reps');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, int?, QQueryOperations> setsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sets');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, String?, QQueryOperations>
+  sourceKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sourceKey');
+    });
+  }
+
+  QueryBuilder<ExerciseEntryEntity, double?, QQueryOperations>
+  weightKgSnapshotProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'weightKgSnapshot');
+    });
+  }
+}
+
+// coverage:ignore-file
+// ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
+
+extension GetAlcoholEntryEntityCollection on Isar {
+  IsarCollection<AlcoholEntryEntity> get alcoholEntryEntitys =>
+      this.collection();
+}
+
+const AlcoholEntryEntitySchema = CollectionSchema(
+  name: r'AlcoholEntryEntity',
+  id: -2705665003704732987,
+  properties: {
+    r'alcoholCalories': PropertySchema(
+      id: 0,
+      name: r'alcoholCalories',
+      type: IsarType.double,
+    ),
+    r'alcoholPercentage': PropertySchema(
+      id: 1,
+      name: r'alcoholPercentage',
+      type: IsarType.double,
+    ),
+    r'amount': PropertySchema(id: 2, name: r'amount', type: IsarType.double),
+    r'beverageName': PropertySchema(
+      id: 3,
+      name: r'beverageName',
+      type: IsarType.string,
+    ),
+    r'consumedAt': PropertySchema(
+      id: 4,
+      name: r'consumedAt',
+      type: IsarType.dateTime,
+    ),
+    r'entryId': PropertySchema(id: 5, name: r'entryId', type: IsarType.string),
+    r'pureAlcoholGrams': PropertySchema(
+      id: 6,
+      name: r'pureAlcoholGrams',
+      type: IsarType.double,
+    ),
+    r'totalCalories': PropertySchema(
+      id: 7,
+      name: r'totalCalories',
+      type: IsarType.double,
+    ),
+    r'unit': PropertySchema(id: 8, name: r'unit', type: IsarType.string),
+  },
+  estimateSize: _alcoholEntryEntityEstimateSize,
+  serialize: _alcoholEntryEntitySerialize,
+  deserialize: _alcoholEntryEntityDeserialize,
+  deserializeProp: _alcoholEntryEntityDeserializeProp,
+  idName: r'id',
+  indexes: {
+    r'entryId': IndexSchema(
+      id: 3733379884318738402,
+      name: r'entryId',
+      unique: true,
+      replace: true,
+      properties: [
+        IndexPropertySchema(
+          name: r'entryId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+  },
+  links: {},
+  embeddedSchemas: {},
+  getId: _alcoholEntryEntityGetId,
+  getLinks: _alcoholEntryEntityGetLinks,
+  attach: _alcoholEntryEntityAttach,
+  version: '3.1.0+1',
+);
+
+int _alcoholEntryEntityEstimateSize(
+  AlcoholEntryEntity object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  bytesCount += 3 + object.beverageName.length * 3;
+  bytesCount += 3 + object.entryId.length * 3;
+  bytesCount += 3 + object.unit.length * 3;
+  return bytesCount;
+}
+
+void _alcoholEntryEntitySerialize(
+  AlcoholEntryEntity object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeDouble(offsets[0], object.alcoholCalories);
+  writer.writeDouble(offsets[1], object.alcoholPercentage);
+  writer.writeDouble(offsets[2], object.amount);
+  writer.writeString(offsets[3], object.beverageName);
+  writer.writeDateTime(offsets[4], object.consumedAt);
+  writer.writeString(offsets[5], object.entryId);
+  writer.writeDouble(offsets[6], object.pureAlcoholGrams);
+  writer.writeDouble(offsets[7], object.totalCalories);
+  writer.writeString(offsets[8], object.unit);
+}
+
+AlcoholEntryEntity _alcoholEntryEntityDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = AlcoholEntryEntity();
+  object.alcoholCalories = reader.readDouble(offsets[0]);
+  object.alcoholPercentage = reader.readDouble(offsets[1]);
+  object.amount = reader.readDouble(offsets[2]);
+  object.beverageName = reader.readString(offsets[3]);
+  object.consumedAt = reader.readDateTime(offsets[4]);
+  object.entryId = reader.readString(offsets[5]);
+  object.id = id;
+  object.pureAlcoholGrams = reader.readDouble(offsets[6]);
+  object.totalCalories = reader.readDouble(offsets[7]);
+  object.unit = reader.readString(offsets[8]);
+  return object;
+}
+
+P _alcoholEntryEntityDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readDouble(offset)) as P;
+    case 1:
+      return (reader.readDouble(offset)) as P;
+    case 2:
+      return (reader.readDouble(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readDateTime(offset)) as P;
+    case 5:
+      return (reader.readString(offset)) as P;
+    case 6:
+      return (reader.readDouble(offset)) as P;
+    case 7:
+      return (reader.readDouble(offset)) as P;
+    case 8:
+      return (reader.readString(offset)) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+Id _alcoholEntryEntityGetId(AlcoholEntryEntity object) {
+  return object.id;
+}
+
+List<IsarLinkBase<dynamic>> _alcoholEntryEntityGetLinks(
+  AlcoholEntryEntity object,
+) {
+  return [];
+}
+
+void _alcoholEntryEntityAttach(
+  IsarCollection<dynamic> col,
+  Id id,
+  AlcoholEntryEntity object,
+) {
+  object.id = id;
+}
+
+extension AlcoholEntryEntityByIndex on IsarCollection<AlcoholEntryEntity> {
+  Future<AlcoholEntryEntity?> getByEntryId(String entryId) {
+    return getByIndex(r'entryId', [entryId]);
+  }
+
+  AlcoholEntryEntity? getByEntryIdSync(String entryId) {
+    return getByIndexSync(r'entryId', [entryId]);
+  }
+
+  Future<bool> deleteByEntryId(String entryId) {
+    return deleteByIndex(r'entryId', [entryId]);
+  }
+
+  bool deleteByEntryIdSync(String entryId) {
+    return deleteByIndexSync(r'entryId', [entryId]);
+  }
+
+  Future<List<AlcoholEntryEntity?>> getAllByEntryId(
+    List<String> entryIdValues,
+  ) {
+    final values = entryIdValues.map((e) => [e]).toList();
+    return getAllByIndex(r'entryId', values);
+  }
+
+  List<AlcoholEntryEntity?> getAllByEntryIdSync(List<String> entryIdValues) {
+    final values = entryIdValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'entryId', values);
+  }
+
+  Future<int> deleteAllByEntryId(List<String> entryIdValues) {
+    final values = entryIdValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'entryId', values);
+  }
+
+  int deleteAllByEntryIdSync(List<String> entryIdValues) {
+    final values = entryIdValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'entryId', values);
+  }
+
+  Future<Id> putByEntryId(AlcoholEntryEntity object) {
+    return putByIndex(r'entryId', object);
+  }
+
+  Id putByEntryIdSync(AlcoholEntryEntity object, {bool saveLinks = true}) {
+    return putByIndexSync(r'entryId', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByEntryId(List<AlcoholEntryEntity> objects) {
+    return putAllByIndex(r'entryId', objects);
+  }
+
+  List<Id> putAllByEntryIdSync(
+    List<AlcoholEntryEntity> objects, {
+    bool saveLinks = true,
+  }) {
+    return putAllByIndexSync(r'entryId', objects, saveLinks: saveLinks);
+  }
+}
+
+extension AlcoholEntryEntityQueryWhereSort
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QWhere> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhere> anyId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryWhere
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QWhereClause> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+  idEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+  idNotEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            )
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            )
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+  idGreaterThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.greaterThan(lower: id, includeLower: include),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+  idLessThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.lessThan(upper: id, includeUpper: include),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+  idBetween(
+    Id lowerId,
+    Id upperId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+  entryIdEqualTo(String entryId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'entryId', value: [entryId]),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterWhereClause>
+  entryIdNotEqualTo(String entryId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'entryId',
+                lower: [],
+                upper: [entryId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'entryId',
+                lower: [entryId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'entryId',
+                lower: [entryId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'entryId',
+                lower: [],
+                upper: [entryId],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryFilter
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QFilterCondition> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  alcoholCaloriesEqualTo(double value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'alcoholCalories',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  alcoholCaloriesGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'alcoholCalories',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  alcoholCaloriesLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'alcoholCalories',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  alcoholCaloriesBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'alcoholCalories',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  alcoholPercentageEqualTo(double value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'alcoholPercentage',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  alcoholPercentageGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'alcoholPercentage',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  alcoholPercentageLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'alcoholPercentage',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  alcoholPercentageBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'alcoholPercentage',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  amountEqualTo(double value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'amount',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  amountGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'amount',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  amountLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'amount',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  amountBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'amount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'beverageName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'beverageName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'beverageName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'beverageName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'beverageName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'beverageName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'beverageName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'beverageName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'beverageName', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  beverageNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'beverageName', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  consumedAtEqualTo(DateTime value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'consumedAt', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  consumedAtGreaterThan(DateTime value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'consumedAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  consumedAtLessThan(DateTime value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'consumedAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  consumedAtBetween(
+    DateTime lower,
+    DateTime upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'consumedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'entryId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'entryId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'entryId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'entryId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'entryId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'entryId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'entryId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'entryId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'entryId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  entryIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'entryId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  idEqualTo(Id value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  idGreaterThan(Id value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  idLessThan(Id value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  idBetween(
+    Id lower,
+    Id upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  pureAlcoholGramsEqualTo(double value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'pureAlcoholGrams',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  pureAlcoholGramsGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'pureAlcoholGrams',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  pureAlcoholGramsLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'pureAlcoholGrams',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  pureAlcoholGramsBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'pureAlcoholGrams',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  totalCaloriesEqualTo(double value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'totalCalories',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  totalCaloriesGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'totalCalories',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  totalCaloriesLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'totalCalories',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  totalCaloriesBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'totalCalories',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'unit',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'unit',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'unit',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'unit',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'unit',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'unit',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'unit',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'unit',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'unit', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterFilterCondition>
+  unitIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'unit', value: ''),
+      );
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryObject
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QFilterCondition> {}
+
+extension AlcoholEntryEntityQueryLinks
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QFilterCondition> {}
+
+extension AlcoholEntryEntityQuerySortBy
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QSortBy> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByAlcoholCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholCalories', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByAlcoholCaloriesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholCalories', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByAlcoholPercentage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholPercentage', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByAlcoholPercentageDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholPercentage', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByAmountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByBeverageName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'beverageName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByBeverageNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'beverageName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByConsumedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'consumedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByConsumedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'consumedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByEntryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'entryId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByEntryIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'entryId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByPureAlcoholGrams() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pureAlcoholGrams', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByPureAlcoholGramsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pureAlcoholGrams', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByTotalCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalCalories', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByTotalCaloriesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalCalories', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByUnit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unit', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  sortByUnitDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unit', Sort.desc);
+    });
+  }
+}
+
+extension AlcoholEntryEntityQuerySortThenBy
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QSortThenBy> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByAlcoholCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholCalories', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByAlcoholCaloriesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholCalories', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByAlcoholPercentage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholPercentage', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByAlcoholPercentageDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'alcoholPercentage', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByAmountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByBeverageName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'beverageName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByBeverageNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'beverageName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByConsumedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'consumedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByConsumedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'consumedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByEntryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'entryId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByEntryIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'entryId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenById() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByPureAlcoholGrams() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pureAlcoholGrams', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByPureAlcoholGramsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'pureAlcoholGrams', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByTotalCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalCalories', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByTotalCaloriesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalCalories', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByUnit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unit', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QAfterSortBy>
+  thenByUnitDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unit', Sort.desc);
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryWhereDistinct
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct> {
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByAlcoholCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'alcoholCalories');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByAlcoholPercentage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'alcoholPercentage');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'amount');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByBeverageName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'beverageName', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByConsumedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'consumedAt');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByEntryId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'entryId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByPureAlcoholGrams() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'pureAlcoholGrams');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByTotalCalories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'totalCalories');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QDistinct>
+  distinctByUnit({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'unit', caseSensitive: caseSensitive);
+    });
+  }
+}
+
+extension AlcoholEntryEntityQueryProperty
+    on QueryBuilder<AlcoholEntryEntity, AlcoholEntryEntity, QQueryProperty> {
+  QueryBuilder<AlcoholEntryEntity, int, QQueryOperations> idProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations>
+  alcoholCaloriesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'alcoholCalories');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations>
+  alcoholPercentageProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'alcoholPercentage');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations> amountProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'amount');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, String, QQueryOperations>
+  beverageNameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'beverageName');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, DateTime, QQueryOperations>
+  consumedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'consumedAt');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, String, QQueryOperations> entryIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'entryId');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations>
+  pureAlcoholGramsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'pureAlcoholGrams');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, double, QQueryOperations>
+  totalCaloriesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'totalCalories');
+    });
+  }
+
+  QueryBuilder<AlcoholEntryEntity, String, QQueryOperations> unitProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'unit');
+    });
+  }
+}
+
+// coverage:ignore-file
+// ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
+
+extension GetWorkoutTemplateEntityCollection on Isar {
+  IsarCollection<WorkoutTemplateEntity> get workoutTemplateEntitys =>
+      this.collection();
+}
+
+const WorkoutTemplateEntitySchema = CollectionSchema(
+  name: r'WorkoutTemplateEntity',
+  id: -1272492924788419919,
+  properties: {
+    r'createdAt': PropertySchema(
+      id: 0,
+      name: r'createdAt',
+      type: IsarType.dateTime,
+    ),
+    r'deletedAt': PropertySchema(
+      id: 1,
+      name: r'deletedAt',
+      type: IsarType.dateTime,
+    ),
+    r'lastUsedAt': PropertySchema(
+      id: 2,
+      name: r'lastUsedAt',
+      type: IsarType.dateTime,
+    ),
+    r'name': PropertySchema(id: 3, name: r'name', type: IsarType.string),
+    r'normalizedName': PropertySchema(
+      id: 4,
+      name: r'normalizedName',
+      type: IsarType.string,
+    ),
+    r'ownerUserId': PropertySchema(
+      id: 5,
+      name: r'ownerUserId',
+      type: IsarType.string,
+    ),
+    r'statusIndex': PropertySchema(
+      id: 6,
+      name: r'statusIndex',
+      type: IsarType.long,
+    ),
+    r'templateId': PropertySchema(
+      id: 7,
+      name: r'templateId',
+      type: IsarType.string,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 8,
+      name: r'updatedAt',
+      type: IsarType.dateTime,
+    ),
+    r'useCount': PropertySchema(id: 9, name: r'useCount', type: IsarType.long),
+  },
+  estimateSize: _workoutTemplateEntityEstimateSize,
+  serialize: _workoutTemplateEntitySerialize,
+  deserialize: _workoutTemplateEntityDeserialize,
+  deserializeProp: _workoutTemplateEntityDeserializeProp,
+  idName: r'id',
+  indexes: {
+    r'templateId': IndexSchema(
+      id: -5352721467389445085,
+      name: r'templateId',
+      unique: true,
+      replace: true,
+      properties: [
+        IndexPropertySchema(
+          name: r'templateId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+    r'ownerUserId': IndexSchema(
+      id: 1631799950038639233,
+      name: r'ownerUserId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'ownerUserId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+    r'normalizedName': IndexSchema(
+      id: -9115371092206571671,
+      name: r'normalizedName',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'normalizedName',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+  },
+  links: {},
+  embeddedSchemas: {},
+  getId: _workoutTemplateEntityGetId,
+  getLinks: _workoutTemplateEntityGetLinks,
+  attach: _workoutTemplateEntityAttach,
+  version: '3.1.0+1',
+);
+
+int _workoutTemplateEntityEstimateSize(
+  WorkoutTemplateEntity object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  bytesCount += 3 + object.name.length * 3;
+  bytesCount += 3 + object.normalizedName.length * 3;
+  bytesCount += 3 + object.ownerUserId.length * 3;
+  bytesCount += 3 + object.templateId.length * 3;
+  return bytesCount;
+}
+
+void _workoutTemplateEntitySerialize(
+  WorkoutTemplateEntity object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeDateTime(offsets[0], object.createdAt);
+  writer.writeDateTime(offsets[1], object.deletedAt);
+  writer.writeDateTime(offsets[2], object.lastUsedAt);
+  writer.writeString(offsets[3], object.name);
+  writer.writeString(offsets[4], object.normalizedName);
+  writer.writeString(offsets[5], object.ownerUserId);
+  writer.writeLong(offsets[6], object.statusIndex);
+  writer.writeString(offsets[7], object.templateId);
+  writer.writeDateTime(offsets[8], object.updatedAt);
+  writer.writeLong(offsets[9], object.useCount);
+}
+
+WorkoutTemplateEntity _workoutTemplateEntityDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = WorkoutTemplateEntity();
+  object.createdAt = reader.readDateTime(offsets[0]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[1]);
+  object.id = id;
+  object.lastUsedAt = reader.readDateTimeOrNull(offsets[2]);
+  object.name = reader.readString(offsets[3]);
+  object.normalizedName = reader.readString(offsets[4]);
+  object.ownerUserId = reader.readString(offsets[5]);
+  object.statusIndex = reader.readLong(offsets[6]);
+  object.templateId = reader.readString(offsets[7]);
+  object.updatedAt = reader.readDateTime(offsets[8]);
+  object.useCount = reader.readLong(offsets[9]);
+  return object;
+}
+
+P _workoutTemplateEntityDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readDateTime(offset)) as P;
+    case 1:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 2:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
+      return (reader.readString(offset)) as P;
+    case 6:
+      return (reader.readLong(offset)) as P;
+    case 7:
+      return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readDateTime(offset)) as P;
+    case 9:
+      return (reader.readLong(offset)) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+Id _workoutTemplateEntityGetId(WorkoutTemplateEntity object) {
+  return object.id;
+}
+
+List<IsarLinkBase<dynamic>> _workoutTemplateEntityGetLinks(
+  WorkoutTemplateEntity object,
+) {
+  return [];
+}
+
+void _workoutTemplateEntityAttach(
+  IsarCollection<dynamic> col,
+  Id id,
+  WorkoutTemplateEntity object,
+) {
+  object.id = id;
+}
+
+extension WorkoutTemplateEntityByIndex
+    on IsarCollection<WorkoutTemplateEntity> {
+  Future<WorkoutTemplateEntity?> getByTemplateId(String templateId) {
+    return getByIndex(r'templateId', [templateId]);
+  }
+
+  WorkoutTemplateEntity? getByTemplateIdSync(String templateId) {
+    return getByIndexSync(r'templateId', [templateId]);
+  }
+
+  Future<bool> deleteByTemplateId(String templateId) {
+    return deleteByIndex(r'templateId', [templateId]);
+  }
+
+  bool deleteByTemplateIdSync(String templateId) {
+    return deleteByIndexSync(r'templateId', [templateId]);
+  }
+
+  Future<List<WorkoutTemplateEntity?>> getAllByTemplateId(
+    List<String> templateIdValues,
+  ) {
+    final values = templateIdValues.map((e) => [e]).toList();
+    return getAllByIndex(r'templateId', values);
+  }
+
+  List<WorkoutTemplateEntity?> getAllByTemplateIdSync(
+    List<String> templateIdValues,
+  ) {
+    final values = templateIdValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'templateId', values);
+  }
+
+  Future<int> deleteAllByTemplateId(List<String> templateIdValues) {
+    final values = templateIdValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'templateId', values);
+  }
+
+  int deleteAllByTemplateIdSync(List<String> templateIdValues) {
+    final values = templateIdValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'templateId', values);
+  }
+
+  Future<Id> putByTemplateId(WorkoutTemplateEntity object) {
+    return putByIndex(r'templateId', object);
+  }
+
+  Id putByTemplateIdSync(
+    WorkoutTemplateEntity object, {
+    bool saveLinks = true,
+  }) {
+    return putByIndexSync(r'templateId', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByTemplateId(List<WorkoutTemplateEntity> objects) {
+    return putAllByIndex(r'templateId', objects);
+  }
+
+  List<Id> putAllByTemplateIdSync(
+    List<WorkoutTemplateEntity> objects, {
+    bool saveLinks = true,
+  }) {
+    return putAllByIndexSync(r'templateId', objects, saveLinks: saveLinks);
+  }
+}
+
+extension WorkoutTemplateEntityQueryWhereSort
+    on QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QWhere> {
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhere>
+  anyId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+}
+
+extension WorkoutTemplateEntityQueryWhere
+    on
+        QueryBuilder<
+          WorkoutTemplateEntity,
+          WorkoutTemplateEntity,
+          QWhereClause
+        > {
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  idEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  idNotEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            )
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            )
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  idGreaterThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.greaterThan(lower: id, includeLower: include),
+      );
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  idLessThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.lessThan(upper: id, includeUpper: include),
+      );
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  idBetween(
+    Id lowerId,
+    Id upperId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  templateIdEqualTo(String templateId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'templateId', value: [templateId]),
+      );
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  templateIdNotEqualTo(String templateId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateId',
+                lower: [],
+                upper: [templateId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateId',
+                lower: [templateId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateId',
+                lower: [templateId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateId',
+                lower: [],
+                upper: [templateId],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  ownerUserIdEqualTo(String ownerUserId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'ownerUserId',
+          value: [ownerUserId],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  ownerUserIdNotEqualTo(String ownerUserId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'ownerUserId',
+                lower: [],
+                upper: [ownerUserId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'ownerUserId',
+                lower: [ownerUserId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'ownerUserId',
+                lower: [ownerUserId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'ownerUserId',
+                lower: [],
+                upper: [ownerUserId],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  normalizedNameEqualTo(String normalizedName) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'normalizedName',
+          value: [normalizedName],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterWhereClause>
+  normalizedNameNotEqualTo(String normalizedName) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'normalizedName',
+                lower: [],
+                upper: [normalizedName],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'normalizedName',
+                lower: [normalizedName],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'normalizedName',
+                lower: [normalizedName],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'normalizedName',
+                lower: [],
+                upper: [normalizedName],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+}
+
+extension WorkoutTemplateEntityQueryFilter
+    on
+        QueryBuilder<
+          WorkoutTemplateEntity,
+          WorkoutTemplateEntity,
+          QFilterCondition
+        > {
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  createdAtEqualTo(DateTime value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdAt', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  createdAtGreaterThan(DateTime value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  createdAtLessThan(DateTime value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  createdAtBetween(
+    DateTime lower,
+    DateTime upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  deletedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedAt'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  deletedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedAt'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  deletedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedAt', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  deletedAtGreaterThan(DateTime? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  deletedAtLessThan(DateTime? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  deletedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  idEqualTo(Id value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  idGreaterThan(Id value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  idLessThan(Id value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  idBetween(
+    Id lower,
+    Id upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  lastUsedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastUsedAt'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  lastUsedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastUsedAt'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  lastUsedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastUsedAt', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  lastUsedAtGreaterThan(DateTime? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastUsedAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  lastUsedAtLessThan(DateTime? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastUsedAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  lastUsedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastUsedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'name',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'name',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'name', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  nameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'name', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'normalizedName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'normalizedName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'normalizedName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'normalizedName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'normalizedName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'normalizedName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'normalizedName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'normalizedName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'normalizedName', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  normalizedNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'normalizedName', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'ownerUserId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'ownerUserId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'ownerUserId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'ownerUserId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  statusIndexEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'statusIndex', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  statusIndexGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'statusIndex',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  statusIndexLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'statusIndex',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  statusIndexBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'statusIndex',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'templateId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'templateId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'templateId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  templateIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'templateId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  updatedAtEqualTo(DateTime value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  updatedAtLessThan(DateTime value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  updatedAtBetween(
+    DateTime lower,
+    DateTime upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  useCountEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'useCount', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  useCountGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'useCount',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  useCountLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'useCount',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateEntity,
+    WorkoutTemplateEntity,
+    QAfterFilterCondition
+  >
+  useCountBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'useCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+}
+
+extension WorkoutTemplateEntityQueryObject
+    on
+        QueryBuilder<
+          WorkoutTemplateEntity,
+          WorkoutTemplateEntity,
+          QFilterCondition
+        > {}
+
+extension WorkoutTemplateEntityQueryLinks
+    on
+        QueryBuilder<
+          WorkoutTemplateEntity,
+          WorkoutTemplateEntity,
+          QFilterCondition
+        > {}
+
+extension WorkoutTemplateEntityQuerySortBy
+    on QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QSortBy> {
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByCreatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByLastUsedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastUsedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByLastUsedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastUsedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'name', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'name', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByNormalizedName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'normalizedName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByNormalizedNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'normalizedName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByOwnerUserId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerUserId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByOwnerUserIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerUserId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByStatusIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'statusIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByStatusIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'statusIndex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByTemplateId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'templateId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByTemplateIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'templateId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByUseCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'useCount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  sortByUseCountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'useCount', Sort.desc);
+    });
+  }
+}
+
+extension WorkoutTemplateEntityQuerySortThenBy
+    on QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QSortThenBy> {
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByCreatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenById() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByLastUsedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastUsedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByLastUsedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastUsedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'name', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'name', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByNormalizedName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'normalizedName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByNormalizedNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'normalizedName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByOwnerUserId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerUserId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByOwnerUserIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerUserId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByStatusIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'statusIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByStatusIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'statusIndex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByTemplateId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'templateId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByTemplateIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'templateId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByUseCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'useCount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QAfterSortBy>
+  thenByUseCountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'useCount', Sort.desc);
+    });
+  }
+}
+
+extension WorkoutTemplateEntityQueryWhereDistinct
+    on QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct> {
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'createdAt');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'deletedAt');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByLastUsedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastUsedAt');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'name', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByNormalizedName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'normalizedName',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByOwnerUserId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'ownerUserId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByStatusIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'statusIndex');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByTemplateId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'templateId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, WorkoutTemplateEntity, QDistinct>
+  distinctByUseCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'useCount');
+    });
+  }
+}
+
+extension WorkoutTemplateEntityQueryProperty
+    on
+        QueryBuilder<
+          WorkoutTemplateEntity,
+          WorkoutTemplateEntity,
+          QQueryProperty
+        > {
+  QueryBuilder<WorkoutTemplateEntity, int, QQueryOperations> idProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, DateTime, QQueryOperations>
+  createdAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'createdAt');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, DateTime?, QQueryOperations>
+  deletedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'deletedAt');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, DateTime?, QQueryOperations>
+  lastUsedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastUsedAt');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, String, QQueryOperations> nameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'name');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, String, QQueryOperations>
+  normalizedNameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'normalizedName');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, String, QQueryOperations>
+  ownerUserIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'ownerUserId');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, int, QQueryOperations>
+  statusIndexProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'statusIndex');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, String, QQueryOperations>
+  templateIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'templateId');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, DateTime, QQueryOperations>
+  updatedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateEntity, int, QQueryOperations>
+  useCountProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'useCount');
+    });
+  }
+}
+
+// coverage:ignore-file
+// ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
+
+extension GetWorkoutTemplateItemEntityCollection on Isar {
+  IsarCollection<WorkoutTemplateItemEntity> get workoutTemplateItemEntitys =>
+      this.collection();
+}
+
+const WorkoutTemplateItemEntitySchema = CollectionSchema(
+  name: r'WorkoutTemplateItemEntity',
+  id: -5752190397762700841,
+  properties: {
+    r'activityId': PropertySchema(
+      id: 0,
+      name: r'activityId',
+      type: IsarType.string,
+    ),
+    r'categoryKey': PropertySchema(
+      id: 1,
+      name: r'categoryKey',
+      type: IsarType.string,
+    ),
+    r'durationMin': PropertySchema(
+      id: 2,
+      name: r'durationMin',
+      type: IsarType.long,
+    ),
+    r'intensity': PropertySchema(
+      id: 3,
+      name: r'intensity',
+      type: IsarType.string,
+    ),
+    r'itemId': PropertySchema(id: 4, name: r'itemId', type: IsarType.string),
+    r'liftWeightKg': PropertySchema(
+      id: 5,
+      name: r'liftWeightKg',
+      type: IsarType.double,
+    ),
+    r'metValue': PropertySchema(
+      id: 6,
+      name: r'metValue',
+      type: IsarType.double,
+    ),
+    r'name': PropertySchema(id: 7, name: r'name', type: IsarType.string),
+    r'notes': PropertySchema(id: 8, name: r'notes', type: IsarType.string),
+    r'ownerUserId': PropertySchema(
+      id: 9,
+      name: r'ownerUserId',
+      type: IsarType.string,
+    ),
+    r'reps': PropertySchema(id: 10, name: r'reps', type: IsarType.long),
+    r'sets': PropertySchema(id: 11, name: r'sets', type: IsarType.long),
+    r'sortOrder': PropertySchema(
+      id: 12,
+      name: r'sortOrder',
+      type: IsarType.long,
+    ),
+    r'sourceKey': PropertySchema(
+      id: 13,
+      name: r'sourceKey',
+      type: IsarType.string,
+    ),
+    r'templateId': PropertySchema(
+      id: 14,
+      name: r'templateId',
+      type: IsarType.string,
+    ),
+  },
+  estimateSize: _workoutTemplateItemEntityEstimateSize,
+  serialize: _workoutTemplateItemEntitySerialize,
+  deserialize: _workoutTemplateItemEntityDeserialize,
+  deserializeProp: _workoutTemplateItemEntityDeserializeProp,
+  idName: r'id',
+  indexes: {
+    r'itemId': IndexSchema(
+      id: -5342806140158601489,
+      name: r'itemId',
+      unique: true,
+      replace: true,
+      properties: [
+        IndexPropertySchema(
+          name: r'itemId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+    r'templateId': IndexSchema(
+      id: -5352721467389445085,
+      name: r'templateId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'templateId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+    r'ownerUserId': IndexSchema(
+      id: 1631799950038639233,
+      name: r'ownerUserId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'ownerUserId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+    r'sortOrder': IndexSchema(
+      id: -1119549396205841918,
+      name: r'sortOrder',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'sortOrder',
+          type: IndexType.value,
+          caseSensitive: false,
+        ),
+      ],
+    ),
+  },
+  links: {},
+  embeddedSchemas: {},
+  getId: _workoutTemplateItemEntityGetId,
+  getLinks: _workoutTemplateItemEntityGetLinks,
+  attach: _workoutTemplateItemEntityAttach,
+  version: '3.1.0+1',
+);
+
+int _workoutTemplateItemEntityEstimateSize(
+  WorkoutTemplateItemEntity object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  {
+    final value = object.activityId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.categoryKey;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.intensity;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  bytesCount += 3 + object.itemId.length * 3;
+  bytesCount += 3 + object.name.length * 3;
+  {
+    final value = object.notes;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  bytesCount += 3 + object.ownerUserId.length * 3;
+  {
+    final value = object.sourceKey;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  bytesCount += 3 + object.templateId.length * 3;
+  return bytesCount;
+}
+
+void _workoutTemplateItemEntitySerialize(
+  WorkoutTemplateItemEntity object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeString(offsets[0], object.activityId);
+  writer.writeString(offsets[1], object.categoryKey);
+  writer.writeLong(offsets[2], object.durationMin);
+  writer.writeString(offsets[3], object.intensity);
+  writer.writeString(offsets[4], object.itemId);
+  writer.writeDouble(offsets[5], object.liftWeightKg);
+  writer.writeDouble(offsets[6], object.metValue);
+  writer.writeString(offsets[7], object.name);
+  writer.writeString(offsets[8], object.notes);
+  writer.writeString(offsets[9], object.ownerUserId);
+  writer.writeLong(offsets[10], object.reps);
+  writer.writeLong(offsets[11], object.sets);
+  writer.writeLong(offsets[12], object.sortOrder);
+  writer.writeString(offsets[13], object.sourceKey);
+  writer.writeString(offsets[14], object.templateId);
+}
+
+WorkoutTemplateItemEntity _workoutTemplateItemEntityDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = WorkoutTemplateItemEntity();
+  object.activityId = reader.readStringOrNull(offsets[0]);
+  object.categoryKey = reader.readStringOrNull(offsets[1]);
+  object.durationMin = reader.readLong(offsets[2]);
+  object.id = id;
+  object.intensity = reader.readStringOrNull(offsets[3]);
+  object.itemId = reader.readString(offsets[4]);
+  object.liftWeightKg = reader.readDoubleOrNull(offsets[5]);
+  object.metValue = reader.readDoubleOrNull(offsets[6]);
+  object.name = reader.readString(offsets[7]);
+  object.notes = reader.readStringOrNull(offsets[8]);
+  object.ownerUserId = reader.readString(offsets[9]);
+  object.reps = reader.readLongOrNull(offsets[10]);
+  object.sets = reader.readLongOrNull(offsets[11]);
+  object.sortOrder = reader.readLong(offsets[12]);
+  object.sourceKey = reader.readStringOrNull(offsets[13]);
+  object.templateId = reader.readString(offsets[14]);
+  return object;
+}
+
+P _workoutTemplateItemEntityDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readStringOrNull(offset)) as P;
+    case 1:
+      return (reader.readStringOrNull(offset)) as P;
+    case 2:
+      return (reader.readLong(offset)) as P;
+    case 3:
+      return (reader.readStringOrNull(offset)) as P;
+    case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 6:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 7:
+      return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
+      return (reader.readLongOrNull(offset)) as P;
+    case 11:
+      return (reader.readLongOrNull(offset)) as P;
+    case 12:
+      return (reader.readLong(offset)) as P;
+    case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readString(offset)) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+Id _workoutTemplateItemEntityGetId(WorkoutTemplateItemEntity object) {
+  return object.id;
+}
+
+List<IsarLinkBase<dynamic>> _workoutTemplateItemEntityGetLinks(
+  WorkoutTemplateItemEntity object,
+) {
+  return [];
+}
+
+void _workoutTemplateItemEntityAttach(
+  IsarCollection<dynamic> col,
+  Id id,
+  WorkoutTemplateItemEntity object,
+) {
+  object.id = id;
+}
+
+extension WorkoutTemplateItemEntityByIndex
+    on IsarCollection<WorkoutTemplateItemEntity> {
+  Future<WorkoutTemplateItemEntity?> getByItemId(String itemId) {
+    return getByIndex(r'itemId', [itemId]);
+  }
+
+  WorkoutTemplateItemEntity? getByItemIdSync(String itemId) {
+    return getByIndexSync(r'itemId', [itemId]);
+  }
+
+  Future<bool> deleteByItemId(String itemId) {
+    return deleteByIndex(r'itemId', [itemId]);
+  }
+
+  bool deleteByItemIdSync(String itemId) {
+    return deleteByIndexSync(r'itemId', [itemId]);
+  }
+
+  Future<List<WorkoutTemplateItemEntity?>> getAllByItemId(
+    List<String> itemIdValues,
+  ) {
+    final values = itemIdValues.map((e) => [e]).toList();
+    return getAllByIndex(r'itemId', values);
+  }
+
+  List<WorkoutTemplateItemEntity?> getAllByItemIdSync(
+    List<String> itemIdValues,
+  ) {
+    final values = itemIdValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'itemId', values);
+  }
+
+  Future<int> deleteAllByItemId(List<String> itemIdValues) {
+    final values = itemIdValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'itemId', values);
+  }
+
+  int deleteAllByItemIdSync(List<String> itemIdValues) {
+    final values = itemIdValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'itemId', values);
+  }
+
+  Future<Id> putByItemId(WorkoutTemplateItemEntity object) {
+    return putByIndex(r'itemId', object);
+  }
+
+  Id putByItemIdSync(
+    WorkoutTemplateItemEntity object, {
+    bool saveLinks = true,
+  }) {
+    return putByIndexSync(r'itemId', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByItemId(List<WorkoutTemplateItemEntity> objects) {
+    return putAllByIndex(r'itemId', objects);
+  }
+
+  List<Id> putAllByItemIdSync(
+    List<WorkoutTemplateItemEntity> objects, {
+    bool saveLinks = true,
+  }) {
+    return putAllByIndexSync(r'itemId', objects, saveLinks: saveLinks);
+  }
+}
+
+extension WorkoutTemplateItemEntityQueryWhereSort
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QWhere
+        > {
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhere
+  >
+  anyId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhere
+  >
+  anySortOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'sortOrder'),
+      );
+    });
+  }
+}
+
+extension WorkoutTemplateItemEntityQueryWhere
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QWhereClause
+        > {
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  idEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  idNotEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            )
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            )
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  idGreaterThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.greaterThan(lower: id, includeLower: include),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  idLessThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.lessThan(upper: id, includeUpper: include),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  idBetween(
+    Id lowerId,
+    Id upperId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  itemIdEqualTo(String itemId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'itemId', value: [itemId]),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  itemIdNotEqualTo(String itemId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'itemId',
+                lower: [],
+                upper: [itemId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'itemId',
+                lower: [itemId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'itemId',
+                lower: [itemId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'itemId',
+                lower: [],
+                upper: [itemId],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  templateIdEqualTo(String templateId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'templateId', value: [templateId]),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  templateIdNotEqualTo(String templateId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateId',
+                lower: [],
+                upper: [templateId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateId',
+                lower: [templateId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateId',
+                lower: [templateId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'templateId',
+                lower: [],
+                upper: [templateId],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  ownerUserIdEqualTo(String ownerUserId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'ownerUserId',
+          value: [ownerUserId],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  ownerUserIdNotEqualTo(String ownerUserId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'ownerUserId',
+                lower: [],
+                upper: [ownerUserId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'ownerUserId',
+                lower: [ownerUserId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'ownerUserId',
+                lower: [ownerUserId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'ownerUserId',
+                lower: [],
+                upper: [ownerUserId],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  sortOrderEqualTo(int sortOrder) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'sortOrder', value: [sortOrder]),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  sortOrderNotEqualTo(int sortOrder) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sortOrder',
+                lower: [],
+                upper: [sortOrder],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sortOrder',
+                lower: [sortOrder],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sortOrder',
+                lower: [sortOrder],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sortOrder',
+                lower: [],
+                upper: [sortOrder],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  sortOrderGreaterThan(int sortOrder, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sortOrder',
+          lower: [sortOrder],
+          includeLower: include,
+          upper: [],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  sortOrderLessThan(int sortOrder, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sortOrder',
+          lower: [],
+          upper: [sortOrder],
+          includeUpper: include,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterWhereClause
+  >
+  sortOrderBetween(
+    int lowerSortOrder,
+    int upperSortOrder, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sortOrder',
+          lower: [lowerSortOrder],
+          includeLower: includeLower,
+          upper: [upperSortOrder],
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+}
+
+extension WorkoutTemplateItemEntityQueryFilter
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QFilterCondition
+        > {
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'activityId'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'activityId'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'activityId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'activityId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'activityId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'activityId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  activityIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'activityId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'categoryKey'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'categoryKey'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'categoryKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'categoryKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'categoryKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'categoryKey', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  categoryKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'categoryKey', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  durationMinEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'durationMin', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  durationMinGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'durationMin',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  durationMinLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'durationMin',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  durationMinBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'durationMin',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  idEqualTo(Id value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  idGreaterThan(Id value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  idLessThan(Id value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  idBetween(
+    Id lower,
+    Id upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'intensity'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'intensity'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'intensity',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'intensity',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'intensity',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'intensity', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  intensityIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'intensity', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'itemId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'itemId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'itemId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'itemId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'itemId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'itemId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'itemId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'itemId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'itemId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  itemIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'itemId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  liftWeightKgIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'liftWeightKg'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  liftWeightKgIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'liftWeightKg'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  liftWeightKgEqualTo(double? value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'liftWeightKg',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  liftWeightKgGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'liftWeightKg',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  liftWeightKgLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'liftWeightKg',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  liftWeightKgBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'liftWeightKg',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  metValueIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'metValue'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  metValueIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'metValue'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  metValueEqualTo(double? value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'metValue',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  metValueGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'metValue',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  metValueLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'metValue',
+          value: value,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  metValueBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'metValue',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'name',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'name',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'name',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'name', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  nameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'name', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'notes'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'notes'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'notes',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'notes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'notes',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'notes', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  notesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'notes', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'ownerUserId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'ownerUserId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'ownerUserId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'ownerUserId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  ownerUserIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'ownerUserId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  repsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'reps'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  repsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'reps'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  repsEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'reps', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  repsGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reps',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  repsLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reps',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  repsBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reps',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  setsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'sets'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  setsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'sets'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  setsEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sets', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  setsGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sets',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  setsLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sets',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  setsBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sets',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sortOrderEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sortOrder', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sortOrderGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sortOrder',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sortOrderLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sortOrder',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sortOrderBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sortOrder',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'sourceKey'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'sourceKey'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'sourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'sourceKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sourceKey', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  sourceKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'sourceKey', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'templateId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'templateId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'templateId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'templateId', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterFilterCondition
+  >
+  templateIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'templateId', value: ''),
+      );
+    });
+  }
+}
+
+extension WorkoutTemplateItemEntityQueryObject
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QFilterCondition
+        > {}
+
+extension WorkoutTemplateItemEntityQueryLinks
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QFilterCondition
+        > {}
+
+extension WorkoutTemplateItemEntityQuerySortBy
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QSortBy
+        > {
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByActivityId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByActivityIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByCategoryKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'categoryKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByCategoryKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'categoryKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByDurationMin() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'durationMin', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByDurationMinDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'durationMin', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByIntensity() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intensity', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByIntensityDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intensity', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByItemId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'itemId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByItemIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'itemId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByLiftWeightKg() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'liftWeightKg', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByLiftWeightKgDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'liftWeightKg', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByMetValue() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metValue', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByMetValueDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metValue', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'name', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'name', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByNotes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByNotesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByOwnerUserId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerUserId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByOwnerUserIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerUserId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByReps() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reps', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByRepsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reps', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortBySets() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sets', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortBySetsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sets', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortBySortOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sortOrder', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortBySortOrderDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sortOrder', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortBySourceKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortBySourceKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByTemplateId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'templateId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  sortByTemplateIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'templateId', Sort.desc);
+    });
+  }
+}
+
+extension WorkoutTemplateItemEntityQuerySortThenBy
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QSortThenBy
+        > {
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByActivityId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByActivityIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByCategoryKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'categoryKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByCategoryKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'categoryKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByDurationMin() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'durationMin', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByDurationMinDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'durationMin', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenById() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByIntensity() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intensity', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByIntensityDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intensity', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByItemId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'itemId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByItemIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'itemId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByLiftWeightKg() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'liftWeightKg', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByLiftWeightKgDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'liftWeightKg', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByMetValue() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metValue', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByMetValueDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metValue', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'name', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'name', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByNotes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByNotesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByOwnerUserId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerUserId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByOwnerUserIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerUserId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByReps() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reps', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByRepsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reps', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenBySets() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sets', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenBySetsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sets', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenBySortOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sortOrder', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenBySortOrderDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sortOrder', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenBySourceKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenBySourceKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByTemplateId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'templateId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WorkoutTemplateItemEntity,
+    WorkoutTemplateItemEntity,
+    QAfterSortBy
+  >
+  thenByTemplateIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'templateId', Sort.desc);
+    });
+  }
+}
+
+extension WorkoutTemplateItemEntityQueryWhereDistinct
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QDistinct
+        > {
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByActivityId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'activityId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByCategoryKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'categoryKey', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByDurationMin() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'durationMin');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByIntensity({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'intensity', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByItemId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'itemId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByLiftWeightKg() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'liftWeightKg');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByMetValue() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'metValue');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'name', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByNotes({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'notes', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByOwnerUserId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'ownerUserId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByReps() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'reps');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctBySets() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sets');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctBySortOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sortOrder');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctBySourceKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sourceKey', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, WorkoutTemplateItemEntity, QDistinct>
+  distinctByTemplateId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'templateId', caseSensitive: caseSensitive);
+    });
+  }
+}
+
+extension WorkoutTemplateItemEntityQueryProperty
+    on
+        QueryBuilder<
+          WorkoutTemplateItemEntity,
+          WorkoutTemplateItemEntity,
+          QQueryProperty
+        > {
+  QueryBuilder<WorkoutTemplateItemEntity, int, QQueryOperations> idProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String?, QQueryOperations>
+  activityIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'activityId');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String?, QQueryOperations>
+  categoryKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'categoryKey');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, int, QQueryOperations>
+  durationMinProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'durationMin');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String?, QQueryOperations>
+  intensityProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'intensity');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String, QQueryOperations>
+  itemIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'itemId');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, double?, QQueryOperations>
+  liftWeightKgProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'liftWeightKg');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, double?, QQueryOperations>
+  metValueProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'metValue');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String, QQueryOperations>
+  nameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'name');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String?, QQueryOperations>
+  notesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'notes');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String, QQueryOperations>
+  ownerUserIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'ownerUserId');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, int?, QQueryOperations>
+  repsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'reps');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, int?, QQueryOperations>
+  setsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sets');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, int, QQueryOperations>
+  sortOrderProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sortOrder');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String?, QQueryOperations>
+  sourceKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sourceKey');
+    });
+  }
+
+  QueryBuilder<WorkoutTemplateItemEntity, String, QQueryOperations>
+  templateIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'templateId');
     });
   }
 }

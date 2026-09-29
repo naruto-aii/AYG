@@ -107,7 +107,7 @@ class OpenFoodFactsService {
   }
 
   /// v3 API レスポンスから [FoodLookupResult] を生成する。
-  /// テスト用に public。Prototype 用 OFF 連携（READ のみ）。
+  /// OFF 提供値をそのまま返す（kcal の 4/9/4 再計算は行わない）。
   static FoodLookupResult? parseProductResponse(Map<String, dynamic> json) {
     final product = json['product'];
     if (product is! Map<String, dynamic>) {

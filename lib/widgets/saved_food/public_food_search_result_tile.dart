@@ -1,0 +1,89 @@
+import 'package:flutter/material.dart';
+
+import '../../models/public_food_search_match.dart';
+import '../../state/app_controller.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/common/compact_macro_display.dart';
+import '../../utils/saved_food_display_labels.dart';
+import '../common/app_card.dart';
+
+class PublicFoodSearchResultTile extends StatelessWidget {
+  const PublicFoodSearchResultTile({
+    super.key,
+    required this.controller,
+    required this.match,
+    required this.onTap,
+  });
+
+  final AppController controller;
+  final PublicFoodSearchMatch match;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final food = match.food;
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: AppCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(food.name, style: theme.textTheme.titleMedium),
+                ),
+                Chip(
+                  label: const Text('ユーザー登録食品'),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(controller.formatSavedFoodBaseLabel(food)),
+            CompactMacroDisplay(
+              kcal: food.kcalPerBase,
+              proteinG: food.proteinPerBase,
+              fatG: food.fatPerBase,
+              carbG: food.carbPerBase,
+            ),
+            if (food.brand != null && food.brand!.isNotEmpty)
+              Text('ブランド: ${food.brand}', style: theme.textTheme.bodySmall),
+            Text(
+              '登録元: ${SavedFoodDisplayLabels.sourceType(food.sourceType)} · '
+              'Good ${match.goodCount} / Bad ${match.badCount}',
+              style: theme.textTheme.bodySmall,
+            ),
+            Text(
+              '更新: ${_formatDateTime(food.updatedAt)} · v${food.version}',
+              style: theme.textTheme.bodySmall,
+            ),
+            if (match.hasLowRating) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '低い評価が多い食品です。基準量と栄養情報を確認してから利用してください。',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year}/${local.month.toString().padLeft(2, '0')}/'
+        '${local.day.toString().padLeft(2, '0')} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+}

@@ -4,6 +4,8 @@ import '../models/macro_field.dart';
 class NutritionValueCalculator {
   const NutritionValueCalculator();
 
+  static const double _consistencyEpsilon = 0.001;
+
   static ParsedMacroInput parse(String raw) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) {
@@ -28,6 +30,7 @@ class NutritionValueCalculator {
     required ParsedMacroInput protein,
     required ParsedMacroInput fat,
     required ParsedMacroInput carb,
+    MacroField? targetField,
   }) {
     final fields = <MacroField, ParsedMacroInput>{
       MacroField.kcal: kcal,
@@ -55,30 +58,74 @@ class NutritionValueCalculator {
       return null;
     }
 
-    final p = protein.value ?? 0;
-    final f = fat.value ?? 0;
-    final c = carb.value ?? 0;
-    final k = kcal.value ?? 0;
+    final field = targetField ?? missing;
+    if (!fields[field]!.isValid && field != missing) {
+      return null;
+    }
 
+    return _calculateField(
+      field: field,
+      kcal: kcal.value ?? 0,
+      protein: protein.value ?? 0,
+      fat: fat.value ?? 0,
+      carb: carb.value ?? 0,
+    );
+  }
+
+  /// 指定フィールドを他 3 項目から再計算する。
+  static MacroCalculationResult? reconcileField({
+    required MacroField field,
+    required ParsedMacroInput kcal,
+    required ParsedMacroInput protein,
+    required ParsedMacroInput fat,
+    required ParsedMacroInput carb,
+  }) {
+    final fields = <MacroField, ParsedMacroInput>{
+      MacroField.kcal: kcal,
+      MacroField.protein: protein,
+      MacroField.fat: fat,
+      MacroField.carb: carb,
+    };
+
+    if (!fields.values.every((value) => value.isValid)) {
+      return null;
+    }
+
+    return _calculateField(
+      field: field,
+      kcal: kcal.value!,
+      protein: protein.value!,
+      fat: fat.value!,
+      carb: carb.value!,
+    );
+  }
+
+  static MacroCalculationResult _calculateField({
+    required MacroField field,
+    required double kcal,
+    required double protein,
+    required double fat,
+    required double carb,
+  }) {
     final double raw;
-    switch (missing) {
+    switch (field) {
       case MacroField.kcal:
-        raw = p * 4 + f * 9 + c * 4;
+        raw = protein * 4 + fat * 9 + carb * 4;
       case MacroField.protein:
-        raw = (k - f * 9 - c * 4) / 4;
+        raw = (kcal - fat * 9 - carb * 4) / 4;
       case MacroField.fat:
-        raw = (k - p * 4 - c * 4) / 9;
+        raw = (kcal - protein * 4 - carb * 4) / 9;
       case MacroField.carb:
-        raw = (k - p * 4 - f * 9) / 4;
+        raw = (kcal - protein * 4 - fat * 9) / 4;
     }
 
     if (raw < 0) {
-      return MacroCalculationResult(field: missing, negative: true);
+      return MacroCalculationResult(field: field, negative: true);
     }
 
     return MacroCalculationResult(
-      field: missing,
-      value: _round(missing, raw),
+      field: field,
+      value: _round(field, raw),
       negative: false,
     );
   }
@@ -102,30 +149,29 @@ class NutritionValueCalculator {
     return protein * 4 + fat * 9 + carb * 4;
   }
 
-  /// 4 項目すべて valid のとき、許容差超過を返す。
-  static MacroConsistencyWarning? checkConsistency({
+  /// 4 項目すべて valid のとき、4/9/4 換算式と一致するか。
+  static bool isConsistent({
     required double kcal,
     required double protein,
     required double fat,
     required double carb,
   }) {
-    final derived = derivedKcal(protein: protein, fat: fat, carb: carb);
-    final tolerance = _tolerance(kcal);
-    final diff = (kcal - derived).abs();
-    if (diff <= tolerance) {
-      return null;
-    }
-    return MacroConsistencyWarning(
-      inputKcal: kcal,
-      derivedKcal: _round(MacroField.kcal, derived),
-      differenceKcal: diff,
-      toleranceKcal: tolerance,
+    final derived = _round(
+      MacroField.kcal,
+      derivedKcal(protein: protein, fat: fat, carb: carb),
     );
+    final roundedKcal = _round(MacroField.kcal, kcal);
+    return (roundedKcal - derived).abs() < _consistencyEpsilon;
   }
 
-  static double _tolerance(double inputKcal) {
-    final percent = inputKcal.abs() * 0.02;
-    return percent > 5 ? percent : 5;
+  /// 4 項目すべて valid のとき、PFC 換算 kcal と表示 kcal が不一致か。
+  static bool hasExternalCalorieMismatch({
+    required double kcal,
+    required double protein,
+    required double fat,
+    required double carb,
+  }) {
+    return !isConsistent(kcal: kcal, protein: protein, fat: fat, carb: carb);
   }
 
   static String formatForField(MacroField field, double value) {
@@ -150,18 +196,4 @@ class MacroCalculationResult {
   final MacroField field;
   final double? value;
   final bool negative;
-}
-
-class MacroConsistencyWarning {
-  const MacroConsistencyWarning({
-    required this.inputKcal,
-    required this.derivedKcal,
-    required this.differenceKcal,
-    required this.toleranceKcal,
-  });
-
-  final double inputKcal;
-  final double derivedKcal;
-  final double differenceKcal;
-  final double toleranceKcal;
 }

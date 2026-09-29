@@ -34,6 +34,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.17
   http: ^1.2.0
   mobile_scanner: ^7.4.0
   health: ^13.3.1
@@ -44,6 +45,10 @@ dependencies:
   google_sign_in: ^6.3.0
   url_launcher: ^6.3.2
   shared_preferences: ^2.5.3
+  uuid: ^4.6.0
+  sign_in_with_apple: ^8.2.0
+  crypto: ^3.0.7
+  material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
   flutter_test:
@@ -66,10 +71,24 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/brand/
+    - assets/icons/
+    - legal/terms.html
+    - legal/privacy.html
+    - legal/support.html
+    - legal/account-deletion.html
+    - legal/tokushoho.html
+
+  fonts:
+    - family: ZenMaruGothic
+      fonts:
+        - asset: assets/fonts/ZenMaruGothic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/ZenMaruGothic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/ZenMaruGothic-Bold.ttf
+          weight: 700
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

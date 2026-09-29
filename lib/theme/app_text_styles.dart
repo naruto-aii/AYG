@@ -1,35 +1,25 @@
 import 'package:flutter/material.dart';
 
-/// アプリ共通のテキストスタイル。
+import 'app_typography.dart';
+
+/// アプリ共通のテキストスタイル（後方互換ラッパー）。
 abstract final class AppTextStyles {
-  static TextStyle? sectionTitle(BuildContext context) {
-    return Theme.of(
-      context,
-    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
-  }
+  static TextStyle? sectionTitle(BuildContext context) =>
+      AppTypography.sectionTitle(context);
 
   static TextStyle? heroLabel(BuildContext context, Color color) {
-    return Theme.of(context).textTheme.titleMedium?.copyWith(color: color);
+    return AppTypography.heroLabel(context).copyWith(color: color);
   }
 
   static TextStyle? heroValue(BuildContext context, Color color) {
-    return Theme.of(context).textTheme.displaySmall?.copyWith(
-      fontWeight: FontWeight.bold,
-      color: color,
-    );
+    return AppTypography.heroValue(context).copyWith(color: color);
   }
 
-  static TextStyle? macroLabel(BuildContext context) {
-    return Theme.of(context).textTheme.labelLarge?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    );
-  }
+  static TextStyle? macroLabel(BuildContext context) =>
+      AppTypography.macroLabel(context);
 
-  static TextStyle? macroValue(BuildContext context) {
-    return Theme.of(
-      context,
-    ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold);
-  }
+  static TextStyle? macroValue(BuildContext context) =>
+      AppTypography.macroValue(context);
 
   static TextStyle? historyDateHeader(BuildContext context) {
     return Theme.of(

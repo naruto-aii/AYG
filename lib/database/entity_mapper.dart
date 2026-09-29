@@ -1,6 +1,9 @@
 import '../database/schemas.dart';
 import '../models/activity_level.dart';
+import '../models/alcohol_entry.dart';
 import '../models/app_settings.dart';
+import '../models/exercise_calculation_source.dart';
+import '../models/exercise_category.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
 import '../models/food_entry_source.dart';
@@ -8,6 +11,7 @@ import '../models/food_source_type.dart';
 import '../models/food_status.dart';
 import '../models/food_unit_type.dart';
 import '../models/food_visibility.dart';
+import '../models/calculation/goal_pace.dart';
 import '../models/goal.dart';
 import '../models/health_profile_data.dart';
 import '../models/health_snapshot.dart';
@@ -17,6 +21,7 @@ import '../models/nutrition_settings.dart';
 import '../models/saved_food.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
+import '../models/workout_template.dart';
 import 'entity_enum_codec.dart';
 
 class EntityMapper {
@@ -43,7 +48,8 @@ class EntityMapper {
     return GoalEntity()
       ..goalTypeIndex = goal.type.index
       ..targetWeightKg = goal.targetWeightKg
-      ..targetDate = goal.targetDate;
+      ..targetDate = goal.targetDate
+      ..goalPaceIndex = goal.goalPace.index;
   }
 
   static Goal fromGoalEntity(GoalEntity entity) {
@@ -51,6 +57,9 @@ class EntityMapper {
       type: GoalType.values[entity.goalTypeIndex],
       targetWeightKg: entity.targetWeightKg,
       targetDate: entity.targetDate,
+      goalPace: entity.goalPaceIndex == null
+          ? GoalPace.standard
+          : GoalPace.values[entity.goalPaceIndex!],
     );
   }
 
@@ -89,9 +98,12 @@ class EntityMapper {
       ..sourceTypeIndex = EntityEnumCodec.foodEntrySourceIndex(entry.sourceType)
       ..savedFoodId = entry.savedFoodId
       ..sourceFoodOwnerUserId = entry.sourceFoodOwnerUserId
+      ..sourceSavedFoodVersion = entry.sourceSavedFoodVersion
       ..mealGroupId = entry.mealGroupId
       ..mealGroupName = entry.mealGroupName
-      ..sortOrder = entry.sortOrder;
+      ..sortOrder = entry.sortOrder
+      ..officialFoodCode = entry.officialFoodCode
+      ..officialFoodName = entry.officialFoodName;
   }
 
   static FoodEntry fromFoodEntryEntity(FoodEntryEntity entity) {
@@ -116,9 +128,12 @@ class EntityMapper {
       ),
       savedFoodId: entity.savedFoodId,
       sourceFoodOwnerUserId: entity.sourceFoodOwnerUserId,
+      sourceSavedFoodVersion: entity.sourceSavedFoodVersion,
       mealGroupId: entity.mealGroupId,
       mealGroupName: entity.mealGroupName,
       sortOrder: entity.sortOrder,
+      officialFoodCode: entity.officialFoodCode,
+      officialFoodName: entity.officialFoodName,
       loggedAt: entity.loggedAt,
     );
   }
@@ -136,6 +151,7 @@ class EntityMapper {
       ..name = food.name
       ..baseAmount = food.baseAmount
       ..unitTypeIndex = EntityEnumCodec.foodUnitTypeIndex(food.unitType)
+      ..servingUnitLabel = food.servingUnitLabel
       ..kcalPerBase = food.kcalPerBase
       ..proteinPerBase = food.proteinPerBase
       ..fatPerBase = food.fatPerBase
@@ -144,11 +160,15 @@ class EntityMapper {
       ..barcode = food.barcode
       ..brand = food.brand
       ..supplementaryWeight = food.supplementaryWeight
+      ..officialFoodCode = food.officialFoodCode
+      ..officialFoodName = food.officialFoodName
+      ..sourceAttribution = food.sourceAttribution
       ..copiedFromFoodId = food.copiedFromFoodId
       ..copiedFromOwnerUserId = food.copiedFromOwnerUserId
       ..useCount = food.useCount
       ..lastUsedAt = food.lastUsedAt
       ..reportCount = food.reportCount
+      ..version = food.version
       ..createdAt = food.createdAt
       ..updatedAt = food.updatedAt
       ..deletedAt = food.deletedAt;
@@ -169,6 +189,7 @@ class EntityMapper {
       name: entity.name,
       baseAmount: entity.baseAmount,
       unitType: EntityEnumCodec.foodUnitTypeFromIndex(entity.unitTypeIndex),
+      servingUnitLabel: entity.servingUnitLabel,
       kcalPerBase: entity.kcalPerBase,
       proteinPerBase: entity.proteinPerBase,
       fatPerBase: entity.fatPerBase,
@@ -179,11 +200,15 @@ class EntityMapper {
       barcode: entity.barcode,
       brand: entity.brand,
       supplementaryWeight: entity.supplementaryWeight,
+      officialFoodCode: entity.officialFoodCode,
+      officialFoodName: entity.officialFoodName,
+      sourceAttribution: entity.sourceAttribution,
       copiedFromFoodId: entity.copiedFromFoodId,
       copiedFromOwnerUserId: entity.copiedFromOwnerUserId,
       useCount: entity.useCount,
       lastUsedAt: entity.lastUsedAt,
       reportCount: entity.reportCount,
+      version: entity.version,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       deletedAt: entity.deletedAt,
@@ -296,7 +321,21 @@ class EntityMapper {
       ..name = entry.name
       ..durationMin = entry.durationMin
       ..burnedKcal = entry.burnedKcal
-      ..loggedAt = entry.loggedAt;
+      ..loggedAt = entry.loggedAt
+      ..categoryKey = entry.category?.id
+      ..activityId = entry.activityId
+      ..intensity = entry.intensity
+      ..sets = entry.sets
+      ..reps = entry.reps
+      ..liftWeightKg = entry.liftWeightKg
+      ..metValue = entry.metValue
+      ..grossKcal = entry.grossKcal
+      ..netKcal = entry.netKcal
+      ..weightKgSnapshot = entry.weightKgSnapshot
+      ..calculationSource = entry.calculationSource?.storageValue
+      ..calculationVersion = entry.calculationVersion
+      ..sourceKey = entry.sourceKey
+      ..notes = entry.notes;
   }
 
   static ExerciseEntry fromExerciseEntryEntity(ExerciseEntryEntity entity) {
@@ -306,6 +345,129 @@ class EntityMapper {
       durationMin: entity.durationMin,
       burnedKcal: entity.burnedKcal,
       loggedAt: entity.loggedAt,
+      category: ExerciseCategoryX.tryParse(entity.categoryKey),
+      activityId: entity.activityId,
+      intensity: entity.intensity,
+      sets: entity.sets,
+      reps: entity.reps,
+      liftWeightKg: entity.liftWeightKg,
+      metValue: entity.metValue,
+      grossKcal: entity.grossKcal,
+      netKcal: entity.netKcal,
+      weightKgSnapshot: entity.weightKgSnapshot,
+      calculationSource: ExerciseCalculationSourceX.tryParse(
+        entity.calculationSource,
+      ),
+      calculationVersion: entity.calculationVersion,
+      sourceKey: entity.sourceKey,
+      notes: entity.notes,
+    );
+  }
+
+  static WorkoutTemplateEntity toWorkoutTemplateEntity(
+    WorkoutTemplate template,
+  ) {
+    return WorkoutTemplateEntity()
+      ..templateId = template.templateId
+      ..ownerUserId = template.ownerUserId
+      ..normalizedName = template.normalizedName
+      ..statusIndex = EntityEnumCodec.workoutTemplateStatusIndex(
+        template.status,
+      )
+      ..name = template.name
+      ..useCount = template.useCount
+      ..lastUsedAt = template.lastUsedAt
+      ..createdAt = template.createdAt
+      ..updatedAt = template.updatedAt
+      ..deletedAt = template.deletedAt;
+  }
+
+  static WorkoutTemplate fromWorkoutTemplateEntity(
+    WorkoutTemplateEntity entity,
+  ) {
+    return WorkoutTemplate(
+      templateId: entity.templateId,
+      ownerUserId: entity.ownerUserId,
+      name: entity.name,
+      normalizedName: entity.normalizedName,
+      status: EntityEnumCodec.workoutTemplateStatusFromIndex(
+        entity.statusIndex,
+      ),
+      useCount: entity.useCount,
+      lastUsedAt: entity.lastUsedAt,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      deletedAt: entity.deletedAt,
+    );
+  }
+
+  static WorkoutTemplateItemEntity toWorkoutTemplateItemEntity({
+    required WorkoutTemplateItem item,
+    required String templateId,
+    required String ownerUserId,
+  }) {
+    return WorkoutTemplateItemEntity()
+      ..itemId = item.itemId
+      ..templateId = templateId
+      ..ownerUserId = ownerUserId
+      ..sortOrder = item.sortOrder
+      ..name = item.name
+      ..activityId = item.activityId
+      ..categoryKey = item.categoryKey
+      ..intensity = item.intensity
+      ..durationMin = item.durationMin
+      ..sets = item.sets
+      ..reps = item.reps
+      ..liftWeightKg = item.liftWeightKg
+      ..notes = item.notes
+      ..metValue = item.metValue
+      ..sourceKey = item.sourceKey;
+  }
+
+  static WorkoutTemplateItem fromWorkoutTemplateItemEntity(
+    WorkoutTemplateItemEntity entity,
+  ) {
+    return WorkoutTemplateItem(
+      itemId: entity.itemId,
+      name: entity.name,
+      activityId: entity.activityId,
+      categoryKey: entity.categoryKey,
+      intensity: entity.intensity,
+      durationMin: entity.durationMin,
+      sets: entity.sets,
+      reps: entity.reps,
+      liftWeightKg: entity.liftWeightKg,
+      sortOrder: entity.sortOrder,
+      notes: entity.notes,
+      metValue: entity.metValue,
+      sourceKey: entity.sourceKey,
+    );
+  }
+
+  static AlcoholEntryEntity toAlcoholEntryEntity(AlcoholEntry entry) {
+    return AlcoholEntryEntity()
+      ..entryId = entry.id
+      ..beverageName = entry.beverageName
+      ..amount = entry.amount
+      ..unit = entry.unit
+      ..alcoholPercentage = entry.alcoholPercentage
+      ..totalCalories = entry.totalCalories
+      ..pureAlcoholGrams = entry.pureAlcoholGrams
+      ..alcoholCalories = entry.alcoholCalories
+      ..consumedAt = entry.consumedAt;
+  }
+
+  static AlcoholEntry fromAlcoholEntryEntity(AlcoholEntryEntity entity) {
+    return AlcoholEntry(
+      id: entity.entryId,
+      beverageName: entity.beverageName,
+      amount: entity.amount,
+      unit: entity.unit,
+      alcoholPercentage: entity.alcoholPercentage,
+      totalCalories: entity.totalCalories,
+      pureAlcoholGrams: entity.pureAlcoholGrams,
+      alcoholCalories: entity.alcoholCalories,
+      consumedAt: entity.consumedAt,
     );
   }
 

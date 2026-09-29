@@ -5,6 +5,11 @@ abstract class MealTemplateRepositoryBase {
 
   Future<void> saveAll(List<MealTemplate> templates);
 
+  Future<void> saveWithItems({
+    required MealTemplate template,
+    required List<MealTemplateItem> items,
+  });
+
   Future<MealTemplate?> getById({
     required String ownerUserId,
     required String templateId,
@@ -36,5 +41,16 @@ abstract class MealTemplateRepositoryBase {
     required String templateId,
   });
 
+  Future<List<MealTemplate>> loadAllOwnIncludingDeleted(String ownerUserId);
+
   Future<void> clearAll();
+
+  /// 指定 owner のテンプレートと items のみ削除。
+  Future<void> clearForOwner(String ownerUserId);
+
+  /// ログイン時に local-user 所有データを認証ユーザーへ移行。
+  Future<void> reassignOwnerUserId({
+    required String fromOwnerUserId,
+    required String toOwnerUserId,
+  });
 }

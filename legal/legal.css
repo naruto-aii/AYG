@@ -1,0 +1,149 @@
+/* カロナビ 法務ページ共通スタイル
+   配色・タイポグラフィは Figma のデザイントークンに準拠する。
+   - カラー: Color Styles（bg / text / border / accent）
+   - 文字:   Text Styles（Heading / Title / Body / Caption / Link）
+   フォントは Zen Maru Gothic。読み込めない環境では端末標準にフォールバックする。 */
+
+@import url("https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap");
+
+:root {
+  /* Figma: bg/page, bg/surface, bg/surface-green-soft */
+  --bg: #fef9ee;
+  --card: #ffffff;
+  --info-bg: #edf7f0;
+
+  /* Figma: text/primary, text/secondary, text/muted */
+  --heading: #14522f;
+  --text: #55635b;
+  --muted: #7c8880;
+
+  /* Figma: border/default, border/green, text/brand */
+  --border: #e3e8e3;
+  --info-border: #c9e4d3;
+  --accent: #2d7448;
+
+  --font: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans",
+    "Noto Sans JP", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  /* Figma: Body/M — 15px / 170% */
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+header,
+main,
+footer {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
+}
+
+header {
+  padding-bottom: 0;
+}
+
+/* Figma: Heading/L — 28px Bold / 130% / -1% */
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--heading);
+  margin: 0 0 0.5rem;
+}
+
+/* Figma: Heading/S — 20px Bold / 140% */
+h2 {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--heading);
+  margin: 2rem 0 0.5rem;
+}
+
+/* Figma: Title/M — 16px Bold / 150% */
+h3 {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--heading);
+  margin: 1.25rem 0 0.4rem;
+}
+
+/* Figma: Body/M */
+p,
+li {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* Figma: Link — Medium / text-brand */
+a {
+  color: var(--accent);
+  font-weight: 500;
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+.notice {
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.notice strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 700;
+  color: var(--heading);
+}
+
+/* Figma: Body/S — 13px / 160% */
+.meta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+nav a {
+  display: inline-block;
+  margin-right: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+footer {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  border-top: 1px solid var(--border);
+}
+
+.card-list {
+  list-style: none;
+  padding: 0;
+}
+
+.card-list li {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  margin: 0 0 0.75rem;
+}

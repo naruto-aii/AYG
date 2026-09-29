@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
+import '../../models/calculation/goal_pace.dart';
 import '../../models/goal.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_spacing.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/design_segment.dart';
+import '../../widgets/design/goal_card.dart';
+import '../../widgets/design/icon_circle.dart';
 import '../../utils/goal_validation_warnings.dart';
 
 class SettingsGoalScreen extends StatefulWidget {
@@ -16,8 +25,8 @@ class SettingsGoalScreen extends StatefulWidget {
 }
 
 class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
-  final _formKey = GlobalKey<FormState>();
   late GoalType _goalType;
+  late GoalPace _goalPace;
   final _targetWeightController = TextEditingController();
   late DateTime _targetDate;
   bool _isSaving = false;
@@ -27,6 +36,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     super.initState();
     final goal = widget.controller.goal!;
     _goalType = goal.type;
+    _goalPace = goal.goalPace;
     _targetWeightController.text = goal.targetWeightKg.toStringAsFixed(1);
     _targetDate = goal.targetDate;
   }
@@ -51,11 +61,13 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   }
 
   Future<void> _save() async {
-    if (_formKey.currentState?.validate() != true) {
+    final targetWeightKg = double.tryParse(_targetWeightController.text.trim());
+    if (targetWeightKg == null || targetWeightKg < 30 || targetWeightKg > 300) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('目標体重は 30〜300 kg の範囲で入力してください')),
+      );
       return;
     }
-
-    final targetWeightKg = double.parse(_targetWeightController.text);
     final currentWeightKg =
         widget.controller.profile?.weightKg ?? targetWeightKg;
     final warnings = collectGoalWarnings(
@@ -98,6 +110,9 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
         type: _goalType,
         targetWeightKg: targetWeightKg,
         targetDate: _targetDate,
+        goalPace: _goalType == GoalType.maintain
+            ? GoalPace.standard
+            : _goalPace,
       ),
     );
     if (!mounted) {
@@ -110,81 +125,132 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     Navigator.of(context).pop();
   }
 
+  Widget _goalIcon(String asset, GoalType type) => AppIcon(
+    asset,
+    size: 32,
+    color: _goalType == type ? AppColors.iconPrimary : AppColors.textSecondary,
+  );
+
+  Widget _fieldIcon(String asset) => AppIcon(
+    asset,
+    size: 24,
+    color: IconCircle.foregroundOf(IconCircleTone.green),
+  );
+
+  void _selectType(GoalType type) {
+    setState(() {
+      _goalType = type;
+      if (type == GoalType.maintain) {
+        _goalPace = GoalPace.standard;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final targetDateLabel =
-        '${_targetDate.year}/${_targetDate.month}/${_targetDate.day}';
+    final showPace =
+        _goalType == GoalType.lose || _goalType == GoalType.gain;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.settingsGoal)),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.md),
+    return DesignPage(
+      bottomBar: DesignButton(
+        label: AppStrings.save,
+        showTrailingIcon: false,
+        loading: _isSaving,
+        onPressed: _isSaving ? null : _save,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const DesignTitleBlock(
+            title: '目標',
+            subtitle: '目標体重と期限を変えると、1日の目標も変わります。',
+          ),
+          Text('目標の方向性', style: AppTypography.titleS),
+          const SizedBox(height: 10),
+          Row(
             children: [
-              const Text(AppStrings.goalType),
-              const SizedBox(height: AppSpacing.xs),
-              SegmentedButton<GoalType>(
-                segments: GoalType.values
-                    .map(
-                      (type) => ButtonSegment(
-                        value: type,
-                        label: Text(AppStrings.goalTypeLabel(type)),
-                      ),
-                    )
-                    .toList(),
-                selected: {_goalType},
-                onSelectionChanged: (selection) {
-                  setState(() => _goalType = selection.first);
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _targetWeightController,
-                decoration: const InputDecoration(
-                  labelText: AppStrings.targetWeightKg,
-                  border: OutlineInputBorder(),
+              Expanded(
+                child: GoalCard(
+                  icon: _goalIcon(AppIcons.scale, GoalType.lose),
+                  title: GoalType.lose.label,
+                  description: '体重を減らしたい',
+                  selected: _goalType == GoalType.lose,
+                  onTap: () => _selectType(GoalType.lose),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GoalCard(
+                  icon: _goalIcon(AppIcons.human, GoalType.maintain),
+                  title: GoalType.maintain.label,
+                  description: '今の体重を\nキープしたい',
+                  selected: _goalType == GoalType.maintain,
+                  onTap: () => _selectType(GoalType.maintain),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '目標体重を入力してください';
-                  }
-                  final parsed = double.tryParse(value);
-                  if (parsed == null || parsed < 30 || parsed > 300) {
-                    return '30〜300 kg の範囲で入力してください';
-                  }
-                  return null;
-                },
               ),
-              const SizedBox(height: AppSpacing.md),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(AppStrings.targetDate),
-                subtitle: Text(targetDateLabel),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: _pickTargetDate,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              FilledButton(
-                onPressed: _isSaving ? null : _save,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text(AppStrings.save),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GoalCard(
+                  icon: _goalIcon(AppIcons.dumbbell, GoalType.gain),
+                  title: GoalType.gain.label,
+                  description: '体重を増やしたい',
+                  selected: _goalType == GoalType.gain,
+                  onTap: () => _selectType(GoalType.gain),
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 16),
+          DesignFieldCard(
+            icon: _fieldIcon(AppIcons.scale),
+            label: AppStrings.targetWeightKg,
+            child: DesignInputBox(
+              suffix: 'kg',
+              child: DesignTextInput(
+                controller: _targetWeightController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          DesignFieldCard(
+            icon: _fieldIcon(AppIcons.calendar),
+            label: AppStrings.targetDate,
+            child: DesignInputBox(
+              onTap: _pickTargetDate,
+              child: Text(
+                '${_targetDate.year}年${_targetDate.month}月${_targetDate.day}日',
+                style: AppTypography.bodyL.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          if (showPace) ...[
+            const SizedBox(height: 18),
+            Text(
+              _goalType == GoalType.lose ? '減量ペース' : '増量ペース',
+              style: AppTypography.titleS,
+            ),
+            const SizedBox(height: 10),
+            DesignSegmentGroup<GoalPace>(
+              values: GoalPace.values,
+              labelOf: (pace) => pace.labelJa,
+              selected: _goalPace,
+              onChanged: (pace) => setState(() => _goalPace = pace),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${_goalPace.descriptionJa}\nペースの係数や kcal/kg の詳細は「計算根拠」で確認できます。',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }

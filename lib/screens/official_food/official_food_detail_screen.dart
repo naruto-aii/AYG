@@ -140,7 +140,7 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DesignTitleBlock(
-            title: match.recordName,
+            title: match.listTitle,
             subtitle: '食品番号 ${match.foodCode}',
           ),
           Text(match.name, style: AppTypography.bodyM),

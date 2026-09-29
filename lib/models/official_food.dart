@@ -53,6 +53,15 @@ class OfficialFoodMatch {
     return name;
   }
 
+  /// 一覧と食事記録に出す短い名前。正式名称は詳細に残す。
+  String get listTitle {
+    final display = displayName?.trim();
+    if (display != null && display.isNotEmpty) {
+      return display;
+    }
+    return recordName;
+  }
+
   factory OfficialFoodMatch.fromRpc(Map<String, dynamic> row) {
     return OfficialFoodMatch(
       foodCode: row['food_code']?.toString() ?? '',

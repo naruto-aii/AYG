@@ -18,7 +18,7 @@ class OfficialFoodLogger {
   }) {
     return FoodEntry(
       id: entryId,
-      name: match.recordName,
+      name: match.listTitle,
       kcalPerBase: match.kcal,
       proteinPerBase: match.proteinG,
       fatPerBase: match.fatG,
@@ -37,7 +37,7 @@ class OfficialFoodLogger {
     final alias = match.matchedAlias?.trim();
     final showsAlias = alias != null && alias.isNotEmpty && alias != match.name;
     return SavedFoodDraft(
-      name: match.recordName,
+      name: match.listTitle,
       baseAmount: match.baseAmount <= 0 ? 100 : match.baseAmount,
       servingUnitLabel: 'g',
       unitType: FoodUnitType.g,

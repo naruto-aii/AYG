@@ -104,10 +104,14 @@ jobs:
           with open("dart_defines.ci.json", "w", encoding="utf-8") as handle:
               json.dump(config, handle)
           PY
+          # 社長承認済み。食品成分表の検索を公開 Web に出す。
+          # 戻すときはこの define を外し、Publish Pages を再実行する。
+          # web-preview の既定はオフのままなので、define が無い再ビルドは公開前と同じになる。
           flutter build web --release \
             --base-href "/AYG/" \
             --target lib/main_web.dart \
-            --dart-define-from-file=dart_defines.ci.json
+            --dart-define-from-file=dart_defines.ci.json \
+            --dart-define=officialFoodsEnabled=true
 
       - name: Assemble Pages site
         # web-preview を先にルートへ checkout するので、スクリプトは main 側の landing/ にある。

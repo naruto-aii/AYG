@@ -43,7 +43,14 @@ h1, h2, .brand, .stamp, .company {
   letter-spacing: 0.04em;
 }
 
-h1 { font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.2; margin: 0 0 8px; }
+h1 {
+  font-size: clamp(1.85rem, 4vw, 2.7rem);
+  line-height: 1.25;
+  margin: 0 0 8px;
+  letter-spacing: 0.02em;
+  text-wrap: balance;
+}
+h1:focus { outline: none; }
 h2 { font-size: 1.35rem; margin: 0 0 8px; }
 
 p { margin: 0 0 12px; }
@@ -120,7 +127,7 @@ button:disabled {
 .who { margin: 4px 0 12px; }
 
 .rail { display: flex; gap: 3px; margin: 0 0 18px; }
-.rail i { flex: 1; height: 7px; border-radius: 99px; background: #e4d8c6; }
+.rail i { flex: 1; height: 8px; border-radius: 99px; background: #d2c3ab; }
 .rail i.on { background: var(--indigo); }
 .rail i.now { background: var(--persimmon); }
 

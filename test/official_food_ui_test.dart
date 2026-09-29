@@ -126,12 +126,49 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     expect(find.text('食品成分表'), findsOneWidget);
     expect(find.text('精白米（うるち米・水稲めし）'), findsOneWidget);
+    expect(find.text('156 kcal / 100g'), findsOneWidget);
     expect(find.text('こめ　［水稲めし］　精白米　うるち米'), findsNothing);
     expect(
       find.textContaining(OfficialFoodCopy.shortAttribution),
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'akami list starts with the cut and puts class on the kcal line',
+    (tester) async {
+      OfficialFoodsFlag.debugOverride = true;
+      final query = TextEditingController(text: 'あかみ');
+      addTearDown(query.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: OfficialFoodSearchSection(
+              query: query,
+              debounce: Duration.zero,
+              repository: _FixedOfficialFoods(const [
+                OfficialFoodMatch(
+                  foodCode: '10253',
+                  name: '＜魚類＞　（まぐろ類）　くろまぐろ　天然　赤身　生',
+                  displayName: 'くろまぐろ（天然・赤身・生）',
+                  kcal: 115,
+                ),
+              ]),
+              onSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(find.text('くろまぐろ（天然・赤身・生）'), findsOneWidget);
+      expect(find.text('魚・まぐろ · 115 kcal / 100g'), findsOneWidget);
+      expect(find.textContaining('＜魚類＞'), findsNothing);
+      expect(find.textContaining('まぐろ類'), findsNothing);
+    },
+  );
 
   testWidgets('data source screen shows the three required sentences', (
     tester,
@@ -232,10 +269,7 @@ void main() {
           home: Scaffold(
             body: MediaQuery(
               data: MediaQueryData(textScaler: TextScaler.linear(2)),
-              child: SizedBox(
-                width: 320,
-                child: OfficialFoodAttributionLine(),
-              ),
+              child: SizedBox(width: 320, child: OfficialFoodAttributionLine()),
             ),
           ),
         ),

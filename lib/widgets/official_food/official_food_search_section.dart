@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../config/official_foods_flag.dart';
 import 'official_food_attribution_line.dart';
 import '../../models/official_food.dart';
+import '../../models/official_food_list_label.dart';
 import '../../repositories/official_food_repository.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -99,6 +100,16 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
     setState(() => _results = rows);
   }
 
+  String _subtitle(OfficialFoodMatch match) {
+    final amount =
+        '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g';
+    final category = match.listCategory;
+    if (category.isEmpty) {
+      return amount;
+    }
+    return '$category${OfficialFoodListLabel.categoryKcalSeparator}$amount';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!widget.active || !OfficialFoodsFlag.enabled || _results.isEmpty) {
@@ -118,8 +129,7 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
             title: match.isCandidate
                 ? '${match.listTitle}（候補）'
                 : match.listTitle,
-            subtitle:
-                '${formatNullableNutrient(match.kcal)} kcal / ${match.baseAmount.toStringAsFixed(0)}g',
+            subtitle: _subtitle(match),
             onTap: () => widget.onSelected(match),
           ),
           const OfficialFoodAttributionLine(),

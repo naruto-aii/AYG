@@ -119,7 +119,7 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '食品成分表',
+          '分類',
           style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 8),

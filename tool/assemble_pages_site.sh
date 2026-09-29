@@ -64,6 +64,18 @@ if [ -f "$craft_dir/index.html" ]; then
   cp -a "$craft_dir/css" "$craft_dir/js" "$craft_dir/vendor" "$output/craft/"
 fi
 
+# Career-change practice game. Same rule: missing directory is fine for older checkouts.
+tenshoku_dir="$(dirname "$landing_docs")/games/tenshoku"
+if [ -f "$tenshoku_dir/index.html" ]; then
+  mkdir -p "$output/tenshoku"
+  cp "$tenshoku_dir/index.html" "$tenshoku_dir/favicon.svg" "$output/tenshoku/"
+  cp -a "$tenshoku_dir/css" "$tenshoku_dir/js" "$output/tenshoku/"
+  if ! grep -q 'tenshoku-quest' "$output/tenshoku/index.html"; then
+    echo "tenshoku game was not copied" >&2
+    exit 1
+  fi
+fi
+
 if ! cmp -s "$web_build/index.html" "$output/index.html"; then
   echo "web root index.html was replaced" >&2
   exit 1

@@ -1,3 +1,5 @@
+import 'official_food_list_label.dart';
+
 /// 食品成分表の1行と、検索で当たった別名。
 class OfficialFoodMatch {
   const OfficialFoodMatch({
@@ -53,14 +55,17 @@ class OfficialFoodMatch {
     return name;
   }
 
-  /// 一覧と食事記録に出す短い名前。正式名称は詳細に残す。
+  /// 一覧と食事記録に出す短い名前。分類見出しは除き、正式名称は詳細に残す。
   String get listTitle {
-    final display = displayName?.trim();
-    if (display != null && display.isNotEmpty) {
-      return display;
-    }
-    return recordName;
+    return OfficialFoodListLabel.productTitle(
+      displayName: displayName,
+      officialName: name,
+      alias: matchedAlias,
+    );
   }
+
+  /// 一覧の小さい行に置く分類。正式名称の先頭から取り、無いときは空。
+  String get listCategory => OfficialFoodListLabel.category(name);
 
   factory OfficialFoodMatch.fromRpc(Map<String, dynamic> row) {
     return OfficialFoodMatch(

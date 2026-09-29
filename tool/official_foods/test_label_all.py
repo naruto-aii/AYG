@@ -56,9 +56,10 @@ class LabelAllTest(unittest.TestCase):
         beef = {row.food_code for row in aliases if row.alias == "牛肉"}
         chicken = {row.food_code for row in aliases if row.alias == "チキン"}
         fish = {row.food_code for row in aliases if row.alias == "魚"}
-        self.assertEqual(len(beef), 139)
+        self.assertEqual(len(beef), 138)
         self.assertIn("11015", beef)
         self.assertNotIn("18031", beef)
+        self.assertNotIn("11295", beef)
         self.assertEqual(
             chicken,
             {food.food_code for food in foods if food.food_group == "11" and "にわとり" in food.name},

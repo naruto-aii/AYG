@@ -139,6 +139,7 @@ declare
   v_raw text := pg_catalog.left(coalesce(p_query, ''), 64);
   v_query text := pg_catalog.left(public.normalize_food_search_text(v_raw), 64);
   v_pattern text;
+  v_prefix text;
   v_limit integer := least(greatest(coalesce(p_limit, 30), 0), 100);
 begin
   if v_query = '' or v_limit = 0 then
@@ -170,6 +171,17 @@ begin
          '_',
          '\_'
        )
+    || '%';
+  v_prefix :=
+    pg_catalog.replace(
+      pg_catalog.replace(
+        pg_catalog.replace(v_query, '\', '\\'),
+        '%',
+        '\%'
+      ),
+      '_',
+      '\_'
+    )
     || '%';
 
   -- One indexed column per arm. OR would hide the index, and wrapping the
@@ -237,7 +249,12 @@ begin
           else 9
         end as rank_value
       from public.official_foods f
-      where f.normalized_reading like %L escape '\'
+      where exists (
+        select 1
+        from pg_catalog.regexp_split_to_table(coalesce(f.reading, ''), ' ') as token
+        where public.normalize_food_search_text(token) = %L
+           or public.normalize_food_search_text(token) like %L escape '\'
+      )
       union all
       select
         f.food_code,
@@ -299,7 +316,12 @@ begin
         end as rank_value
       from public.official_food_aliases a
       join public.official_foods f on f.food_code = a.food_code
-      where a.normalized_reading like %L escape '\'
+      where exists (
+        select 1
+        from pg_catalog.regexp_split_to_table(coalesce(a.reading, ''), ' ') as token
+        where public.normalize_food_search_text(token) = %L
+           or public.normalize_food_search_text(token) like %L escape '\'
+      )
     ),
     matched as (
       select *
@@ -351,9 +373,9 @@ begin
     limit %s
     $sql$,
     v_query, v_query, v_query, v_pattern,
+    v_query, v_query, v_query, v_query, v_prefix,
     v_query, v_query, v_query, v_pattern,
-    v_query, v_query, v_query, v_pattern,
-    v_query, v_query, v_query, v_pattern,
+    v_query, v_query, v_query, v_query, v_prefix,
     v_limit
   );
 end;
@@ -3450,7 +3472,6 @@ from (values
 ('11272', '牛肉', 'ぎゅうにく', '牛肉', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11273', '牛肉', 'ぎゅうにく', '牛肉', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11274', '牛肉', 'ぎゅうにく', '牛肉', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
-('11295', '牛肉', 'ぎゅうにく', '牛肉', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11296', '牛肉', 'ぎゅうにく', '牛肉', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11297', '牛肉', 'ぎゅうにく', '牛肉', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11301', '牛肉', 'ぎゅうにく', '牛肉', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
@@ -3589,7 +3610,6 @@ from (values
 ('11272', 'ビーフ', 'びーふ', 'びふ', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11273', 'ビーフ', 'びーふ', 'びふ', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11274', 'ビーフ', 'びーふ', 'びふ', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
-('11295', 'ビーフ', 'びーふ', 'びふ', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11296', 'ビーフ', 'びーふ', 'びふ', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11297', 'ビーフ', 'びーふ', 'びふ', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11301', 'ビーフ', 'びーふ', 'びふ', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
@@ -3728,7 +3748,6 @@ from (values
 ('11272', '牛', 'ぎゅう', '牛', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11273', '牛', 'ぎゅう', '牛', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11274', '牛', 'ぎゅう', '牛', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
-('11295', '牛', 'ぎゅう', '牛', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11296', '牛', 'ぎゅう', '牛', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11297', '牛', 'ぎゅう', '牛', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),
 ('11301', '牛', 'ぎゅう', '牛', true, null, 'グループ語。当てはまる食品をすべて候補にする', true),

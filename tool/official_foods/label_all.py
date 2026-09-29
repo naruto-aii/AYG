@@ -234,7 +234,9 @@ def _head_aliases(foods: list[DraftFood]) -> list[AliasDraft]:
 
 
 def _is_beef(food: Food) -> bool:
-    return food.food_group == "11" and "うし" in food.name
+    # きゅうしゅうじか contains うし but is deer, not beef.
+    name = food.name.replace("きゅうしゅう", "")
+    return food.food_group == "11" and "うし" in name
 
 
 def _is_pork(food: Food) -> bool:
@@ -528,6 +530,14 @@ def _patched_search_function() -> str:
         "    v_limit := 800;\n"
         "  end if;\n",
     )
+    # A reading hit is a whole token or the start of one. Substring on the
+    # joined reading would make ぶた match 大粒種 (おおつぶたね).
+    reading_where = """where exists (
+        select 1
+        from pg_catalog.regexp_split_to_table(coalesce({alias}.reading, ''), ' ') as token
+        where public.normalize_food_search_text(token) = %L
+           or public.normalize_food_search_text(token) like %L escape '\\'
+      )"""
     for column in ("f.reading", "a.reading"):
         function = function.replace(
             f"strpos({column},",
@@ -538,9 +548,38 @@ def _patched_search_function() -> str:
             f"when {column.split('.')[0]}.normalized_reading =",
         )
         function = function.replace(
-            f"where {column} like",
-            f"where {column.split('.')[0]}.normalized_reading like",
+            f"      where {column} like %L escape '\\'",
+            "      " + reading_where.format(alias=column.split(".")[0]),
         )
+    function = function.replace(
+        "  v_pattern text;\n",
+        "  v_pattern text;\n  v_prefix text;\n",
+    )
+    function = function.replace(
+        "    || '%';\n",
+        "    || '%';\n"
+        "  v_prefix :=\n"
+        "    pg_catalog.replace(\n"
+        "      pg_catalog.replace(\n"
+        "        pg_catalog.replace(v_query, '\\', '\\\\'),\n"
+        "        '%',\n"
+        "        '\\%'\n"
+        "      ),\n"
+        "      '_',\n"
+        "      '\\_'\n"
+        "    )\n"
+        "    || '%';\n",
+    )
+    function = function.replace(
+        "    v_query, v_query, v_query, v_pattern,\n"
+        "    v_query, v_query, v_query, v_pattern,\n"
+        "    v_query, v_query, v_query, v_pattern,\n"
+        "    v_query, v_query, v_query, v_pattern,\n",
+        "    v_query, v_query, v_query, v_pattern,\n"
+        "    v_query, v_query, v_query, v_query, v_prefix,\n"
+        "    v_query, v_query, v_query, v_pattern,\n"
+        "    v_query, v_query, v_query, v_query, v_prefix,\n",
+    )
     function = function.replace(
         "-- aliases.normalized are already the search key. reading is stored text\n"
         "  -- (hiragana in the alias dictionary) and is compared as stored.",

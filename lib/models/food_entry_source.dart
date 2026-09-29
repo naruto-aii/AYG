@@ -1,4 +1,4 @@
-enum FoodEntrySource { manual, savedFood, template, openFoodFacts }
+enum FoodEntrySource { manual, savedFood, template, openFoodFacts, mextSfct }
 
 extension FoodEntrySourceX on FoodEntrySource {
   String get storageValue => switch (this) {
@@ -6,6 +6,7 @@ extension FoodEntrySourceX on FoodEntrySource {
     FoodEntrySource.savedFood => 'saved_food',
     FoodEntrySource.template => 'template',
     FoodEntrySource.openFoodFacts => 'open_food_facts',
+    FoodEntrySource.mextSfct => 'mext_sfct',
   };
 
   static FoodEntrySource? tryParse(String? raw) {
@@ -17,6 +18,7 @@ extension FoodEntrySourceX on FoodEntrySource {
       'saved_food' => FoodEntrySource.savedFood,
       'template' => FoodEntrySource.template,
       'open_food_facts' => FoodEntrySource.openFoodFacts,
+      'mext_sfct' => FoodEntrySource.mextSfct,
       _ => null,
     };
   }

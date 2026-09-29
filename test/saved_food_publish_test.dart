@@ -1,3 +1,4 @@
+import 'package:ayg/constants/official_food_copy.dart';
 import 'package:ayg/models/public_food_publish_match.dart';
 import 'package:ayg/models/food_source_type.dart';
 import 'package:ayg/models/food_status.dart';
@@ -5,6 +6,7 @@ import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/food_visibility.dart';
 import 'package:ayg/models/saved_food.dart';
 import 'package:ayg/repositories/exceptions/food_master_exceptions.dart';
+import 'package:ayg/services/official_food_provenance.dart';
 import 'package:ayg/services/public_food_similar_service.dart';
 import 'package:ayg/services/publish_error_messages.dart';
 import 'package:ayg/services/saved_food_publish_validator.dart';
@@ -64,6 +66,27 @@ void main() {
         ownerUserId: 'user-a',
       );
       expect(result.isValid, isFalse);
+    });
+
+    test('allows a composition-table food and keeps its attribution', () {
+      final stripped =
+          sampleFood(
+            sourceType: FoodSourceType.mextSfct,
+            kcal: 156,
+            protein: 2.5,
+            fat: 0.3,
+            carb: 37.1,
+          ).copyWith(
+            officialFoodCode: '01088',
+            officialFoodName: 'こめ　［水稲めし］　精白米　うるち米',
+            sourceAttribution: '',
+          );
+      final locked = OfficialFoodProvenance.attach(stripped);
+      expect(locked.sourceAttribution, OfficialFoodCopy.fullAttribution);
+      expect(locked.officialFoodCode, '01088');
+      final result = validator.validate(food: locked, ownerUserId: 'user-a');
+      expect(result.isValid, isTrue);
+      expect(result.manualMacroConsistent, isNull);
     });
 
     test('rejects inconsistent manual macros', () {

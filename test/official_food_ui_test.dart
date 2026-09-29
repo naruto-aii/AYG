@@ -1,0 +1,321 @@
+import 'package:ayg/config/official_foods_flag.dart';
+import 'package:ayg/constants/official_food_copy.dart';
+import 'package:ayg/models/activity_level.dart';
+import 'package:ayg/models/goal.dart';
+import 'package:ayg/models/nutrition_settings.dart';
+import 'package:ayg/models/food_source_type.dart';
+import 'package:ayg/models/food_unit_type.dart';
+import 'package:ayg/models/official_food.dart';
+import 'package:ayg/models/saved_food.dart';
+import 'package:ayg/models/user_profile.dart';
+import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/repositories/official_food_repository.dart';
+import 'package:ayg/screens/official_food/official_food_detail_screen.dart';
+import 'package:ayg/screens/settings/data_source_screen.dart';
+import 'package:ayg/screens/settings/settings_screen.dart';
+import 'package:ayg/services/official_food_link.dart';
+import 'package:ayg/state/app_controller.dart';
+import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/widgets/official_food/official_food_attribution.dart';
+import 'package:ayg/widgets/official_food/official_food_attribution_line.dart';
+import 'package:ayg/widgets/saved_food/public_food_detail_sheet.dart';
+import 'package:ayg/widgets/official_food/official_food_search_section.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'mocks/mock_authentication_repository.dart';
+import 'mocks/mock_health_repository.dart';
+
+class _FixedOfficialFoods implements OfficialFoodRepository {
+  _FixedOfficialFoods(this.rows);
+
+  final List<OfficialFoodMatch> rows;
+
+  @override
+  Future<List<OfficialFoodMatch>> search(String query, {int limit = 30}) async {
+    return rows;
+  }
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  tearDown(() {
+    OfficialFoodsFlag.debugOverride = null;
+  });
+
+  test('MEXT link uses an external browser', () async {
+    Uri? opened;
+    LaunchMode? mode;
+    final ok = await openMextFoodCompositionPage(
+      launch: (uri, launchMode) async {
+        opened = uri;
+        mode = launchMode;
+        return true;
+      },
+    );
+    expect(ok, isTrue);
+    expect(opened, OfficialFoodCopy.sourcePage);
+    expect(mode, LaunchMode.externalApplication);
+  });
+
+  testWidgets('attribution expands to the full source line', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: OfficialFoodAttribution())),
+    );
+    expect(find.text(OfficialFoodCopy.shortAttribution), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('official_food_attribution')));
+    await tester.pump();
+    expect(find.text(OfficialFoodCopy.fullAttribution), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.externalLinkLabel), findsOneWidget);
+  });
+
+  testWidgets('flag off hides the official section', (tester) async {
+    OfficialFoodsFlag.debugOverride = false;
+    final query = TextEditingController(text: 'ご飯');
+    addTearDown(query.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OfficialFoodSearchSection(
+            query: query,
+            debounce: Duration.zero,
+            repository: _FixedOfficialFoods(const [
+              OfficialFoodMatch(foodCode: '01088', name: '精白米', kcal: 156),
+            ]),
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('食品成分表'), findsNothing);
+    expect(find.text('精白米'), findsNothing);
+  });
+
+  testWidgets('flag on shows a result and the short attribution', (
+    tester,
+  ) async {
+    OfficialFoodsFlag.debugOverride = true;
+    final query = TextEditingController(text: 'ご飯');
+    addTearDown(query.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: OfficialFoodSearchSection(
+            query: query,
+            debounce: Duration.zero,
+            repository: _FixedOfficialFoods(const [
+              OfficialFoodMatch(
+                foodCode: '01088',
+                name: 'こめ　［水稲めし］　精白米　うるち米',
+                kcal: 156,
+                matchedAlias: 'ご飯',
+              ),
+            ]),
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(find.text('食品成分表'), findsOneWidget);
+    expect(find.text('ご飯'), findsOneWidget);
+    expect(
+      find.textContaining(OfficialFoodCopy.shortAttribution),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('data source screen shows the three required sentences', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const DataSourceScreen()),
+    );
+    expect(find.text(OfficialFoodCopy.sourceSentence), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.aliasSentence), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.disclaimerSentence), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.externalLinkLabel), findsOneWidget);
+  });
+
+  testWidgets('settings hides データの出典 until the flag is on', (tester) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    );
+    addTearDown(authRepository.dispose);
+    final controller = AppController(
+      healthRepository: MockHealthRepository(isAvailable: false),
+      authenticationRepository: authRepository,
+    );
+    controller.setProfile(
+      UserProfile(
+        birthDate: DateTime(1990, 1, 1),
+        gender: Gender.male,
+        heightCm: 175,
+        weightKg: 75,
+      ),
+    );
+    controller.setNutritionSettings(
+      const NutritionSettings(
+        useHealthIntegration: false,
+        activityLevel: ActivityLevel.moderate,
+      ),
+    );
+    controller.setGoal(
+      Goal(
+        type: GoalType.maintain,
+        targetWeightKg: 75,
+        targetDate: DateTime(2026, 10, 1),
+      ),
+    );
+
+    Future<void> pump() {
+      return tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SettingsScreen(
+            controller: controller,
+            authenticationRepository: authRepository,
+            hideHealthSettings: true,
+          ),
+        ),
+      );
+    }
+
+    OfficialFoodsFlag.debugOverride = false;
+    await pump();
+    expect(find.text('データの出典'), findsNothing);
+
+    OfficialFoodsFlag.debugOverride = true;
+    await pump();
+    await tester.scrollUntilVisible(find.text('データの出典'), 200);
+    expect(find.text('データの出典'), findsOneWidget);
+  });
+
+  testWidgets(
+    'attribution uses the short line only when the full line overflows',
+    (tester) async {
+      Future<void> pump(double width) {
+        return tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: width,
+                  child: const OfficialFoodAttributionLine(),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      await pump(2000);
+      expect(find.text(OfficialFoodCopy.fullAttribution), findsOneWidget);
+      await pump(1);
+      expect(find.text(OfficialFoodCopy.compactAttribution), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'attribution stays complete at text scale 2 and a narrow phone width',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: SizedBox(
+                width: 320,
+                child: OfficialFoodAttributionLine(),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(
+          of: find.byType(OfficialFoodAttributionLine),
+          matching: find.byType(Text),
+        ),
+      );
+      final shown = paragraph.text.toPlainText();
+      expect(
+        shown,
+        anyOf(
+          OfficialFoodCopy.fullAttribution,
+          OfficialFoodCopy.compactAttribution,
+        ),
+      );
+      expect(shown.contains('…'), isFalse);
+      expect(shown.contains('...'), isFalse);
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(shown, OfficialFoodCopy.compactAttribution);
+    },
+  );
+
+  testWidgets('detail names an alias and always shows the estimate notice', (
+    tester,
+  ) async {
+    final controller = AppController(
+      healthRepository: MockHealthRepository(isAvailable: false),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: OfficialFoodDetailScreen(
+          controller: controller,
+          match: const OfficialFoodMatch(
+            foodCode: '01088',
+            name: 'こめ　［水稲めし］　精白米　うるち米',
+            kcal: 156,
+            matchedAlias: 'ご飯',
+          ),
+        ),
+      ),
+    );
+    expect(
+      find.text(
+        OfficialFoodCopy.aliasAttribution(
+          alias: 'ご飯',
+          officialName: 'こめ　［水稲めし］　精白米　うるち米',
+          foodCode: '01088',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(OfficialFoodCopy.disclaimerSentence), findsOneWidget);
+  });
+
+  testWidgets('public food display keeps the composition-table attribution', (
+    tester,
+  ) async {
+    final food = SavedFood(
+      foodId: 'mext-rice',
+      ownerUserId: 'user-a',
+      name: 'ご飯',
+      normalizedName: 'ご飯',
+      baseAmount: 100,
+      unitType: FoodUnitType.g,
+      sourceType: FoodSourceType.mextSfct,
+      officialFoodCode: '01088',
+      officialFoodName: 'こめ　［水稲めし］　精白米　うるち米',
+      sourceAttribution: '',
+      createdAt: DateTime.utc(2026, 9, 28),
+      updatedAt: DateTime.utc(2026, 9, 28),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: PublicFoodMextNotice(food: food)),
+      ),
+    );
+    expect(find.text(OfficialFoodCopy.fullAttribution), findsOneWidget);
+    expect(find.text('成分表の食品名：こめ　［水稲めし］　精白米　うるち米（食品番号 01088）'), findsOneWidget);
+  });
+}

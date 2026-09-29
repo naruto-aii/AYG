@@ -94,7 +94,8 @@ class SavedFoodPublishValidator {
       FoodSourceType.manual => MacroNutritionConsistencyMode.manual,
       FoodSourceType.openFoodFacts ||
       FoodSourceType.openFoodFactsDerived ||
-      FoodSourceType.copied => MacroNutritionConsistencyMode.preserveExternal,
+      FoodSourceType.copied ||
+      FoodSourceType.mextSfct => MacroNutritionConsistencyMode.preserveExternal,
     };
   }
 }

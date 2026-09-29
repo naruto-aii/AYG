@@ -37,6 +37,8 @@ import '../../widgets/design/food_parts.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
 import '../../widgets/food/food_form_suggestion_list.dart';
+import '../../widgets/official_food/official_food_search_section.dart';
+import '../official_food/official_food_detail_screen.dart';
 import '../../services/source_food_edit_policy.dart';
 import '../../widgets/food/source_food_update_dialog.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
@@ -394,6 +396,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       savedFoodId: _selectedSavedFoodId,
       sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
       sourceSavedFoodVersion: _sourceSavedFoodVersion,
+      officialFoodCode: widget.entry?.officialFoodCode,
+      officialFoodName: widget.entry?.officialFoodName,
       loggedAt: _loggedAt,
     );
   }
@@ -805,13 +809,19 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               hintText: '例）オートミール、鶏むね肉（皮なし）など',
             ),
           ),
-          if (!widget.isEditing && !_fromSavedFoodSelection)
+          if (!widget.isEditing && !_fromSavedFoodSelection) ...[
             FoodFormSuggestionList(
               controller: widget.controller,
               suggestions: _formSuggestions,
               onSavedFoodSelected: _applySavedFoodSelection,
               onMealTemplateSelected: _applyMealTemplateSuggestion,
             ),
+            OfficialFoodSearchSection(
+              query: _nameController,
+              onSelected: (match) =>
+                  openOfficialFoodDetail(context, widget.controller, match),
+            ),
+          ],
           if (_usesSavedFoodBaseModel) ...[
             const SizedBox(height: 8),
             Text(

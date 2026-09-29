@@ -18,6 +18,7 @@ class SavedFoodDisplayLabels {
       FoodSourceType.openFoodFacts => 'Open Food Facts',
       FoodSourceType.openFoodFactsDerived => 'OFF派生',
       FoodSourceType.copied => 'コピー',
+      FoodSourceType.mextSfct => '食品成分表',
     };
   }
 }

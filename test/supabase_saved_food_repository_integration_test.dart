@@ -428,6 +428,8 @@ void main() {
       expect(saved.visibility, FoodVisibility.private);
       expect(saved.sourceType, FoodSourceType.copied);
       expect(saved.copiedFromFoodId, foodId);
+      expect(copy.copiedFromOwnerUserId, ownerId);
+      expect(saved.copiedFromOwnerUserId, ownerId);
       expect(saved.kcalPerBase, 210);
       expect(saved.ownerUserId, copierId);
     });

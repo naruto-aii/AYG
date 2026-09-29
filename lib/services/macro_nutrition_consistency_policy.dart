@@ -22,6 +22,8 @@ class MacroNutritionConsistencyPolicy {
         MacroNutritionConsistencyMode.preserveExternal,
       FoodEntrySource.template =>
         MacroNutritionConsistencyMode.preserveExternal,
+      FoodEntrySource.mextSfct =>
+        MacroNutritionConsistencyMode.preserveExternal,
     };
   }
 
@@ -39,6 +41,7 @@ class MacroNutritionConsistencyPolicy {
       FoodEntrySource.openFoodFacts => FoodEntrySource.manual,
       FoodEntrySource.savedFood => FoodEntrySource.manual,
       FoodEntrySource.template => FoodEntrySource.manual,
+      FoodEntrySource.mextSfct => FoodEntrySource.manual,
     };
   }
 

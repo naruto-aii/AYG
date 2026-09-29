@@ -16,6 +16,9 @@ class SavedFoodDraft {
     this.brand,
     this.barcode,
     this.supplementaryWeight,
+    this.officialFoodCode,
+    this.officialFoodName,
+    this.sourceAttribution,
     this.sourceType = FoodSourceType.manual,
     this.visibility = FoodVisibility.private,
   });
@@ -31,6 +34,9 @@ class SavedFoodDraft {
   final String? brand;
   final String? barcode;
   final String? supplementaryWeight;
+  final String? officialFoodCode;
+  final String? officialFoodName;
+  final String? sourceAttribution;
   final FoodSourceType sourceType;
   final FoodVisibility visibility;
 }

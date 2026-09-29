@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/app_contact_config.dart';
+import '../../config/official_foods_flag.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
@@ -15,6 +16,7 @@ import '../../widgets/design/settings_row.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
 import 'calculation_references_screen.dart';
+import 'data_source_screen.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
@@ -141,6 +143,15 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'カロリー・栄養素の算出方法について',
             onTap: () => _push(context, const CalculationReferencesScreen()),
           ),
+          if (OfficialFoodsFlag.enabled) ...[
+            const SizedBox(height: _rowGap),
+            SettingsRow(
+              icon: AppIcons.document,
+              title: 'データの出典',
+              subtitle: '食品成分表の出典と、別名・1食分の説明',
+              onTap: () => _push(context, const DataSourceScreen()),
+            ),
+          ],
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.document,

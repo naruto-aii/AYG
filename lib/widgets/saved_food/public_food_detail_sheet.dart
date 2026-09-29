@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/official_food_copy.dart';
+import '../../models/food_source_type.dart';
 import '../../models/public_food_rating_view.dart';
 import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
@@ -185,6 +187,7 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
               Text(
                 '登録元: ${SavedFoodDisplayLabels.sourceType(food.sourceType)}',
               ),
+              PublicFoodMextNotice(food: food),
               Text('更新: ${food.updatedAt.toLocal()} · v${food.version}'),
               const SizedBox(height: 8),
               const Text('ユーザー登録食品'),
@@ -230,6 +233,33 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 公開食品の成分表出典。付いていれば表示し、空でも定型文を出す。
+class PublicFoodMextNotice extends StatelessWidget {
+  const PublicFoodMextNotice({super.key, required this.food});
+
+  final SavedFood food;
+
+  @override
+  Widget build(BuildContext context) {
+    if (food.sourceType != FoodSourceType.mextSfct) {
+      return const SizedBox.shrink();
+    }
+    final stored = food.sourceAttribution?.trim();
+    final attribution = stored == null || stored.isEmpty
+        ? OfficialFoodCopy.fullAttribution
+        : stored;
+    final officialName = food.officialFoodName?.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(attribution),
+        if (officialName != null && officialName.isNotEmpty)
+          Text('成分表の食品名：$officialName（食品番号 ${food.officialFoodCode ?? ''}）'),
+      ],
     );
   }
 }

@@ -38,6 +38,8 @@ _KAKASI = pykakasi.kakasi()
 # Applied before kakasi, longest first. These are compounds it reads wrong.
 _PREPROCESS = (
     ("魚醤油", "ぎょしょうゆ"),
+    ("乾パン", "かんぱん"),
+    ("手延", "てのべ"),
     ("でん粉", "でんぷん"),
     ("充てん", "じゅうてん"),
     ("玄米粉", "げんまいこ"),

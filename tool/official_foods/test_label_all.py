@@ -43,6 +43,9 @@ class LabelAllTest(unittest.TestCase):
             "漬物": "つけもの",
             "塩漬": "しおづけ",
             "くん製油漬缶詰": "くんせいゆづけかんづめ",
+            "乾パン": "かんぱん",
+            "手延そうめん": "てのべそうめん",
+            "手延ひやむぎ": "てのべひやむぎ",
         }
         for token, reading in expect.items():
             self.assertEqual(token_reading_any(token), reading)

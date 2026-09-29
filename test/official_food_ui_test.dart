@@ -112,6 +112,7 @@ void main() {
               OfficialFoodMatch(
                 foodCode: '01088',
                 name: 'こめ　［水稲めし］　精白米　うるち米',
+                displayName: '精白米（うるち米・水稲めし）',
                 kcal: 156,
                 matchedAlias: 'ご飯',
               ),
@@ -124,7 +125,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
     expect(find.text('食品成分表'), findsOneWidget);
-    expect(find.text('ご飯'), findsOneWidget);
+    expect(find.text('精白米（うるち米・水稲めし）'), findsOneWidget);
+    expect(find.text('こめ　［水稲めし］　精白米　うるち米'), findsNothing);
     expect(
       find.textContaining(OfficialFoodCopy.shortAttribution),
       findsOneWidget,
@@ -274,6 +276,7 @@ void main() {
           match: const OfficialFoodMatch(
             foodCode: '01088',
             name: 'こめ　［水稲めし］　精白米　うるち米',
+            displayName: '精白米（うるち米・水稲めし）',
             kcal: 156,
             matchedAlias: 'ご飯',
           ),
@@ -290,6 +293,9 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.text('精白米（うるち米・水稲めし）'), findsOneWidget);
+    expect(find.text('こめ　［水稲めし］　精白米　うるち米'), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.compactAttribution), findsOneWidget);
     expect(find.text(OfficialFoodCopy.disclaimerSentence), findsOneWidget);
   });
 

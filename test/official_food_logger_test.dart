@@ -47,4 +47,27 @@ void main() {
     expect(draft.baseAmount, 100);
     expect(draft.servingUnitLabel, 'g');
   });
+
+  test('a short display name is what gets recorded', () {
+    const shown = OfficialFoodMatch(
+      foodCode: '11015',
+      name: '＜畜肉類＞　うし　［和牛肉］　サーロイン　脂身つき　生',
+      displayName: '和牛 サーロイン（脂身つき・生）',
+      kcal: 298,
+      matchedAlias: '牛肉',
+      isCandidate: true,
+    );
+    final entry = logger.buildEntry(
+      match: shown,
+      entryId: 'entry-2',
+      grams: 100,
+      loggedAt: DateTime.utc(2026, 9, 29),
+    );
+    expect(entry.name, '和牛 サーロイン（脂身つき・生）');
+    expect(
+      entry.officialFoodName,
+      '＜畜肉類＞　うし　［和牛肉］　サーロイン　脂身つき　生',
+    );
+    expect(logger.buildDraft(shown).name, '和牛 サーロイン（脂身つき・生）');
+  });
 }

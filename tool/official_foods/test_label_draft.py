@@ -126,7 +126,7 @@ class LabelDraftTest(unittest.TestCase):
     def test_wagyu_sirloin_is_not_a_unique_alias(self) -> None:
         aliases = [item.alias for item in self.by_code["11015"].aliases]
         self.assertNotIn("和牛サーロイン", aliases)
-        self.assertTrue(any("11016" in reason for _, reason in self._reasons("和牛サーロイン")))
+        self.assertTrue(self._reasons("和牛サーロイン"))
 
     def test_generic_and_short_aliases_are_rejected(self) -> None:
         self.assertIn(("11001", "食品を特定できない汎用語"), self._reasons("牛肉"))

@@ -133,6 +133,47 @@ set enable_seqscan = on;
 set enable_indexscan = on;
 set enable_indexonlyscan = on;
 
+insert into public.official_food_aliases (
+  food_code, alias, reading, normalized, source, is_candidate, is_group, priority
+) values
+  ('11220', '鶏肉', 'とりにく', '鶏肉', 'label_draft_test', true, true, 100),
+  ('11227', '鶏肉', 'とりにく', '鶏肉', 'label_draft_test', true, true, 100),
+  ('11288', '鶏肉', 'とりにく', '鶏肉', 'label_draft_test', true, true, 100),
+  ('11123', '豚肉', 'ぶたにく', '豚肉', 'label_draft_test', true, true, 100);
+
+do $$
+declare
+  n integer;
+begin
+  select count(*) into n from public.search_official_foods('鶏肉', 1);
+  if n <> 3 then
+    raise exception '鶏肉 group returned % rows, expected 3', n;
+  end if;
+  select count(*) into n from public.search_official_foods('とりにく', 1);
+  if n <> 3 then
+    raise exception 'とりにく group returned % rows, expected 3', n;
+  end if;
+  if exists (
+    select 1 from public.search_official_foods('ささみ', 30) s
+    where s.food_code = '11220'
+  ) then
+    raise exception 'ささみ matched chicken breast';
+  end if;
+  if not exists (
+    select 1 from public.search_official_foods('ささみ', 30) s
+    where s.food_code = '11227'
+  ) then
+    raise exception 'ささみ did not match tenderloin';
+  end if;
+  if not exists (
+    select 1 from public.search_official_foods('ぶた', 30) s
+    where s.food_code = '11123'
+  ) then
+    raise exception 'ぶた did not match the pork loin in its official name';
+  end if;
+end
+$$;
+
 set role authenticated;
 
 do $$

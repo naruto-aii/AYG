@@ -40,21 +40,39 @@ GROUP_LABELS = {
 # Tokens that name a shelf, not the food.
 DROP_TOKENS = {
     "塊茎",
+    "塊根",
+    "球茎",
     "結球葉",
     "果実",
     "花らい",
-    "果肉",
+    "茎葉",
+    "根茎",
+    "葉柄",
+    "花序",
     "洋風料理",
     "和風料理",
     "中国料理",
+    "韓国料理",
     "カレー類",
     "煮物類",
     "菜類",
+    "汁物類",
     "半固体状ドレッシング",
     "こめ",
     "こむぎ",
     "だいず",
 }
+
+# Shelf words are omitted when the food itself is still in the name.
+# If nothing else remains, they become the title.
+SHELF_LABEL = {
+    "こめ": "米",
+    "こむぎ": "小麦",
+    "だいず": "大豆",
+}
+
+# Parentheses that name a shelf, not a preparation note.
+DROP_PAREN = {"その他"}
 
 DROP_VARIETIES = {
     "パン類",
@@ -62,6 +80,7 @@ DROP_VARIETIES = {
     "豆腐・油揚げ類",
     "納豆類",
     "即席めん類",
+    "その他",
 }
 
 PREFIX_VARIETY = {
@@ -109,6 +128,44 @@ QUALIFIER_ORDER = [
     "ゆで",
     "焼き",
     "乾",
+    "水煮",
+    "油いため",
+    "缶詰",
+    "冷凍",
+    "漬物",
+    "塩漬",
+    "油揚げ",
+    "非油揚げ",
+    "味付け",
+    "蒸し",
+    "開き干し",
+    "塩蔵",
+    "塩抜き",
+    "電子レンジ調理",
+    "水戻し",
+    "素揚げ",
+    "天ぷら",
+    "つくだ煮",
+    "砂じょう",
+    "果汁",
+    "果実飲料",
+    "ジャム",
+    "高糖度",
+    "低糖度",
+    "早生",
+    "普通",
+    "完熟",
+    "未熟",
+    "国産",
+    "米国産",
+    "中国産",
+    "輸入",
+    "菌床栽培",
+    "原木栽培",
+    "水煮缶詰",
+    "ストレートジュース",
+    "濃縮還元ジュース",
+    "果粒入りジュース",
 ]
 
 QUALIFIER_LABEL = {
@@ -228,6 +285,9 @@ GENERIC_ALIASES = {
     "牛肉",
     "豚肉",
     "鶏肉",
+    "ビーフ",
+    "ポーク",
+    "チキン",
 }
 
 _SPLIT = re.compile(r"[ \u3000]+")
@@ -277,14 +337,26 @@ def draft_display_name(name: str) -> str:
     """Short list label. The official name stays unchanged for the detail view."""
     variety = ""
     body: list[str] = []
+    shelf: list[str] = []
+    notes: list[str] = []
     for token in _tokens(name):
         bracket = _BRACKET.match(token)
         if bracket:
             variety = bracket.group(1)
             continue
-        if _ANGLE.match(token) or _PAREN.match(token):
+        if _ANGLE.match(token):
+            continue
+        paren = _PAREN.match(token)
+        if paren:
+            inner = paren.group(1)
+            # 「発酵乳・乳酸菌飲料」のような棚の名前は落とす。
+            # 「添付調味料等を含むもの」のような条件は残す。
+            if "・" in inner or inner.endswith("類") or inner in DROP_PAREN:
+                continue
+            notes.append(inner)
             continue
         if token in DROP_TOKENS:
+            shelf.append(token)
             continue
         body.append(token)
 
@@ -298,7 +370,7 @@ def draft_display_name(name: str) -> str:
     elif variety in HEAD_VARIETY:
         prefix = HEAD_VARIETY[variety]
         body = [token for token in body if token != "にわとり"]
-    elif variety in DROP_VARIETIES:
+    elif variety.endswith("類") or variety in DROP_VARIETIES:
         pass
     elif variety:
         qualifiers.append(variety)
@@ -336,8 +408,16 @@ def draft_display_name(name: str) -> str:
         head[0] = prefix + "肉"
         prefix = ""
 
+    if not head and not prefix and shelf:
+        label = SHELF_LABEL.get(shelf[0], shelf[0])
+        if label not in DROP_TOKENS:
+            head.append(label)
+
     qualifiers = _unique(qualifiers)
     qualifiers.sort(key=lambda item: _qualifier_rank(item))
+    for note in notes:
+        if note not in qualifiers:
+            qualifiers.append(note)
     title_parts = [part for part in (prefix, *head) if part]
     title = " ".join(title_parts)
     if qualifiers:
@@ -485,8 +565,11 @@ def _item_reason(draft: AliasDraft, key: str, by_code: dict[str, DraftFood]) -> 
     dish = _dish_reason(draft, target)
     if dish:
         return dish
+    target_head = normalize_food_search_text(target.display_name.split("（", 1)[0])
     owner = _exact_other_name(key, draft.food_code, by_code)
-    if owner:
+    # The same short name on two cuts (和牛サーロインの脂身つきと皮下脂肪なし)
+    # is not a mistaken attachment. A different food's exact name is.
+    if owner and target_head != key:
         return f"食品番号 {owner} の表示名または読みと完全一致する"
     return ""
 

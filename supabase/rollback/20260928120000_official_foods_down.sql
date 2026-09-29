@@ -57,6 +57,12 @@ $require_provenance_down$;
 drop function if exists public.search_official_foods(text, integer);
 drop function if exists public.normalize_food_search_text(text);
 
+drop trigger if exists official_foods_fill_normalized_reading on public.official_foods;
+drop trigger if exists official_food_aliases_fill_normalized_reading on public.official_food_aliases;
+drop function if exists public.official_foods_fill_normalized_reading();
+
+drop table if exists public.official_food_aliases_backup_20260929;
+drop table if exists public.official_foods_label_backup_20260929;
 drop table if exists public.official_food_aliases;
 drop table if exists public.official_foods;
 

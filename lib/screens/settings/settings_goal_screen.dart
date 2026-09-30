@@ -5,6 +5,8 @@ import '../../models/activity_level.dart';
 import '../../models/calculation/calorie_target_mode.dart';
 import '../../models/calculation/goal_pace.dart';
 import '../../models/goal.dart';
+import '../../services/daily_calorie_target_planner.dart';
+import '../../services/weight_for_target.dart';
 import '../../models/macro_field.dart';
 import '../../models/nutrition_settings.dart';
 import '../../services/nutrition_value_calculator.dart';
@@ -16,7 +18,6 @@ import '../../theme/app_typography.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
-import '../../widgets/design/design_segment.dart';
 import '../../widgets/design/goal_card.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../utils/goal_validation_warnings.dart';
@@ -32,7 +33,6 @@ class SettingsGoalScreen extends StatefulWidget {
 
 class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   late GoalType _goalType;
-  late GoalPace _goalPace;
   late CalorieTargetMode _calorieMode;
   final _targetWeightController = TextEditingController();
   final _kcalController = TextEditingController();
@@ -48,10 +48,10 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     final goal = widget.controller.goal!;
     final settings = widget.controller.nutritionSettings;
     _goalType = goal.type;
-    _goalPace = goal.goalPace;
     _calorieMode = settings?.calorieTargetMode ?? CalorieTargetMode.automatic;
     _targetWeightController.text = goal.targetWeightKg.toStringAsFixed(1);
     _targetDate = goal.targetDate;
+    _targetWeightController.addListener(_onDraftChanged);
     _showManual(MacroField.kcal, settings?.manualTargetKcal);
     _showManual(MacroField.protein, settings?.manualProteinG);
     _showManual(MacroField.fat, settings?.manualFatG);
@@ -91,6 +91,12 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     _carbController.text = summary.targetCarbG.round().toString();
   }
 
+  void _onDraftChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _editTargets() {
     if (_calorieMode == CalorieTargetMode.manual) {
       return;
@@ -100,7 +106,9 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
 
   @override
   void dispose() {
-    _targetWeightController.dispose();
+    _targetWeightController
+      ..removeListener(_onDraftChanged)
+      ..dispose();
     _kcalController.dispose();
     _proteinController.dispose();
     _fatController.dispose();
@@ -211,7 +219,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
         targetDate: _targetDate,
         goalPace: _goalType == GoalType.maintain
             ? GoalPace.standard
-            : _goalPace,
+            : widget.controller.goal!.goalPace,
       ),
     );
     if (!mounted) {
@@ -237,17 +245,34 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   );
 
   void _selectType(GoalType type) {
-    setState(() {
-      _goalType = type;
-      if (type == GoalType.maintain) {
-        _goalPace = GoalPace.standard;
-      }
-    });
+    setState(() => _goalType = type);
+  }
+
+  String? _arrivalNote() {
+    final goalWeight = double.tryParse(_targetWeightController.text.trim());
+    final profile = widget.controller.profile;
+    if (goalWeight == null || profile == null) {
+      return null;
+    }
+    final series = describeWeightSeries(
+      samples: widget.controller.calculationWeightSamples(),
+      reference: DateTime.now(),
+      fallbackKg: profile.weightKg,
+    );
+    final current =
+        series.smoothedKg ??
+        (series.selection.kg > 0 ? series.selection.kg : profile.weightKg);
+    return const DailyCalorieTargetPlanner().arrivalNote(
+      currentWeightKg: current,
+      goalWeightKg: goalWeight,
+      goalType: _goalType,
+      targetDate: _targetDate,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final showPace = _goalType == GoalType.lose || _goalType == GoalType.gain;
+    final arrivalNote = _arrivalNote();
 
     return DesignPage(
       bottomBar: DesignButton(
@@ -261,23 +286,8 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
         children: [
           const DesignTitleBlock(
             title: '目標',
-            subtitle: '1日のカロリーとPFCは、この画面の数字で指定できます。',
+            subtitle: '目標体重と目標日から、1日の食事目標を出します。',
           ),
-          CalorieTargetEditor(
-            mode: _calorieMode,
-            onModeChanged: (mode) {
-              setState(() => _calorieMode = mode);
-              if (mode == CalorieTargetMode.automatic) {
-                _applyCalculatedTargets();
-              }
-            },
-            onEdited: _editTargets,
-            kcalController: _kcalController,
-            proteinController: _proteinController,
-            fatController: _fatController,
-            carbController: _carbController,
-          ),
-          const SizedBox(height: 18),
           Text('目標の方向性', style: AppTypography.titleS),
           const SizedBox(height: 10),
           Row(
@@ -341,25 +351,28 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
               ),
             ),
           ),
-          if (showPace) ...[
-            const SizedBox(height: 18),
-            Text(
-              _goalType == GoalType.lose ? '減量ペース' : '増量ペース',
-              style: AppTypography.titleS,
-            ),
-            const SizedBox(height: 10),
-            DesignSegmentGroup<GoalPace>(
-              values: GoalPace.values,
-              labelOf: (pace) => pace.labelJa,
-              selected: _goalPace,
-              onChanged: (pace) => setState(() => _goalPace = pace),
-            ),
+          if (arrivalNote != null) ...[
             const SizedBox(height: 8),
             Text(
-              '${_goalPace.descriptionJa}\nペースの係数や kcal/kg の詳細は「計算根拠」で確認できます。',
-              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+              arrivalNote,
+              style: AppTypography.caption.copyWith(color: AppColors.orange700),
             ),
           ],
+          const SizedBox(height: 18),
+          CalorieTargetEditor(
+            mode: _calorieMode,
+            onModeChanged: (mode) {
+              setState(() => _calorieMode = mode);
+              if (mode == CalorieTargetMode.automatic) {
+                _applyCalculatedTargets();
+              }
+            },
+            onEdited: _editTargets,
+            kcalController: _kcalController,
+            proteinController: _proteinController,
+            fatController: _fatController,
+            carbController: _carbController,
+          ),
           const SizedBox(height: 24),
         ],
       ),

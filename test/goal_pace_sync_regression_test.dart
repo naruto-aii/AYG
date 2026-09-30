@@ -103,7 +103,7 @@ void main() {
       expect(goalPaceFromRemoteRow({'goal_type': 'lose'}), GoalPace.standard);
     });
 
-    test('slow pace raises lose target kcal versus standard', () {
+    test('stored slow pace does not change the lose food target', () {
       const service = EnergyTargetCalculationService();
       final profile = UserProfile(
         birthDate: DateTime(1990, 1, 1),
@@ -135,7 +135,7 @@ void main() {
 
       expect(
         slow.goalFoodTargetKcal,
-        greaterThan(standard.goalFoodTargetKcal!),
+        closeTo(standard.goalFoodTargetKcal!, 0.01),
       );
       expect(slow.dailyGoalAdjustmentKcal, isNot(0));
     });

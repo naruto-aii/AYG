@@ -133,7 +133,7 @@ void main() {
       expect(controller.foodEntries, isEmpty);
     });
 
-    test('changing goal pace updates target kcal immediately', () async {
+    test('stored goal pace does not change the food target', () async {
       controller.setGoal(
         Goal(
           type: GoalType.lose,
@@ -153,7 +153,7 @@ void main() {
         ),
       );
 
-      expect(controller.summary!.targetKcal, greaterThan(standardTarget));
+      expect(controller.summary!.targetKcal, closeTo(standardTarget, 0.01));
       expect(controller.summary!.energyBreakdown?.goalPace, GoalPace.slow);
     });
   });

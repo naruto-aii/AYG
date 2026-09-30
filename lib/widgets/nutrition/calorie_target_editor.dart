@@ -4,9 +4,9 @@ import '../../models/calculation/calorie_target_mode.dart';
 import '../../models/macro_field.dart';
 import '../../services/goal_macro_input.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_radius.dart';
 import '../../theme/app_typography.dart';
 import '../design/design_field.dart';
-import '../design/design_segment.dart';
 
 /// 自動計算と手入力の切り替え。数字欄は常に出す。単位は kcal と g/日。
 class CalorieTargetEditor extends StatefulWidget {
@@ -95,68 +95,79 @@ class _CalorieTargetEditorState extends State<CalorieTargetEditor> {
   Widget build(BuildContext context) {
     final manual = widget.mode == CalorieTargetMode.manual;
     final message = manual ? _input.message : null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('1日の食事目標', style: AppTypography.titleS),
-        const SizedBox(height: 8),
-        DesignSegmentGroup<CalorieTargetMode>(
-          values: CalorieTargetMode.values,
-          labelOf: (mode) => mode.labelJa,
-          selected: widget.mode,
-          onChanged: widget.onModeChanged,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          manual
-              ? 'カロリーとPFCのうち2つを入れると、残り1つを計算します。この数字は体重や残日数では変わりません。'
-              : '数字を書き換えると自分で入力になります。自動で計算に戻すと、体重と残日数の式に戻ります。',
-          style: AppTypography.caption.copyWith(color: AppColors.textMuted),
-        ),
-        const SizedBox(height: 10),
-        _numberField(
-          field: MacroField.kcal,
-          label: 'カロリー',
-          suffix: 'kcal',
-          hintText: '1800',
-          controller: widget.kcalController,
-          inputKey: const Key('goal-target-kcal'),
-        ),
-        const SizedBox(height: 10),
-        _numberField(
-          field: MacroField.protein,
-          label: 'たんぱく質',
-          suffix: 'g/日',
-          hintText: '120',
-          controller: widget.proteinController,
-          inputKey: const Key('goal-target-protein'),
-        ),
-        const SizedBox(height: 10),
-        _numberField(
-          field: MacroField.fat,
-          label: '脂質',
-          suffix: 'g/日',
-          hintText: '50',
-          controller: widget.fatController,
-          inputKey: const Key('goal-target-fat'),
-        ),
-        const SizedBox(height: 10),
-        _numberField(
-          field: MacroField.carb,
-          label: '炭水化物',
-          suffix: 'g/日',
-          hintText: '200',
-          controller: widget.carbController,
-          inputKey: const Key('goal-target-carb'),
-        ),
-        if (message != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            message,
-            style: AppTypography.caption.copyWith(color: AppColors.error),
+    final otherMode = manual
+        ? CalorieTargetMode.automatic
+        : CalorieTargetMode.manual;
+    return Container(
+      key: const Key('goal-calorie-manual'),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
+      decoration: BoxDecoration(
+        color: AppColors.green25,
+        borderRadius: AppRadius.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('目標カロリーの手入力', style: AppTypography.titleS),
+          const SizedBox(height: 12),
+          _numberField(
+            field: MacroField.kcal,
+            label: 'カロリー',
+            suffix: 'kcal',
+            hintText: '1800',
+            controller: widget.kcalController,
+            inputKey: const Key('goal-target-kcal'),
+          ),
+          const SizedBox(height: 10),
+          _numberField(
+            field: MacroField.protein,
+            label: 'たんぱく質',
+            suffix: 'g/日',
+            hintText: '120',
+            controller: widget.proteinController,
+            inputKey: const Key('goal-target-protein'),
+          ),
+          const SizedBox(height: 10),
+          _numberField(
+            field: MacroField.fat,
+            label: '脂質',
+            suffix: 'g/日',
+            hintText: '50',
+            controller: widget.fatController,
+            inputKey: const Key('goal-target-fat'),
+          ),
+          const SizedBox(height: 10),
+          _numberField(
+            field: MacroField.carb,
+            label: '炭水化物',
+            suffix: 'g/日',
+            hintText: '200',
+            controller: widget.carbController,
+            inputKey: const Key('goal-target-carb'),
+          ),
+          if (manual) ...[
+            const SizedBox(height: 8),
+            Text(
+              '2つ入れると、残り1つを計算します。',
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            ),
+          ],
+          if (message != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: AppTypography.caption.copyWith(color: AppColors.error),
+            ),
+          ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => widget.onModeChanged(otherMode),
+              child: Text(otherMode.labelJa),
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 

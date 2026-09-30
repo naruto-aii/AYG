@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import '../models/calculation/goal_pace.dart';
 import '../models/calculation/landing_guidance.dart';
 import '../models/goal.dart';
 import '../models/user_profile.dart';
@@ -20,7 +19,6 @@ class DailyCalorieTargetPlanner {
     required double smoothedWeightKg,
     required double goalWeightKg,
     required GoalType goalType,
-    required GoalPace goalPace,
     required int remainingDays,
     required Gender gender,
     required DateTime referenceDate,
@@ -38,36 +36,22 @@ class DailyCalorieTargetPlanner {
     );
     final lossCap = _lossCapKcal(smoothedWeightKg, kcalPerKg);
     final gainCap = _gainCapKcal(smoothedWeightKg, kcalPerKg);
-    final pace = goalPace == GoalPace.slow
-        ? goalPace.adjustmentMultiplier
-        : 1.0;
-    final floor = _floorKcal(gender);
-
-    final atStandard = _applyFloor(
+    // 目標体重と目標日が決まっていれば収支は1本。保存済みのペースは使わない。
+    final appliedBalance = _applyFloor(
       balance: raw.clamp(-lossCap, gainCap),
       maintenanceKcal: maintenanceKcal,
-      floorKcal: floor,
+      floorKcal: _floorKcal(gender),
     );
-    final atPace = _applyFloor(
-      balance: raw.clamp(-lossCap * pace, gainCap * pace),
-      maintenanceKcal: maintenanceKcal,
-      floorKcal: floor,
-    );
-    final appliedBalance = goalPace == GoalPace.slow ? atPace : atStandard;
+    final floor = _floorKcal(gender);
     var target = maintenanceKcal + appliedBalance;
     final beforeStep = target;
 
-    final guidance = _guidance(
-      raw: raw,
-      atStandard: atStandard,
-      atPace: atPace,
-      goalPace: goalPace,
-      smoothedWeightKg: smoothedWeightKg,
+    final guidance = arrivalGuidance(
+      currentWeightKg: smoothedWeightKg,
       goalWeightKg: goalWeightKg,
+      goalType: goalType,
       remainingDays: remainingDays,
       referenceDate: referenceDate,
-      kcalPerKg: kcalPerKg,
-      maintenanceKcal: maintenanceKcal,
     );
 
     var held = false;
@@ -87,7 +71,7 @@ class DailyCalorieTargetPlanner {
 
     return LandingPlan(
       rawBalanceKcal: raw,
-      speedCapKcal: (raw < 0 ? lossCap : gainCap) * pace,
+      speedCapKcal: raw < 0 ? lossCap : gainCap,
       appliedBalanceKcal: appliedBalance,
       floorKcal: floor,
       foodTargetKcal: target,
@@ -96,6 +80,27 @@ class DailyCalorieTargetPlanner {
       dailyStepLimited: stepped,
       guidance: held ? null : guidance,
     );
+  }
+
+  /// 目標設定の画面用。直線が上限を超えるときだけ短い文を返す。
+  String? arrivalNote({
+    required double currentWeightKg,
+    required double goalWeightKg,
+    required GoalType goalType,
+    required DateTime targetDate,
+    DateTime? referenceDate,
+  }) {
+    final now = referenceDate ?? DateTime.now();
+    final remaining = localDayStart(
+      targetDate,
+    ).difference(localDayStart(now)).inDays;
+    return arrivalGuidance(
+      currentWeightKg: currentWeightKg,
+      goalWeightKg: goalWeightKg,
+      goalType: goalType,
+      remainingDays: remaining,
+      referenceDate: now,
+    )?.message;
   }
 
   /// 減量は週1kgと現体重の週1%の小さい方。週1kgは 7,200÷7 ≒ 1,029 kcal/日。
@@ -154,78 +159,66 @@ class DailyCalorieTargetPlanner {
     return balance;
   }
 
-  LandingGuidance? _guidance({
-    required double raw,
-    required double atStandard,
-    required double atPace,
-    required GoalPace goalPace,
-    required double smoothedWeightKg,
+  /// 直線の速度が安全な上限を超えるときだけ、届かないことと届く日を返す。
+  LandingGuidance? arrivalGuidance({
+    required double currentWeightKg,
     required double goalWeightKg,
+    required GoalType goalType,
     required int remainingDays,
     required DateTime referenceDate,
-    required double kcalPerKg,
-    required double maintenanceKcal,
   }) {
+    final kcalPerKg = EnergyTargetCalculationService.kcalPerKgBodyWeightChange;
+    final raw = _rawBalance(
+      goalType: goalType,
+      goalWeightKg: goalWeightKg,
+      smoothedWeightKg: currentWeightKg,
+      remainingDays: remainingDays,
+      kcalPerKg: kcalPerKg,
+    );
     if (raw.abs() < 0.5 || remainingDays <= 0) {
       return null;
     }
-    final missesStandard = _misses(raw: raw, achieved: atStandard);
-    final missesPace = _misses(raw: raw, achieved: atPace);
-    if (!missesStandard && !(goalPace == GoalPace.slow && missesPace)) {
+    final lossCap = _lossCapKcal(currentWeightKg, kcalPerKg);
+    final gainCap = _gainCapKcal(currentWeightKg, kcalPerKg);
+    final capped = raw.clamp(-lossCap, gainCap);
+    if (!_misses(raw: raw, achieved: capped)) {
       return null;
     }
 
-    final exceedsSafe = missesStandard;
-    final rateBalance = exceedsSafe ? atStandard : atPace;
-    final rateKgPerDay = rateBalance.abs() / kcalPerKg;
-    final gapKg = (goalWeightKg - smoothedWeightKg).abs();
+    final rateKgPerDay = capped.abs() / kcalPerKg;
+    final gapKg = (goalWeightKg - currentWeightKg).abs();
     final sign = raw < 0 ? -1.0 : 1.0;
     final today = localDayStart(referenceDate);
-
     DateTime? suggestedDate;
     double? suggestedWeight;
     if (rateKgPerDay > 0.000001) {
-      final daysNeeded = (gapKg / rateKgPerDay).ceil();
-      suggestedDate = today.add(Duration(days: daysNeeded));
-      final reachableDelta = rateKgPerDay * remainingDays;
-      suggestedWeight = smoothedWeightKg + sign * reachableDelta;
+      suggestedDate = today.add(Duration(days: (gapKg / rateKgPerDay).ceil()));
+      suggestedWeight = currentWeightKg + sign * rateKgPerDay * remainingDays;
     } else {
-      suggestedWeight = smoothedWeightKg;
+      suggestedWeight = currentWeightKg;
     }
-
-    if (exceedsSafe) {
-      final recommended = _smallerChange(
-        remainingDays: remainingDays,
-        suggestedDate: suggestedDate,
-        today: today,
-        suggestedWeight: suggestedWeight,
-        goalWeightKg: goalWeightKg,
-        gapKg: gapKg,
-      );
-      final alternative = recommended == LandingGuidanceAction.extendDate
-          ? LandingGuidanceAction.changeWeight
-          : LandingGuidanceAction.extendDate;
-      return LandingGuidance(
-        kind: LandingGuidanceKind.exceedsSafeSpeed,
-        recommended: recommended,
-        alternative: alternative,
-        suggestedDate: suggestedDate,
-        suggestedWeightKg: suggestedWeight,
-        message:
-            '安全な速度では目標日に届きません。食事目標は安全な範囲のままにします。'
-            '目標日と目標体重は自動では変えません。',
-      );
-    }
-
+    final recommended = _smallerChange(
+      remainingDays: remainingDays,
+      suggestedDate: suggestedDate,
+      today: today,
+      suggestedWeight: suggestedWeight,
+      goalWeightKg: goalWeightKg,
+      gapKg: gapKg,
+    );
+    final date = suggestedDate == null
+        ? ''
+        : '${suggestedDate.year}年${suggestedDate.month}月${suggestedDate.day}日';
     return LandingGuidance(
-      kind: LandingGuidanceKind.slowPaceCannotReach,
-      recommended: LandingGuidanceAction.extendDate,
-      alternative: LandingGuidanceAction.useStandardPace,
+      kind: LandingGuidanceKind.exceedsSafeSpeed,
+      recommended: recommended,
+      alternative: recommended == LandingGuidanceAction.extendDate
+          ? LandingGuidanceAction.changeWeight
+          : LandingGuidanceAction.extendDate,
       suggestedDate: suggestedDate,
       suggestedWeightKg: suggestedWeight,
-      message:
-          '「ゆっくり」の範囲では目標日に届きません。食事目標はゆっくりの上限のままにします。'
-          '目標日と目標体重は自動では変えません。',
+      message: date.isEmpty
+          ? 'この目標日には届きません。目標日と目標体重は自動では変えません。'
+          : 'この目標日には届きません。安全な速度なら$dateに届きます。',
     );
   }
 

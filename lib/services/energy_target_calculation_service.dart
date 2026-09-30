@@ -95,17 +95,11 @@ class EnergyTargetCalculationService {
       );
       final maintenance = ree * lifestyle.factor;
       productDefaults.add('体重変化補正 $kcalPerKgBodyWeightChange kcal/kg（アプリ既定）');
-      if (goalPace != GoalPace.standard && goal.type != GoalType.maintain) {
-        productDefaults.add(
-          '目標ペース係数 ${goalPace.adjustmentMultiplier}（ゆっくりは上限も同じ倍率）',
-        );
-      }
       final landing = _planner.plan(
         maintenanceKcal: maintenance,
         smoothedWeightKg: smoothed,
         goalWeightKg: goal.targetWeightKg,
         goalType: goal.type,
-        goalPace: goalPace,
         remainingDays: _daysUntilGoalDate(goal.targetDate, referenceDate: now),
         gender: profile.gender,
         referenceDate: now,
@@ -161,10 +155,7 @@ class EnergyTargetCalculationService {
     }
     final pacedAdjustment = goal.type == GoalType.maintain
         ? 0.0
-        : baseAdjustment * goalPace.adjustmentMultiplier;
-    if (goalPace != GoalPace.standard && goal.type != GoalType.maintain) {
-      productDefaults.add('目標ペース係数 ${goalPace.adjustmentMultiplier}（アプリ既定）');
-    }
+        : baseAdjustment;
 
     var goalFoodTarget = _applyGoalType(
       goalType: goal.type,

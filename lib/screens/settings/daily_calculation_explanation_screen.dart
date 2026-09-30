@@ -111,8 +111,6 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                   ),
                   _row('目標', _goalLabel(energy.goalType)),
                   if (energy.goalType != GoalType.maintain)
-                    _row('目標ペース', energy.goalPace.labelJa),
-                  if (energy.goalType != GoalType.maintain)
                     _row(
                       '目標補正',
                       '${formatNullableNutrient(energy.dailyGoalAdjustmentKcal)} kcal/日（アプリ既定）',

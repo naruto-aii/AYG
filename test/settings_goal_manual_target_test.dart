@@ -101,18 +101,27 @@ void main() {
         authRepository: authRepository,
       );
 
-      expect(find.text('1日の食事目標'), findsOneWidget);
-      expect(find.text('自動で計算'), findsOneWidget);
+      expect(find.text('目標カロリーの手入力'), findsOneWidget);
       expect(find.text('自分で入力'), findsOneWidget);
+      expect(find.text('自動で計算'), findsNothing);
+      expect(find.text('ゆっくり'), findsNothing);
+      expect(find.text('減量ペース'), findsNothing);
       expect(find.byKey(const Key('goal-target-kcal')), findsOneWidget);
       expect(find.byKey(const Key('goal-target-protein')), findsOneWidget);
       expect(find.byKey(const Key('goal-target-fat')), findsOneWidget);
       expect(find.byKey(const Key('goal-target-carb')), findsOneWidget);
 
+      final weightBottom = tester
+          .getBottomLeft(find.text(AppStrings.targetWeightKg))
+          .dy;
+      final dateBottom = tester
+          .getBottomLeft(find.text(AppStrings.targetDate))
+          .dy;
       final kcalTop = tester
           .getTopLeft(find.byKey(const Key('goal-target-kcal')))
           .dy;
-      expect(kcalTop, lessThan(700));
+      expect(kcalTop, greaterThan(weightBottom));
+      expect(kcalTop, greaterThan(dateBottom));
 
       await replaceGoalField(tester, 'goal-target-kcal', '2000');
       await replaceGoalField(tester, 'goal-target-protein', '130');
@@ -162,6 +171,8 @@ void main() {
       expect(controller.summary!.targetKcal, 2000);
 
       await openGoalSettings(tester);
+      await tester.ensureVisible(find.text('自動で計算'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('自動で計算'));
       await tester.pumpAndSettle();
       await tester.tap(find.text(AppStrings.save));
@@ -206,7 +217,7 @@ void main() {
       CalorieTargetMode.automatic,
     );
     expect(controller.nutritionSettings!.usesManualTargets, isFalse);
-    expect(find.text('1日の食事目標'), findsOneWidget);
+    expect(find.text('目標カロリーの手入力'), findsOneWidget);
 
     await authRepository.dispose();
   });
@@ -237,7 +248,7 @@ void main() {
     await tester.pump();
 
     expect(controller.nutritionSettings!.usesManualTargets, isFalse);
-    expect(find.text('1日の食事目標'), findsOneWidget);
+    expect(find.text('目標カロリーの手入力'), findsOneWidget);
 
     await authRepository.dispose();
   });

@@ -81,8 +81,8 @@ void main() {
         lessThan(standard.estimatedMaintenanceKcal!),
       );
       expect(
-        slow.goalFoodTargetKcal!,
-        greaterThan(standard.goalFoodTargetKcal!),
+        slow.goalFoodTargetKcal,
+        closeTo(standard.goalFoodTargetKcal!, 0.01),
       );
     });
 

@@ -205,59 +205,50 @@ void main() {
         closeTo(result.estimatedMaintenanceKcal! - cap, 0.5),
       );
       expect(result.guidance?.kind, LandingGuidanceKind.exceedsSafeSpeed);
-      expect(result.guidance!.message, contains('自動では変えません'));
+      expect(result.guidance!.message, contains('この目標日には届きません'));
+      expect(result.guidance!.message, contains('安全な速度なら'));
+      expect(result.guidance!.suggestedDate, isNotNull);
       expect(
         result.guidance!.recommended,
         isNot(LandingGuidanceAction.useStandardPace),
       );
     });
 
-    test(
-      'slow pace tightens the cap by 0.75 and can miss a reachable date',
-      () {
-        final standard = service.calculate(
-          profile: profile,
-          goal: Goal(
-            type: GoalType.lose,
-            targetWeightKg: 70,
-            targetDate: referenceDate.add(const Duration(days: 60)),
-            goalPace: GoalPace.standard,
-          ),
-          settings: settings,
+    test('stored slow pace does not change the single food target', () {
+      final standard = service.calculate(
+        profile: profile,
+        goal: Goal(
+          type: GoalType.lose,
+          targetWeightKg: 70,
+          targetDate: referenceDate.add(const Duration(days: 60)),
           goalPace: GoalPace.standard,
-          weightSamples: samples,
-          referenceDate: referenceDate,
-        );
-        final slow = service.calculate(
-          profile: profile,
-          goal: Goal(
-            type: GoalType.lose,
-            targetWeightKg: 70,
-            targetDate: referenceDate.add(const Duration(days: 60)),
-            goalPace: GoalPace.slow,
-          ),
-          settings: settings,
+        ),
+        settings: settings,
+        goalPace: GoalPace.standard,
+        weightSamples: samples,
+        referenceDate: referenceDate,
+      );
+      final slow = service.calculate(
+        profile: profile,
+        goal: Goal(
+          type: GoalType.lose,
+          targetWeightKg: 70,
+          targetDate: referenceDate.add(const Duration(days: 60)),
           goalPace: GoalPace.slow,
-          weightSamples: samples,
-          referenceDate: referenceDate,
-        );
+        ),
+        settings: settings,
+        goalPace: GoalPace.slow,
+        weightSamples: samples,
+        referenceDate: referenceDate,
+      );
 
-        expect(
-          slow.speedCapKcal,
-          closeTo(planner.lossCapKcalPerDay(75) * 0.75, 0.01),
-        );
-        expect(
-          slow.goalFoodTargetKcal!,
-          greaterThan(standard.goalFoodTargetKcal!),
-        );
-        expect(slow.guidance?.kind, LandingGuidanceKind.slowPaceCannotReach);
-        expect(slow.guidance!.recommended, LandingGuidanceAction.extendDate);
-        expect(
-          slow.guidance!.alternative,
-          LandingGuidanceAction.useStandardPace,
-        );
-      },
-    );
+      expect(slow.speedCapKcal, closeTo(planner.lossCapKcalPerDay(75), 0.01));
+      expect(
+        slow.goalFoodTargetKcal,
+        closeTo(standard.goalFoodTargetKcal!, 0.01),
+      );
+      expect(slow.guidance, isNull);
+    });
 
     test('food target does not go below the sex-specific floor', () {
       final plan = planner.plan(
@@ -265,7 +256,6 @@ void main() {
         smoothedWeightKg: 75,
         goalWeightKg: 60,
         goalType: GoalType.lose,
-        goalPace: GoalPace.standard,
         remainingDays: 10,
         gender: Gender.male,
         referenceDate: referenceDate,
@@ -280,7 +270,6 @@ void main() {
         smoothedWeightKg: 55,
         goalWeightKg: 45,
         goalType: GoalType.lose,
-        goalPace: GoalPace.standard,
         remainingDays: 10,
         gender: Gender.female,
         referenceDate: referenceDate,

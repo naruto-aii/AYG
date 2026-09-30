@@ -348,6 +348,7 @@ class EntityMapper {
       ..sets = entry.sets
       ..reps = entry.reps
       ..liftWeightKg = entry.liftWeightKg
+      ..distanceKm = entry.distanceKm
       ..metValue = entry.metValue
       ..grossKcal = entry.grossKcal
       ..netKcal = entry.netKcal
@@ -371,6 +372,7 @@ class EntityMapper {
       sets: entity.sets,
       reps: entity.reps,
       liftWeightKg: entity.liftWeightKg,
+      distanceKm: entity.distanceKm,
       metValue: entity.metValue,
       grossKcal: entity.grossKcal,
       netKcal: entity.netKcal,

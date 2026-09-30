@@ -17193,49 +17193,55 @@ const ExerciseEntryEntitySchema = CollectionSchema(
       type: IsarType.string,
     ),
     r'durationMin': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'durationMin',
       type: IsarType.long,
     ),
-    r'entryId': PropertySchema(id: 6, name: r'entryId', type: IsarType.string),
+    r'entryId': PropertySchema(id: 7, name: r'entryId', type: IsarType.string),
     r'grossKcal': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'grossKcal',
       type: IsarType.double,
     ),
     r'intensity': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'intensity',
       type: IsarType.string,
     ),
     r'liftWeightKg': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'liftWeightKg',
       type: IsarType.double,
     ),
     r'loggedAt': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'loggedAt',
       type: IsarType.dateTime,
     ),
     r'metValue': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'metValue',
       type: IsarType.double,
     ),
-    r'name': PropertySchema(id: 12, name: r'name', type: IsarType.string),
-    r'netKcal': PropertySchema(id: 13, name: r'netKcal', type: IsarType.double),
-    r'notes': PropertySchema(id: 14, name: r'notes', type: IsarType.string),
-    r'reps': PropertySchema(id: 15, name: r'reps', type: IsarType.long),
-    r'sets': PropertySchema(id: 16, name: r'sets', type: IsarType.long),
+    r'name': PropertySchema(id: 13, name: r'name', type: IsarType.string),
+    r'netKcal': PropertySchema(id: 14, name: r'netKcal', type: IsarType.double),
+    r'notes': PropertySchema(id: 15, name: r'notes', type: IsarType.string),
+    r'reps': PropertySchema(id: 16, name: r'reps', type: IsarType.long),
+    r'sets': PropertySchema(id: 17, name: r'sets', type: IsarType.long),
     r'sourceKey': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'sourceKey',
       type: IsarType.string,
     ),
     r'weightKgSnapshot': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'weightKgSnapshot',
+      type: IsarType.double,
+    ),
+    // 名前順の番号は 5。列の実体は末尾に足す（既存行の並びを動かさない）。
+    r'distanceKm': PropertySchema(
+      id: 5,
+      name: r'distanceKm',
       type: IsarType.double,
     ),
   },
@@ -17331,20 +17337,21 @@ void _exerciseEntryEntitySerialize(
   writer.writeString(offsets[2], object.calculationSource);
   writer.writeString(offsets[3], object.calculationVersion);
   writer.writeString(offsets[4], object.categoryKey);
-  writer.writeLong(offsets[5], object.durationMin);
-  writer.writeString(offsets[6], object.entryId);
-  writer.writeDouble(offsets[7], object.grossKcal);
-  writer.writeString(offsets[8], object.intensity);
-  writer.writeDouble(offsets[9], object.liftWeightKg);
-  writer.writeDateTime(offsets[10], object.loggedAt);
-  writer.writeDouble(offsets[11], object.metValue);
-  writer.writeString(offsets[12], object.name);
-  writer.writeDouble(offsets[13], object.netKcal);
-  writer.writeString(offsets[14], object.notes);
-  writer.writeLong(offsets[15], object.reps);
-  writer.writeLong(offsets[16], object.sets);
-  writer.writeString(offsets[17], object.sourceKey);
-  writer.writeDouble(offsets[18], object.weightKgSnapshot);
+  writer.writeDouble(offsets[5], object.distanceKm);
+  writer.writeLong(offsets[6], object.durationMin);
+  writer.writeString(offsets[7], object.entryId);
+  writer.writeDouble(offsets[8], object.grossKcal);
+  writer.writeString(offsets[9], object.intensity);
+  writer.writeDouble(offsets[10], object.liftWeightKg);
+  writer.writeDateTime(offsets[11], object.loggedAt);
+  writer.writeDouble(offsets[12], object.metValue);
+  writer.writeString(offsets[13], object.name);
+  writer.writeDouble(offsets[14], object.netKcal);
+  writer.writeString(offsets[15], object.notes);
+  writer.writeLong(offsets[16], object.reps);
+  writer.writeLong(offsets[17], object.sets);
+  writer.writeString(offsets[18], object.sourceKey);
+  writer.writeDouble(offsets[19], object.weightKgSnapshot);
 }
 
 ExerciseEntryEntity _exerciseEntryEntityDeserialize(
@@ -17359,21 +17366,22 @@ ExerciseEntryEntity _exerciseEntryEntityDeserialize(
   object.calculationSource = reader.readStringOrNull(offsets[2]);
   object.calculationVersion = reader.readStringOrNull(offsets[3]);
   object.categoryKey = reader.readStringOrNull(offsets[4]);
-  object.durationMin = reader.readLong(offsets[5]);
-  object.entryId = reader.readString(offsets[6]);
-  object.grossKcal = reader.readDoubleOrNull(offsets[7]);
+  object.distanceKm = reader.readDoubleOrNull(offsets[5]);
+  object.durationMin = reader.readLong(offsets[6]);
+  object.entryId = reader.readString(offsets[7]);
+  object.grossKcal = reader.readDoubleOrNull(offsets[8]);
   object.id = id;
-  object.intensity = reader.readStringOrNull(offsets[8]);
-  object.liftWeightKg = reader.readDoubleOrNull(offsets[9]);
-  object.loggedAt = reader.readDateTime(offsets[10]);
-  object.metValue = reader.readDoubleOrNull(offsets[11]);
-  object.name = reader.readString(offsets[12]);
-  object.netKcal = reader.readDoubleOrNull(offsets[13]);
-  object.notes = reader.readStringOrNull(offsets[14]);
-  object.reps = reader.readLongOrNull(offsets[15]);
-  object.sets = reader.readLongOrNull(offsets[16]);
-  object.sourceKey = reader.readStringOrNull(offsets[17]);
-  object.weightKgSnapshot = reader.readDoubleOrNull(offsets[18]);
+  object.intensity = reader.readStringOrNull(offsets[9]);
+  object.liftWeightKg = reader.readDoubleOrNull(offsets[10]);
+  object.loggedAt = reader.readDateTime(offsets[11]);
+  object.metValue = reader.readDoubleOrNull(offsets[12]);
+  object.name = reader.readString(offsets[13]);
+  object.netKcal = reader.readDoubleOrNull(offsets[14]);
+  object.notes = reader.readStringOrNull(offsets[15]);
+  object.reps = reader.readLongOrNull(offsets[16]);
+  object.sets = reader.readLongOrNull(offsets[17]);
+  object.sourceKey = reader.readStringOrNull(offsets[18]);
+  object.weightKgSnapshot = reader.readDoubleOrNull(offsets[19]);
   return object;
 }
 
@@ -17395,32 +17403,34 @@ P _exerciseEntryEntityDeserializeProp<P>(
     case 4:
       return (reader.readStringOrNull(offset)) as P;
     case 5:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 6:
-      return (reader.readString(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 7:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 8:
-      return (reader.readStringOrNull(offset)) as P;
-    case 9:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 10:
-      return (reader.readDateTime(offset)) as P;
-    case 11:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 12:
       return (reader.readString(offset)) as P;
-    case 13:
+    case 8:
       return (reader.readDoubleOrNull(offset)) as P;
-    case 14:
+    case 9:
       return (reader.readStringOrNull(offset)) as P;
+    case 10:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 11:
+      return (reader.readDateTime(offset)) as P;
+    case 12:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 13:
+      return (reader.readString(offset)) as P;
+    case 14:
+      return (reader.readDoubleOrNull(offset)) as P;
     case 15:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 16:
       return (reader.readLongOrNull(offset)) as P;
     case 17:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 18:
+      return (reader.readStringOrNull(offset)) as P;
+    case 19:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');

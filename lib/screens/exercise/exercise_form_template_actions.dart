@@ -232,6 +232,7 @@ class _WorkoutTemplateApplyScreenState
       appBar: AppBar(title: Text(widget.template.name)),
       body: SafeArea(
         child: AppFormConstraint(
+          expandVertically: true,
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [

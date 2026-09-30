@@ -403,6 +403,12 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
           CalorieTargetEditor(
             mode: _calorieMode,
             onModeChanged: (mode) => setState(() => _calorieMode = mode),
+            onEdited: () {
+              if (_calorieMode == CalorieTargetMode.manual) {
+                return;
+              }
+              setState(() => _calorieMode = CalorieTargetMode.manual);
+            },
             kcalController: _kcalController,
             proteinController: _proteinController,
             fatController: _fatController,

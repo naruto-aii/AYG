@@ -11,4 +11,7 @@ abstract final class AppSpacing {
   static const double screenPadding = lg;
   static const double cardPadding = md;
   static const double sectionGap = lg;
+
+  /// 新しい画面の左右余白。`DesignPage` の初期値は 16 のまま。
+  static const double screenHorizontal = 20;
 }

@@ -2,6 +2,7 @@ import '../models/activity_level.dart';
 import '../models/alcohol_entry.dart';
 import '../models/calculation/energy_target_breakdown.dart';
 import '../models/calculation/goal_pace.dart';
+import '../models/calculation/weight_sample.dart';
 import '../models/daily_summary.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
@@ -34,8 +35,10 @@ class NutritionEngine {
     HealthSnapshot healthSnapshot = HealthSnapshot.empty,
     GoalPace goalPace = GoalPace.standard,
     DateTime? referenceDate,
+    List<WeightSample> weightSamples = const [],
   }) {
     final selectedDay = referenceDate ?? DateTime.now();
+    final manual = settings.usesManualTargets;
     final energy = _energyService.calculate(
       profile: profile,
       goal: goal,
@@ -43,7 +46,74 @@ class NutritionEngine {
       healthSnapshot: healthSnapshot,
       goalPace: goalPace,
       referenceDate: selectedDay,
+      weightSamples: weightSamples,
+      autoFoodTargetKcal: manual ? null : settings.autoFoodTargetKcal,
+      autoFoodTargetOn: manual ? null : settings.autoFoodTargetOn,
+      autoFoodTargetPriorKcal: manual ? null : settings.autoFoodTargetPriorKcal,
     );
+
+    if (manual) {
+      final targetKcal = settings.manualTargetKcal!;
+      final macroBreakdown = _macroService.manual(
+        goalFoodTargetKcal: targetKcal,
+        proteinG: settings.manualProteinG!,
+        fatG: settings.manualFatG!,
+        carbG: settings.manualCarbG!,
+        referenceWeightKg: profile.weightKg,
+      );
+      final dayFoodEntries = filterLoggedOnLocalDay(
+        entries: foodEntries,
+        referenceDate: selectedDay,
+        readLoggedAt: (entry) => entry.loggedAt,
+      );
+      final remainingBreakdown = _remainingCalorieService.calculateBreakdown(
+        baseDailyFoodTargetKcal: targetKcal,
+        foodEntries: foodEntries,
+        alcoholEntries: alcoholEntries,
+        exerciseEntries: exerciseEntries,
+        selectedDay: selectedDay,
+      );
+      return DailySummary(
+        targetKcal: targetKcal,
+        remainingKcal: remainingBreakdown.rawRemainingKcal,
+        targetProteinG: macroBreakdown.proteinG,
+        targetFatG: macroBreakdown.fatG,
+        targetCarbG: macroBreakdown.carbG,
+        intakeKcal: remainingBreakdown.intakeKcal,
+        intakeProteinG: _sumFoodProtein(dayFoodEntries),
+        intakeFatG: _sumFoodFat(dayFoodEntries),
+        intakeCarbG: _sumFoodCarb(dayFoodEntries),
+        exerciseBurnKcal: remainingBreakdown.exerciseNetKcal,
+        isCalorieOverage: remainingBreakdown.isOverage,
+        calorieOverageKcal: remainingBreakdown.overageKcal,
+        energyBreakdown: EnergyTargetBreakdown(
+          version: energy.version,
+          ageYears: energy.ageYears,
+          heightCm: energy.heightCm,
+          weightKg: energy.weightKg,
+          genderLabel: energy.genderLabel,
+          canEstimateRee: energy.canEstimateRee,
+          unavailableReason: energy.unavailableReason,
+          estimatedReeKcal: energy.estimatedReeKcal,
+          lifestyleActivityLevel: energy.lifestyleActivityLevel,
+          lifestyleActivityLabel: energy.lifestyleActivityLabel,
+          lifestyleActivityFactor: energy.lifestyleActivityFactor,
+          estimatedMaintenanceKcal: energy.estimatedMaintenanceKcal,
+          goalType: energy.goalType,
+          goalPace: energy.goalPace,
+          dailyGoalAdjustmentKcal: 0,
+          goalFoodTargetKcal: targetKcal,
+          usedHealthActiveEnergyForTarget: false,
+          healthActiveEnergyKcal: energy.healthActiveEnergyKcal,
+          productDefaultsUsed: energy.productDefaultsUsed,
+          calculatedAt: energy.calculatedAt,
+          weightSeries: energy.weightSeries,
+          manualTargetsActive: true,
+        ),
+        macroBreakdown: macroBreakdown,
+        remainingBreakdown: remainingBreakdown,
+      );
+    }
 
     if (!energy.canEstimateRee || energy.goalFoodTargetKcal == null) {
       return _emptySummary(
@@ -65,7 +135,7 @@ class NutritionEngine {
     final macroBreakdown = _macroService.calculate(
       goalType: goal.type,
       goalFoodTargetKcal: targetKcal,
-      referenceWeightKg: profile.weightKg,
+      referenceWeightKg: energy.weightKg ?? profile.weightKg,
       hasStrengthTrainingHabit: hasStrength,
     );
 

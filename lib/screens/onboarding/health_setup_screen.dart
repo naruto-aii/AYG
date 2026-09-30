@@ -53,8 +53,11 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
         ? await widget.healthRepository.fetchProfileData()
         : HealthProfileData.empty;
 
+    final current = widget.controller.nutritionSettings;
     widget.controller.setNutritionSettings(
-      const NutritionSettings(useHealthIntegration: true),
+      (current ?? const NutritionSettings(useHealthIntegration: true)).copyWith(
+        useHealthIntegration: true,
+      ),
     );
     await widget.controller.applyHealthProfileData(profileData);
 
@@ -208,9 +211,7 @@ class _HealthIllustration extends StatelessWidget {
             child: SizedBox(
               width: 76,
               height: 76,
-              child: Center(
-                child: AppBrandMark(size: 76 * _markBoxToTight),
-              ),
+              child: Center(child: AppBrandMark(size: 76 * _markBoxToTight)),
             ),
           ),
         ],

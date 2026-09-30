@@ -7,6 +7,7 @@ class HealthProfileData {
     this.gender,
     this.heightCm,
     this.weightKg,
+    this.weightMeasuredAt,
     this.activeEnergyBurnedKcal,
     this.workouts = const [],
   });
@@ -15,6 +16,9 @@ class HealthProfileData {
   final Gender? gender;
   final double? heightCm;
   final double? weightKg;
+
+  /// 体重サンプルの測定時刻。取得処理の現在時刻ではない。
+  final DateTime? weightMeasuredAt;
   final double? activeEnergyBurnedKcal;
   final List<HealthWorkoutRecord> workouts;
 
@@ -25,6 +29,7 @@ class HealthProfileData {
     Gender? gender,
     double? heightCm,
     double? weightKg,
+    DateTime? weightMeasuredAt,
     double? activeEnergyBurnedKcal,
     List<HealthWorkoutRecord>? workouts,
   }) {
@@ -33,6 +38,7 @@ class HealthProfileData {
       gender: gender ?? this.gender,
       heightCm: heightCm ?? this.heightCm,
       weightKg: weightKg ?? this.weightKg,
+      weightMeasuredAt: weightMeasuredAt ?? this.weightMeasuredAt,
       activeEnergyBurnedKcal:
           activeEnergyBurnedKcal ?? this.activeEnergyBurnedKcal,
       workouts: workouts ?? this.workouts,

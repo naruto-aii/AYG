@@ -6,6 +6,7 @@ import '../models/app_settings.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
 import '../models/meal_template.dart';
+import '../models/calculation/calorie_target_mode.dart';
 import '../models/calculation/goal_pace.dart';
 import '../models/goal.dart';
 import '../models/health_profile_data.dart';
@@ -507,6 +508,19 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         activityLevel: row['activity_level'] == null
             ? null
             : _parseActivityLevel(row['activity_level'] as String?),
+        calorieTargetMode: CalorieTargetMode.fromName(
+          row['calorie_target_mode'] as String?,
+        ),
+        manualTargetKcal: _optionalDouble(row, 'manual_target_kcal'),
+        manualProteinG: _optionalDouble(row, 'manual_protein_g'),
+        manualFatG: _optionalDouble(row, 'manual_fat_g'),
+        manualCarbG: _optionalDouble(row, 'manual_carb_g'),
+        autoFoodTargetKcal: _optionalDouble(row, 'auto_food_target_kcal'),
+        autoFoodTargetOn: _optionalDate(row, 'auto_food_target_on'),
+        autoFoodTargetPriorKcal: _optionalDouble(
+          row,
+          'auto_food_target_prior_kcal',
+        ),
       ),
     );
   }
@@ -533,7 +547,32 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       'user_id': userId,
       'use_health_integration': settings.useHealthIntegration,
       'activity_level': settings.activityLevel?.name,
+      'calorie_target_mode': settings.calorieTargetMode.name,
+      'manual_target_kcal': settings.manualTargetKcal,
+      'manual_protein_g': settings.manualProteinG,
+      'manual_fat_g': settings.manualFatG,
+      'manual_carb_g': settings.manualCarbG,
+      'auto_food_target_kcal': settings.autoFoodTargetKcal,
+      'auto_food_target_on': settings.autoFoodTargetOn
+          ?.toIso8601String()
+          .split('T')
+          .first,
+      'auto_food_target_prior_kcal': settings.autoFoodTargetPriorKcal,
     }, onConflict: 'user_id');
+  }
+
+  double? _optionalDouble(Map<String, dynamic> row, String key) {
+    if (!row.containsKey(key) || row[key] == null) {
+      return null;
+    }
+    return (row[key] as num).toDouble();
+  }
+
+  DateTime? _optionalDate(Map<String, dynamic> row, String key) {
+    if (!row.containsKey(key) || row[key] == null) {
+      return null;
+    }
+    return DateTime.parse(row[key] as String);
   }
 
   Future<void> _pullHealthSnapshot(String userId) async {
@@ -551,6 +590,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         activeEnergyBurnedKcal: (row['active_energy_burned_kcal'] as num?)
             ?.toDouble(),
         weightKg: (row['weight_kg'] as num?)?.toDouble(),
+        weightMeasuredAt: _optionalDate(row, 'weight_measured_at'),
       ),
     );
   }
@@ -565,6 +605,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       'user_id': userId,
       'active_energy_burned_kcal': snapshot.activeEnergyBurnedKcal,
       'weight_kg': snapshot.weightKg,
+      'weight_measured_at': snapshot.weightMeasuredAt?.toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
     }, onConflict: 'user_id');
   }

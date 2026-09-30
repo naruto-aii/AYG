@@ -2,6 +2,26 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20260930120000 daily calorie target
+
+列を足しただけです。行は消しません。2回実行しても失敗しません。先にアプリを、この列を読まない版へ戻してから流します。
+
+`supabase/rollback/20260930120000_daily_calorie_target_down.sql`
+
+消える列:
+
+- `nutrition_settings.calorie_target_mode`
+- `nutrition_settings.manual_target_kcal`
+- `nutrition_settings.manual_protein_g`
+- `nutrition_settings.manual_fat_g`
+- `nutrition_settings.manual_carb_g`
+- `nutrition_settings.auto_food_target_kcal`
+- `nutrition_settings.auto_food_target_on`
+- `nutrition_settings.auto_food_target_prior_kcal`
+- `health_snapshots.weight_measured_at`
+
+手入力のカロリーと PFC、自動計算の前日目標、Health の測定時刻は、このダウンで失われます。食事記録、体重の行、目標体重、目標日は残ります。
+
 成分表の2つのダウンは、それぞれ `begin` から `commit` までの1トランザクションです。文を分けて流しません。途中で失敗すると、そのファイルの変更は全部戻ります。
 
 戻す順は出典ダウンを先に確定し、その次に公式食品ダウンです。公式食品ダウン（`20260928120000`）を先に流すと、公開中の成分表コピーが無い場合は以前は成功していました。`official_foods` だけが消え、`enforce_mext_food_entry_code` が残ります。その関数は食事記録の登録のたびに消えた表を参照するため、手入力を含む `food_entries` の登録がすべて失敗します。今は公式食品ダウンの先頭で、出典ダウンが作ったトリガー、関数、列が残っていれば止まり、先に `supabase/rollback/20260928140000_official_food_provenance_down.sql` を流すよう伝えます。その失敗は1トランザクションなので表は消えません。直し方は、出典ダウンを流してから公式食品ダウンを流し直すことです。

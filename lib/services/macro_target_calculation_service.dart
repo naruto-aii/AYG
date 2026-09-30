@@ -160,6 +160,54 @@ class MacroTargetCalculationService {
     }
   }
 
+  MacroTargetBreakdown manual({
+    required double goalFoodTargetKcal,
+    required double proteinG,
+    required double fatG,
+    required double carbG,
+    required double referenceWeightKg,
+  }) {
+    final proteinKcal = proteinG * proteinKcalPerGram;
+    final fatKcal = fatG * fatKcalPerGram;
+    final carbKcal = carbG * carbKcalPerGram;
+    final proteinGPerKg = referenceWeightKg > 0
+        ? proteinG / referenceWeightKg
+        : 0.0;
+    final fatRatio = goalFoodTargetKcal > 0
+        ? fatKcal / goalFoodTargetKcal
+        : defaultFatEnergyRatio;
+    return MacroTargetBreakdown(
+      version: CalculationVersions.macro,
+      referenceWeightKg: referenceWeightKg,
+      goalFoodTargetKcal: goalFoodTargetKcal,
+      proteinGPerKg: proteinGPerKg,
+      proteinReason: '手入力',
+      fatEnergyRatio: fatRatio,
+      fatReason: '手入力',
+      proteinG: proteinG,
+      fatG: fatG,
+      carbG: carbG,
+      proteinKcal: proteinKcal,
+      fatKcal: fatKcal,
+      carbKcal: carbKcal,
+      amdrProteinPercentRange: amdrProteinPercent,
+      amdrFatPercentRange: amdrFatPercent,
+      amdrCarbPercentRange: amdrCarbPercent,
+      actualProteinPercent: goalFoodTargetKcal > 0
+          ? proteinKcal / goalFoodTargetKcal * 100
+          : null,
+      actualFatPercent: goalFoodTargetKcal > 0
+          ? fatKcal / goalFoodTargetKcal * 100
+          : null,
+      actualCarbPercent: goalFoodTargetKcal > 0
+          ? carbKcal / goalFoodTargetKcal * 100
+          : null,
+      amdrWarnings: const [],
+      productDefaultsUsed: const ['PFC は手入力'],
+      calculatedAt: DateTime.now(),
+    );
+  }
+
   bool inferStrengthTrainingHabit({
     required List<ExerciseCategory?> recentCategories,
   }) {

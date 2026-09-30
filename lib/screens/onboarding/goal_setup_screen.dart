@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../models/activity_level.dart';
+import '../../models/calculation/calorie_target_mode.dart';
 import '../../models/goal.dart';
+import '../../models/nutrition_settings.dart';
+import '../../widgets/nutrition/calorie_target_editor.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
@@ -44,7 +48,12 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   static const Duration _defaultHorizon = Duration(days: 90);
 
   GoalType _goalType = GoalType.maintain;
+  CalorieTargetMode _calorieMode = CalorieTargetMode.automatic;
   final _targetWeightController = TextEditingController();
+  final _kcalController = TextEditingController();
+  final _proteinController = TextEditingController();
+  final _fatController = TextEditingController();
+  final _carbController = TextEditingController();
   DateTime? _targetDate;
 
   double? get _currentWeightKg => widget.controller.profile?.weightKg;
@@ -65,6 +74,10 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     _targetWeightController
       ..removeListener(_onInputChanged)
       ..dispose();
+    _kcalController.dispose();
+    _proteinController.dispose();
+    _fatController.dispose();
+    _carbController.dispose();
     super.dispose();
   }
 
@@ -129,6 +142,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
         targetWeightKg: current,
         targetDate: DateTime.now().add(_defaultHorizon),
       ),
+      updateCalorieTarget: false,
     );
   }
 
@@ -145,6 +159,19 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
       return;
     }
 
+    if (_calorieMode == CalorieTargetMode.manual) {
+      final message = validateManualCalorieTargets(
+        kcalText: _kcalController.text,
+        proteinText: _proteinController.text,
+        fatText: _fatController.text,
+        carbText: _carbController.text,
+      );
+      if (message != null) {
+        _warn(message);
+        return;
+      }
+    }
+
     await _save(
       Goal(
         type: _goalType,
@@ -154,7 +181,37 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     );
   }
 
-  Future<void> _save(Goal goal) async {
+  void _saveCalorieTarget() {
+    final current = widget.controller.nutritionSettings;
+    final base =
+        current ??
+        NutritionSettings(
+          useHealthIntegration: widget.controller.useHealthIntegration,
+          activityLevel: widget.controller.useHealthIntegration
+              ? null
+              : ActivityLevel.moderate,
+        );
+    if (_calorieMode == CalorieTargetMode.manual) {
+      widget.controller.setNutritionSettings(
+        base.copyWith(
+          calorieTargetMode: CalorieTargetMode.manual,
+          manualTargetKcal: double.parse(_kcalController.text.trim()),
+          manualProteinG: double.parse(_proteinController.text.trim()),
+          manualFatG: double.parse(_fatController.text.trim()),
+          manualCarbG: double.parse(_carbController.text.trim()),
+        ),
+      );
+      return;
+    }
+    widget.controller.setNutritionSettings(
+      base.copyWith(calorieTargetMode: CalorieTargetMode.automatic),
+    );
+  }
+
+  Future<void> _save(Goal goal, {bool updateCalorieTarget = true}) async {
+    if (updateCalorieTarget) {
+      _saveCalorieTarget();
+    }
     widget.controller.setGoal(goal);
 
     if (!widget.controller.useHealthIntegration) {
@@ -231,7 +288,9 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(child: DesignButton(label: 'はじめる', onPressed: _complete)),
+          Expanded(
+            child: DesignButton(label: 'はじめる', onPressed: _complete),
+          ),
         ],
       ),
       body: Column(
@@ -340,11 +399,21 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
             days > 0 ? 'あと 約${(days / 30).round()}か月（$days日）' : '目標日を選んでください',
             style: AppTypography.caption.copyWith(color: AppColors.textMuted),
           ),
+          const SizedBox(height: 18),
+          CalorieTargetEditor(
+            mode: _calorieMode,
+            onModeChanged: (mode) => setState(() => _calorieMode = mode),
+            kcalController: _kcalController,
+            proteinController: _proteinController,
+            fatController: _fatController,
+            carbController: _carbController,
+          ),
           if (_isPaceTooFast) ...[
             const SizedBox(height: 12),
             const WarnBanner(
               title: '期間がやや短めです。',
-              description: '目標達成のために、1日の摂取カロリーが\nやや少なめになる可能性があります。\n内容を確認して保存できます。',
+              description:
+                  '目標達成のために、1日の摂取カロリーが\nやや少なめになる可能性があります。\n内容を確認して保存できます。',
             ),
           ],
           const SizedBox(height: 24),
@@ -357,7 +426,9 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     return AppIcon(
       asset,
       size: 32,
-      color: _goalType == type ? AppColors.iconPrimary : AppColors.textSecondary,
+      color: _goalType == type
+          ? AppColors.iconPrimary
+          : AppColors.textSecondary,
     );
   }
 }

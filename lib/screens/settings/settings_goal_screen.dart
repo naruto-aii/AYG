@@ -5,7 +5,9 @@ import '../../models/activity_level.dart';
 import '../../models/calculation/calorie_target_mode.dart';
 import '../../models/calculation/goal_pace.dart';
 import '../../models/goal.dart';
+import '../../models/macro_field.dart';
 import '../../models/nutrition_settings.dart';
+import '../../services/nutrition_value_calculator.dart';
 import '../../widgets/nutrition/calorie_target_editor.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -50,21 +52,32 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     _calorieMode = settings?.calorieTargetMode ?? CalorieTargetMode.automatic;
     _targetWeightController.text = goal.targetWeightKg.toStringAsFixed(1);
     _targetDate = goal.targetDate;
-    if (settings?.manualTargetKcal != null) {
-      _kcalController.text = settings!.manualTargetKcal!.toStringAsFixed(0);
-    }
-    if (settings?.manualProteinG != null) {
-      _proteinController.text = settings!.manualProteinG!.toStringAsFixed(0);
-    }
-    if (settings?.manualFatG != null) {
-      _fatController.text = settings!.manualFatG!.toStringAsFixed(0);
-    }
-    if (settings?.manualCarbG != null) {
-      _carbController.text = settings!.manualCarbG!.toStringAsFixed(0);
-    }
+    _showManual(MacroField.kcal, settings?.manualTargetKcal);
+    _showManual(MacroField.protein, settings?.manualProteinG);
+    _showManual(MacroField.fat, settings?.manualFatG);
+    _showManual(MacroField.carb, settings?.manualCarbG);
     if (_calorieMode == CalorieTargetMode.automatic) {
       _applyCalculatedTargets();
     }
+  }
+
+  void _showManual(MacroField field, double? value) {
+    if (value == null) {
+      return;
+    }
+    _controllerFor(field).text = NutritionValueCalculator.formatForField(
+      field,
+      value,
+    );
+  }
+
+  TextEditingController _controllerFor(MacroField field) {
+    return switch (field) {
+      MacroField.kcal => _kcalController,
+      MacroField.protein => _proteinController,
+      MacroField.fat => _fatController,
+      MacroField.carb => _carbController,
+    };
   }
 
   void _applyCalculatedTargets() {

@@ -20,6 +20,7 @@ class DesignPage extends StatelessWidget {
     this.background,
     this.backgroundColor,
     this.bodyPadding = const EdgeInsets.symmetric(horizontal: 16),
+    this.bottomBarPadding = const EdgeInsets.fromLTRB(16, 6, 16, 6),
     this.scrollable = true,
     this.scrollController,
   });
@@ -39,6 +40,9 @@ class DesignPage extends StatelessWidget {
   final Widget? background;
   final Color? backgroundColor;
   final EdgeInsets bodyPadding;
+
+  /// 下部アクションの外側余白。初期値の左右 16 は既存画面用。
+  final EdgeInsets bottomBarPadding;
   final bool scrollable;
   final ScrollController? scrollController;
 
@@ -68,10 +72,7 @@ class DesignPage extends StatelessWidget {
                       : content,
                 ),
                 if (bottomBar != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                    child: bottomBar,
-                  ),
+                  Padding(padding: bottomBarPadding, child: bottomBar),
                 if (tabBar != null)
                   tabBar!
                 else

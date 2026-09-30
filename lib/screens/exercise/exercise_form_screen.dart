@@ -6,17 +6,22 @@ import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_entry.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_text_field.dart';
+import '../../theme/app_typography.dart';
 import '../../widgets/common/delete_with_undo.dart';
-import '../../widgets/common/primary_button.dart';
-import '../../widgets/common/secondary_button.dart';
-import '../../widgets/common/logged_at_picker_field.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/icon_circle.dart';
 import '../../widgets/exercise/exercise_met_calculation_section.dart';
-import '../../widgets/layout/app_constrained_bottom_bar.dart';
-import '../../widgets/layout/app_form_constraint.dart';
 
 class ExerciseFormScreen extends StatefulWidget {
+  static const setsFieldKey = Key('exercise-sets');
+  static const repsFieldKey = Key('exercise-reps');
+  static const liftWeightFieldKey = Key('exercise-lift-weight');
+
   const ExerciseFormScreen({
     super.key,
     required this.controller,
@@ -241,38 +246,118 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     Navigator.of(context).pop();
   }
 
+  Widget _icon(String asset) => AppIcon(
+    asset,
+    size: 24,
+    color: IconCircle.foregroundOf(IconCircleTone.green),
+  );
+
+  Widget _numberField({
+    required Key fieldKey,
+    required String icon,
+    required String label,
+    required String suffix,
+    required TextEditingController controller,
+    required TextInputType keyboardType,
+  }) {
+    return DesignFieldCard(
+      icon: _icon(icon),
+      label: label,
+      child: DesignInputBox(
+        suffix: suffix,
+        child: DesignTextInput(
+          key: fieldKey,
+          controller: controller,
+          keyboardType: keyboardType,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickLoggedAt() async {
+    final local = _loggedAt.toLocal();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: local,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (pickedDate == null || !mounted) {
+      return;
+    }
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(local),
+    );
+    if (pickedTime == null) {
+      return;
+    }
+    setState(() {
+      _loggedAt = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
+  }
+
+  String _formatLoggedAt(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year}/${local.month}/${local.day} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+
   Widget _buildAdditionalFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_isStrength)
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('セット・回数・重量（任意）'),
-            subtitle: const Text('消費カロリーは実施時間から計算します'),
-            children: [
-              AppTextField(
-                controller: _setsController,
-                label: 'セット',
-                keyboardType: TextInputType.number,
-              ),
-              AppTextField(
-                controller: _repsController,
-                label: '回数',
-                keyboardType: TextInputType.number,
-              ),
-              AppTextField(
-                controller: _liftWeightController,
-                label: '重量（kg）',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-            ],
+        if (_isStrength) ...[
+          _numberField(
+            fieldKey: ExerciseFormScreen.setsFieldKey,
+            icon: AppIcons.dumbbell,
+            label: 'セット',
+            suffix: 'セット',
+            controller: _setsController,
+            keyboardType: TextInputType.number,
           ),
-        LoggedAtPickerField(
-          loggedAt: _loggedAt,
-          onChanged: (value) => setState(() => _loggedAt = value),
+          const SizedBox(height: AppSpacing.md),
+          _numberField(
+            fieldKey: ExerciseFormScreen.repsFieldKey,
+            icon: AppIcons.dumbbell,
+            label: '回数',
+            suffix: '回',
+            controller: _repsController,
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _numberField(
+            fieldKey: ExerciseFormScreen.liftWeightFieldKey,
+            icon: AppIcons.dumbbell,
+            label: '重量（kg）',
+            suffix: 'kg',
+            controller: _liftWeightController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '消費カロリーは実施時間から計算します',
+            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        DesignFieldCard(
+          icon: _icon(AppIcons.calendar),
+          label: '記録日時',
+          child: DesignInputBox(
+            onTap: _pickLoggedAt,
+            child: Text(
+              _formatLoggedAt(_loggedAt),
+              style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
+            ),
+          ),
         ),
       ],
     );
@@ -280,51 +365,55 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? '運動を編集' : '運動を追加')),
-      body: SafeArea(
-        child: AppFormConstraint(
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                widget.isEditing ? 160 : 100,
-              ),
-              children: [
-                ExerciseMetCalculationSection(
-                  controller: widget.controller,
-                  loggedAt: _loggedAt,
-                  durationController: _durationController,
-                  grossKcalController: _burnedKcalController,
-                  nameController: _nameController,
-                  notesController: _notesController,
-                  additionalFields: _buildAdditionalFields(),
-                  isEditing: widget.isEditing,
-                  initialEntry: widget.entry,
-                  onEstimateChanged: (state) =>
-                      setState(() => _metState = state),
-                ),
-              ],
-            ),
-          ),
-        ),
+    return DesignPage(
+      bodyPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenHorizontal,
       ),
-      bottomNavigationBar: AppConstrainedBottomBar(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PrimaryButton(
-              label: '保存',
-              loading: _isSaving,
-              onPressed: _isSaving ? null : _save,
+      bottomBarPadding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenHorizontal,
+        6,
+        AppSpacing.screenHorizontal,
+        6,
+      ),
+      bottomBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DesignButton(
+            label: widget.isEditing ? '更新' : '保存',
+            showTrailingIcon: false,
+            loading: _isSaving,
+            onPressed: _isSaving ? null : _save,
+          ),
+          if (widget.isEditing) ...[
+            const SizedBox(height: AppSpacing.md),
+            DesignButton(
+              label: '削除',
+              style: DesignButtonStyle.danger,
+              showTrailingIcon: false,
+              onPressed: _confirmDelete,
             ),
-            if (widget.isEditing) ...[
-              const SizedBox(height: AppSpacing.xs),
-              SecondaryButton(label: '削除', onPressed: _confirmDelete),
-            ],
+          ],
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DesignTitleBlock(title: widget.isEditing ? '運動を編集' : '運動を追加'),
+            ExerciseMetCalculationSection(
+              controller: widget.controller,
+              loggedAt: _loggedAt,
+              durationController: _durationController,
+              grossKcalController: _burnedKcalController,
+              nameController: _nameController,
+              notesController: _notesController,
+              additionalFields: _buildAdditionalFields(),
+              isEditing: widget.isEditing,
+              initialEntry: widget.entry,
+              onEstimateChanged: (state) => setState(() => _metState = state),
+            ),
+            const SizedBox(height: AppSpacing.md),
           ],
         ),
       ),

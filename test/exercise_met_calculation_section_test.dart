@@ -698,7 +698,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-        find.widgetWithText(TextFormField, '実施時間（分）'),
+        find.byKey(ExerciseMetCalculationSection.durationFieldKey),
         '60',
       );
       await tester.pumpAndSettle();
@@ -737,6 +737,28 @@ void main() {
       expect(find.text('メモ'), findsOneWidget);
     });
 
+    testWidgets('exercise form shows fields on a wide window', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      await tester.pumpWidget(
+        MaterialApp(home: ExerciseFormScreen(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('運動を追加'), findsOneWidget);
+      expect(find.text('種目'), findsOneWidget);
+      expect(find.text('実施時間（分）'), findsOneWidget);
+      expect(find.text('ウォーキング'), findsOneWidget);
+    });
+
     testWidgets('strength category shows sets reps and lift weight', (
       tester,
     ) async {
@@ -751,16 +773,10 @@ void main() {
 
       await tapActivityChip(tester, '筋トレ');
 
-      await tester.scrollUntilVisible(
-        find.text('セット・回数・重量（任意）'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('セット・回数・重量（任意）'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextFormField, 'セット'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, '回数'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, '重量（kg）'), findsOneWidget);
+      expect(find.byKey(ExerciseFormScreen.setsFieldKey), findsOneWidget);
+      expect(find.byKey(ExerciseFormScreen.repsFieldKey), findsOneWidget);
+      expect(find.byKey(ExerciseFormScreen.liftWeightFieldKey), findsOneWidget);
+      expect(find.text('消費カロリーは実施時間から計算します'), findsOneWidget);
     });
   });
 }

@@ -37,7 +37,13 @@ import '../models/public_food_search_match.dart';
 import '../models/saved_food_publish_validation.dart';
 import '../models/save_food_entry_result.dart';
 import '../models/user_profile.dart';
+import '../models/calculation/calorie_target_mode.dart';
+import '../models/calculation/goal_pace.dart';
+import '../models/calculation/landing_guidance.dart';
+import '../models/calculation/weight_sample.dart';
 import '../models/weight_entry.dart';
+import '../services/weight_for_target.dart';
+import '../utils/local_date.dart';
 import '../models/workout_template.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
@@ -213,23 +219,79 @@ class AppController extends ChangeNotifier {
   bool get isHealthRepositoryAvailable =>
       _healthRepository?.isAvailable ?? false;
 
+  /// 計算に使用している体重。測定時刻が新しい方。
+  WeightSelection get currentWeightSelection => selectWeight(
+    samples: calculationWeightSamples(),
+    reference: DateTime.now(),
+    fallbackKg: profile?.weightKg,
+  );
+
   /// 計算に使用している体重のデータソース。
   WeightDataSource get weightDataSource {
-    if (!useHealthIntegration) {
-      return WeightDataSource.manual;
-    }
-    if (healthSnapshot.weightKg != null || healthPrefill.weightKg != null) {
+    final source = currentWeightSelection.source;
+    if (source == WeightSource.health) {
       return WeightDataSource.health;
     }
-    return WeightDataSource.healthPending;
+    if (useHealthIntegration &&
+        healthSnapshot.weightKg == null &&
+        healthPrefill.weightKg == null &&
+        !weightEntries.any((entry) => entry.source == WeightSource.health)) {
+      return WeightDataSource.healthPending;
+    }
+    return WeightDataSource.manual;
   }
 
   String get weightDataSourceLabel {
-    return switch (weightDataSource) {
-      WeightDataSource.manual => AppStrings.weightSourceManual,
-      WeightDataSource.health => AppStrings.weightSourceHealth,
-      WeightDataSource.healthPending => AppStrings.weightSourceHealthPending,
-    };
+    final selection = currentWeightSelection;
+    final lines = <String>[selection.usageLabel];
+    final healthNote = selection.healthUpdateStoppedNote;
+    if (healthNote != null) {
+      lines.add(healthNote);
+    }
+    final staleNote = selection.staleRecordPrompt;
+    if (staleNote != null) {
+      lines.add(staleNote);
+    }
+    return lines.join('\n');
+  }
+
+  List<WeightSample> calculationWeightSamples() {
+    final measuredAt = healthSnapshot.weightMeasuredAt;
+    final ignoreHealthAfter = measuredAt?.add(const Duration(minutes: 1));
+    final samples = <WeightSample>[];
+    for (final entry in weightEntries) {
+      if (entry.source == WeightSource.health &&
+          ignoreHealthAfter != null &&
+          entry.recordedAt.isAfter(ignoreHealthAfter)) {
+        continue;
+      }
+      samples.add(
+        WeightSample(
+          kg: entry.weightKg,
+          measuredAt: entry.recordedAt,
+          source: entry.source,
+        ),
+      );
+    }
+    final snapshotKg = healthSnapshot.weightKg;
+    if (snapshotKg != null && measuredAt != null) {
+      final already = samples.any(
+        (sample) =>
+            sample.source == WeightSource.health &&
+            sample.measuredAt.isAtSameMomentAs(measuredAt) &&
+            (sample.kg - snapshotKg).abs() < 0.001,
+      );
+      if (!already) {
+        samples.add(
+          WeightSample(
+            kg: snapshotKg,
+            measuredAt: measuredAt,
+            source: WeightSource.health,
+          ),
+        );
+      }
+    }
+    return samples;
   }
 
   Future<void> initialize() async {
@@ -437,8 +499,9 @@ class AppController extends ChangeNotifier {
   }
 
   void setProfile(UserProfile value) {
-    profile = _profileWithPreferredWeight(value);
+    profile = value;
     _userRepository?.saveProfile(profile!);
+    _rememberManualWeight(value.weightKg);
     _scheduleRemoteSync();
     refreshDailySummary();
   }
@@ -448,6 +511,7 @@ class AppController extends ChangeNotifier {
     healthSnapshot = HealthSnapshot(
       activeEnergyBurnedKcal: data.activeEnergyBurnedKcal,
       weightKg: data.weightKg,
+      weightMeasuredAt: data.weightKg == null ? null : data.weightMeasuredAt,
     );
     await _settingsRepository?.saveHealthSnapshot(healthSnapshot);
 
@@ -457,13 +521,16 @@ class AppController extends ChangeNotifier {
         data,
       );
     }
+    await _reloadWeightEntries();
 
     final currentProfile = profile;
     if (currentProfile != null) {
-      profile = _profileWithPreferredWeight(currentProfile);
-      if (profile != null) {
-        await _userRepository?.saveProfile(profile!);
-      }
+      profile = currentProfile.copyWith(
+        weightKg: currentWeightSelection.kg > 0
+            ? currentWeightSelection.kg
+            : currentProfile.weightKg,
+      );
+      await _userRepository?.saveProfile(profile!);
     }
 
     _scheduleRemoteSync();
@@ -505,7 +572,11 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    profile = _profileWithPreferredWeight(currentProfile);
+    profile = currentProfile.copyWith(
+      weightKg: currentWeightSelection.kg > 0
+          ? currentWeightSelection.kg
+          : currentProfile.weightKg,
+    );
     await _userRepository?.saveProfile(profile!);
     refreshDailySummary();
   }
@@ -550,10 +621,42 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    profile = _profileWithPreferredWeight(currentProfile);
+    profile = currentProfile.copyWith(
+      weightKg: currentWeightSelection.kg > 0
+          ? currentWeightSelection.kg
+          : currentProfile.weightKg,
+    );
     await _userRepository?.saveProfile(profile!);
     _scheduleRemoteSync();
     refreshDailySummary();
+  }
+
+  void _rememberManualWeight(double weightKg) {
+    WeightEntry? latestManual;
+    for (final entry in weightEntries) {
+      if (entry.source != WeightSource.manual) {
+        continue;
+      }
+      if (latestManual == null ||
+          entry.recordedAt.isAfter(latestManual.recordedAt)) {
+        latestManual = entry;
+      }
+    }
+    if (latestManual != null &&
+        (latestManual.weightKg - weightKg).abs() < 0.05) {
+      return;
+    }
+    final entry = WeightEntry(
+      id: generateId(),
+      weightKg: weightKg,
+      recordedAt: DateTime.now(),
+      source: WeightSource.manual,
+    );
+    weightEntries.add(entry);
+    final repository = _weightRepository;
+    if (repository != null) {
+      unawaited(repository.save(entry));
+    }
   }
 
   Future<void> updateBasicProfile({
@@ -571,38 +674,18 @@ class AppController extends ChangeNotifier {
         manualWeightKg != null &&
         (manualWeightKg - currentProfile.weightKg).abs() > 0.009;
 
-    if (weightChanged && !useHealthIntegration) {
-      await recordManualWeight(manualWeightKg);
-      profile = profile!.copyWith(
-        birthDate: birthDate,
-        gender: gender,
-        heightCm: heightCm,
-      );
-      await _userRepository?.saveProfile(profile!);
-      _scheduleRemoteSync();
-      refreshDailySummary();
-      return;
-    }
-
-    var nextProfile = currentProfile.copyWith(
+    profile = currentProfile.copyWith(
       birthDate: birthDate,
       gender: gender,
       heightCm: heightCm,
     );
+    await _userRepository?.saveProfile(profile!);
 
-    if (weightChanged && useHealthIntegration) {
-      final entry = WeightEntry(
-        id: generateId(),
-        weightKg: manualWeightKg,
-        recordedAt: DateTime.now(),
-        source: WeightSource.manual,
-      );
-      await _weightRepository?.save(entry);
-      nextProfile = nextProfile.copyWith(weightKg: manualWeightKg);
+    if (weightChanged) {
+      await recordManualWeight(manualWeightKg);
+      return;
     }
 
-    profile = _profileWithPreferredWeight(nextProfile);
-    await _userRepository?.saveProfile(profile!);
     _scheduleRemoteSync();
     refreshDailySummary();
   }
@@ -615,18 +698,22 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveNutritionSettingsSettings(NutritionSettings value) async {
-    nutritionSettings = value;
-    await _settingsRepository?.saveNutritionSettings(value);
+    final next = _settingsPreservingAutoSwitch(value);
+    nutritionSettings = next;
+    await _settingsRepository?.saveNutritionSettings(next);
     _scheduleRemoteSync();
     refreshDailySummary();
   }
 
   Future<void> updateActivityLevel(ActivityLevel activityLevel) async {
+    final current = nutritionSettings;
     await saveNutritionSettingsSettings(
-      NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: activityLevel,
-      ),
+      (current ??
+              const NutritionSettings(
+                useHealthIntegration: false,
+                activityLevel: ActivityLevel.moderate,
+              ))
+          .copyWith(useHealthIntegration: false, activityLevel: activityLevel),
     );
   }
 
@@ -641,8 +728,11 @@ class AppController extends ChangeNotifier {
         ? await healthRepository.fetchProfileData()
         : HealthProfileData.empty;
 
+    final current = nutritionSettings;
     await saveNutritionSettingsSettings(
-      const NutritionSettings(useHealthIntegration: true),
+      (current ?? const NutritionSettings(useHealthIntegration: true)).copyWith(
+        useHealthIntegration: true,
+      ),
     );
     await applyHealthProfileData(profileData);
     return granted;
@@ -653,12 +743,40 @@ class AppController extends ChangeNotifier {
         activityLevel ??
         nutritionSettings?.activityLevel ??
         ActivityLevel.moderate;
+    final current = nutritionSettings;
     await saveNutritionSettingsSettings(
-      NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: fallbackLevel,
-      ),
+      (current ??
+              NutritionSettings(
+                useHealthIntegration: false,
+                activityLevel: fallbackLevel,
+              ))
+          .copyWith(useHealthIntegration: false, activityLevel: fallbackLevel),
     );
+  }
+
+  Future<void> applyLandingSuggestion(LandingGuidanceAction action) async {
+    final currentGoal = goal;
+    final guidance = summary?.energyBreakdown?.guidance;
+    if (currentGoal == null || guidance == null) {
+      return;
+    }
+    final next = switch (action) {
+      LandingGuidanceAction.extendDate =>
+        guidance.suggestedDate == null
+            ? null
+            : currentGoal.copyWith(targetDate: guidance.suggestedDate),
+      LandingGuidanceAction.changeWeight =>
+        guidance.suggestedWeightKg == null
+            ? null
+            : currentGoal.copyWith(targetWeightKg: guidance.suggestedWeightKg),
+      LandingGuidanceAction.useStandardPace => currentGoal.copyWith(
+        goalPace: GoalPace.standard,
+      ),
+    };
+    if (next == null) {
+      return;
+    }
+    await saveGoalSettings(next);
   }
 
   Future<bool> resyncHealthData() async {
@@ -681,10 +799,22 @@ class AppController extends ChangeNotifier {
   }
 
   void setNutritionSettings(NutritionSettings value) {
-    nutritionSettings = value;
-    _settingsRepository?.saveNutritionSettings(value);
+    final next = _settingsPreservingAutoSwitch(value);
+    nutritionSettings = next;
+    _settingsRepository?.saveNutritionSettings(next);
     _scheduleRemoteSync();
     refreshDailySummary();
+  }
+
+  NutritionSettings _settingsPreservingAutoSwitch(NutritionSettings value) {
+    final previous = nutritionSettings;
+    final switchingToAutomatic =
+        previous?.calorieTargetMode == CalorieTargetMode.manual &&
+        value.calorieTargetMode == CalorieTargetMode.automatic;
+    if (!switchingToAutomatic) {
+      return value;
+    }
+    return value.copyWith(clearAutoFoodTarget: true);
   }
 
   void setHealthSnapshot(HealthSnapshot value) {
@@ -706,6 +836,7 @@ class AppController extends ChangeNotifier {
       return;
     }
 
+    final day = referenceDate ?? DateTime.now();
     summary = _nutritionEngine.calculateDailySummary(
       profile: currentProfile,
       goal: currentGoal,
@@ -715,9 +846,48 @@ class AppController extends ChangeNotifier {
       foodEntries: List.unmodifiable(foodEntries),
       exerciseEntries: List.unmodifiable(exerciseEntries),
       alcoholEntries: List.unmodifiable(alcoholEntries),
-      referenceDate: referenceDate ?? DateTime.now(),
+      referenceDate: day,
+      weightSamples: calculationWeightSamples(),
     );
+    _persistAutoTargetAnchor(day);
     notifyListeners();
+  }
+
+  void _persistAutoTargetAnchor(DateTime referenceDate) {
+    final settings = nutritionSettings;
+    final update = summary?.energyBreakdown?.anchorUpdate;
+    if (settings == null ||
+        update == null ||
+        settings.usesManualTargets ||
+        !isSameLocalDay(referenceDate, DateTime.now())) {
+      return;
+    }
+    final sameTarget =
+        settings.autoFoodTargetKcal != null &&
+        (settings.autoFoodTargetKcal! - update.targetKcal).abs() < 0.05;
+    final sameDay =
+        settings.autoFoodTargetOn != null &&
+        isSameLocalDay(settings.autoFoodTargetOn!, update.targetOn);
+    final samePrior =
+        settings.autoFoodTargetPriorKcal == null && update.priorKcal == null ||
+        (settings.autoFoodTargetPriorKcal != null &&
+            update.priorKcal != null &&
+            (settings.autoFoodTargetPriorKcal! - update.priorKcal!).abs() <
+                0.05);
+    if (sameTarget && sameDay && samePrior) {
+      return;
+    }
+    nutritionSettings = settings.copyWith(
+      autoFoodTargetKcal: update.targetKcal,
+      autoFoodTargetOn: update.targetOn,
+      autoFoodTargetPriorKcal: update.priorKcal,
+      clearAutoFoodTargetPrior: update.priorKcal == null,
+    );
+    final saved = nutritionSettings;
+    if (saved != null) {
+      _settingsRepository?.saveNutritionSettings(saved);
+      _scheduleRemoteSync();
+    }
   }
 
   Future<void> _reloadFoodEntries() async {
@@ -2545,25 +2715,6 @@ class AppController extends ChangeNotifier {
     }
 
     unawaited(dataSyncRepository.pushLocalToRemote(userId));
-  }
-
-  UserProfile _profileWithPreferredWeight(UserProfile manualProfile) {
-    final preferredWeight = _resolvePreferredWeight(manualProfile.weightKg);
-    if (preferredWeight == manualProfile.weightKg) {
-      return manualProfile;
-    }
-
-    return manualProfile.copyWith(weightKg: preferredWeight);
-  }
-
-  double _resolvePreferredWeight(double manualWeightKg) {
-    if (useHealthIntegration) {
-      return healthSnapshot.weightKg ??
-          healthPrefill.weightKg ??
-          manualWeightKg;
-    }
-
-    return manualWeightKg;
   }
 
   void dispose() {

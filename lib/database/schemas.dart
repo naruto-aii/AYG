@@ -28,6 +28,14 @@ class NutritionSettingsEntity {
 
   late bool useHealthIntegration;
   int? activityLevelIndex;
+  int? calorieTargetModeIndex;
+  double? manualTargetKcal;
+  double? manualProteinG;
+  double? manualFatG;
+  double? manualCarbG;
+  double? autoFoodTargetKcal;
+  DateTime? autoFoodTargetOn;
+  double? autoFoodTargetPriorKcal;
 }
 
 @collection
@@ -295,6 +303,7 @@ class HealthSnapshotEntity {
 
   double? activeEnergyBurnedKcal;
   double? weightKg;
+  DateTime? weightMeasuredAt;
   late DateTime updatedAt;
 }
 

@@ -49,11 +49,42 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
               children: [
                 Text('カロリー根拠', style: AppTypography.titleM),
                 const SizedBox(height: AppSpacing.sm),
-                if (energy != null && energy.canEstimateRee) ...[
+                if (energy?.manualTargetsActive == true) ...[
                   Text(
-                    '基礎代謝（安静時エネルギー消費量の推定）',
-                    style: AppTypography.titleS,
+                    '食事目標と PFC は手入力です。体重や残日数では上書きしません。'
+                    '自動に戻すと、日次の式に戻ります。',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _row(
+                    '1日の食事目標',
+                    '${formatNullableNutrient(energy!.goalFoodTargetKcal)} kcal',
+                  ),
+                ],
+                if (energy?.weightSeries != null) ...[
+                  _row('計算に使用', energy!.weightSeries!.selection.usageLabel),
+                  if (energy.weightSeries!.selection.healthUpdateStoppedNote !=
+                      null)
+                    Text(
+                      energy.weightSeries!.selection.healthUpdateStoppedNote!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  if (energy.weightSeries!.selection.staleRecordPrompt != null)
+                    Text(
+                      energy.weightSeries!.selection.staleRecordPrompt!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  if (energy.smoothedWeightKg != null)
+                    _row(
+                      '平滑した体重',
+                      '${energy.smoothedWeightKg!.toStringAsFixed(1)} kg（半減期7日）',
+                    ),
+                  _row('計算の段階', energy.usesLandingFormula ? '着地の式' : '初期式'),
+                ],
+                if (energy != null &&
+                    energy.canEstimateRee &&
+                    !energy.manualTargetsActive) ...[
+                  Text('基礎代謝（安静時エネルギー消費量の推定）', style: AppTypography.titleS),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     'Mifflin–St Jeor 式による推定安静時消費（REE）です。'
@@ -90,8 +121,31 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     '1日の食事目標',
                     '${formatNullableNutrient(energy.goalFoodTargetKcal)} kcal',
                   ),
+                  if (energy.usesLandingFormula &&
+                      energy.rawBalanceKcal != null)
+                    _row(
+                      '着地に必要な収支',
+                      '${energy.rawBalanceKcal!.toStringAsFixed(0)} kcal/日',
+                    ),
+                  if (energy.speedCapKcal != null)
+                    _row(
+                      '速度の上限',
+                      '${energy.speedCapKcal!.toStringAsFixed(0)} kcal/日',
+                    ),
+                  if (energy.floorKcal != null)
+                    _row(
+                      '食事の床',
+                      '${energy.floorKcal!.toStringAsFixed(0)} kcal',
+                    ),
+                  if (energy.heldForStaleWeight)
+                    const Text('体重が古いため、直前の食事目標を維持しています。'),
+                  if (energy.dailyStepLimited)
+                    const Text('前日の食事目標から 150 kcal を超えない範囲に収めています。'),
+                  if (energy.guidance != null) Text(energy.guidance!.message),
                 ],
-                if (energy != null && !energy.canEstimateRee) ...[
+                if (energy != null &&
+                    !energy.canEstimateRee &&
+                    !energy.manualTargetsActive) ...[
                   Text(
                     energy.unavailableReason ??
                         '推定安静時消費を算出できません（18歳未満、'

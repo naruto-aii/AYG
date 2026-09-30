@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/calculation/landing_guidance.dart';
 import '../../models/alcohol_entry.dart';
 import '../../models/daily_summary.dart';
 import '../../models/exercise_entry.dart';
@@ -72,7 +73,13 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 4),
               _stats(summary),
               const SizedBox(height: 4),
+              _weightUsage(controller),
+              const SizedBox(height: 4),
               _calculationLink(context, summary),
+              if (summary.energyBreakdown?.guidance != null) ...[
+                const SizedBox(height: 8),
+                _guidanceCard(context, summary.energyBreakdown!.guidance!),
+              ],
               const SizedBox(height: 6),
               _macroCard(summary),
               const SizedBox(height: 8),
@@ -125,6 +132,78 @@ class HomeScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _weightUsage(AppController controller) {
+    final selection = controller.currentWeightSelection;
+    final noteStyle = AppTypography.caption.copyWith(
+      color: AppColors.textMuted,
+    );
+    return Column(
+      children: [
+        Text(
+          selection.usageLabel,
+          textAlign: TextAlign.center,
+          style: noteStyle,
+        ),
+        if (selection.healthUpdateStoppedNote != null)
+          Text(
+            selection.healthUpdateStoppedNote!,
+            textAlign: TextAlign.center,
+            style: noteStyle,
+          ),
+        if (selection.staleRecordPrompt != null)
+          Text(
+            selection.staleRecordPrompt!,
+            textAlign: TextAlign.center,
+            style: noteStyle.copyWith(color: AppColors.orange500),
+          ),
+      ],
+    );
+  }
+
+  Widget _guidanceCard(BuildContext context, LandingGuidance guidance) {
+    final actions = <LandingGuidanceAction>[
+      guidance.recommended,
+      if (guidance.alternative != null) guidance.alternative!,
+    ];
+    return DesignCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('目標日には届きません', style: AppTypography.titleM),
+          const SizedBox(height: 6),
+          Text(guidance.message, style: AppTypography.bodyS),
+          const SizedBox(height: 10),
+          for (final action in actions) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => controllerAction(context, action),
+                child: Text(
+                  action == guidance.recommended
+                      ? '推奨: ${guidance.labelFor(action)}'
+                      : guidance.labelFor(action),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void controllerAction(BuildContext context, LandingGuidanceAction action) {
+    final controller = this.controller;
+    () async {
+      await controller.applyLandingSuggestion(action);
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('目標を更新しました')));
+    }();
   }
 
   Widget _calculationLink(BuildContext context, DailySummary summary) {

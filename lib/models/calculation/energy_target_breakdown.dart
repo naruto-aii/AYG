@@ -1,7 +1,9 @@
 import '../../models/activity_level.dart';
 import '../../models/goal.dart';
+import 'weight_selection.dart';
 import 'calculation_versions.dart';
 import 'goal_pace.dart';
+import 'landing_guidance.dart';
 
 /// 1日の食事目標カロリーまでの中間値。
 class EnergyTargetBreakdown {
@@ -26,6 +28,17 @@ class EnergyTargetBreakdown {
     required this.healthActiveEnergyKcal,
     required this.productDefaultsUsed,
     required this.calculatedAt,
+    this.weightSeries,
+    this.rawBalanceKcal,
+    this.speedCapKcal,
+    this.floorKcal,
+    this.smoothedWeightKg,
+    this.heldForStaleWeight = false,
+    this.dailyStepLimited = false,
+    this.guidance,
+    this.anchorUpdate,
+    this.manualTargetsActive = false,
+    this.usesLandingFormula = false,
   });
 
   final String version;
@@ -48,6 +61,17 @@ class EnergyTargetBreakdown {
   final double? healthActiveEnergyKcal;
   final List<String> productDefaultsUsed;
   final DateTime calculatedAt;
+  final WeightSeries? weightSeries;
+  final double? rawBalanceKcal;
+  final double? speedCapKcal;
+  final double? floorKcal;
+  final double? smoothedWeightKg;
+  final bool heldForStaleWeight;
+  final bool dailyStepLimited;
+  final LandingGuidance? guidance;
+  final AutoTargetAnchor? anchorUpdate;
+  final bool manualTargetsActive;
+  final bool usesLandingFormula;
 
   static EnergyTargetBreakdown unavailable({
     required String reason,

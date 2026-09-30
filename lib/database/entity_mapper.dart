@@ -11,6 +11,7 @@ import '../models/food_source_type.dart';
 import '../models/food_status.dart';
 import '../models/food_unit_type.dart';
 import '../models/food_visibility.dart';
+import '../models/calculation/calorie_target_mode.dart';
 import '../models/calculation/goal_pace.dart';
 import '../models/goal.dart';
 import '../models/health_profile_data.dart';
@@ -68,17 +69,36 @@ class EntityMapper {
   ) {
     return NutritionSettingsEntity()
       ..useHealthIntegration = settings.useHealthIntegration
-      ..activityLevelIndex = settings.activityLevel?.index;
+      ..activityLevelIndex = settings.activityLevel?.index
+      ..calorieTargetModeIndex = settings.calorieTargetMode.index
+      ..manualTargetKcal = settings.manualTargetKcal
+      ..manualProteinG = settings.manualProteinG
+      ..manualFatG = settings.manualFatG
+      ..manualCarbG = settings.manualCarbG
+      ..autoFoodTargetKcal = settings.autoFoodTargetKcal
+      ..autoFoodTargetOn = settings.autoFoodTargetOn
+      ..autoFoodTargetPriorKcal = settings.autoFoodTargetPriorKcal;
   }
 
   static NutritionSettings fromNutritionSettingsEntity(
     NutritionSettingsEntity entity,
   ) {
+    final modeIndex = entity.calorieTargetModeIndex;
     return NutritionSettings(
       useHealthIntegration: entity.useHealthIntegration,
       activityLevel: entity.activityLevelIndex == null
           ? null
           : ActivityLevel.values[entity.activityLevelIndex!],
+      calorieTargetMode: modeIndex == null
+          ? CalorieTargetMode.automatic
+          : CalorieTargetMode.values[modeIndex],
+      manualTargetKcal: entity.manualTargetKcal,
+      manualProteinG: entity.manualProteinG,
+      manualFatG: entity.manualFatG,
+      manualCarbG: entity.manualCarbG,
+      autoFoodTargetKcal: entity.autoFoodTargetKcal,
+      autoFoodTargetOn: entity.autoFoodTargetOn,
+      autoFoodTargetPriorKcal: entity.autoFoodTargetPriorKcal,
     );
   }
 
@@ -492,6 +512,7 @@ class EntityMapper {
     return HealthSnapshotEntity()
       ..activeEnergyBurnedKcal = snapshot.activeEnergyBurnedKcal
       ..weightKg = snapshot.weightKg
+      ..weightMeasuredAt = snapshot.weightMeasuredAt
       ..updatedAt = DateTime.now();
   }
 
@@ -499,6 +520,7 @@ class EntityMapper {
     return HealthSnapshot(
       activeEnergyBurnedKcal: entity.activeEnergyBurnedKcal,
       weightKg: entity.weightKg,
+      weightMeasuredAt: entity.weightMeasuredAt,
     );
   }
 

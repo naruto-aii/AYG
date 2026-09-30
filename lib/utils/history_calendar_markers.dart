@@ -19,7 +19,7 @@ class HistoryDayMarkerInfo {
 }
 
 DateTime historyLocalDateKey(DateTime loggedAt) {
-  return localDayStart(loggedAt.toLocal());
+  return localDayStart(loggedAt);
 }
 
 /// 食事・運動・アルコール記録日ごとのマーカーを構築する。

@@ -16,11 +16,11 @@ class HistoryDateGroup<T> {
 }
 
 bool _isSameDay(DateTime a, DateTime b) {
-  return isSameLocalDay(a.toLocal(), b.toLocal());
+  return isSameLocalDay(a, b);
 }
 
 DateTime _dateOnly(DateTime value) {
-  return localDayStart(value.toLocal());
+  return localDayStart(value);
 }
 
 String dateLabelFor(DateTime date, {required DateTime referenceDate}) {

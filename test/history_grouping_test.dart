@@ -83,26 +83,28 @@ void main() {
       expect(groups.first.items.map((entry) => entry.id), ['1', '2']);
     });
 
-    test('groups entries on local calendar day across UTC boundary', () {
+    test('keeps a reloaded UTC civil clock on that calendar day', () {
+      // Supabase はオフセット無しで保存した壁時計を UTC として返す。
+      // toLocal() で翌日に送らず、保存された時計の日付のまま束ねる。
       final loggedAt = DateTime.utc(2026, 7, 20, 15);
       final entries = [
         FoodEntry(
           id: '1',
-          name: 'UTC evening local next day',
+          name: 'reloaded evening meal',
           quantity: 1,
           loggedAt: loggedAt,
         ),
       ];
 
-      final localReference = localDayStart(loggedAt.toLocal());
+      final civilDay = localDayStart(loggedAt);
       final groups = groupFoodEntriesByDate(
         entries,
-        referenceDate: localReference,
+        referenceDate: civilDay,
         todayOnly: false,
       );
 
       expect(groups, hasLength(1));
-      expect(groups.first.date, localReference);
+      expect(groups.first.date, civilDay);
       expect(groups.first.items.single.id, '1');
     });
   });

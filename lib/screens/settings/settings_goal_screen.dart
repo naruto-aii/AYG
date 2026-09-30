@@ -62,6 +62,27 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     if (settings?.manualCarbG != null) {
       _carbController.text = settings!.manualCarbG!.toStringAsFixed(0);
     }
+    if (_calorieMode == CalorieTargetMode.automatic) {
+      _applyCalculatedTargets();
+    }
+  }
+
+  void _applyCalculatedTargets() {
+    final summary = widget.controller.summary;
+    if (summary == null || summary.targetKcal <= 0) {
+      return;
+    }
+    _kcalController.text = summary.targetKcal.round().toString();
+    _proteinController.text = summary.targetProteinG.round().toString();
+    _fatController.text = summary.targetFatG.round().toString();
+    _carbController.text = summary.targetCarbG.round().toString();
+  }
+
+  void _editTargets() {
+    if (_calorieMode == CalorieTargetMode.manual) {
+      return;
+    }
+    setState(() => _calorieMode = CalorieTargetMode.manual);
   }
 
   @override
@@ -227,8 +248,23 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
         children: [
           const DesignTitleBlock(
             title: '目標',
-            subtitle: '目標体重と期限を変えると、1日の目標も変わります。',
+            subtitle: '1日のカロリーとPFCは、この画面の数字で指定できます。',
           ),
+          CalorieTargetEditor(
+            mode: _calorieMode,
+            onModeChanged: (mode) {
+              setState(() => _calorieMode = mode);
+              if (mode == CalorieTargetMode.automatic) {
+                _applyCalculatedTargets();
+              }
+            },
+            onEdited: _editTargets,
+            kcalController: _kcalController,
+            proteinController: _proteinController,
+            fatController: _fatController,
+            carbController: _carbController,
+          ),
+          const SizedBox(height: 18),
           Text('目標の方向性', style: AppTypography.titleS),
           const SizedBox(height: 10),
           Row(
@@ -311,15 +347,6 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
               style: AppTypography.caption.copyWith(color: AppColors.textMuted),
             ),
           ],
-          const SizedBox(height: 18),
-          CalorieTargetEditor(
-            mode: _calorieMode,
-            onModeChanged: (mode) => setState(() => _calorieMode = mode),
-            kcalController: _kcalController,
-            proteinController: _proteinController,
-            fatController: _fatController,
-            carbController: _carbController,
-          ),
           const SizedBox(height: 24),
         ],
       ),

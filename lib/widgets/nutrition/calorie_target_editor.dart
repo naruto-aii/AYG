@@ -6,7 +6,7 @@ import '../../theme/app_typography.dart';
 import '../design/design_field.dart';
 import '../design/design_segment.dart';
 
-/// 自動計算と手入力の切り替え。単位は kcal と g/日。
+/// 自動計算と手入力の切り替え。数字欄は常に出す。単位は kcal と g/日。
 class CalorieTargetEditor extends StatelessWidget {
   const CalorieTargetEditor({
     super.key,
@@ -16,6 +16,7 @@ class CalorieTargetEditor extends StatelessWidget {
     required this.proteinController,
     required this.fatController,
     required this.carbController,
+    this.onEdited,
   });
 
   final CalorieTargetMode mode;
@@ -25,13 +26,16 @@ class CalorieTargetEditor extends StatelessWidget {
   final TextEditingController fatController;
   final TextEditingController carbController;
 
+  /// 数字を書き換えたとき。目標設定では、これで手入力に切り替える。
+  final VoidCallback? onEdited;
+
   @override
   Widget build(BuildContext context) {
     final manual = mode == CalorieTargetMode.manual;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('食事の目標', style: AppTypography.titleS),
+        Text('1日の食事目標', style: AppTypography.titleS),
         const SizedBox(height: 8),
         DesignSegmentGroup<CalorieTargetMode>(
           values: CalorieTargetMode.values,
@@ -42,32 +46,42 @@ class CalorieTargetEditor extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           manual
-              ? '手入力のあいだは、体重や残日数ではこの数字を変えません。'
-              : '自動は、目標日と目標体重から毎日計算します。目標日と目標体重そのものは変えません。',
+              ? 'この数字は、体重や残日数では変わりません。'
+              : '数字を書き換えると自分で入力になります。自動で計算に戻すと、体重と残日数の式に戻ります。',
           style: AppTypography.caption.copyWith(color: AppColors.textMuted),
         ),
-        if (manual) ...[
-          const SizedBox(height: 10),
-          _numberField(
-            label: 'カロリー',
-            suffix: 'kcal',
-            controller: kcalController,
-          ),
-          const SizedBox(height: 10),
-          _numberField(
-            label: 'たんぱく質',
-            suffix: 'g/日',
-            controller: proteinController,
-          ),
-          const SizedBox(height: 10),
-          _numberField(label: '脂質', suffix: 'g/日', controller: fatController),
-          const SizedBox(height: 10),
-          _numberField(
-            label: '炭水化物',
-            suffix: 'g/日',
-            controller: carbController,
-          ),
-        ],
+        const SizedBox(height: 10),
+        _numberField(
+          label: 'カロリー',
+          suffix: 'kcal',
+          hintText: '1800',
+          controller: kcalController,
+          inputKey: const Key('goal-target-kcal'),
+        ),
+        const SizedBox(height: 10),
+        _numberField(
+          label: 'たんぱく質',
+          suffix: 'g/日',
+          hintText: '120',
+          controller: proteinController,
+          inputKey: const Key('goal-target-protein'),
+        ),
+        const SizedBox(height: 10),
+        _numberField(
+          label: '脂質',
+          suffix: 'g/日',
+          hintText: '50',
+          controller: fatController,
+          inputKey: const Key('goal-target-fat'),
+        ),
+        const SizedBox(height: 10),
+        _numberField(
+          label: '炭水化物',
+          suffix: 'g/日',
+          hintText: '200',
+          controller: carbController,
+          inputKey: const Key('goal-target-carb'),
+        ),
       ],
     );
   }
@@ -75,7 +89,9 @@ class CalorieTargetEditor extends StatelessWidget {
   Widget _numberField({
     required String label,
     required String suffix,
+    required String hintText,
     required TextEditingController controller,
+    required Key inputKey,
   }) {
     return DesignFieldCard(
       icon: const SizedBox.shrink(),
@@ -84,6 +100,9 @@ class CalorieTargetEditor extends StatelessWidget {
         suffix: suffix,
         child: DesignTextInput(
           controller: controller,
+          hintText: hintText,
+          inputKey: inputKey,
+          onChanged: (_) => onEdited?.call(),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
       ),

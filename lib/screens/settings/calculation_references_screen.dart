@@ -140,18 +140,23 @@ class CalculationReferencesScreen extends StatelessWidget {
             title: '運動消費カロリー',
             version: MetActivityCatalog.calculationVersion,
             summary:
-                '日常語で選んだ種目・強度から内部 MET を決定。'
-                'gross = 運動中の総消費、net = 安静時1 MET相当を除いた追加分。'
-                'ホームの残りカロリーには net のみ加算。',
+                '種目ごとに単位が違う。歩行・走行は体重×距離、'
+                '自転車は公表速度で分に直してから MET、'
+                '回数の種目は1回4秒で分に直してから MET、'
+                'それ以外は分と MET。'
+                'ホームの残りカロリーには追加分（net）だけを加算する。'
+                '家事・掃除といつもの移動は生活活動に含まれるので追加分は0。',
             references: [
               ...MetActivityCatalog.ledger.map(
                 (entry) => _Ref(
                   authors: entry.citation.split('.').first,
                   title: entry.citation,
                   journal: entry.rightsCategory,
-                  url: entry.sourceKey.contains('doi')
-                      ? 'https://doi.org/${MetActivityCatalog.herrmann2024Doi}'
-                      : 'https://pacompendium.com/',
+                  url:
+                      entry.url ??
+                      (entry.sourceKey.contains('doi')
+                          ? 'https://doi.org/${MetActivityCatalog.herrmann2024Doi}'
+                          : 'https://pacompendium.com/'),
                   usage: 'MET 値の出典台帳（${entry.sourceKey}）。',
                 ),
               ),

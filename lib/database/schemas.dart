@@ -205,6 +205,10 @@ class ExerciseEntryEntity {
   int? sets;
   int? reps;
   double? liftWeightKg;
+
+  /// 距離（km）。生成スキーマの番号は名前順の 5。
+  /// 戻すときはこのフィールドを消す。Isar は列の実体を末尾に残したまま名前だけ外すので、以前の番号に戻る。
+  double? distanceKm;
   double? metValue;
   double? grossKcal;
   double? netKcal;

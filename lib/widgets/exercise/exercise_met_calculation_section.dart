@@ -5,6 +5,7 @@ import '../../data/met_intensity_presets.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_category.dart';
+import '../../models/exercise_quantity_unit.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../services/exercise_weight_resolver.dart';
 import '../../state/app_controller.dart';
@@ -20,13 +21,18 @@ import '../../screens/settings/calculation_references_screen.dart';
 
 /// 運動フォーム内の MET 自動計算（種目1回 + 分量 + 追加消費）。
 class ExerciseMetCalculationSection extends StatefulWidget {
+  static const searchFieldKey = Key('exercise-activity-search');
   static const durationFieldKey = Key('exercise-duration');
+  static const distanceFieldKey = Key('exercise-distance');
+  static const repsFieldKey = Key('exercise-reps');
 
   const ExerciseMetCalculationSection({
     super.key,
     required this.controller,
     required this.loggedAt,
     required this.durationController,
+    this.distanceController,
+    this.repsController,
     required this.grossKcalController,
     required this.isEditing,
     this.nameController,
@@ -39,6 +45,8 @@ class ExerciseMetCalculationSection extends StatefulWidget {
   final AppController controller;
   final DateTime loggedAt;
   final TextEditingController durationController;
+  final TextEditingController? distanceController;
+  final TextEditingController? repsController;
   final TextEditingController grossKcalController;
   final TextEditingController? nameController;
   final TextEditingController? notesController;
@@ -66,6 +74,9 @@ class ExerciseMetFormState {
     this.sourceKey,
     this.manualOverride = false,
     this.includeInRemaining = true,
+    this.quantityUnit,
+    this.distanceKm,
+    this.reps,
   });
 
   final ExerciseCategory? category;
@@ -80,6 +91,9 @@ class ExerciseMetFormState {
   final String? sourceKey;
   final bool manualOverride;
   final bool includeInRemaining;
+  final ExerciseQuantityUnit? quantityUnit;
+  final double? distanceKm;
+  final int? reps;
 }
 
 class _ExerciseMetCalculationSectionState
@@ -87,17 +101,20 @@ class _ExerciseMetCalculationSectionState
   static const _calculator = ExerciseCalorieCalculator();
   static const _weightResolver = ExerciseWeightResolver();
   static const _walkActivityId = 'walk_brisk';
-  static const _houseworkActivityId = 'housework';
   static const _customActivityId = 'custom';
   static const _noWeightMessage =
       '体重データがないため、消費カロリーを自動計算できません。'
       '体重を記録するか、手動で入力してください。';
-  static const _houseworkPalWarning =
-      'いつもの家事は、設定の生活活動係数にすでに含まれています。'
-      '特別に長く動いた分だけ記録してください。';
   static const _lifestyleWalkMessage =
       '通勤などのいつもの移動は生活活動係数に含まれているので、'
       '追加消費には入れません。';
+
+  late final TextEditingController _distanceController;
+  late final TextEditingController _repsController;
+  late final bool _ownsDistance;
+  late final bool _ownsReps;
+  final _searchController = TextEditingController();
+  List<MetActivityDefinition> _searchResults = const [];
 
   MetActivityDefinition? _activity;
   String? _intensityId;
@@ -114,6 +131,18 @@ class _ExerciseMetCalculationSectionState
   @override
   void initState() {
     super.initState();
+    _ownsDistance = widget.distanceController == null;
+    _ownsReps = widget.repsController == null;
+    _distanceController =
+        widget.distanceController ??
+        TextEditingController(
+          text: widget.initialEntry?.distanceKm?.toString() ?? '',
+        );
+    _repsController =
+        widget.repsController ??
+        TextEditingController(
+          text: widget.initialEntry?.reps?.toString() ?? '',
+        );
     final entry = widget.initialEntry;
     if (entry != null) {
       _activity = MetActivityCatalog.findById(entry.activityId);
@@ -138,6 +167,8 @@ class _ExerciseMetCalculationSectionState
               entry.name.trim() != catalogName);
     }
     widget.durationController.addListener(_onInputsChanged);
+    _distanceController.addListener(_onInputsChanged);
+    _repsController.addListener(_onInputsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!widget.isEditing) {
         _notifyParent();
@@ -150,13 +181,40 @@ class _ExerciseMetCalculationSectionState
   @override
   void dispose() {
     widget.durationController.removeListener(_onInputsChanged);
+    _distanceController.removeListener(_onInputsChanged);
+    _repsController.removeListener(_onInputsChanged);
+    _searchController.dispose();
+    if (_ownsDistance) {
+      _distanceController.dispose();
+    }
+    if (_ownsReps) {
+      _repsController.dispose();
+    }
     super.dispose();
   }
 
+  String get _lifestyleMessage {
+    if (_isWalk) {
+      return _lifestyleWalkMessage;
+    }
+    final name = _activity?.displayName ?? 'この活動';
+    return '$nameは生活活動係数に含まれているので、追加消費には入れません。';
+  }
+
   bool get _isWalk => _activity?.id == _walkActivityId;
-  bool get _isHousework => _activity?.id == _houseworkActivityId;
   bool get _isCustom => _activity?.id == _customActivityId;
-  bool get _includeInRemaining => !_isWalk || _walkIsExtraExercise;
+  bool get _includeInRemaining {
+    if (_activity?.lifestyleIncluded == true) {
+      return false;
+    }
+    if (_isWalk && !_walkIsExtraExercise) {
+      return false;
+    }
+    return true;
+  }
+
+  ExerciseQuantityUnit get _quantityUnit =>
+      _activity?.quantityUnit ?? ExerciseQuantityUnit.durationMin;
 
   void _onInputsChanged() {
     _maybeRecalculate();
@@ -215,59 +273,135 @@ class _ExerciseMetCalculationSectionState
       profile: widget.controller.profile,
     );
 
-    final duration = int.tryParse(widget.durationController.text.trim());
-    final met = _resolvedMet;
-    if (_activity == null ||
-        _weightReference == null ||
-        duration == null ||
-        duration <= 0 ||
-        met == null) {
+    if (_activity == null) {
+      setState(() => _estimate = null);
+      _notifyParent();
+      return;
+    }
+
+    if (!_includeInRemaining) {
       setState(() {
         _estimate = null;
+        _displayNetKcal = 0;
         if (!widget.isEditing || _allowRecalculateOnEdit) {
-          _displayNetKcal = _includeInRemaining ? null : 0;
+          widget.grossKcalController.text = '0';
         }
       });
       _notifyParent();
       return;
     }
 
-    final estimate = _calculator.estimate(
-      met: met,
-      weightKg: _weightReference!.weightKg,
-      durationMinutes: duration,
-      sourceKey: _selectedIntensity?.sourceKey ?? _activity?.sourceKey,
-    );
+    if (_weightReference == null) {
+      setState(() {
+        _estimate = null;
+        if (!widget.isEditing || _allowRecalculateOnEdit) {
+          _displayNetKcal = null;
+        }
+      });
+      _notifyParent();
+      return;
+    }
 
+    final estimate = _estimateForActivity();
     setState(() {
       _estimate = estimate;
-      _displayNetKcal = _includeInRemaining ? estimate?.netKcal : 0;
       if (estimate != null) {
+        _displayNetKcal = estimate.netKcal;
         widget.grossKcalController.text = estimate.grossKcal.toStringAsFixed(1);
       }
     });
     _notifyParent();
   }
 
+  ExerciseCalorieEstimate? _estimateForActivity() {
+    final activity = _activity;
+    final weight = _weightReference?.weightKg;
+    if (activity == null || weight == null) {
+      return null;
+    }
+    final sourceKey = _selectedIntensity?.sourceKey ?? activity.sourceKey;
+    switch (activity.quantityUnit) {
+      case ExerciseQuantityUnit.distanceKm:
+        final km = double.tryParse(_distanceController.text.trim());
+        if (km == null) {
+          return null;
+        }
+        final factor = activity.netKcalPerKgKm;
+        if (factor != null) {
+          return _calculator.estimateByDistanceFactor(
+            weightKg: weight,
+            distanceKm: km,
+            netKcalPerKgKm: factor,
+            sourceKey: sourceKey,
+          );
+        }
+        final speed = activity.referenceSpeedKmh;
+        final met = _resolvedMet;
+        if (speed == null || met == null) {
+          return null;
+        }
+        return _calculator.estimateByDistanceSpeed(
+          met: met,
+          weightKg: weight,
+          distanceKm: km,
+          speedKmh: speed,
+          sourceKey: sourceKey,
+        );
+      case ExerciseQuantityUnit.reps:
+        final reps = int.tryParse(_repsController.text.trim());
+        final met = _resolvedMet;
+        if (reps == null || met == null) {
+          return null;
+        }
+        return _calculator.estimateByReps(
+          met: met,
+          weightKg: weight,
+          reps: reps,
+          sourceKey: sourceKey,
+        );
+      case ExerciseQuantityUnit.durationMin:
+        final duration = int.tryParse(widget.durationController.text.trim());
+        final met = _resolvedMet;
+        if (duration == null || met == null) {
+          return null;
+        }
+        return _calculator.estimate(
+          met: met,
+          weightKg: weight,
+          durationMinutes: duration,
+          sourceKey: sourceKey,
+        );
+    }
+  }
+
   void _notifyParent() {
     final gross = double.tryParse(widget.grossKcalController.text.trim());
-    final net = _manualOverride
+    final net = !_includeInRemaining
+        ? 0.0
+        : _manualOverride
         ? (_manualNetKcal ?? gross)
-        : (_includeInRemaining ? _displayNetKcal : 0.0);
+        : _displayNetKcal;
+    final distanceKm = double.tryParse(_distanceController.text.trim());
+    final reps = int.tryParse(_repsController.text.trim());
     widget.onEstimateChanged(
       ExerciseMetFormState(
         category: _activity?.category,
         activityId: _activity?.id,
         intensity: _intensityId,
-        metValue: _manualOverride ? null : _resolvedMet,
+        metValue: _manualOverride || _activity?.netKcalPerKgKm != null
+            ? null
+            : _resolvedMet,
         grossKcal: _includeInRemaining ? gross : (gross ?? 0.0),
         netKcal: net,
+        quantityUnit: _activity?.quantityUnit,
+        distanceKm: distanceKm,
+        reps: reps,
         weightKgSnapshot:
             _weightReference?.weightKg ?? widget.initialEntry?.weightKgSnapshot,
-        calculationSource: _manualOverride
-            ? ExerciseCalculationSource.manualOverride
-            : (!_includeInRemaining
-                  ? ExerciseCalculationSource.lifestyleIncluded
+        calculationSource: !_includeInRemaining
+            ? ExerciseCalculationSource.lifestyleIncluded
+            : (_manualOverride
+                  ? ExerciseCalculationSource.manualOverride
                   : (_estimate != null
                         ? ExerciseCalculationSource.metEstimate
                         : widget.initialEntry?.calculationSource)),
@@ -292,8 +426,10 @@ class _ExerciseMetCalculationSectionState
     return _activity!.intensityOptions;
   }
 
-  List<MetActivityDefinition> get _visibleActivities {
-    return MetActivityCatalog.activities;
+  void _onSearchChanged(String value) {
+    setState(() {
+      _searchResults = MetActivityCatalog.search(value);
+    });
   }
 
   Widget _icon(String asset) => AppIcon(
@@ -301,6 +437,113 @@ class _ExerciseMetCalculationSectionState
     size: 24,
     color: IconCircle.foregroundOf(IconCircleTone.green),
   );
+
+  Widget _numberField({
+    required Key fieldKey,
+    required String label,
+    required String suffix,
+    required TextEditingController controller,
+    required TextInputType keyboardType,
+    required String hintText,
+    required FormFieldValidator<String> validator,
+    String? caption,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DesignFieldCard(
+          icon: _icon(AppIcons.time),
+          label: label,
+          child: DesignInputBox(
+            suffix: suffix,
+            child: TextFormField(
+              key: fieldKey,
+              controller: controller,
+              keyboardType: keyboardType,
+              cursorColor: AppColors.textBrand,
+              style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: hintText,
+                hintStyle: AppTypography.bodyL.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+              validator: validator,
+            ),
+          ),
+        ),
+        if (caption != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            caption,
+            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _quantityField() {
+    switch (_quantityUnit) {
+      case ExerciseQuantityUnit.distanceKm:
+        return _numberField(
+          fieldKey: ExerciseMetCalculationSection.distanceFieldKey,
+          label: '距離（km）',
+          suffix: 'km',
+          controller: _distanceController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          hintText: '5',
+          validator: (value) {
+            final parsed = double.tryParse(value?.trim() ?? '');
+            if (parsed == null || parsed <= 0) {
+              return '距離を入力してください';
+            }
+            return null;
+          },
+        );
+      case ExerciseQuantityUnit.reps:
+        return _numberField(
+          fieldKey: ExerciseMetCalculationSection.repsFieldKey,
+          label: '回数',
+          suffix: '回',
+          controller: _repsController,
+          keyboardType: TextInputType.number,
+          hintText: '10',
+          validator: (value) {
+            final parsed = int.tryParse(value?.trim() ?? '');
+            if (parsed == null || parsed <= 0) {
+              return '回数を入力してください';
+            }
+            return null;
+          },
+          caption: '消費カロリーは回数から計算します。1回を4秒として計算します。セット間の休憩は含みません。',
+        );
+      case ExerciseQuantityUnit.durationMin:
+        return _numberField(
+          fieldKey: ExerciseMetCalculationSection.durationFieldKey,
+          label: '実施時間（分）',
+          suffix: '分',
+          controller: widget.durationController,
+          keyboardType: TextInputType.number,
+          hintText: '30',
+          validator: (value) {
+            final parsed = int.tryParse(value?.trim() ?? '');
+            if (parsed == null || parsed <= 0) {
+              return '1以上の整数を入力してください';
+            }
+            return null;
+          },
+        );
+    }
+  }
 
   Widget _chipBox(List<Widget> chips) {
     return DesignInputBox(
@@ -318,7 +561,6 @@ class _ExerciseMetCalculationSectionState
     final hasWeight =
         _weightReference != null ||
         widget.initialEntry?.weightKgSnapshot != null;
-    final visibleActivities = _visibleActivities;
     final showNameField = widget.nameController != null && _showRename;
     final canShowNet =
         _activity != null &&
@@ -330,20 +572,75 @@ class _ExerciseMetCalculationSectionState
         DesignFieldCard(
           icon: _icon(AppIcons.exercise),
           label: '種目',
-          child: _chipBox([
-            for (final activity in visibleActivities)
-              ChoiceChip(
-                label: Text(activity.displayName),
-                selected: _activity?.id == activity.id,
-                onSelected: (_) {
-                  setState(() {
-                    _applyActivity(activity);
-                  });
-                  _maybeRecalculate();
-                },
+          child: DesignInputBox(
+            child: TextField(
+              key: ExerciseMetCalculationSection.searchFieldKey,
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              cursorColor: AppColors.textBrand,
+              style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: '名前の一部',
+                hintStyle: AppTypography.bodyL.copyWith(
+                  color: AppColors.textMuted,
+                ),
               ),
-          ]),
+            ),
+          ),
         ),
+        if (_searchResults.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              children: [
+                for (final activity in _searchResults)
+                  ListTile(
+                    title: Text(activity.displayName),
+                    onTap: () {
+                      setState(() {
+                        _applyActivity(activity);
+                        _searchController.clear();
+                        _searchResults = const [];
+                      });
+                      _maybeRecalculate();
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.md),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: () {
+              final custom = MetActivityCatalog.findById('custom');
+              if (custom == null) {
+                return;
+              }
+              setState(() {
+                _applyActivity(custom);
+                _searchController.clear();
+                _searchResults = const [];
+              });
+              _maybeRecalculate();
+            },
+            child: const Text('その他（手入力）'),
+          ),
+        ),
+        if (_activity != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            _activity!.displayName,
+            style: AppTypography.titleM.copyWith(color: AppColors.textPrimary),
+          ),
+        ],
         if (_activity == null) ...[
           const SizedBox(height: AppSpacing.md),
           Text(
@@ -432,14 +729,14 @@ class _ExerciseMetCalculationSectionState
             ),
           ],
         ],
-        if (_isHousework) ...[
+        if (_activity?.lifestyleIncluded == true) ...[
           const SizedBox(height: AppSpacing.md),
           Text(
-            _houseworkPalWarning,
+            _lifestyleMessage,
             style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
         ],
-        if (intensities.isNotEmpty) ...[
+        if (intensities.length > 1) ...[
           const SizedBox(height: AppSpacing.md),
           DesignFieldCard(
             icon: _icon(AppIcons.heart),
@@ -459,45 +756,10 @@ class _ExerciseMetCalculationSectionState
             ]),
           ),
         ],
-        const SizedBox(height: AppSpacing.md),
-        DesignFieldCard(
-          icon: _icon(AppIcons.time),
-          label: '実施時間（分）',
-          child: DesignInputBox(
-            suffix: '分',
-            child: TextFormField(
-              key: ExerciseMetCalculationSection.durationFieldKey,
-              controller: widget.durationController,
-              keyboardType: TextInputType.number,
-              cursorColor: AppColors.textBrand,
-              style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintText: '30',
-                hintStyle: AppTypography.bodyL.copyWith(
-                  color: AppColors.textMuted,
-                ),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return '実施時間を入力してください';
-                }
-                final parsed = int.tryParse(value);
-                if (parsed == null || parsed <= 0) {
-                  return '1以上の整数を入力してください';
-                }
-                return null;
-              },
-            ),
-          ),
-        ),
+        if (_activity != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          _quantityField(),
+        ],
         if (widget.additionalFields != null) ...[
           const SizedBox(height: AppSpacing.md),
           widget.additionalFields!,
@@ -528,7 +790,7 @@ class _ExerciseMetCalculationSectionState
                 Text(
                   _includeInRemaining
                       ? '残りカロリーに加算される、運動による追加分'
-                      : _lifestyleWalkMessage,
+                      : _lifestyleMessage,
                   style: AppTypography.bodyS.copyWith(
                     color: AppColors.textMuted,
                   ),

@@ -4,6 +4,7 @@ import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_entry.dart';
+import '../../models/exercise_quantity_unit.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -43,6 +44,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _durationController;
+  late final TextEditingController _distanceController;
   late final TextEditingController _burnedKcalController;
   late final TextEditingController _setsController;
   late final TextEditingController _repsController;
@@ -61,6 +63,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     _nameController = TextEditingController(text: entry?.name ?? '');
     _durationController = TextEditingController(
       text: entry?.durationMin.toString() ?? '',
+    );
+    _distanceController = TextEditingController(
+      text: entry?.distanceKm?.toString() ?? '',
     );
     _burnedKcalController = TextEditingController(
       text: entry != null ? entry.effectiveGrossKcal.toString() : '',
@@ -81,6 +86,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   void dispose() {
     _nameController.dispose();
     _durationController.dispose();
+    _distanceController.dispose();
     _burnedKcalController.dispose();
     _setsController.dispose();
     _repsController.dispose();
@@ -129,21 +135,42 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     final net = grossAndNet.$2;
     final notes = _notesController.text.trim();
 
+    final activity = MetActivityCatalog.findById(_metState.activityId);
+    final unit = activity?.quantityUnit ?? ExerciseQuantityUnit.durationMin;
+    final distanceKm = unit == ExerciseQuantityUnit.distanceKm
+        ? _parseOptionalDouble(_distanceController)
+        : null;
+    final reps = unit == ExerciseQuantityUnit.reps
+        ? _parseOptionalInt(_repsController)
+        : null;
+    final durationMin = switch (unit) {
+      ExerciseQuantityUnit.distanceKm =>
+        ExerciseCalorieCalculator.companionDurationMin(
+          distanceKm: distanceKm ?? 0,
+          referenceSpeedKmh: activity?.referenceSpeedKmh,
+        ),
+      ExerciseQuantityUnit.reps => ExerciseCalorieCalculator.durationMinForReps(
+        reps ?? 0,
+      ),
+      ExerciseQuantityUnit.durationMin => int.parse(_durationController.text),
+    };
+
     return ExerciseEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
       name: _nameController.text.trim(),
-      durationMin: int.parse(_durationController.text),
+      durationMin: durationMin,
       burnedKcal: gross,
       loggedAt: _loggedAt,
       category: _metState.category,
       activityId: _metState.activityId,
       intensity: _metState.intensity,
       sets: _isStrength ? _parseOptionalInt(_setsController) : null,
-      reps: _isStrength ? _parseOptionalInt(_repsController) : null,
+      reps: reps,
       liftWeightKg: _isStrength
           ? _parseOptionalDouble(_liftWeightController)
           : null,
-      metValue: _metState.metValue,
+      distanceKm: distanceKm,
+      metValue: activity?.netKcalPerKgKm != null ? null : _metState.metValue,
       grossKcal: gross,
       netKcal: net,
       weightKgSnapshot: _metState.weightKgSnapshot,
@@ -175,23 +202,27 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return (parsedGross ?? _metState.grossKcal ?? 0, 0);
     }
 
-    final duration = int.tryParse(_durationController.text.trim());
-    final met = _metState.metValue;
+    final activity = MetActivityCatalog.findById(_metState.activityId);
     final weight =
         _metState.weightKgSnapshot ?? widget.controller.profile?.weightKg;
-    if (duration != null &&
-        duration > 0 &&
-        met != null &&
-        met > 0 &&
-        weight != null &&
-        weight > 0) {
+    if (activity != null && weight != null && weight > 0) {
       const calculator = ExerciseCalorieCalculator();
-      final estimate = calculator.estimate(
-        met: met,
-        weightKg: weight,
-        durationMinutes: duration,
-        sourceKey: _metState.sourceKey,
-      );
+      final estimate = switch (activity.quantityUnit) {
+        ExerciseQuantityUnit.distanceKm => _distanceEstimate(
+          calculator,
+          activity,
+          weight,
+        ),
+        ExerciseQuantityUnit.reps => _repsEstimate(
+          calculator,
+          activity,
+          weight,
+        ),
+        ExerciseQuantityUnit.durationMin => _durationEstimate(
+          calculator,
+          weight,
+        ),
+      };
       if (estimate != null) {
         return (estimate.grossKcal, estimate.netKcal);
       }
@@ -204,6 +235,73 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return (_metState.grossKcal!, _metState.netKcal!);
     }
     return null;
+  }
+
+  ExerciseCalorieEstimate? _distanceEstimate(
+    ExerciseCalorieCalculator calculator,
+    MetActivityDefinition activity,
+    double weight,
+  ) {
+    final km = _parseOptionalDouble(_distanceController);
+    if (km == null) {
+      return null;
+    }
+    final factor = activity.netKcalPerKgKm;
+    if (factor != null) {
+      return calculator.estimateByDistanceFactor(
+        weightKg: weight,
+        distanceKm: km,
+        netKcalPerKgKm: factor,
+        sourceKey: activity.sourceKey,
+      );
+    }
+    final speed = activity.referenceSpeedKmh;
+    final met = _metState.metValue;
+    if (speed == null || met == null) {
+      return null;
+    }
+    return calculator.estimateByDistanceSpeed(
+      met: met,
+      weightKg: weight,
+      distanceKm: km,
+      speedKmh: speed,
+      sourceKey: activity.sourceKey,
+    );
+  }
+
+  ExerciseCalorieEstimate? _repsEstimate(
+    ExerciseCalorieCalculator calculator,
+    MetActivityDefinition activity,
+    double weight,
+  ) {
+    final reps = _parseOptionalInt(_repsController);
+    final met = _metState.metValue;
+    if (reps == null || met == null) {
+      return null;
+    }
+    return calculator.estimateByReps(
+      met: met,
+      weightKg: weight,
+      reps: reps,
+      sourceKey: activity.sourceKey,
+    );
+  }
+
+  ExerciseCalorieEstimate? _durationEstimate(
+    ExerciseCalorieCalculator calculator,
+    double weight,
+  ) {
+    final duration = int.tryParse(_durationController.text.trim());
+    final met = _metState.metValue;
+    if (duration == null || duration <= 0 || met == null || met <= 0) {
+      return null;
+    }
+    return calculator.estimate(
+      met: met,
+      weightKg: weight,
+      durationMinutes: duration,
+      sourceKey: _metState.sourceKey,
+    );
   }
 
   Future<void> _save() async {
@@ -325,26 +423,12 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _numberField(
-            fieldKey: ExerciseFormScreen.repsFieldKey,
-            icon: AppIcons.dumbbell,
-            label: '回数',
-            suffix: '回',
-            controller: _repsController,
-            keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _numberField(
             fieldKey: ExerciseFormScreen.liftWeightFieldKey,
             icon: AppIcons.dumbbell,
             label: '重量（kg）',
             suffix: 'kg',
             controller: _liftWeightController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '消費カロリーは実施時間から計算します',
-            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: AppSpacing.md),
         ],
@@ -405,6 +489,8 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
               controller: widget.controller,
               loggedAt: _loggedAt,
               durationController: _durationController,
+              distanceController: _distanceController,
+              repsController: _repsController,
               grossKcalController: _burnedKcalController,
               nameController: _nameController,
               notesController: _notesController,

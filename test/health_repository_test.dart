@@ -37,24 +37,46 @@ void main() {
       expect(profile.workouts, hasLength(1));
     });
 
-    test('persists fetched weight and workouts locally', () async {
-      final profile = sampleHealthProfileData();
+    test('persists fetched weight with its measurement time', () async {
+      final measuredAt = DateTime(2026, 9, 12, 7, 30);
+      final profile = sampleHealthProfileData().copyWith(
+        weightMeasuredAt: measuredAt,
+      );
       await HealthRepositorySupport.persistFetchedProfile(repository, profile);
 
       expect(repository.savedWeights, hasLength(1));
       expect(repository.savedWeights.first.source, WeightSource.health);
+      expect(repository.savedWeights.first.recordedAt, measuredAt);
       expect(repository.savedWorkouts, hasLength(1));
     });
 
-    test('prefers health weight over manual weight when sync is on', () async {
+    test(
+      'newer manual weight wins over older Health when sync is on',
+      () async {
+        final weight = await HealthRepositorySupport.resolvePreferredWeight(
+          repository,
+          manualWeightKg: 71.2,
+          manualMeasuredAt: DateTime(2026, 9, 30, 8),
+          healthWeightKg: 58,
+          healthMeasuredAt: DateTime(2026, 9, 12, 7),
+          useHealthIntegration: true,
+        );
+
+        expect(weight, 71.2);
+      },
+    );
+
+    test('newer Health weight wins over older manual entry', () async {
       final weight = await HealthRepositorySupport.resolvePreferredWeight(
         repository,
-        manualWeightKg: 70,
-        healthWeightKg: 58,
+        manualWeightKg: 71.2,
+        manualMeasuredAt: DateTime(2026, 9, 1, 8),
+        healthWeightKg: 70.4,
+        healthMeasuredAt: DateTime(2026, 9, 28, 7),
         useHealthIntegration: true,
       );
 
-      expect(weight, 58);
+      expect(weight, 70.4);
     });
 
     test('AppController applies health data and stores workouts', () async {
@@ -109,7 +131,9 @@ void main() {
       final weight = await HealthRepositorySupport.resolvePreferredWeight(
         repository,
         manualWeightKg: 72,
+        manualMeasuredAt: DateTime(2026, 7, 21),
         healthWeightKg: 58,
+        healthMeasuredAt: DateTime(2026, 7, 1),
         useHealthIntegration: false,
       );
 

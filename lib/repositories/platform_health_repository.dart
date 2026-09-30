@@ -62,7 +62,7 @@ class PlatformHealthRepository implements HealthRepository {
       final birthDate = await _fetchBirthDate();
       final gender = await _fetchGender();
       final heightCm = await _fetchHeightCm();
-      final weightKg = await _fetchLatestWeightKg(startOfDay, now);
+      final weight = await _fetchLatestWeight(startOfDay, now);
       final activeEnergyBurnedKcal = await _fetchActiveEnergyBurnedKcal(
         startOfDay,
         now,
@@ -73,7 +73,8 @@ class PlatformHealthRepository implements HealthRepository {
         birthDate: birthDate,
         gender: gender,
         heightCm: heightCm,
-        weightKg: weightKg,
+        weightKg: weight?.kg,
+        weightMeasuredAt: weight?.measuredAt,
         activeEnergyBurnedKcal: activeEnergyBurnedKcal,
         workouts: workouts,
       );
@@ -157,23 +158,28 @@ class PlatformHealthRepository implements HealthRepository {
     return numeric > 3 ? numeric : numeric * 100;
   }
 
-  Future<double?> _fetchLatestWeightKg(DateTime start, DateTime end) async {
+  Future<({double kg, DateTime measuredAt})?> _fetchLatestWeight(
+    DateTime start,
+    DateTime end,
+  ) async {
     final points = await _health.getHealthDataFromTypes(
       types: [HealthDataType.WEIGHT],
-      startTime: start.subtract(const Duration(days: 30)),
+      startTime: start.subtract(const Duration(days: 365)),
       endTime: end,
     );
     if (points.isEmpty) {
       return null;
     }
 
-    points.sort((a, b) => b.dateTo.compareTo(a.dateTo));
-    final value = points.first.value;
-    if (value is! NumericHealthValue) {
-      return null;
+    points.sort((a, b) => b.dateFrom.compareTo(a.dateFrom));
+    for (final point in points) {
+      final value = point.value;
+      if (value is! NumericHealthValue) {
+        continue;
+      }
+      return (kg: value.numericValue.toDouble(), measuredAt: point.dateFrom);
     }
-
-    return value.numericValue.toDouble();
+    return null;
   }
 
   Future<double> _fetchActiveEnergyBurnedKcal(

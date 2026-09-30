@@ -1426,11 +1426,51 @@ const NutritionSettingsEntitySchema = CollectionSchema(
       name: r'activityLevelIndex',
       type: IsarType.long,
     ),
-    r'useHealthIntegration': PropertySchema(
+    r'autoFoodTargetKcal': PropertySchema(
       id: 1,
+      name: r'autoFoodTargetKcal',
+      type: IsarType.double,
+    ),
+    r'autoFoodTargetOn': PropertySchema(
+      id: 2,
+      name: r'autoFoodTargetOn',
+      type: IsarType.dateTime,
+    ),
+    r'autoFoodTargetPriorKcal': PropertySchema(
+      id: 3,
+      name: r'autoFoodTargetPriorKcal',
+      type: IsarType.double,
+    ),
+    r'calorieTargetModeIndex': PropertySchema(
+      id: 4,
+      name: r'calorieTargetModeIndex',
+      type: IsarType.long,
+    ),
+    r'manualCarbG': PropertySchema(
+      id: 5,
+      name: r'manualCarbG',
+      type: IsarType.double,
+    ),
+    r'manualFatG': PropertySchema(
+      id: 6,
+      name: r'manualFatG',
+      type: IsarType.double,
+    ),
+    r'manualProteinG': PropertySchema(
+      id: 7,
+      name: r'manualProteinG',
+      type: IsarType.double,
+    ),
+    r'manualTargetKcal': PropertySchema(
+      id: 8,
+      name: r'manualTargetKcal',
+      type: IsarType.double,
+    ),
+    r'useHealthIntegration': PropertySchema(
+      id: 9,
       name: r'useHealthIntegration',
       type: IsarType.bool,
-    ),
+    )
   },
   estimateSize: _nutritionSettingsEntityEstimateSize,
   serialize: _nutritionSettingsEntitySerialize,
@@ -1462,7 +1502,15 @@ void _nutritionSettingsEntitySerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeLong(offsets[0], object.activityLevelIndex);
-  writer.writeBool(offsets[1], object.useHealthIntegration);
+  writer.writeDouble(offsets[1], object.autoFoodTargetKcal);
+  writer.writeDateTime(offsets[2], object.autoFoodTargetOn);
+  writer.writeDouble(offsets[3], object.autoFoodTargetPriorKcal);
+  writer.writeLong(offsets[4], object.calorieTargetModeIndex);
+  writer.writeDouble(offsets[5], object.manualCarbG);
+  writer.writeDouble(offsets[6], object.manualFatG);
+  writer.writeDouble(offsets[7], object.manualProteinG);
+  writer.writeDouble(offsets[8], object.manualTargetKcal);
+  writer.writeBool(offsets[9], object.useHealthIntegration);
 }
 
 NutritionSettingsEntity _nutritionSettingsEntityDeserialize(
@@ -1473,8 +1521,16 @@ NutritionSettingsEntity _nutritionSettingsEntityDeserialize(
 ) {
   final object = NutritionSettingsEntity();
   object.activityLevelIndex = reader.readLongOrNull(offsets[0]);
+  object.autoFoodTargetKcal = reader.readDoubleOrNull(offsets[1]);
+  object.autoFoodTargetOn = reader.readDateTimeOrNull(offsets[2]);
+  object.autoFoodTargetPriorKcal = reader.readDoubleOrNull(offsets[3]);
+  object.calorieTargetModeIndex = reader.readLongOrNull(offsets[4]);
   object.id = id;
-  object.useHealthIntegration = reader.readBool(offsets[1]);
+  object.manualCarbG = reader.readDoubleOrNull(offsets[5]);
+  object.manualFatG = reader.readDoubleOrNull(offsets[6]);
+  object.manualProteinG = reader.readDoubleOrNull(offsets[7]);
+  object.manualTargetKcal = reader.readDoubleOrNull(offsets[8]);
+  object.useHealthIntegration = reader.readBool(offsets[9]);
   return object;
 }
 
@@ -1488,6 +1544,22 @@ P _nutritionSettingsEntityDeserializeProp<P>(
     case 0:
       return (reader.readLongOrNull(offset)) as P;
     case 1:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 2:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 3:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 4:
+      return (reader.readLongOrNull(offset)) as P;
+    case 5:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 6:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 7:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 8:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 9:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1499,53 +1571,39 @@ Id _nutritionSettingsEntityGetId(NutritionSettingsEntity object) {
 }
 
 List<IsarLinkBase<dynamic>> _nutritionSettingsEntityGetLinks(
-  NutritionSettingsEntity object,
-) {
+    NutritionSettingsEntity object) {
   return [];
 }
 
 void _nutritionSettingsEntityAttach(
-  IsarCollection<dynamic> col,
-  Id id,
-  NutritionSettingsEntity object,
-) {
+    IsarCollection<dynamic> col, Id id, NutritionSettingsEntity object) {
   object.id = id;
 }
 
 extension NutritionSettingsEntityQueryWhereSort
     on QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QWhere> {
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterWhere>
-  anyId() {
+      anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
     });
   }
 }
 
-extension NutritionSettingsEntityQueryWhere
-    on
-        QueryBuilder<
-          NutritionSettingsEntity,
-          NutritionSettingsEntity,
-          QWhereClause
-        > {
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterWhereClause
-  >
-  idEqualTo(Id id) {
+extension NutritionSettingsEntityQueryWhere on QueryBuilder<
+    NutritionSettingsEntity, NutritionSettingsEntity, QWhereClause> {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterWhereClause> idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
+      return query.addWhereClause(IdWhereClause.between(
+        lower: id,
+        upper: id,
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterWhereClause
-  >
-  idNotEqualTo(Id id) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterWhereClause> idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -1567,12 +1625,8 @@ extension NutritionSettingsEntityQueryWhere
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterWhereClause
-  >
-  idGreaterThan(Id id, {bool include = false}) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterWhereClause> idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -1580,12 +1634,8 @@ extension NutritionSettingsEntityQueryWhere
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterWhereClause
-  >
-  idLessThan(Id id, {bool include = false}) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterWhereClause> idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -1593,348 +1643,1200 @@ extension NutritionSettingsEntityQueryWhere
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterWhereClause
-  >
-  idBetween(
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterWhereClause> idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IdWhereClause.between(
-          lower: lowerId,
-          includeLower: includeLower,
-          upper: upperId,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addWhereClause(IdWhereClause.between(
+        lower: lowerId,
+        includeLower: includeLower,
+        upper: upperId,
+        includeUpper: includeUpper,
+      ));
     });
   }
 }
 
-extension NutritionSettingsEntityQueryFilter
-    on
-        QueryBuilder<
-          NutritionSettingsEntity,
-          NutritionSettingsEntity,
-          QFilterCondition
-        > {
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  activityLevelIndexIsNull() {
+extension NutritionSettingsEntityQueryFilter on QueryBuilder<
+    NutritionSettingsEntity, NutritionSettingsEntity, QFilterCondition> {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> activityLevelIndexIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        const FilterCondition.isNull(property: r'activityLevelIndex'),
-      );
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'activityLevelIndex',
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  activityLevelIndexIsNotNull() {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> activityLevelIndexIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        const FilterCondition.isNotNull(property: r'activityLevelIndex'),
-      );
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'activityLevelIndex',
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  activityLevelIndexEqualTo(int? value) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> activityLevelIndexEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'activityLevelIndex', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'activityLevelIndex',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  activityLevelIndexGreaterThan(int? value, {bool include = false}) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> activityLevelIndexGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'activityLevelIndex',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'activityLevelIndex',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  activityLevelIndexLessThan(int? value, {bool include = false}) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> activityLevelIndexLessThan(
+    int? value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'activityLevelIndex',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'activityLevelIndex',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  activityLevelIndexBetween(
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> activityLevelIndexBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'activityLevelIndex',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'activityLevelIndex',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  idEqualTo(Id value) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetKcalIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'id', value: value),
-      );
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'autoFoodTargetKcal',
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  idGreaterThan(Id value, {bool include = false}) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetKcalIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'autoFoodTargetKcal',
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  idLessThan(Id value, {bool include = false}) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetKcalEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'autoFoodTargetKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  idBetween(
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetKcalGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'autoFoodTargetKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetKcalLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'autoFoodTargetKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetKcalBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'autoFoodTargetKcal',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetOnIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'autoFoodTargetOn',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetOnIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'autoFoodTargetOn',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetOnEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'autoFoodTargetOn',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetOnGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'autoFoodTargetOn',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetOnLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'autoFoodTargetOn',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetOnBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'autoFoodTargetOn',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetPriorKcalIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'autoFoodTargetPriorKcal',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetPriorKcalIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'autoFoodTargetPriorKcal',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetPriorKcalEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'autoFoodTargetPriorKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetPriorKcalGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'autoFoodTargetPriorKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetPriorKcalLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'autoFoodTargetPriorKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> autoFoodTargetPriorKcalBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'autoFoodTargetPriorKcal',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> calorieTargetModeIndexIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'calorieTargetModeIndex',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> calorieTargetModeIndexIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'calorieTargetModeIndex',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> calorieTargetModeIndexEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'calorieTargetModeIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> calorieTargetModeIndexGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'calorieTargetModeIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> calorieTargetModeIndexLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'calorieTargetModeIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> calorieTargetModeIndexBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'calorieTargetModeIndex',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> idEqualTo(Id value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> idGreaterThan(
+    Id value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> idLessThan(
+    Id value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'id',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'id',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
-  QueryBuilder<
-    NutritionSettingsEntity,
-    NutritionSettingsEntity,
-    QAfterFilterCondition
-  >
-  useHealthIntegrationEqualTo(bool value) {
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualCarbGIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'useHealthIntegration',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'manualCarbG',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualCarbGIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'manualCarbG',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualCarbGEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'manualCarbG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualCarbGGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'manualCarbG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualCarbGLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'manualCarbG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualCarbGBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'manualCarbG',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualFatGIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'manualFatG',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualFatGIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'manualFatG',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualFatGEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'manualFatG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualFatGGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'manualFatG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualFatGLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'manualFatG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualFatGBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'manualFatG',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualProteinGIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'manualProteinG',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualProteinGIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'manualProteinG',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualProteinGEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'manualProteinG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualProteinGGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'manualProteinG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualProteinGLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'manualProteinG',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualProteinGBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'manualProteinG',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualTargetKcalIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'manualTargetKcal',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualTargetKcalIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'manualTargetKcal',
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualTargetKcalEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'manualTargetKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualTargetKcalGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'manualTargetKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualTargetKcalLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'manualTargetKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> manualTargetKcalBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'manualTargetKcal',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity,
+      QAfterFilterCondition> useHealthIntegrationEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'useHealthIntegration',
+        value: value,
+      ));
     });
   }
 }
 
-extension NutritionSettingsEntityQueryObject
-    on
-        QueryBuilder<
-          NutritionSettingsEntity,
-          NutritionSettingsEntity,
-          QFilterCondition
-        > {}
+extension NutritionSettingsEntityQueryObject on QueryBuilder<
+    NutritionSettingsEntity, NutritionSettingsEntity, QFilterCondition> {}
 
-extension NutritionSettingsEntityQueryLinks
-    on
-        QueryBuilder<
-          NutritionSettingsEntity,
-          NutritionSettingsEntity,
-          QFilterCondition
-        > {}
+extension NutritionSettingsEntityQueryLinks on QueryBuilder<
+    NutritionSettingsEntity, NutritionSettingsEntity, QFilterCondition> {}
 
 extension NutritionSettingsEntityQuerySortBy
     on QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QSortBy> {
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  sortByActivityLevelIndex() {
+      sortByActivityLevelIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activityLevelIndex', Sort.asc);
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  sortByActivityLevelIndexDesc() {
+      sortByActivityLevelIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activityLevelIndex', Sort.desc);
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  sortByUseHealthIntegration() {
+      sortByAutoFoodTargetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByAutoFoodTargetKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByAutoFoodTargetOn() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetOn', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByAutoFoodTargetOnDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetOn', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByAutoFoodTargetPriorKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetPriorKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByAutoFoodTargetPriorKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetPriorKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByCalorieTargetModeIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calorieTargetModeIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByCalorieTargetModeIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calorieTargetModeIndex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByManualCarbG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualCarbG', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByManualCarbGDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualCarbG', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByManualFatG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualFatG', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByManualFatGDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualFatG', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByManualProteinG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualProteinG', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByManualProteinGDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualProteinG', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByManualTargetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualTargetKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByManualTargetKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualTargetKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      sortByUseHealthIntegration() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useHealthIntegration', Sort.asc);
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  sortByUseHealthIntegrationDesc() {
+      sortByUseHealthIntegrationDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useHealthIntegration', Sort.desc);
     });
   }
 }
 
-extension NutritionSettingsEntityQuerySortThenBy
-    on
-        QueryBuilder<
-          NutritionSettingsEntity,
-          NutritionSettingsEntity,
-          QSortThenBy
-        > {
+extension NutritionSettingsEntityQuerySortThenBy on QueryBuilder<
+    NutritionSettingsEntity, NutritionSettingsEntity, QSortThenBy> {
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  thenByActivityLevelIndex() {
+      thenByActivityLevelIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activityLevelIndex', Sort.asc);
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  thenByActivityLevelIndexDesc() {
+      thenByActivityLevelIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activityLevelIndex', Sort.desc);
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  thenById() {
+      thenByAutoFoodTargetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByAutoFoodTargetKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByAutoFoodTargetOn() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetOn', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByAutoFoodTargetOnDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetOn', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByAutoFoodTargetPriorKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetPriorKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByAutoFoodTargetPriorKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoFoodTargetPriorKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByCalorieTargetModeIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calorieTargetModeIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByCalorieTargetModeIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'calorieTargetModeIndex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  thenByIdDesc() {
+      thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  thenByUseHealthIntegration() {
+      thenByManualCarbG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualCarbG', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByManualCarbGDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualCarbG', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByManualFatG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualFatG', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByManualFatGDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualFatG', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByManualProteinG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualProteinG', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByManualProteinGDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualProteinG', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByManualTargetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualTargetKcal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByManualTargetKcalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'manualTargetKcal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
+      thenByUseHealthIntegration() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useHealthIntegration', Sort.asc);
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QAfterSortBy>
-  thenByUseHealthIntegrationDesc() {
+      thenByUseHealthIntegrationDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'useHealthIntegration', Sort.desc);
     });
   }
 }
 
-extension NutritionSettingsEntityQueryWhereDistinct
-    on
-        QueryBuilder<
-          NutritionSettingsEntity,
-          NutritionSettingsEntity,
-          QDistinct
-        > {
+extension NutritionSettingsEntityQueryWhereDistinct on QueryBuilder<
+    NutritionSettingsEntity, NutritionSettingsEntity, QDistinct> {
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
-  distinctByActivityLevelIndex() {
+      distinctByActivityLevelIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'activityLevelIndex');
     });
   }
 
   QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
-  distinctByUseHealthIntegration() {
+      distinctByAutoFoodTargetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'autoFoodTargetKcal');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
+      distinctByAutoFoodTargetOn() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'autoFoodTargetOn');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
+      distinctByAutoFoodTargetPriorKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'autoFoodTargetPriorKcal');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
+      distinctByCalorieTargetModeIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'calorieTargetModeIndex');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
+      distinctByManualCarbG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'manualCarbG');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
+      distinctByManualFatG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'manualFatG');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
+      distinctByManualProteinG() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'manualProteinG');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
+      distinctByManualTargetKcal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'manualTargetKcal');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, NutritionSettingsEntity, QDistinct>
+      distinctByUseHealthIntegration() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'useHealthIntegration');
     });
   }
 }
 
-extension NutritionSettingsEntityQueryProperty
-    on
-        QueryBuilder<
-          NutritionSettingsEntity,
-          NutritionSettingsEntity,
-          QQueryProperty
-        > {
+extension NutritionSettingsEntityQueryProperty on QueryBuilder<
+    NutritionSettingsEntity, NutritionSettingsEntity, QQueryProperty> {
   QueryBuilder<NutritionSettingsEntity, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
@@ -1942,14 +2844,70 @@ extension NutritionSettingsEntityQueryProperty
   }
 
   QueryBuilder<NutritionSettingsEntity, int?, QQueryOperations>
-  activityLevelIndexProperty() {
+      activityLevelIndexProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'activityLevelIndex');
     });
   }
 
+  QueryBuilder<NutritionSettingsEntity, double?, QQueryOperations>
+      autoFoodTargetKcalProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'autoFoodTargetKcal');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, DateTime?, QQueryOperations>
+      autoFoodTargetOnProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'autoFoodTargetOn');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, double?, QQueryOperations>
+      autoFoodTargetPriorKcalProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'autoFoodTargetPriorKcal');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, int?, QQueryOperations>
+      calorieTargetModeIndexProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'calorieTargetModeIndex');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, double?, QQueryOperations>
+      manualCarbGProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'manualCarbG');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, double?, QQueryOperations>
+      manualFatGProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'manualFatG');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, double?, QQueryOperations>
+      manualProteinGProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'manualProteinG');
+    });
+  }
+
+  QueryBuilder<NutritionSettingsEntity, double?, QQueryOperations>
+      manualTargetKcalProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'manualTargetKcal');
+    });
+  }
+
   QueryBuilder<NutritionSettingsEntity, bool, QQueryOperations>
-  useHealthIntegrationProperty() {
+      useHealthIntegrationProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'useHealthIntegration');
     });
@@ -28755,6 +29713,11 @@ const HealthSnapshotEntitySchema = CollectionSchema(
       name: r'weightKg',
       type: IsarType.double,
     ),
+    r'weightMeasuredAt': PropertySchema(
+      id: 3,
+      name: r'weightMeasuredAt',
+      type: IsarType.dateTime,
+    )
   },
   estimateSize: _healthSnapshotEntityEstimateSize,
   serialize: _healthSnapshotEntitySerialize,
@@ -28788,6 +29751,7 @@ void _healthSnapshotEntitySerialize(
   writer.writeDouble(offsets[0], object.activeEnergyBurnedKcal);
   writer.writeDateTime(offsets[1], object.updatedAt);
   writer.writeDouble(offsets[2], object.weightKg);
+  writer.writeDateTime(offsets[3], object.weightMeasuredAt);
 }
 
 HealthSnapshotEntity _healthSnapshotEntityDeserialize(
@@ -28801,6 +29765,7 @@ HealthSnapshotEntity _healthSnapshotEntityDeserialize(
   object.id = id;
   object.updatedAt = reader.readDateTime(offsets[1]);
   object.weightKg = reader.readDoubleOrNull(offsets[2]);
+  object.weightMeasuredAt = reader.readDateTimeOrNull(offsets[3]);
   return object;
 }
 
@@ -28817,6 +29782,8 @@ P _healthSnapshotEntityDeserializeProp<P>(
       return (reader.readDateTime(offset)) as P;
     case 2:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 3:
+      return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -28827,23 +29794,19 @@ Id _healthSnapshotEntityGetId(HealthSnapshotEntity object) {
 }
 
 List<IsarLinkBase<dynamic>> _healthSnapshotEntityGetLinks(
-  HealthSnapshotEntity object,
-) {
+    HealthSnapshotEntity object) {
   return [];
 }
 
 void _healthSnapshotEntityAttach(
-  IsarCollection<dynamic> col,
-  Id id,
-  HealthSnapshotEntity object,
-) {
+    IsarCollection<dynamic> col, Id id, HealthSnapshotEntity object) {
   object.id = id;
 }
 
 extension HealthSnapshotEntityQueryWhereSort
     on QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QWhere> {
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterWhere>
-  anyId() {
+      anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
     });
@@ -28853,14 +29816,17 @@ extension HealthSnapshotEntityQueryWhereSort
 extension HealthSnapshotEntityQueryWhere
     on QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QWhereClause> {
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterWhereClause>
-  idEqualTo(Id id) {
+      idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
+      return query.addWhereClause(IdWhereClause.between(
+        lower: id,
+        upper: id,
+      ));
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterWhereClause>
-  idNotEqualTo(Id id) {
+      idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -28883,7 +29849,7 @@ extension HealthSnapshotEntityQueryWhere
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterWhereClause>
-  idGreaterThan(Id id, {bool include = false}) {
+      idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -28892,7 +29858,7 @@ extension HealthSnapshotEntityQueryWhere
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterWhereClause>
-  idLessThan(Id id, {bool include = false}) {
+      idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -28901,128 +29867,91 @@ extension HealthSnapshotEntityQueryWhere
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterWhereClause>
-  idBetween(
+      idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IdWhereClause.between(
-          lower: lowerId,
-          includeLower: includeLower,
-          upper: upperId,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addWhereClause(IdWhereClause.between(
+        lower: lowerId,
+        includeLower: includeLower,
+        upper: upperId,
+        includeUpper: includeUpper,
+      ));
     });
   }
 }
 
-extension HealthSnapshotEntityQueryFilter
-    on
-        QueryBuilder<
-          HealthSnapshotEntity,
-          HealthSnapshotEntity,
-          QFilterCondition
-        > {
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  activeEnergyBurnedKcalIsNull() {
+extension HealthSnapshotEntityQueryFilter on QueryBuilder<HealthSnapshotEntity,
+    HealthSnapshotEntity, QFilterCondition> {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> activeEnergyBurnedKcalIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        const FilterCondition.isNull(property: r'activeEnergyBurnedKcal'),
-      );
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'activeEnergyBurnedKcal',
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  activeEnergyBurnedKcalIsNotNull() {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> activeEnergyBurnedKcalIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        const FilterCondition.isNotNull(property: r'activeEnergyBurnedKcal'),
-      );
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'activeEnergyBurnedKcal',
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  activeEnergyBurnedKcalEqualTo(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> activeEnergyBurnedKcalEqualTo(
     double? value, {
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'activeEnergyBurnedKcal',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'activeEnergyBurnedKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  activeEnergyBurnedKcalGreaterThan(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> activeEnergyBurnedKcalGreaterThan(
     double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'activeEnergyBurnedKcal',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'activeEnergyBurnedKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  activeEnergyBurnedKcalLessThan(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> activeEnergyBurnedKcalLessThan(
     double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'activeEnergyBurnedKcal',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'activeEnergyBurnedKcal',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  activeEnergyBurnedKcalBetween(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> activeEnergyBurnedKcalBetween(
     double? lower,
     double? upper, {
     bool includeLower = true,
@@ -29030,254 +29959,195 @@ extension HealthSnapshotEntityQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'activeEnergyBurnedKcal',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'activeEnergyBurnedKcal',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  idEqualTo(Id value) {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'id', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  idGreaterThan(Id value, {bool include = false}) {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> idGreaterThan(
+    Id value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  idLessThan(Id value, {bool include = false}) {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> idLessThan(
+    Id value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  idBetween(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'id',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'id',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  updatedAtEqualTo(DateTime value) {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'updatedAt', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'updatedAt',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  updatedAtGreaterThan(DateTime value, {bool include = false}) {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> updatedAtGreaterThan(
+    DateTime value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'updatedAt',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  updatedAtLessThan(DateTime value, {bool include = false}) {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> updatedAtLessThan(
+    DateTime value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'updatedAt',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  updatedAtBetween(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'updatedAt',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'updatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  weightKgIsNull() {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightKgIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        const FilterCondition.isNull(property: r'weightKg'),
-      );
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'weightKg',
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  weightKgIsNotNull() {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightKgIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        const FilterCondition.isNotNull(property: r'weightKg'),
-      );
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'weightKg',
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  weightKgEqualTo(double? value, {double epsilon = Query.epsilon}) {
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightKgEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'weightKg',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'weightKg',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  weightKgGreaterThan(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightKgGreaterThan(
     double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'weightKg',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'weightKg',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  weightKgLessThan(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightKgLessThan(
     double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'weightKg',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'weightKg',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
-  QueryBuilder<
-    HealthSnapshotEntity,
-    HealthSnapshotEntity,
-    QAfterFilterCondition
-  >
-  weightKgBetween(
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightKgBetween(
     double? lower,
     double? upper, {
     bool includeLower = true,
@@ -29285,77 +30155,153 @@ extension HealthSnapshotEntityQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'weightKg',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'weightKg',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightMeasuredAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'weightMeasuredAt',
+      ));
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightMeasuredAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'weightMeasuredAt',
+      ));
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightMeasuredAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'weightMeasuredAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightMeasuredAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'weightMeasuredAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightMeasuredAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'weightMeasuredAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity,
+      QAfterFilterCondition> weightMeasuredAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'weightMeasuredAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 }
 
-extension HealthSnapshotEntityQueryObject
-    on
-        QueryBuilder<
-          HealthSnapshotEntity,
-          HealthSnapshotEntity,
-          QFilterCondition
-        > {}
+extension HealthSnapshotEntityQueryObject on QueryBuilder<HealthSnapshotEntity,
+    HealthSnapshotEntity, QFilterCondition> {}
 
-extension HealthSnapshotEntityQueryLinks
-    on
-        QueryBuilder<
-          HealthSnapshotEntity,
-          HealthSnapshotEntity,
-          QFilterCondition
-        > {}
+extension HealthSnapshotEntityQueryLinks on QueryBuilder<HealthSnapshotEntity,
+    HealthSnapshotEntity, QFilterCondition> {}
 
 extension HealthSnapshotEntityQuerySortBy
     on QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QSortBy> {
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  sortByActiveEnergyBurnedKcal() {
+      sortByActiveEnergyBurnedKcal() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeEnergyBurnedKcal', Sort.asc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  sortByActiveEnergyBurnedKcalDesc() {
+      sortByActiveEnergyBurnedKcalDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeEnergyBurnedKcal', Sort.desc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  sortByUpdatedAt() {
+      sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  sortByUpdatedAtDesc() {
+      sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  sortByWeightKg() {
+      sortByWeightKg() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'weightKg', Sort.asc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  sortByWeightKgDesc() {
+      sortByWeightKgDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'weightKg', Sort.desc);
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
+      sortByWeightMeasuredAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weightMeasuredAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
+      sortByWeightMeasuredAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weightMeasuredAt', Sort.desc);
     });
   }
 }
@@ -29363,58 +30309,72 @@ extension HealthSnapshotEntityQuerySortBy
 extension HealthSnapshotEntityQuerySortThenBy
     on QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QSortThenBy> {
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  thenByActiveEnergyBurnedKcal() {
+      thenByActiveEnergyBurnedKcal() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeEnergyBurnedKcal', Sort.asc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  thenByActiveEnergyBurnedKcalDesc() {
+      thenByActiveEnergyBurnedKcalDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeEnergyBurnedKcal', Sort.desc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  thenById() {
+      thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  thenByIdDesc() {
+      thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  thenByUpdatedAt() {
+      thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  thenByUpdatedAtDesc() {
+      thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  thenByWeightKg() {
+      thenByWeightKg() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'weightKg', Sort.asc);
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
-  thenByWeightKgDesc() {
+      thenByWeightKgDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'weightKg', Sort.desc);
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
+      thenByWeightMeasuredAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weightMeasuredAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QAfterSortBy>
+      thenByWeightMeasuredAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weightMeasuredAt', Sort.desc);
     });
   }
 }
@@ -29422,34 +30382,36 @@ extension HealthSnapshotEntityQuerySortThenBy
 extension HealthSnapshotEntityQueryWhereDistinct
     on QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QDistinct> {
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QDistinct>
-  distinctByActiveEnergyBurnedKcal() {
+      distinctByActiveEnergyBurnedKcal() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'activeEnergyBurnedKcal');
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QDistinct>
-  distinctByUpdatedAt() {
+      distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QDistinct>
-  distinctByWeightKg() {
+      distinctByWeightKg() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'weightKg');
     });
   }
+
+  QueryBuilder<HealthSnapshotEntity, HealthSnapshotEntity, QDistinct>
+      distinctByWeightMeasuredAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'weightMeasuredAt');
+    });
+  }
 }
 
-extension HealthSnapshotEntityQueryProperty
-    on
-        QueryBuilder<
-          HealthSnapshotEntity,
-          HealthSnapshotEntity,
-          QQueryProperty
-        > {
+extension HealthSnapshotEntityQueryProperty on QueryBuilder<
+    HealthSnapshotEntity, HealthSnapshotEntity, QQueryProperty> {
   QueryBuilder<HealthSnapshotEntity, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
@@ -29457,23 +30419,30 @@ extension HealthSnapshotEntityQueryProperty
   }
 
   QueryBuilder<HealthSnapshotEntity, double?, QQueryOperations>
-  activeEnergyBurnedKcalProperty() {
+      activeEnergyBurnedKcalProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'activeEnergyBurnedKcal');
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, DateTime, QQueryOperations>
-  updatedAtProperty() {
+      updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });
   }
 
   QueryBuilder<HealthSnapshotEntity, double?, QQueryOperations>
-  weightKgProperty() {
+      weightKgProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'weightKg');
+    });
+  }
+
+  QueryBuilder<HealthSnapshotEntity, DateTime?, QQueryOperations>
+      weightMeasuredAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'weightMeasuredAt');
     });
   }
 }

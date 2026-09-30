@@ -1,4 +1,6 @@
+import '../models/calculation/weight_sample.dart';
 import '../models/health_profile_data.dart';
+import '../services/weight_for_target.dart';
 import 'health_repository.dart';
 
 /// HealthRepository 共通処理。
@@ -13,7 +15,7 @@ class HealthRepositorySupport {
       await repository.saveWeightRecord(
         WeightRecord(
           weightKg: data.weightKg!,
-          recordedAt: DateTime.now(),
+          recordedAt: data.weightMeasuredAt ?? DateTime.now(),
           source: WeightSource.health,
         ),
       );
@@ -27,22 +29,48 @@ class HealthRepositorySupport {
   static Future<double?> resolvePreferredWeight(
     HealthRepository repository, {
     required double? manualWeightKg,
+    DateTime? manualMeasuredAt,
     required double? healthWeightKg,
+    DateTime? healthMeasuredAt,
     required bool useHealthIntegration,
   }) async {
-    if (useHealthIntegration) {
-      final storedHealthWeight = await latestStoredWeight(
-        repository,
-        preferredSource: WeightSource.health,
+    final records = await repository.loadWeightRecords();
+    final samples = <WeightSample>[
+      for (final record in records)
+        WeightSample(
+          kg: record.weightKg,
+          measuredAt: record.recordedAt,
+          source: record.source,
+        ),
+    ];
+    if (manualWeightKg != null && manualMeasuredAt != null) {
+      samples.add(
+        WeightSample(
+          kg: manualWeightKg,
+          measuredAt: manualMeasuredAt,
+          source: WeightSource.manual,
+        ),
       );
-      return healthWeightKg ?? storedHealthWeight ?? manualWeightKg;
     }
-
-    final storedManualWeight = await latestStoredWeight(
-      repository,
-      preferredSource: WeightSource.manual,
-    );
-    return storedManualWeight ?? manualWeightKg;
+    if (useHealthIntegration &&
+        healthWeightKg != null &&
+        healthMeasuredAt != null) {
+      samples.add(
+        WeightSample(
+          kg: healthWeightKg,
+          measuredAt: healthMeasuredAt,
+          source: WeightSource.health,
+        ),
+      );
+    }
+    if (samples.isEmpty) {
+      return manualWeightKg ?? (useHealthIntegration ? healthWeightKg : null);
+    }
+    return selectWeight(
+      samples: samples,
+      reference: DateTime.now(),
+      fallbackKg: manualWeightKg,
+    ).kg;
   }
 
   static Future<double?> latestStoredWeight(

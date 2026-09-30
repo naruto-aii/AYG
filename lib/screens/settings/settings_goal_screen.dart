@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
+import '../../models/activity_level.dart';
+import '../../models/calculation/calorie_target_mode.dart';
 import '../../models/calculation/goal_pace.dart';
 import '../../models/goal.dart';
+import '../../models/nutrition_settings.dart';
+import '../../widgets/nutrition/calorie_target_editor.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -27,7 +31,12 @@ class SettingsGoalScreen extends StatefulWidget {
 class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   late GoalType _goalType;
   late GoalPace _goalPace;
+  late CalorieTargetMode _calorieMode;
   final _targetWeightController = TextEditingController();
+  final _kcalController = TextEditingController();
+  final _proteinController = TextEditingController();
+  final _fatController = TextEditingController();
+  final _carbController = TextEditingController();
   late DateTime _targetDate;
   bool _isSaving = false;
 
@@ -35,15 +44,33 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   void initState() {
     super.initState();
     final goal = widget.controller.goal!;
+    final settings = widget.controller.nutritionSettings;
     _goalType = goal.type;
     _goalPace = goal.goalPace;
+    _calorieMode = settings?.calorieTargetMode ?? CalorieTargetMode.automatic;
     _targetWeightController.text = goal.targetWeightKg.toStringAsFixed(1);
     _targetDate = goal.targetDate;
+    if (settings?.manualTargetKcal != null) {
+      _kcalController.text = settings!.manualTargetKcal!.toStringAsFixed(0);
+    }
+    if (settings?.manualProteinG != null) {
+      _proteinController.text = settings!.manualProteinG!.toStringAsFixed(0);
+    }
+    if (settings?.manualFatG != null) {
+      _fatController.text = settings!.manualFatG!.toStringAsFixed(0);
+    }
+    if (settings?.manualCarbG != null) {
+      _carbController.text = settings!.manualCarbG!.toStringAsFixed(0);
+    }
   }
 
   @override
   void dispose() {
     _targetWeightController.dispose();
+    _kcalController.dispose();
+    _proteinController.dispose();
+    _fatController.dispose();
+    _carbController.dispose();
     super.dispose();
   }
 
@@ -104,7 +131,45 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
       }
     }
 
+    if (_calorieMode == CalorieTargetMode.manual) {
+      final message = validateManualCalorieTargets(
+        kcalText: _kcalController.text,
+        proteinText: _proteinController.text,
+        fatText: _fatController.text,
+        carbText: _carbController.text,
+      );
+      if (message != null) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
+    final currentSettings = widget.controller.nutritionSettings;
+    final base =
+        currentSettings ??
+        NutritionSettings(
+          useHealthIntegration: widget.controller.useHealthIntegration,
+          activityLevel: widget.controller.useHealthIntegration
+              ? null
+              : ActivityLevel.moderate,
+        );
+    await widget.controller.saveNutritionSettingsSettings(
+      _calorieMode == CalorieTargetMode.manual
+          ? base.copyWith(
+              calorieTargetMode: CalorieTargetMode.manual,
+              manualTargetKcal: double.parse(_kcalController.text.trim()),
+              manualProteinG: double.parse(_proteinController.text.trim()),
+              manualFatG: double.parse(_fatController.text.trim()),
+              manualCarbG: double.parse(_carbController.text.trim()),
+            )
+          : base.copyWith(calorieTargetMode: CalorieTargetMode.automatic),
+    );
     await widget.controller.saveGoalSettings(
       Goal(
         type: _goalType,
@@ -148,8 +213,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final showPace =
-        _goalType == GoalType.lose || _goalType == GoalType.gain;
+    final showPace = _goalType == GoalType.lose || _goalType == GoalType.gain;
 
     return DesignPage(
       bottomBar: DesignButton(
@@ -244,11 +308,18 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
             const SizedBox(height: 8),
             Text(
               '${_goalPace.descriptionJa}\nペースの係数や kcal/kg の詳細は「計算根拠」で確認できます。',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.textMuted,
-              ),
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
             ),
           ],
+          const SizedBox(height: 18),
+          CalorieTargetEditor(
+            mode: _calorieMode,
+            onModeChanged: (mode) => setState(() => _calorieMode = mode),
+            kcalController: _kcalController,
+            proteinController: _proteinController,
+            fatController: _fatController,
+            carbController: _carbController,
+          ),
           const SizedBox(height: 24),
         ],
       ),

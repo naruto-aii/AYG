@@ -100,7 +100,7 @@ class AppStrings {
   static const weightSourceHealth = 'Healthから取得';
   static const weightSourceHealthPending = 'Health（未取得）';
   static const weightManualOverwriteNotice =
-      'Health連携中に手入力した体重は、再同期でHealthの値に更新される場合があります。';
+      '手入力と Health のうち、測定時刻が新しい方を計算に使います。連携中でも、アプリの記録の方が新しければそちらです。';
 
   static const goalWarningLoseAboveCurrent = '減量なのに目標体重が現在体重以上です。';
   static const goalWarningGainBelowCurrent = '増量なのに目標体重が現在体重以下です。';

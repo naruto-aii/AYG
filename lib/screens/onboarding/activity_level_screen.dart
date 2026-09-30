@@ -39,11 +39,14 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
   Future<void> _complete() async {
     setState(() => _isSaving = true);
 
+    final current = widget.controller.nutritionSettings;
     widget.controller.setNutritionSettings(
-      NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: _activityLevel,
-      ),
+      (current ??
+              const NutritionSettings(
+                useHealthIntegration: false,
+                activityLevel: ActivityLevel.moderate,
+              ))
+          .copyWith(useHealthIntegration: false, activityLevel: _activityLevel),
     );
 
     try {

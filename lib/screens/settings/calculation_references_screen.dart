@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../content/daily_calorie_target_explanation.dart';
 import '../../data/met_activity_catalog.dart';
 import '../../models/calculation/calculation_versions.dart';
 import '../../theme/app_colors.dart';
@@ -53,11 +54,28 @@ class CalculationReferencesScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(DailyCalorieTargetExplanation.title, style: titleStyle),
+                for (final section
+                    in DailyCalorieTargetExplanation.sections) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Text(section.$1, style: AppTypography.titleS),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(section.$2, style: bodyStyle),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
           _CategorySection(
             title: '摂取目標カロリー',
             version: CalculationVersions.energy,
             summary:
-                '推定安静時消費（Mifflin–St Jeor 式）× 普段の生活活動係数 ± 目標補正（アプリ既定）。'
+                '上の「日次の食事目標カロリー」が、いまの決め方です。'
+                '推定安静時消費は Mifflin–St Jeor 式です。'
                 '別途記録した運動は食事目標に含めません。',
             references: const [
               _Ref(

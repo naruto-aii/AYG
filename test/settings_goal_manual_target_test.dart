@@ -52,30 +52,54 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> pumpSettings(
+    WidgetTester tester, {
+    required AppController controller,
+    required MockAuthenticationRepository authRepository,
+  }) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: authRepository,
+          hideHealthSettings: true,
+        ),
+      ),
+    );
+    await openGoalSettings(tester);
+  }
+
+  Future<void> replaceGoalField(
+    WidgetTester tester,
+    String key,
+    String value,
+  ) async {
+    await tester.enterText(find.byKey(Key(key)), value);
+    await tester.pump();
+  }
+
+  String goalFieldText(WidgetTester tester, String key) {
+    return tester.widget<TextField>(find.byKey(Key(key))).controller!.text;
+  }
+
   testWidgets(
     'goal settings shows calorie and PFC fields before switching mode',
     (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
       final authRepository = MockAuthenticationRepository(
         currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
       );
       final controller = createController(authRepository: authRepository);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: SettingsScreen(
-            controller: controller,
-            authenticationRepository: authRepository,
-            hideHealthSettings: true,
-          ),
-        ),
+      await pumpSettings(
+        tester,
+        controller: controller,
+        authRepository: authRepository,
       );
-      await openGoalSettings(tester);
 
       expect(find.text('1日の食事目標'), findsOneWidget);
       expect(find.text('自動で計算'), findsOneWidget);
@@ -90,14 +114,19 @@ void main() {
           .dy;
       expect(kcalTop, lessThan(700));
 
-      await tester.enterText(find.byKey(const Key('goal-target-kcal')), '2000');
-      await tester.enterText(
-        find.byKey(const Key('goal-target-protein')),
-        '130',
+      await replaceGoalField(tester, 'goal-target-kcal', '2000');
+      await replaceGoalField(tester, 'goal-target-protein', '130');
+      await replaceGoalField(tester, 'goal-target-fat', '0');
+      await replaceGoalField(tester, 'goal-target-fat', '55');
+      expect(goalFieldText(tester, 'goal-target-carb'), '246.3');
+      final carbState = tester.state<EditableTextState>(
+        find.descendant(
+          of: find.byKey(const Key('goal-target-carb')),
+          matching: find.byType(EditableText),
+        ),
       );
-      await tester.enterText(find.byKey(const Key('goal-target-fat')), '55');
-      await tester.enterText(find.byKey(const Key('goal-target-carb')), '220');
-      await tester.pump();
+      expect(carbState.renderEditable.text!.toPlainText(), '246.3');
+
       await tester.tap(find.text(AppStrings.save));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 5));
@@ -107,7 +136,7 @@ void main() {
       expect(saved.manualTargetKcal, 2000);
       expect(saved.manualProteinG, 130);
       expect(saved.manualFatG, 55);
-      expect(saved.manualCarbG, 220);
+      expect(saved.manualCarbG, 246.3);
       expect(saved.usesManualTargets, isTrue);
 
       controller.setProfile(
@@ -128,6 +157,7 @@ void main() {
 
       expect(controller.nutritionSettings!.manualTargetKcal, 2000);
       expect(controller.nutritionSettings!.manualProteinG, 130);
+      expect(controller.nutritionSettings!.manualCarbG, 246.3);
       expect(controller.nutritionSettings!.usesManualTargets, isTrue);
       expect(controller.summary!.targetKcal, 2000);
 
@@ -148,4 +178,67 @@ void main() {
       await authRepository.dispose();
     },
   );
+
+  testWidgets('goal settings rejects a negative remainder', (tester) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    );
+    final controller = createController(authRepository: authRepository);
+    await pumpSettings(
+      tester,
+      controller: controller,
+      authRepository: authRepository,
+    );
+
+    await replaceGoalField(tester, 'goal-target-kcal', '500');
+    await replaceGoalField(tester, 'goal-target-protein', '30');
+    await replaceGoalField(tester, 'goal-target-fat', '0');
+    await replaceGoalField(tester, 'goal-target-fat', '500');
+
+    expect(find.textContaining('炭水化物がマイナス'), findsOneWidget);
+    expect(goalFieldText(tester, 'goal-target-carb'), isEmpty);
+
+    await tester.tap(find.text(AppStrings.save));
+    await tester.pump();
+
+    expect(
+      controller.nutritionSettings!.calorieTargetMode,
+      CalorieTargetMode.automatic,
+    );
+    expect(controller.nutritionSettings!.usesManualTargets, isFalse);
+    expect(find.text('1日の食事目標'), findsOneWidget);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('goal settings rejects kcal that does not match PFC', (
+    tester,
+  ) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    );
+    final controller = createController(authRepository: authRepository);
+    await pumpSettings(
+      tester,
+      controller: controller,
+      authRepository: authRepository,
+    );
+
+    await replaceGoalField(tester, 'goal-target-kcal', '2000');
+    await replaceGoalField(tester, 'goal-target-protein', '130');
+    await replaceGoalField(tester, 'goal-target-fat', '0');
+    await replaceGoalField(tester, 'goal-target-fat', '55');
+    expect(goalFieldText(tester, 'goal-target-carb'), '246.3');
+
+    await replaceGoalField(tester, 'goal-target-carb', '20000');
+    expect(find.textContaining('カロリーとPFCが合いません'), findsOneWidget);
+
+    await tester.tap(find.text(AppStrings.save));
+    await tester.pump();
+
+    expect(controller.nutritionSettings!.usesManualTargets, isFalse);
+    expect(find.text('1日の食事目標'), findsOneWidget);
+
+    await authRepository.dispose();
+  });
 }

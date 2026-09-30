@@ -71,6 +71,43 @@ void main() {
       await enterMacro(tester, MacroField.protein, '20');
       await enterMacro(tester, MacroField.fat, '8');
       expect(macroText(tester, MacroField.carb), '12.0');
+      final carbState = tester.state<EditableTextState>(
+        find.descendant(
+          of: find.byKey(const ValueKey('macro_field_carb')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(carbState.renderEditable.text!.toPlainText(), '12.0');
+    });
+
+    testWidgets('composing digits still paint the remaining field', (
+      tester,
+    ) async {
+      await pumpForm(tester);
+      await enterMacro(tester, MacroField.kcal, '200');
+      await enterMacro(tester, MacroField.protein, '20');
+      final fatFinder = find.byKey(const ValueKey('macro_field_fat'));
+      await tester.showKeyboard(fatFinder);
+      final fatState = tester.state<EditableTextState>(
+        find.descendant(of: fatFinder, matching: find.byType(EditableText)),
+      );
+      fatState.updateEditingValue(
+        const TextEditingValue(
+          text: '8',
+          selection: TextSelection.collapsed(offset: 1),
+          composing: TextRange(start: 0, end: 1),
+        ),
+      );
+      await tester.pump();
+
+      expect(macroText(tester, MacroField.carb), '12.0');
+      final carbState = tester.state<EditableTextState>(
+        find.descendant(
+          of: find.byKey(const ValueKey('macro_field_carb')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(carbState.renderEditable.text!.toPlainText(), '12.0');
     });
 
     testWidgets('two values do not auto-fill third', (tester) async {

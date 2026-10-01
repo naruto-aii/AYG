@@ -13,8 +13,10 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
+import '../subscription/calonavi_plus_flow.dart';
 import 'calculation_references_screen.dart';
 import 'data_source_screen.dart';
 import 'lock_screen_meal_screen.dart';
@@ -47,7 +49,7 @@ class SettingsScreen extends StatelessWidget {
   final OpenFoodFactsService? openFoodFactsService;
   final bool hideHealthSettings;
 
-  /// iOS 17 以降のロック画面ウィジェット。Web と Android では出さない。
+  /// iOS 17 以降のホームとロック画面のウィジェット。Web と Android では出さない。
   final bool showLockScreenMeal;
   final String? supportEmail;
 
@@ -63,6 +65,32 @@ class SettingsScreen extends StatelessWidget {
         context,
       ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
     }
+  }
+
+  Future<void> _openMealWidget(BuildContext context) async {
+    final paid = await controller.isMealWidgetPaid();
+    if (!context.mounted) {
+      return;
+    }
+    if (!paid) {
+      final openPlus = await showAppConfirmDialog(
+        context: context,
+        title: 'こちらは有料の機能です',
+        message: 'ウィジェットからの登録は、カロナビ+です。',
+        confirmLabel: 'カロナビ+を見る',
+        cancelLabel: '閉じる',
+      );
+      if (openPlus == true && context.mounted) {
+        final custom = controller.openCalonaviPlusFlow;
+        if (custom != null) {
+          await custom(context);
+        } else {
+          await showCalonaviPlus(context);
+        }
+      }
+      return;
+    }
+    _push(context, LockScreenMealScreen(controller: controller));
   }
 
   void _push(BuildContext context, Widget screen) {
@@ -145,10 +173,9 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: _rowGap),
             SettingsRow(
               icon: AppIcons.template,
-              title: 'ロック画面',
-              subtitle: 'ボタン3つに食事テンプレートを割り当て',
-              onTap: () =>
-                  _push(context, LockScreenMealScreen(controller: controller)),
+              title: 'ウィジェット',
+              subtitle: 'ホームは5つ、ロック画面は朝・昼・夜',
+              onTap: () => _openMealWidget(context),
             ),
           ],
           const SizedBox(height: _rowGap),

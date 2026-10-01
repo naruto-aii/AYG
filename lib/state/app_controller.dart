@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../constants/app_strings.dart';
 import '../models/alcohol_entry.dart';
@@ -891,6 +892,7 @@ class AppController extends ChangeNotifier {
     );
     _persistAutoTargetAnchor(day);
     notifyListeners();
+    unawaited(publishLockScreenMealSnapshot());
   }
 
   void _persistAutoTargetAnchor(DateTime referenceDate) {
@@ -2478,9 +2480,20 @@ class AppController extends ChangeNotifier {
     await publishLockScreenMealSnapshot();
   }
 
-  /// 有料フラグの入口。設定画面や販売画面からは呼ばない。
+  /// カロナビ+ の購入画面を開く。購入処理はこのブランチでは差し替えない。
+  Future<void> Function(BuildContext context)? openCalonaviPlusFlow;
+
+  Future<bool> isMealWidgetPaid() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return false;
+    }
+    return gateway.isPaid();
+  }
+
+  /// 有料フラグの入口。設定画面のスイッチからは呼ばない。
   ///
-  /// true のときだけ、ロック画面のボタンが食事を登録する。
+  /// true のときだけ、ウィジェットのボタンが食事を登録する。
   Future<void> setLockScreenMealPaid(bool isPaid) async {
     final gateway = _lockScreenMealGateway;
     if (gateway == null) {
@@ -2512,17 +2525,42 @@ class AppController extends ChangeNotifier {
       return;
     }
     final config = await gateway.loadConfig();
-    final buttons = <LockScreenMealButtonSnapshot>[];
-    for (var slot = 0; slot < LockScreenMealConfig.slotCount; slot++) {
-      final button = config.buttonAt(slot);
+    await gateway.publishSnapshot(
+      LockScreenMealSnapshot(
+        ownerUserId: currentOwnerUserId,
+        homeButtons: await _widgetButtons(config.homeButtons),
+        lockButtons: await _widgetButtons(config.lockButtons),
+        figures: _mealWidgetFigures(),
+      ),
+    );
+  }
+
+  MealWidgetFigures _mealWidgetFigures() {
+    final current = summary;
+    if (current == null) {
+      return const MealWidgetFigures();
+    }
+    final remaining = current.remainingKcal;
+    return MealWidgetFigures(
+      remainingKcal: remaining < 0 ? 0 : remaining.round(),
+      intakeKcal: current.intakeKcal.round(),
+      burnKcal: current.exerciseBurnKcal.round(),
+    );
+  }
+
+  Future<List<LockScreenMealButtonSnapshot>> _widgetButtons(
+    List<LockScreenMealButtonConfig> buttons,
+  ) async {
+    final snapshots = <LockScreenMealButtonSnapshot>[];
+    for (final button in buttons) {
       final templateId = button.templateId;
       MealTemplateWithItems? bundle;
       if (templateId != null) {
         bundle = await getMealTemplateWithItems(templateId);
       }
-      buttons.add(
+      snapshots.add(
         LockScreenMealButtonSnapshot(
-          slot: slot,
+          slot: button.slot,
           label: button.label,
           templateId: bundle?.template.templateId,
           templateName: bundle?.template.name,
@@ -2530,9 +2568,7 @@ class AppController extends ChangeNotifier {
         ),
       );
     }
-    await gateway.publishSnapshot(
-      LockScreenMealSnapshot(ownerUserId: currentOwnerUserId, buttons: buttons),
-    );
+    return snapshots;
   }
 
   Future<void> _importLockScreenMeals(LockScreenMealGateway gateway) async {

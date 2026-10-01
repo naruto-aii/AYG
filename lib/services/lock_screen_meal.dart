@@ -5,12 +5,12 @@ import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../models/meal_template.dart';
 
-/// ロック画面ウィジェットと App Intent が共有する JSON（version 1）。
+/// ホームとロック画面のウィジェットが共有する JSON（version 2）。
 ///
 /// ウィジェット拡張は Isar を開けない。ボタンを押した瞬間に App Group へ
 /// 今日の食事を1件追記し、アプリは次回の起動・復帰でそれを取り込む。
 /// `loggedAt` は押した時刻の壁時計（オフセット無し）で、取り込み時刻ではない。
-const int lockScreenMealSchemaVersion = 1;
+const int lockScreenMealSchemaVersion = 2;
 
 const String lockScreenMealMethodChannel = 'com.narutoaii.ayg/lock_screen_meal';
 
@@ -49,29 +49,76 @@ class LockScreenMealButtonConfig {
 }
 
 class LockScreenMealConfig {
-  const LockScreenMealConfig({required this.buttons});
+  const LockScreenMealConfig({
+    required this.homeButtons,
+    required this.lockButtons,
+  });
 
-  static const int slotCount = 3;
+  static const int homeSlotCount = 5;
+  static const int lockSlotCount = 3;
 
-  final List<LockScreenMealButtonConfig> buttons;
+  static const List<String> homeDefaultLabels = [
+    '朝ごはん',
+    '昼ごはん',
+    '夜ごはん',
+    '間食',
+    'ジョギング',
+  ];
+
+  static const List<String> lockDefaultLabels = ['朝', '昼', '夜'];
+
+  final List<LockScreenMealButtonConfig> homeButtons;
+  final List<LockScreenMealButtonConfig> lockButtons;
 
   factory LockScreenMealConfig.defaults() {
     return LockScreenMealConfig(
-      buttons: [
-        for (var slot = 0; slot < slotCount; slot++)
-          LockScreenMealButtonConfig(slot: slot, label: '', templateId: null),
+      homeButtons: [
+        for (var slot = 0; slot < homeSlotCount; slot++)
+          LockScreenMealButtonConfig(
+            slot: slot,
+            label: homeDefaultLabels[slot],
+          ),
+      ],
+      lockButtons: [
+        for (var slot = 0; slot < lockSlotCount; slot++)
+          LockScreenMealButtonConfig(
+            slot: slot,
+            label: lockDefaultLabels[slot],
+          ),
       ],
     );
   }
 
-  LockScreenMealButtonConfig buttonAt(int slot) {
+  LockScreenMealButtonConfig homeAt(int slot) =>
+      _at(homeButtons, slot, homeDefaultLabels);
+
+  LockScreenMealButtonConfig lockAt(int slot) =>
+      _at(lockButtons, slot, lockDefaultLabels);
+
+  static LockScreenMealButtonConfig _at(
+    List<LockScreenMealButtonConfig> buttons,
+    int slot,
+    List<String> fallbackLabels,
+  ) {
     for (final button in buttons) {
       if (button.slot == slot) {
         return button;
       }
     }
-    return LockScreenMealButtonConfig(slot: slot, label: '');
+    final label = slot >= 0 && slot < fallbackLabels.length
+        ? fallbackLabels[slot]
+        : '';
+    return LockScreenMealButtonConfig(slot: slot, label: label);
   }
+}
+
+/// ウィジェットに出す、今日の残り・摂取・消費。
+class MealWidgetFigures {
+  const MealWidgetFigures({this.remainingKcal, this.intakeKcal, this.burnKcal});
+
+  final int? remainingKcal;
+  final int? intakeKcal;
+  final int? burnKcal;
 }
 
 class LockScreenMealButtonSnapshot {
@@ -96,11 +143,15 @@ class LockScreenMealButtonSnapshot {
 class LockScreenMealSnapshot {
   const LockScreenMealSnapshot({
     required this.ownerUserId,
-    required this.buttons,
+    required this.homeButtons,
+    required this.lockButtons,
+    this.figures = const MealWidgetFigures(),
   });
 
   final String ownerUserId;
-  final List<LockScreenMealButtonSnapshot> buttons;
+  final List<LockScreenMealButtonSnapshot> homeButtons;
+  final List<LockScreenMealButtonSnapshot> lockButtons;
+  final MealWidgetFigures figures;
 }
 
 enum LockScreenMealRegisterStatus { registered, unpaid, unassigned }
@@ -255,15 +306,22 @@ abstract final class LockScreenMealCodec {
   static String encodeConfig(LockScreenMealConfig config) {
     return jsonEncode({
       'version': lockScreenMealSchemaVersion,
-      'buttons': [
-        for (final button in config.buttons)
-          {
-            'slot': button.slot,
-            'label': button.label,
-            'templateId': button.templateId,
-          },
-      ],
+      'home': _encodeButtons(config.homeButtons),
+      'lock': _encodeButtons(config.lockButtons),
     });
+  }
+
+  static List<Map<String, Object?>> _encodeButtons(
+    List<LockScreenMealButtonConfig> buttons,
+  ) {
+    return [
+      for (final button in buttons)
+        {
+          'slot': button.slot,
+          'label': button.label,
+          'templateId': button.templateId,
+        },
+    ];
   }
 
   static LockScreenMealConfig decodeConfig(String? raw) {
@@ -274,7 +332,26 @@ abstract final class LockScreenMealCodec {
     if (decoded is! Map) {
       return LockScreenMealConfig.defaults();
     }
-    final rows = decoded['buttons'];
+    final defaults = LockScreenMealConfig.defaults();
+    return LockScreenMealConfig(
+      homeButtons: _decodeButtons(
+        decoded['home'],
+        count: LockScreenMealConfig.homeSlotCount,
+        fallback: defaults.homeButtons,
+      ),
+      lockButtons: _decodeButtons(
+        decoded['lock'] ?? decoded['buttons'],
+        count: LockScreenMealConfig.lockSlotCount,
+        fallback: defaults.lockButtons,
+      ),
+    );
+  }
+
+  static List<LockScreenMealButtonConfig> _decodeButtons(
+    Object? rows, {
+    required int count,
+    required List<LockScreenMealButtonConfig> fallback,
+  }) {
     final bySlot = <int, LockScreenMealButtonConfig>{};
     if (rows is List) {
       for (final row in rows) {
@@ -282,7 +359,7 @@ abstract final class LockScreenMealCodec {
           continue;
         }
         final slot = _asInt(row['slot']);
-        if (slot < 0 || slot >= LockScreenMealConfig.slotCount) {
+        if (slot < 0 || slot >= count) {
           continue;
         }
         final templateId = _asString(row['templateId']);
@@ -295,19 +372,20 @@ abstract final class LockScreenMealCodec {
         );
       }
     }
-    return LockScreenMealConfig(
-      buttons: [
-        for (var slot = 0; slot < LockScreenMealConfig.slotCount; slot++)
-          bySlot[slot] ?? LockScreenMealButtonConfig(slot: slot, label: ''),
-      ],
-    );
+    return [
+      for (var slot = 0; slot < count; slot++) bySlot[slot] ?? fallback[slot],
+    ];
   }
 
   static String encodeSnapshot(LockScreenMealSnapshot snapshot) {
     return jsonEncode({
       'version': lockScreenMealSchemaVersion,
       'ownerUserId': snapshot.ownerUserId,
-      'buttons': [for (final button in snapshot.buttons) _buttonJson(button)],
+      'remaining': snapshot.figures.remainingKcal,
+      'intake': snapshot.figures.intakeKcal,
+      'burn': snapshot.figures.burnKcal,
+      'home': [for (final button in snapshot.homeButtons) _buttonJson(button)],
+      'lock': [for (final button in snapshot.lockButtons) _buttonJson(button)],
     });
   }
 

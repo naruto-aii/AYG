@@ -185,12 +185,27 @@ void main() {
     expect(calls.single.arguments, {'paid': true});
 
     await gateway.publishSnapshot(
-      const LockScreenMealSnapshot(ownerUserId: 'user-1', buttons: []),
+      const LockScreenMealSnapshot(
+        ownerUserId: 'user-1',
+        homeButtons: [],
+        lockButtons: [],
+        figures: MealWidgetFigures(
+          remainingKcal: 1200,
+          intakeKcal: 800,
+          burnKcal: 300,
+        ),
+      ),
     );
     expect(calls.last.method, 'writeSnapshot');
     final args = calls.last.arguments! as Map;
     expect(args['paid'], isTrue);
-    expect(args['snapshot'], contains('user-1'));
+    final snapshot = args['snapshot'] as String;
+    expect(snapshot, contains('user-1'));
+    expect(snapshot, contains('"remaining":1200'));
+    expect(snapshot, contains('"intake":800'));
+    expect(snapshot, contains('"burn":300'));
+    expect(snapshot, contains('"home"'));
+    expect(snapshot, contains('"lock"'));
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
@@ -246,7 +261,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('ロック画面'), findsOneWidget);
+    expect(find.text('ウィジェット'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -259,7 +274,125 @@ void main() {
         ),
       ),
     );
-    expect(find.text('ロック画面'), findsNothing);
+    expect(find.text('ウィジェット'), findsNothing);
+    await auth.dispose();
+  });
+
+  test('home has five buttons and the lock screen keeps three', () {
+    final config = LockScreenMealConfig.defaults();
+    expect(config.homeButtons, hasLength(5));
+    expect(config.lockButtons, hasLength(3));
+    expect(config.homeAt(0).label, '朝ごはん');
+    expect(config.homeAt(4).label, 'ジョギング');
+    expect(config.lockAt(0).label, '朝');
+    expect(config.lockAt(2).label, '夜');
+
+    final decoded = LockScreenMealCodec.decodeConfig(
+      LockScreenMealCodec.encodeConfig(
+        LockScreenMealConfig(
+          homeButtons: [
+            for (final button in config.homeButtons)
+              button.slot == 4
+                  ? button.copyWith(label: '夜食', templateId: 'snack')
+                  : button,
+          ],
+          lockButtons: config.lockButtons,
+        ),
+      ),
+    );
+    expect(decoded.homeButtons, hasLength(5));
+    expect(decoded.homeAt(4).label, '夜食');
+    expect(decoded.homeAt(4).templateId, 'snack');
+    expect(decoded.lockButtons, hasLength(3));
+  });
+
+  test('an older three-button config stays on the lock screen', () {
+    final decoded = LockScreenMealCodec.decodeConfig(
+      '{"version":1,"buttons":[{"slot":0,"label":"あさ","templateId":"t1"},{"slot":3,"label":"余分"}]}',
+    );
+
+    expect(decoded.lockAt(0).label, 'あさ');
+    expect(decoded.lockAt(0).templateId, 't1');
+    expect(decoded.lockButtons, hasLength(3));
+    expect(decoded.lockAt(2).label, '夜');
+    expect(decoded.homeAt(0).label, '朝ごはん');
+    expect(decoded.homeButtons, hasLength(5));
+  });
+
+  testWidgets('creating a widget explains the paid flow', (tester) async {
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(authenticationRepository: auth);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: auth,
+          hideHealthSettings: true,
+          showLockScreenMeal: true,
+          supportEmail: '',
+        ),
+      ),
+    );
+    await tester.scrollUntilVisible(find.text('ウィジェット'), 200);
+    await tester.tap(find.text('ウィジェット'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('ウィジェットからの登録は、カロナビ+です。'), findsOneWidget);
+
+    await tester.tap(find.text('カロナビ+を見る'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('購入と復元は、カロナビ+の購入画面で行います。'), findsOneWidget);
+    expect(find.text('ホーム画面'), findsNothing);
+    await auth.dispose();
+  });
+
+  testWidgets('a paid account opens the widget editor', (tester) async {
+    final gateway = _MemoryGateway()..paid = true;
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      lockScreenMealGateway: gateway,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: auth,
+          hideHealthSettings: true,
+          showLockScreenMeal: true,
+          supportEmail: '',
+        ),
+      ),
+    );
+    await tester.scrollUntilVisible(find.text('ウィジェット'), 200);
+    await tester.tap(find.text('ウィジェット'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('ホーム画面'), findsWidgets);
+    expect(find.text('ロック画面'), findsWidgets);
+    expect(
+      find.byKey(const Key('lock-screen-meal-label-home-4')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('lock-screen-meal-label-lock-2')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('lock-screen-meal-label-lock-3')),
+      findsNothing,
+    );
     await auth.dispose();
   });
 
@@ -296,31 +429,51 @@ void main() {
     await tester.tap(find.text('開く'));
     await tester.pumpAndSettle();
 
-    expect(find.text('ボタン1'), findsOneWidget);
-    expect(find.text('ボタン2'), findsOneWidget);
-    expect(find.text('ボタン3'), findsOneWidget);
-    expect(find.textContaining('有料機能'), findsOneWidget);
+    expect(find.text('ホーム画面'), findsWidgets);
+    expect(find.text('ロック画面'), findsWidgets);
+    expect(find.textContaining('有料'), findsNothing);
+    expect(
+      find.byKey(const Key('lock-screen-meal-label-home-4')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('lock-screen-meal-label-lock-2')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('lock-screen-meal-label-home-5')),
+      findsNothing,
+    );
 
     await tester.enterText(
-      find.byKey(const Key('lock-screen-meal-label-0')),
-      '朝',
+      find.byKey(const Key('lock-screen-meal-label-home-4')),
+      '夜食',
     );
     await tester.enterText(
-      find.byKey(const Key('lock-screen-meal-label-1')),
-      '昼',
+      find.byKey(const Key('lock-screen-meal-label-lock-0')),
+      'あさ',
     );
     await tester.enterText(
-      find.byKey(const Key('lock-screen-meal-label-2')),
-      '夜',
+      find.byKey(const Key('lock-screen-meal-label-lock-1')),
+      'ひる',
+    );
+    await tester.enterText(
+      find.byKey(const Key('lock-screen-meal-label-lock-2')),
+      'よる',
     );
     await tester.tap(find.byKey(const Key('lock-screen-meal-save')));
     await tester.pumpAndSettle();
 
-    expect(gateway.saved?.buttonAt(0).label, '朝');
-    expect(gateway.saved?.buttonAt(1).label, '昼');
-    expect(gateway.saved?.buttonAt(2).label, '夜');
+    expect(gateway.saved?.homeAt(0).label, '朝ごはん');
+    expect(gateway.saved?.homeAt(4).label, '夜食');
+    expect(gateway.saved?.homeButtons, hasLength(5));
+    expect(gateway.saved?.lockAt(0).label, 'あさ');
+    expect(gateway.saved?.lockAt(1).label, 'ひる');
+    expect(gateway.saved?.lockAt(2).label, 'よる');
+    expect(gateway.saved?.lockButtons, hasLength(3));
     expect(gateway.published?.ownerUserId, 'user-1');
-    expect(gateway.published?.buttons[0].label, '朝');
+    expect(gateway.published?.homeButtons[4].label, '夜食');
+    expect(gateway.published?.lockButtons[0].label, 'あさ');
     await auth.dispose();
   });
 }

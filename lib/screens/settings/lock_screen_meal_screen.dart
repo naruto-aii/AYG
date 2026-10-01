@@ -14,7 +14,7 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../meal_template/meal_template_picker_screen.dart';
 
-/// iOS 17 以降のロック画面に置く、食事テンプレート3ボタンの割り当て。
+/// ホームの大ウィジェット（5ボタン）とロック画面（3ボタン）の割り当て。
 class LockScreenMealScreen extends StatefulWidget {
   const LockScreenMealScreen({super.key, required this.controller});
 
@@ -24,18 +24,29 @@ class LockScreenMealScreen extends StatefulWidget {
   State<LockScreenMealScreen> createState() => _LockScreenMealScreenState();
 }
 
+class _ButtonEditors {
+  _ButtonEditors(List<LockScreenMealButtonConfig> buttons)
+    : labels = List.generate(buttons.length, (_) => TextEditingController()),
+      templateIds = [for (final button in buttons) button.templateId],
+      templateNames = List<String?>.filled(buttons.length, null);
+
+  final List<TextEditingController> labels;
+  final List<String?> templateIds;
+  final List<String?> templateNames;
+
+  void dispose() {
+    for (final controller in labels) {
+      controller.dispose();
+    }
+  }
+}
+
 class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
-  final List<TextEditingController> _labels = [
-    for (var slot = 0; slot < LockScreenMealConfig.slotCount; slot++)
-      TextEditingController(),
-  ];
-  final List<String?> _templateIds = List<String?>.filled(
-    LockScreenMealConfig.slotCount,
-    null,
+  late final _ButtonEditors _home = _ButtonEditors(
+    LockScreenMealConfig.defaults().homeButtons,
   );
-  final List<String?> _templateNames = List<String?>.filled(
-    LockScreenMealConfig.slotCount,
-    null,
+  late final _ButtonEditors _lock = _ButtonEditors(
+    LockScreenMealConfig.defaults().lockButtons,
   );
 
   bool _loading = true;
@@ -49,35 +60,42 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
 
   @override
   void dispose() {
-    for (final controller in _labels) {
-      controller.dispose();
-    }
+    _home.dispose();
+    _lock.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     final config = await widget.controller.loadLockScreenMealConfig();
-    for (var slot = 0; slot < LockScreenMealConfig.slotCount; slot++) {
-      final button = config.buttonAt(slot);
-      _labels[slot].text = button.label;
-      _templateIds[slot] = button.templateId;
-      final templateId = button.templateId;
-      if (templateId == null) {
-        _templateNames[slot] = null;
-        continue;
-      }
-      final bundle = await widget.controller.getMealTemplateWithItems(
-        templateId,
-      );
-      _templateNames[slot] = bundle?.template.name;
-    }
+    await _fill(_home, config.homeButtons);
+    await _fill(_lock, config.lockButtons);
     if (!mounted) {
       return;
     }
     setState(() => _loading = false);
   }
 
-  Future<void> _pickTemplate(int slot) async {
+  Future<void> _fill(
+    _ButtonEditors editors,
+    List<LockScreenMealButtonConfig> buttons,
+  ) async {
+    for (var slot = 0; slot < buttons.length; slot++) {
+      final button = buttons[slot];
+      editors.labels[slot].text = button.label;
+      editors.templateIds[slot] = button.templateId;
+      final templateId = button.templateId;
+      if (templateId == null) {
+        editors.templateNames[slot] = null;
+        continue;
+      }
+      final bundle = await widget.controller.getMealTemplateWithItems(
+        templateId,
+      );
+      editors.templateNames[slot] = bundle?.template.name;
+    }
+  }
+
+  Future<void> _pickTemplate(_ButtonEditors editors, int slot) async {
     final selected = await Navigator.of(context).push<MealTemplate>(
       MaterialPageRoute<MealTemplate>(
         builder: (context) =>
@@ -88,31 +106,37 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
       return;
     }
     setState(() {
-      _templateIds[slot] = selected.templateId;
-      _templateNames[slot] = selected.name;
+      editors.templateIds[slot] = selected.templateId;
+      editors.templateNames[slot] = selected.name;
     });
   }
 
-  void _clearTemplate(int slot) {
+  void _clearTemplate(_ButtonEditors editors, int slot) {
     setState(() {
-      _templateIds[slot] = null;
-      _templateNames[slot] = null;
+      editors.templateIds[slot] = null;
+      editors.templateNames[slot] = null;
     });
+  }
+
+  List<LockScreenMealButtonConfig> _read(_ButtonEditors editors) {
+    return [
+      for (var slot = 0; slot < editors.labels.length; slot++)
+        LockScreenMealButtonConfig(
+          slot: slot,
+          label: editors.labels[slot].text.trim(),
+          templateId: editors.templateIds[slot],
+        ),
+    ];
   }
 
   Future<void> _save() async {
     setState(() => _saving = true);
-    final config = LockScreenMealConfig(
-      buttons: [
-        for (var slot = 0; slot < LockScreenMealConfig.slotCount; slot++)
-          LockScreenMealButtonConfig(
-            slot: slot,
-            label: _labels[slot].text.trim(),
-            templateId: _templateIds[slot],
-          ),
-      ],
+    await widget.controller.saveLockScreenMealConfig(
+      LockScreenMealConfig(
+        homeButtons: _read(_home),
+        lockButtons: _read(_lock),
+      ),
     );
-    await widget.controller.saveLockScreenMealConfig(config);
     if (!mounted) {
       return;
     }
@@ -153,17 +177,22 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const DesignTitleBlock(
-                  title: 'ロック画面',
+                  title: 'ウィジェット',
                   subtitle:
-                      'iOS 17以降のロック画面にボタンを3つ置きます。押すとアプリを開かず、割り当てたテンプレートを今日の食事として1件登録します。未課金のときは登録せず、ロック画面に有料機能と出ます。',
+                      'ホーム画面の大きなウィジェットにボタンを5つ、ロック画面に朝・昼・夜の3つを置きます。文字と食事テンプレートはそれぞれ決められます。押すとアプリを開かず、そのテンプレートを1件登録します。',
                 ),
-                for (
-                  var slot = 0;
-                  slot < LockScreenMealConfig.slotCount;
-                  slot++
-                ) ...[
+                Text('ホーム画面', style: AppTypography.titleM),
+                const SizedBox(height: AppSpacing.md),
+                for (var slot = 0; slot < _home.labels.length; slot++) ...[
                   if (slot > 0) const SizedBox(height: AppSpacing.md),
-                  _buttonCard(slot),
+                  _buttonCard(_home, slot, prefix: 'home'),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                Text('ロック画面', style: AppTypography.titleM),
+                const SizedBox(height: AppSpacing.md),
+                for (var slot = 0; slot < _lock.labels.length; slot++) ...[
+                  if (slot > 0) const SizedBox(height: AppSpacing.md),
+                  _buttonCard(_lock, slot, prefix: 'lock'),
                 ],
                 const SizedBox(height: AppSpacing.md),
               ],
@@ -171,9 +200,13 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     );
   }
 
-  Widget _buttonCard(int slot) {
-    final templateName = _templateNames[slot];
-    final assigned = _templateIds[slot] != null;
+  Widget _buttonCard(
+    _ButtonEditors editors,
+    int slot, {
+    required String prefix,
+  }) {
+    final templateName = editors.templateNames[slot];
+    final assigned = editors.templateIds[slot] != null;
     return DesignFieldCard(
       icon: _icon(AppIcons.meal),
       label: 'ボタン${slot + 1}',
@@ -182,16 +215,16 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
         children: [
           DesignInputBox(
             child: DesignTextInput(
-              key: Key('lock-screen-meal-label-$slot'),
-              controller: _labels[slot],
+              key: Key('lock-screen-meal-label-$prefix-$slot'),
+              controller: editors.labels[slot],
               hintText: '表示する文字',
               inputFormatters: [LengthLimitingTextInputFormatter(8)],
             ),
           ),
           const SizedBox(height: AppSpacing.md),
           DesignInputBox(
-            key: Key('lock-screen-meal-template-$slot'),
-            onTap: () => _pickTemplate(slot),
+            key: Key('lock-screen-meal-template-$prefix-$slot'),
+            onTap: () => _pickTemplate(editors, slot),
             child: Text(
               assigned ? (templateName ?? 'テンプレートが見つかりません') : '食事テンプレートを選ぶ',
               style: AppTypography.bodyL.copyWith(
@@ -204,8 +237,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
-                key: Key('lock-screen-meal-clear-$slot'),
-                onPressed: () => _clearTemplate(slot),
+                onPressed: () => _clearTemplate(editors, slot),
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,

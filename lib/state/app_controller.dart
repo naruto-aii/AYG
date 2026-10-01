@@ -2255,6 +2255,9 @@ class AppController extends ChangeNotifier {
     List<WorkoutTemplateApplyDraft> drafts,
   ) async {
     for (final draft in drafts) {
+      final manual =
+          MetActivityCatalog.findById(draft.activityId)?.requiresManualKcal ==
+          true;
       await addExercise(
         ExerciseEntry(
           id: generateId(),
@@ -2264,16 +2267,18 @@ class AppController extends ChangeNotifier {
           loggedAt: draft.loggedAt,
           category: ExerciseCategoryX.tryParse(draft.categoryKey),
           activityId: draft.activityId,
-          intensity: draft.intensity,
+          intensity: manual ? null : draft.intensity,
           sets: draft.sets,
           reps: draft.reps,
           liftWeightKg: draft.liftWeightKg,
-          metValue: draft.metValue,
-          grossKcal: draft.grossKcal,
+          metValue: manual ? null : draft.metValue,
+          grossKcal: manual ? draft.netKcal : draft.grossKcal,
           netKcal: draft.netKcal,
-          calculationSource: ExerciseCalculationSource.template,
+          calculationSource: manual
+              ? ExerciseCalculationSource.manualOverride
+              : ExerciseCalculationSource.template,
           calculationVersion: MetActivityCatalog.calculationVersion,
-          sourceKey: draft.sourceKey,
+          sourceKey: manual ? null : draft.sourceKey,
           notes: draft.notes,
         ),
       );

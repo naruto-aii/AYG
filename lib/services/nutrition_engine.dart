@@ -13,6 +13,7 @@ import '../models/target_macros.dart';
 import '../models/user_profile.dart';
 import '../utils/local_date.dart';
 import 'energy_target_calculation_service.dart';
+import 'health_activity_excess.dart';
 import 'macro_target_calculation_service.dart';
 import 'remaining_calorie_service.dart';
 
@@ -21,6 +22,7 @@ class NutritionEngine {
   static const _remainingCalorieService = RemainingCalorieService();
   static const _energyService = EnergyTargetCalculationService();
   static const _macroService = MacroTargetCalculationService();
+  static const _healthActivityExcess = HealthActivityExcess();
 
   static const double kcalPerKgBodyWeightChange =
       EnergyTargetCalculationService.kcalPerKgBodyWeightChange;
@@ -72,6 +74,7 @@ class NutritionEngine {
         alcoholEntries: alcoholEntries,
         exerciseEntries: exerciseEntries,
         selectedDay: selectedDay,
+        healthActivityExcessKcal: _healthExcess(settings, energy),
       );
       return DailySummary(
         targetKcal: targetKcal,
@@ -83,7 +86,7 @@ class NutritionEngine {
         intakeProteinG: _sumFoodProtein(dayFoodEntries),
         intakeFatG: _sumFoodFat(dayFoodEntries),
         intakeCarbG: _sumFoodCarb(dayFoodEntries),
-        exerciseBurnKcal: remainingBreakdown.exerciseNetKcal,
+        exerciseBurnKcal: remainingBreakdown.screenBurnKcal,
         isCalorieOverage: remainingBreakdown.isOverage,
         calorieOverageKcal: remainingBreakdown.overageKcal,
         energyBreakdown: EnergyTargetBreakdown(
@@ -151,6 +154,7 @@ class NutritionEngine {
       alcoholEntries: alcoholEntries,
       exerciseEntries: exerciseEntries,
       selectedDay: selectedDay,
+      healthActivityExcessKcal: _healthExcess(settings, energy),
     );
 
     return DailySummary(
@@ -163,7 +167,7 @@ class NutritionEngine {
       intakeProteinG: _sumFoodProtein(dayFoodEntries),
       intakeFatG: _sumFoodFat(dayFoodEntries),
       intakeCarbG: _sumFoodCarb(dayFoodEntries),
-      exerciseBurnKcal: remainingBreakdown.exerciseNetKcal,
+      exerciseBurnKcal: remainingBreakdown.screenBurnKcal,
       isCalorieOverage: remainingBreakdown.isOverage,
       calorieOverageKcal: remainingBreakdown.overageKcal,
       energyBreakdown: energy,
@@ -314,6 +318,19 @@ class NutritionEngine {
     return calculateTDEEFromActivityFactor(
       bmr: bmr,
       activityLevel: settings.activityLevel!,
+    );
+  }
+
+  /// 連携時だけ。食事目標は変えない。戻す手順は [HealthActivityExcess]。
+  double _healthExcess(
+    NutritionSettings settings,
+    EnergyTargetBreakdown energy,
+  ) {
+    return _healthActivityExcess.kcal(
+      useHealthIntegration: settings.useHealthIntegration,
+      basalReeKcal: energy.estimatedReeKcal,
+      lifestyleFactor: energy.lifestyleActivityFactor,
+      activeEnergyBurnedKcal: energy.healthActiveEnergyKcal,
     );
   }
 

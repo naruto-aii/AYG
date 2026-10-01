@@ -92,9 +92,8 @@ Future<void> saveCurrentExerciseAsTemplate({
   final name = nameController.text.trim();
   nameController.dispose();
   if (name.isEmpty) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('テンプレート名を入力してください')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('テンプレート名を入力してください')));
     return;
   }
 
@@ -105,16 +104,14 @@ Future<void> saveCurrentExerciseAsTemplate({
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('テンプレートを保存しました')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('テンプレートを保存しました')));
   } catch (error) {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
   }
 }
 
@@ -182,6 +179,9 @@ class _WorkoutTemplateApplyScreenState
     setState(() {
       _drafts = _drafts.map((draft) {
         final activity = MetActivityCatalog.findById(draft.activityId);
+        if (activity?.requiresManualKcal == true) {
+          return draft;
+        }
         final met =
             activity?.intensityById(draft.intensity)?.met ??
             draft.metValue ??
@@ -249,8 +249,13 @@ class _WorkoutTemplateApplyScreenState
                   child: ListTile(
                     title: Text(draft.name),
                     subtitle: Text(
-                      '${draft.durationMin}分 · '
-                      'net ${draft.netKcal?.toStringAsFixed(0) ?? '-'} kcal',
+                      MetActivityCatalog.findById(draft.activityId)
+                                      ?.requiresManualKcal ==
+                                  true &&
+                              draft.netKcal == null
+                          ? '${draft.durationMin}分 · 消費カロリーは手入力'
+                          : '${draft.durationMin}分 · '
+                                'net ${draft.netKcal?.toStringAsFixed(0) ?? '-'} kcal',
                     ),
                   ),
                 ),

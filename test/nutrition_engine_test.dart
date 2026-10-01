@@ -396,5 +396,86 @@ void main() {
       expect(withEmptyAlcohol.intakeProteinG, withoutAlcohol.intakeProteinG);
       expect(withEmptyAlcohol.remainingKcal, withoutAlcohol.remainingKcal);
     });
+
+    test('health adds only active energy above the lifestyle coefficient', () {
+      Goal goal() => Goal(
+        type: GoalType.maintain,
+        targetWeightKg: 75,
+        targetDate: referenceDate.add(const Duration(days: 90)),
+      );
+      final bmr = engine.calculateBMR(
+        profile: maleProfile,
+        referenceDate: referenceDate,
+      );
+      final lifestyleAbove = bmr * (ActivityLevel.moderate.factor - 1);
+      final logged = ExerciseEntry(
+        id: 'exercise-1',
+        name: '水泳',
+        durationMin: 30,
+        burnedKcal: 200,
+        loggedAt: referenceDate,
+        netKcal: 200,
+      );
+
+      final below = engine.calculateDailySummary(
+        profile: maleProfile,
+        goal: goal(),
+        settings: const NutritionSettings(
+          useHealthIntegration: true,
+          activityLevel: ActivityLevel.moderate,
+        ),
+        healthSnapshot: HealthSnapshot(
+          activeEnergyBurnedKcal: lifestyleAbove - 1,
+        ),
+        foodEntries: const [],
+        exerciseEntries: [logged],
+        referenceDate: referenceDate,
+      );
+      expect(
+        below.targetKcal,
+        closeTo(bmr * ActivityLevel.moderate.factor, 0.01),
+      );
+      expect(below.exerciseBurnKcal, 200);
+      expect(below.remainingBreakdown?.healthActivityExcessKcal, 0);
+
+      const extra = 120.0;
+      final above = engine.calculateDailySummary(
+        profile: maleProfile,
+        goal: goal(),
+        settings: const NutritionSettings(
+          useHealthIntegration: true,
+          activityLevel: ActivityLevel.moderate,
+        ),
+        healthSnapshot: HealthSnapshot(
+          activeEnergyBurnedKcal: lifestyleAbove + extra,
+        ),
+        foodEntries: const [],
+        exerciseEntries: [logged],
+        referenceDate: referenceDate,
+      );
+      expect(above.targetKcal, below.targetKcal);
+      expect(above.exerciseBurnKcal, closeTo(200 + extra, 0.01));
+      expect(
+        above.remainingKcal,
+        closeTo(above.targetKcal + 200 + extra, 0.01),
+      );
+
+      final unlinked = engine.calculateDailySummary(
+        profile: maleProfile,
+        goal: goal(),
+        settings: const NutritionSettings(
+          useHealthIntegration: false,
+          activityLevel: ActivityLevel.moderate,
+        ),
+        healthSnapshot: HealthSnapshot(
+          activeEnergyBurnedKcal: lifestyleAbove + extra,
+        ),
+        foodEntries: const [],
+        exerciseEntries: [logged],
+        referenceDate: referenceDate,
+      );
+      expect(unlinked.exerciseBurnKcal, 200);
+      expect(unlinked.remainingBreakdown?.healthActivityExcessKcal, 0);
+    });
   });
 }

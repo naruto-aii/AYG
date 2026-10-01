@@ -38,8 +38,10 @@ class MetActivityDefinition {
     this.intensityOptions = const [],
     this.searchable = true,
     this.lifestyleIncluded = false,
+    this.requiresManualKcal = false,
     this.netKcalPerKgKm,
     this.referenceSpeedKmh,
+    this.calorieFormula,
   });
 
   final String id;
@@ -63,12 +65,18 @@ class MetActivityDefinition {
   /// 生活活動に含まれる。追加消費は 0。
   final bool lifestyleIncluded;
 
+  /// 消費カロリーの式を出典まで特定できない。利用者が kcal を入れる。
+  final bool requiresManualKcal;
+
   /// 安静分を含まない kcal·kg⁻¹·km⁻¹。歩行・走行だけ。
   final double? netKcalPerKgKm;
 
   /// 距離を分に直す速度（km/h）。自転車はカロリーにも使う。
   /// 歩行・走行のカロリーは [netKcalPerKgKm] で、この速度は分カラム用。
   final double? referenceSpeedKmh;
+
+  /// 自動計算を残す種目の出典と式。手入力の種目は null。
+  final String? calorieFormula;
 
   MetIntensityOption? intensityById(String? id) {
     if (id == null) {
@@ -111,13 +119,13 @@ class MetActivityDefinition {
 /// 自転車はコード 01020（10–11.9 mph、6.8 MET）の下限 10 mph = 16.09344 km/h で
 /// 距離を分に直し、既存の MET 式（MET × 3.5 × 体重 / 200 × 分）にかける。
 ///
-/// 回数は 1 回 4 秒（挙上 2 秒 + 下降 2 秒。ACSM の 1〜2 秒ずつの上限）で分に直し、
-/// 同じ MET 式にかける。セット間の休憩は含まない。
+/// 回数の種目は、1回の秒数をカロリーの式として特定できないので自動計算しない。
+/// ベンチプレスは単独のコードが無く、その他と旧記録の筋トレは公表 MET が無い。
 class MetActivityCatalog {
   MetActivityCatalog._();
 
   static const calculationVersion = CalculationVersions.exerciseMet;
-  static const lastUpdated = '2026-09-30';
+  static const lastUpdated = '2026-10-01';
 
   static const herrmann2024Doi = '10.1016/j.jshs.2023.10.010';
 
@@ -156,17 +164,6 @@ class MetActivityCatalog {
       rightsCategory: 'formulaOrTheory',
       url: 'https://www.acsm.org/',
     ),
-    MetSourceLedgerEntry(
-      sourceKey: 'acsm_rep_tempo',
-      citation:
-          'American College of Sports Medicine. ACSM\'s Guidelines for '
-          'Exercise Testing and Prescription. レジスタンストレーニングの挙上と下降は '
-          'それぞれ約1〜2秒。このアプリは上限の4秒/回で分に直し、Compendium の MET にかける。'
-          'セット間の休憩は含まない。',
-      confirmedOn: DateTime(2026, 9, 30),
-      rightsCategory: 'formulaOrTheory',
-      url: 'https://www.acsm.org/',
-    ),
   ];
 
   static final activities = <MetActivityDefinition>[
@@ -182,6 +179,13 @@ class MetActivityCatalog {
           '分カラム用の速度は範囲内の 3 mph（4.828 km/h）。',
       netKcalPerKgKm: 0.5,
       referenceSpeedKmh: 4.828032,
+      calorieFormula:
+          '追加消費 kcal = 0.5 × 体重kg × 距離km。'
+          'ACSM 歩行式 VO2 (mL·kg⁻¹·min⁻¹) = 0.1 × 速度(m/min) + 3.5 の水平成分 '
+          '0.1 mL·kg⁻¹·m⁻¹ を、1 L の酸素 = 5 kcal で 1 km にすると 0.5 kcal·kg⁻¹·km⁻¹。'
+          '安静の 3.5 は入れない。'
+          '種目の対応は 2024 Adult Compendium コード 17190（3.8 MET）。この MET は消費に使わない。'
+          '分カラムの速度 3 mph（4.828 km/h）は 2.8–3.4 mph の範囲内で、消費の式には入らない。',
       aliases: const [
         'うぉーきんぐ',
         '歩き',
@@ -202,6 +206,13 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_12020',
       description: 'コード 12020 Jogging, general。消費は走行と同じ 1.0 kcal·kg⁻¹·km⁻¹。',
       netKcalPerKgKm: 1.0,
+      calorieFormula:
+          '追加消費 kcal = 1.0 × 体重kg × 距離km。'
+          'ACSM 走行式 VO2 (mL·kg⁻¹·min⁻¹) = 0.2 × 速度(m/min) + 3.5 の水平成分 '
+          '0.2 mL·kg⁻¹·m⁻¹ を、1 L の酸素 = 5 kcal で 1 km にすると 1.0 kcal·kg⁻¹·km⁻¹。'
+          'この水平成分は速度で変わらない。安静の 3.5 は入れない。'
+          '種目の対応は 2024 Adult Compendium コード 12020 Jogging, general（7.5 MET）。'
+          'この MET は消費に使わない。',
       aliases: const ['じょぎんぐ', 'ジョグ', 'じょぐ', 'jog', 'jogging'],
     ),
     _distanceFactor(
@@ -212,6 +223,13 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_12150',
       description: 'コード 12150 Running。消費は 1.0 kcal·kg⁻¹·km⁻¹。',
       netKcalPerKgKm: 1.0,
+      calorieFormula:
+          '追加消費 kcal = 1.0 × 体重kg × 距離km。'
+          'ACSM 走行式 VO2 (mL·kg⁻¹·min⁻¹) = 0.2 × 速度(m/min) + 3.5 の水平成分 '
+          '0.2 mL·kg⁻¹·m⁻¹ を、1 L の酸素 = 5 kcal で 1 km にすると 1.0 kcal·kg⁻¹·km⁻¹。'
+          '安静の 3.5 は入れない。'
+          '種目の対応は 2024 Adult Compendium コード 12150 Running（8.0 MET）。'
+          'この MET は消費に使わない。',
       aliases: const ['らんにんぐ', 'らん', 'ラン', '走り', 'はしり', 'run', 'running'],
     ),
     _distanceSpeed(
@@ -224,6 +242,11 @@ class MetActivityCatalog {
           'コード 01020 Bicycling, 10-11.9 mph, leisure, 6.8 MET。'
           '距離は下限 10 mph（16.09344 km/h）で分に直す。',
       referenceSpeedKmh: 16.09344,
+      calorieFormula:
+          '分 = 距離km ÷ 16.09344 × 60。'
+          '16.09344 km/h はコード 01020（10–11.9 mph、6.8 MET）の下限 10 mph。'
+          '追加消費 kcal = (6.8 − 1) × 3.5 × 体重kg ÷ 200 × 分。'
+          '1 MET = 1 kcal·kg⁻¹·h⁻¹。安静の 1 MET は引く。',
       aliases: const [
         'じてんしゃ',
         'チャリ',
@@ -251,8 +274,7 @@ class MetActivityCatalog {
       category: ExerciseCategory.aerobic,
       met: 5.3,
       sourceKey: 'compendium_2024_17082',
-      description:
-          'コード 17082 Hiking or walking at a normal pace through fields and hillsides, 5.3 MET。',
+      description: 'コード 17082 Hiking or walking at a normal pace through fields and hillsides, 5.3 MET。',
       aliases: const ['はいきんぐ', 'ハイク', 'はいく', 'hike', 'hiking'],
     ),
     _minutes(
@@ -285,8 +307,7 @@ class MetActivityCatalog {
       category: ExerciseCategory.aerobic,
       met: 5.0,
       sourceKey: 'compendium_2024_02071',
-      description:
-          'コード 02071 Rowing, stationary ergometer, general, <100 watts, moderate effort, 5.0 MET。',
+      description: 'コード 02071 Rowing, stationary ergometer, general, <100 watts, moderate effort, 5.0 MET。',
       aliases: const ['ろーいんぐ', 'ボート', 'ぼーと', 'rowing', 'row'],
     ),
     _minutes(
@@ -381,6 +402,7 @@ class MetActivityCatalog {
           'コード 02052 Resistance training, squats, deadlift, slow or explosive, 5.0 MET。'
           'スクワットとデッドリフトは同じコード。',
       aliases: const ['すくわっと', 'squat', 'squats'],
+      requiresManualKcal: true,
     ),
     _reps(
       id: 'deadlift',
@@ -391,6 +413,7 @@ class MetActivityCatalog {
           'コード 02052 Resistance training, squats, deadlift, slow or explosive, 5.0 MET。'
           'スクワットとデッドリフトは同じコード。',
       aliases: const ['でっどりふと', 'デッド', 'でっど', 'deadlift'],
+      requiresManualKcal: true,
     ),
     _reps(
       id: 'bench_press',
@@ -401,32 +424,32 @@ class MetActivityCatalog {
           'コード 02054 Resistance training, multiple exercises, 8-15 reps, 3.5 MET。'
           'ベンチプレス単独のコードは無い。',
       aliases: const ['べんちぷれす', 'ベンチ', 'べんち', 'bench press', 'bench'],
+      requiresManualKcal: true,
     ),
     _reps(
       id: 'push_up',
       displayName: '腕立て伏せ',
       met: 3.8,
       sourceKey: 'compendium_2024_02022',
-      description:
-          'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
+      description: 'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
       aliases: const ['うでたてふせ', 'ウデタテフセ', '腕立て', 'うでたて', 'push up', 'pushup'],
+      requiresManualKcal: true,
     ),
     _reps(
       id: 'sit_up',
       displayName: '腹筋',
       met: 3.8,
       sourceKey: 'compendium_2024_02022',
-      description:
-          'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
+      description: 'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
       aliases: const ['ふっきん', 'フクキン', 'シットアップ', 'しっとあっぷ', 'sit up', 'situp'],
+      requiresManualKcal: true,
     ),
     _reps(
       id: 'pull_up',
       displayName: '懸垂',
       met: 3.8,
       sourceKey: 'compendium_2024_02022',
-      description:
-          'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
+      description: 'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
       aliases: const [
         'けんすい',
         'ケンスイ',
@@ -436,6 +459,7 @@ class MetActivityCatalog {
         'pullup',
         'chin up',
       ],
+      requiresManualKcal: true,
     ),
     _minutes(
       id: 'yoga',
@@ -490,6 +514,7 @@ class MetActivityCatalog {
       quantityUnit: ExerciseQuantityUnit.durationMin,
       aliases: const ['筋トレ'],
       searchable: false,
+      requiresManualKcal: true,
       intensityOptions: MetIntensityPresets.strengthOptions,
     ),
     MetActivityDefinition(
@@ -503,6 +528,7 @@ class MetActivityCatalog {
       quantityUnit: ExerciseQuantityUnit.durationMin,
       aliases: const [],
       searchable: false,
+      requiresManualKcal: true,
       intensityOptions: MetIntensityPresets.otherOptions,
     ),
   ];
@@ -592,6 +618,18 @@ class MetActivityCatalog {
     }
   }
 
+  /// 出典と式が特定でき、自動計算を残す種目。
+  static List<MetActivityDefinition> get automaticCalorieActivities {
+    return activities
+        .where((activity) => activity.calorieFormula != null)
+        .toList();
+  }
+
+  /// 消費カロリーを利用者が入れる種目。
+  static List<MetActivityDefinition> get manualCalorieActivities {
+    return activities.where((activity) => activity.requiresManualKcal).toList();
+  }
+
   static List<ExerciseCategory> get selectableCategories => [
     ExerciseCategory.aerobic,
     ExerciseCategory.strength,
@@ -610,6 +648,7 @@ class MetActivityCatalog {
     required double netKcalPerKgKm,
     required List<String> aliases,
     double? referenceSpeedKmh,
+    String? calorieFormula,
   }) {
     return _built(
       id: id,
@@ -622,6 +661,7 @@ class MetActivityCatalog {
       aliases: aliases,
       netKcalPerKgKm: netKcalPerKgKm,
       referenceSpeedKmh: referenceSpeedKmh,
+      calorieFormula: calorieFormula,
     );
   }
 
@@ -634,6 +674,7 @@ class MetActivityCatalog {
     required String description,
     required double referenceSpeedKmh,
     required List<String> aliases,
+    String? calorieFormula,
   }) {
     return _built(
       id: id,
@@ -645,6 +686,7 @@ class MetActivityCatalog {
       quantityUnit: ExerciseQuantityUnit.distanceKm,
       aliases: aliases,
       referenceSpeedKmh: referenceSpeedKmh,
+      calorieFormula: calorieFormula,
     );
   }
 
@@ -668,6 +710,12 @@ class MetActivityCatalog {
       quantityUnit: ExerciseQuantityUnit.durationMin,
       aliases: aliases,
       lifestyleIncluded: lifestyleIncluded,
+      calorieFormula: lifestyleIncluded
+          ? null
+          : '追加消費 kcal = ($met − 1) × 3.5 × 体重kg ÷ 200 × 分。'
+                '$description '
+                '1 MET = 1 kcal·kg⁻¹·h⁻¹（3.5 mL·kg⁻¹·min⁻¹ × 5 kcal/L）。'
+                '安静の 1 MET は引いて追加分だけにする。',
     );
   }
 
@@ -678,6 +726,7 @@ class MetActivityCatalog {
     required String sourceKey,
     required String description,
     required List<String> aliases,
+    bool requiresManualKcal = false,
   }) {
     return _built(
       id: id,
@@ -688,6 +737,7 @@ class MetActivityCatalog {
       description: description,
       quantityUnit: ExerciseQuantityUnit.reps,
       aliases: aliases,
+      requiresManualKcal: requiresManualKcal,
     );
   }
 
@@ -701,8 +751,10 @@ class MetActivityCatalog {
     required ExerciseQuantityUnit quantityUnit,
     required List<String> aliases,
     bool lifestyleIncluded = false,
+    bool requiresManualKcal = false,
     double? netKcalPerKgKm,
     double? referenceSpeedKmh,
+    String? calorieFormula,
   }) {
     return MetActivityDefinition(
       id: id,
@@ -715,8 +767,10 @@ class MetActivityCatalog {
       quantityUnit: quantityUnit,
       aliases: _aliases(displayName, aliases),
       lifestyleIncluded: lifestyleIncluded,
+      requiresManualKcal: requiresManualKcal,
       netKcalPerKgKm: netKcalPerKgKm,
       referenceSpeedKmh: referenceSpeedKmh,
+      calorieFormula: calorieFormula,
       intensityOptions: [
         MetIntensityOption(
           id: _standard,

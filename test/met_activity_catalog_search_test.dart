@@ -28,23 +28,20 @@ void main() {
     expect(MetActivityCatalog.search('家事').single.id, 'housework');
   });
 
-  test(
-    'blank query stays out of alias search and the list shows prepared activities',
-    () {
-      expect(MetActivityCatalog.search(''), isEmpty);
-      expect(MetActivityCatalog.search('   '), isEmpty);
-      final listed = MetActivityCatalog.listed.map((activity) => activity.id);
-      expect(listed, contains('running'));
-      expect(listed, contains('soccer'));
-      expect(listed, isNot(contains('custom')));
-      expect(
-        listed.length,
-        MetActivityCatalog.activities
-            .where((activity) => activity.searchable)
-            .length,
-      );
-    },
-  );
+  test('blank query stays out of alias search and the list shows prepared activities', () {
+    expect(MetActivityCatalog.search(''), isEmpty);
+    expect(MetActivityCatalog.search('   '), isEmpty);
+    final listed = MetActivityCatalog.listed.map((activity) => activity.id);
+    expect(listed, contains('running'));
+    expect(listed, contains('soccer'));
+    expect(listed, isNot(contains('custom')));
+    expect(
+      listed.length,
+      MetActivityCatalog.activities
+          .where((activity) => activity.searchable)
+          .length,
+    );
+  });
 
   test('custom is outside alias search', () {
     expect(MetActivityCatalog.search('その他'), isEmpty);
@@ -146,5 +143,22 @@ void main() {
     );
     expect(MetActivityCatalog.findById('housework')?.lifestyleIncluded, isTrue);
     expect(MetActivityCatalog.findById('cleaning')?.lifestyleIncluded, isTrue);
+    expect(MetActivityCatalog.findById('soccer')?.calorieFormula, isNotNull);
+    expect(MetActivityCatalog.findById('soccer')?.requiresManualKcal, isFalse);
+    expect(MetActivityCatalog.findById('squat')?.requiresManualKcal, isTrue);
+    expect(MetActivityCatalog.findById('squat')?.calorieFormula, isNull);
+    expect(
+      MetActivityCatalog.findById('bench_press')?.requiresManualKcal,
+      isTrue,
+    );
+    expect(MetActivityCatalog.findById('custom')?.requiresManualKcal, isTrue);
+    expect(
+      MetActivityCatalog.findById('strength_general')?.requiresManualKcal,
+      isTrue,
+    );
+    for (final activity in MetActivityCatalog.automaticCalorieActivities) {
+      expect(activity.calorieFormula, isNotEmpty);
+      expect(activity.requiresManualKcal, isFalse);
+    }
   });
 }

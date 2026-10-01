@@ -114,6 +114,10 @@ void main() {
         find.byKey(ExerciseMetCalculationSection.durationFieldKey),
         '30',
       );
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.manualKcalFieldKey),
+        '180',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DesignButton, '保存'));
       await tester.pumpAndSettle();
@@ -169,6 +173,11 @@ void main() {
             .text,
         '30',
       );
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.manualKcalFieldKey),
+        '180',
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DesignButton, '保存'));
       await tester.pumpAndSettle();
 
@@ -202,6 +211,10 @@ void main() {
       await tester.enterText(
         find.byKey(ExerciseMetCalculationSection.durationFieldKey),
         '20',
+      );
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.manualKcalFieldKey),
+        '90',
       );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DesignButton, '保存'));
@@ -240,6 +253,10 @@ void main() {
       await tester.enterText(
         find.byKey(ExerciseMetCalculationSection.durationFieldKey),
         '15',
+      );
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.manualKcalFieldKey),
+        '40',
       );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DesignButton, '保存'));

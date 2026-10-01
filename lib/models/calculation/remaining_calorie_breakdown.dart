@@ -6,10 +6,17 @@ class RemainingCalorieBreakdown {
     required this.foodKcal,
     required this.alcoholKcal,
     required this.rawRemainingKcal,
+    this.healthActivityExcessKcal = 0,
   });
 
   final double goalFoodTargetKcal;
   final double exerciseNetKcal;
+
+  /// Health のアクティブエネルギーのうち、生活活動係数を超えた分。
+  final double healthActivityExcessKcal;
+
+  /// 画面の消費。記録した運動と、連携時の上乗せ。
+  double get screenBurnKcal => exerciseNetKcal + healthActivityExcessKcal;
   final double intakeKcal;
   final double foodKcal;
   final double alcoholKcal;

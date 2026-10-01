@@ -1,5 +1,4 @@
 import 'package:ayg/data/met_activity_catalog.dart';
-import 'package:ayg/data/met_intensity_presets.dart';
 import 'package:ayg/models/exercise_calculation_source.dart';
 import 'package:ayg/models/exercise_category.dart';
 import 'package:ayg/models/exercise_entry.dart';
@@ -401,6 +400,7 @@ void main() {
       await tapActivityChip(tester, 'スクワット');
 
       expect(find.text('回数'), findsWidgets);
+      expect(find.text('消費カロリー'), findsOneWidget);
       expect(find.text('軽め'), findsNothing);
       expect(find.text('マシントレーニング'), findsNothing);
       expect(find.textContaining('MET'), findsNothing);
@@ -706,13 +706,11 @@ void main() {
 
       await tapActivityChip(tester, 'その他（手入力）');
 
-      expect(find.text('軽め'), findsOneWidget);
-      expect(find.text('ふつう'), findsOneWidget);
-      expect(find.text('きつい'), findsOneWidget);
-      expect(
-        MetActivityCatalog.findById('custom')?.intensityOptions,
-        MetIntensityPresets.otherOptions,
-      );
+      expect(find.text('軽め'), findsNothing);
+      expect(find.text('ふつう'), findsNothing);
+      expect(find.text('きつい'), findsNothing);
+      expect(find.text('消費カロリー'), findsOneWidget);
+      expect(MetActivityCatalog.findById('custom')?.requiresManualKcal, isTrue);
     });
 
     testWidgets('daily activity warns that PAL already includes housework', (
@@ -970,7 +968,11 @@ void main() {
       expect(find.byKey(ExerciseFormScreen.setsFieldKey), findsOneWidget);
       expect(find.byKey(ExerciseFormScreen.repsFieldKey), findsOneWidget);
       expect(find.byKey(ExerciseFormScreen.liftWeightFieldKey), findsOneWidget);
-      expect(find.textContaining('回数から計算します'), findsOneWidget);
+      expect(find.text('消費カロリー'), findsOneWidget);
+      expect(
+        find.textContaining('回数からは計算しません'),
+        findsOneWidget,
+      );
     });
   });
 }

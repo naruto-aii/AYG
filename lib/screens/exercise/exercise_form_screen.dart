@@ -171,9 +171,8 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return null;
     }
     if (_metState.activityId == null || _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('種目を選んでください')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('種目を選んでください')));
       return null;
     }
 
@@ -202,9 +201,10 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
           distanceKm: distanceKm ?? 0,
           referenceSpeedKmh: activity?.referenceSpeedKmh,
         ),
-      ExerciseQuantityUnit.reps => ExerciseCalorieCalculator.durationMinForReps(
-        reps ?? 0,
-      ),
+      ExerciseQuantityUnit.reps =>
+        activity?.requiresManualKcal == true
+            ? 1
+            : ExerciseCalorieCalculator.durationMinForReps(reps ?? 0),
       ExerciseQuantityUnit.durationMin => int.parse(_durationController.text),
     };
 
@@ -239,7 +239,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   (double, double)? _resolveGrossAndNetKcal() {
     final parsedGross = double.tryParse(_burnedKcalController.text.trim());
 
-    if (_metState.manualOverride ||
+    final activityForKcal = MetActivityCatalog.findById(_metState.activityId);
+    if (activityForKcal?.requiresManualKcal == true ||
+        _metState.manualOverride ||
         _metState.calculationSource ==
             ExerciseCalculationSource.manualOverride) {
       final net = _metState.netKcal ?? parsedGross;
@@ -396,9 +398,8 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         await widget.controller.saveCustomActivityTemplate(entry);
       } catch (_) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('テンプレートの追加に失敗しました')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('テンプレートの追加に失敗しました')));
         }
       }
     }

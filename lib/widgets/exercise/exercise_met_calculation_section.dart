@@ -32,6 +32,7 @@ class ExerciseMetCalculationSection extends StatefulWidget {
   static const durationFieldKey = Key('exercise-duration');
   static const distanceFieldKey = Key('exercise-distance');
   static const repsFieldKey = Key('exercise-reps');
+  static const manualKcalFieldKey = Key('exercise-manual-kcal');
 
   const ExerciseMetCalculationSection({
     super.key,
@@ -157,7 +158,11 @@ class _ExerciseMetCalculationSectionState
       _activity = MetActivityCatalog.findById(entry.activityId);
       _intensityId = entry.intensity ?? _activity?.defaultIntensityId;
       _manualOverride =
-          entry.calculationSource == ExerciseCalculationSource.manualOverride;
+          entry.calculationSource == ExerciseCalculationSource.manualOverride ||
+          _activity?.caloriesFromFormula == false;
+      if (_activity?.caloriesFromFormula == false) {
+        _manualNetKcal = entry.netKcal ?? entry.effectiveNetKcal;
+      }
       _walkIsExtraExercise =
           entry.calculationSource !=
           ExerciseCalculationSource.lifestyleIncluded;
@@ -221,6 +226,7 @@ class _ExerciseMetCalculationSectionState
 
   bool get _isWalk => _activity?.id == _walkActivityId;
   bool get _isCustom => _activity?.id == _customActivityId;
+  bool get _usesFormula => _activity?.caloriesFromFormula ?? true;
   bool get _includeInRemaining {
     if (_activity?.lifestyleIncluded == true) {
       return false;
@@ -375,6 +381,18 @@ class _ExerciseMetCalculationSectionState
       _showRename = true;
       _syncNameFromActivity();
     }
+    if (!activity.caloriesFromFormula) {
+      _manualOverride = true;
+      _estimate = null;
+      _displayNetKcal = null;
+      _manualNetKcal = null;
+      if (!widget.isEditing || _allowRecalculateOnEdit) {
+        widget.grossKcalController.clear();
+      }
+    } else {
+      _manualOverride = false;
+      _manualNetKcal = null;
+    }
   }
 
   void _syncNameFromActivity() {
@@ -387,7 +405,7 @@ class _ExerciseMetCalculationSectionState
   }
 
   void _recalculate() {
-    if (_manualOverride) {
+    if (_manualOverride || _activity?.caloriesFromFormula == false) {
       _notifyParent();
       return;
     }
@@ -587,6 +605,7 @@ class _ExerciseMetCalculationSectionState
     required String hintText,
     required FormFieldValidator<String> validator,
     String? caption,
+    ValueChanged<String>? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -617,6 +636,7 @@ class _ExerciseMetCalculationSectionState
                 ),
               ),
               validator: validator,
+              onChanged: onChanged,
             ),
           ),
         ),
@@ -747,6 +767,7 @@ class _ExerciseMetCalculationSectionState
         widget.initialEntry?.weightKgSnapshot != null;
     final showNameField = widget.nameController != null && _showRename;
     final canShowNet =
+        _usesFormula &&
         _activity != null &&
         (_estimate != null || _displayNetKcal != null || !_includeInRemaining);
 
@@ -917,7 +938,7 @@ class _ExerciseMetCalculationSectionState
             style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
         ],
-        if (intensities.length > 1) ...[
+        if (_usesFormula && intensities.length > 1) ...[
           const SizedBox(height: AppSpacing.md),
           DesignFieldCard(
             icon: _icon(AppIcons.heart),
@@ -940,6 +961,22 @@ class _ExerciseMetCalculationSectionState
         if (_activity != null) ...[
           const SizedBox(height: AppSpacing.md),
           _quantityField(),
+        ],
+        if (_activity != null && !_usesFormula) ...[
+          const SizedBox(height: AppSpacing.md),
+          _numberField(
+            fieldKey: ExerciseMetCalculationSection.manualKcalFieldKey,
+            label: '消費カロリー（kcal）',
+            suffix: 'kcal',
+            controller: widget.grossKcalController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            hintText: '',
+            validator: (_) => null,
+            onChanged: (value) {
+              _manualNetKcal = double.tryParse(value.trim());
+              _notifyParent();
+            },
+          ),
         ],
         if (widget.additionalFields != null) ...[
           const SizedBox(height: AppSpacing.md),
@@ -1019,36 +1056,40 @@ class _ExerciseMetCalculationSectionState
                 '${formatNullableNutrient(_estimate?.grossKcal ?? double.tryParse(widget.grossKcalController.text))} kcal',
               ),
             ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('手動消費カロリー補正'),
-              subtitle: const Text('追加消費（net）を手入力'),
-              value: _manualOverride,
-              onChanged: (value) {
-                setState(() {
-                  _manualOverride = value;
-                  if (value) {
-                    _manualNetKcal =
-                        _displayNetKcal ??
-                        double.tryParse(widget.grossKcalController.text.trim());
-                  }
-                });
-                _recalculate();
-              },
-            ),
-            if (_manualOverride)
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: '手動 追加消費 kcal（net）',
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+            if (_usesFormula) ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('手動消費カロリー補正'),
+                subtitle: const Text('追加消費（net）を手入力'),
+                value: _manualOverride,
                 onChanged: (value) {
-                  _manualNetKcal = double.tryParse(value.trim());
-                  _notifyParent();
+                  setState(() {
+                    _manualOverride = value;
+                    if (value) {
+                      _manualNetKcal =
+                          _displayNetKcal ??
+                          double.tryParse(
+                            widget.grossKcalController.text.trim(),
+                          );
+                    }
+                  });
+                  _recalculate();
                 },
               ),
+              if (_manualOverride)
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: '手動 追加消費 kcal（net）',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (value) {
+                    _manualNetKcal = double.tryParse(value.trim());
+                    _notifyParent();
+                  },
+                ),
+            ],
             ListTile(
               dense: true,
               title: const Text('計算バージョン'),
@@ -1066,7 +1107,7 @@ class _ExerciseMetCalculationSectionState
             ),
           ],
         ),
-        if (widget.isEditing && !_allowRecalculateOnEdit) ...[
+        if (widget.isEditing && !_allowRecalculateOnEdit && _usesFormula) ...[
           const SizedBox(height: AppSpacing.md),
           Text(
             '保存済みの計算結果を、現在の入力内容と体重データで再計算します。',

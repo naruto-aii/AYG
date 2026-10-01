@@ -140,12 +140,13 @@ class CalculationReferencesScreen extends StatelessWidget {
             title: '運動消費カロリー',
             version: MetActivityCatalog.calculationVersion,
             summary:
-                '種目ごとに単位が違う。歩行・走行は体重×距離、'
-                '自転車は公表速度で分に直してから MET、'
-                '回数の種目は1回4秒で分に直してから MET、'
-                'それ以外は分と MET。'
+                '下に書いた種目だけ、時間または距離から自動で計算する。'
+                'それ以外で時間だけを入れる種目は、消費カロリーを手入力する。'
+                '空欄のまま保存すると追加分は0。'
+                '回数の種目は1回4秒で分に直してから MET。'
                 'ホームの残りカロリーには追加分（net）だけを加算する。'
                 '家事・掃除といつもの移動は生活活動に含まれるので追加分は0。',
+            notes: MetActivityCatalog.publishedFormulaLines(),
             references: [
               ...MetActivityCatalog.ledger.map(
                 (entry) => _Ref(
@@ -217,6 +218,7 @@ class _CategorySection extends StatelessWidget {
     required this.title,
     required this.version,
     required this.summary,
+    this.notes = const [],
     required this.references,
     required this.onOpen,
   });
@@ -224,6 +226,7 @@ class _CategorySection extends StatelessWidget {
   final String title;
   final String version;
   final String summary;
+  final List<String> notes;
   final List<_Ref> references;
   final ValueChanged<String> onOpen;
 
@@ -244,6 +247,13 @@ class _CategorySection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(summary, style: bodyStyle),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            for (final note in notes) ...[
+              Text(note, style: bodyStyle),
+              const SizedBox(height: AppSpacing.xs),
+            ],
+          ],
           const SizedBox(height: AppSpacing.md),
           Text('参考文献', style: AppTypography.titleS),
           ...references.map(

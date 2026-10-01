@@ -38,6 +38,7 @@ class MetActivityDefinition {
     this.intensityOptions = const [],
     this.searchable = true,
     this.lifestyleIncluded = false,
+    this.caloriesFromFormula = true,
     this.netKcalPerKgKm,
     this.referenceSpeedKmh,
   });
@@ -62,6 +63,10 @@ class MetActivityDefinition {
 
   /// 生活活動に含まれる。追加消費は 0。
   final bool lifestyleIncluded;
+
+  /// 時間または距離から消費カロリーを計算する。
+  /// false の種目は手入力。空欄でも保存でき、そのときは 0。
+  final bool caloriesFromFormula;
 
   /// 安静分を含まない kcal·kg⁻¹·km⁻¹。歩行・走行だけ。
   final double? netKcalPerKgKm;
@@ -100,7 +105,11 @@ class MetActivityDefinition {
 /// MET は 2024 Adult Compendium of Physical Activities
 /// （Herrmann et al., J Sport Health Sci. 2024;13(1):6–12。
 /// https://pacompendium.com/ ）。コード番号を [MetActivityDefinition.sourceKey] に残す。
-/// コンペンディウムが種目を分けていないものは、同じコードの MET を個別の名前で使う。
+///
+/// 時間だけの種目は、その種目のコードが表で1件のときだけ MET 式を使う。
+/// 練習と試合、速さ、ワット数などで値が分かれる種目は、時間だけでは強度が
+/// 決まらないので式を使わない。消費カロリーは手入力。
+/// 家事・掃除は表で強度が分かれるが、生活活動に含まれるため追加分は 0 のまま。
 ///
 /// 歩行・走行の距離式は ACSM の歩行式・走行式の水平成分。
 /// 歩行 0.1 mL·kg⁻¹·m⁻¹ = 0.5 kcal·kg⁻¹·km⁻¹。
@@ -122,6 +131,43 @@ class MetActivityCatalog {
   static const herrmann2024Doi = '10.1016/j.jshs.2023.10.010';
 
   static const _standard = 'standard';
+
+  /// 時間または距離から計算し、計算根拠に出す種目。
+  /// 家事・掃除は追加分 0 なのでここには入れない。回数の種目も入れない。
+  static const publishedFormulaActivityIds = <String>[
+    'walk_brisk',
+    'jogging',
+    'running',
+    'cycle_road',
+    'futsal',
+    'table_tennis',
+    'stretch',
+  ];
+
+  static List<String> publishedFormulaLines() {
+    return [
+      for (final id in publishedFormulaActivityIds)
+        publishedFormulaLine(findById(id)!),
+    ];
+  }
+
+  /// 種目名、このコードの系数、著者、年、コード番号。
+  static String publishedFormulaLine(MetActivityDefinition activity) {
+    final code = activity.sourceKey.replaceFirst('compendium_2024_', '');
+    final factor = activity.netKcalPerKgKm;
+    if (factor != null) {
+      return '${activity.displayName}: $factor kcal·kg⁻¹·km⁻¹。'
+          'ACSM。Herrmann et al., 2024。コード $code。';
+    }
+    if (activity.quantityUnit == ExerciseQuantityUnit.distanceKm &&
+        activity.referenceSpeedKmh != null) {
+      return '${activity.displayName}: ${activity.defaultMet} MET。'
+          'Herrmann et al., 2024。コード $code。'
+          '距離は ${activity.referenceSpeedKmh} km/h で分に換算。';
+    }
+    return '${activity.displayName}: ${activity.defaultMet} MET。'
+        'Herrmann et al., 2024。コード $code。';
+  }
 
   static final ledger = <MetSourceLedgerEntry>[
     MetSourceLedgerEntry(
@@ -244,6 +290,7 @@ class MetActivityCatalog {
       description:
           'コード 18292 Swimming, crawl, slow speed, moderate effort, 5.8 MET。',
       aliases: const ['すいえい', '泳ぎ', 'およぎ', 'スイム', 'すいむ', 'swim', 'swimming'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'hiking',
@@ -254,6 +301,7 @@ class MetActivityCatalog {
       description:
           'コード 17082 Hiking or walking at a normal pace through fields and hillsides, 5.3 MET。',
       aliases: const ['はいきんぐ', 'ハイク', 'はいく', 'hike', 'hiking'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'stationary_bike',
@@ -269,6 +317,7 @@ class MetActivityCatalog {
         'exercise bike',
         'stationary bike',
       ],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'elliptical',
@@ -278,6 +327,7 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_02048',
       description: 'コード 02048 Elliptical trainer, moderate effort, 5.0 MET。',
       aliases: const ['えりぷてぃかる', 'クロストレーナー', 'くろすとれーなー', 'elliptical'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'rowing',
@@ -288,6 +338,7 @@ class MetActivityCatalog {
       description:
           'コード 02071 Rowing, stationary ergometer, general, <100 watts, moderate effort, 5.0 MET。',
       aliases: const ['ろーいんぐ', 'ボート', 'ぼーと', 'rowing', 'row'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'basketball',
@@ -297,6 +348,7 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_15055',
       description: 'コード 15055 Basketball, general, 7.5 MET。',
       aliases: const ['ばすけっとぼーる', 'バスケ', 'ばすけ', 'basketball'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'soccer',
@@ -306,6 +358,7 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_15610',
       description: 'コード 15610 Soccer, casual, general, 7.0 MET。',
       aliases: const ['さっかー', 'soccer', 'football'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'futsal',
@@ -324,6 +377,7 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_15675',
       description: 'コード 15675 Tennis, general, moderate effort, 6.8 MET。',
       aliases: const ['てにす', 'tennis'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'badminton',
@@ -334,6 +388,7 @@ class MetActivityCatalog {
       description:
           'コード 15030 Badminton, social singles and doubles, general, 5.5 MET。',
       aliases: const ['ばどみんとん', 'バド', 'ばど', 'badminton'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'table_tennis',
@@ -352,6 +407,7 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_15710',
       description: 'コード 15710 Volleyball, 4.0 MET。',
       aliases: const ['ばれーぼーる', 'バレー', 'ばれー', 'volleyball'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'baseball',
@@ -362,6 +418,7 @@ class MetActivityCatalog {
       description:
           'コード 15620 Softball or baseball, general, moderate effort, 5.0 MET。',
       aliases: const ['やきゅう', 'ベースボール', 'べーすぼーる', 'baseball'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'golf',
@@ -371,6 +428,7 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_15255',
       description: 'コード 15255 Golf, general, 4.5 MET。',
       aliases: const ['ごるふ', 'golf'],
+      caloriesFromFormula: false,
     ),
     _reps(
       id: 'squat',
@@ -445,6 +503,7 @@ class MetActivityCatalog {
       sourceKey: 'compendium_2024_02150',
       description: 'コード 02150 Yoga, Hatha, 2.3 MET。',
       aliases: const ['よが', 'yoga'],
+      caloriesFromFormula: false,
     ),
     _minutes(
       id: 'stretch',
@@ -490,6 +549,7 @@ class MetActivityCatalog {
       quantityUnit: ExerciseQuantityUnit.durationMin,
       aliases: const ['筋トレ'],
       searchable: false,
+      caloriesFromFormula: false,
       intensityOptions: MetIntensityPresets.strengthOptions,
     ),
     MetActivityDefinition(
@@ -503,6 +563,7 @@ class MetActivityCatalog {
       quantityUnit: ExerciseQuantityUnit.durationMin,
       aliases: const [],
       searchable: false,
+      caloriesFromFormula: false,
       intensityOptions: MetIntensityPresets.otherOptions,
     ),
   ];
@@ -657,6 +718,7 @@ class MetActivityCatalog {
     required String description,
     required List<String> aliases,
     bool lifestyleIncluded = false,
+    bool caloriesFromFormula = true,
   }) {
     return _built(
       id: id,
@@ -668,6 +730,7 @@ class MetActivityCatalog {
       quantityUnit: ExerciseQuantityUnit.durationMin,
       aliases: aliases,
       lifestyleIncluded: lifestyleIncluded,
+      caloriesFromFormula: caloriesFromFormula,
     );
   }
 
@@ -701,6 +764,7 @@ class MetActivityCatalog {
     required ExerciseQuantityUnit quantityUnit,
     required List<String> aliases,
     bool lifestyleIncluded = false,
+    bool caloriesFromFormula = true,
     double? netKcalPerKgKm,
     double? referenceSpeedKmh,
   }) {
@@ -715,6 +779,7 @@ class MetActivityCatalog {
       quantityUnit: quantityUnit,
       aliases: _aliases(displayName, aliases),
       lifestyleIncluded: lifestyleIncluded,
+      caloriesFromFormula: caloriesFromFormula,
       netKcalPerKgKm: netKcalPerKgKm,
       referenceSpeedKmh: referenceSpeedKmh,
       intensityOptions: [

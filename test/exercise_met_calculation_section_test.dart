@@ -1,5 +1,4 @@
 import 'package:ayg/data/met_activity_catalog.dart';
-import 'package:ayg/data/met_intensity_presets.dart';
 import 'package:ayg/models/exercise_calculation_source.dart';
 import 'package:ayg/models/exercise_category.dart';
 import 'package:ayg/models/exercise_entry.dart';
@@ -504,7 +503,7 @@ void main() {
         netKcal: 400,
         weightKgSnapshot: 65,
         calculationVersion: 'legacy-v0',
-        activityId: 'swim_lap',
+        activityId: 'table_tennis',
       );
 
       final durationController = TextEditingController(text: '30');
@@ -527,7 +526,7 @@ void main() {
       await tapRecalculate(tester);
 
       final expected = calculator.estimate(
-        met: 5.8,
+        met: 4.0,
         weightKg: 71,
         durationMinutes: 30,
       );
@@ -605,12 +604,12 @@ void main() {
         onEstimateChanged: (state) => latestState = state,
       );
 
-      await tapActivityChip(tester, '水泳');
+      await tapActivityChip(tester, '卓球');
       await tapManualOverride(tester);
       await tapManualOverride(tester, enable: false);
 
       final expected = calculator.estimate(
-        met: 5.8,
+        met: 4.0,
         weightKg: 70,
         durationMinutes: 30,
       );
@@ -706,13 +705,11 @@ void main() {
 
       await tapActivityChip(tester, 'その他（手入力）');
 
-      expect(find.text('軽め'), findsOneWidget);
-      expect(find.text('ふつう'), findsOneWidget);
-      expect(find.text('きつい'), findsOneWidget);
-      expect(
-        MetActivityCatalog.findById('custom')?.intensityOptions,
-        MetIntensityPresets.otherOptions,
-      );
+      expect(find.text('消費カロリー（kcal）'), findsOneWidget);
+      expect(find.text('軽め'), findsNothing);
+      expect(find.text('ふつう'), findsNothing);
+      expect(find.text('きつい'), findsNothing);
+      expect(find.text('追加消費'), findsNothing);
     });
 
     testWidgets('daily activity warns that PAL already includes housework', (
@@ -822,13 +819,63 @@ void main() {
         isEditing: false,
       );
 
-      await tapActivityChip(tester, '水泳');
+      await tapActivityChip(tester, '卓球');
 
       expect(find.text('追加消費'), findsWidgets);
+      expect(find.text('消費カロリー（kcal）'), findsNothing);
       expect(find.textContaining('残りカロリーに加算'), findsOneWidget);
       expect(find.textContaining('推定総消費'), findsNothing);
       expect(find.textContaining('MET'), findsNothing);
       expect(find.text('消費 kcal（gross）'), findsNothing);
+    });
+
+    testWidgets('soccer time does not auto-fill calories', (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      final durationController = TextEditingController(text: '30');
+      final grossController = TextEditingController(text: '');
+      addTearDown(durationController.dispose);
+      addTearDown(grossController.dispose);
+
+      ExerciseMetFormState? latestState;
+      await pumpMetSectionWithState(
+        tester,
+        controller: controller,
+        durationController: durationController,
+        grossController: grossController,
+        loggedAt: DateTime(2026, 8, 1, 12),
+        isEditing: false,
+        onEstimateChanged: (state) => latestState = state,
+      );
+
+      await tapActivityChip(tester, 'サッカー');
+
+      final auto = calculator.estimate(
+        met: 7.0,
+        weightKg: 70,
+        durationMinutes: 30,
+      );
+      expect(grossController.text, isEmpty);
+      expect(grossController.text, isNot(auto!.grossKcal.toStringAsFixed(1)));
+      expect(find.text('消費カロリー（kcal）'), findsOneWidget);
+      expect(find.text('追加消費'), findsNothing);
+      expect(
+        latestState?.calculationSource,
+        ExerciseCalculationSource.manualOverride,
+      );
+      expect(latestState?.metValue, isNull);
+      expect(latestState?.netKcal, isNull);
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.manualKcalFieldKey),
+        '180',
+      );
+      await tester.pumpAndSettle();
+
+      expect(latestState?.netKcal, 180);
+      expect(latestState?.grossKcal, 180);
     });
 
     testWidgets('selecting an activity fills the display name', (tester) async {
@@ -971,6 +1018,75 @@ void main() {
       expect(find.byKey(ExerciseFormScreen.repsFieldKey), findsOneWidget);
       expect(find.byKey(ExerciseFormScreen.liftWeightFieldKey), findsOneWidget);
       expect(find.textContaining('回数から計算します'), findsOneWidget);
+    });
+
+    testWidgets('soccer saves a typed calorie and an empty calorie as zero', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      Future<void> openForm() async {
+        await tester.pumpWidget(
+          MaterialApp(home: const Scaffold(body: SizedBox.shrink())),
+        );
+        final context = tester.element(find.byType(Scaffold));
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => ExerciseFormScreen(controller: controller),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> enterDuration(String minutes) async {
+        final duration = find.byKey(
+          ExerciseMetCalculationSection.durationFieldKey,
+        );
+        await tester.scrollUntilVisible(
+          duration,
+          120,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.enterText(duration, minutes);
+        await tester.pumpAndSettle();
+      }
+
+      await openForm();
+      await tapActivityChip(tester, 'サッカー');
+      await enterDuration('45');
+      await tester.tap(find.widgetWithText(DesignButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(controller.exerciseEntries, hasLength(1));
+      final empty = controller.exerciseEntries.single;
+      expect(empty.activityId, 'soccer');
+      expect(empty.name, 'サッカー');
+      expect(empty.durationMin, 45);
+      expect(empty.burnedKcal, 0);
+      expect(empty.netKcal, 0);
+      expect(empty.calculationSource, ExerciseCalculationSource.manualOverride);
+
+      await openForm();
+      await tapActivityChip(tester, 'サッカー');
+      await enterDuration('45');
+      final kcal = find.byKey(ExerciseMetCalculationSection.manualKcalFieldKey);
+      await tester.scrollUntilVisible(
+        kcal,
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(kcal, '180');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(DesignButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(controller.exerciseEntries, hasLength(2));
+      final typed = controller.exerciseEntries.last;
+      expect(typed.burnedKcal, 180);
+      expect(typed.netKcal, 180);
+      expect(typed.metValue, isNull);
     });
   });
 }

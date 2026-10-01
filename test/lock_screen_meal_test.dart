@@ -262,6 +262,8 @@ void main() {
       ),
     );
     expect(find.text('ウィジェット'), findsOneWidget);
+    expect(find.text('音声登録'), findsOneWidget);
+    expect(find.text('カロナビ+の機能です'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -275,6 +277,7 @@ void main() {
       ),
     );
     expect(find.text('ウィジェット'), findsNothing);
+    expect(find.text('音声登録'), findsNothing);
     await auth.dispose();
   });
 
@@ -348,7 +351,85 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('購入と復元は、カロナビ+の購入画面で行います。'), findsOneWidget);
+    expect(find.text('音声で、食事と運動を登録できます。復唱してはいで登録します。'), findsOneWidget);
     expect(find.text('ホーム画面'), findsNothing);
+    await auth.dispose();
+  });
+
+  testWidgets('voice registration is shown as paid and does not log', (
+    tester,
+  ) async {
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(authenticationRepository: auth);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: auth,
+          hideHealthSettings: true,
+          showLockScreenMeal: true,
+          supportEmail: '',
+        ),
+      ),
+    );
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('音声で、食事と運動を登録できます。復唱してはいで登録します。'), findsOneWidget);
+    expect(controller.foodEntries, isEmpty);
+    expect(controller.exerciseEntries, isEmpty);
+
+    await tester.tap(find.text('カロナビ+を見る'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('音声で、食事と運動を登録できます。復唱してはいで登録します。'), findsOneWidget);
+    expect(find.text('購入と復元は、カロナビ+の購入画面で行います。'), findsOneWidget);
+    expect(find.text('ホーム画面'), findsNothing);
+    expect(controller.foodEntries, isEmpty);
+    expect(controller.exerciseEntries, isEmpty);
+    await auth.dispose();
+  });
+
+  testWidgets('a paid account reads the voice note without the unpaid dialog', (
+    tester,
+  ) async {
+    final gateway = _MemoryGateway()..paid = true;
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      lockScreenMealGateway: gateway,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: auth,
+          hideHealthSettings: true,
+          showLockScreenMeal: true,
+          supportEmail: '',
+        ),
+      ),
+    );
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('音声で、食事と運動を登録できます。復唱してはいで登録します。'), findsOneWidget);
+    expect(find.text('ホーム画面'), findsNothing);
+    expect(controller.foodEntries, isEmpty);
+    expect(controller.exerciseEntries, isEmpty);
     await auth.dispose();
   });
 

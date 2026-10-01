@@ -49,7 +49,7 @@ class SettingsScreen extends StatelessWidget {
   final OpenFoodFactsService? openFoodFactsService;
   final bool hideHealthSettings;
 
-  /// iOS 17 以降のホームとロック画面のウィジェット。Web と Android では出さない。
+  /// iOS 17 以降のウィジェットと音声登録。Web と Android では出さない。
   final bool showLockScreenMeal;
   final String? supportEmail;
 
@@ -81,16 +81,41 @@ class SettingsScreen extends StatelessWidget {
         cancelLabel: '閉じる',
       );
       if (openPlus == true && context.mounted) {
-        final custom = controller.openCalonaviPlusFlow;
-        if (custom != null) {
-          await custom(context);
-        } else {
-          await showCalonaviPlus(context);
-        }
+        await _openCalonaviPlus(context);
       }
       return;
     }
     _push(context, LockScreenMealScreen(controller: controller));
+  }
+
+  /// 音声登録の案内。登録そのものは Siri 側で有料のときだけ行う。
+  Future<void> _openVoiceRegistration(BuildContext context) async {
+    final paid = await controller.isMealWidgetPaid();
+    if (!context.mounted) {
+      return;
+    }
+    if (!paid) {
+      final openPlus = await showAppConfirmDialog(
+        context: context,
+        title: 'こちらは有料の機能です',
+        message: '音声で、食事と運動を登録できます。復唱してはいで登録します。',
+        confirmLabel: 'カロナビ+を見る',
+        cancelLabel: '閉じる',
+      );
+      if (openPlus != true || !context.mounted) {
+        return;
+      }
+    }
+    await _openCalonaviPlus(context);
+  }
+
+  Future<void> _openCalonaviPlus(BuildContext context) async {
+    final custom = controller.openCalonaviPlusFlow;
+    if (custom != null) {
+      await custom(context);
+      return;
+    }
+    await showCalonaviPlus(context);
   }
 
   void _push(BuildContext context, Widget screen) {
@@ -176,6 +201,13 @@ class SettingsScreen extends StatelessWidget {
               title: 'ウィジェット',
               subtitle: 'ホームは5つ、ロック画面は朝・昼・夜',
               onTap: () => _openMealWidget(context),
+            ),
+            const SizedBox(height: _rowGap),
+            SettingsRow(
+              icon: AppIcons.information,
+              title: '音声登録',
+              subtitle: 'カロナビ+の機能です',
+              onTap: () => _openVoiceRegistration(context),
             ),
           ],
           const SizedBox(height: _rowGap),

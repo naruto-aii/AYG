@@ -35,6 +35,8 @@ class CalonaviPlusEntryScreen extends StatelessWidget {
             title: 'カロナビ+',
             subtitle: 'ウィジェットからの登録は、カロナビ+の機能です。',
           ),
+          Text('音声で、食事と運動を登録できます。復唱してはいで登録します。', style: AppTypography.bodyS),
+          const SizedBox(height: AppSpacing.md),
           Text('購入と復元は、カロナビ+の購入画面で行います。', style: AppTypography.bodyS),
           const SizedBox(height: AppSpacing.md),
           TextButton(

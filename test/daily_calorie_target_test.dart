@@ -397,4 +397,178 @@ void main() {
       expect(first.energyBreakdown!.anchorUpdate, isNull);
     });
   });
+
+  group('loss target does not rise when current weight falls', () {
+    final day = DateTime(2026, 10, 1);
+    final profile80 = profile.copyWith(weightKg: 80);
+    final profile75 = profile.copyWith(weightKg: 75);
+    final goal70 = Goal(
+      type: GoalType.lose,
+      targetWeightKg: 70,
+      targetDate: day.add(const Duration(days: 90)),
+    );
+
+    List<WeightSample> samples(double kg, DateTime measuredAt) {
+      return [
+        WeightSample(
+          kg: kg,
+          measuredAt: measuredAt,
+          source: WeightSource.manual,
+        ),
+      ];
+    }
+
+    test('80 kg to 75 kg keeps the previous automatic target', () {
+      final before = service.calculate(
+        profile: profile80,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day.subtract(const Duration(days: 1))),
+      );
+      final after = service.calculate(
+        profile: profile75,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: [
+          ...samples(80, day.subtract(const Duration(days: 1))),
+          ...samples(75, day),
+        ],
+        autoFoodTargetKcal: before.goalFoodTargetKcal,
+        autoFoodTargetOn: day.subtract(const Duration(days: 1)),
+      );
+
+      expect(before.goalFoodTargetKcal, closeTo(1864.1, 0.1));
+      expect(after.goalFoodTargetKcal, lessThanOrEqualTo(1864.1));
+      expect(after.goalFoodTargetKcal, closeTo(1864.1, 0.1));
+    });
+
+    test('80 kg to 75 kg stays capped before an anchor is saved', () {
+      final before = service.calculate(
+        profile: profile80,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day.subtract(const Duration(days: 1))),
+      );
+      final after = service.calculate(
+        profile: profile75,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: [
+          ...samples(80, day.subtract(const Duration(days: 1))),
+          ...samples(75, day),
+        ],
+      );
+
+      expect(
+        after.goalFoodTargetKcal,
+        lessThanOrEqualTo(before.goalFoodTargetKcal!),
+      );
+    });
+
+    test('lowering the goal weight still lowers the automatic target', () {
+      final before = service.calculate(
+        profile: profile80,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day),
+      );
+      final after = service.calculate(
+        profile: profile80,
+        goal: Goal(
+          type: GoalType.lose,
+          targetWeightKg: 65,
+          targetDate: day.add(const Duration(days: 90)),
+        ),
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day),
+      );
+
+      expect(before.goalFoodTargetKcal, closeTo(1864.1, 0.1));
+      expect(after.goalFoodTargetKcal, closeTo(1464.1, 0.1));
+      expect(after.goalFoodTargetKcal, lessThan(before.goalFoodTargetKcal!));
+    });
+
+    test('a shorter future deadline still lowers the automatic target', () {
+      final before = service.calculate(
+        profile: profile80,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day),
+      );
+      final after = service.calculate(
+        profile: profile80,
+        goal: Goal(
+          type: GoalType.lose,
+          targetWeightKg: 70,
+          targetDate: day.add(const Duration(days: 30)),
+        ),
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day),
+      );
+
+      expect(after.goalFoodTargetKcal, closeTo(264.1, 0.1));
+      expect(after.goalFoodTargetKcal, lessThan(before.goalFoodTargetKcal!));
+    });
+
+    test('goal date of today does not raise a loss target to maintenance', () {
+      final before = service.calculate(
+        profile: profile80,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day),
+      );
+      final after = service.calculate(
+        profile: profile80,
+        goal: Goal(type: GoalType.lose, targetWeightKg: 70, targetDate: day),
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day),
+        autoFoodTargetKcal: before.goalFoodTargetKcal,
+        autoFoodTargetOn: day.subtract(const Duration(days: 1)),
+      );
+
+      expect(after.goalFoodTargetKcal, lessThanOrEqualTo(1864.1));
+      expect(after.goalFoodTargetKcal, isNot(closeTo(2664.1, 1)));
+    });
+
+    test('landing step of 150 kcal does not raise the target after a drop', () {
+      final before = service.calculate(
+        profile: profile80,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: samples(80, day.subtract(const Duration(days: 1))),
+      );
+      final light = [
+        for (final age in [21, 14, 7, 0])
+          WeightSample(
+            kg: age == 21 ? 80 : 75,
+            measuredAt: day.subtract(Duration(days: age)),
+            source: WeightSource.manual,
+          ),
+      ];
+      final after = service.calculate(
+        profile: profile75,
+        goal: goal70,
+        settings: settings,
+        referenceDate: day,
+        weightSamples: light,
+        autoFoodTargetKcal: before.goalFoodTargetKcal,
+        autoFoodTargetOn: day.subtract(const Duration(days: 1)),
+      );
+
+      expect(after.usesLandingFormula, isTrue);
+      expect(after.goalFoodTargetKcal, lessThanOrEqualTo(1864.1));
+      expect(after.goalFoodTargetKcal, isNot(closeTo(2014.1, 1)));
+    });
+  });
 }

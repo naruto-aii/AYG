@@ -50,6 +50,8 @@ void main() {
   }
 
   Future<void> enterUnmatchedName(WidgetTester tester, String name) async {
+    await tester.tap(find.byKey(ExerciseMetCalculationSection.activityMenuKey));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(ExerciseMetCalculationSection.searchFieldKey),
       name,
@@ -64,7 +66,8 @@ void main() {
     final nameField = tester
         .widgetList<TextFormField>(find.byType(TextFormField))
         .firstWhere(
-          (field) => field.key != ExerciseMetCalculationSection.durationFieldKey,
+          (field) =>
+              field.key != ExerciseMetCalculationSection.durationFieldKey,
         );
     return nameField.controller!.text;
   }
@@ -142,6 +145,10 @@ void main() {
       expect(saved.single.name, 'ボルダリング');
 
       await openForm(tester, controller);
+      await tester.tap(
+        find.byKey(ExerciseMetCalculationSection.activityMenuKey),
+      );
+      await tester.pumpAndSettle();
       final tile = find.widgetWithText(ListTile, 'ボルダリング');
       expect(tile, findsOneWidget);
       await tester.scrollUntilVisible(
@@ -207,6 +214,11 @@ void main() {
       expect(await controller.listCustomActivityTemplates(), isEmpty);
 
       await openForm(tester, controller);
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+      await tester.tap(
+        find.byKey(ExerciseMetCalculationSection.activityMenuKey),
+      );
+      await tester.pumpAndSettle();
       expect(find.widgetWithText(ListTile, 'ボルダリング'), findsNothing);
       expect(find.widgetWithText(ListTile, 'ランニング'), findsOneWidget);
     });

@@ -19,13 +19,16 @@ import '../../utils/nutrition_format.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../screens/settings/calculation_references_screen.dart';
 
 /// 運動フォーム内の MET 自動計算（種目1回 + 分量 + 追加消費）。
 class ExerciseMetCalculationSection extends StatefulWidget {
+  static const activityMenuKey = Key('exercise-activity-menu');
   static const searchFieldKey = Key('exercise-activity-search');
   static const customFromQueryKey = Key('exercise-custom-from-query');
+  static const activityMenuHint = '種目を選ぶ';
   static const durationFieldKey = Key('exercise-duration');
   static const distanceFieldKey = Key('exercise-distance');
   static const repsFieldKey = Key('exercise-reps');
@@ -120,7 +123,7 @@ class _ExerciseMetCalculationSectionState
   final _searchController = TextEditingController();
   List<MetActivityDefinition> _searchResults = const [];
   List<CustomActivityTemplate> _savedActivities = const [];
-  bool _pickerOpen = true;
+  bool _pickerOpen = false;
 
   MetActivityDefinition? _activity;
   String? _intensityId;
@@ -548,9 +551,23 @@ class _ExerciseMetCalculationSectionState
     return _activity!.intensityOptions;
   }
 
+  void _togglePicker() {
+    setState(() => _pickerOpen = !_pickerOpen);
+  }
+
+  String get _menuLabel {
+    if (_activity == null) {
+      return ExerciseMetCalculationSection.activityMenuHint;
+    }
+    final typed = widget.nameController?.text.trim() ?? '';
+    if ((_isCustom || _showRename) && typed.isNotEmpty) {
+      return typed;
+    }
+    return _activity!.displayName;
+  }
+
   void _onSearchChanged(String value) {
     setState(() {
-      _pickerOpen = true;
       _searchResults = MetActivityCatalog.search(value);
     });
   }
@@ -739,7 +756,33 @@ class _ExerciseMetCalculationSectionState
         DesignFieldCard(
           icon: _icon(AppIcons.exercise),
           label: '種目',
-          child: DesignInputBox(
+          child: KeyedSubtree(
+            key: ExerciseMetCalculationSection.activityMenuKey,
+            child: DesignInputBox(
+              onTap: _togglePicker,
+              trailing: DesignIcon(
+                _pickerOpen
+                    ? Symbols.keyboard_arrow_up_rounded
+                    : Symbols.keyboard_arrow_down_rounded,
+                size: 24,
+                color: AppColors.iconMuted,
+              ),
+              child: Text(
+                _menuLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.bodyL.copyWith(
+                  color: _activity == null
+                      ? AppColors.textMuted
+                      : AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (_pickerOpen) ...[
+          const SizedBox(height: AppSpacing.md),
+          DesignInputBox(
             child: TextField(
               key: ExerciseMetCalculationSection.searchFieldKey,
               controller: _searchController,
@@ -762,28 +805,21 @@ class _ExerciseMetCalculationSectionState
               ),
             ),
           ),
-        ),
-        ..._activityPicker(),
-        const SizedBox(height: AppSpacing.md),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            onPressed: _openCustom,
-            child: const Text('その他（手入力）'),
+          ..._activityPicker(),
+          const SizedBox(height: AppSpacing.md),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: _openCustom,
+              child: const Text('その他（手入力）'),
+            ),
           ),
-        ),
+        ],
         if (_activity != null) ...[
           const SizedBox(height: AppSpacing.md),
           Text(
             _activity!.displayName,
             style: AppTypography.titleM.copyWith(color: AppColors.textPrimary),
-          ),
-        ],
-        if (_activity == null) ...[
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '種目を1つ選んでください',
-            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
         ],
         if (_activity != null &&

@@ -9,6 +9,7 @@ import 'package:ayg/models/weight_entry.dart';
 import 'package:ayg/screens/exercise/exercise_form_screen.dart';
 import 'package:ayg/services/exercise_calorie_calculator.dart';
 import 'package:ayg/state/app_controller.dart';
+import 'package:ayg/widgets/design/design_button.dart';
 import 'package:ayg/widgets/exercise/exercise_met_calculation_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -253,6 +254,19 @@ void main() {
 
       expect(find.text('一致する種目はありません'), findsOneWidget);
       expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsNothing);
+      expect(
+        find.byKey(ExerciseMetCalculationSection.customFromQueryKey),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<DesignButton>(
+              find.byKey(ExerciseMetCalculationSection.customFromQueryKey),
+            )
+            .showTrailingIcon,
+        isTrue,
+      );
       expect(find.widgetWithText(TextButton, 'その他（手入力）'), findsOneWidget);
 
       await tester.enterText(

@@ -145,6 +145,38 @@ class WorkoutTemplateDraft {
   final List<WorkoutTemplateItem> items;
 }
 
+/// その他（手入力）を運動テンプレート1件として残したもの。
+/// 種目一覧に出し、次回は名前を打たずに選べる。
+class CustomActivityTemplate {
+  const CustomActivityTemplate({
+    required this.templateId,
+    required this.itemId,
+    required this.name,
+    required this.durationMin,
+    this.categoryKey,
+    this.intensity,
+    this.sets,
+    this.reps,
+    this.liftWeightKg,
+    this.metValue,
+    this.sourceKey,
+    this.notes,
+  });
+
+  final String templateId;
+  final String itemId;
+  final String name;
+  final int durationMin;
+  final String? categoryKey;
+  final String? intensity;
+  final int? sets;
+  final int? reps;
+  final double? liftWeightKg;
+  final double? metValue;
+  final String? sourceKey;
+  final String? notes;
+}
+
 class WorkoutTemplateApplyDraft {
   WorkoutTemplateApplyDraft({
     required this.name,

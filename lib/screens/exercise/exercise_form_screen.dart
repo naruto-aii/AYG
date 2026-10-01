@@ -11,12 +11,65 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/food_search_normalizer.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../widgets/exercise/exercise_met_calculation_section.dart';
+
+Future<bool?> showSaveCustomActivityTemplateDialog({
+  required BuildContext context,
+  required String activityName,
+}) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.screenHorizontal,
+        ),
+        child: DesignCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'テンプレートに追加',
+                style: AppTypography.titleM.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                '「$activityName」をテンプレートに追加しますか？次回から一覧で選べます。',
+                style: AppTypography.bodyL.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DesignButton(
+                label: 'はい',
+                showTrailingIcon: false,
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DesignButton(
+                label: 'いいえ',
+                style: DesignButtonStyle.outline,
+                showTrailingIcon: false,
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
 class ExerciseFormScreen extends StatefulWidget {
   static const setsFieldKey = Key('exercise-sets');
@@ -310,11 +363,44 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return;
     }
 
+    var addTemplate = false;
+    if (!widget.isEditing && entry.activityId == 'custom') {
+      final saved = await widget.controller.listCustomActivityTemplates();
+      final normalized = FoodSearchNormalizer.normalize(entry.name);
+      final exists = saved.any(
+        (item) => FoodSearchNormalizer.normalize(item.name) == normalized,
+      );
+      if (!exists) {
+        if (!mounted) {
+          return;
+        }
+        final answer = await showSaveCustomActivityTemplateDialog(
+          context: context,
+          activityName: entry.name,
+        );
+        if (answer == null || !mounted) {
+          return;
+        }
+        addTemplate = answer;
+      }
+    }
+
     setState(() => _isSaving = true);
     if (widget.isEditing) {
       await widget.controller.updateExercise(entry);
     } else {
       await widget.controller.addExercise(entry);
+    }
+    if (addTemplate) {
+      try {
+        await widget.controller.saveCustomActivityTemplate(entry);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('テンプレートの追加に失敗しました')));
+        }
+      }
     }
 
     if (!mounted) {

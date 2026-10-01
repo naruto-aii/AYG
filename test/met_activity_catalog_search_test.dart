@@ -28,6 +28,24 @@ void main() {
     expect(MetActivityCatalog.search('家事').single.id, 'housework');
   });
 
+  test(
+    'blank query stays out of alias search and the list shows prepared activities',
+    () {
+      expect(MetActivityCatalog.search(''), isEmpty);
+      expect(MetActivityCatalog.search('   '), isEmpty);
+      final listed = MetActivityCatalog.listed.map((activity) => activity.id);
+      expect(listed, contains('running'));
+      expect(listed, contains('soccer'));
+      expect(listed, isNot(contains('custom')));
+      expect(
+        listed.length,
+        MetActivityCatalog.activities
+            .where((activity) => activity.searchable)
+            .length,
+      );
+    },
+  );
+
   test('custom is outside alias search', () {
     expect(MetActivityCatalog.search('その他'), isEmpty);
     expect(MetActivityCatalog.search('手入力'), isEmpty);

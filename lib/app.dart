@@ -61,6 +61,7 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.controller.syncLockScreenMeals());
+      unawaited(widget.controller.syncSiriVoiceLogs());
     }
   }
 

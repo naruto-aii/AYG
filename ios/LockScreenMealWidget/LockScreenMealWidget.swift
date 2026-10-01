@@ -7,7 +7,7 @@ import WidgetKit
 /// ボタンは `openAppWhenRun = false`。押してもアプリは開かず、割り当てた
 /// テンプレートを1件だけ追記する。未課金のときは追記しない。
 /// 「有料」とは書かない。作成時の説明はアプリ内のポップアップに置く。
-/// Siri、Watch、Live Activity は作らない。
+/// このボタンは Siri に出さない。Watch と Live Activity は作らない。
 
 struct MealWidgetFigures {
   var remaining: Int?
@@ -213,6 +213,7 @@ struct LockMealWidgetView: View {
 }
 
 /// ホームとロック画面のボタン。ショートカットや Siri には出さない。
+/// 食事と運動の復唱登録は、アプリ本体の別の App Intent。
 struct RegisterMealWidgetIntent: AppIntent {
   static var title: LocalizedStringResource = "食事テンプレートを登録"
   static var openAppWhenRun = false

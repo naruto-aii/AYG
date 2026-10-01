@@ -38,5 +38,25 @@ import UIKit
         result(FlutterMethodNotImplemented)
       }
     }
+    let siri = FlutterMethodChannel(
+      name: "com.narutoaii.ayg/siri_voice",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    siri.setMethodCallHandler { call, result in
+      let args = call.arguments as? [String: Any]
+      switch call.method {
+      case "writeCatalog":
+        SiriVoiceStore.writeCatalog(args?["catalog"] as? String ?? "")
+        result(nil)
+      case "readPending":
+        result(SiriVoiceStore.readPendingJSON())
+      case "acknowledge":
+        let ids = args?["ids"] as? [String] ?? []
+        SiriVoiceStore.acknowledge(ids: ids)
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
   }
 }

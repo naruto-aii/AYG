@@ -220,6 +220,50 @@ void main() {
   }
 
   group('ExerciseMetCalculationSection', () {
+    testWidgets('empty search lists every prepared activity', (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      await tester.pumpWidget(
+        MaterialApp(home: ExerciseFormScreen(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'その他（手入力）'), findsNothing);
+      expect(find.widgetWithText(TextButton, 'その他（手入力）'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        'らん',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsNothing);
+      expect(find.text('一致する種目はありません'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        'ない種目',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('一致する種目はありません'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+      expect(find.widgetWithText(TextButton, 'その他（手入力）'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        '',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsOneWidget);
+    });
+
     testWidgets('strength training offers light moderate hard intensities', (
       tester,
     ) async {

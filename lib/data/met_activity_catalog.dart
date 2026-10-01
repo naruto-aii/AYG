@@ -533,6 +533,13 @@ class MetActivityCatalog {
         .toList();
   }
 
+  /// 検索欄が空のときに出す種目。別名検索の対象だけ。その他（手入力）は含まない。
+  static List<MetActivityDefinition> get listed {
+    final items = activities.where((activity) => activity.searchable).toList();
+    items.sort((a, b) => a.displayName.compareTo(b.displayName));
+    return items;
+  }
+
   /// 正規化後の入力が、別名と一致するか別名に含まれる種目。
   /// 文字の正規化は公式食品の [FoodSearchNormalizer] と同じ。
   /// 空文字と、検索対象外の種目は返さない。

@@ -13,6 +13,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/food_search_normalizer.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
@@ -545,6 +546,48 @@ class _ExerciseMetCalculationSectionState
     }
   }
 
+  List<Widget> _activityPicker() {
+    final blank = FoodSearchNormalizer.normalize(
+      _searchController.text,
+    ).isEmpty;
+    final activities = blank ? MetActivityCatalog.listed : _searchResults;
+    if (activities.isEmpty) {
+      return [
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          '一致する種目はありません',
+          style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+        ),
+      ];
+    }
+    return [
+      const SizedBox(height: AppSpacing.md),
+      DesignCard(
+        child: Column(
+          children: [
+            for (final activity in activities)
+              ListTile(
+                title: Text(
+                  activity.displayName,
+                  style: AppTypography.bodyL.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                onTap: () {
+                  setState(() {
+                    _applyActivity(activity);
+                    _searchController.clear();
+                    _searchResults = const [];
+                  });
+                  _maybeRecalculate();
+                },
+              ),
+          ],
+        ),
+      ),
+    ];
+  }
+
   Widget _chipBox(List<Widget> chips) {
     return DesignInputBox(
       child: Wrap(
@@ -594,27 +637,7 @@ class _ExerciseMetCalculationSectionState
             ),
           ),
         ),
-        if (_searchResults.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.md),
-          DesignCard(
-            child: Column(
-              children: [
-                for (final activity in _searchResults)
-                  ListTile(
-                    title: Text(activity.displayName),
-                    onTap: () {
-                      setState(() {
-                        _applyActivity(activity);
-                        _searchController.clear();
-                        _searchResults = const [];
-                      });
-                      _maybeRecalculate();
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ],
+        ..._activityPicker(),
         const SizedBox(height: AppSpacing.md),
         Align(
           alignment: Alignment.centerLeft,

@@ -8,18 +8,23 @@ import '../utils/local_date.dart';
 class RemainingCalorieService {
   const RemainingCalorieService();
 
-  /// remaining = baseDailyFoodTarget + sum(netExercise) - sum(intake)
+  /// remaining = baseDailyFoodTarget + sum(netExercise) + healthExcess - sum(intake)
   double calculate({
     required double baseDailyFoodTargetKcal,
     required double intakeKcal,
     required double exerciseNetKcal,
+    double healthActivityExcessKcal = 0,
   }) {
     if (!baseDailyFoodTargetKcal.isFinite ||
         !intakeKcal.isFinite ||
-        !exerciseNetKcal.isFinite) {
+        !exerciseNetKcal.isFinite ||
+        !healthActivityExcessKcal.isFinite) {
       return double.nan;
     }
-    return baseDailyFoodTargetKcal + exerciseNetKcal - intakeKcal;
+    return baseDailyFoodTargetKcal +
+        exerciseNetKcal +
+        healthActivityExcessKcal -
+        intakeKcal;
   }
 
   RemainingCalorieBreakdown calculateBreakdown({
@@ -28,6 +33,7 @@ class RemainingCalorieService {
     required List<AlcoholEntry> alcoholEntries,
     required List<ExerciseEntry> exerciseEntries,
     required DateTime selectedDay,
+    double healthActivityExcessKcal = 0,
   }) {
     final foodKcal = _sumFoodKcal(foodEntries, selectedDay);
     final alcoholKcal = _sumAlcoholKcal(alcoholEntries, selectedDay);
@@ -40,10 +46,12 @@ class RemainingCalorieService {
       baseDailyFoodTargetKcal: baseDailyFoodTargetKcal,
       intakeKcal: intakeKcal,
       exerciseNetKcal: exerciseNetKcal,
+      healthActivityExcessKcal: healthActivityExcessKcal,
     );
     return RemainingCalorieBreakdown(
       goalFoodTargetKcal: baseDailyFoodTargetKcal,
       exerciseNetKcal: exerciseNetKcal,
+      healthActivityExcessKcal: healthActivityExcessKcal,
       intakeKcal: intakeKcal,
       foodKcal: foodKcal,
       alcoholKcal: alcoholKcal,

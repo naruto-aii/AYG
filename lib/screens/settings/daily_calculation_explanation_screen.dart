@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/daily_summary.dart';
+import '../../services/health_activity_excess.dart';
 import '../../models/goal.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -148,9 +149,8 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     energy.unavailableReason ??
                         '推定安静時消費を算出できません（18歳未満、'
                             'または性別区分が未設定の場合など）。',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.error),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
@@ -159,6 +159,11 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     '当日の追加運動（net）',
                     '${formatNullableNutrient(remaining.exerciseNetKcal)} kcal',
                   ),
+                  if (remaining.healthActivityExcessKcal > 0)
+                    _row(
+                      'Health の上乗せ',
+                      '${formatNullableNutrient(remaining.healthActivityExcessKcal)} kcal',
+                    ),
                   _row(
                     '食事摂取',
                     '${formatNullableNutrient(remaining.foodKcal)} kcal',
@@ -183,8 +188,7 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                 if (energy?.healthActiveEnergyKcal != null) ...[
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Health の当日消費 ${energy!.healthActiveEnergyKcal!.toStringAsFixed(0)} kcal は参考表示です。'
-                    '食事目標への加算には使いません（運動の二重計上防止）。',
+                    _healthActivityNote(),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -285,6 +289,23 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _healthActivityNote() {
+    final energy = summary.energyBreakdown!;
+    final excess = summary.remainingBreakdown?.healthActivityExcessKcal ?? 0;
+    final above = const HealthActivityExcess().lifestyleAboveBasalKcal(
+      basalReeKcal: energy.estimatedReeKcal,
+      lifestyleFactor: energy.lifestyleActivityFactor,
+    );
+    final active = energy.healthActiveEnergyKcal!;
+    final aboveText = above == null
+        ? '算出できない'
+        : '${above.toStringAsFixed(0)} kcal';
+    return 'Health の当日アクティブエネルギー ${active.toStringAsFixed(0)} kcal。'
+        '朝の基礎（REE）から見た生活活動分は $aboveText。'
+        '超えた ${excess.toStringAsFixed(0)} kcal を画面の消費に足す。'
+        '食事目標には足さない（${HealthActivityExcess.version}）。';
   }
 
   String _goalLabel(GoalType? goalType) {

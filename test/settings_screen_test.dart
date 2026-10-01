@@ -66,13 +66,13 @@ void main() {
           controller: controller,
           authenticationRepository: authRepository,
           hideHealthSettings: true,
-          supportEmail: 'calonavi.ayg.support@gmail.com',
+          supportEmail: 'support@ayg.life',
         ),
       ),
     );
 
     expect(find.text(AppStrings.settingsContactOperator), findsOneWidget);
-    expect(find.text('calonavi.ayg.support@gmail.com'), findsOneWidget);
+    expect(find.text('support@ayg.life'), findsOneWidget);
     expect(find.text(AppStrings.settingsSupport), findsOneWidget);
     expect(find.text(AppStrings.settingsTokushoho), findsOneWidget);
     expect(find.text(AppStrings.settingsAccountDeletion), findsOneWidget);
@@ -101,6 +101,31 @@ void main() {
     );
 
     expect(find.text(AppStrings.settingsContactOperator), findsNothing);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('SettingsScreen uses the public support address by default', (
+    WidgetTester tester,
+  ) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    );
+    final controller = createController(authRepository: authRepository);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: authRepository,
+          hideHealthSettings: true,
+        ),
+      ),
+    );
+
+    expect(find.text('support@ayg.life'), findsOneWidget);
+    expect(find.textContaining('calonavi.ayg.support@gmail.com'), findsNothing);
 
     await authRepository.dispose();
   });

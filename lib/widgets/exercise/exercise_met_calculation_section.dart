@@ -8,6 +8,7 @@ import '../../models/exercise_category.dart';
 import '../../models/exercise_quantity_unit.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../services/exercise_weight_resolver.dart';
+import '../../models/workout_template.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -15,6 +16,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/food_search_normalizer.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/icon_circle.dart';
@@ -23,6 +25,7 @@ import '../../screens/settings/calculation_references_screen.dart';
 /// 運動フォーム内の MET 自動計算（種目1回 + 分量 + 追加消費）。
 class ExerciseMetCalculationSection extends StatefulWidget {
   static const searchFieldKey = Key('exercise-activity-search');
+  static const customFromQueryKey = Key('exercise-custom-from-query');
   static const durationFieldKey = Key('exercise-duration');
   static const distanceFieldKey = Key('exercise-distance');
   static const repsFieldKey = Key('exercise-reps');
@@ -116,6 +119,8 @@ class _ExerciseMetCalculationSectionState
   late final bool _ownsReps;
   final _searchController = TextEditingController();
   List<MetActivityDefinition> _searchResults = const [];
+  List<CustomActivityTemplate> _savedActivities = const [];
+  bool _pickerOpen = true;
 
   MetActivityDefinition? _activity;
   String? _intensityId;
@@ -177,6 +182,15 @@ class _ExerciseMetCalculationSectionState
         _notifyParent();
       }
     });
+    _loadSavedActivities();
+  }
+
+  Future<void> _loadSavedActivities() async {
+    final saved = await widget.controller.listCustomActivityTemplates();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _savedActivities = saved);
   }
 
   @override
@@ -237,6 +251,113 @@ class _ExerciseMetCalculationSectionState
   }
 
   double? get _resolvedMet => _manualOverride ? null : _selectedIntensity?.met;
+
+  void _openCustom() {
+    final custom = MetActivityCatalog.findById(_customActivityId);
+    if (custom == null) {
+      return;
+    }
+    final typed = _searchController.text.trim();
+    setState(() {
+      _applyActivity(custom);
+      if (typed.isNotEmpty) {
+        widget.nameController?.text = typed;
+      }
+      _searchController.clear();
+      _searchResults = const [];
+      _pickerOpen = false;
+    });
+    _maybeRecalculate();
+  }
+
+  void _selectSaved(CustomActivityTemplate saved) {
+    final custom = MetActivityCatalog.findById(_customActivityId);
+    if (custom == null) {
+      return;
+    }
+    setState(() {
+      _applyActivity(custom);
+      widget.nameController?.text = saved.name;
+      if (saved.durationMin > 0) {
+        widget.durationController.text = '${saved.durationMin}';
+      }
+      _intensityId = saved.intensity ?? custom.defaultIntensityId;
+      _searchController.clear();
+      _searchResults = const [];
+      _pickerOpen = false;
+    });
+    _maybeRecalculate();
+  }
+
+  void _onSearchSubmitted(String value) {
+    final choices = _activityChoices();
+    if (choices.length == 1) {
+      _selectChoice(choices.single);
+      return;
+    }
+    if (choices.isEmpty && value.trim().isNotEmpty) {
+      _openCustom();
+    }
+  }
+
+  bool _catalogOwnsName(String name) {
+    final normalized = FoodSearchNormalizer.normalize(name);
+    if (normalized.isEmpty) {
+      return true;
+    }
+    for (final activity in MetActivityCatalog.activities) {
+      if (!activity.searchable) {
+        continue;
+      }
+      for (final alias in activity.aliases) {
+        if (FoodSearchNormalizer.normalize(alias) == normalized) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  List<_ActivityChoice> _activityChoices() {
+    final query = FoodSearchNormalizer.normalize(_searchController.text);
+    final blank = query.isEmpty;
+    final catalog = blank ? MetActivityCatalog.listed : _searchResults;
+    final saved = _savedActivities.where((item) {
+      if (_catalogOwnsName(item.name)) {
+        return false;
+      }
+      if (blank) {
+        return true;
+      }
+      final normalized = FoodSearchNormalizer.normalize(item.name);
+      return normalized.isNotEmpty &&
+          (normalized == query || normalized.contains(query));
+    });
+    final choices = <_ActivityChoice>[
+      for (final activity in catalog) _ActivityChoice.catalog(activity),
+      for (final item in saved) _ActivityChoice.saved(item),
+    ];
+    choices.sort((a, b) => a.label.compareTo(b.label));
+    return choices;
+  }
+
+  void _selectChoice(_ActivityChoice choice) {
+    final activity = choice.activity;
+    if (activity != null) {
+      setState(() {
+        _applyActivity(activity);
+        _searchController.clear();
+        _searchResults = const [];
+        _pickerOpen = false;
+      });
+      _maybeRecalculate();
+      return;
+    }
+    final saved = choice.saved;
+    if (saved != null) {
+      _selectSaved(saved);
+    }
+  }
 
   void _applyActivity(MetActivityDefinition activity) {
     _activity = activity;
@@ -429,6 +550,7 @@ class _ExerciseMetCalculationSectionState
 
   void _onSearchChanged(String value) {
     setState(() {
+      _pickerOpen = true;
       _searchResults = MetActivityCatalog.search(value);
     });
   }
@@ -547,17 +669,26 @@ class _ExerciseMetCalculationSectionState
   }
 
   List<Widget> _activityPicker() {
-    final blank = FoodSearchNormalizer.normalize(
-      _searchController.text,
-    ).isEmpty;
-    final activities = blank ? MetActivityCatalog.listed : _searchResults;
-    if (activities.isEmpty) {
+    if (!_pickerOpen) {
+      return const [];
+    }
+    final choices = _activityChoices();
+    final typed = _searchController.text.trim();
+    if (choices.isEmpty) {
       return [
         const SizedBox(height: AppSpacing.md),
         Text(
           '一致する種目はありません',
           style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
         ),
+        if (typed.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          DesignButton(
+            key: ExerciseMetCalculationSection.customFromQueryKey,
+            label: 'この名前で登録',
+            onPressed: _openCustom,
+          ),
+        ],
       ];
     }
     return [
@@ -565,22 +696,15 @@ class _ExerciseMetCalculationSectionState
       DesignCard(
         child: Column(
           children: [
-            for (final activity in activities)
+            for (final choice in choices)
               ListTile(
                 title: Text(
-                  activity.displayName,
+                  choice.label,
                   style: AppTypography.bodyL.copyWith(
                     color: AppColors.textPrimary,
                   ),
                 ),
-                onTap: () {
-                  setState(() {
-                    _applyActivity(activity);
-                    _searchController.clear();
-                    _searchResults = const [];
-                  });
-                  _maybeRecalculate();
-                },
+                onTap: () => _selectChoice(choice),
               ),
           ],
         ),
@@ -619,6 +743,8 @@ class _ExerciseMetCalculationSectionState
             child: TextField(
               key: ExerciseMetCalculationSection.searchFieldKey,
               controller: _searchController,
+              textInputAction: TextInputAction.done,
+              onSubmitted: _onSearchSubmitted,
               onChanged: _onSearchChanged,
               cursorColor: AppColors.textBrand,
               style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
@@ -642,18 +768,7 @@ class _ExerciseMetCalculationSectionState
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
-            onPressed: () {
-              final custom = MetActivityCatalog.findById('custom');
-              if (custom == null) {
-                return;
-              }
-              setState(() {
-                _applyActivity(custom);
-                _searchController.clear();
-                _searchResults = const [];
-              });
-              _maybeRecalculate();
-            },
+            onPressed: _openCustom,
             child: const Text('その他（手入力）'),
           ),
         ),
@@ -925,4 +1040,15 @@ class _ExerciseMetCalculationSectionState
       ],
     );
   }
+}
+
+class _ActivityChoice {
+  const _ActivityChoice.catalog(this.activity) : saved = null;
+
+  const _ActivityChoice.saved(this.saved) : activity = null;
+
+  final MetActivityDefinition? activity;
+  final CustomActivityTemplate? saved;
+
+  String get label => activity?.displayName ?? saved!.name;
 }

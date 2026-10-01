@@ -82,6 +82,7 @@ import '../services/search_suggestion_service.dart';
 import '../models/food_visibility.dart';
 import '../services/source_food_edit_policy.dart';
 import '../utils/food_name_normalizer.dart';
+import '../utils/food_search_normalizer.dart';
 import '../utils/id_generator.dart';
 
 class AppController extends ChangeNotifier {
@@ -2044,6 +2045,82 @@ class AppController extends ChangeNotifier {
       return _searchSuggestionService.rankMealTemplateSuggestions(results);
     }
     return results;
+  }
+
+  /// その他（手入力）を1種目だけ保存したテンプレート。スキーマは足していない。
+  Future<List<CustomActivityTemplate>> listCustomActivityTemplates() async {
+    final repository = _workoutTemplateRepository;
+    if (repository == null) {
+      return const [];
+    }
+    final templates = await repository.getAll(currentOwnerUserId);
+    final saved = <CustomActivityTemplate>[];
+    for (final template in templates) {
+      final items = await repository.getItems(
+        ownerUserId: currentOwnerUserId,
+        templateId: template.templateId,
+      );
+      if (items.length != 1 || items.single.activityId != 'custom') {
+        continue;
+      }
+      final item = items.single;
+      saved.add(
+        CustomActivityTemplate(
+          templateId: template.templateId,
+          itemId: item.itemId,
+          name: template.name,
+          durationMin: item.durationMin,
+          categoryKey: item.categoryKey,
+          intensity: item.intensity,
+          sets: item.sets,
+          reps: item.reps,
+          liftWeightKg: item.liftWeightKg,
+          metValue: item.metValue,
+          sourceKey: item.sourceKey,
+          notes: item.notes,
+        ),
+      );
+    }
+    saved.sort((a, b) => a.name.compareTo(b.name));
+    return saved;
+  }
+
+  /// 手入力の種目をテンプレートへ足す。同じ名前があればそのテンプレートを更新する。
+  /// 戻すときはそのテンプレートを削除する。新しい列は無い。
+  Future<void> saveCustomActivityTemplate(ExerciseEntry entry) async {
+    final name = entry.name.trim();
+    final normalized = FoodSearchNormalizer.normalize(name);
+    final existing = await listCustomActivityTemplates();
+    CustomActivityTemplate? match;
+    for (final saved in existing) {
+      if (FoodSearchNormalizer.normalize(saved.name) == normalized) {
+        match = saved;
+        break;
+      }
+    }
+    await saveWorkoutTemplate(
+      templateId: match?.templateId,
+      draft: WorkoutTemplateDraft(
+        name: name,
+        items: [
+          WorkoutTemplateItem(
+            itemId: match?.itemId ?? generateId(),
+            name: name,
+            activityId: 'custom',
+            categoryKey: entry.category?.id ?? match?.categoryKey,
+            intensity: entry.intensity,
+            durationMin: entry.durationMin,
+            sets: entry.sets,
+            reps: entry.reps,
+            liftWeightKg: entry.liftWeightKg,
+            sortOrder: 1,
+            notes: entry.notes,
+            metValue: entry.metValue,
+            sourceKey: entry.sourceKey,
+          ),
+        ],
+      ),
+    );
   }
 
   Future<List<WorkoutTemplate>> searchWorkoutTemplates(String query) async {

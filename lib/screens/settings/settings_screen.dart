@@ -98,7 +98,7 @@ class SettingsScreen extends StatelessWidget {
       final openPlus = await showAppConfirmDialog(
         context: context,
         title: 'こちらは有料の機能です',
-        message: '音声で、食事と運動を登録できます。復唱してはいで登録します。',
+        message: AppStrings.siriVoicePaidGuidance,
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );

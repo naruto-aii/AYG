@@ -3,8 +3,13 @@ import Foundation
 
 /// 食事と運動を、復唱して「はい」のときだけ1件登録する。
 ///
+/// 話し方は次の2文だけ。アプリ名が無い文と、食事・運動の区分が無い文は登録しない。
+/// 「Hey Siri、カロナビで、食事にささみを300グラム。」
+/// 「Hey Siri、カロナビで、運動にジョギングを30分。」
+///
 /// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
 /// 食事テンプレートの一発登録は作らない。未課金は登録しない。
+/// `openAppWhenRun` は false。判定と書き込みは App Group だけで、アプリが閉じていても Siri が実行する。
 /// 判定の順は Dart の `planSiriFood` / `planSiriExercise` と同じ。
 enum SiriVoiceStore {
   static let catalogKey = "siriVoiceCatalog"
@@ -47,6 +52,9 @@ enum SiriVoiceStore {
   static func planFood(name: String, quantity: String) async -> Plan {
     if let blocked = blocked() {
       return blocked
+    }
+    if let rejected = rejectIncompleteUtterance(name: name, quantity: quantity, food: true) {
+      return rejected
     }
     let split = splitUtterance(name: name, quantity: quantity)
     guard let parsed = parseQuantity(split.quantity) else {
@@ -94,6 +102,9 @@ enum SiriVoiceStore {
   static func planExercise(name: String, quantity: String) -> Plan {
     if let blocked = blocked() {
       return blocked
+    }
+    if let rejected = rejectIncompleteUtterance(name: name, quantity: quantity, food: false) {
+      return rejected
     }
     let split = splitUtterance(name: name, quantity: quantity)
     guard let parsed = parseQuantity(split.quantity) else {
@@ -310,9 +321,17 @@ enum SiriVoiceStore {
   }
 
   private static func parseQuantity(_ raw: String) -> ParsedQuantity? {
-    let compact = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    var compact = raw.trimmingCharacters(in: .whitespacesAndNewlines)
       .replacingOccurrences(of: " ", with: "")
       .replacingOccurrences(of: "　", with: "")
+    if let trailing = try? NSRegularExpression(pattern: #"[。．.！!？?]+$"#) {
+      let trailingRange = NSRange(compact.startIndex..., in: compact)
+      compact = trailing.stringByReplacingMatches(
+        in: compact,
+        range: trailingRange,
+        withTemplate: ""
+      )
+    }
     guard let regex = try? NSRegularExpression(pattern: #"^(\d+(?:\.\d+)?)(.*)$"#) else {
       return nil
     }
@@ -395,15 +414,59 @@ enum SiriVoiceStore {
     }
   }
 
-  private static func splitUtterance(name: String, quantity: String) -> (name: String, quantity: String) {
-    if parseQuantity(quantity) != nil {
-      return (name, quantity)
+  private static func rejectIncompleteUtterance(
+    name: String,
+    quantity: String,
+    food: Bool
+  ) -> Plan? {
+    let source = utterance(name, quantity)
+    if !mentionsPhraseShape(source) {
+      return nil
     }
-    let source = quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    if !source.contains("カロナビ") {
+      return stop("アプリ名が無いので登録しません")
+    }
+    let marker = food ? "食事に" : "運動に"
+    if !source.contains(marker) {
+      return stop("食事か運動か分からないので登録しません")
+    }
+    return nil
+  }
+
+  private static func utterance(_ name: String, _ quantity: String) -> String {
+    let raw = quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      ? name
+      : name + quantity
+    return raw
+      .replacingOccurrences(of: " ", with: "")
+      .replacingOccurrences(of: "　", with: "")
+  }
+
+  private static func mentionsPhraseShape(_ source: String) -> Bool {
+    source.contains("カロナビ")
+      || source.contains("食事に")
+      || source.contains("運動に")
+      || source.contains("HeySiri")
+      || source.contains("heySiri")
+  }
+
+  private static func splitUtterance(name: String, quantity: String) -> (name: String, quantity: String) {
+    if parseQuantity(quantity) != nil && !mentionsPhraseShape(utterance(name, "")) {
+      return (cleanName(name), quantity.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    var source = quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       ? name.trimmingCharacters(in: .whitespacesAndNewlines)
-      : name.trimmingCharacters(in: .whitespacesAndNewlines) + quantity.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let regex = try? NSRegularExpression(pattern: #"^(?:食事に|運動に)?(.+?)を\s*(\d.*)$"#) else {
-      return (name, quantity)
+      : name.trimmingCharacters(in: .whitespacesAndNewlines)
+        + " "
+        + quantity.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let wake = try? NSRegularExpression(pattern: #"^(?:Hey|hey)\s*Siri[、,]?\s*"#) {
+      let range = NSRange(source.startIndex..., in: source)
+      source = wake.stringByReplacingMatches(in: source, range: range, withTemplate: "")
+    }
+    guard let regex = try? NSRegularExpression(
+      pattern: #"^(?:カロナビで[、,]?)?(?:食事に|運動に)?(.+?)を\s*(\d.*)$"#
+    ) else {
+      return (cleanName(name), quantity)
     }
     let range = NSRange(source.startIndex..., in: source)
     guard let found = regex.firstMatch(in: source, range: range),
@@ -417,6 +480,14 @@ enum SiriVoiceStore {
 
   private static func cleanName(_ raw: String) -> String {
     var name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let wake = try? NSRegularExpression(pattern: #"^(?:Hey|hey)\s*Siri[、,]?\s*"#) {
+      let range = NSRange(name.startIndex..., in: name)
+      name = wake.stringByReplacingMatches(in: name, range: range, withTemplate: "")
+    }
+    if let app = try? NSRegularExpression(pattern: #"^カロナビで[、,]?\s*"#) {
+      let range = NSRange(name.startIndex..., in: name)
+      name = app.stringByReplacingMatches(in: name, range: range, withTemplate: "")
+    }
     if name.hasPrefix("食事に") {
       name = String(name.dropFirst(3))
     } else if name.hasPrefix("運動に") {
@@ -597,7 +668,7 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenFoodIntent(),
       phrases: [
-        "\(.applicationName)で食事に\(\.$foodName)を\(\.$quantity)",
+        "\(.applicationName)で、食事に\(\.$foodName)を\(\.$quantity)",
       ],
       shortTitle: "食事を登録",
       systemImageName: "fork.knife"
@@ -605,7 +676,7 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenExerciseIntent(),
       phrases: [
-        "\(.applicationName)で運動に\(\.$activityName)を\(\.$quantity)",
+        "\(.applicationName)で、運動に\(\.$activityName)を\(\.$quantity)",
       ],
       shortTitle: "運動を登録",
       systemImageName: "figure.run"

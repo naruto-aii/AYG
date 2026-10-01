@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_page.dart';
@@ -35,7 +36,7 @@ class CalonaviPlusEntryScreen extends StatelessWidget {
             title: 'カロナビ+',
             subtitle: 'ウィジェットからの登録は、カロナビ+の機能です。',
           ),
-          Text('音声で、食事と運動を登録できます。復唱してはいで登録します。', style: AppTypography.bodyS),
+          Text(AppStrings.siriVoicePaidGuidance, style: AppTypography.bodyS),
           const SizedBox(height: AppSpacing.md),
           Text('購入と復元は、カロナビ+の購入画面で行います。', style: AppTypography.bodyS),
           const SizedBox(height: AppSpacing.md),

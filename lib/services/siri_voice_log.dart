@@ -14,9 +14,12 @@ import 'lock_screen_meal.dart';
 
 /// Siri の食事・運動登録。
 ///
+/// 話し方は「カロナビで、食事に食品を量」と「カロナビで、運動に種目を量」だけ。
+/// アプリ名が無い文と、食事・運動の区分が無い文は登録しない。
 /// 復唱して「はい」のときだけ1件作る。「いいえ」と無言では作らない。
 /// 食品は渡されたデータベースの完全一致だけ。運動は既存の式で計算できる量だけ。
 /// 食事テンプレートの一発登録はここには無い。
+/// 判定と書き込みはアプリを開かずに行い、アプリは次に開いたとき取り込む。
 const String siriVoiceMethodChannel = 'com.narutoaii.ayg/siri_voice';
 
 enum SiriAnswer { yes, no, silence }
@@ -200,7 +203,11 @@ class SiriVoiceImportPlan {
 }
 
 SiriQuantity? parseSiriQuantity(String raw) {
-  final compact = raw.trim().replaceAll(' ', '').replaceAll('　', '');
+  final compact = raw
+      .trim()
+      .replaceAll(' ', '')
+      .replaceAll('　', '')
+      .replaceFirst(RegExp(r'[。．.！!？?]+$'), '');
   final match = RegExp(r'^(\d+(?:\.\d+)?)(.*)$').firstMatch(compact);
   if (match == null) {
     return null;
@@ -250,6 +257,14 @@ SiriVoicePlan planSiriFood({
   final blocked = _blocked(context);
   if (blocked != null) {
     return blocked;
+  }
+  final rejected = _rejectIncompleteUtterance(
+    name: name,
+    quantity: quantity,
+    food: true,
+  );
+  if (rejected != null) {
+    return rejected;
   }
   final split = _split(name, quantity);
   final parsed = parseSiriQuantity(split.quantity);
@@ -302,6 +317,14 @@ SiriVoicePlan planSiriExercise({
   final blocked = _blocked(context);
   if (blocked != null) {
     return blocked;
+  }
+  final rejected = _rejectIncompleteUtterance(
+    name: name,
+    quantity: quantity,
+    food: false,
+  );
+  if (rejected != null) {
+    return rejected;
   }
   final split = _split(name, quantity);
   final parsed = parseSiriQuantity(split.quantity);
@@ -767,14 +790,52 @@ SiriVoicePlan _stop(SiriVoiceStatus status, String spoken) {
   );
 }
 
-({String name, String quantity}) _split(String name, String quantity) {
-  if (parseSiriQuantity(quantity) != null) {
-    return (name: _cleanName(name), quantity: quantity.trim());
+SiriVoicePlan? _rejectIncompleteUtterance({
+  required String name,
+  required String quantity,
+  required bool food,
+}) {
+  final source = _utterance(name, quantity);
+  if (!_mentionsPhraseShape(source)) {
+    return null;
   }
-  final source = quantity.trim().isEmpty
+  if (!source.contains('カロナビ')) {
+    return _stop(SiriVoiceStatus.unsupportedAmount, 'アプリ名が無いので登録しません');
+  }
+  final marker = food ? '食事に' : '運動に';
+  if (!source.contains(marker)) {
+    return _stop(SiriVoiceStatus.unsupportedAmount, '食事か運動か分からないので登録しません');
+  }
+  return null;
+}
+
+String _utterance(String name, String quantity) {
+  final raw = quantity.trim().isEmpty
       ? name.trim()
       : '${name.trim()}${quantity.trim()}';
-  final match = RegExp(r'^(?:食事に|運動に)?(.+?)を\s*(\d.*)$').firstMatch(source);
+  return raw.replaceAll(' ', '').replaceAll('　', '');
+}
+
+bool _mentionsPhraseShape(String source) {
+  return source.contains('カロナビ') ||
+      source.contains('食事に') ||
+      source.contains('運動に') ||
+      source.contains('HeySiri') ||
+      source.contains('heySiri');
+}
+
+({String name, String quantity}) _split(String name, String quantity) {
+  if (parseSiriQuantity(quantity) != null &&
+      !_mentionsPhraseShape(_utterance(name, ''))) {
+    return (name: _cleanName(name), quantity: quantity.trim());
+  }
+  var source = quantity.trim().isEmpty
+      ? name.trim()
+      : '${name.trim()} ${quantity.trim()}';
+  source = source.replaceFirst(RegExp(r'^(?:Hey|hey)\s*Siri[、,]?\s*'), '');
+  final match = RegExp(
+    r'^(?:カロナビで[、,]?)?(?:食事に|運動に)?(.+?)を\s*(\d.*)$',
+  ).firstMatch(source);
   if (match == null) {
     return (name: _cleanName(name), quantity: quantity.trim());
   }
@@ -783,6 +844,8 @@ SiriVoicePlan _stop(SiriVoiceStatus status, String spoken) {
 
 String _cleanName(String raw) {
   var name = raw.trim();
+  name = name.replaceFirst(RegExp(r'^(?:Hey|hey)\s*Siri[、,]?\s*'), '');
+  name = name.replaceFirst(RegExp(r'^カロナビで[、,]?\s*'), '');
   if (name.startsWith('食事に')) {
     name = name.substring('食事に'.length);
   } else if (name.startsWith('運動に')) {

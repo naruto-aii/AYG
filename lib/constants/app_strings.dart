@@ -7,6 +7,14 @@ class AppStrings {
 
   static const appTitle = 'カロナビ';
 
+  /// 有料案内に出す Siri の話し方。この2文だけ。
+  static const siriVoiceFoodPhrase =
+      '食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。';
+  static const siriVoiceExercisePhrase =
+      '運動：Hey Siri、カロナビで、運動にジョギングを30分。復唱してはいで登録。';
+  static const siriVoicePaidGuidance =
+      '$siriVoiceFoodPhrase\n$siriVoiceExercisePhrase';
+
   static const loginTagline = '毎日の食事と運動を、やさしく見える化。';
 
   /// ログイン画面のタグライン（Figma のとおり2行で表示）。

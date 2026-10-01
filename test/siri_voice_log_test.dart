@@ -81,12 +81,42 @@ void main() {
   test('a spoken meal phrase is parsed before the repeat', () {
     final plan = planSiriFood(
       context: context(),
-      name: '食事にささみを300g',
+      name: 'Hey Siri、カロナビで、食事にささみを300グラム。',
       quantity: '',
     );
 
     expect(plan.spoken, 'ささみを300gですね');
+    expect(finish(plan, SiriAnswer.yes).food!.consumedAmount, 300);
   });
+
+  test(
+    'speech without the app name or the meal or exercise marker is not saved',
+    () {
+      final noApp = planSiriFood(
+        context: context(),
+        name: '食事にささみを300グラム',
+        quantity: '',
+      );
+      final noKind = planSiriExercise(
+        context: context(),
+        name: 'カロナビで、ジョギングを30分',
+        quantity: '',
+      );
+      final wrongKind = planSiriFood(
+        context: context(),
+        name: 'カロナビで、運動にささみを300グラム',
+        quantity: '',
+      );
+
+      expect(noApp.asksConfirmation, isFalse);
+      expect(noApp.spoken, 'アプリ名が無いので登録しません');
+      expect(noKind.spoken, '食事か運動か分からないので登録しません');
+      expect(wrongKind.spoken, '食事か運動か分からないので登録しません');
+      expect(finish(noApp, SiriAnswer.yes).registered, isFalse);
+      expect(finish(noKind, SiriAnswer.yes).registered, isFalse);
+      expect(finish(wrongKind, SiriAnswer.yes).registered, isFalse);
+    },
+  );
 
   test('a missing food is not saved even after yes', () {
     final plan = planSiriFood(
@@ -152,7 +182,7 @@ void main() {
   test('exercise is repeated and saved only after yes', () {
     final plan = planSiriExercise(
       context: context(),
-      name: '運動に水泳を30分',
+      name: 'カロナビで、運動に水泳を30分',
       quantity: '',
     );
 
@@ -173,8 +203,8 @@ void main() {
   test('jogging minutes are not converted into a calorie', () {
     final plan = planSiriExercise(
       context: context(),
-      name: 'ジョギング',
-      quantity: '30分',
+      name: 'Hey Siri、カロナビで、運動にジョギングを30分。',
+      quantity: '',
     );
 
     expect(plan.asksConfirmation, isFalse);

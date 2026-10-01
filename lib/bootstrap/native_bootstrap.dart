@@ -29,6 +29,7 @@ import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
+import '../services/lock_screen_meal_gateway.dart';
 import '../services/open_food_facts_service.dart';
 import '../state/app_controller.dart';
 
@@ -131,6 +132,7 @@ Future<void> bootstrapApp() async {
     mealTemplateRepository: mealTemplateRepository,
     workoutTemplateRepository: workoutTemplateRepository,
     firstMealGuideStore: const FirstMealGuideStore(),
+    lockScreenMealGateway: LockScreenMealGatewayImpl(),
   );
   await controller.initialize();
 

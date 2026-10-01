@@ -17,6 +17,7 @@ import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
 import 'calculation_references_screen.dart';
 import 'data_source_screen.dart';
+import 'lock_screen_meal_screen.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
@@ -36,6 +37,7 @@ class SettingsScreen extends StatelessWidget {
     this.healthRepository,
     this.openFoodFactsService,
     this.hideHealthSettings = false,
+    this.showLockScreenMeal = false,
     this.supportEmail,
   });
 
@@ -44,6 +46,9 @@ class SettingsScreen extends StatelessWidget {
   final HealthRepository? healthRepository;
   final OpenFoodFactsService? openFoodFactsService;
   final bool hideHealthSettings;
+
+  /// iOS 17 以降のロック画面ウィジェット。Web と Android では出さない。
+  final bool showLockScreenMeal;
   final String? supportEmail;
 
   static const double _rowGap = 8;
@@ -136,6 +141,16 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (showLockScreenMeal) ...[
+            const SizedBox(height: _rowGap),
+            SettingsRow(
+              icon: AppIcons.template,
+              title: 'ロック画面',
+              subtitle: 'ボタン3つに食事テンプレートを割り当て',
+              onTap: () =>
+                  _push(context, LockScreenMealScreen(controller: controller)),
+            ),
+          ],
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.calculator,

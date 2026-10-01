@@ -18,6 +18,14 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		E6BF46FE62C3516E51CDDDC8 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B84391E47C9FD573C4C1619 /* Pods_Runner.framework */; };
+		A1B702222222222222222001 /* LockScreenMealStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111001 /* LockScreenMealStore.swift */; };
+		A1B702222222222222222002 /* LockScreenMealWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111002 /* LockScreenMealWidget.swift */; };
+		A1B702222222222222222003 /* LockScreenMealStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111001 /* LockScreenMealStore.swift */; };
+		A1B702222222222222222004 /* LockScreenMealWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111006 /* LockScreenMealWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A1B702222222222222222010 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
+		A1B702222222222222222011 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
+		A1B702222222222222222012 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111011 /* SwiftUI.framework */; };
+		A1B702222222222222222013 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111012 /* AppIntents.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,6 +35,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		A1B702444444444444444001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1B702333333333333333001;
+			remoteInfo = LockScreenMealWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -39,6 +54,17 @@
 			files = (
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B702333333333333333005 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1B702222222222222222004 /* LockScreenMealWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -69,6 +95,15 @@
 		E4DD21C33FD256DF867F57DA /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		EE62258C1FE526485D52C487 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		F30051AA938BE3EF274F3852 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+		A1B702111111111111111001 /* LockScreenMealStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenMealStore.swift; sourceTree = "<group>"; };
+		A1B702111111111111111002 /* LockScreenMealWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenMealWidget.swift; sourceTree = "<group>"; };
+		A1B702111111111111111003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1B702111111111111111004 /* LockScreenMealWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LockScreenMealWidget.entitlements; sourceTree = "<group>"; };
+		A1B702111111111111111005 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		A1B702111111111111111006 /* LockScreenMealWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LockScreenMealWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B702111111111111111010 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		A1B702111111111111111011 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		A1B702111111111111111012 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,6 +121,17 @@
 			files = (
 				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
 				E6BF46FE62C3516E51CDDDC8 /* Pods_Runner.framework in Frameworks */,
+				A1B702222222222222222011 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B702333333333333333004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B702222222222222222010 /* WidgetKit.framework in Frameworks */,
+				A1B702222222222222222012 /* SwiftUI.framework in Frameworks */,
+				A1B702222222222222222013 /* AppIntents.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -105,8 +151,29 @@
 			children = (
 				3B84391E47C9FD573C4C1619 /* Pods_Runner.framework */,
 				3495EF35EC393E3F994597FD /* Pods_RunnerTests.framework */,
+				A1B702111111111111111010 /* WidgetKit.framework */,
+				A1B702111111111111111011 /* SwiftUI.framework */,
+				A1B702111111111111111012 /* AppIntents.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A1B702555555555555555002 /* LockScreenMeal */ = {
+			isa = PBXGroup;
+			children = (
+				A1B702111111111111111001 /* LockScreenMealStore.swift */,
+			);
+			path = LockScreenMeal;
+			sourceTree = "<group>";
+		};
+		A1B702555555555555555001 /* LockScreenMealWidget */ = {
+			isa = PBXGroup;
+			children = (
+				A1B702111111111111111002 /* LockScreenMealWidget.swift */,
+				A1B702111111111111111003 /* Info.plist */,
+				A1B702111111111111111004 /* LockScreenMealWidget.entitlements */,
+			);
+			path = LockScreenMealWidget;
 			sourceTree = "<group>";
 		};
 		9740EEB11CF90186004384FC /* Flutter */ = {
@@ -126,6 +193,8 @@
 			children = (
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
+				A1B702555555555555555002 /* LockScreenMeal */,
+				A1B702555555555555555001 /* LockScreenMealWidget */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				BE676D118160EDC7FCA1FFEB /* Pods */,
@@ -137,6 +206,7 @@
 			isa = PBXGroup;
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
+				A1B702111111111111111006 /* LockScreenMealWidget.appex */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 			);
 			name = Products;
@@ -154,6 +224,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
+				A1B702111111111111111005 /* Runner.entitlements */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -204,12 +275,14 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				A1B702333333333333333005 /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				900AAF681FBDF2805035154B /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A1B702444444444444444002 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -218,6 +291,23 @@
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A1B702333333333333333001 /* LockScreenMealWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B702666666666666666004 /* Build configuration list for PBXNativeTarget "LockScreenMealWidget" */;
+			buildPhases = (
+				A1B702333333333333333002 /* Sources */,
+				A1B702333333333333333004 /* Frameworks */,
+				A1B702333333333333333003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LockScreenMealWidget;
+			productName = LockScreenMealWidget;
+			productReference = A1B702111111111111111006 /* LockScreenMealWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -236,6 +326,9 @@
 					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
+					};
+					A1B702333333333333333001 = {
+						CreatedOnToolsVersion = 15.0;
 					};
 				};
 			};
@@ -256,6 +349,7 @@
 			projectRoot = "";
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
+				A1B702333333333333333001 /* LockScreenMealWidget */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 			);
 		};
@@ -263,6 +357,13 @@
 
 /* Begin PBXResourcesBuildPhase section */
 		331C807F294A63A400263BE5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B702333333333333333003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -393,6 +494,16 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
+				A1B702222222222222222003 /* LockScreenMealStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B702333333333333333002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B702222222222222222001 /* LockScreenMealStore.swift in Sources */,
+				A1B702222222222222222002 /* LockScreenMealWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -403,6 +514,11 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+		A1B702444444444444444002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1B702333333333333333001 /* LockScreenMealWidget */;
+			targetProxy = A1B702444444444444444001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -491,6 +607,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = com.narutoaii.ayg;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -667,6 +784,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -689,6 +807,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -702,6 +821,85 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		A1B702666666666666666001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LockScreenMealWidget/LockScreenMealWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LockScreenMealWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.narutoaii.ayg.LockScreenMealWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1B702666666666666666002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LockScreenMealWidget/LockScreenMealWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LockScreenMealWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.narutoaii.ayg.LockScreenMealWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1B702666666666666666003 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LockScreenMealWidget/LockScreenMealWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LockScreenMealWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.narutoaii.ayg.LockScreenMealWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
 		};
 /* End XCBuildConfiguration section */
 
@@ -732,6 +930,16 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B702666666666666666004 /* Build configuration list for PBXNativeTarget "LockScreenMealWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B702666666666666666001 /* Debug */,
+				A1B702666666666666666002 /* Release */,
+				A1B702666666666666666003 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

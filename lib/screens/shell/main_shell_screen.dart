@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../repositories/authentication_repository.dart';
@@ -106,6 +107,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
         authenticationRepository: widget.authenticationRepository,
         healthRepository: widget.healthRepository,
         openFoodFactsService: widget.openFoodFactsService,
+        showLockScreenMeal:
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
       ),
     ];
 

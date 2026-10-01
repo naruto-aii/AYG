@@ -66,6 +66,8 @@ import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
 import '../services/local_user_data_clearer_base.dart';
+import '../services/lock_screen_meal.dart';
+import '../services/lock_screen_meal_gateway.dart';
 import '../services/meal_template_apply_service.dart';
 import '../services/meal_template_dependency_service.dart';
 import '../services/meal_template_totals_service.dart';
@@ -107,6 +109,7 @@ class AppController extends ChangeNotifier {
     MealTemplateRepositoryBase? mealTemplateRepository,
     WorkoutTemplateRepositoryBase? workoutTemplateRepository,
     FirstMealGuideStore? firstMealGuideStore,
+    LockScreenMealGateway? lockScreenMealGateway,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -126,6 +129,7 @@ class AppController extends ChangeNotifier {
        _mealTemplateRepository = mealTemplateRepository,
        _workoutTemplateRepository = workoutTemplateRepository,
        _firstMealGuideStore = firstMealGuideStore,
+       _lockScreenMealGateway = lockScreenMealGateway,
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -156,6 +160,7 @@ class AppController extends ChangeNotifier {
   final MealTemplateRepositoryBase? _mealTemplateRepository;
   final WorkoutTemplateRepositoryBase? _workoutTemplateRepository;
   final FirstMealGuideStore? _firstMealGuideStore;
+  final LockScreenMealGateway? _lockScreenMealGateway;
   bool _firstMealGuideSeen = false;
   bool _offerFirstMealGuide = false;
 
@@ -400,6 +405,7 @@ class AppController extends ChangeNotifier {
         operation: 'load',
         action: () => loadPersistedState(),
       );
+      await syncLockScreenMeals();
       _lastSyncFailed = false;
       _syncFailure = null;
     } on SyncStepException catch (error) {
@@ -2358,6 +2364,7 @@ class AppController extends ChangeNotifier {
 
     await repository.saveWithItems(template: template, items: mappedItems);
     _scheduleRemoteSync();
+    unawaited(publishLockScreenMealSnapshot());
     return template;
   }
 
@@ -2372,6 +2379,7 @@ class AppController extends ChangeNotifier {
       deletedAt: DateTime.now(),
     );
     _scheduleRemoteSync();
+    unawaited(publishLockScreenMealSnapshot());
   }
 
   Future<void> restoreMealTemplateBundle(MealTemplateWithItems bundle) async {
@@ -2451,6 +2459,118 @@ class AppController extends ChangeNotifier {
       originalItems: originalItems,
       resolutions: resolutions,
     );
+  }
+
+  Future<LockScreenMealConfig> loadLockScreenMealConfig() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return LockScreenMealConfig.defaults();
+    }
+    return gateway.loadConfig();
+  }
+
+  Future<void> saveLockScreenMealConfig(LockScreenMealConfig config) async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    await gateway.saveConfig(config);
+    await publishLockScreenMealSnapshot();
+  }
+
+  /// 有料フラグの入口。設定画面や販売画面からは呼ばない。
+  ///
+  /// true のときだけ、ロック画面のボタンが食事を登録する。
+  Future<void> setLockScreenMealPaid(bool isPaid) async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    await gateway.setPaid(isPaid);
+    await publishLockScreenMealSnapshot();
+  }
+
+  Future<void> syncLockScreenMeals() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    try {
+      await _importLockScreenMeals(gateway);
+      await publishLockScreenMealSnapshot();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] syncLockScreenMeals failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+  }
+
+  Future<void> publishLockScreenMealSnapshot() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    final config = await gateway.loadConfig();
+    final buttons = <LockScreenMealButtonSnapshot>[];
+    for (var slot = 0; slot < LockScreenMealConfig.slotCount; slot++) {
+      final button = config.buttonAt(slot);
+      final templateId = button.templateId;
+      MealTemplateWithItems? bundle;
+      if (templateId != null) {
+        bundle = await getMealTemplateWithItems(templateId);
+      }
+      buttons.add(
+        LockScreenMealButtonSnapshot(
+          slot: slot,
+          label: button.label,
+          templateId: bundle?.template.templateId,
+          templateName: bundle?.template.name,
+          items: bundle?.items ?? const [],
+        ),
+      );
+    }
+    await gateway.publishSnapshot(
+      LockScreenMealSnapshot(ownerUserId: currentOwnerUserId, buttons: buttons),
+    );
+  }
+
+  Future<void> _importLockScreenMeals(LockScreenMealGateway gateway) async {
+    final pending = await gateway.readPending();
+    if (pending.isEmpty) {
+      return;
+    }
+    final plan = planLockScreenMealImport(
+      pending: pending,
+      ownerUserId: currentOwnerUserId,
+      existingEntryIds: foodEntries.map((entry) => entry.id).toSet(),
+    );
+    if (plan.entries.isNotEmpty) {
+      await addFoodEntriesBatch(plan.entries);
+      await _countLockScreenTemplateUses(plan.templateIds);
+    }
+    await gateway.acknowledge(plan.acknowledgeIds);
+  }
+
+  Future<void> _countLockScreenTemplateUses(List<String> templateIds) async {
+    final repository = _mealTemplateRepository;
+    if (repository == null) {
+      return;
+    }
+    for (final templateId in templateIds) {
+      final bundle = await getMealTemplateWithItems(templateId);
+      if (bundle == null) {
+        continue;
+      }
+      final now = DateTime.now();
+      await repository.update(
+        bundle.template.copyWith(
+          useCount: bundle.template.useCount + 1,
+          lastUsedAt: now,
+          updatedAt: now,
+        ),
+      );
+    }
   }
 
   Future<MealTemplateApplyResult> applyMealTemplate({

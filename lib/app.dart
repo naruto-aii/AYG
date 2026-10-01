@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'constants/app_strings.dart';
@@ -36,21 +38,30 @@ class AygApp extends StatefulWidget {
   State<AygApp> createState() => _AygAppState();
 }
 
-class _AygAppState extends State<AygApp> {
+class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
   bool _wasAuthenticated = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _wasAuthenticated = widget.controller.isAuthenticated;
     widget.controller.addListener(_popRoutesAfterSignOut);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_popRoutesAfterSignOut);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(widget.controller.syncLockScreenMeals());
+    }
   }
 
   void _popRoutesAfterSignOut() {

@@ -756,55 +756,62 @@ class _ExerciseMetCalculationSectionState
         DesignFieldCard(
           icon: _icon(AppIcons.exercise),
           label: '種目',
-          child: KeyedSubtree(
-            key: ExerciseMetCalculationSection.activityMenuKey,
-            child: DesignInputBox(
-              onTap: _togglePicker,
-              trailing: DesignIcon(
-                _pickerOpen
-                    ? Symbols.keyboard_arrow_up_rounded
-                    : Symbols.keyboard_arrow_down_rounded,
-                size: 24,
-                color: AppColors.iconMuted,
-              ),
-              child: Text(
-                _menuLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.bodyL.copyWith(
-                  color: _activity == null
-                      ? AppColors.textMuted
-                      : AppColors.textPrimary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DesignInputBox(
+                child: TextField(
+                  key: ExerciseMetCalculationSection.searchFieldKey,
+                  controller: _searchController,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: _onSearchSubmitted,
+                  onChanged: _onSearchChanged,
+                  cursorColor: AppColors.textBrand,
+                  style: AppTypography.bodyL.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    hintText: '名前の一部',
+                    hintStyle: AppTypography.bodyL.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.md),
+              KeyedSubtree(
+                key: ExerciseMetCalculationSection.activityMenuKey,
+                child: DesignInputBox(
+                  onTap: _togglePicker,
+                  trailing: DesignIcon(
+                    _pickerOpen
+                        ? Symbols.keyboard_arrow_up_rounded
+                        : Symbols.keyboard_arrow_down_rounded,
+                    size: 24,
+                    color: AppColors.iconMuted,
+                  ),
+                  child: Text(
+                    _menuLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodyL.copyWith(
+                      color: _activity == null
+                          ? AppColors.textMuted
+                          : AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         if (_pickerOpen) ...[
-          const SizedBox(height: AppSpacing.md),
-          DesignInputBox(
-            child: TextField(
-              key: ExerciseMetCalculationSection.searchFieldKey,
-              controller: _searchController,
-              textInputAction: TextInputAction.done,
-              onSubmitted: _onSearchSubmitted,
-              onChanged: _onSearchChanged,
-              cursorColor: AppColors.textBrand,
-              style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintText: '名前の一部',
-                hintStyle: AppTypography.bodyL.copyWith(
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ),
-          ),
           ..._activityPicker(),
           const SizedBox(height: AppSpacing.md),
           Align(

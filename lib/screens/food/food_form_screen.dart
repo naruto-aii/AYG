@@ -51,6 +51,8 @@ import 'food_form_template_actions.dart';
 import 'food_meal_registration_screen.dart';
 
 class FoodFormScreen extends StatefulWidget {
+  static const firstMealGuideKey = Key('first-meal-guide');
+
   const FoodFormScreen({
     super.key,
     required this.controller,
@@ -58,6 +60,7 @@ class FoodFormScreen extends StatefulWidget {
     this.entry,
     this.initialPublicFood,
     this.initialLoggedAt,
+    this.guideFirstMeal = false,
   });
 
   final AppController controller;
@@ -65,6 +68,9 @@ class FoodFormScreen extends StatefulWidget {
   final FoodEntry? entry;
   final SavedFood? initialPublicFood;
   final DateTime? initialLoggedAt;
+
+  /// 目標設定の直後だけ、この食事登録画面の上に1件分の案内を載せる。
+  final bool guideFirstMeal;
 
   bool get isEditing => entry != null;
 
@@ -87,6 +93,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   FoodVisibility _saveFoodVisibility = FoodVisibility.private;
   bool _fromSavedFoodSelection = false;
   bool _barcodeSectionExpanded = false;
+  late bool _showFirstMealGuide;
   FoodEntrySource _sourceType = FoodEntrySource.manual;
   String? _selectedSavedFoodId;
   String? _sourceFoodOwnerUserId;
@@ -114,6 +121,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   void initState() {
     super.initState();
     _macroInput = MacroNutritionInputController();
+    _showFirstMealGuide = widget.guideFirstMeal && widget.entry == null;
+    if (_showFirstMealGuide) {
+      widget.controller.finishFirstMealGuide();
+    }
     final entry = widget.entry;
     _loggedAt = (entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now())
         .toLocal();
@@ -610,6 +621,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       _showMessage('食事は記録しましたが、食品としての保存に失敗しました。\n$userMessage');
     }
 
+    if (_showFirstMealGuide) {
+      setState(() => _showFirstMealGuide = false);
+    }
     Navigator.of(context).pop();
   }
 
@@ -694,6 +708,33 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               '食べたものを記録して、健康な毎日をつくりましょう',
               style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
             ),
+            if (_showFirstMealGuide) ...[
+              const SizedBox(height: AppSpacing.md),
+              DesignCard(
+                key: FoodFormScreen.firstMealGuideKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('今日の食事を1件登録', style: AppTypography.headingL),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      '食べたものを1件入れて、追加するを押してください。',
+                      style: AppTypography.bodyL.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    DesignButton(
+                      label: '閉じる',
+                      style: DesignButtonStyle.outline,
+                      showTrailingIcon: false,
+                      onPressed: () =>
+                          setState(() => _showFirstMealGuide = false),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (!widget.isEditing) ...[
               const SizedBox(height: 8),
               FormTabBar(

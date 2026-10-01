@@ -60,6 +60,7 @@ import '../repositories/contracts/user_repository_base.dart';
 import '../repositories/contracts/workout_template_repository_base.dart';
 import '../repositories/contracts/weight_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
+import '../repositories/first_meal_guide_store.dart';
 import '../repositories/sync_step_runner.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
@@ -105,6 +106,7 @@ class AppController extends ChangeNotifier {
     BlockedFoodCreatorRepositoryBase? blockedCreatorRepository,
     MealTemplateRepositoryBase? mealTemplateRepository,
     WorkoutTemplateRepositoryBase? workoutTemplateRepository,
+    FirstMealGuideStore? firstMealGuideStore,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -123,6 +125,7 @@ class AppController extends ChangeNotifier {
        _blockedCreatorRepository = blockedCreatorRepository,
        _mealTemplateRepository = mealTemplateRepository,
        _workoutTemplateRepository = workoutTemplateRepository,
+       _firstMealGuideStore = firstMealGuideStore,
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -152,6 +155,13 @@ class AppController extends ChangeNotifier {
   final BlockedFoodCreatorRepositoryBase? _blockedCreatorRepository;
   final MealTemplateRepositoryBase? _mealTemplateRepository;
   final WorkoutTemplateRepositoryBase? _workoutTemplateRepository;
+  final FirstMealGuideStore? _firstMealGuideStore;
+  bool _firstMealGuideSeen = false;
+  bool _offerFirstMealGuide = false;
+
+  /// 目標設定を終えた直後だけ true。一度案内を出したら false のまま。
+  bool get shouldOfferFirstMealGuide =>
+      _offerFirstMealGuide && !_firstMealGuideSeen;
   final SavedFoodSearchService _savedFoodSearchService;
   final SavedFoodDuplicateService _savedFoodDuplicateService;
   final SavedFoodEntryBuilder _savedFoodEntryBuilder;
@@ -298,6 +308,7 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     _isInitializing = true;
     notifyListeners();
+    _firstMealGuideSeen = await _firstMealGuideStore?.isSeen() ?? false;
 
     final authRepository = _authenticationRepository;
     if (authRepository == null) {
@@ -496,7 +507,29 @@ class AppController extends ChangeNotifier {
     appSettings = appSettings.copyWith(onboardingComplete: true);
     await _settingsRepository?.saveAppSettings(appSettings);
     await _persistToRemoteNow();
+    offerFirstMealGuide();
     notifyListeners();
+  }
+
+  /// 目標設定を終えたこのセッションだけ、食事1件の案内を出す。
+  void offerFirstMealGuide() {
+    if (_firstMealGuideSeen) {
+      return;
+    }
+    _offerFirstMealGuide = true;
+  }
+
+  /// 案内を出した時点で終わりにする。食事を保存しても、途中で閉じても再表示しない。
+  void finishFirstMealGuide() {
+    if (_firstMealGuideSeen && !_offerFirstMealGuide) {
+      return;
+    }
+    _firstMealGuideSeen = true;
+    _offerFirstMealGuide = false;
+    final store = _firstMealGuideStore;
+    if (store != null) {
+      unawaited(store.markSeen());
+    }
   }
 
   void setProfile(UserProfile value) {

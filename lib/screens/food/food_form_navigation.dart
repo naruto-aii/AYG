@@ -11,6 +11,7 @@ typedef FoodFormScreenBuilder =
       required OpenFoodFactsService openFoodFactsService,
       FoodEntry? entry,
       DateTime? initialLoggedAt,
+      bool guideFirstMeal,
     });
 
 /// プラットフォーム別の食事フォーム画面を開く。
@@ -21,6 +22,7 @@ void openFoodFormScreen(
   FoodEntry? entry,
   DateTime? initialLoggedAt,
   FoodFormScreenBuilder? foodFormBuilder,
+  bool guideFirstMeal = false,
 }) {
   final builder = foodFormBuilder ?? defaultFoodFormScreenBuilder;
   Navigator.of(context).push(
@@ -30,6 +32,7 @@ void openFoodFormScreen(
         openFoodFactsService: openFoodFactsService,
         entry: entry,
         initialLoggedAt: initialLoggedAt,
+        guideFirstMeal: guideFirstMeal,
       ),
     ),
   );
@@ -40,11 +43,13 @@ Widget defaultFoodFormScreenBuilder({
   required OpenFoodFactsService openFoodFactsService,
   FoodEntry? entry,
   DateTime? initialLoggedAt,
+  bool guideFirstMeal = false,
 }) {
   return FoodFormScreen(
     controller: controller,
     openFoodFactsService: openFoodFactsService,
     entry: entry,
     initialLoggedAt: initialLoggedAt,
+    guideFirstMeal: guideFirstMeal,
   );
 }

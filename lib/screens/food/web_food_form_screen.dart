@@ -733,6 +733,7 @@ Widget webFoodFormScreenBuilder({
   FoodEntry? entry,
   DateTime? initialLoggedAt,
   SavedFood? initialPublicFood,
+  bool guideFirstMeal = false,
 }) {
   return WebFoodFormScreen(
     controller: controller,

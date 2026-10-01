@@ -171,9 +171,21 @@ void main() {
       expect(controller.summary!.targetKcal, 2000);
 
       await openGoalSettings(tester);
-      await tester.ensureVisible(find.text('自動で計算'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('自動で計算'));
+      expect(find.text('自動に戻す'), findsOneWidget);
+      expect(find.text('今は自分で入力しています'), findsOneWidget);
+      expect(find.text('自分で入力'), findsNothing);
+      final returnRect = tester.getRect(
+        find.byKey(const Key('goal-return-automatic')),
+      );
+      final kcalRect = tester.getRect(
+        find.byKey(const Key('goal-target-kcal')),
+      );
+      final viewHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(returnRect.top, lessThan(kcalRect.top));
+      expect(returnRect.top, greaterThanOrEqualTo(0));
+      expect(returnRect.bottom, lessThanOrEqualTo(viewHeight));
+      await tester.tap(find.text('自動に戻す'));
       await tester.pumpAndSettle();
       await tester.tap(find.text(AppStrings.save));
       await tester.pumpAndSettle();
@@ -252,4 +264,52 @@ void main() {
 
     await authRepository.dispose();
   });
+
+  testWidgets(
+    'manual calorie mode shows return to automatic above the fields',
+    (tester) async {
+      final authRepository = MockAuthenticationRepository(
+        currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+      );
+      final controller = createController(authRepository: authRepository);
+      controller.setNutritionSettings(
+        const NutritionSettings(
+          useHealthIntegration: false,
+          activityLevel: ActivityLevel.moderate,
+          calorieTargetMode: CalorieTargetMode.manual,
+          manualTargetKcal: 1800,
+          manualProteinG: 120,
+          manualFatG: 50,
+          manualCarbG: 180,
+        ),
+      );
+      await pumpSettings(
+        tester,
+        controller: controller,
+        authRepository: authRepository,
+      );
+
+      expect(find.text('今は自分で入力しています'), findsOneWidget);
+      expect(find.text('自動に戻す'), findsOneWidget);
+      expect(find.text('自分で入力'), findsNothing);
+      final returnRect = tester.getRect(
+        find.byKey(const Key('goal-return-automatic')),
+      );
+      final kcalRect = tester.getRect(
+        find.byKey(const Key('goal-target-kcal')),
+      );
+      final viewHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(returnRect.top, lessThan(kcalRect.top));
+      expect(returnRect.top, greaterThanOrEqualTo(0));
+      expect(returnRect.bottom, lessThanOrEqualTo(viewHeight));
+
+      await tester.tap(find.text('自動に戻す'));
+      await tester.pumpAndSettle();
+      expect(find.text('自分で入力'), findsOneWidget);
+      expect(find.text('自動に戻す'), findsNothing);
+
+      await authRepository.dispose();
+    },
+  );
 }

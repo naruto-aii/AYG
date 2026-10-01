@@ -147,4 +147,88 @@ void main() {
     expect(MetActivityCatalog.findById('housework')?.lifestyleIncluded, isTrue);
     expect(MetActivityCatalog.findById('cleaning')?.lifestyleIncluded, isTrue);
   });
+
+  test('time formulas stay only for a single published code', () {
+    expect(MetActivityCatalog.findById('futsal')?.caloriesFromFormula, isTrue);
+    expect(MetActivityCatalog.findById('futsal')?.defaultMet, 7.8);
+    expect(
+      MetActivityCatalog.findById('table_tennis')?.caloriesFromFormula,
+      isTrue,
+    );
+    expect(MetActivityCatalog.findById('table_tennis')?.defaultMet, 4.0);
+    expect(MetActivityCatalog.findById('stretch')?.caloriesFromFormula, isTrue);
+    expect(MetActivityCatalog.findById('stretch')?.defaultMet, 2.3);
+    expect(MetActivityCatalog.findById('walk_brisk')?.netKcalPerKgKm, 0.5);
+    expect(MetActivityCatalog.findById('jogging')?.netKcalPerKgKm, 1.0);
+    expect(MetActivityCatalog.findById('running')?.netKcalPerKgKm, 1.0);
+    expect(MetActivityCatalog.findById('cycle_road')?.defaultMet, 6.8);
+    expect(
+      MetActivityCatalog.findById('cycle_road')?.referenceSpeedKmh,
+      16.09344,
+    );
+
+    const manualIds = [
+      'swim_lap',
+      'hiking',
+      'stationary_bike',
+      'elliptical',
+      'rowing',
+      'basketball',
+      'soccer',
+      'tennis',
+      'badminton',
+      'volleyball',
+      'baseball',
+      'golf',
+      'yoga',
+      'custom',
+      'strength_general',
+    ];
+    for (final id in manualIds) {
+      expect(
+        MetActivityCatalog.findById(id)?.caloriesFromFormula,
+        isFalse,
+        reason: id,
+      );
+    }
+    expect(
+      MetActivityCatalog.findById('housework')?.caloriesFromFormula,
+      isTrue,
+    );
+    expect(
+      MetActivityCatalog.findById('cleaning')?.caloriesFromFormula,
+      isTrue,
+    );
+
+    final lines = MetActivityCatalog.publishedFormulaLines().join('\n');
+    expect(lines, contains('フットサル: 7.8 MET。Herrmann et al., 2024。コード 15195。'));
+    expect(lines, contains('卓球: 4.0 MET。Herrmann et al., 2024。コード 15660。'));
+    expect(lines, contains('ストレッチ: 2.3 MET。Herrmann et al., 2024。コード 02101。'));
+    expect(
+      lines,
+      contains(
+        'ウォーキング: 0.5 kcal·kg⁻¹·km⁻¹。ACSM。Herrmann et al., 2024。コード 17190。',
+      ),
+    );
+    expect(
+      lines,
+      contains(
+        'ジョギング: 1.0 kcal·kg⁻¹·km⁻¹。ACSM。Herrmann et al., 2024。コード 12020。',
+      ),
+    );
+    expect(
+      lines,
+      contains(
+        'ランニング: 1.0 kcal·kg⁻¹·km⁻¹。ACSM。Herrmann et al., 2024。コード 12150。',
+      ),
+    );
+    expect(
+      lines,
+      contains(
+        '自転車: 6.8 MET。Herrmann et al., 2024。コード 01020。距離は 16.09344 km/h で分に換算。',
+      ),
+    );
+    expect(lines, isNot(contains('サッカー')));
+    expect(lines, isNot(contains('家事')));
+  });
 }

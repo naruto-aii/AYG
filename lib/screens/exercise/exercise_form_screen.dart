@@ -238,6 +238,14 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   /// 保存直前に MET 入力から gross/net を再計算（編集時の古い値混在を防ぐ）。
   (double, double)? _resolveGrossAndNetKcal() {
     final parsedGross = double.tryParse(_burnedKcalController.text.trim());
+    final activity = MetActivityCatalog.findById(_metState.activityId);
+    if (activity != null && !activity.caloriesFromFormula) {
+      final net = _metState.netKcal ?? parsedGross;
+      if (net == null) {
+        return (0, 0);
+      }
+      return (parsedGross ?? _metState.grossKcal ?? net, net);
+    }
 
     if (_metState.manualOverride ||
         _metState.calculationSource ==
@@ -255,7 +263,6 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return (parsedGross ?? _metState.grossKcal ?? 0, 0);
     }
 
-    final activity = MetActivityCatalog.findById(_metState.activityId);
     final weight =
         _metState.weightKgSnapshot ?? widget.controller.profile?.weightKg;
     if (activity != null && weight != null && weight > 0) {

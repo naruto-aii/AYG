@@ -182,6 +182,9 @@ class _WorkoutTemplateApplyScreenState
     setState(() {
       _drafts = _drafts.map((draft) {
         final activity = MetActivityCatalog.findById(draft.activityId);
+        if (activity != null && !activity.caloriesFromFormula) {
+          return draft;
+        }
         final met =
             activity?.intensityById(draft.intensity)?.met ??
             draft.metValue ??

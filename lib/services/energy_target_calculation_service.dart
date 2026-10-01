@@ -20,11 +20,6 @@ class EnergyTargetCalculationService {
   static const kcalPerKgBodyWeightChange = 7200.0;
   static const minAgeYears = 18;
 
-  /// この日数より新しい記録だけを、「下げる前の体重」の上限に使う。
-  static const lossWeightCeilingLookbackDays = 28;
-
-  static const _weightDropEpsilonKg = 0.05;
-
   static const _planner = DailyCalorieTargetPlanner();
 
   EnergyTargetBreakdown calculate({
@@ -38,7 +33,6 @@ class EnergyTargetCalculationService {
     double? autoFoodTargetKcal,
     DateTime? autoFoodTargetOn,
     double? autoFoodTargetPriorKcal,
-    bool applyLossCeiling = true,
   }) {
     final now = referenceDate ?? DateTime.now();
     final age = _calculateAge(profile.birthDate, referenceDate: now);
@@ -113,49 +107,36 @@ class EnergyTargetCalculationService {
         clampBaseKcal: clamp.clampBaseKcal,
         clampDays: clamp.clampDays,
       );
-      return _capLossFoodTarget(
-        breakdown: _breakdown(
-          profile: profile,
-          age: age,
-          weightKg: smoothed,
-          goal: goal,
-          goalPace: goalPace,
-          activityLevel: activityLevel,
-          lifestyleLabel: lifestyle.everydayLabel,
-          lifestyleFactor: lifestyle.factor,
-          ree: ree,
-          maintenance: maintenance,
-          adjustmentKcal: landing.appliedBalanceKcal.abs(),
-          goalFoodTarget: landing.foodTargetKcal,
-          healthActive: healthActive,
-          productDefaults: productDefaults,
-          now: now,
-          series: series,
-          rawBalanceKcal: landing.rawBalanceKcal,
-          speedCapKcal: landing.speedCapKcal,
-          floorKcal: landing.floorKcal,
-          smoothedWeightKg: smoothed,
-          heldForStaleWeight: landing.heldForStaleWeight,
-          dailyStepLimited: landing.dailyStepLimited,
-          guidance: landing.guidance,
-          anchorUpdate: AutoTargetAnchor(
-            targetKcal: landing.foodTargetKcal,
-            targetOn: localDayStart(now),
-            priorKcal: clamp.priorToStore,
-          ),
-          usesLandingFormula: true,
-        ),
+      return _breakdown(
         profile: profile,
+        age: age,
+        weightKg: smoothed,
         goal: goal,
-        settings: settings,
-        healthSnapshot: healthSnapshot,
         goalPace: goalPace,
+        activityLevel: activityLevel,
+        lifestyleLabel: lifestyle.everydayLabel,
+        lifestyleFactor: lifestyle.factor,
+        ree: ree,
+        maintenance: maintenance,
+        adjustmentKcal: landing.appliedBalanceKcal.abs(),
+        goalFoodTarget: landing.foodTargetKcal,
+        healthActive: healthActive,
+        productDefaults: productDefaults,
         now: now,
-        weightSamples: weightSamples,
-        autoFoodTargetKcal: autoFoodTargetKcal,
-        autoFoodTargetOn: autoFoodTargetOn,
-        autoFoodTargetPriorKcal: autoFoodTargetPriorKcal,
-        applyLossCeiling: applyLossCeiling,
+        series: series,
+        rawBalanceKcal: landing.rawBalanceKcal,
+        speedCapKcal: landing.speedCapKcal,
+        floorKcal: landing.floorKcal,
+        smoothedWeightKg: smoothed,
+        heldForStaleWeight: landing.heldForStaleWeight,
+        dailyStepLimited: landing.dailyStepLimited,
+        guidance: landing.guidance,
+        anchorUpdate: AutoTargetAnchor(
+          targetKcal: landing.foodTargetKcal,
+          targetOn: localDayStart(now),
+          priorKcal: clamp.priorToStore,
+        ),
+        usesLandingFormula: true,
       );
     }
 
@@ -189,189 +170,31 @@ class EnergyTargetCalculationService {
       held = true;
     }
 
-    return _capLossFoodTarget(
-      breakdown: _breakdown(
-        profile: profile,
-        age: age,
-        weightKg: currentWeightKg,
-        goal: goal,
-        goalPace: goalPace,
-        activityLevel: activityLevel,
-        lifestyleLabel: lifestyle.everydayLabel,
-        lifestyleFactor: lifestyle.factor,
-        ree: ree,
-        maintenance: maintenance,
-        adjustmentKcal: pacedAdjustment,
-        goalFoodTarget: goalFoodTarget,
-        healthActive: healthActive,
-        productDefaults: productDefaults,
-        now: now,
-        series: series,
-        heldForStaleWeight: held,
-        anchorUpdate: AutoTargetAnchor(
-          targetKcal: goalFoodTarget,
-          targetOn: localDayStart(now),
-          priorKcal: clamp.priorToStore,
-        ),
-        usesLandingFormula: false,
-      ),
+    return _breakdown(
       profile: profile,
+      age: age,
+      weightKg: currentWeightKg,
       goal: goal,
-      settings: settings,
-      healthSnapshot: healthSnapshot,
       goalPace: goalPace,
+      activityLevel: activityLevel,
+      lifestyleLabel: lifestyle.everydayLabel,
+      lifestyleFactor: lifestyle.factor,
+      ree: ree,
+      maintenance: maintenance,
+      adjustmentKcal: pacedAdjustment,
+      goalFoodTarget: goalFoodTarget,
+      healthActive: healthActive,
+      productDefaults: productDefaults,
       now: now,
-      weightSamples: weightSamples,
-      autoFoodTargetKcal: autoFoodTargetKcal,
-      autoFoodTargetOn: autoFoodTargetOn,
-      autoFoodTargetPriorKcal: autoFoodTargetPriorKcal,
-      applyLossCeiling: applyLossCeiling,
-    );
-  }
-
-  /// 減量で今の体重が下がったとき、自動目標を上げない。
-  ///
-  /// 上がる計算なら、保存済みの自動目標を上限にする。保存が無いときは、
-  /// 下がる前の体重で出した自動目標を上限にする。速度の上限・食事の床・
-  /// ±150 kcal では、このとき目標を上げない。
-  /// 目標日が当日で不足が 0 になるときも、減量中は維持カロリーまで上げない。
-  EnergyTargetBreakdown _capLossFoodTarget({
-    required EnergyTargetBreakdown breakdown,
-    required UserProfile profile,
-    required Goal goal,
-    required NutritionSettings settings,
-    required HealthSnapshot healthSnapshot,
-    required GoalPace goalPace,
-    required DateTime now,
-    required List<WeightSample> weightSamples,
-    required double? autoFoodTargetKcal,
-    required DateTime? autoFoodTargetOn,
-    required double? autoFoodTargetPriorKcal,
-    required bool applyLossCeiling,
-  }) {
-    if (!applyLossCeiling) {
-      return breakdown;
-    }
-    final food = breakdown.goalFoodTargetKcal;
-    final maintenance = breakdown.estimatedMaintenanceKcal;
-    final calcWeight = breakdown.smoothedWeightKg ?? breakdown.weightKg;
-    if (goal.type != GoalType.lose ||
-        food == null ||
-        maintenance == null ||
-        calcWeight == null) {
-      return breakdown;
-    }
-
-    var capped = food;
-    final days = _daysUntilGoalDate(goal.targetDate, referenceDate: now);
-    if (days <= 0 &&
-        autoFoodTargetKcal != null &&
-        capped > autoFoodTargetKcal) {
-      capped = autoFoodTargetKcal;
-    }
-
-    final heavierKg = _recentHeavierKg(
-      samples: weightSamples,
-      calcWeightKg: calcWeight,
-      reference: now,
-    );
-    if (heavierKg != null && autoFoodTargetKcal != null) {
-      if (capped > autoFoodTargetKcal) {
-        capped = autoFoodTargetKcal;
-      }
-    } else if (heavierKg != null) {
-      final atHeavier = calculate(
-        profile: profile.copyWith(weightKg: heavierKg),
-        goal: goal,
-        settings: settings,
-        healthSnapshot: healthSnapshot,
-        goalPace: goalPace,
-        referenceDate: now,
-        weightSamples: [
-          for (final sample in weightSamples)
-            WeightSample(
-              kg: heavierKg,
-              measuredAt: sample.measuredAt,
-              source: sample.source,
-            ),
-        ],
-        autoFoodTargetKcal: autoFoodTargetKcal,
-        autoFoodTargetOn: autoFoodTargetOn,
-        autoFoodTargetPriorKcal: autoFoodTargetPriorKcal,
-        applyLossCeiling: false,
-      );
-      final heavierFood = atHeavier.goalFoodTargetKcal;
-      if (heavierFood != null && capped > heavierFood) {
-        capped = heavierFood;
-      }
-    }
-
-    if ((capped - food).abs() < 0.01) {
-      return breakdown;
-    }
-
-    final prior = breakdown.anchorUpdate?.priorKcal;
-    return EnergyTargetBreakdown(
-      version: breakdown.version,
-      ageYears: breakdown.ageYears,
-      heightCm: breakdown.heightCm,
-      weightKg: breakdown.weightKg,
-      genderLabel: breakdown.genderLabel,
-      canEstimateRee: breakdown.canEstimateRee,
-      unavailableReason: breakdown.unavailableReason,
-      estimatedReeKcal: breakdown.estimatedReeKcal,
-      lifestyleActivityLevel: breakdown.lifestyleActivityLevel,
-      lifestyleActivityLabel: breakdown.lifestyleActivityLabel,
-      lifestyleActivityFactor: breakdown.lifestyleActivityFactor,
-      estimatedMaintenanceKcal: breakdown.estimatedMaintenanceKcal,
-      goalType: breakdown.goalType,
-      goalPace: breakdown.goalPace,
-      dailyGoalAdjustmentKcal: (maintenance - capped).abs(),
-      goalFoodTargetKcal: capped,
-      usedHealthActiveEnergyForTarget:
-          breakdown.usedHealthActiveEnergyForTarget,
-      healthActiveEnergyKcal: breakdown.healthActiveEnergyKcal,
-      productDefaultsUsed: breakdown.productDefaultsUsed,
-      calculatedAt: breakdown.calculatedAt,
-      weightSeries: breakdown.weightSeries,
-      rawBalanceKcal: breakdown.rawBalanceKcal,
-      speedCapKcal: breakdown.speedCapKcal,
-      floorKcal: breakdown.floorKcal,
-      smoothedWeightKg: breakdown.smoothedWeightKg,
-      heldForStaleWeight: breakdown.heldForStaleWeight,
-      dailyStepLimited: false,
-      guidance: breakdown.guidance,
+      series: series,
+      heldForStaleWeight: held,
       anchorUpdate: AutoTargetAnchor(
-        targetKcal: capped,
+        targetKcal: goalFoodTarget,
         targetOn: localDayStart(now),
-        priorKcal: prior,
+        priorKcal: clamp.priorToStore,
       ),
-      usesLandingFormula: breakdown.usesLandingFormula,
+      usesLandingFormula: false,
     );
-  }
-
-  /// 直近の記録に、計算に使った体重より重いものがあれば、その重い方を返す。
-  double? _recentHeavierKg({
-    required List<WeightSample> samples,
-    required double calcWeightKg,
-    required DateTime reference,
-  }) {
-    final cutoff = reference.subtract(
-      const Duration(days: lossWeightCeilingLookbackDays),
-    );
-    double? heavier;
-    for (final sample in samples) {
-      if (sample.measuredAt.isBefore(cutoff)) {
-        continue;
-      }
-      if (sample.kg <= calcWeightKg + _weightDropEpsilonKg) {
-        continue;
-      }
-      if (heavier == null || sample.kg > heavier) {
-        heavier = sample.kg;
-      }
-    }
-    return heavier;
   }
 
   EnergyTargetBreakdown _breakdown({

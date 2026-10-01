@@ -6,6 +6,7 @@ import '../../services/goal_macro_input.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_typography.dart';
+import '../design/design_card.dart';
 import '../design/design_field.dart';
 
 /// 自動計算と手入力の切り替え。数字欄は常に出す。単位は kcal と g/日。
@@ -109,7 +110,29 @@ class _CalorieTargetEditorState extends State<CalorieTargetEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('目標カロリーの手入力', style: AppTypography.titleS),
-          const SizedBox(height: 12),
+          if (manual) ...[
+            const SizedBox(height: 16),
+            DesignCard(
+              key: const Key('goal-return-automatic'),
+              elevated: false,
+              padding: const EdgeInsets.all(16),
+              onTap: () => widget.onModeChanged(CalorieTargetMode.automatic),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('今は自分で入力しています', style: AppTypography.titleM),
+                  const SizedBox(height: 16),
+                  Text(
+                    '自動に戻す',
+                    style: AppTypography.titleM.copyWith(
+                      color: AppColors.textBrand,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          SizedBox(height: manual ? 16 : 12),
           _numberField(
             field: MacroField.kcal,
             label: 'カロリー',
@@ -159,13 +182,14 @@ class _CalorieTargetEditorState extends State<CalorieTargetEditor> {
               style: AppTypography.caption.copyWith(color: AppColors.error),
             ),
           ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => widget.onModeChanged(otherMode),
-              child: Text(otherMode.labelJa),
+          if (!manual)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => widget.onModeChanged(otherMode),
+                child: Text(otherMode.labelJa),
+              ),
             ),
-          ),
         ],
       ),
     );

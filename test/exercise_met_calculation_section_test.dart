@@ -133,11 +133,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Finder menuChevron(IconData icon) {
+    return find.descendant(
+      of: find.byKey(ExerciseMetCalculationSection.activityMenuKey),
+      matching: find.byIcon(icon),
+    );
+  }
+
   Future<void> openActivityMenu(WidgetTester tester) async {
-    if (find
-        .byKey(ExerciseMetCalculationSection.searchFieldKey)
-        .evaluate()
-        .isNotEmpty) {
+    if (menuChevron(Symbols.keyboard_arrow_up_rounded).evaluate().isNotEmpty) {
       return;
     }
     final menu = find.byKey(ExerciseMetCalculationSection.activityMenuKey);
@@ -148,13 +152,6 @@ void main() {
     );
     await tester.tap(menu);
     await tester.pumpAndSettle();
-  }
-
-  Finder menuChevron(IconData icon) {
-    return find.descendant(
-      of: find.byKey(ExerciseMetCalculationSection.activityMenuKey),
-      matching: find.byIcon(icon),
-    );
   }
 
   Future<void> tapActivityChip(WidgetTester tester, String label) async {
@@ -270,9 +267,28 @@ void main() {
       expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
       expect(
         find.byKey(ExerciseMetCalculationSection.searchFieldKey),
-        findsNothing,
+        findsOneWidget,
       );
+      final searchTop = tester
+          .getTopLeft(find.byKey(ExerciseMetCalculationSection.searchFieldKey))
+          .dy;
+      final menuTop = tester
+          .getTopLeft(find.byKey(ExerciseMetCalculationSection.activityMenuKey))
+          .dy;
+      expect(searchTop, lessThan(menuTop));
       expect(find.widgetWithText(TextButton, 'その他（手入力）'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        'らん',
+      );
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        '',
+      );
+      await tester.pumpAndSettle();
 
       await tester.tap(
         find.byKey(ExerciseMetCalculationSection.activityMenuKey),

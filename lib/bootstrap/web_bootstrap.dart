@@ -27,6 +27,7 @@ import '../repositories/authentication_repository.dart';
 import '../repositories/data_sync_repository.dart';
 import '../repositories/food_master_repositories.dart';
 import '../repositories/health_repository.dart';
+import '../repositories/first_meal_guide_store.dart';
 import '../repositories/local_session_store.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase/supabase_food_rating_repository.dart';
@@ -206,6 +207,7 @@ Future<void> bootstrapWebApp() async {
       blockedCreatorRepository: foodMasterRepositories.blockedCreators,
       mealTemplateRepository: mealTemplateRepository,
       workoutTemplateRepository: workoutTemplateRepository,
+      firstMealGuideStore: const FirstMealGuideStore(),
     );
 
     if (kDebugMode) {

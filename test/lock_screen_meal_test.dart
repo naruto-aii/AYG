@@ -350,7 +350,10 @@ void main() {
     await tester.tap(find.text('カロナビ+を見る'));
     await tester.pumpAndSettle();
 
-    expect(find.text('購入と復元は、カロナビ+の購入画面で行います。'), findsOneWidget);
+    expect(find.text('購入を復元'), findsOneWidget);
+    expect(find.text('価格を取得できませんでした'), findsOneWidget);
+    expect(find.textContaining('¥'), findsNothing);
+    expect(find.textContaining(r'$'), findsNothing);
     expect(
       find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。'),
       findsOneWidget,
@@ -411,7 +414,10 @@ void main() {
       find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。復唱してはいで登録。'),
       findsOneWidget,
     );
-    expect(find.text('購入と復元は、カロナビ+の購入画面で行います。'), findsOneWidget);
+    expect(find.text('購入を復元'), findsOneWidget);
+    expect(find.text('価格を取得できませんでした'), findsOneWidget);
+    expect(find.textContaining('¥'), findsNothing);
+    expect(find.textContaining(r'$'), findsNothing);
     expect(find.text('ホーム画面'), findsNothing);
     expect(controller.foodEntries, isEmpty);
     expect(controller.exerciseEntries, isEmpty);

@@ -69,6 +69,8 @@ import '../repositories/local_session_store.dart';
 import '../services/local_user_data_clearer_base.dart';
 import '../config/official_foods_flag.dart';
 import '../config/supabase_config.dart';
+import '../repositories/subscription_repository.dart';
+import '../repositories/unavailable_subscription_repository.dart';
 import '../services/lock_screen_meal.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
@@ -116,6 +118,7 @@ class AppController extends ChangeNotifier {
     FirstMealGuideStore? firstMealGuideStore,
     LockScreenMealGateway? lockScreenMealGateway,
     SiriVoiceGateway? siriVoiceGateway,
+    SubscriptionRepository? subscriptionRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -137,6 +140,8 @@ class AppController extends ChangeNotifier {
        _firstMealGuideStore = firstMealGuideStore,
        _lockScreenMealGateway = lockScreenMealGateway,
        _siriVoiceGateway = siriVoiceGateway,
+       _subscriptionRepository =
+           subscriptionRepository ?? UnavailableSubscriptionRepository(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -169,6 +174,10 @@ class AppController extends ChangeNotifier {
   final FirstMealGuideStore? _firstMealGuideStore;
   final LockScreenMealGateway? _lockScreenMealGateway;
   final SiriVoiceGateway? _siriVoiceGateway;
+  final SubscriptionRepository _subscriptionRepository;
+  StreamSubscription<bool>? _plusSubscription;
+
+  SubscriptionRepository get subscriptionRepository => _subscriptionRepository;
   bool _firstMealGuideSeen = false;
   bool _offerFirstMealGuide = false;
 
@@ -321,6 +330,8 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     _isInitializing = true;
     notifyListeners();
+    _listenForPaidEntitlement();
+    await _applyPaidEntitlement();
     _firstMealGuideSeen = await _firstMealGuideStore?.isSeen() ?? false;
 
     final authRepository = _authenticationRepository;
@@ -2504,9 +2515,29 @@ class AppController extends ChangeNotifier {
     return gateway.isPaid();
   }
 
+  /// ストアの加入をフラグへ写す。設定画面からは呼ばない。
+  ///
+  /// Health の数値は送らない。書くのは有料かどうかだけ。
+  Future<void> refreshPaidEntitlement() async {
+    try {
+      await _subscriptionRepository.refreshEntitlement();
+    } catch (_) {}
+    await _applyPaidEntitlement();
+  }
+
+  void _listenForPaidEntitlement() {
+    _plusSubscription ??= _subscriptionRepository.plusChanges.listen((_) {
+      unawaited(_applyPaidEntitlement());
+    });
+  }
+
+  Future<void> _applyPaidEntitlement() async {
+    await setLockScreenMealPaid(_subscriptionRepository.isPlusActive);
+  }
+
   /// 有料フラグの入口。設定画面のスイッチからは呼ばない。
   ///
-  /// true のときだけ、ウィジェットのボタンが食事を登録する。
+  /// true のときだけ、ウィジェットと Siri が登録する。
   Future<void> setLockScreenMealPaid(bool isPaid) async {
     final gateway = _lockScreenMealGateway;
     if (gateway == null) {
@@ -3067,6 +3098,7 @@ class AppController extends ChangeNotifier {
 
   void dispose() {
     _authSubscription?.cancel();
+    _plusSubscription?.cancel();
     super.dispose();
   }
 }

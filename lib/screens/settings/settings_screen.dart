@@ -115,7 +115,10 @@ class SettingsScreen extends StatelessWidget {
       await custom(context);
       return;
     }
-    await showCalonaviPlus(context);
+    await showCalonaviPlus(
+      context,
+      repository: controller.subscriptionRepository,
+    );
   }
 
   void _push(BuildContext context, Widget screen) {

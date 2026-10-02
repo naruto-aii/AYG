@@ -14,10 +14,10 @@ const int lockScreenMealSchemaVersion = 2;
 
 const String lockScreenMealMethodChannel = 'com.narutoaii.ayg/lock_screen_meal';
 
-/// 課金のレシート検証は無い。このフラグが true のときだけ登録する。
+/// ウィジェットと Siri が読む有料フラグ。既定は false。
 ///
-/// 既定は false。販売画面やフラグの売り方はここには置かない。
-/// 将来の課金処理だけが [LockScreenMealPaidFlag.write] を呼ぶ。
+/// 設定のスイッチからは変えない。カロナビ+ の加入が有効なときだけ true になり、
+/// 期限切れか返金で false に戻る。Health の数値はここには入れない。
 abstract final class LockScreenMealPaidFlag {
   static const String storageKey = 'lock_screen_meal_paid';
 

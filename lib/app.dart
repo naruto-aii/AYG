@@ -60,9 +60,14 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(widget.controller.syncLockScreenMeals());
-      unawaited(widget.controller.syncSiriVoiceLogs());
+      unawaited(_resumePaidFeatures());
     }
+  }
+
+  Future<void> _resumePaidFeatures() async {
+    await widget.controller.refreshPaidEntitlement();
+    await widget.controller.syncLockScreenMeals();
+    await widget.controller.syncSiriVoiceLogs();
   }
 
   void _popRoutesAfterSignOut() {

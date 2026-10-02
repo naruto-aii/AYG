@@ -45,6 +45,8 @@ dependencies:
   google_sign_in: ^6.3.0
   url_launcher: ^6.3.2
   shared_preferences: ^2.5.3
+  in_app_purchase: ^3.2.3
+  in_app_purchase_storekit: ^0.4.13
   uuid: ^4.6.0
   sign_in_with_apple: ^8.2.0
   crypto: ^3.0.7

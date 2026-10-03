@@ -10,6 +10,6 @@ class OfficialFoodProvenance {
     if (food.sourceType != FoodSourceType.mextSfct) {
       return food;
     }
-    return food.copyWith(sourceAttribution: OfficialFoodCopy.fullAttribution);
+    return food.copyWith(sourceAttribution: OfficialFoodCopy.storedAttribution);
   }
 }

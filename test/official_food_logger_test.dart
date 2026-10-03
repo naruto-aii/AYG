@@ -41,7 +41,7 @@ void main() {
     expect(draft.supplementaryWeight, isNull);
     expect(draft.officialFoodCode, '01088');
     expect(draft.officialFoodName, 'こめ　［水稲めし］　精白米　うるち米');
-    expect(draft.sourceAttribution, OfficialFoodCopy.fullAttribution);
+    expect(draft.sourceAttribution, OfficialFoodCopy.storedAttribution);
     expect(draft.brand, 'こめ　［水稲めし］　精白米　うるち米');
     expect(draft.name, 'ご飯');
     expect(draft.baseAmount, 100);

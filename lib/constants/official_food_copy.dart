@@ -1,20 +1,28 @@
-/// 食品成分表の表示文。法務メモの文言をそのまま使う。
+/// 食品成分表の表示文。
+///
+/// [storedAttribution] はデータベースが成分表由来の食品に固定する文で、画面には出さない。
+/// 画面の文は、100gあたりで保存し、微量を0、推定値を括弧なしの数値にしている、という実装に合わせる。
 abstract final class OfficialFoodCopy {
-  /// 検索結果と詳細の最初の表示。幅が足りないときだけ [compactAttribution]。
-  static const shortAttribution = '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
+  static const storedAttribution = '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成';
 
-  static const fullAttribution = shortAttribution;
+  static const nutritionPer100g = '栄養の数値は、文部科学省の日本食品標準成分表を100gあたりで保存しています。';
 
-  static const compactAttribution = '出典：八訂成分表 増補2023年（文部科学省）を加工して作成';
+  static const traceAndEstimate = '微量は0、推定値は括弧を外した数値です。';
 
-  static const sourceSentence =
-      '出典：文部科学省「日本食品標準成分表（八訂）増補2023年」（https://www.mext.go.jp/a_menu/syokuhinseibun/mext_00001.html）を加工して作成';
+  static const scaledToGrams = '食べたグラム数に合わせて計算します。';
 
-  static const aliasSentence =
-      '※1食分の値、単位、食品名の別名・よみは当社が換算・追加したものです。文部科学省が作成・保証したものではありません。';
+  static const nameProcessing = '食品名は、公式の名称とは別に、短い表示名と読みを付けています。';
 
-  static const disclaimerSentence =
-      '表示される栄養価は日本食品標準成分表の標準的な値にもとづく目安（計算値）です。実際の食品・商品の値とは異なることがあります。';
+  /// 設定と詳細に出す全文。
+  static const explanation =
+      '$nutritionPer100g$traceAndEstimate$scaledToGrams$nameProcessing';
+
+  /// 検索の出典。幅が1行に足りるときは全文、足りないときは数値の説明だけ。
+  static const fullAttribution = explanation;
+
+  static const compactAttribution = '$nutritionPer100g$traceAndEstimate';
+
+  static const shortAttribution = compactAttribution;
 
   static const externalLinkLabel = '文部科学省ウェブサイトへ移動します';
 

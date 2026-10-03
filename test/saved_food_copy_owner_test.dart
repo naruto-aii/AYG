@@ -24,7 +24,7 @@ void main() {
       sourceType: FoodSourceType.mextSfct,
       officialFoodCode: '01088',
       officialFoodName: 'こめ',
-      sourceAttribution: OfficialFoodCopy.fullAttribution,
+      sourceAttribution: OfficialFoodCopy.storedAttribution,
       createdAt: now,
       updatedAt: now,
     );

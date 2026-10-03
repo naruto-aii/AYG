@@ -28,6 +28,8 @@
 		A1B702222222222222222011 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
 		A1B702222222222222222012 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111011 /* SwiftUI.framework */; };
 		A1B702222222222222222013 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111012 /* AppIntents.framework */; };
+		A1B702222222222222222030 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111030 /* PrivacyInfo.xcprivacy */; };
+		A1B702222222222222222031 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111031 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,6 +105,8 @@
 		A1B702111111111111111003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B702111111111111111004 /* LockScreenMealWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LockScreenMealWidget.entitlements; sourceTree = "<group>"; };
 		A1B702111111111111111005 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		A1B702111111111111111030 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A1B702111111111111111031 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A1B702111111111111111006 /* LockScreenMealWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LockScreenMealWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B702111111111111111010 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		A1B702111111111111111011 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -176,6 +180,7 @@
 				A1B702111111111111111002 /* LockScreenMealWidget.swift */,
 				A1B702111111111111111003 /* Info.plist */,
 				A1B702111111111111111004 /* LockScreenMealWidget.entitlements */,
+				A1B702111111111111111031 /* PrivacyInfo.xcprivacy */,
 			);
 			path = LockScreenMealWidget;
 			sourceTree = "<group>";
@@ -230,6 +235,7 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				A1B702111111111111111005 /* Runner.entitlements */,
+				A1B702111111111111111030 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -372,6 +378,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B702222222222222222031 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -380,6 +387,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
+				A1B702222222222222222030 /* PrivacyInfo.xcprivacy in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,

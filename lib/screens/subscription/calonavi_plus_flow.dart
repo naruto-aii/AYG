@@ -118,6 +118,17 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  String? get _activeExpiryLabel {
+    final expiry = latestActivePlusExpiry(
+      widget.repository.confirmedEntitlements,
+      DateTime.now(),
+    );
+    if (expiry == null) {
+      return null;
+    }
+    return '${AppStrings.plusCurrentExpiryPrefix}: ${formatPlusExpiryDate(expiry)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final offerings = _offerings;
@@ -173,6 +184,16 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
             showTrailingIcon: false,
             onPressed: _busy ? null : _restore,
           ),
+          const SizedBox(height: AppSpacing.md),
+          Text(AppStrings.plusBillingPeriod, style: AppTypography.bodyS),
+          const SizedBox(height: AppSpacing.sm),
+          Text(AppStrings.plusAutoRenew, style: AppTypography.bodyS),
+          const SizedBox(height: AppSpacing.sm),
+          Text(AppStrings.plusCancelHow, style: AppTypography.bodyS),
+          if (_activeExpiryLabel case final expiryLabel?) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(expiryLabel, style: AppTypography.bodyS),
+          ],
           const SizedBox(height: AppSpacing.md),
           TextButton(
             onPressed: () =>

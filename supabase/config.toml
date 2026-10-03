@@ -412,3 +412,10 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Sign in with Apple の失効。JWT は検証したままにする。
+[functions.store-apple-refresh-token]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true

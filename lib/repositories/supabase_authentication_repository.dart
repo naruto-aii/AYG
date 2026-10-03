@@ -10,6 +10,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/supabase_config.dart';
 import '../config/web_auth_config.dart';
 import '../models/display_name.dart';
+import 'account_deletion_rpc.dart';
+import 'apple_refresh_token.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
 
@@ -164,10 +166,20 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     }
 
     try {
-      await _client.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: idToken,
-        nonce: rawNonce,
+      await finishNativeAppleSignIn(
+        signIn: () async {
+          await _client.auth.signInWithIdToken(
+            provider: OAuthProvider.apple,
+            idToken: idToken,
+            nonce: rawNonce,
+          );
+        },
+        authorizationCode: credential.authorizationCode,
+        storeCode: (code) => storeAppleAuthorizationCode(
+          invoke: (functionName, {body}) =>
+              _client.functions.invoke(functionName, body: body),
+          authorizationCode: code,
+        ),
       );
     } on AuthException catch (error) {
       throw AppleSignInFailedException(error.message);
@@ -217,6 +229,11 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     await _client.auth.signOut();
   }
 
+  @override
+  Future<AccountDeletionOutcome> deleteOwnAccount() {
+    return deleteOwnAccountWithClient(_client);
+  }
+
   AuthUser? _mapUser(User? user) {
     if (user == null) {
       return null;
@@ -254,4 +271,9 @@ class UnconfiguredAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> logout() async {}
+
+  @override
+  Future<AccountDeletionOutcome> deleteOwnAccount() {
+    throw AccountDeletionUnavailableException();
+  }
 }

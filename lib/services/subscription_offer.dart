@@ -1,4 +1,5 @@
 import '../config/subscription_catalog.dart';
+import 'subscription_entitlement.dart';
 
 enum PlusBillingPeriod { month, year, other }
 
@@ -44,6 +45,36 @@ String plusPeriodLabel(PlusBillingPeriod period) {
     PlusBillingPeriod.year => '年額',
     PlusBillingPeriod.other => '定期購入',
   };
+}
+
+/// まだ期限が来ていない加入のうち、いちばん遅い期限。無いときは null。
+DateTime? latestActivePlusExpiry(
+  List<SubscriptionEntitlementRecord> records,
+  DateTime now,
+) {
+  DateTime? best;
+  for (final record in records) {
+    if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+      continue;
+    }
+    final expiry = record.expiresAt;
+    if (expiry == null || !expiry.isAfter(now)) {
+      continue;
+    }
+    if (best == null || expiry.isAfter(best)) {
+      best = expiry;
+    }
+  }
+  return best;
+}
+
+/// 画面に出す期限。ストアが返した日時だけを使い、無い期限は作らない。
+String formatPlusExpiryDate(DateTime expiry) {
+  final local = expiry.toLocal();
+  final year = local.year.toString().padLeft(4, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '$year/$month/$day';
 }
 
 PlusBillingPeriod periodForProduct({

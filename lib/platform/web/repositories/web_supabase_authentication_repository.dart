@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
 import '../../../config/supabase_config.dart';
 import '../../../models/display_name.dart';
+import '../../../repositories/account_deletion_rpc.dart';
 import '../../../repositories/auth_exceptions.dart';
 import '../../../repositories/authentication_repository.dart';
 
@@ -55,6 +56,11 @@ class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
   @override
   Future<void> logout() async {
     await _client.auth.signOut();
+  }
+
+  @override
+  Future<AccountDeletionOutcome> deleteOwnAccount() {
+    return deleteOwnAccountWithClient(_client);
   }
 
   String get _redirectUrl {

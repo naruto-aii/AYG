@@ -77,6 +77,20 @@ three columns again. CI job `sql-pr31-then-pr29` applies this branch
 first and PR #29 second, then inserts, updates, and publishes a My Food
 as `authenticated`.
 
+### Apple token revocation (`20261003200000`)
+
+`internal.apple_refresh_tokens` keeps a Sign in with Apple refresh token
+only so account deletion can ask Apple to revoke it. The table is not in
+the Data API. `anon` and `authenticated` cannot read or write it.
+`store_apple_refresh_token`, `read_apple_refresh_token`,
+`delete_apple_refresh_token`, and `delete_own_account(uuid)` grant
+`EXECUTE` to `service_role` only. The zero-argument `delete_own_account()`
+is dropped so a client cannot skip revocation. Personal rows deleted are
+the same as before, including workouts, purchase state, search terms, and
+screen actions. Public foods stay. Existing rows are not deleted when the
+migration runs. Rollback drops the token table and restores the
+zero-argument function. This file is not applied to production here.
+
 ### App numeric records (`20261003190000`)
 
 `health_workouts` stores the activity, start, end, and calories Health

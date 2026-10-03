@@ -39,3 +39,27 @@ class AppleSignInFailedException implements SignInFailedException {
   @override
   String toString() => message;
 }
+
+/// 削除用の Edge Function が無い。アカウントもセッションも変わっていない。
+class AccountDeletionUnavailableException implements Exception {
+  @override
+  String toString() => 'Account deletion is not available.';
+}
+
+/// アカウント削除の結果。保存した Apple トークンを失効できなかったときだけ
+/// [appleRevokeFailed] が true。そのときもアカウント削除自体は終わっている。
+class AccountDeletionOutcome {
+  const AccountDeletionOutcome({this.appleRevokeFailed = false});
+
+  final bool appleRevokeFailed;
+}
+
+/// アカウント削除に失敗した。セッションは残す。
+class AccountDeletionFailedException implements Exception {
+  const AccountDeletionFailedException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}

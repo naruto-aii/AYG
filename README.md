@@ -1,17 +1,22 @@
-# ayg
+# カロナビ
 
-A new Flutter project.
+食事・運動・体重を記録する iOS アプリです。画面は Flutter の iOS アプリです。
 
-## Getting Started
+## アプリを見る
 
-This project is a starting point for a Flutter application.
+```bash
+tool/run_ios.sh
+```
 
-A few resources to get you started if this is your first Flutter project:
+iOS の端末またはシミュレータでは、`flutter run` でも起動できます。
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## ウェブサイト
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+GitHub Pages は法務ページと静的ページです。アプリの画面ではありません。
+
+- https://naruto-aii.github.io/AYG/legal/privacy.html
+- https://naruto-aii.github.io/AYG/legal/
+- https://naruto-aii.github.io/AYG/lp/
+- https://naruto-aii.github.io/AYG/lingo/
+- https://naruto-aii.github.io/AYG/craft/
+- https://naruto-aii.github.io/AYG/tenshoku/

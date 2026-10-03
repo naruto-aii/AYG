@@ -2,6 +2,16 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261003210000 lifestyle calculation source
+
+運動の `calculation_source` に足した `lifestyle_included` だけを、元の3値へ戻す。列は消さない。食事、体重、運動、目標、ヘルスケアの行は消さない。`lifestyle_included` の行が残っているときは、その行を消さずに失敗する。行が無ければ2回実行しても失敗しない。先にアプリを、生活活動をこの値で書かない版へ戻してから流す。
+
+`supabase/rollback/20261003210000_allow_lifestyle_included_calculation_source_down.sql`
+
+消えるもの:
+
+- なし（許可値の縮小だけ。列も行も残る）
+
 ## 20261003200000 apple token revoke on delete
 
 Apple の失効用トークン表と、service_role 専用の `delete_own_account(uuid)` だけを戻す。食事、体重、運動、目標、ヘルスケア、プロフィール、購入状態、検索語、画面操作、公開食品の行は消さない。トークン行だけが失われる。`delete_own_account()` は、ログイン中の本人が引数なしで呼べる本体へ戻る。2回実行しても失敗しない。先にアプリを、削除 Function を呼ばない版へ戻してから流す。

@@ -1,5 +1,4 @@
 import 'package:ayg/data/met_activity_catalog.dart';
-import 'package:ayg/data/met_intensity_presets.dart';
 import 'package:ayg/models/exercise_calculation_source.dart';
 import 'package:ayg/models/exercise_category.dart';
 import 'package:ayg/models/exercise_entry.dart';
@@ -9,6 +8,8 @@ import 'package:ayg/models/weight_entry.dart';
 import 'package:ayg/screens/exercise/exercise_form_screen.dart';
 import 'package:ayg/services/exercise_calorie_calculator.dart';
 import 'package:ayg/state/app_controller.dart';
+import 'package:ayg/widgets/design/design_button.dart';
+import 'package:ayg/widgets/design/design_icon.dart';
 import 'package:ayg/widgets/exercise/exercise_met_calculation_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -131,14 +132,71 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> tapActivityChip(WidgetTester tester, String label) async {
-    final chip = find.widgetWithText(ChoiceChip, label);
+  Finder menuChevron(IconData icon) {
+    return find.descendant(
+      of: find.byKey(ExerciseMetCalculationSection.activityMenuKey),
+      matching: find.byIcon(icon),
+    );
+  }
+
+  Future<void> openActivityMenu(WidgetTester tester) async {
+    if (menuChevron(Symbols.keyboard_arrow_up_rounded).evaluate().isNotEmpty) {
+      return;
+    }
+    final menu = find.byKey(ExerciseMetCalculationSection.activityMenuKey);
     await tester.scrollUntilVisible(
-      chip,
+      menu,
       120,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(chip);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapActivityChip(WidgetTester tester, String label) async {
+    final chip = find.widgetWithText(ChoiceChip, label);
+    if (chip.evaluate().isNotEmpty) {
+      await tester.scrollUntilVisible(
+        chip,
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      return;
+    }
+    if (label == 'その他（手入力）') {
+      await openActivityMenu(tester);
+      final button = find.widgetWithText(TextButton, label);
+      await tester.scrollUntilVisible(
+        button,
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      return;
+    }
+    final name = switch (label) {
+      'ランニング・ジョギング' => 'ランニング',
+      '家事・掃除' => '家事',
+      'ヨガ・ストレッチ' => 'ヨガ',
+      '筋トレ' => 'スクワット',
+      _ => label,
+    };
+    await openActivityMenu(tester);
+    await tester.enterText(
+      find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+      name,
+    );
+    await tester.pumpAndSettle();
+    final tile = find.widgetWithText(ListTile, name);
+    await tester.scrollUntilVisible(
+      tile,
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(tile);
     await tester.pumpAndSettle();
   }
 
@@ -186,6 +244,138 @@ void main() {
   }
 
   group('ExerciseMetCalculationSection', () {
+    testWidgets('activity menu stays closed until the bar is tapped', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      await tester.pumpWidget(
+        MaterialApp(home: ExerciseFormScreen(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(ExerciseMetCalculationSection.activityMenuHint),
+        findsOneWidget,
+      );
+      expect(menuChevron(Symbols.keyboard_arrow_down_rounded), findsOneWidget);
+      expect(menuChevron(Symbols.keyboard_arrow_up_rounded), findsNothing);
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsNothing);
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+      expect(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        findsOneWidget,
+      );
+      final searchTop = tester
+          .getTopLeft(find.byKey(ExerciseMetCalculationSection.searchFieldKey))
+          .dy;
+      final menuTop = tester
+          .getTopLeft(find.byKey(ExerciseMetCalculationSection.activityMenuKey))
+          .dy;
+      expect(searchTop, lessThan(menuTop));
+      expect(find.widgetWithText(TextButton, 'その他（手入力）'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        'らん',
+      );
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        '',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(ExerciseMetCalculationSection.activityMenuKey),
+      );
+      await tester.pumpAndSettle();
+
+      expect(menuChevron(Symbols.keyboard_arrow_up_rounded), findsOneWidget);
+      expect(menuChevron(Symbols.keyboard_arrow_down_rounded), findsNothing);
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'その他（手入力）'), findsNothing);
+      expect(find.widgetWithText(TextButton, 'その他（手入力）'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        'らん',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsNothing);
+      expect(find.text('一致する種目はありません'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        'ない種目',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('一致する種目はありません'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsNothing);
+      expect(
+        find.byKey(ExerciseMetCalculationSection.customFromQueryKey),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<DesignButton>(
+              find.byKey(ExerciseMetCalculationSection.customFromQueryKey),
+            )
+            .showTrailingIcon,
+        isTrue,
+      );
+
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.searchFieldKey),
+        '',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ListTile, 'サッカー'), findsOneWidget);
+
+      final soccer = find.widgetWithText(ListTile, 'サッカー');
+      await tester.scrollUntilVisible(
+        soccer,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(soccer);
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+      expect(menuChevron(Symbols.keyboard_arrow_down_rounded), findsOneWidget);
+      expect(find.text('サッカー'), findsWidgets);
+
+      final menu = find.byKey(ExerciseMetCalculationSection.activityMenuKey);
+      await tester.scrollUntilVisible(
+        menu,
+        -200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      expect(menuChevron(Symbols.keyboard_arrow_up_rounded), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        menu,
+        -200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      expect(menuChevron(Symbols.keyboard_arrow_down_rounded), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+    });
+
     testWidgets('strength training offers light moderate hard intensities', (
       tester,
     ) async {
@@ -207,11 +397,11 @@ void main() {
         isEditing: false,
       );
 
-      await tapActivityChip(tester, '筋トレ');
+      await tapActivityChip(tester, 'スクワット');
 
-      expect(find.text('軽め'), findsOneWidget);
-      expect(find.text('ふつう'), findsOneWidget);
-      expect(find.text('きつい'), findsOneWidget);
+      expect(find.text('回数'), findsWidgets);
+      expect(find.text('消費カロリー'), findsOneWidget);
+      expect(find.text('軽め'), findsNothing);
       expect(find.text('マシントレーニング'), findsNothing);
       expect(find.textContaining('MET'), findsNothing);
     });
@@ -314,6 +504,7 @@ void main() {
         netKcal: 400,
         weightKgSnapshot: 65,
         calculationVersion: 'legacy-v0',
+        activityId: 'swim_lap',
       );
 
       final durationController = TextEditingController(text: '30');
@@ -336,7 +527,7 @@ void main() {
       await tapRecalculate(tester);
 
       final expected = calculator.estimate(
-        met: 3.5,
+        met: 5.8,
         weightKg: 71,
         durationMinutes: 30,
       );
@@ -414,12 +605,12 @@ void main() {
         onEstimateChanged: (state) => latestState = state,
       );
 
-      await tapActivityChip(tester, 'ウォーキング');
+      await tapActivityChip(tester, '水泳');
       await tapManualOverride(tester);
       await tapManualOverride(tester, enable: false);
 
       final expected = calculator.estimate(
-        met: 3.5,
+        met: 5.8,
         weightKg: 70,
         durationMinutes: 30,
       );
@@ -515,13 +706,11 @@ void main() {
 
       await tapActivityChip(tester, 'その他（手入力）');
 
-      expect(find.text('軽め'), findsOneWidget);
-      expect(find.text('ふつう'), findsOneWidget);
-      expect(find.text('きつい'), findsOneWidget);
-      expect(
-        MetActivityCatalog.findById('custom')?.intensityOptions,
-        MetIntensityPresets.otherOptions,
-      );
+      expect(find.text('軽め'), findsNothing);
+      expect(find.text('ふつう'), findsNothing);
+      expect(find.text('きつい'), findsNothing);
+      expect(find.text('消費カロリー'), findsOneWidget);
+      expect(MetActivityCatalog.findById('custom')?.requiresManualKcal, isTrue);
     });
 
     testWidgets('daily activity warns that PAL already includes housework', (
@@ -547,8 +736,7 @@ void main() {
 
       await tapActivityChip(tester, '家事・掃除');
 
-      expect(find.textContaining('生活活動係数にすでに含まれています'), findsOneWidget);
-      expect(find.textContaining('特別に長く動いた分だけ'), findsOneWidget);
+      expect(find.textContaining('追加消費には入れません'), findsWidgets);
     });
 
     testWidgets('yoga does not show housework PAL warning', (tester) async {
@@ -632,7 +820,7 @@ void main() {
         isEditing: false,
       );
 
-      await tapActivityChip(tester, 'ランニング・ジョギング');
+      await tapActivityChip(tester, '水泳');
 
       expect(find.text('追加消費'), findsWidgets);
       expect(find.textContaining('残りカロリーに加算'), findsOneWidget);
@@ -663,8 +851,8 @@ void main() {
         isEditing: false,
       );
 
-      await tapActivityChip(tester, 'ランニング・ジョギング');
-      expect(nameController.text, 'ランニング・ジョギング');
+      await tapActivityChip(tester, 'ランニング');
+      expect(nameController.text, 'ランニング');
     });
   });
 
@@ -687,6 +875,7 @@ void main() {
         grossKcal: 500,
         netKcal: 400,
         weightKgSnapshot: 65,
+        activityId: 'swim_lap',
       );
       controller.exerciseEntries.add(entry);
 
@@ -698,7 +887,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-        find.widgetWithText(TextFormField, '実施時間（分）'),
+        find.byKey(ExerciseMetCalculationSection.durationFieldKey),
         '60',
       );
       await tester.pumpAndSettle();
@@ -737,6 +926,31 @@ void main() {
       expect(find.text('メモ'), findsOneWidget);
     });
 
+    testWidgets('exercise form shows fields on a wide window', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      await tester.pumpWidget(
+        MaterialApp(home: ExerciseFormScreen(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('運動を追加'), findsOneWidget);
+      expect(find.text('種目'), findsOneWidget);
+      expect(
+        find.byKey(ExerciseMetCalculationSection.activityMenuKey),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
+    });
+
     testWidgets('strength category shows sets reps and lift weight', (
       tester,
     ) async {
@@ -751,16 +965,14 @@ void main() {
 
       await tapActivityChip(tester, '筋トレ');
 
-      await tester.scrollUntilVisible(
-        find.text('セット・回数・重量（任意）'),
-        200,
-        scrollable: find.byType(Scrollable).first,
+      expect(find.byKey(ExerciseFormScreen.setsFieldKey), findsOneWidget);
+      expect(find.byKey(ExerciseFormScreen.repsFieldKey), findsOneWidget);
+      expect(find.byKey(ExerciseFormScreen.liftWeightFieldKey), findsOneWidget);
+      expect(find.text('消費カロリー'), findsOneWidget);
+      expect(
+        find.textContaining('回数からは計算しません'),
+        findsOneWidget,
       );
-      await tester.tap(find.text('セット・回数・重量（任意）'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextFormField, 'セット'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, '回数'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, '重量（kg）'), findsOneWidget);
     });
   });
 }

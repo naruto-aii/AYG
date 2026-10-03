@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../data/met_activity_catalog.dart';
 import '../../models/alcohol_entry.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
@@ -326,7 +327,8 @@ class DayHistoryScreen extends StatelessWidget {
                     DesignListRow(
                       icon: AppIcons.exercise,
                       time: _formatTime(e.loggedAt),
-                      title: '${e.name}（${e.durationMin}分）',
+                      title:
+                          '${e.name}（${MetActivityCatalog.quantityLabelFor(e)}）',
                       value: '+${e.effectiveNetKcal.toStringAsFixed(0)}',
                       onTap: () => _openExerciseForm(context, entry: e),
                       onLongPress: () => _confirmDeleteExercise(context, e),

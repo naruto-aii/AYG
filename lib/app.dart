@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'constants/app_strings.dart';
@@ -12,7 +14,7 @@ import 'screens/splash/splash_screen.dart';
 import 'theme/app_theme.dart';
 import 'widgets/startup/app_startup_gate.dart';
 
-class AygApp extends StatelessWidget {
+class AygApp extends StatefulWidget {
   const AygApp({
     super.key,
     required this.controller,
@@ -33,8 +35,61 @@ class AygApp extends StatelessWidget {
   final bool showSplash;
 
   @override
+  State<AygApp> createState() => _AygAppState();
+}
+
+class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  bool _wasAuthenticated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _wasAuthenticated = widget.controller.isAuthenticated;
+    widget.controller.addListener(_popRoutesAfterSignOut);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    widget.controller.removeListener(_popRoutesAfterSignOut);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_resumePaidFeatures());
+    }
+  }
+
+  Future<void> _resumePaidFeatures() async {
+    await widget.controller.refreshPaidEntitlement();
+    await widget.controller.syncLockScreenMeals();
+    await widget.controller.syncSiriVoiceLogs();
+  }
+
+  void _popRoutesAfterSignOut() {
+    final signedIn = widget.controller.isAuthenticated;
+    final signedOut = _wasAuthenticated && !signedIn;
+    _wasAuthenticated = signedIn;
+    if (!signedOut) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final navigator = _navigatorKey.currentState;
+      if (navigator == null || !navigator.mounted) {
+        return;
+      }
+      navigator.popUntil((route) => route.isFirst);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: AppStrings.appTitle,
       theme: AppTheme.light,
       home: _buildHome(),
@@ -42,54 +97,55 @@ class AygApp extends StatelessWidget {
   }
 
   Widget _buildHome() {
+    final controller = widget.controller;
     final app = ListenableBuilder(
-        listenable: controller,
-        builder: (context, child) {
-          if (controller.isInitializing ||
-              (controller.isAuthenticated && controller.isSyncInProgress)) {
-            return const AppStartupLoadingScreen();
-          }
+      listenable: controller,
+      builder: (context, child) {
+        if (controller.isInitializing ||
+            (controller.isAuthenticated && controller.isSyncInProgress)) {
+          return const AppStartupLoadingScreen();
+        }
 
-          if (!controller.isAuthenticated) {
-            return LoginScreen(
-              controller: controller,
-              authenticationRepository: authenticationRepository,
-              authStorageAvailable: authStorageAvailable,
-            );
-          }
+        if (!controller.isAuthenticated) {
+          return LoginScreen(
+            controller: controller,
+            authenticationRepository: widget.authenticationRepository,
+            authStorageAvailable: widget.authStorageAvailable,
+          );
+        }
 
-          if (controller.requiresSyncRetry) {
-            return AppSyncRetryScreen(
-              controller: controller,
-              onLogout: () => controller.logout(),
-            );
-          }
-
-          if (controller.requiresOnboarding) {
-            return HealthSetupScreen(
-              controller: controller,
-              openFoodFactsService: openFoodFactsService,
-              healthRepository: healthRepository,
-              authenticationRepository: authenticationRepository,
-            );
-          }
-
-          if (_shouldShowMainShell(controller)) {
-            return MainShellScreen(
-              controller: controller,
-              openFoodFactsService: openFoodFactsService,
-              authenticationRepository: authenticationRepository,
-              healthRepository: healthRepository,
-            );
-          }
-
+        if (controller.requiresSyncRetry) {
           return AppSyncRetryScreen(
             controller: controller,
             onLogout: () => controller.logout(),
           );
-        },
+        }
+
+        if (controller.requiresOnboarding) {
+          return HealthSetupScreen(
+            controller: controller,
+            openFoodFactsService: widget.openFoodFactsService,
+            healthRepository: widget.healthRepository,
+            authenticationRepository: widget.authenticationRepository,
+          );
+        }
+
+        if (_shouldShowMainShell(controller)) {
+          return MainShellScreen(
+            controller: controller,
+            openFoodFactsService: widget.openFoodFactsService,
+            authenticationRepository: widget.authenticationRepository,
+            healthRepository: widget.healthRepository,
+          );
+        }
+
+        return AppSyncRetryScreen(
+          controller: controller,
+          onLogout: () => controller.logout(),
+        );
+      },
     );
-    if (!showSplash) {
+    if (!widget.showSplash) {
       return app;
     }
     return _SplashGate(child: app);

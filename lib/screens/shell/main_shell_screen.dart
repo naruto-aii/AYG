@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../repositories/authentication_repository.dart';
@@ -42,6 +43,27 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen> {
   ShellTab _selected = ShellTab.home;
 
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.controller.shouldOfferFirstMealGuide) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.controller.shouldOfferFirstMealGuide) {
+        return;
+      }
+      widget.controller.finishFirstMealGuide();
+      openFoodFormScreen(
+        context,
+        controller: widget.controller,
+        openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: widget.foodFormBuilder,
+        guideFirstMeal: true,
+      );
+    });
+  }
+
   void _selectTab(ShellTab tab) {
     setState(() => _selected = tab);
   }
@@ -85,6 +107,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
         authenticationRepository: widget.authenticationRepository,
         healthRepository: widget.healthRepository,
         openFoodFactsService: widget.openFoodFactsService,
+        showLockScreenMeal:
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
       ),
     ];
 

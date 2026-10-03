@@ -14,6 +14,7 @@ class ExerciseEntry {
     this.sets,
     this.reps,
     this.liftWeightKg,
+    this.distanceKm,
     this.metValue,
     this.grossKcal,
     this.netKcal,
@@ -38,6 +39,9 @@ class ExerciseEntry {
   final int? sets;
   final int? reps;
   final double? liftWeightKg;
+
+  /// 距離種目のキロ。無い記録は null。
+  final double? distanceKm;
   final double? metValue;
   final double? grossKcal;
   final double? netKcal;
@@ -86,6 +90,7 @@ class ExerciseEntry {
     int? sets,
     int? reps,
     double? liftWeightKg,
+    double? distanceKm,
     double? metValue,
     double? grossKcal,
     double? netKcal,
@@ -107,6 +112,7 @@ class ExerciseEntry {
       sets: sets ?? this.sets,
       reps: reps ?? this.reps,
       liftWeightKg: liftWeightKg ?? this.liftWeightKg,
+      distanceKm: distanceKm ?? this.distanceKm,
       metValue: metValue ?? this.metValue,
       grossKcal: grossKcal ?? this.grossKcal,
       netKcal: netKcal ?? this.netKcal,

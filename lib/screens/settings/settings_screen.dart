@@ -13,10 +13,13 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
+import '../subscription/calonavi_plus_flow.dart';
 import 'calculation_references_screen.dart';
 import 'data_source_screen.dart';
+import 'lock_screen_meal_screen.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
@@ -36,6 +39,7 @@ class SettingsScreen extends StatelessWidget {
     this.healthRepository,
     this.openFoodFactsService,
     this.hideHealthSettings = false,
+    this.showLockScreenMeal = false,
     this.supportEmail,
   });
 
@@ -44,6 +48,9 @@ class SettingsScreen extends StatelessWidget {
   final HealthRepository? healthRepository;
   final OpenFoodFactsService? openFoodFactsService;
   final bool hideHealthSettings;
+
+  /// iOS 17 以降のウィジェットと音声登録。Web と Android では出さない。
+  final bool showLockScreenMeal;
   final String? supportEmail;
 
   static const double _rowGap = 8;
@@ -58,6 +65,60 @@ class SettingsScreen extends StatelessWidget {
         context,
       ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
     }
+  }
+
+  Future<void> _openMealWidget(BuildContext context) async {
+    final paid = await controller.isMealWidgetPaid();
+    if (!context.mounted) {
+      return;
+    }
+    if (!paid) {
+      final openPlus = await showAppConfirmDialog(
+        context: context,
+        title: 'こちらは有料の機能です',
+        message: 'ウィジェットからの登録は、カロナビ+です。',
+        confirmLabel: 'カロナビ+を見る',
+        cancelLabel: '閉じる',
+      );
+      if (openPlus == true && context.mounted) {
+        await _openCalonaviPlus(context);
+      }
+      return;
+    }
+    _push(context, LockScreenMealScreen(controller: controller));
+  }
+
+  /// 音声登録の案内。登録そのものは Siri 側で有料のときだけ行う。
+  Future<void> _openVoiceRegistration(BuildContext context) async {
+    final paid = await controller.isMealWidgetPaid();
+    if (!context.mounted) {
+      return;
+    }
+    if (!paid) {
+      final openPlus = await showAppConfirmDialog(
+        context: context,
+        title: 'こちらは有料の機能です',
+        message: AppStrings.siriVoicePaidGuidance,
+        confirmLabel: 'カロナビ+を見る',
+        cancelLabel: '閉じる',
+      );
+      if (openPlus != true || !context.mounted) {
+        return;
+      }
+    }
+    await _openCalonaviPlus(context);
+  }
+
+  Future<void> _openCalonaviPlus(BuildContext context) async {
+    final custom = controller.openCalonaviPlusFlow;
+    if (custom != null) {
+      await custom(context);
+      return;
+    }
+    await showCalonaviPlus(
+      context,
+      repository: controller.subscriptionRepository,
+    );
   }
 
   void _push(BuildContext context, Widget screen) {
@@ -136,6 +197,22 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (showLockScreenMeal) ...[
+            const SizedBox(height: _rowGap),
+            SettingsRow(
+              icon: AppIcons.template,
+              title: 'ウィジェット',
+              subtitle: 'ホームは5つ、ロック画面は朝・昼・夜',
+              onTap: () => _openMealWidget(context),
+            ),
+            const SizedBox(height: _rowGap),
+            SettingsRow(
+              icon: AppIcons.information,
+              title: '音声登録',
+              subtitle: 'カロナビ+の機能です',
+              onTap: () => _openVoiceRegistration(context),
+            ),
+          ],
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.calculator,

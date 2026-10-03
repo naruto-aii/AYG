@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app.dart';
@@ -13,6 +14,7 @@ import '../repositories/food_master_repositories.dart';
 import '../repositories/food_repository.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/saved_food_repository.dart';
+import '../repositories/first_meal_guide_store.dart';
 import '../repositories/local_session_store.dart';
 import '../repositories/meal_template_repository.dart';
 import '../repositories/workout_template_repository.dart';
@@ -26,8 +28,11 @@ import '../repositories/supabase/supabase_workout_template_repository.dart';
 import '../repositories/user_repository.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
+import '../repositories/storekit_subscription_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
+import '../services/lock_screen_meal_gateway.dart';
+import '../services/siri_voice_gateway.dart';
 import '../services/open_food_facts_service.dart';
 import '../state/app_controller.dart';
 
@@ -111,6 +116,12 @@ Future<void> bootstrapApp() async {
     workoutTemplateRepository: workoutTemplateRepository,
   );
 
+  final preferences = await SharedPreferences.getInstance();
+  final subscriptionRepository = StoreKitSubscriptionRepository(
+    preferences: preferences,
+  );
+  await subscriptionRepository.initialize();
+
   final controller = AppController(
     healthRepository: healthRepository,
     authenticationRepository: authenticationRepository,
@@ -129,6 +140,10 @@ Future<void> bootstrapApp() async {
     blockedCreatorRepository: foodMasterRepositories.blockedCreators,
     mealTemplateRepository: mealTemplateRepository,
     workoutTemplateRepository: workoutTemplateRepository,
+    firstMealGuideStore: const FirstMealGuideStore(),
+    lockScreenMealGateway: LockScreenMealGatewayImpl(),
+    siriVoiceGateway: SiriVoiceGatewayImpl(),
+    subscriptionRepository: subscriptionRepository,
   );
   await controller.initialize();
 

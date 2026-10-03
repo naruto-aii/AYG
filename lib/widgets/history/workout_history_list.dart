@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_entry.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -69,7 +70,7 @@ class WorkoutHistoryList extends StatelessWidget {
                       title: Text(dateGroup.items[i].name),
                       subtitle: Text(
                         '${_formatTime(dateGroup.items[i].loggedAt)} · '
-                        '${dateGroup.items[i].durationMin} 分',
+                        '${MetActivityCatalog.quantityLabelFor(dateGroup.items[i])}',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,

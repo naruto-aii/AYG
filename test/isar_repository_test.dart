@@ -93,11 +93,16 @@ void main() {
           durationMin: 30,
           burnedKcal: 250,
           loggedAt: loggedAt,
+          distanceKm: 5.2,
         ),
       );
 
       expect(await harness.foodRepository.loadAll(), hasLength(1));
-      expect(await harness.exerciseRepository.loadAll(), hasLength(1));
+      final exercises = await harness.exerciseRepository.loadAll();
+      expect(exercises, hasLength(1));
+      expect(exercises.single.distanceKm, 5.2);
+      expect(exercises.single.durationMin, 30);
+      expect(exercises.single.name, 'Run');
     });
 
     test('AlcoholRepository persists alcohol entries', () async {

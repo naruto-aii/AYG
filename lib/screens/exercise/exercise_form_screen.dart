@@ -4,19 +4,78 @@ import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_entry.dart';
+import '../../models/exercise_quantity_unit.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/common/app_text_field.dart';
+import '../../theme/app_typography.dart';
+import '../../utils/food_search_normalizer.dart';
 import '../../widgets/common/delete_with_undo.dart';
-import '../../widgets/common/primary_button.dart';
-import '../../widgets/common/secondary_button.dart';
-import '../../widgets/common/logged_at_picker_field.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_page.dart';
+import '../../widgets/design/icon_circle.dart';
 import '../../widgets/exercise/exercise_met_calculation_section.dart';
-import '../../widgets/layout/app_constrained_bottom_bar.dart';
-import '../../widgets/layout/app_form_constraint.dart';
+
+Future<bool?> showSaveCustomActivityTemplateDialog({
+  required BuildContext context,
+  required String activityName,
+}) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.screenHorizontal,
+        ),
+        child: DesignCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'テンプレートに追加',
+                style: AppTypography.titleM.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                '「$activityName」をテンプレートに追加しますか？次回から一覧で選べます。',
+                style: AppTypography.bodyL.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DesignButton(
+                label: 'はい',
+                showTrailingIcon: false,
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DesignButton(
+                label: 'いいえ',
+                style: DesignButtonStyle.outline,
+                showTrailingIcon: false,
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
 class ExerciseFormScreen extends StatefulWidget {
+  static const setsFieldKey = Key('exercise-sets');
+  static const repsFieldKey = Key('exercise-reps');
+  static const liftWeightFieldKey = Key('exercise-lift-weight');
+
   const ExerciseFormScreen({
     super.key,
     required this.controller,
@@ -38,6 +97,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _durationController;
+  late final TextEditingController _distanceController;
   late final TextEditingController _burnedKcalController;
   late final TextEditingController _setsController;
   late final TextEditingController _repsController;
@@ -56,6 +116,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     _nameController = TextEditingController(text: entry?.name ?? '');
     _durationController = TextEditingController(
       text: entry?.durationMin.toString() ?? '',
+    );
+    _distanceController = TextEditingController(
+      text: entry?.distanceKm?.toString() ?? '',
     );
     _burnedKcalController = TextEditingController(
       text: entry != null ? entry.effectiveGrossKcal.toString() : '',
@@ -76,6 +139,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   void dispose() {
     _nameController.dispose();
     _durationController.dispose();
+    _distanceController.dispose();
     _burnedKcalController.dispose();
     _setsController.dispose();
     _repsController.dispose();
@@ -107,9 +171,8 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return null;
     }
     if (_metState.activityId == null || _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('種目を選んでください')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('種目を選んでください')));
       return null;
     }
 
@@ -124,21 +187,43 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     final net = grossAndNet.$2;
     final notes = _notesController.text.trim();
 
+    final activity = MetActivityCatalog.findById(_metState.activityId);
+    final unit = activity?.quantityUnit ?? ExerciseQuantityUnit.durationMin;
+    final distanceKm = unit == ExerciseQuantityUnit.distanceKm
+        ? _parseOptionalDouble(_distanceController)
+        : null;
+    final reps = unit == ExerciseQuantityUnit.reps
+        ? _parseOptionalInt(_repsController)
+        : null;
+    final durationMin = switch (unit) {
+      ExerciseQuantityUnit.distanceKm =>
+        ExerciseCalorieCalculator.companionDurationMin(
+          distanceKm: distanceKm ?? 0,
+          referenceSpeedKmh: activity?.referenceSpeedKmh,
+        ),
+      ExerciseQuantityUnit.reps =>
+        activity?.requiresManualKcal == true
+            ? 1
+            : ExerciseCalorieCalculator.durationMinForReps(reps ?? 0),
+      ExerciseQuantityUnit.durationMin => int.parse(_durationController.text),
+    };
+
     return ExerciseEntry(
       id: widget.entry?.id ?? widget.controller.generateId(),
       name: _nameController.text.trim(),
-      durationMin: int.parse(_durationController.text),
+      durationMin: durationMin,
       burnedKcal: gross,
       loggedAt: _loggedAt,
       category: _metState.category,
       activityId: _metState.activityId,
       intensity: _metState.intensity,
       sets: _isStrength ? _parseOptionalInt(_setsController) : null,
-      reps: _isStrength ? _parseOptionalInt(_repsController) : null,
+      reps: reps,
       liftWeightKg: _isStrength
           ? _parseOptionalDouble(_liftWeightController)
           : null,
-      metValue: _metState.metValue,
+      distanceKm: distanceKm,
+      metValue: activity?.netKcalPerKgKm != null ? null : _metState.metValue,
       grossKcal: gross,
       netKcal: net,
       weightKgSnapshot: _metState.weightKgSnapshot,
@@ -154,7 +239,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   (double, double)? _resolveGrossAndNetKcal() {
     final parsedGross = double.tryParse(_burnedKcalController.text.trim());
 
-    if (_metState.manualOverride ||
+    final activityForKcal = MetActivityCatalog.findById(_metState.activityId);
+    if (activityForKcal?.requiresManualKcal == true ||
+        _metState.manualOverride ||
         _metState.calculationSource ==
             ExerciseCalculationSource.manualOverride) {
       final net = _metState.netKcal ?? parsedGross;
@@ -170,23 +257,27 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return (parsedGross ?? _metState.grossKcal ?? 0, 0);
     }
 
-    final duration = int.tryParse(_durationController.text.trim());
-    final met = _metState.metValue;
+    final activity = MetActivityCatalog.findById(_metState.activityId);
     final weight =
         _metState.weightKgSnapshot ?? widget.controller.profile?.weightKg;
-    if (duration != null &&
-        duration > 0 &&
-        met != null &&
-        met > 0 &&
-        weight != null &&
-        weight > 0) {
+    if (activity != null && weight != null && weight > 0) {
       const calculator = ExerciseCalorieCalculator();
-      final estimate = calculator.estimate(
-        met: met,
-        weightKg: weight,
-        durationMinutes: duration,
-        sourceKey: _metState.sourceKey,
-      );
+      final estimate = switch (activity.quantityUnit) {
+        ExerciseQuantityUnit.distanceKm => _distanceEstimate(
+          calculator,
+          activity,
+          weight,
+        ),
+        ExerciseQuantityUnit.reps => _repsEstimate(
+          calculator,
+          activity,
+          weight,
+        ),
+        ExerciseQuantityUnit.durationMin => _durationEstimate(
+          calculator,
+          weight,
+        ),
+      };
       if (estimate != null) {
         return (estimate.grossKcal, estimate.netKcal);
       }
@@ -201,10 +292,99 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     return null;
   }
 
+  ExerciseCalorieEstimate? _distanceEstimate(
+    ExerciseCalorieCalculator calculator,
+    MetActivityDefinition activity,
+    double weight,
+  ) {
+    final km = _parseOptionalDouble(_distanceController);
+    if (km == null) {
+      return null;
+    }
+    final factor = activity.netKcalPerKgKm;
+    if (factor != null) {
+      return calculator.estimateByDistanceFactor(
+        weightKg: weight,
+        distanceKm: km,
+        netKcalPerKgKm: factor,
+        sourceKey: activity.sourceKey,
+      );
+    }
+    final speed = activity.referenceSpeedKmh;
+    final met = _metState.metValue;
+    if (speed == null || met == null) {
+      return null;
+    }
+    return calculator.estimateByDistanceSpeed(
+      met: met,
+      weightKg: weight,
+      distanceKm: km,
+      speedKmh: speed,
+      sourceKey: activity.sourceKey,
+    );
+  }
+
+  ExerciseCalorieEstimate? _repsEstimate(
+    ExerciseCalorieCalculator calculator,
+    MetActivityDefinition activity,
+    double weight,
+  ) {
+    final reps = _parseOptionalInt(_repsController);
+    final met = _metState.metValue;
+    if (reps == null || met == null) {
+      return null;
+    }
+    return calculator.estimateByReps(
+      met: met,
+      weightKg: weight,
+      reps: reps,
+      sourceKey: activity.sourceKey,
+    );
+  }
+
+  ExerciseCalorieEstimate? _durationEstimate(
+    ExerciseCalorieCalculator calculator,
+    double weight,
+  ) {
+    final duration = int.tryParse(_durationController.text.trim());
+    final met = _metState.metValue;
+    if (duration == null || duration <= 0 || met == null || met <= 0) {
+      return null;
+    }
+    return calculator.estimate(
+      met: met,
+      weightKg: weight,
+      durationMinutes: duration,
+      sourceKey: _metState.sourceKey,
+    );
+  }
+
   Future<void> _save() async {
     final entry = _buildEntry();
     if (entry == null) {
       return;
+    }
+
+    var addTemplate = false;
+    if (!widget.isEditing && entry.activityId == 'custom') {
+      final saved = await widget.controller.listCustomActivityTemplates();
+      final normalized = FoodSearchNormalizer.normalize(entry.name);
+      final exists = saved.any(
+        (item) => FoodSearchNormalizer.normalize(item.name) == normalized,
+      );
+      if (!exists) {
+        if (!mounted) {
+          return;
+        }
+        final answer = await showSaveCustomActivityTemplateDialog(
+          context: context,
+          activityName: entry.name,
+        );
+        if (answer == null || !mounted) {
+          return;
+        }
+        addTemplate = answer;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -212,6 +392,16 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       await widget.controller.updateExercise(entry);
     } else {
       await widget.controller.addExercise(entry);
+    }
+    if (addTemplate) {
+      try {
+        await widget.controller.saveCustomActivityTemplate(entry);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('テンプレートの追加に失敗しました')));
+        }
+      }
     }
 
     if (!mounted) {
@@ -241,38 +431,104 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     Navigator.of(context).pop();
   }
 
+  Widget _icon(String asset) => AppIcon(
+    asset,
+    size: 24,
+    color: IconCircle.foregroundOf(IconCircleTone.green),
+  );
+
+  Widget _numberField({
+    required Key fieldKey,
+    required String icon,
+    required String label,
+    required String suffix,
+    required TextEditingController controller,
+    required TextInputType keyboardType,
+  }) {
+    return DesignFieldCard(
+      icon: _icon(icon),
+      label: label,
+      child: DesignInputBox(
+        suffix: suffix,
+        child: DesignTextInput(
+          key: fieldKey,
+          controller: controller,
+          keyboardType: keyboardType,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickLoggedAt() async {
+    final local = _loggedAt.toLocal();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: local,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (pickedDate == null || !mounted) {
+      return;
+    }
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(local),
+    );
+    if (pickedTime == null) {
+      return;
+    }
+    setState(() {
+      _loggedAt = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
+  }
+
+  String _formatLoggedAt(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year}/${local.month}/${local.day} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+
   Widget _buildAdditionalFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_isStrength)
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('セット・回数・重量（任意）'),
-            subtitle: const Text('消費カロリーは実施時間から計算します'),
-            children: [
-              AppTextField(
-                controller: _setsController,
-                label: 'セット',
-                keyboardType: TextInputType.number,
-              ),
-              AppTextField(
-                controller: _repsController,
-                label: '回数',
-                keyboardType: TextInputType.number,
-              ),
-              AppTextField(
-                controller: _liftWeightController,
-                label: '重量（kg）',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-            ],
+        if (_isStrength) ...[
+          _numberField(
+            fieldKey: ExerciseFormScreen.setsFieldKey,
+            icon: AppIcons.dumbbell,
+            label: 'セット',
+            suffix: 'セット',
+            controller: _setsController,
+            keyboardType: TextInputType.number,
           ),
-        LoggedAtPickerField(
-          loggedAt: _loggedAt,
-          onChanged: (value) => setState(() => _loggedAt = value),
+          const SizedBox(height: AppSpacing.md),
+          _numberField(
+            fieldKey: ExerciseFormScreen.liftWeightFieldKey,
+            icon: AppIcons.dumbbell,
+            label: '重量（kg）',
+            suffix: 'kg',
+            controller: _liftWeightController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        DesignFieldCard(
+          icon: _icon(AppIcons.calendar),
+          label: '記録日時',
+          child: DesignInputBox(
+            onTap: _pickLoggedAt,
+            child: Text(
+              _formatLoggedAt(_loggedAt),
+              style: AppTypography.bodyL.copyWith(color: AppColors.textPrimary),
+            ),
+          ),
         ),
       ],
     );
@@ -280,51 +536,57 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? '運動を編集' : '運動を追加')),
-      body: SafeArea(
-        child: AppFormConstraint(
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                widget.isEditing ? 160 : 100,
-              ),
-              children: [
-                ExerciseMetCalculationSection(
-                  controller: widget.controller,
-                  loggedAt: _loggedAt,
-                  durationController: _durationController,
-                  grossKcalController: _burnedKcalController,
-                  nameController: _nameController,
-                  notesController: _notesController,
-                  additionalFields: _buildAdditionalFields(),
-                  isEditing: widget.isEditing,
-                  initialEntry: widget.entry,
-                  onEstimateChanged: (state) =>
-                      setState(() => _metState = state),
-                ),
-              ],
-            ),
-          ),
-        ),
+    return DesignPage(
+      bodyPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenHorizontal,
       ),
-      bottomNavigationBar: AppConstrainedBottomBar(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PrimaryButton(
-              label: '保存',
-              loading: _isSaving,
-              onPressed: _isSaving ? null : _save,
+      bottomBarPadding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenHorizontal,
+        6,
+        AppSpacing.screenHorizontal,
+        6,
+      ),
+      bottomBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DesignButton(
+            label: widget.isEditing ? '更新' : '保存',
+            showTrailingIcon: false,
+            loading: _isSaving,
+            onPressed: _isSaving ? null : _save,
+          ),
+          if (widget.isEditing) ...[
+            const SizedBox(height: AppSpacing.md),
+            DesignButton(
+              label: '削除',
+              style: DesignButtonStyle.danger,
+              showTrailingIcon: false,
+              onPressed: _confirmDelete,
             ),
-            if (widget.isEditing) ...[
-              const SizedBox(height: AppSpacing.xs),
-              SecondaryButton(label: '削除', onPressed: _confirmDelete),
-            ],
+          ],
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DesignTitleBlock(title: widget.isEditing ? '運動を編集' : '運動を追加'),
+            ExerciseMetCalculationSection(
+              controller: widget.controller,
+              loggedAt: _loggedAt,
+              durationController: _durationController,
+              distanceController: _distanceController,
+              repsController: _repsController,
+              grossKcalController: _burnedKcalController,
+              nameController: _nameController,
+              notesController: _notesController,
+              additionalFields: _buildAdditionalFields(),
+              isEditing: widget.isEditing,
+              initialEntry: widget.entry,
+              onEstimateChanged: (state) => setState(() => _metState = state),
+            ),
+            const SizedBox(height: AppSpacing.md),
           ],
         ),
       ),

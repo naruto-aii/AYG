@@ -146,7 +146,7 @@ class SearchSuggestionService {
   /// 新規ユーザー向けの安全な既定運動候補。
   List<MetActivityDefinition> defaultExerciseActivities() {
     return MetActivityCatalog.activities
-        .where((activity) => activity.id != 'custom')
+        .where((activity) => activity.searchable)
         .toList();
   }
 }

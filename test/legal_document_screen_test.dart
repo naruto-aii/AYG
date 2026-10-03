@@ -68,7 +68,7 @@ void main() {
           controller: controller,
           authenticationRepository: authRepository,
           hideHealthSettings: true,
-          supportEmail: 'calonavi.ayg.support@gmail.com',
+          supportEmail: 'support@ayg.life',
         ),
       ),
     );
@@ -124,6 +124,8 @@ void main() {
     expect(find.text('特定商取引法に基づく表記'), findsOneWidget);
     expect(find.textContaining('麹池成'), findsWidgets);
     expect(find.textContaining('アプリ内課金'), findsOneWidget);
+    expect(find.textContaining('support@ayg.life'), findsWidgets);
+    expect(find.textContaining('calonavi.ayg.support@gmail.com'), findsNothing);
     expect(find.byTooltip('閉じる'), findsOneWidget);
   });
 }

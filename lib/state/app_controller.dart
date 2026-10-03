@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../constants/app_strings.dart';
 import '../models/alcohol_entry.dart';
@@ -60,11 +61,20 @@ import '../repositories/contracts/user_repository_base.dart';
 import '../repositories/contracts/workout_template_repository_base.dart';
 import '../repositories/contracts/weight_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
+import '../repositories/first_meal_guide_store.dart';
 import '../repositories/sync_step_runner.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
 import '../services/local_user_data_clearer_base.dart';
+import '../config/official_foods_flag.dart';
+import '../config/supabase_config.dart';
+import '../repositories/subscription_repository.dart';
+import '../repositories/unavailable_subscription_repository.dart';
+import '../services/lock_screen_meal.dart';
+import '../services/lock_screen_meal_gateway.dart';
+import '../services/siri_voice_gateway.dart';
+import '../services/siri_voice_log.dart';
 import '../services/meal_template_apply_service.dart';
 import '../services/meal_template_dependency_service.dart';
 import '../services/meal_template_totals_service.dart';
@@ -82,6 +92,7 @@ import '../services/search_suggestion_service.dart';
 import '../models/food_visibility.dart';
 import '../services/source_food_edit_policy.dart';
 import '../utils/food_name_normalizer.dart';
+import '../utils/food_search_normalizer.dart';
 import '../utils/id_generator.dart';
 
 class AppController extends ChangeNotifier {
@@ -104,6 +115,10 @@ class AppController extends ChangeNotifier {
     BlockedFoodCreatorRepositoryBase? blockedCreatorRepository,
     MealTemplateRepositoryBase? mealTemplateRepository,
     WorkoutTemplateRepositoryBase? workoutTemplateRepository,
+    FirstMealGuideStore? firstMealGuideStore,
+    LockScreenMealGateway? lockScreenMealGateway,
+    SiriVoiceGateway? siriVoiceGateway,
+    SubscriptionRepository? subscriptionRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -122,6 +137,11 @@ class AppController extends ChangeNotifier {
        _blockedCreatorRepository = blockedCreatorRepository,
        _mealTemplateRepository = mealTemplateRepository,
        _workoutTemplateRepository = workoutTemplateRepository,
+       _firstMealGuideStore = firstMealGuideStore,
+       _lockScreenMealGateway = lockScreenMealGateway,
+       _siriVoiceGateway = siriVoiceGateway,
+       _subscriptionRepository =
+           subscriptionRepository ?? UnavailableSubscriptionRepository(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -151,6 +171,19 @@ class AppController extends ChangeNotifier {
   final BlockedFoodCreatorRepositoryBase? _blockedCreatorRepository;
   final MealTemplateRepositoryBase? _mealTemplateRepository;
   final WorkoutTemplateRepositoryBase? _workoutTemplateRepository;
+  final FirstMealGuideStore? _firstMealGuideStore;
+  final LockScreenMealGateway? _lockScreenMealGateway;
+  final SiriVoiceGateway? _siriVoiceGateway;
+  final SubscriptionRepository _subscriptionRepository;
+  StreamSubscription<bool>? _plusSubscription;
+
+  SubscriptionRepository get subscriptionRepository => _subscriptionRepository;
+  bool _firstMealGuideSeen = false;
+  bool _offerFirstMealGuide = false;
+
+  /// 目標設定を終えた直後だけ true。一度案内を出したら false のまま。
+  bool get shouldOfferFirstMealGuide =>
+      _offerFirstMealGuide && !_firstMealGuideSeen;
   final SavedFoodSearchService _savedFoodSearchService;
   final SavedFoodDuplicateService _savedFoodDuplicateService;
   final SavedFoodEntryBuilder _savedFoodEntryBuilder;
@@ -297,6 +330,9 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     _isInitializing = true;
     notifyListeners();
+    _listenForPaidEntitlement();
+    await _applyPaidEntitlement();
+    _firstMealGuideSeen = await _firstMealGuideStore?.isSeen() ?? false;
 
     final authRepository = _authenticationRepository;
     if (authRepository == null) {
@@ -388,6 +424,8 @@ class AppController extends ChangeNotifier {
         operation: 'load',
         action: () => loadPersistedState(),
       );
+      await syncLockScreenMeals();
+      await syncSiriVoiceLogs();
       _lastSyncFailed = false;
       _syncFailure = null;
     } on SyncStepException catch (error) {
@@ -495,7 +533,29 @@ class AppController extends ChangeNotifier {
     appSettings = appSettings.copyWith(onboardingComplete: true);
     await _settingsRepository?.saveAppSettings(appSettings);
     await _persistToRemoteNow();
+    offerFirstMealGuide();
     notifyListeners();
+  }
+
+  /// 目標設定を終えたこのセッションだけ、食事1件の案内を出す。
+  void offerFirstMealGuide() {
+    if (_firstMealGuideSeen) {
+      return;
+    }
+    _offerFirstMealGuide = true;
+  }
+
+  /// 案内を出した時点で終わりにする。食事を保存しても、途中で閉じても再表示しない。
+  void finishFirstMealGuide() {
+    if (_firstMealGuideSeen && !_offerFirstMealGuide) {
+      return;
+    }
+    _firstMealGuideSeen = true;
+    _offerFirstMealGuide = false;
+    final store = _firstMealGuideStore;
+    if (store != null) {
+      unawaited(store.markSeen());
+    }
   }
 
   void setProfile(UserProfile value) {
@@ -504,6 +564,7 @@ class AppController extends ChangeNotifier {
     _rememberManualWeight(value.weightKg);
     _scheduleRemoteSync();
     refreshDailySummary();
+    unawaited(publishSiriVoiceCatalog());
   }
 
   Future<void> applyHealthProfileData(HealthProfileData data) async {
@@ -629,6 +690,7 @@ class AppController extends ChangeNotifier {
     await _userRepository?.saveProfile(profile!);
     _scheduleRemoteSync();
     refreshDailySummary();
+    unawaited(publishSiriVoiceCatalog());
   }
 
   void _rememberManualWeight(double weightKg) {
@@ -851,6 +913,7 @@ class AppController extends ChangeNotifier {
     );
     _persistAutoTargetAnchor(day);
     notifyListeners();
+    unawaited(publishLockScreenMealSnapshot());
   }
 
   void _persistAutoTargetAnchor(DateTime referenceDate) {
@@ -1335,10 +1398,12 @@ class AppController extends ChangeNotifier {
         foodId: saved.foodId,
       );
       _scheduleRemoteSync();
+      unawaited(publishSiriVoiceCatalog());
       return published;
     }
 
     _scheduleRemoteSync();
+    unawaited(publishSiriVoiceCatalog());
     return saved;
   }
 
@@ -1556,6 +1621,7 @@ class AppController extends ChangeNotifier {
       deletedAt: DateTime.now(),
     );
     _scheduleRemoteSync();
+    unawaited(publishSiriVoiceCatalog());
   }
 
   Future<List<SavedFood>> searchOwnSavedFoods(String query) async {
@@ -2046,6 +2112,82 @@ class AppController extends ChangeNotifier {
     return results;
   }
 
+  /// その他（手入力）を1種目だけ保存したテンプレート。スキーマは足していない。
+  Future<List<CustomActivityTemplate>> listCustomActivityTemplates() async {
+    final repository = _workoutTemplateRepository;
+    if (repository == null) {
+      return const [];
+    }
+    final templates = await repository.getAll(currentOwnerUserId);
+    final saved = <CustomActivityTemplate>[];
+    for (final template in templates) {
+      final items = await repository.getItems(
+        ownerUserId: currentOwnerUserId,
+        templateId: template.templateId,
+      );
+      if (items.length != 1 || items.single.activityId != 'custom') {
+        continue;
+      }
+      final item = items.single;
+      saved.add(
+        CustomActivityTemplate(
+          templateId: template.templateId,
+          itemId: item.itemId,
+          name: template.name,
+          durationMin: item.durationMin,
+          categoryKey: item.categoryKey,
+          intensity: item.intensity,
+          sets: item.sets,
+          reps: item.reps,
+          liftWeightKg: item.liftWeightKg,
+          metValue: item.metValue,
+          sourceKey: item.sourceKey,
+          notes: item.notes,
+        ),
+      );
+    }
+    saved.sort((a, b) => a.name.compareTo(b.name));
+    return saved;
+  }
+
+  /// 手入力の種目をテンプレートへ足す。同じ名前があればそのテンプレートを更新する。
+  /// 戻すときはそのテンプレートを削除する。新しい列は無い。
+  Future<void> saveCustomActivityTemplate(ExerciseEntry entry) async {
+    final name = entry.name.trim();
+    final normalized = FoodSearchNormalizer.normalize(name);
+    final existing = await listCustomActivityTemplates();
+    CustomActivityTemplate? match;
+    for (final saved in existing) {
+      if (FoodSearchNormalizer.normalize(saved.name) == normalized) {
+        match = saved;
+        break;
+      }
+    }
+    await saveWorkoutTemplate(
+      templateId: match?.templateId,
+      draft: WorkoutTemplateDraft(
+        name: name,
+        items: [
+          WorkoutTemplateItem(
+            itemId: match?.itemId ?? generateId(),
+            name: name,
+            activityId: 'custom',
+            categoryKey: entry.category?.id ?? match?.categoryKey,
+            intensity: entry.intensity,
+            durationMin: entry.durationMin,
+            sets: entry.sets,
+            reps: entry.reps,
+            liftWeightKg: entry.liftWeightKg,
+            sortOrder: 1,
+            notes: entry.notes,
+            metValue: entry.metValue,
+            sourceKey: entry.sourceKey,
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<List<WorkoutTemplate>> searchWorkoutTemplates(String query) async {
     final repository = _workoutTemplateRepository;
     if (repository == null) {
@@ -2145,6 +2287,9 @@ class AppController extends ChangeNotifier {
     List<WorkoutTemplateApplyDraft> drafts,
   ) async {
     for (final draft in drafts) {
+      final manual =
+          MetActivityCatalog.findById(draft.activityId)?.requiresManualKcal ==
+          true;
       await addExercise(
         ExerciseEntry(
           id: generateId(),
@@ -2154,16 +2299,18 @@ class AppController extends ChangeNotifier {
           loggedAt: draft.loggedAt,
           category: ExerciseCategoryX.tryParse(draft.categoryKey),
           activityId: draft.activityId,
-          intensity: draft.intensity,
+          intensity: manual ? null : draft.intensity,
           sets: draft.sets,
           reps: draft.reps,
           liftWeightKg: draft.liftWeightKg,
-          metValue: draft.metValue,
-          grossKcal: draft.grossKcal,
+          metValue: manual ? null : draft.metValue,
+          grossKcal: manual ? draft.netKcal : draft.grossKcal,
           netKcal: draft.netKcal,
-          calculationSource: ExerciseCalculationSource.template,
+          calculationSource: manual
+              ? ExerciseCalculationSource.manualOverride
+              : ExerciseCalculationSource.template,
           calculationVersion: MetActivityCatalog.calculationVersion,
-          sourceKey: draft.sourceKey,
+          sourceKey: manual ? null : draft.sourceKey,
           notes: draft.notes,
         ),
       );
@@ -2243,6 +2390,7 @@ class AppController extends ChangeNotifier {
 
     await repository.saveWithItems(template: template, items: mappedItems);
     _scheduleRemoteSync();
+    unawaited(publishLockScreenMealSnapshot());
     return template;
   }
 
@@ -2257,6 +2405,7 @@ class AppController extends ChangeNotifier {
       deletedAt: DateTime.now(),
     );
     _scheduleRemoteSync();
+    unawaited(publishLockScreenMealSnapshot());
   }
 
   Future<void> restoreMealTemplateBundle(MealTemplateWithItems bundle) async {
@@ -2336,6 +2485,236 @@ class AppController extends ChangeNotifier {
       originalItems: originalItems,
       resolutions: resolutions,
     );
+  }
+
+  Future<LockScreenMealConfig> loadLockScreenMealConfig() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return LockScreenMealConfig.defaults();
+    }
+    return gateway.loadConfig();
+  }
+
+  Future<void> saveLockScreenMealConfig(LockScreenMealConfig config) async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    await gateway.saveConfig(config);
+    await publishLockScreenMealSnapshot();
+  }
+
+  /// カロナビ+ の購入画面を開く。購入処理はこのブランチでは差し替えない。
+  Future<void> Function(BuildContext context)? openCalonaviPlusFlow;
+
+  Future<bool> isMealWidgetPaid() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return false;
+    }
+    return gateway.isPaid();
+  }
+
+  /// ストアの加入をフラグへ写す。設定画面からは呼ばない。
+  ///
+  /// Health の数値は送らない。書くのは有料かどうかだけ。
+  Future<void> refreshPaidEntitlement() async {
+    try {
+      await _subscriptionRepository.refreshEntitlement();
+    } catch (_) {}
+    await _applyPaidEntitlement();
+  }
+
+  void _listenForPaidEntitlement() {
+    _plusSubscription ??= _subscriptionRepository.plusChanges.listen((_) {
+      unawaited(_applyPaidEntitlement());
+    });
+  }
+
+  Future<void> _applyPaidEntitlement() async {
+    await setLockScreenMealPaid(_subscriptionRepository.isPlusActive);
+  }
+
+  /// 有料フラグの入口。設定画面のスイッチからは呼ばない。
+  ///
+  /// true のときだけ、ウィジェットと Siri が登録する。
+  Future<void> setLockScreenMealPaid(bool isPaid) async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    await gateway.setPaid(isPaid);
+    await publishLockScreenMealSnapshot();
+  }
+
+  Future<void> syncLockScreenMeals() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    try {
+      await _importLockScreenMeals(gateway);
+      await publishLockScreenMealSnapshot();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] syncLockScreenMeals failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+  }
+
+  Future<void> syncSiriVoiceLogs() async {
+    final gateway = _siriVoiceGateway;
+    if (gateway == null) {
+      return;
+    }
+    try {
+      await _importSiriVoiceLogs(gateway);
+      await publishSiriVoiceCatalog();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] syncSiriVoiceLogs failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+  }
+
+  Future<void> publishSiriVoiceCatalog() async {
+    final gateway = _siriVoiceGateway;
+    if (gateway == null) {
+      return;
+    }
+    final foods = <SiriFoodRecord>[];
+    try {
+      for (final food in await getOwnSavedFoodSuggestions()) {
+        if (food.deletedAt != null) {
+          continue;
+        }
+        foods.add(SiriFoodRecord.saved(food));
+      }
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] siri food catalog failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+    final official = OfficialFoodsFlag.enabled && SupabaseConfig.isConfigured;
+    await gateway.publishCatalog(
+      SiriVoiceCodec.encodeCatalog(
+        ownerUserId: currentOwnerUserId,
+        weightKg: profile?.weightKg,
+        officialFoodsEnabled: official,
+        supabaseUrl: SupabaseConfig.url,
+        supabaseAnonKey: SupabaseConfig.anonKey,
+        foods: foods,
+      ),
+    );
+  }
+
+  Future<void> _importSiriVoiceLogs(SiriVoiceGateway gateway) async {
+    final plan = SiriVoiceCodec.decodePending(
+      raw: await gateway.readPending(),
+      ownerUserId: currentOwnerUserId,
+      existingFoodIds: foodEntries.map((entry) => entry.id).toSet(),
+      existingExerciseIds: exerciseEntries.map((entry) => entry.id).toSet(),
+    );
+    if (plan.foods.isNotEmpty) {
+      await addFoodEntriesBatch(plan.foods);
+    }
+    for (final exercise in plan.exercises) {
+      await addExercise(exercise);
+    }
+    await gateway.acknowledge(plan.acknowledgeIds);
+  }
+
+  Future<void> publishLockScreenMealSnapshot() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    final config = await gateway.loadConfig();
+    await gateway.publishSnapshot(
+      LockScreenMealSnapshot(
+        ownerUserId: currentOwnerUserId,
+        homeButtons: await _widgetButtons(config.homeButtons),
+        lockButtons: await _widgetButtons(config.lockButtons),
+        figures: _mealWidgetFigures(),
+      ),
+    );
+  }
+
+  MealWidgetFigures _mealWidgetFigures() {
+    final current = summary;
+    if (current == null) {
+      return const MealWidgetFigures();
+    }
+    final remaining = current.remainingKcal;
+    return MealWidgetFigures(
+      remainingKcal: remaining < 0 ? 0 : remaining.round(),
+      intakeKcal: current.intakeKcal.round(),
+      burnKcal: current.exerciseBurnKcal.round(),
+    );
+  }
+
+  Future<List<LockScreenMealButtonSnapshot>> _widgetButtons(
+    List<LockScreenMealButtonConfig> buttons,
+  ) async {
+    final snapshots = <LockScreenMealButtonSnapshot>[];
+    for (final button in buttons) {
+      final templateId = button.templateId;
+      MealTemplateWithItems? bundle;
+      if (templateId != null) {
+        bundle = await getMealTemplateWithItems(templateId);
+      }
+      snapshots.add(
+        LockScreenMealButtonSnapshot(
+          slot: button.slot,
+          label: button.label,
+          templateId: bundle?.template.templateId,
+          templateName: bundle?.template.name,
+          items: bundle?.items ?? const [],
+        ),
+      );
+    }
+    return snapshots;
+  }
+
+  Future<void> _importLockScreenMeals(LockScreenMealGateway gateway) async {
+    final pending = await gateway.readPending();
+    if (pending.isEmpty) {
+      return;
+    }
+    final plan = planLockScreenMealImport(
+      pending: pending,
+      ownerUserId: currentOwnerUserId,
+      existingEntryIds: foodEntries.map((entry) => entry.id).toSet(),
+    );
+    if (plan.entries.isNotEmpty) {
+      await addFoodEntriesBatch(plan.entries);
+      await _countLockScreenTemplateUses(plan.templateIds);
+    }
+    await gateway.acknowledge(plan.acknowledgeIds);
+  }
+
+  Future<void> _countLockScreenTemplateUses(List<String> templateIds) async {
+    final repository = _mealTemplateRepository;
+    if (repository == null) {
+      return;
+    }
+    for (final templateId in templateIds) {
+      final bundle = await getMealTemplateWithItems(templateId);
+      if (bundle == null) {
+        continue;
+      }
+      final now = DateTime.now();
+      await repository.update(
+        bundle.template.copyWith(
+          useCount: bundle.template.useCount + 1,
+          lastUsedAt: now,
+          updatedAt: now,
+        ),
+      );
+    }
   }
 
   Future<MealTemplateApplyResult> applyMealTemplate({
@@ -2719,6 +3098,7 @@ class AppController extends ChangeNotifier {
 
   void dispose() {
     _authSubscription?.cancel();
+    _plusSubscription?.cancel();
     super.dispose();
   }
 }

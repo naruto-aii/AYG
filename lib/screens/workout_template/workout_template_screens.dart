@@ -131,6 +131,7 @@ class _WorkoutTemplateFormScreenState extends State<WorkoutTemplateFormScreen> {
       appBar: AppBar(title: Text(widget.isEditing ? 'テンプレート編集' : 'テンプレート作成')),
       body: SafeArea(
         child: AppContentConstraint(
+          expandVertically: true,
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [

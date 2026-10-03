@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ayg</string>
+	<string>カロナビ</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -62,6 +62,8 @@
 			</array>
 		</dict>
 	</dict>
+  <key>NSSiriUsageDescription</key>
+  <string>食事と運動を、復唱してから登録するためにSiriを使います。</string>
   <key>NSCameraUsageDescription</key>
   <string>商品バーコードを読み取り、食事登録を簡単にするためにカメラを使用します。</string>
   <key>NSHealthShareUsageDescription</key>

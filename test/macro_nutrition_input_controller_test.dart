@@ -146,6 +146,22 @@ void main() {
       },
     );
 
+    test('a finished number still composing fills the remaining field', () {
+      final controller = newController();
+      controller.kcalController.text = '200';
+      controller.onFieldChanged(MacroField.kcal);
+      controller.proteinController.text = '20';
+      controller.onFieldChanged(MacroField.protein);
+      controller.fatController.value = const TextEditingValue(
+        text: '8',
+        composing: TextRange(start: 0, end: 1),
+      );
+      controller.onFieldChanged(MacroField.fat);
+
+      expect(controller.carbController.text, '12.0');
+      controller.dispose();
+    });
+
     test('auto-fills kcal even when empty kcal field was focused', () {
       final controller = newController();
       controller.onFieldFocus(MacroField.kcal);

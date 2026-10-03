@@ -60,7 +60,7 @@ void main() {
     );
     final referenceDate = DateTime(2026, 7, 21);
 
-    test('slow pace raises lose food target versus standard', () {
+    test('stored slow pace does not change the lose food target', () {
       final goal = Goal(
         type: GoalType.lose,
         targetWeightKg: 70,
@@ -83,8 +83,8 @@ void main() {
       );
 
       expect(
-        slow.goalFoodTargetKcal!,
-        greaterThan(standard.goalFoodTargetKcal!),
+        slow.goalFoodTargetKcal,
+        closeTo(standard.goalFoodTargetKcal!, 0.01),
       );
     });
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../constants/app_strings.dart';
 import '../../models/macro_field.dart';
@@ -30,6 +31,8 @@ class MacroNutritionInputController extends ChangeNotifier {
   bool _nutritionEditedByUser = false;
   bool _imeComposing = false;
   bool _suppressListener = false;
+  bool _disposed = false;
+  bool _rebuildScheduled = false;
   MacroField? _activeField;
   String? _negativeMessage;
 
@@ -190,13 +193,14 @@ class MacroNutritionInputController extends ChangeNotifier {
     }
 
     final textController = controllerFor(field);
-    // IME composition中はこの1回だけスキップ（数字キーボードでは通常発生しない）。
-    // composing.isValid を永続フラグにしない（過去の入力が永久にブロックされるのを防ぐ）。
-    if (textController.value.composing.isValid) {
+    final parsed = NutritionValueCalculator.parse(textController.text);
+    // 数字として確定している入力は、IME の composing 範囲が残っていても計算する。
+    // Web では通常の数字入力でも composing が有効なままになり、残り欄が更新されない。
+    if (textController.value.composing.isValid &&
+        parsed.state != MacroParseState.valid &&
+        parsed.state != MacroParseState.empty) {
       return;
     }
-
-    final parsed = NutritionValueCalculator.parse(textController.text);
     if (parsed.state == MacroParseState.empty) {
       _sources[field] = MacroFieldSource.empty;
       _manualOrder.remove(field);
@@ -349,7 +353,7 @@ class MacroNutritionInputController extends ChangeNotifier {
           field.state == MacroParseState.partial ||
           field.state == MacroParseState.invalid,
     )) {
-      notifyListeners();
+      _notify();
       return;
     }
 
@@ -358,7 +362,7 @@ class MacroNutritionInputController extends ChangeNotifier {
       if (_autoField != null) {
         _clearAutoField(_autoField!);
       }
-      notifyListeners();
+      _notify();
       return;
     }
 
@@ -367,13 +371,13 @@ class MacroNutritionInputController extends ChangeNotifier {
       validCount: validCount,
     );
     if (target == null) {
-      notifyListeners();
+      _notify();
       return;
     }
 
     // 4項目すべて入力済みの整合時のみ、編集中フィールドの上書きを避ける。
     if (validCount == 4 && _activeField == target && !force) {
-      notifyListeners();
+      _notify();
       return;
     }
 
@@ -394,7 +398,7 @@ class MacroNutritionInputController extends ChangeNotifier {
           );
 
     if (result == null) {
-      notifyListeners();
+      _notify();
       return;
     }
 
@@ -402,12 +406,58 @@ class MacroNutritionInputController extends ChangeNotifier {
       _negativeMessage =
           '入力値の組み合わせでは${_label(result.field)}を'
           '正の値に計算できません。';
-      notifyListeners();
+      _notify();
       return;
     }
 
     _applyAutoValue(target, result.value!);
+    _notify();
+  }
+
+  void _notify() {
     notifyListeners();
+    if (_disposed || _rebuildScheduled) {
+      return;
+    }
+    final binding = WidgetsBinding.instance;
+    if (binding.schedulerPhase == SchedulerPhase.idle &&
+        !binding.hasScheduledFrame) {
+      return;
+    }
+    _rebuildScheduled = true;
+    binding.addPostFrameCallback((_) {
+      _rebuildScheduled = false;
+      if (_disposed) {
+        return;
+      }
+      notifyListeners();
+    });
+  }
+
+  /// 入力中の欄とは別の TextField へ、計算結果を次のフレームで描く。
+  void _revealController(TextEditingController controller) {
+    final binding = WidgetsBinding.instance;
+    if (binding.schedulerPhase == SchedulerPhase.idle &&
+        !binding.hasScheduledFrame) {
+      return;
+    }
+    final text = controller.text;
+    binding.addPostFrameCallback((_) {
+      if (_disposed || controller.text != text) {
+        return;
+      }
+      controller.value = TextEditingValue(
+        text: text.isEmpty ? ' ' : text,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+      if (_disposed) {
+        return;
+      }
+      controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    });
   }
 
   void _applyAutoValue(MacroField field, double value) {
@@ -425,6 +475,7 @@ class MacroNutritionInputController extends ChangeNotifier {
     _autoField = field;
     _previousAutoField = field;
     _suppressListener = false;
+    _revealController(controllerFor(field));
   }
 
   void _clearAutoField(MacroField field) {
@@ -436,6 +487,7 @@ class MacroNutritionInputController extends ChangeNotifier {
       _autoField = null;
     }
     _suppressListener = false;
+    _revealController(controllerFor(field));
   }
 
   String _label(MacroField field) => macroFieldLabel(field);
@@ -450,6 +502,7 @@ class MacroNutritionInputController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     kcalController.dispose();
     proteinController.dispose();
     fatController.dispose();

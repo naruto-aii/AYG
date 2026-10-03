@@ -111,7 +111,8 @@ void main() {
       find.textContaining(summary.targetKcal.toStringAsFixed(0)),
       findsWidgets,
     );
-    expect(find.text('ゆっくり'), findsOneWidget);
+    expect(find.text('目標ペース'), findsNothing);
+    expect(find.text('ゆっくり'), findsNothing);
 
     if (summary.isCalorieOverage) {
       expect(find.textContaining('超過'), findsWidgets);

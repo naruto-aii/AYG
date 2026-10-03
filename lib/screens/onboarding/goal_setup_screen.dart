@@ -6,7 +6,9 @@ import '../../models/goal.dart';
 import '../../models/nutrition_settings.dart';
 import '../../widgets/nutrition/calorie_target_editor.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../services/daily_calorie_target_planner.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/weight_for_target.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -82,6 +84,29 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   }
 
   void _onInputChanged() => setState(() {});
+
+  String? get _arrivalNote {
+    final goalWeight = double.tryParse(_targetWeightController.text.trim());
+    final targetDate = _targetDate;
+    final profile = widget.controller.profile;
+    if (goalWeight == null || targetDate == null || profile == null) {
+      return null;
+    }
+    final series = describeWeightSeries(
+      samples: widget.controller.calculationWeightSamples(),
+      reference: DateTime.now(),
+      fallbackKg: profile.weightKg,
+    );
+    final current =
+        series.smoothedKg ??
+        (series.selection.kg > 0 ? series.selection.kg : profile.weightKg);
+    return const DailyCalorieTargetPlanner().arrivalNote(
+      currentWeightKg: current,
+      goalWeightKg: goalWeight,
+      goalType: _goalType,
+      targetDate: targetDate,
+    );
+  }
 
   Future<void> _pickTargetDate() async {
     final now = DateTime.now();
@@ -306,7 +331,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'あなたの理想に合わせて、\n無理のないペースで始めましょう。',
+            '目標体重と目標日から、\n1日の食事目標を出します。',
             textAlign: TextAlign.center,
             style: AppTypography.bodyM,
           ),
@@ -399,10 +424,23 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
             days > 0 ? 'あと 約${(days / 30).round()}か月（$days日）' : '目標日を選んでください',
             style: AppTypography.caption.copyWith(color: AppColors.textMuted),
           ),
+          if (_arrivalNote != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _arrivalNote!,
+              style: AppTypography.caption.copyWith(color: AppColors.orange700),
+            ),
+          ],
           const SizedBox(height: 18),
           CalorieTargetEditor(
             mode: _calorieMode,
             onModeChanged: (mode) => setState(() => _calorieMode = mode),
+            onEdited: () {
+              if (_calorieMode == CalorieTargetMode.manual) {
+                return;
+              }
+              setState(() => _calorieMode = CalorieTargetMode.manual);
+            },
             kcalController: _kcalController,
             proteinController: _proteinController,
             fatController: _fatController,

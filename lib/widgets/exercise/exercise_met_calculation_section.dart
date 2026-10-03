@@ -7,6 +7,7 @@ import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_quantity_unit.dart';
 import '../../services/exercise_calorie_calculator.dart';
+import '../../services/usage_record.dart';
 import '../../services/exercise_weight_resolver.dart';
 import '../../models/workout_template.dart';
 import '../../state/app_controller.dart';
@@ -619,6 +620,10 @@ class _ExerciseMetCalculationSectionState
   }
 
   void _onSearchChanged(String value) {
+    widget.controller.recordExerciseSearch(
+      source: ExerciseSearchSources.catalog,
+      query: value,
+    );
     setState(() {
       _searchResults = MetActivityCatalog.search(value);
     });

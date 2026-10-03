@@ -4,6 +4,7 @@ import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
 import '../../state/app_controller.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/usage_record.dart';
 import '../../services/public_food_meal_add_flow.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../food/food_form_screen.dart';
@@ -209,6 +210,10 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
           OfficialFoodSearchSection(
             query: _queryController,
             active: !_useBarcodeSearch,
+            onSearched: (query) => widget.controller.recordFoodSearch(
+              source: FoodSearchSources.officialFood,
+              query: query,
+            ),
             onSelected: (match) =>
                 openOfficialFoodDetail(context, widget.controller, match),
           ),

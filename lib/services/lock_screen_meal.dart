@@ -173,6 +173,7 @@ class PendingLockScreenMeal {
     required this.mealGroupName,
     required this.loggedAt,
     required this.entries,
+    this.surface,
   });
 
   final String registrationId;
@@ -183,6 +184,9 @@ class PendingLockScreenMeal {
   final String mealGroupName;
   final DateTime loggedAt;
   final List<FoodEntry> entries;
+
+  /// `home` または `lock`。ウィジェットが書いたときだけある。
+  final String? surface;
 }
 
 class LockScreenMealImportPlan {
@@ -400,6 +404,7 @@ abstract final class LockScreenMealCodec {
           'mealGroupId': meal.mealGroupId,
           'mealGroupName': meal.mealGroupName,
           'loggedAt': formatLockScreenLoggedAt(meal.loggedAt),
+          if (meal.surface != null) 'surface': meal.surface,
           'items': [for (final entry in meal.entries) _entryJson(entry)],
         },
     ]);
@@ -462,6 +467,7 @@ abstract final class LockScreenMealCodec {
           mealGroupName: _asString(row['mealGroupName']) ?? '',
           loggedAt: parseLockScreenLoggedAt(loggedAtRaw),
           entries: entries,
+          surface: _asString(row['surface']),
         ),
       );
     }

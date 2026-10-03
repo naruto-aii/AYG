@@ -29,6 +29,7 @@ import '../repositories/user_repository.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../repositories/storekit_subscription_repository.dart';
+import '../repositories/usage_record_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
 import '../services/lock_screen_meal_gateway.dart';
@@ -144,6 +145,9 @@ Future<void> bootstrapApp() async {
     lockScreenMealGateway: LockScreenMealGatewayImpl(),
     siriVoiceGateway: SiriVoiceGatewayImpl(),
     subscriptionRepository: subscriptionRepository,
+    usageRecordRepository: SupabaseConfig.isConfigured
+        ? SupabaseUsageRecordRepository()
+        : const NoOpUsageRecordRepository(),
   );
   await controller.initialize();
 

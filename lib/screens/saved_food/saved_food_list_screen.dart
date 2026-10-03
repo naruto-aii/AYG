@@ -7,6 +7,7 @@ import '../../utils/nutrition_format.dart';
 import '../../utils/saved_food_display_labels.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/usage_record.dart';
 import 'public_food_search_screen.dart';
 import 'saved_food_form_screen.dart';
 import 'saved_food_publish_flow.dart';
@@ -215,6 +216,10 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
           const SizedBox(height: 16),
           OfficialFoodSearchSection(
             query: _searchController,
+            onSearched: (query) => widget.controller.recordFoodSearch(
+              source: FoodSearchSources.officialFood,
+              query: query,
+            ),
             onSelected: (match) =>
                 openOfficialFoodDetail(context, widget.controller, match),
           ),
@@ -285,5 +290,4 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
       ),
     );
   }
-
 }

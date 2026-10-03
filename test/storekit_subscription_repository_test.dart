@@ -85,6 +85,11 @@ void main() {
       prefs.getInt(StoreKitSubscriptionRepository.expiryKey),
       future.millisecondsSinceEpoch,
     );
+    expect(repository.confirmedEntitlements, isEmpty);
+    expect(
+      prefs.getString(StoreKitSubscriptionRepository.entitlementsKey),
+      isNull,
+    );
     await repository.dispose();
   });
 
@@ -116,6 +121,18 @@ void main() {
       prefs.getInt(StoreKitSubscriptionRepository.expiryKey),
       expired.millisecondsSinceEpoch,
     );
+    expect(repository.confirmedEntitlements, hasLength(1));
+    expect(
+      repository.confirmedEntitlements.single.productId,
+      SubscriptionCatalog.yearlyProductId,
+    );
+    final stored = prefs.getString(
+      StoreKitSubscriptionRepository.entitlementsKey,
+    );
+    expect(stored, contains(SubscriptionCatalog.yearlyProductId));
+    expect(stored, isNot(contains('verification')));
+    expect(stored, isNot(contains('token')));
+    expect(stored, isNot(contains('receipt')));
     await repository.dispose();
   });
 

@@ -1,3 +1,5 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"
 #include "Generated.xcconfig"
 #include? "GoogleSignIn.generated.xcconfig"
+// Base64 of officialFoodsEnabled=true. The Xcode build phase appends this to DART_DEFINES.
+OFFICIAL_FOODS_DART_DEFINE=b2ZmaWNpYWxGb29kc0VuYWJsZWQ9dHJ1ZQ==

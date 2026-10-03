@@ -15,7 +15,9 @@ chmod +x "${ROOT_DIR}/tool/configure_google_signin_ios.sh"
 "${ROOT_DIR}/tool/configure_google_signin_ios.sh"
 
 if [ -f "$LOCAL_DEFINES" ]; then
-  exec flutter run "$@" --dart-define-from-file="$LOCAL_DEFINES"
+  # The later dart-define wins, so a local file cannot leave the search off.
+  exec flutter run "$@" --dart-define-from-file="$LOCAL_DEFINES" \
+    --dart-define=officialFoodsEnabled=true
 fi
 
 if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ] || \
@@ -35,5 +37,7 @@ DART_DEFINES=(
 if [ -n "${OFF_CONTACT_EMAIL:-}" ]; then
   DART_DEFINES+=("--dart-define=OFF_CONTACT_EMAIL=${OFF_CONTACT_EMAIL}")
 fi
+
+DART_DEFINES+=("--dart-define=officialFoodsEnabled=true")
 
 exec flutter run "$@" "${DART_DEFINES[@]}"

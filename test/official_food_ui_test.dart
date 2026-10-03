@@ -46,6 +46,11 @@ void main() {
     OfficialFoodsFlag.debugOverride = null;
   });
 
+  test('official food search stays on when the define is absent', () {
+    OfficialFoodsFlag.debugOverride = null;
+    expect(OfficialFoodsFlag.enabled, isTrue);
+  });
+
   test('MEXT link uses an external browser', () async {
     Uri? opened;
     LaunchMode? mode;

@@ -1,7 +1,7 @@
 #!/bin/sh
-# Source this from the Xcode Flutter build phase. It appends the existing
-# officialFoodsEnabled=true dart-define to DART_DEFINES for Debug, Profile,
-# and Release (Archive). Other defines are kept. Web builds are unchanged.
+# Source this from the Xcode Flutter build phase. It appends
+# officialFoodsEnabled=true to DART_DEFINES for Debug, Profile,
+# and Release (Archive). Other defines are kept.
 
 official="${OFFICIAL_FOODS_DART_DEFINE:-b2ZmaWNpYWxGb29kc0VuYWJsZWQ9dHJ1ZQ==}"
 defines=""

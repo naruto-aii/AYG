@@ -249,8 +249,11 @@ class PublicFoodMextNotice extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final stored = food.sourceAttribution?.trim();
-    final attribution = stored == null || stored.isEmpty
-        ? OfficialFoodCopy.fullAttribution
+    final attribution =
+        stored == null ||
+            stored.isEmpty ||
+            stored == OfficialFoodCopy.storedAttribution
+        ? OfficialFoodCopy.explanation
         : stored;
     final officialName = food.officialFoodName?.trim();
     return Column(

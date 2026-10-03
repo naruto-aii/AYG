@@ -24,17 +24,19 @@ class DataSourceScreen extends StatelessWidget {
         children: [
           const DesignTitleBlock(
             title: 'データの出典',
-            subtitle: '食品成分表の値と、アプリが足した別名についての説明です。',
+            subtitle: '100gあたりの数値と、表示名の付け方です。',
           ),
           DesignCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(OfficialFoodCopy.sourceSentence, style: body),
+                Text(OfficialFoodCopy.nutritionPer100g, style: body),
                 const SizedBox(height: AppSpacing.sm),
-                Text(OfficialFoodCopy.aliasSentence, style: body),
+                Text(OfficialFoodCopy.traceAndEstimate, style: body),
                 const SizedBox(height: AppSpacing.sm),
-                Text(OfficialFoodCopy.disclaimerSentence, style: body),
+                Text(OfficialFoodCopy.scaledToGrams, style: body),
+                const SizedBox(height: AppSpacing.sm),
+                Text(OfficialFoodCopy.nameProcessing, style: body),
                 const SizedBox(height: AppSpacing.md),
                 TextButton(
                   key: const ValueKey('data_source_mext_link'),

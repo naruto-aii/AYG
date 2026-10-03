@@ -163,23 +163,24 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 1));
 
-    expect(find.text('分類'), findsOneWidget);
-    expect(find.text('くろまぐろ（天然・赤身・生）'), findsOneWidget);
-    expect(find.text('魚・まぐろ · 115 kcal / 100g'), findsOneWidget);
+      expect(find.text('分類'), findsOneWidget);
+      expect(find.text('くろまぐろ（天然・赤身・生）'), findsOneWidget);
+      expect(find.text('魚・まぐろ · 115 kcal / 100g'), findsOneWidget);
       expect(find.textContaining('＜魚類＞'), findsNothing);
       expect(find.textContaining('まぐろ類'), findsNothing);
     },
   );
 
-  testWidgets('data source screen shows the three required sentences', (
+  testWidgets('data source screen shows how the numbers are stored', (
     tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.light, home: const DataSourceScreen()),
     );
-    expect(find.text(OfficialFoodCopy.sourceSentence), findsOneWidget);
-    expect(find.text(OfficialFoodCopy.aliasSentence), findsOneWidget);
-    expect(find.text(OfficialFoodCopy.disclaimerSentence), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.nutritionPer100g), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.traceAndEstimate), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.scaledToGrams), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.nameProcessing), findsOneWidget);
     expect(find.text(OfficialFoodCopy.externalLinkLabel), findsOneWidget);
   });
 
@@ -240,8 +241,9 @@ void main() {
   testWidgets(
     'attribution uses the short line only when the full line overflows',
     (tester) async {
-      Future<void> pump(double width) {
-        return tester.pumpWidget(
+      Future<void> pump(double width) async {
+        await tester.binding.setSurfaceSize(Size(width, 800));
+        await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
               body: Center(
@@ -255,7 +257,10 @@ void main() {
         );
       }
 
-      await pump(2000);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      // 全文は1行に収まらない幅では、数値の保存の説明だけを出す。
+      await pump(4000);
       expect(find.text(OfficialFoodCopy.fullAttribution), findsOneWidget);
       await pump(1);
       expect(find.text(OfficialFoodCopy.compactAttribution), findsOneWidget);
@@ -330,8 +335,8 @@ void main() {
     );
     expect(find.text('精白米（うるち米・水稲めし）'), findsOneWidget);
     expect(find.text('こめ　［水稲めし］　精白米　うるち米'), findsOneWidget);
-    expect(find.text(OfficialFoodCopy.compactAttribution), findsOneWidget);
-    expect(find.text(OfficialFoodCopy.disclaimerSentence), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.explanation), findsOneWidget);
+    expect(find.textContaining('1食分の値'), findsNothing);
   });
 
   testWidgets('public food display keeps the composition-table attribution', (
@@ -347,7 +352,7 @@ void main() {
       sourceType: FoodSourceType.mextSfct,
       officialFoodCode: '01088',
       officialFoodName: 'こめ　［水稲めし］　精白米　うるち米',
-      sourceAttribution: '',
+      sourceAttribution: OfficialFoodCopy.storedAttribution,
       createdAt: DateTime.utc(2026, 9, 28),
       updatedAt: DateTime.utc(2026, 9, 28),
     );
@@ -356,7 +361,8 @@ void main() {
         home: Scaffold(body: PublicFoodMextNotice(food: food)),
       ),
     );
-    expect(find.text(OfficialFoodCopy.fullAttribution), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.explanation), findsOneWidget);
+    expect(find.text(OfficialFoodCopy.storedAttribution), findsNothing);
     expect(find.text('成分表の食品名：こめ　［水稲めし］　精白米　うるち米（食品番号 01088）'), findsOneWidget);
   });
 }

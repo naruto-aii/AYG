@@ -233,7 +233,7 @@ class SettingsScreen extends StatelessWidget {
             SettingsRow(
               icon: AppIcons.document,
               title: 'データの出典',
-              subtitle: '食品成分表の出典と、別名・1食分の説明',
+              subtitle: '100gあたりの数値と、表示名の説明',
               onTap: () => _push(context, const DataSourceScreen()),
             ),
           ],

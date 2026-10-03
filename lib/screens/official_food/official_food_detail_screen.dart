@@ -190,9 +190,10 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
             ),
           ],
           const SizedBox(height: 16),
-          Text(OfficialFoodCopy.disclaimerSentence, style: muted),
-          const SizedBox(height: 8),
-          OfficialFoodAttribution(launch: widget.launch),
+          OfficialFoodAttribution(
+            initiallyExpanded: true,
+            launch: widget.launch,
+          ),
           const SizedBox(height: 16),
           DesignButton(
             label: 'この量で食事に記録',

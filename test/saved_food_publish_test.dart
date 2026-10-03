@@ -82,7 +82,7 @@ void main() {
             sourceAttribution: '',
           );
       final locked = OfficialFoodProvenance.attach(stripped);
-      expect(locked.sourceAttribution, OfficialFoodCopy.fullAttribution);
+      expect(locked.sourceAttribution, OfficialFoodCopy.storedAttribution);
       expect(locked.officialFoodCode, '01088');
       final result = validator.validate(food: locked, ownerUserId: 'user-a');
       expect(result.isValid, isTrue);

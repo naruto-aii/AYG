@@ -48,7 +48,7 @@ class OfficialFoodLogger {
       brand: showsAlias ? match.name : null,
       officialFoodCode: match.foodCode,
       officialFoodName: match.name,
-      sourceAttribution: OfficialFoodCopy.fullAttribution,
+      sourceAttribution: OfficialFoodCopy.storedAttribution,
       sourceType: FoodSourceType.mextSfct,
     );
   }

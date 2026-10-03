@@ -367,7 +367,7 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
           ? FoodSourceType.mextSfct
           : FoodSourceType.copied,
       sourceAttribution: source.sourceType == FoodSourceType.mextSfct
-          ? OfficialFoodCopy.fullAttribution
+          ? OfficialFoodCopy.storedAttribution
           : source.sourceAttribution,
       copiedFromFoodId: source.foodId,
       copiedFromOwnerUserId: source.ownerUserId,

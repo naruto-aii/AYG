@@ -6,11 +6,12 @@ App Store Connect には出していない。公開、同期、審査提出は�
 
 ## 入れなかったもの
 
-- 日本食品標準成分表の検索。本番は `officialFoodsEnabled` を付けない限りオフである。
-- 公開食品検索は1日5回、食事テンプレートと運動テンプレートは各3件、という定数。呼び出し箇所は見当たらないため、上限としては書いていない。
-- カロナビ+の金額。価格は StoreKit が返す表示だけを使う。
+- 日本食品標準成分表の検索。App Store 向けの iOS ビルドは `officialFoodsEnabled` を渡さない。`tool/run_ios.sh`、`tool/dart_defines.local.json.example`、`ios/Flutter/Release.xcconfig` にこの define は無い。未指定の `bool.fromEnvironment` は false で、検索欄は出さない。define を付けているリリースビルドは GitHub Pages の Web（`.github/workflows/publish-pages.yml` の `flutter build web --release`）だけなので、App Store の説明には入れない。
+- 回数や件数の上限は説明に書かない。
+- カロナビ+の金額。価格は StoreKit が返す表示だけを使う。課金期間の呼び方は説明に書かない。
 - 利用者数、評価、受賞、検索ボリューム、順位。
-- 24歳前後の会社員、という企画上のペルソナ。プライバシーポリシーは全年齢である。
+- 年齢と職業は説明に書かない。
+- スクリーンショットの見出しは、タブの5画面のままである。
 
 ## Apple App Store
 

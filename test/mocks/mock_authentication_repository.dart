@@ -15,6 +15,10 @@ class MockAuthenticationRepository extends AuthenticationRepository {
   bool loginWithGoogleCalled = false;
   bool loginWithAppleCalled = false;
   bool logoutCalled = false;
+  bool deleteOwnAccountCalled = false;
+  AccountDeletionOutcome deleteOwnAccountOutcome = const AccountDeletionOutcome();
+  bool simulateAccountDeletionUnavailable = false;
+  bool simulateAccountDeletionFailed = false;
   bool simulateGoogleSignInCancelled = false;
   bool simulateGoogleSignInFailure = false;
   String googleSignInFailureMessage = 'Google sign-in failed.';
@@ -75,6 +79,18 @@ class MockAuthenticationRepository extends AuthenticationRepository {
     logoutCalled = true;
     _currentUser = null;
     _controller.add(null);
+  }
+
+  @override
+  Future<AccountDeletionOutcome> deleteOwnAccount() async {
+    deleteOwnAccountCalled = true;
+    if (simulateAccountDeletionUnavailable) {
+      throw AccountDeletionUnavailableException();
+    }
+    if (simulateAccountDeletionFailed) {
+      throw const AccountDeletionFailedException('account deletion failed');
+    }
+    return deleteOwnAccountOutcome;
   }
 
   Future<void> dispose() async {

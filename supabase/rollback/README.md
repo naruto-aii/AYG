@@ -2,6 +2,17 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261003200000 apple token revoke on delete
+
+Apple の失効用トークン表と、service_role 専用の `delete_own_account(uuid)` だけを戻す。食事、体重、運動、目標、ヘルスケア、プロフィール、購入状態、検索語、画面操作、公開食品の行は消さない。トークン行だけが失われる。`delete_own_account()` は、ログイン中の本人が引数なしで呼べる本体へ戻る。2回実行しても失敗しない。先にアプリを、削除 Function を呼ばない版へ戻してから流す。
+
+`supabase/rollback/20261003200000_apple_token_revoke_on_delete_down.sql`
+
+消えるもの:
+
+- `internal.apple_refresh_tokens`（Sign in with Apple のリフレッシュトークン）
+- `store_apple_refresh_token` / `read_apple_refresh_token` / `delete_apple_refresh_token`
+
 ## 20261003190000 app numeric records
 
 Health ワークアウトの表と、食事の保存食品バージョン列だけを戻す。食事の行、体重、自分で記録した運動、目標、ヘルスケアのスナップショット、プロフィール、購入状態、検索語、画面操作は消さない。2回実行しても失敗しない。先にアプリを、この表と列を書かない版へ戻してから流す。

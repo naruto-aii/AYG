@@ -50,6 +50,35 @@ class AppStrings {
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
   static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で確認できます';
+  static const accountDeletionLead =
+      '削除するとログインできなくなります。公開食品は残ります。';
+  static const accountDeletionRemoves = '削除されるもの';
+  static const accountDeletionRemovesBody =
+      '食事・運動・体重の記録、非公開の保存食品、テンプレート、プロフィール、目標、Health のワークアウト、検索語、画面の操作、カロナビ+の購入状態';
+  static const accountDeletionKeeps = '残るもの';
+  static const accountDeletionKeepsBody =
+      '公開食品。氏名やメールアドレスは載せません。';
+  static const accountDeletionBilling =
+      'アカウントを削除しても、ストアの定期購入は止まりません。先に iPhone の「設定」> Apple ID >「サブスクリプション」で解約してください。';
+  static const accountDeletionExecute = '削除する';
+  static const accountDeletionReadPolicy = 'アカウント削除の説明';
+  static const accountDeletionConfirmTitle = 'アカウントを削除しますか';
+  static const accountDeletionConfirmBody =
+      '個人の記録を削除します。公開食品は残ります。この操作は取り消せません。';
+  static const accountDeletionFailed = 'アカウントを削除できませんでした';
+  static const accountDeletionUnavailable =
+      'いまアカウントを削除できません。時間をおくか、運営へメールしてください。';
+  static const accountDeletionMailSubject = 'アカウント削除';
+  static const accountDeletionAppleRevokeFailedTitle = 'Appleの連携を確認してください';
+  static const accountDeletionAppleRevokeFailed =
+      'アカウントは削除しました。Appleのサインインの解除に失敗したので、Apple IDの「サインインとセキュリティ」からカロナビを削除してください。';
+  static const accountDeletionAppleRevokeFailedClose = '閉じる';
+  static const plusBillingPeriod =
+      '月額は1か月、年額は1年の定期購入です。価格はボタンに出る、ストアの税込価格だけを使います。';
+  static const plusAutoRenew = '期限が来る前に解約しないと、同じ期間で自動更新されます。';
+  static const plusCancelHow =
+      '解約は iPhone の「設定」> Apple ID >「サブスクリプション」から行えます。アプリを消しても課金は止まりません。';
+  static const plusCurrentExpiryPrefix = '現在の有効期限';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
 
   /// ログイン画面の同意文言（Figma のとおり2行で固定表示）。

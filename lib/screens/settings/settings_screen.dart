@@ -17,6 +17,7 @@ import '../../widgets/common/app_confirm_dialog.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
 import '../subscription/calonavi_plus_flow.dart';
+import 'account_deletion_screen.dart';
 import 'calculation_references_screen.dart';
 import 'data_source_screen.dart';
 import 'how_to_use_screen.dart';
@@ -292,10 +293,16 @@ class SettingsScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.trash,
             title: AppStrings.settingsAccountDeletion,
-            subtitle: 'すべてのデータを削除します',
+            subtitle: AppStrings.settingsAccountDeletionSubtitle,
             danger: true,
-            onTap: () =>
-                showLegalDocument(context, LegalDocument.accountDeletion),
+            onTap: () => _push(
+              context,
+              AccountDeletionScreen(
+                controller: controller,
+                authenticationRepository: authenticationRepository,
+                supportEmail: supportEmail,
+              ),
+            ),
           ),
           const SizedBox(height: 24),
         ],

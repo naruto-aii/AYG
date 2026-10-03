@@ -118,6 +118,7 @@ void main() {
         mealGroupId: 'breakfast',
         mealGroupName: 'Breakfast',
         sortOrder: 1,
+        sourceSavedFoodVersion: 4,
         loggedAt: DateTime.utc(2026, 1, 3),
       );
 
@@ -130,6 +131,8 @@ void main() {
       expect(parsed.consumedAmount, 150);
       expect(parsed.savedFoodId, 'f1');
       expect(parsed.mealGroupId, 'breakfast');
+      expect(parsed.sourceSavedFoodVersion, 4);
+      expect(row['source_saved_food_version'], 4);
       expect(row['quantity'], entry.quantity);
     });
   });

@@ -77,6 +77,16 @@ three columns again. CI job `sql-pr31-then-pr29` applies this branch
 first and PR #29 second, then inserts, updates, and publishes a My Food
 as `authenticated`.
 
+### App numeric records (`20261003190000`)
+
+`health_workouts` stores the activity, start, end, and calories Health
+already returned. It does not store steps, distance, receipts, or
+tokens. `advertising_use` must stay false. `authenticated` can select,
+insert, and update its own rows, and cannot delete them.
+`food_entries.source_saved_food_version` is the saved-food version the
+app already keeps on a meal. Existing meal rows are left null. Rollback
+drops the workout table and that column only.
+
 ### Account display names (`20261003180000`)
 
 `account_display_names` copies `profiles.display_name` when the name is

@@ -10,6 +10,9 @@ class UserProfileEntity {
   late int genderIndex;
   late double heightCm;
   late double weightKg;
+
+  /// 未入力、またはこの列を追加する前の行は null。
+  String? displayName;
 }
 
 @collection

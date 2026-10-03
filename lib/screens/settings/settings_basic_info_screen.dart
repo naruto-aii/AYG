@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
+import '../../models/display_name.dart';
 import '../../models/user_profile.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -13,9 +14,16 @@ import '../../widgets/design/design_segment.dart';
 import '../../widgets/design/icon_circle.dart';
 
 class SettingsBasicInfoScreen extends StatefulWidget {
-  const SettingsBasicInfoScreen({super.key, required this.controller});
+  const SettingsBasicInfoScreen({
+    super.key,
+    required this.controller,
+    this.suggestedDisplayName,
+  });
 
   final AppController controller;
+
+  /// 保存済みのユーザー名が空のときだけ初期値に使う。
+  final String? suggestedDisplayName;
 
   @override
   State<SettingsBasicInfoScreen> createState() =>
@@ -25,6 +33,7 @@ class SettingsBasicInfoScreen extends StatefulWidget {
 class _SettingsBasicInfoScreenState extends State<SettingsBasicInfoScreen> {
   late DateTime _birthDate;
   late Gender _gender;
+  final _nameController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
   bool _isSaving = false;
@@ -35,12 +44,17 @@ class _SettingsBasicInfoScreenState extends State<SettingsBasicInfoScreen> {
     final profile = widget.controller.profile!;
     _birthDate = profile.birthDate;
     _gender = profile.gender;
+    _nameController.text = DisplayName.fieldValue(
+      saved: profile.displayName,
+      suggested: widget.suggestedDisplayName,
+    );
     _heightController.text = profile.heightCm.toStringAsFixed(0);
     _weightController.text = profile.weightKg.toStringAsFixed(1);
   }
 
   @override
   void dispose() {
+    _nameController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     super.dispose();
@@ -66,6 +80,13 @@ class _SettingsBasicInfoScreenState extends State<SettingsBasicInfoScreen> {
   }
 
   Future<void> _save() async {
+    final displayName = _nameController.text.trim();
+    final nameError = displayNameValidationMessage(displayName);
+    if (nameError != null) {
+      _warn(nameError);
+      return;
+    }
+
     final height = double.tryParse(_heightController.text.trim());
     if (height == null || height < 100 || height > 250) {
       _warn('身長は 100〜250 cm の範囲で入力してください');
@@ -82,6 +103,7 @@ class _SettingsBasicInfoScreenState extends State<SettingsBasicInfoScreen> {
       birthDate: _birthDate,
       gender: _gender,
       heightCm: height,
+      displayName: displayName,
       manualWeightKg: weight,
     );
     if (!mounted) {
@@ -117,8 +139,20 @@ class _SettingsBasicInfoScreenState extends State<SettingsBasicInfoScreen> {
         children: [
           const DesignTitleBlock(
             title: AppStrings.settingsBasicInfo,
-            subtitle: 'Health から取れた値も、ここで直せます。',
+            subtitle: 'ユーザー名も、Health から取れた値も、ここで直せます。',
           ),
+          DesignFieldCard(
+            icon: _icon(AppIcons.user),
+            label: AppStrings.displayName,
+            child: DesignInputBox(
+              child: DesignTextInput(
+                key: const ValueKey('profile_display_name'),
+                controller: _nameController,
+                hintText: AppStrings.displayNameHint,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           DesignFieldCard(
             icon: _icon(AppIcons.calendar),
             label: AppStrings.birthDate,

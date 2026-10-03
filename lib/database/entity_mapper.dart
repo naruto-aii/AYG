@@ -29,11 +29,13 @@ class EntityMapper {
   const EntityMapper._();
 
   static UserProfileEntity toUserProfileEntity(UserProfile profile) {
+    final displayName = profile.displayName.trim();
     return UserProfileEntity()
       ..birthDate = profile.birthDate
       ..genderIndex = profile.gender.index
       ..heightCm = profile.heightCm
-      ..weightKg = profile.weightKg;
+      ..weightKg = profile.weightKg
+      ..displayName = displayName.isEmpty ? null : displayName;
   }
 
   static UserProfile fromUserProfileEntity(UserProfileEntity entity) {
@@ -42,6 +44,7 @@ class EntityMapper {
       gender: Gender.values[entity.genderIndex],
       heightCm: entity.heightCm,
       weightKg: entity.weightKg,
+      displayName: entity.displayName?.trim() ?? '',
     );
   }
 

@@ -663,6 +663,7 @@ class AppController extends ChangeNotifier {
     required DateTime birthDate,
     required Gender gender,
     required double heightCm,
+    required String displayName,
     double? manualWeightKg,
   }) async {
     final currentProfile = profile;
@@ -678,6 +679,7 @@ class AppController extends ChangeNotifier {
       birthDate: birthDate,
       gender: gender,
       heightCm: heightCm,
+      displayName: displayName,
     );
     await _userRepository?.saveProfile(profile!);
 

@@ -1,4 +1,5 @@
 import '../models/activity_level.dart';
+import '../models/display_name.dart';
 import '../models/goal.dart';
 
 /// Version 1.1 ユーザー向け表示文字列（日本語）。
@@ -48,6 +49,10 @@ class AppStrings {
   static const loginLegalAgreementMultiline =
       'ログインにより、利用規約とプライバシーポリシーに\n同意したものとします。';
 
+  static const displayName = 'ユーザー名';
+  static const displayNameHint = '表示する名前';
+  static const displayNameRequired = 'ユーザー名を入力してください';
+  static const displayNameTooLong = 'ユーザー名は40文字以内で入力してください';
   static const birthDate = '生年月日';
   static const gender = '性別';
   static const heightCm = '身長 (cm)';
@@ -114,4 +119,12 @@ class AppStrings {
       level.everydayDescription;
 
   static String goalTypeLabel(GoalType type) => type.label;
+}
+
+String? displayNameValidationMessage(String raw) {
+  return switch (DisplayName.validate(raw)) {
+    DisplayNameError.empty => AppStrings.displayNameRequired,
+    DisplayNameError.tooLong => AppStrings.displayNameTooLong,
+    null => null,
+  };
 }

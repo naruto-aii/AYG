@@ -94,9 +94,15 @@ class SettingsScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.information,
             title: AppStrings.settingsBasicInfo,
-            subtitle: '年齢・性別・身長・体重など',
-            onTap: () =>
-                _push(context, SettingsBasicInfoScreen(controller: controller)),
+            subtitle: 'ユーザー名・年齢・性別・身長・体重など',
+            onTap: () => _push(
+              context,
+              SettingsBasicInfoScreen(
+                controller: controller,
+                suggestedDisplayName:
+                    authenticationRepository.currentUser?.suggestedDisplayName,
+              ),
+            ),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(

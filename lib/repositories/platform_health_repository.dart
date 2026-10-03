@@ -24,6 +24,7 @@ class PlatformHealthRepository implements HealthRepository {
   final WeightRepository _weightRepository;
   final HealthWorkoutLocalStore _workoutStore;
 
+  /// 氏名の型は HealthKit / Health Connect の読み取り対象に無い。
   static const _readTypes = [
     HealthDataType.BIRTH_DATE,
     HealthDataType.GENDER,

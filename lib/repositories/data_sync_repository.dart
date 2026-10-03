@@ -410,8 +410,16 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         gender: _parseGender(row['gender'] as String?),
         heightCm: (row['height_cm'] as num).toDouble(),
         weightKg: (row['weight_kg'] as num).toDouble(),
+        displayName: _readDisplayName(row['display_name']),
       ),
     );
+  }
+
+  String _readDisplayName(Object? raw) {
+    if (raw is! String) {
+      return '';
+    }
+    return raw.trim();
   }
 
   Gender _parseGender(String? raw) {
@@ -432,12 +440,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
+    final displayName = profile.displayName.trim();
     await _client.from('profiles').upsert({
       'user_id': userId,
       'birth_date': profile.birthDate.toIso8601String(),
       'gender': profile.gender.name,
       'height_cm': profile.heightCm,
       'weight_kg': profile.weightKg,
+      'display_name': displayName.isEmpty ? null : displayName,
     }, onConflict: 'user_id');
   }
 

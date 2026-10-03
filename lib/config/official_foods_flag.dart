@@ -1,7 +1,8 @@
 /// 食品成分表の検索・記録。
 ///
-/// 本番は `--dart-define=officialFoodsEnabled=true` を付けるまでオフ。
-/// テストは [debugOverride] で切り替える。
+/// iOS の Debug / Profile / Release（Xcode Archive を含む）は
+/// `officialFoodsEnabled=true` を渡す。Web の公開ビルドも同じ define を渡す。
+/// 未指定のときはオフ。テストは [debugOverride] で切り替える。
 abstract final class OfficialFoodsFlag {
   static bool? debugOverride;
 

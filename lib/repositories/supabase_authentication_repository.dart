@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config/supabase_config.dart';
 import '../config/web_auth_config.dart';
+import '../models/display_name.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
 
@@ -32,6 +33,10 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
 
   final SupabaseClient _client;
   final GoogleSignIn? _googleSignIn;
+
+  /// このプロセスでサインイン元が返した名前。
+  /// user_metadata への保存に失敗しても、同じ起動中の初期値に使う。
+  String? _sessionSuggestedName;
 
   @override
   AuthUser? get currentUser => _mapUser(_client.auth.currentUser);
@@ -104,6 +109,8 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     } on AuthException catch (error) {
       throw GoogleSignInFailedException(error.message);
     }
+
+    await _rememberSuggestedName(DisplayName.normalize(googleUser.displayName));
   }
 
   /// Apple ID でログインする。
@@ -165,6 +172,36 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     } on AuthException catch (error) {
       throw AppleSignInFailedException(error.message);
     }
+
+    await _rememberSuggestedName(
+      DisplayName.fromPersonName(
+        givenName: credential.givenName,
+        familyName: credential.familyName,
+      ),
+    );
+  }
+
+  /// 今回のサインインが返した名前を覚える。空なら、この起動中の提案は消す。
+  ///
+  /// Apple は初回の認可でしか氏名を返さないので、返ってきた名前は
+  /// user_metadata.full_name にも残す。すでに名前がある metadata は上書きしない。
+  Future<void> _rememberSuggestedName(String? name) async {
+    _sessionSuggestedName = name;
+    if (name == null) {
+      return;
+    }
+    final existing = DisplayName.fromUserMetadata(
+      _client.auth.currentUser?.userMetadata,
+    );
+    if (existing != null) {
+      return;
+    }
+    try {
+      await _client.auth.updateUser(UserAttributes(data: {'full_name': name}));
+    } catch (_) {
+      // この起動中は _sessionSuggestedName を初期値に使う。
+      // 再起動後に metadata も空なら、ユーザー名欄は空のまま手入力になる。
+    }
   }
 
   /// OS 標準のシートが使えるか（iOS / macOS のみ）。
@@ -175,6 +212,7 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> logout() async {
+    _sessionSuggestedName = null;
     await _googleSignIn?.signOut();
     await _client.auth.signOut();
   }
@@ -183,7 +221,13 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     if (user == null) {
       return null;
     }
-    return AuthUser(id: user.id, email: user.email);
+    return AuthUser(
+      id: user.id,
+      email: user.email,
+      suggestedDisplayName:
+          _sessionSuggestedName ??
+          DisplayName.fromUserMetadata(user.userMetadata),
+    );
   }
 }
 

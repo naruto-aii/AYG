@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
+import '../../models/display_name.dart';
 import '../../models/health_profile_data.dart';
 import '../../models/user_profile.dart';
 import '../../repositories/authentication_repository.dart';
@@ -20,8 +22,11 @@ import 'goal_setup_screen.dart';
 ///
 /// Figma: SP / 03 初回設定 2-3 基本情報（23:201）
 ///
-/// Health から取得できた項目もあらかじめ入れたうえで表示する（Figma と同じく
-/// 4 項目を常に見せる）。取得できた値もその場で直せる。
+/// ユーザー名を最初に入れ、続けて生年月日・性別・身長・体重を入れる。
+///
+/// ユーザー名の初期値は、サインインが名前を返したときだけ入れる。
+/// Health の取得項目に氏名は無いので、Health からは入れない。
+/// 生年月日・性別・身長・体重は、Health から取れた値を入れたうえで、その場で直せる。
 class BasicInfoScreen extends StatefulWidget {
   const BasicInfoScreen({
     super.key,
@@ -43,12 +48,17 @@ class BasicInfoScreen extends StatefulWidget {
 class _BasicInfoScreenState extends State<BasicInfoScreen> {
   DateTime? _birthDate;
   Gender? _gender;
+  final _nameController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _nameController.text = DisplayName.fieldValue(
+      suggested:
+          widget.authenticationRepository.currentUser?.suggestedDisplayName,
+    );
     _birthDate = widget.healthPrefill.birthDate;
     _gender = widget.healthPrefill.gender;
     final height = widget.healthPrefill.heightCm;
@@ -63,6 +73,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     super.dispose();
@@ -88,6 +99,13 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
   }
 
   void _goNext() {
+    final displayName = _nameController.text.trim();
+    final nameError = displayNameValidationMessage(displayName);
+    if (nameError != null) {
+      _warn(nameError);
+      return;
+    }
+
     final birthDate = _birthDate;
     if (birthDate == null) {
       _warn('生年月日を選択してください');
@@ -118,6 +136,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
         gender: gender,
         heightCm: height,
         weightKg: weight,
+        displayName: displayName,
       ),
     );
 
@@ -159,7 +178,9 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(child: DesignButton(label: '次へ', onPressed: _goNext)),
+          Expanded(
+            child: DesignButton(label: '次へ', onPressed: _goNext),
+          ),
         ],
       ),
       body: Column(
@@ -169,10 +190,22 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
           Text('基本情報を入力', style: AppTypography.headingXl),
           const SizedBox(height: 4),
           Text(
-            '取得できなかった項目は手入力してください',
+            'ユーザー名は、この画面でも設定からでも変えられます。取得できなかった項目は手入力してください',
             style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: 12),
+          DesignFieldCard(
+            icon: _fieldIcon(AppIcons.user),
+            label: AppStrings.displayName,
+            child: DesignInputBox(
+              child: DesignTextInput(
+                key: const ValueKey('profile_display_name'),
+                controller: _nameController,
+                hintText: AppStrings.displayNameHint,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           DesignFieldCard(
             icon: _fieldIcon(AppIcons.calendar),
             label: '生年月日',

@@ -17,8 +17,11 @@ abstract class AuthenticationRepository {
 
 /// 認証済みユーザー情報。
 class AuthUser {
-  const AuthUser({required this.id, this.email});
+  const AuthUser({required this.id, this.email, this.suggestedDisplayName});
 
   final String id;
   final String? email;
+
+  /// サインインが名前を返したときだけ入る。無ければ null。
+  final String? suggestedDisplayName;
 }

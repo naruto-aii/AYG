@@ -26,6 +26,7 @@ void main() {
           gender: Gender.male,
           heightCm: 172,
           weightKg: 68,
+          displayName: '山田 太郎',
         ),
       );
       await harness.userRepository.saveGoal(
@@ -36,7 +37,9 @@ void main() {
         ),
       );
 
-      expect(await harness.userRepository.loadProfile(), isNotNull);
+      final loaded = await harness.userRepository.loadProfile();
+      expect(loaded?.displayName, '山田 太郎');
+      expect(loaded?.gender, Gender.male);
       expect((await harness.userRepository.loadGoal())?.type, GoalType.lose);
     });
 
@@ -196,6 +199,8 @@ void main() {
       await controller.loadPersistedState();
 
       expect(controller.profile?.weightKg, 55);
+      expect(controller.profile?.gender, Gender.female);
+      expect(controller.profile?.displayName, '');
       expect(controller.goal?.type, GoalType.maintain);
       expect(
         controller.nutritionSettings?.activityLevel,

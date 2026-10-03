@@ -22,18 +22,23 @@ const UserProfileEntitySchema = CollectionSchema(
       name: r'birthDate',
       type: IsarType.dateTime,
     ),
-    r'genderIndex': PropertySchema(
+    r'displayName': PropertySchema(
       id: 1,
+      name: r'displayName',
+      type: IsarType.string,
+    ),
+    r'genderIndex': PropertySchema(
+      id: 2,
       name: r'genderIndex',
       type: IsarType.long,
     ),
     r'heightCm': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'heightCm',
       type: IsarType.double,
     ),
     r'weightKg': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'weightKg',
       type: IsarType.double,
     ),
@@ -58,6 +63,12 @@ int _userProfileEntityEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.displayName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -68,9 +79,10 @@ void _userProfileEntitySerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeDateTime(offsets[0], object.birthDate);
-  writer.writeLong(offsets[1], object.genderIndex);
-  writer.writeDouble(offsets[2], object.heightCm);
-  writer.writeDouble(offsets[3], object.weightKg);
+  writer.writeString(offsets[1], object.displayName);
+  writer.writeLong(offsets[2], object.genderIndex);
+  writer.writeDouble(offsets[3], object.heightCm);
+  writer.writeDouble(offsets[4], object.weightKg);
 }
 
 UserProfileEntity _userProfileEntityDeserialize(
@@ -81,10 +93,11 @@ UserProfileEntity _userProfileEntityDeserialize(
 ) {
   final object = UserProfileEntity();
   object.birthDate = reader.readDateTime(offsets[0]);
-  object.genderIndex = reader.readLong(offsets[1]);
-  object.heightCm = reader.readDouble(offsets[2]);
+  object.displayName = reader.readStringOrNull(offsets[1]);
+  object.genderIndex = reader.readLong(offsets[2]);
+  object.heightCm = reader.readDouble(offsets[3]);
   object.id = id;
-  object.weightKg = reader.readDouble(offsets[3]);
+  object.weightKg = reader.readDouble(offsets[4]);
   return object;
 }
 
@@ -98,10 +111,12 @@ P _userProfileEntityDeserializeProp<P>(
     case 0:
       return (reader.readDateTime(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 3:
+      return (reader.readDouble(offset)) as P;
+    case 4:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');

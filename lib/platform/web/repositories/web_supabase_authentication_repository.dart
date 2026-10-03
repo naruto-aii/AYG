@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
 import '../../../config/supabase_config.dart';
+import '../../../models/display_name.dart';
 import '../../../repositories/auth_exceptions.dart';
 import '../../../repositories/authentication_repository.dart';
 
@@ -66,6 +67,10 @@ class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
     if (user == null) {
       return null;
     }
-    return AuthUser(id: user.id, email: user.email);
+    return AuthUser(
+      id: user.id,
+      email: user.email,
+      suggestedDisplayName: DisplayName.fromUserMetadata(user.userMetadata),
+    );
   }
 }

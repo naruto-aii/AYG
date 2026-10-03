@@ -174,6 +174,7 @@ Future<void> bootstrapWebApp() async {
             alcoholRepository: alcoholRepository,
             weightRepository: weightRepository,
             foodMaster: foodMasterRepositories,
+            healthWorkouts: healthRepository,
           )
         : NoOpDataSyncRepository();
 

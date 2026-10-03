@@ -225,6 +225,8 @@ class FoodMasterRowMapper {
       mealGroupId: row['meal_group_id'] as String?,
       mealGroupName: row['meal_group_name'] as String?,
       sortOrder: (row['sort_order'] as num?)?.toInt(),
+      sourceSavedFoodVersion: (row['source_saved_food_version'] as num?)
+          ?.toInt(),
       loggedAt: DateTime.parse(row['logged_at'] as String),
     );
   }
@@ -253,6 +255,7 @@ class FoodMasterRowMapper {
       'meal_group_id': entry.mealGroupId,
       'meal_group_name': entry.mealGroupName,
       'sort_order': entry.sortOrder,
+      'source_saved_food_version': entry.sourceSavedFoodVersion,
       'logged_at': entry.loggedAt.toIso8601String(),
     };
   }

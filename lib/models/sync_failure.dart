@@ -23,6 +23,7 @@ enum SyncStep {
   fetchSavedFoods('FETCH_SAVED_FOODS'),
   fetchMealTemplates('FETCH_MEAL_TEMPLATES'),
   fetchWorkoutTemplates('FETCH_WORKOUT_TEMPLATES'),
+  fetchHealthWorkouts('FETCH_HEALTH_WORKOUTS'),
   applyRemoteData('APPLY_REMOTE_DATA');
 
   const SyncStep(this.code);

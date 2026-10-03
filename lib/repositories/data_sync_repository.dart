@@ -22,8 +22,11 @@ import 'contracts/workout_template_repository_base.dart';
 import 'contracts/settings_repository_base.dart';
 import 'contracts/user_repository_base.dart';
 import 'contracts/weight_repository_base.dart';
+import '../models/health_profile_data.dart';
 import '../models/sync_failure.dart';
+import '../services/health_workout_sync.dart';
 import 'food_master_repositories.dart';
+import 'health_repository.dart';
 import 'supabase/exercise_entry_row_mapper.dart';
 import 'supabase/food_master_row_mapper.dart';
 import 'supabase/supabase_workout_template_repository.dart';
@@ -105,6 +108,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     required AlcoholRepositoryBase alcoholRepository,
     required WeightRepositoryBase weightRepository,
     FoodMasterRepositories? foodMaster,
+    HealthRepository? healthWorkouts,
     SupabaseClient? client,
   }) : _userRepository = userRepository,
        _settingsRepository = settingsRepository,
@@ -113,6 +117,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
        _alcoholRepository = alcoholRepository,
        _weightRepository = weightRepository,
        _foodMaster = foodMaster,
+       _healthWorkouts = healthWorkouts,
        _client = client ?? Supabase.instance.client;
 
   final UserRepositoryBase _userRepository;
@@ -122,6 +127,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   final AlcoholRepositoryBase _alcoholRepository;
   final WeightRepositoryBase _weightRepository;
   final FoodMasterRepositories? _foodMaster;
+  final HealthRepository? _healthWorkouts;
   final SupabaseClient _client;
 
   @override
@@ -267,6 +273,13 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       operation: 'select',
       action: () => _pullWorkoutTemplates(userId),
     );
+    await runOptionalSyncStep(
+      step: SyncStep.fetchHealthWorkouts,
+      repository: 'SupabaseDataSyncRepository',
+      tableName: 'health_workouts',
+      operation: 'select',
+      action: () => _pullHealthWorkouts(userId),
+    );
   }
 
   @override
@@ -288,6 +301,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pushSavedFoods(userId);
     await _pushMealTemplates(userId);
     await _pushWorkoutTemplates(userId);
+    await _pushHealthWorkouts(userId);
   }
 
   @override
@@ -663,17 +677,28 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _client
-        .from('food_entries')
-        .upsert(
-          entries
-              .map(
-                (entry) =>
-                    FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
-              )
-              .toList(),
-          onConflict: 'user_id,entry_id',
-        );
+    final rows = entries
+        .map(
+          (entry) => FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
+        )
+        .toList();
+    try {
+      await _client
+          .from('food_entries')
+          .upsert(rows, onConflict: 'user_id,entry_id');
+    } on PostgrestException catch (error) {
+      if (!isMissingColumnError(error)) {
+        rethrow;
+      }
+      final fallback = [
+        for (final row in rows)
+          Map<String, dynamic>.from(row)
+            ..remove('source_saved_food_version'),
+      ];
+      await _client
+          .from('food_entries')
+          .upsert(fallback, onConflict: 'user_id,entry_id');
+    }
   }
 
   Future<void> _pullSavedFoods(String userId) async {
@@ -973,6 +998,69 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
           onConflict: 'user_id,entry_id',
         );
   }
+
+  Future<void> _pullHealthWorkouts(String userId) async {
+    final store = _healthWorkouts;
+    if (store == null) {
+      return;
+    }
+    final rows = await _client
+        .from('health_workouts')
+        .select()
+        .eq('user_id', userId);
+    final existing = await store.loadWorkoutRecords();
+    final known = existing.map((record) => record.id).toSet();
+    final incoming = <HealthWorkoutRecord>[];
+    for (final row in rows) {
+      final record = healthWorkoutFromRow(Map<String, dynamic>.from(row));
+      if (known.add(record.id)) {
+        incoming.add(record);
+      }
+    }
+    if (incoming.isEmpty) {
+      return;
+    }
+    await store.saveWorkoutRecords(incoming);
+  }
+
+  Future<void> _pushHealthWorkouts(String userId) async {
+    final store = _healthWorkouts;
+    if (store == null) {
+      return;
+    }
+    final rows = <Map<String, dynamic>>[];
+    for (final record in await store.loadWorkoutRecords()) {
+      final row = healthWorkoutRow(userId: userId, record: record);
+      if (row != null) {
+        rows.add(row);
+      }
+    }
+    if (rows.isEmpty) {
+      return;
+    }
+    try {
+      await _client
+          .from('health_workouts')
+          .upsert(rows, onConflict: 'user_id,workout_id');
+    } catch (error) {
+      if (isOptionalTableMissingError(error)) {
+        return;
+      }
+      rethrow;
+    }
+  }
+}
+
+bool isMissingColumnError(Object error) {
+  if (error is! PostgrestException) {
+    return false;
+  }
+  if (error.code == '42703' || error.code == 'PGRST204') {
+    return true;
+  }
+  final message = '${error.message} ${error.details ?? ''}'.toLowerCase();
+  return message.contains('source_saved_food_version') &&
+      message.contains('column');
 }
 
 /// Supabase 未設定時の no-op 同期。

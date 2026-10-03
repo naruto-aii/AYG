@@ -4,6 +4,7 @@ import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/usage_record.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/web/web_preview_notice.dart';
 import '../food/food_form_navigation.dart';
@@ -32,6 +33,23 @@ class WebMainShellScreen extends StatefulWidget {
 
 class _WebMainShellScreenState extends State<WebMainShellScreen> {
   int _selectedIndex = 0;
+
+  static const _screens = <String>[
+    UsageScreen.home,
+    UsageScreen.food,
+    UsageScreen.workout,
+    UsageScreen.weight,
+    UsageScreen.settings,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.recordScreenAction(
+      screen: _screens[_selectedIndex],
+      action: UsageScreenAction.open,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +94,10 @@ class _WebMainShellScreenState extends State<WebMainShellScreen> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() => _selectedIndex = index);
+          widget.controller.recordScreenAction(
+            screen: _screens[index],
+            action: UsageScreenAction.select,
+          );
         },
         destinations: const [
           NavigationDestination(

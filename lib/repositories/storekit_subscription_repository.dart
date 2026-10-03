@@ -37,6 +37,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   static const expiryKey = 'calonavi_plus_expires_at_ms';
   static const legacyPlusKey = 'calonavi_plus_active';
+  static const entitlementsKey = 'calonavi_plus_entitlements_v1';
 
   final InAppPurchase? _store;
   final SharedPreferences? _preferences;
@@ -46,11 +47,44 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   final StreamController<bool> _plusController =
       StreamController<bool>.broadcast();
+  final StreamController<void> _entitlementSignals =
+      StreamController<void>.broadcast();
   final SubscriptionEntitlementState _entitlement =
       SubscriptionEntitlementState();
+  final Set<String> _confirmedIds = {};
+  final Set<String> _revokedIds = {};
+  final Map<String, DateTime> _lastExpiry = {};
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Timer? _expiryTimer;
   bool _plus = false;
+  bool _productsConfirmed = false;
+  bool _authoritative = false;
+
+  @override
+  List<SubscriptionEntitlementRecord> get confirmedEntitlements => [
+    for (final id in _confirmedIds)
+      if (_entitlement.expiryByProduct[id] != null)
+        SubscriptionEntitlementRecord(
+          productId: id,
+          expiresAt: _entitlement.expiryByProduct[id],
+        ),
+  ];
+
+  @override
+  List<SubscriptionEntitlementRecord> get inactiveEntitlements => [
+    for (final id in _revokedIds)
+      if (SubscriptionCatalog.isPlusProduct(id))
+        SubscriptionEntitlementRecord(
+          productId: id,
+          expiresAt: _lastExpiry[id],
+        ),
+  ];
+
+  @override
+  bool get entitlementAuthoritative => _authoritative;
+
+  @override
+  Stream<void> get entitlementChanges => _entitlementSignals.stream;
 
   @override
   bool get isPlusActive => _plus;
@@ -61,14 +95,31 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   Future<void> initialize() async {
     final prefs = await _prefs();
     await prefs.remove(legacyPlusKey);
-    final stored = prefs.getInt(expiryKey);
-    if (stored != null) {
-      _entitlement.replaceAll([
-        SubscriptionEntitlementRecord(
-          productId: SubscriptionCatalog.monthlyProductId,
-          expiresAt: DateTime.fromMillisecondsSinceEpoch(stored),
-        ),
-      ]);
+    final confirmed = decodeConfirmedEntitlements(
+      prefs.getString(entitlementsKey),
+    );
+    if (confirmed != null) {
+      _entitlement.replaceAll(confirmed);
+      _confirmedIds
+        ..clear()
+        ..addAll(_entitlement.expiryByProduct.keys);
+      _lastExpiry
+        ..clear()
+        ..addAll(_entitlement.expiryByProduct);
+      _productsConfirmed = true;
+    } else {
+      final stored = prefs.getInt(expiryKey);
+      if (stored != null) {
+        // 古い期限キーには商品IDが無い。有料判定だけ月額として扱い、サーバには送らない。
+        _entitlement.replaceAll([
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: DateTime.fromMillisecondsSinceEpoch(stored),
+          ),
+        ]);
+      }
+      _productsConfirmed = false;
+      _confirmedIds.clear();
     }
     _plus = _entitlement.isActive(_clock());
     _purchaseSubscription ??= _updates.listen(_onPurchases);
@@ -195,7 +246,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
               purchase.verificationData.localVerificationData,
             ) !=
             null;
-        _entitlement.apply(
+        _applyRecord(
           SubscriptionEntitlementRecord(
             productId: purchase.productID,
             expiresAt: revoked ? null : _expiryOf(purchase),
@@ -212,12 +263,55 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   Future<void> _refreshEntitlement() async {
     final load = _loadEntitlements ?? _loadStoreEntitlements;
     final result = await load();
+    _authoritative = result.authoritative;
     if (!result.authoritative) {
       await _persist();
       return;
     }
+    final previous = Set<String>.from(_confirmedIds);
+    final remembered = {
+      for (final id in previous) id: _entitlement.expiryByProduct[id],
+    };
     _entitlement.replaceAll(result.records);
+    _confirmedIds
+      ..clear()
+      ..addAll(_entitlement.expiryByProduct.keys);
+    for (final id in _confirmedIds) {
+      final expiry = _entitlement.expiryByProduct[id];
+      if (expiry != null) {
+        _lastExpiry[id] = expiry;
+      }
+      _revokedIds.remove(id);
+    }
+    for (final id in previous.difference(_confirmedIds)) {
+      final expiry = remembered[id];
+      if (expiry != null) {
+        _lastExpiry[id] = expiry;
+      }
+      _revokedIds.add(id);
+    }
+    _productsConfirmed = true;
     await _persist();
+  }
+
+  void _applyRecord(SubscriptionEntitlementRecord record) {
+    if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+      return;
+    }
+    final before = _entitlement.expiryByProduct[record.productId];
+    _entitlement.apply(record);
+    if (record.expiresAt == null) {
+      if (before != null) {
+        _lastExpiry[record.productId] = before;
+      }
+      _confirmedIds.remove(record.productId);
+      _revokedIds.add(record.productId);
+    } else {
+      _lastExpiry[record.productId] = record.expiresAt!;
+      _confirmedIds.add(record.productId);
+      _revokedIds.remove(record.productId);
+    }
+    _productsConfirmed = true;
   }
 
   Future<EntitlementLoad> _loadStoreEntitlements() async {
@@ -297,7 +391,14 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     } else {
       await prefs.setInt(expiryKey, expiry.millisecondsSinceEpoch);
     }
+    if (_productsConfirmed) {
+      await prefs.setString(
+        entitlementsKey,
+        encodeConfirmedEntitlements(_entitlement.expiryByProduct),
+      );
+    }
     _scheduleExpiryCheck();
+    _signalEntitlementSync();
     final active = _entitlement.isActive(_clock());
     if (active == _plus) {
       return;
@@ -324,6 +425,16 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     });
   }
 
+  void _signalEntitlementSync() {
+    if (!_productsConfirmed && _revokedIds.isEmpty) {
+      return;
+    }
+    if (_entitlementSignals.isClosed) {
+      return;
+    }
+    _entitlementSignals.add(null);
+  }
+
   Future<SharedPreferences> _prefs() async {
     return _preferences ?? await SharedPreferences.getInstance();
   }
@@ -332,5 +443,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     _expiryTimer?.cancel();
     await _purchaseSubscription?.cancel();
     await _plusController.close();
+    await _entitlementSignals.close();
   }
 }

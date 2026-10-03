@@ -2,6 +2,21 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261003160000 device usage tables
+
+新しい4表だけを消す。食事、体重、運動、目標、ヘルスケアの行は消さない。2回実行しても失敗しない。先にアプリを、この表へ書かない版へ戻してから流す。
+
+`supabase/rollback/20261003160000_device_usage_tables_down.sql`
+
+消える表:
+
+- `calonavi_plus_entitlements`（カロナビ+の商品ID、期限、状態）
+- `food_search_queries`（食品の検索語）
+- `exercise_search_queries`（運動種目の検索語）
+- `app_screen_actions`（画面の操作）
+
+適用後にこれらの表へ書いた行は、このダウンで失われる。それ以外の表は残る。`delete_own_account` は、この4表を消す前の本体へ戻る。
+
 ## 20260930120000 daily calorie target
 
 列を足しただけです。行は消しません。2回実行しても失敗しません。先にアプリを、この列を読まない版へ戻してから流します。

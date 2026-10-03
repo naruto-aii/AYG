@@ -115,6 +115,23 @@ void main() {
     expect(decoded.single.entries.single.id, meal.entries.single.id);
     expect(decoded.single.entries.single.mealGroupId, meal.mealGroupId);
     expect(decoded.single.entries.single.savedFoodId, 'food-rice');
+    expect(decoded.single.surface, isNull);
+
+    final withSurface = PendingLockScreenMeal(
+      registrationId: meal.registrationId,
+      ownerUserId: meal.ownerUserId,
+      slot: meal.slot,
+      templateId: meal.templateId,
+      mealGroupId: meal.mealGroupId,
+      mealGroupName: meal.mealGroupName,
+      loggedAt: meal.loggedAt,
+      entries: meal.entries,
+      surface: 'lock',
+    );
+    final surfaced = LockScreenMealCodec.decodePending(
+      LockScreenMealCodec.encodePending([withSurface]),
+    );
+    expect(surfaced.single.surface, 'lock');
   });
 
   test('paid flag defaults to false', () {

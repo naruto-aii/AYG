@@ -77,6 +77,15 @@ three columns again. CI job `sql-pr31-then-pr29` applies this branch
 first and PR #29 second, then inserts, updates, and publishes a My Food
 as `authenticated`.
 
+### Device usage tables (`20261003160000`)
+
+`calonavi_plus_entitlements`, `food_search_queries`,
+`exercise_search_queries`, and `app_screen_actions` are new tables.
+`anon` has no privileges. `authenticated` can select its own rows.
+Entitlements also allow insert and update. The search and screen tables
+are insert-only for the client. `advertising_use` must stay false.
+Rollback drops only these four tables.
+
 ### `supabase_admin` default privileges
 
 Migration runner (`postgres`) may lack permission to

@@ -71,6 +71,8 @@ import '../config/official_foods_flag.dart';
 import '../config/supabase_config.dart';
 import '../repositories/subscription_repository.dart';
 import '../repositories/unavailable_subscription_repository.dart';
+import '../repositories/usage_record_repository.dart';
+import '../services/usage_record.dart';
 import '../services/lock_screen_meal.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
@@ -119,6 +121,7 @@ class AppController extends ChangeNotifier {
     LockScreenMealGateway? lockScreenMealGateway,
     SiriVoiceGateway? siriVoiceGateway,
     SubscriptionRepository? subscriptionRepository,
+    UsageRecordRepository? usageRecordRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -142,6 +145,7 @@ class AppController extends ChangeNotifier {
        _siriVoiceGateway = siriVoiceGateway,
        _subscriptionRepository =
            subscriptionRepository ?? UnavailableSubscriptionRepository(),
+       _usageRecordRepository = usageRecordRepository,
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -175,7 +179,9 @@ class AppController extends ChangeNotifier {
   final LockScreenMealGateway? _lockScreenMealGateway;
   final SiriVoiceGateway? _siriVoiceGateway;
   final SubscriptionRepository _subscriptionRepository;
+  final UsageRecordRepository? _usageRecordRepository;
   StreamSubscription<bool>? _plusSubscription;
+  StreamSubscription<void>? _entitlementSyncSubscription;
 
   SubscriptionRepository get subscriptionRepository => _subscriptionRepository;
   bool _firstMealGuideSeen = false;
@@ -426,6 +432,7 @@ class AppController extends ChangeNotifier {
       );
       await syncLockScreenMeals();
       await syncSiriVoiceLogs();
+      await _syncPlusEntitlement();
       _lastSyncFailed = false;
       _syncFailure = null;
     } on SyncStepException catch (error) {
@@ -556,6 +563,10 @@ class AppController extends ChangeNotifier {
     if (store != null) {
       unawaited(store.markSeen());
     }
+    recordScreenAction(
+      screen: UsageScreen.firstMealGuide,
+      action: UsageScreenAction.open,
+    );
   }
 
   void setProfile(UserProfile value) {
@@ -1632,6 +1643,7 @@ class AppController extends ChangeNotifier {
       return const [];
     }
 
+    _recordFoodSearch(FoodSearchSources.savedFood, query);
     final results = await repository.searchOwn(
       ownerUserId: currentOwnerUserId,
       query: query,
@@ -1735,6 +1747,7 @@ class AppController extends ChangeNotifier {
       return const [];
     }
 
+    _recordFoodSearch(FoodSearchSources.publicFood, query);
     try {
       final candidates = await repository.searchPublic(query: query);
       final ratingsByKey = <String, ({int goodCount, int badCount})>{};
@@ -2104,6 +2117,7 @@ class AppController extends ChangeNotifier {
     if (repository == null) {
       return const [];
     }
+    _recordFoodSearch(FoodSearchSources.mealTemplate, query);
     final results = await repository.search(
       ownerUserId: currentOwnerUserId,
       query: query,
@@ -2195,6 +2209,7 @@ class AppController extends ChangeNotifier {
     if (repository == null) {
       return const [];
     }
+    _recordExerciseSearch(ExerciseSearchSources.workoutTemplate, query);
     final results = await repository.search(
       ownerUserId: currentOwnerUserId,
       query: query,
@@ -2531,6 +2546,65 @@ class AppController extends ChangeNotifier {
     _plusSubscription ??= _subscriptionRepository.plusChanges.listen((_) {
       unawaited(_applyPaidEntitlement());
     });
+    _entitlementSyncSubscription ??= _subscriptionRepository.entitlementChanges
+        .listen((_) {
+          unawaited(_syncPlusEntitlement());
+        });
+  }
+
+  Future<void> _syncPlusEntitlement() async {
+    final usage = _usageRecordRepository;
+    if (usage == null || !isAuthenticated) {
+      return;
+    }
+    await usage.syncPlusEntitlements(
+      confirmed: _subscriptionRepository.confirmedEntitlements,
+      inactive: _subscriptionRepository.inactiveEntitlements,
+      authoritative: _subscriptionRepository.entitlementAuthoritative,
+    );
+  }
+
+  void recordFoodSearch({required String source, required String query}) {
+    _recordFoodSearch(source, query);
+  }
+
+  void recordExerciseSearch({required String source, required String query}) {
+    _recordExerciseSearch(source, query);
+  }
+
+  void recordScreenAction({required String screen, required String action}) {
+    final usage = _usageRecordRepository;
+    if (usage == null) {
+      return;
+    }
+    if (!screenActionAllowed(screen: screen, action: action)) {
+      return;
+    }
+    unawaited(usage.recordScreenAction(screen: screen, action: action));
+  }
+
+  void _recordFoodSearch(String source, String query) {
+    final usage = _usageRecordRepository;
+    final trimmed = query.trim();
+    if (usage == null || trimmed.isEmpty) {
+      return;
+    }
+    if (!foodSearchSourceAllowed(source)) {
+      return;
+    }
+    unawaited(usage.recordFoodSearch(source: source, query: trimmed));
+  }
+
+  void _recordExerciseSearch(String source, String query) {
+    final usage = _usageRecordRepository;
+    final trimmed = query.trim();
+    if (usage == null || trimmed.isEmpty) {
+      return;
+    }
+    if (!exerciseSearchSourceAllowed(source)) {
+      return;
+    }
+    unawaited(usage.recordExerciseSearch(source: source, query: trimmed));
   }
 
   Future<void> _applyPaidEntitlement() async {
@@ -2694,6 +2768,17 @@ class AppController extends ChangeNotifier {
     if (plan.entries.isNotEmpty) {
       await addFoodEntriesBatch(plan.entries);
       await _countLockScreenTemplateUses(plan.templateIds);
+    }
+    final acknowledged = plan.acknowledgeIds.toSet();
+    for (final meal in pending) {
+      if (!acknowledged.contains(meal.registrationId)) {
+        continue;
+      }
+      final action = widgetSurfaceAction(meal.surface);
+      if (action == null) {
+        continue;
+      }
+      recordScreenAction(screen: action.screen, action: action.action);
     }
     await gateway.acknowledge(plan.acknowledgeIds);
   }
@@ -3101,6 +3186,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     _authSubscription?.cancel();
     _plusSubscription?.cancel();
+    _entitlementSyncSubscription?.cancel();
     super.dispose();
   }
 }

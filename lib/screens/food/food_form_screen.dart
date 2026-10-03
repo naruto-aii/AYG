@@ -16,6 +16,7 @@ import '../../models/meal_template_draft.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
+import '../../services/usage_record.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -859,6 +860,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             ),
             OfficialFoodSearchSection(
               query: _nameController,
+              onSearched: (query) => widget.controller.recordFoodSearch(
+                source: FoodSearchSources.officialFood,
+                query: query,
+              ),
               onSelected: (match) =>
                   openOfficialFoodDetail(context, widget.controller, match),
             ),

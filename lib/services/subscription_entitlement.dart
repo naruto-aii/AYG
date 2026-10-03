@@ -103,3 +103,54 @@ DateTime _dateFromEpoch(num value) {
   final millis = value.abs() >= 1000000000000 ? value : value * 1000;
   return DateTime.fromMillisecondsSinceEpoch(millis.round(), isUtc: true);
 }
+
+/// 端末に商品IDと期限だけを残す。レシート本文、検証データ、トークンは書かない。
+///
+/// キーが無いときは null。空配列は「ストアが商品を返さなかった」で、期限だけの
+/// 古いキーへは戻さない。
+List<SubscriptionEntitlementRecord>? decodeConfirmedEntitlements(String? raw) {
+  if (raw == null) {
+    return null;
+  }
+  Object? decoded;
+  try {
+    decoded = jsonDecode(raw);
+  } catch (_) {
+    return null;
+  }
+  if (decoded is! List) {
+    return null;
+  }
+  final records = <SubscriptionEntitlementRecord>[];
+  for (final row in decoded) {
+    if (row is! Map) {
+      continue;
+    }
+    final productId = row['productId'];
+    final millis = row['expiresAtMs'];
+    if (productId is! String || !SubscriptionCatalog.isPlusProduct(productId)) {
+      continue;
+    }
+    if (millis is! int) {
+      continue;
+    }
+    records.add(
+      SubscriptionEntitlementRecord(
+        productId: productId,
+        expiresAt: DateTime.fromMillisecondsSinceEpoch(millis),
+      ),
+    );
+  }
+  return records;
+}
+
+String encodeConfirmedEntitlements(Map<String, DateTime> expiryByProduct) {
+  return jsonEncode([
+    for (final entry in expiryByProduct.entries)
+      if (SubscriptionCatalog.isPlusProduct(entry.key))
+        {
+          'productId': entry.key,
+          'expiresAtMs': entry.value.millisecondsSinceEpoch,
+        },
+  ]);
+}

@@ -135,4 +135,27 @@ void main() {
     );
     expect(empty.canPurchase, isFalse);
   });
+
+  test('confirmed entitlement json keeps product id and expiry only', () {
+    final expiry = DateTime.utc(2026, 10, 3);
+    final encoded = encodeConfirmedEntitlements({
+      SubscriptionCatalog.yearlyProductId: expiry,
+    });
+    expect(encoded.contains('receipt'), isFalse);
+    expect(encoded.contains('token'), isFalse);
+    expect(encoded.contains('verification'), isFalse);
+    expect(encoded.contains(SubscriptionCatalog.yearlyProductId), isTrue);
+
+    final decoded = decodeConfirmedEntitlements(
+      '[{"productId":"${SubscriptionCatalog.monthlyProductId}","expiresAtMs":${expiry.millisecondsSinceEpoch},"localVerificationData":"secret","purchaseToken":"tok"}]',
+    );
+    expect(decoded, hasLength(1));
+    expect(decoded!.single.productId, SubscriptionCatalog.monthlyProductId);
+    expect(
+      decoded.single.expiresAt?.millisecondsSinceEpoch,
+      expiry.millisecondsSinceEpoch,
+    );
+    expect(decodeConfirmedEntitlements('[]'), isEmpty);
+    expect(decodeConfirmedEntitlements(null), isNull);
+  });
 }

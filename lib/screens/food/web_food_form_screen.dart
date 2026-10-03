@@ -13,6 +13,7 @@ import '../../models/saved_food.dart';
 import '../../platform/web/web_barcode_scanner_screen.dart';
 import '../../platform/web/web_barcode_support.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
+import '../../services/usage_record.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/source_food_edit_policy.dart';
 import '../../widgets/food/source_food_update_dialog.dart';
@@ -646,6 +647,10 @@ class _WebFoodFormScreenState extends State<WebFoodFormScreen> {
                 ),
                 OfficialFoodSearchSection(
                   query: _nameController,
+                  onSearched: (query) => widget.controller.recordFoodSearch(
+                    source: FoodSearchSources.officialFood,
+                    query: query,
+                  ),
                   onSelected: (match) =>
                       openOfficialFoodDetail(context, widget.controller, match),
                 ),

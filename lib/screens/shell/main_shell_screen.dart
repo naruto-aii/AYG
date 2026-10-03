@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/usage_record.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/design/design_tab_bar.dart';
@@ -46,6 +47,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
   @override
   void initState() {
     super.initState();
+    widget.controller.recordScreenAction(
+      screen: _selected.name,
+      action: UsageScreenAction.open,
+    );
     if (!widget.controller.shouldOfferFirstMealGuide) {
       return;
     }
@@ -66,6 +71,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   void _selectTab(ShellTab tab) {
     setState(() => _selected = tab);
+    widget.controller.recordScreenAction(
+      screen: tab.name,
+      action: UsageScreenAction.select,
+    );
   }
 
   void _openHistoryCalendar() {

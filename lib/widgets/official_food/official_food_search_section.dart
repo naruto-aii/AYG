@@ -21,6 +21,7 @@ class OfficialFoodSearchSection extends StatefulWidget {
     super.key,
     required this.query,
     required this.onSelected,
+    this.onSearched,
     this.repository,
     this.active = true,
     this.debounce = const Duration(milliseconds: 250),
@@ -28,6 +29,9 @@ class OfficialFoodSearchSection extends StatefulWidget {
 
   final TextEditingController query;
   final ValueChanged<OfficialFoodMatch> onSelected;
+
+  /// デバウンス後に実際へ渡した検索語。結果は渡さない。
+  final ValueChanged<String>? onSearched;
   final OfficialFoodRepository? repository;
   final bool active;
   final Duration debounce;
@@ -90,6 +94,7 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
   Future<void> _search(String query) async {
     final repository = widget.repository ?? SupabaseOfficialFoodRepository();
     final token = ++_request;
+    widget.onSearched?.call(query);
     final rows = await repository.search(query);
     if (!mounted || token != _request) {
       return;

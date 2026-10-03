@@ -77,6 +77,16 @@ three columns again. CI job `sql-pr31-then-pr29` applies this branch
 first and PR #29 second, then inserts, updates, and publishes a My Food
 as `authenticated`.
 
+### Account display names (`20261003180000`)
+
+`account_display_names` copies `profiles.display_name` when the name is
+1 to 40 characters. It does not copy gender, birth date, height, weight,
+receipts, or purchase tokens. `anon` has no privileges. `authenticated`
+can select its own row and cannot insert, update, or delete.
+`internal.sync_account_display_name` is `security definer` outside
+`public`, and runs after a profile insert or a change to `display_name`.
+Existing profile rows are not deleted. Rollback drops only this copy.
+
 ### Device usage tables (`20261003160000`)
 
 `calonavi_plus_entitlements`, `food_search_queries`,

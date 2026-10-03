@@ -7,6 +7,7 @@ import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/screens/settings/how_to_use_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
@@ -126,6 +127,44 @@ void main() {
 
     expect(find.text('support@ayg.life'), findsOneWidget);
     expect(find.textContaining('calonavi.ayg.support@gmail.com'), findsNothing);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('SettingsScreen opens 使い方 on iOS and the web shell', (
+    WidgetTester tester,
+  ) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    );
+    final controller = createController(authRepository: authRepository);
+
+    Future<void> openHowTo({required bool webShell}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SettingsScreen(
+            controller: controller,
+            authenticationRepository: authRepository,
+            hideHealthSettings: webShell,
+            showLockScreenMeal: !webShell,
+          ),
+        ),
+      );
+      await tester.scrollUntilVisible(find.text('使い方'), 200);
+      await tester.tap(find.text('使い方'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HowToUseScreen), findsOneWidget);
+      expect(find.text('使い方'), findsWidgets);
+      expect(find.textContaining('今日あと'), findsOneWidget);
+      expect(find.textContaining('カロナビ+'), findsOneWidget);
+      expect(find.textContaining('写真'), findsNothing);
+      Navigator.of(tester.element(find.byType(HowToUseScreen))).pop();
+      await tester.pumpAndSettle();
+    }
+
+    await openHowTo(webShell: true);
+    await openHowTo(webShell: false);
 
     await authRepository.dispose();
   });

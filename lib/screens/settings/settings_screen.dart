@@ -19,6 +19,7 @@ import '../legal/legal_document_screen.dart';
 import '../subscription/calonavi_plus_flow.dart';
 import 'calculation_references_screen.dart';
 import 'data_source_screen.dart';
+import 'how_to_use_screen.dart';
 import 'lock_screen_meal_screen.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
@@ -150,6 +151,13 @@ class SettingsScreen extends StatelessWidget {
             title: 'ログイン中',
             subtitle: email ?? 'アカウント情報の確認・変更',
             showChevron: false,
+          ),
+          const SizedBox(height: _rowGap),
+          SettingsRow(
+            icon: AppIcons.information,
+            title: '使い方',
+            subtitle: '食事、残りカロリー、目標、運動',
+            onTap: () => _push(context, const HowToUseScreen()),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(

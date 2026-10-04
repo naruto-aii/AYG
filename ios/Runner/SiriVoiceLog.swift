@@ -739,7 +739,7 @@ struct LogSpokenFoodIntent: AppIntent {
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
-  var kind: SiriSpokenKind? = nil
+  var kind: SiriSpokenKind?
 
   init() {
     self.foodName = ""
@@ -780,7 +780,7 @@ struct LogSpokenExerciseIntent: AppIntent {
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
-  var kind: SiriSpokenKind? = nil
+  var kind: SiriSpokenKind?
 
   init() {
     self.activityName = ""
@@ -818,7 +818,7 @@ struct LogSpokenEntryIntent: AppIntent {
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
-  var kind: SiriSpokenKind? = nil
+  var kind: SiriSpokenKind?
 
   init() {
     self.utterance = ""

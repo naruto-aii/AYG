@@ -147,6 +147,7 @@ class DesignTextInput extends StatelessWidget {
       key: inputKey,
       controller: controller,
       keyboardType: keyboardType,
+      textInputAction: maxLines == 1 ? TextInputAction.done : null,
       inputFormatters: inputFormatters,
       onChanged: onChanged,
       maxLines: maxLines,

@@ -32,9 +32,11 @@ class _FixedOfficialFoods implements OfficialFoodRepository {
   _FixedOfficialFoods(this.rows);
 
   final List<OfficialFoodMatch> rows;
+  int calls = 0;
 
   @override
   Future<List<OfficialFoodMatch>> search(String query, {int limit = 30}) async {
+    calls++;
     return rows;
   }
 }
@@ -175,6 +177,37 @@ void main() {
       expect(find.textContaining('まぐろ類'), findsNothing);
     },
   );
+
+  testWidgets('moving the cursor does not search the same word again', (
+    tester,
+  ) async {
+    OfficialFoodsFlag.debugOverride = true;
+    final query = TextEditingController(text: 'ご飯');
+    addTearDown(query.dispose);
+    final repository = _FixedOfficialFoods(const [
+      OfficialFoodMatch(foodCode: '01088', name: '精白米', kcal: 156),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OfficialFoodSearchSection(
+            query: query,
+            debounce: Duration.zero,
+            repository: repository,
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(repository.calls, 1);
+
+    query.selection = const TextSelection.collapsed(offset: 1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(repository.calls, 1);
+  });
 
   testWidgets('data source screen shows how the numbers are stored', (
     tester,

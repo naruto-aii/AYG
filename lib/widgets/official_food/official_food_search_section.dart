@@ -45,6 +45,9 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
   List<OfficialFoodMatch> _results = const [];
   Timer? _timer;
   int _request = 0;
+  String? _scheduledQuery;
+  bool _inFlight = false;
+  String? _pendingQuery;
 
   @override
   void initState() {
@@ -62,6 +65,7 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
     }
     if (oldWidget.active != widget.active ||
         oldWidget.repository != widget.repository) {
+      _scheduledQuery = null;
       _schedule();
     }
   }
@@ -76,33 +80,57 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
   void _schedule() {
     _timer?.cancel();
     if (!widget.active || !OfficialFoodsFlag.enabled) {
+      _scheduledQuery = null;
+      _pendingQuery = null;
+      _request++;
       if (_results.isNotEmpty && mounted) {
         setState(() => _results = const []);
       }
       return;
     }
     final query = widget.query.text.trim();
+    // カーソル移動でもコントローラは通知する。同じ語の再検索はしない。
+    if (query == _scheduledQuery) {
+      return;
+    }
+    _scheduledQuery = query;
     if (query.isEmpty) {
+      _pendingQuery = null;
+      _request++;
       if (_results.isNotEmpty && mounted) {
         setState(() => _results = const []);
       }
       return;
     }
-    _timer = Timer(widget.debounce, () => _search(query));
+    _timer = Timer(widget.debounce, () => unawaited(_search(query)));
   }
 
   Future<void> _search(String query) async {
+    if (_inFlight) {
+      _pendingQuery = query;
+      return;
+    }
+    _inFlight = true;
     final repository = widget.repository ?? SupabaseOfficialFoodRepository();
     final token = ++_request;
     widget.onSearched?.call(query);
-    final rows = await repository.search(query);
-    if (!mounted || token != _request) {
-      return;
+    try {
+      final rows = await repository.search(query);
+      if (!mounted || token != _request) {
+        return;
+      }
+      if (widget.query.text.trim() != query) {
+        return;
+      }
+      setState(() => _results = rows);
+    } finally {
+      _inFlight = false;
+      final pending = _pendingQuery;
+      _pendingQuery = null;
+      if (pending != null && pending != query && mounted) {
+        await _search(pending);
+      }
     }
-    if (widget.query.text.trim() != query) {
-      return;
-    }
-    setState(() => _results = rows);
   }
 
   String _subtitle(OfficialFoodMatch match) {

@@ -1826,23 +1826,43 @@ class AppController extends ChangeNotifier {
         : await searchOwnSavedFoods(trimmed);
     final templates = await searchMealTemplates(trimmed);
 
-    final itemCounts = <String, int>{};
-    final mealRepo = _mealTemplateRepository;
-    if (mealRepo != null) {
-      for (final template in templates) {
-        final items = await mealRepo.getItems(
-          ownerUserId: currentOwnerUserId,
-          templateId: template.templateId,
-        );
-        itemCounts[template.templateId] = items.length;
-      }
-    }
-
-    return _searchSuggestionService.rankFoodFormSuggestions(
+    final ranked = _searchSuggestionService.rankFoodFormSuggestions(
       foods: foods,
       templates: templates,
-      templateItemCounts: itemCounts,
+      templateItemCounts: const {},
     );
+    final mealRepo = _mealTemplateRepository;
+    if (mealRepo == null) {
+      return ranked;
+    }
+
+    // 画面に出す5件だけ品数を数える。全テンプレートを毎回読むと入力のたびに止まる。
+    final shownTemplates = ranked
+        .whereType<MealTemplateFormSuggestion>()
+        .take(5)
+        .toList();
+    if (shownTemplates.isEmpty) {
+      return ranked;
+    }
+    final itemCounts = <String, int>{};
+    for (final suggestion in shownTemplates) {
+      final items = await mealRepo.getItems(
+        ownerUserId: currentOwnerUserId,
+        templateId: suggestion.template.templateId,
+      );
+      itemCounts[suggestion.template.templateId] = items.length;
+    }
+    return [
+      for (final suggestion in ranked)
+        if (suggestion is MealTemplateFormSuggestion &&
+            itemCounts.containsKey(suggestion.template.templateId))
+          MealTemplateFormSuggestion(
+            suggestion.template,
+            itemCount: itemCounts[suggestion.template.templateId]!,
+          )
+        else
+          suggestion,
+    ];
   }
 
   Future<List<WorkoutTemplate>> getWorkoutTemplateSuggestions() async {

@@ -17,6 +17,7 @@ import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../../widgets/history/history_tab_body.dart';
+import '../../widgets/layout/active_tab_listenable_builder.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../history/history_calendar_screen.dart';
 import '../meal_template/meal_template_list_screen.dart';
@@ -163,9 +164,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
+    return ActiveTabListenableBuilder(
       listenable: widget.controller,
-      builder: (context, child) {
+      builder: (context) {
         final day = _selectedDate;
         final foods = sortFoodEntriesByLoggedAt(
           widget.controller.foodEntries

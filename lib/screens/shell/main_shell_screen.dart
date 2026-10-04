@@ -10,6 +10,7 @@ import '../../services/usage_record.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/design/design_tab_bar.dart';
+import '../../widgets/layout/active_tab_listenable_builder.dart';
 import '../../widgets/layout/app_responsive.dart';
 import '../../widgets/layout/app_sidebar_navigation.dart';
 import '../food/food_form_navigation.dart';
@@ -47,10 +48,12 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen> {
   ShellTab _selected = ShellTab.home;
   bool _askingForReview = false;
+  late List<Widget> _tabs;
 
   @override
   void initState() {
     super.initState();
+    _tabs = _buildTabs();
     widget.controller.reviewPromptTick.addListener(_onReviewPrompt);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onReviewPrompt());
     widget.controller.recordScreenAction(
@@ -76,9 +79,63 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 
   @override
+  void didUpdateWidget(MainShellScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.openFoodFactsService != widget.openFoodFactsService ||
+        oldWidget.authenticationRepository != widget.authenticationRepository ||
+        oldWidget.healthRepository != widget.healthRepository ||
+        oldWidget.foodFormBuilder != widget.foodFormBuilder) {
+      _tabs = _buildTabs();
+    }
+  }
+
+  @override
   void dispose() {
     widget.controller.reviewPromptTick.removeListener(_onReviewPrompt);
     super.dispose();
+  }
+
+  List<Widget> _buildTabs() {
+    return [
+      FoodTabScreen(
+        controller: widget.controller,
+        openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: widget.foodFormBuilder,
+      ),
+      WorkoutTabScreen(
+        controller: widget.controller,
+        openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: widget.foodFormBuilder,
+      ),
+      HomeScreen(
+        controller: widget.controller,
+        openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: widget.foodFormBuilder,
+        onOpenHistoryCalendar: _openHistoryCalendar,
+        onOpenWorkoutTab: () => _selectTab(ShellTab.workout),
+        onOpenWeightTab: () => _selectTab(ShellTab.weight),
+      ),
+      WeightTabScreen(controller: widget.controller),
+      SettingsScreen(
+        controller: widget.controller,
+        authenticationRepository: widget.authenticationRepository,
+        healthRepository: widget.healthRepository,
+        openFoodFactsService: widget.openFoodFactsService,
+        showLockScreenMeal:
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
+      ),
+    ];
+  }
+
+  Widget _tabStack() {
+    return IndexedStack(
+      index: _selected.index,
+      children: [
+        for (var i = 0; i < _tabs.length; i++)
+          ShellTabActive(active: i == _selected.index, child: _tabs[i]),
+      ],
+    );
   }
 
   void _onReviewPrompt() {
@@ -129,36 +186,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      FoodTabScreen(
-        controller: widget.controller,
-        openFoodFactsService: widget.openFoodFactsService,
-        foodFormBuilder: widget.foodFormBuilder,
-      ),
-      WorkoutTabScreen(
-        controller: widget.controller,
-        openFoodFactsService: widget.openFoodFactsService,
-        foodFormBuilder: widget.foodFormBuilder,
-      ),
-      HomeScreen(
-        controller: widget.controller,
-        openFoodFactsService: widget.openFoodFactsService,
-        foodFormBuilder: widget.foodFormBuilder,
-        onOpenHistoryCalendar: _openHistoryCalendar,
-        onOpenWorkoutTab: () => _selectTab(ShellTab.workout),
-        onOpenWeightTab: () => _selectTab(ShellTab.weight),
-      ),
-      WeightTabScreen(controller: widget.controller),
-      SettingsScreen(
-        controller: widget.controller,
-        authenticationRepository: widget.authenticationRepository,
-        healthRepository: widget.healthRepository,
-        openFoodFactsService: widget.openFoodFactsService,
-        showLockScreenMeal:
-            !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
-      ),
-    ];
-
     if (isDesktopLayout(context)) {
       return Scaffold(
         body: Row(
@@ -170,9 +197,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
                   _selectTab(ShellTab.values[index]),
             ),
             const VerticalDivider(width: 1, thickness: 1),
-            Expanded(
-              child: IndexedStack(index: _selected.index, children: screens),
-            ),
+            Expanded(child: _tabStack()),
           ],
         ),
       );
@@ -180,7 +205,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bgPage,
-      body: IndexedStack(index: _selected.index, children: screens),
+      body: _tabStack(),
       bottomNavigationBar: DesignTabBar(
         selectedIndex: _selected.index,
         onSelected: (index) => _selectTab(ShellTab.values[index]),

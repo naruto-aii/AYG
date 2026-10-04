@@ -15,6 +15,7 @@ import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
+import '../../widgets/layout/active_tab_listenable_builder.dart';
 import '../../widgets/design/home_parts.dart';
 import '../exercise/exercise_form_screen.dart';
 import '../food/food_form_navigation.dart';
@@ -141,9 +142,9 @@ class _WorkoutTabScreenState extends State<WorkoutTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
+    return ActiveTabListenableBuilder(
       listenable: widget.controller,
-      builder: (context, child) {
+      builder: (context) {
         final groups = groupExerciseEntriesByDate(
           widget.controller.exerciseEntries,
           referenceDate: _selectedDate,

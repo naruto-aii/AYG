@@ -99,6 +99,7 @@ class ExerciseEntry {
     String? calculationVersion,
     String? sourceKey,
     String? notes,
+    bool clearNotes = false,
   }) {
     return ExerciseEntry(
       id: id ?? this.id,
@@ -120,7 +121,7 @@ class ExerciseEntry {
       calculationSource: calculationSource ?? this.calculationSource,
       calculationVersion: calculationVersion ?? this.calculationVersion,
       sourceKey: sourceKey ?? this.sourceKey,
-      notes: notes ?? this.notes,
+      notes: clearNotes ? null : notes ?? this.notes,
     );
   }
 }

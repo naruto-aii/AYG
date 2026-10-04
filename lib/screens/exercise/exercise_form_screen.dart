@@ -247,7 +247,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       calculationVersion:
           _metState.calculationVersion ?? MetActivityCatalog.calculationVersion,
       sourceKey: _metState.sourceKey,
-      notes: notes.isEmpty ? null : notes,
+      notes: widget.controller.storedExerciseNotes(notes),
     );
   }
 

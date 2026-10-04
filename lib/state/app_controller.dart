@@ -1035,6 +1035,26 @@ class AppController extends ChangeNotifier {
     return trimmed.substring(0, foodMemoMaxLength);
   }
 
+  /// 空と、カロナビ+が無いときの運動メモは保存しない。
+  String? storedExerciseNotes(String? notes) {
+    final trimmed = notes?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    if (!_subscriptionRepository.isPlusActive) {
+      return null;
+    }
+    return trimmed;
+  }
+
+  ExerciseEntry _exerciseEntryForStorage(ExerciseEntry entry) {
+    final notes = storedExerciseNotes(entry.notes);
+    if (notes == entry.notes) {
+      return entry;
+    }
+    return entry.copyWith(notes: notes, clearNotes: notes == null);
+  }
+
   Future<bool> repeatRecentFood(
     FoodEntry source, {
     double? consumedAmount,
@@ -1299,13 +1319,14 @@ class AppController extends ChangeNotifier {
     ExerciseEntry entry, {
     ReviewRecordOrigin origin = ReviewRecordOrigin.app,
   }) async {
+    final stored = _exerciseEntryForStorage(entry);
     final daysBefore = _reviewLoggedDays();
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
-      await exerciseRepository.save(entry);
+      await exerciseRepository.save(stored);
       await _reloadExerciseEntries();
     } else {
-      exerciseEntries.add(entry);
+      exerciseEntries.add(stored);
     }
     _scheduleRemoteSync();
     refreshDailySummary();
@@ -1334,16 +1355,17 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateExercise(ExerciseEntry entry) async {
+    final stored = _exerciseEntryForStorage(entry);
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
-      await exerciseRepository.save(entry);
+      await exerciseRepository.save(stored);
       await _reloadExerciseEntries();
     } else {
-      final index = exerciseEntries.indexWhere((item) => item.id == entry.id);
+      final index = exerciseEntries.indexWhere((item) => item.id == stored.id);
       if (index == -1) {
         return;
       }
-      exerciseEntries[index] = entry;
+      exerciseEntries[index] = stored;
     }
     _scheduleRemoteSync();
     refreshDailySummary();

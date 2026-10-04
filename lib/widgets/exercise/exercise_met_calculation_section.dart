@@ -22,6 +22,7 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../screens/settings/calculation_references_screen.dart';
+import '../../screens/subscription/plus_gate.dart';
 
 /// 運動フォーム内の MET 自動計算（種目1回 + 分量 + 追加消費）。
 class ExerciseMetCalculationSection extends StatefulWidget {
@@ -800,6 +801,39 @@ class _ExerciseMetCalculationSectionState
     );
   }
 
+  Widget _notesField() {
+    final notesController = widget.notesController;
+    if (notesController == null) {
+      return const SizedBox.shrink();
+    }
+    final plus = widget.controller.subscriptionRepository.isPlusActive;
+    if (!plus) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: () async {
+            final allowed = await ensureCalonaviPlus(
+              context,
+              widget.controller,
+              message: '運動のメモは、カロナビ+です。',
+            );
+            if (allowed && mounted) {
+              setState(() {});
+            }
+          },
+          child: const Text('メモを付ける'),
+        ),
+      );
+    }
+    return DesignFieldCard(
+      icon: _icon(AppIcons.pen),
+      label: 'メモ',
+      child: DesignInputBox(
+        child: DesignTextInput(controller: notesController, maxLines: 3),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final intensities = _intensityOptions;
@@ -1091,17 +1125,7 @@ class _ExerciseMetCalculationSectionState
           initiallyExpanded: _showAdvanced,
           onExpansionChanged: (v) => setState(() => _showAdvanced = v),
           children: [
-            if (widget.notesController != null)
-              DesignFieldCard(
-                icon: _icon(AppIcons.pen),
-                label: 'メモ',
-                child: DesignInputBox(
-                  child: DesignTextInput(
-                    controller: widget.notesController!,
-                    maxLines: 3,
-                  ),
-                ),
-              ),
+            if (widget.notesController != null) _notesField(),
             if (_resolvedMet != null && _selectedIntensity != null)
               ListTile(
                 dense: true,

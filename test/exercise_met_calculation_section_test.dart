@@ -5,6 +5,7 @@ import 'package:ayg/models/exercise_entry.dart';
 import 'package:ayg/models/health_profile_data.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/models/weight_entry.dart';
+import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/screens/exercise/exercise_form_screen.dart';
 import 'package:ayg/services/exercise_calorie_calculator.dart';
 import 'package:ayg/state/app_controller.dart';
@@ -48,6 +49,7 @@ void main() {
     String calculationVersion = 'legacy-v0',
     String activityId = 'walk_brisk',
     int durationMin = 30,
+    String? notes,
   }) {
     return ExerciseEntry(
       id: id,
@@ -65,6 +67,7 @@ void main() {
       calculationSource: ExerciseCalculationSource.metEstimate,
       calculationVersion: calculationVersion,
       sourceKey: 'walking_moderate_3_5',
+      notes: notes,
     );
   }
 
@@ -981,7 +984,79 @@ void main() {
       );
       await tester.tap(find.text('詳細設定'));
       await tester.pumpAndSettle();
+      expect(find.text('メモを付ける'), findsOneWidget);
+      expect(find.text('メモ'), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is TextField && widget.maxLines == 3,
+        ),
+        findsNothing,
+      );
+
+      final memoButton = find.text('メモを付ける');
+      await tester.scrollUntilVisible(
+        memoButton,
+        80,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
+      await tester.pumpAndSettle();
+      await tester.tap(memoButton);
+      await tester.pumpAndSettle();
+      expect(find.text('こちらは有料の機能です'), findsOneWidget);
+      expect(find.text('運動のメモは、カロナビ+です。'), findsOneWidget);
+    });
+
+    testWidgets('plus form shows the exercise memo field and saves it', (
+      tester,
+    ) async {
+      final controller = AppController(subscriptionRepository: _Plus(true));
+      addTearDown(controller.dispose);
+      controller.profile = profile();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              return TextButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          ExerciseFormScreen(controller: controller),
+                    ),
+                  );
+                },
+                child: const Text('開く'),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.text('開く'));
+      await tester.pumpAndSettle();
+
+      await tapActivityChip(tester, 'ヨガ・ストレッチ');
+      await tester.enterText(
+        find.byKey(ExerciseMetCalculationSection.durationFieldKey),
+        '30',
+      );
+      await tester.pumpAndSettle();
+      await expandAdvanced(tester);
+
+      expect(find.text('メモを付ける'), findsNothing);
       expect(find.text('メモ'), findsOneWidget);
+      await tester.enterText(
+        find.byWidgetPredicate(
+          (widget) => widget is TextField && widget.maxLines == 3,
+        ),
+        ' 雨だった ',
+      );
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(controller.exerciseEntries.single.notes, '雨だった');
+      expect(controller.storedFoodMemo('食事メモ'), '食事メモ');
     });
 
     testWidgets('exercise form shows fields on a wide window', (tester) async {
@@ -1034,4 +1109,52 @@ void main() {
       expect(find.textContaining('回数からは計算しません'), findsNothing);
     });
   });
+
+  group('exercise notes plus gate', () {
+    test('free users store neither exercise notes nor food memos', () async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+
+      await controller.addExercise(
+        savedEntry(id: 'ex-free', loggedAt: DateTime(2026, 8, 1), notes: ' 雨 '),
+      );
+
+      expect(controller.exerciseEntries.single.notes, isNull);
+      expect(controller.storedExerciseNotes('雨'), isNull);
+      expect(controller.storedFoodMemo('食事メモ'), isNull);
+    });
+
+    test(
+      'editing without plus clears notes that were saved while plus',
+      () async {
+        final plus = _Plus(true);
+        final controller = AppController(subscriptionRepository: plus);
+        addTearDown(controller.dispose);
+
+        await controller.addExercise(
+          savedEntry(
+            id: 'ex-plus',
+            loggedAt: DateTime(2026, 8, 1),
+            notes: ' 雨 ',
+          ),
+        );
+        expect(controller.exerciseEntries.single.notes, '雨');
+        expect(controller.storedFoodMemo('食事メモ'), '食事メモ');
+
+        plus.active = false;
+        await controller.updateExercise(controller.exerciseEntries.single);
+        expect(controller.exerciseEntries.single.notes, isNull);
+        expect(controller.storedFoodMemo('食事メモ'), isNull);
+      },
+    );
+  });
+}
+
+class _Plus extends UnavailableSubscriptionRepository {
+  _Plus(this.active);
+
+  bool active;
+
+  @override
+  bool get isPlusActive => active;
 }

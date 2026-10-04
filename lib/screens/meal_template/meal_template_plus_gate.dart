@@ -5,7 +5,7 @@ import '../../state/app_controller.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../subscription/calonavi_plus_flow.dart';
 
-/// 5件目からの新規作成はカロナビ+。作ってよいときは true。
+/// 無料は4件まで。カロナビ+は何件でも作れる。作ってよいときは true。
 Future<bool> allowMealTemplateCreate(
   BuildContext context,
   AppController controller,

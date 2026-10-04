@@ -42,7 +42,7 @@ struct HomeMealWidget: Widget {
       HomeMealWidgetView(entry: entry)
     }
     .configurationDisplayName("カロナビ")
-    .description("残りカロリー、摂取、消費と、食事3パターン・運動2パターンのボタンです。")
+    .description("残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。")
     .supportedFamilies([.systemLarge])
   }
 }
@@ -68,7 +68,7 @@ struct LockScreenMealWidget: Widget {
       LockMealWidgetView(entry: entry)
     }
     .configurationDisplayName("カロナビ")
-    .description("残り、摂取、消費と、食事3パターンのボタンです。")
+    .description("残りカロリーに加え、食事3つをワンタッチで登録します。")
     .supportedFamilies([.accessoryRectangular])
   }
 }

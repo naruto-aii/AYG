@@ -2491,7 +2491,7 @@ class AppController extends ChangeNotifier {
     return MealTemplateWithItems(template: template, items: items);
   }
 
-  /// 無料は4件まで。5件目からの新規作成はカロナビ+。編集は止めない。
+  /// 無料は4件まで。カロナビ+は件数の上限なし。編集は止めない。
   Future<bool> canCreateMealTemplate() async {
     final repository = _mealTemplateRepository;
     if (repository == null) {

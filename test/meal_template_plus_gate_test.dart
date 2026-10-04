@@ -39,7 +39,7 @@ void main() {
       SubscriptionLimitExceededException(
         SubscriptionLimitKind.mealTemplate,
       ).toString(),
-      '食事テンプレートの5件目からは、カロナビ+です。',
+      '食事テンプレートは何件でも、カロナビ+です。',
     );
   });
 
@@ -71,18 +71,18 @@ void main() {
     );
   });
 
-  test('Calonavi Plus can save a fifth meal template', () async {
+  test('Calonavi Plus can save meal templates without a count cap', () async {
     final harness = await IsarTestHarness.create();
     addTearDown(harness.dispose);
     final controller = _controller(harness, plus: true);
     addTearDown(controller.dispose);
 
-    for (var index = 0; index < 5; index++) {
+    for (var index = 0; index < 8; index++) {
       await controller.saveMealTemplate(draft: _draft('朝食$index'));
     }
     expect(
       await harness.mealTemplateRepository.getAll('test-user-id'),
-      hasLength(5),
+      hasLength(8),
     );
   });
 }

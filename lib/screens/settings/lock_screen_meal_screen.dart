@@ -249,7 +249,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
                 const DesignTitleBlock(
                   title: 'ウィジェット',
                   subtitle:
-                      'ホーム画面の大きなウィジェットは、残りカロリーと、食事3パターン・運動2パターンです。ロック画面は同じ食事3パターンです。このパターンは食事テンプレートの4件とは別です。押すとアプリを開かず、その内容を1件登録します。',
+                      'ホーム画面の大きなウィジェットは、残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。ロック画面は同じ食事3つです。このパターンは食事テンプレートの4件とは別です。',
                 ),
                 Text('ホーム画面', style: AppTypography.titleM),
                 const SizedBox(height: AppSpacing.md),

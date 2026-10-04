@@ -387,7 +387,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('こちらは有料の機能です'), findsOneWidget);
-    expect(find.text('ウィジェットからの登録は、カロナビ+です。'), findsOneWidget);
+    expect(
+      find.text('ウィジェットは、残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。カロナビ+です。'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('カロナビ+を見る'));
     await tester.pumpAndSettle();

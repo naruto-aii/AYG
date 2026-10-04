@@ -78,7 +78,7 @@ class SettingsScreen extends StatelessWidget {
       final openPlus = await showAppConfirmDialog(
         context: context,
         title: 'こちらは有料の機能です',
-        message: 'ウィジェットからの登録は、カロナビ+です。',
+        message: 'ウィジェットは、残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。カロナビ+です。',
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );

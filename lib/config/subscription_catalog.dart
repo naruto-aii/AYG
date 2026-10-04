@@ -8,7 +8,7 @@ class SubscriptionCatalog {
 
   static const publicFoodSearchesPerDay = 5;
 
-  /// 無料で作れる食事テンプレートの件数。5件目からカロナビ+。
+  /// 無料で作れる食事テンプレートの件数。カロナビ+は件数の上限なし。
   static const mealTemplateLimit = 4;
   static const workoutTemplateLimit = 3;
 

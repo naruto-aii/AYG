@@ -148,7 +148,8 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         children: [
           const DesignTitleBlock(
             title: 'カロナビ+',
-            subtitle: 'ウィジェットからの登録は、カロナビ+の機能です。',
+            subtitle:
+                'ウィジェットは、残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。食事テンプレートは何件でも作れます。',
           ),
           Text(AppStrings.siriVoicePaidGuidance, style: AppTypography.bodyS),
           const SizedBox(height: AppSpacing.md),

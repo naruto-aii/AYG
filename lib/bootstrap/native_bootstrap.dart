@@ -32,6 +32,7 @@ import '../repositories/storekit_subscription_repository.dart';
 import '../repositories/usage_record_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
+import '../services/daily_calorie_reminder.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
 import '../services/open_food_facts_service.dart';
@@ -145,6 +146,7 @@ Future<void> bootstrapApp() async {
     firstMealGuideStore: const FirstMealGuideStore(),
     lockScreenMealGateway: LockScreenMealGatewayImpl(),
     siriVoiceGateway: SiriVoiceGatewayImpl(),
+    dailyReminderSession: IosDailyReminderSession(),
     subscriptionRepository: subscriptionRepository,
     usageRecordRepository: SupabaseConfig.isConfigured
         ? SupabaseUsageRecordRepository()

@@ -68,6 +68,9 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     await widget.controller.refreshPaidEntitlement();
     await widget.controller.syncLockScreenMeals();
     await widget.controller.syncSiriVoiceLogs();
+    if (widget.controller.isAuthenticated) {
+      await widget.controller.syncDailyCalorieReminder(requestIfNeeded: false);
+    }
   }
 
   void _popRoutesAfterSignOut() {

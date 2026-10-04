@@ -50,14 +50,12 @@ class AppStrings {
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
   static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で確認できます';
-  static const accountDeletionLead =
-      '削除するとログインできなくなります。公開食品は残ります。';
+  static const accountDeletionLead = '削除するとログインできなくなります。公開食品は残ります。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
       '食事・運動・体重の記録、非公開の保存食品、テンプレート、プロフィール、目標、Health のワークアウト、検索語、画面の操作、カロナビ+の購入状態';
   static const accountDeletionKeeps = '残るもの';
-  static const accountDeletionKeepsBody =
-      '公開食品。氏名やメールアドレスは載せません。';
+  static const accountDeletionKeepsBody = '公開食品。氏名やメールアドレスは載せません。';
   static const accountDeletionBilling =
       'アカウントを削除しても、ストアの定期購入は止まりません。先に iPhone の「設定」> Apple ID >「サブスクリプション」で解約してください。';
   static const accountDeletionExecute = '削除する';
@@ -74,7 +72,33 @@ class AppStrings {
       'アカウントは削除しました。Appleのサインインの解除に失敗したので、Apple IDの「サインインとセキュリティ」からカロナビを削除してください。';
   static const accountDeletionAppleRevokeFailedClose = '閉じる';
   static const plusBillingPeriod =
-      '月額は1か月、半年は6か月、年額は1年の定期購入です。価格は、ストアが返す税込価格だけを使います。';
+      '月額は1か月、半年は6か月、年額は1年の定期購入です。価格は選んだプランに出る、ストアの税込価格だけを使います。';
+  static const plusHeroSubtitle = 'テンプレートの上限をなくし、ウィジェットとSiriで記録をもっと速く。';
+  static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
+  static const plusBenefitTemplateBody =
+      '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
+  static const plusBenefitNoteTitle = '食事・運動の記録にメモを追加';
+  static const plusBenefitNoteBody = '無料ではメモは使えません。カロナビ+なら、食事にも運動にもメモを残せます。';
+  static const plusBenefitWidgetTitle = 'ホーム画面とロック画面からワンタップ記録';
+  static const plusBenefitWidgetBody =
+      '残りカロリーに加え、アプリを開かずに、食事テンプレート3種類と運動テンプレート2件を、いつでもウィジェットから登録できます。';
+  static const plusBenefitSiriTitle = 'Siriに話しかけるだけで記録';
+  static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
+  static const plusCtaPrefix = 'で始める';
+  static const plusBadgeBestValue = '一番お得';
+  static const plusBadgeSave = 'お得';
+  static const plusHalfYearNote = '6ヶ月分が5ヶ月分の価格';
+  static const plusYearlyNote = '12ヶ月分が10ヶ月分の価格';
+  static const plusMonthlyNote = 'いつでも解約できます';
+  static const plusIntroWindowNote =
+      '公開から1ヶ月のあいだ、半年と年額は初回の商品です。月額は同じです。2回目以降は通常価格です。';
+  static const plusHalfYearIntroNote = '初回はさらに1ヶ月分安い。2回目以降は通常価格';
+  static const plusYearlyIntroNote = '初回はさらに1ヶ月分安い。2回目以降は通常価格';
+
+  /// ストアが金額を返せないときだけの表示。購入処理では使わない。
+  static const plusFallbackMonthlyPrice = '¥580';
+  static const plusFallbackHalfYearPrice = '¥2,900';
+  static const plusFallbackYearlyPrice = '¥5,800';
   static const plusAutoRenew = '期限が来る前に解約しないと、同じ期間で自動更新されます。';
   static const plusCancelHow =
       '解約は iPhone の「設定」> Apple ID >「サブスクリプション」から行えます。アプリを消しても課金は止まりません。';

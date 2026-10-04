@@ -22,15 +22,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('月額 ¥480'), findsOneWidget);
-    expect(find.text('半年 ¥2,400'), findsOneWidget);
-    expect(find.text('年額 ¥4,800'), findsOneWidget);
-    expect(find.text('購入する'), findsOneWidget);
+    expect(find.text('¥480 ・ いつでも解約できます'), findsOneWidget);
+    expect(find.text('¥2,400 ・ 6ヶ月分が5ヶ月分の価格'), findsOneWidget);
+    expect(find.text('¥4,800 ・ 12ヶ月分が10ヶ月分の価格'), findsOneWidget);
+    expect(find.text('¥4,800で始める'), findsOneWidget);
+    expect(find.text('お得'), findsOneWidget);
+    expect(find.text('一番お得'), findsOneWidget);
     expect(
       tester
           .widget<DesignButton>(find.byKey(const Key('plus-purchase')))
           .onPressed,
-      isNull,
+      isNotNull,
     );
     expect(find.text(AppStrings.plusBillingPeriod), findsOneWidget);
     expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);

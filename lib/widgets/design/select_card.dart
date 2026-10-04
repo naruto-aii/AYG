@@ -14,6 +14,8 @@ class SelectCard extends StatelessWidget {
     required this.selected,
     this.onTap,
     this.minHeight = 110,
+    this.badge,
+    this.trailing,
   });
 
   final String title;
@@ -21,6 +23,12 @@ class SelectCard extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
   final double minHeight;
+
+  /// 任意のバッジ（例:「お得」）。タイトルの右に置く。
+  final Widget? badge;
+
+  /// カード右端に置く任意のウィジェット。
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -56,13 +64,23 @@ class SelectCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      title,
-                      style: AppTypography.titleL.copyWith(
-                        color: selected
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: AppTypography.titleL.copyWith(
+                              color: selected
+                                  ? AppColors.textPrimary
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        if (badge != null) ...[
+                          const SizedBox(width: 8),
+                          badge!,
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -74,6 +92,7 @@ class SelectCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
             ],
           ),
         ),

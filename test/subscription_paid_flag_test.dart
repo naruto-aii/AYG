@@ -82,24 +82,21 @@ void main() {
         find.textContaining(AppStrings.siriVoiceFoodPhrase),
         findsOneWidget,
       );
-      expect(find.text('月額 ¥480'), findsOneWidget);
+      expect(find.textContaining('¥480'), findsOneWidget);
       expect(find.text('半年'), findsOneWidget);
       expect(find.text('年額'), findsOneWidget);
+      expect(find.text('¥5,800で始める'), findsOneWidget);
       expect(find.textContaining('380'), findsNothing);
       expect(gateway.paid, isFalse);
-      expect(
-        tester
-            .widget<DesignButton>(find.byKey(const Key('plus-purchase')))
-            .onPressed,
-        isNull,
-      );
-
-      await tester.tap(find.text('月額 ¥480'));
-      await tester.pumpAndSettle();
       expect(plus.monthlyPurchases, 0);
 
-      await tester.ensureVisible(find.text('購入する'));
-      await tester.tap(find.text('購入する'));
+      await tester.ensureVisible(find.byKey(const Key('plus-plan-monthly')));
+      await tester.tap(find.byKey(const Key('plus-plan-monthly')));
+      await tester.pumpAndSettle();
+      expect(plus.monthlyPurchases, 0);
+      expect(find.text('¥480で始める'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('plus-purchase')));
       await tester.pumpAndSettle();
 
       expect(plus.monthlyPurchases, 1);

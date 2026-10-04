@@ -11,14 +11,7 @@ import '../utils/local_date.dart';
 const coachTrialNotice =
     'この提案は検証中です。食品の種類や量が偏ることがあります。気になった点はアプリ内の問い合わせから送ってください。次の版の改善に使います。';
 
-const coachSecondOpenMessage = '2回目以降はカロナビ+です。';
-
 const coachNutritionMissingMessage = '食品の数値が取れませんでした。';
-
-/// 1日の無料は1回。2回目からはカロナビ+。
-bool coachAllowsAnotherOpen({required int opensToday, required bool isPlus}) {
-  return isPlus || opensToday < 1;
-}
 
 /// 直近 [days] 日（今日を含む）に記録したか。7日は見ない。
 bool coachLoggedWithinDays(DateTime loggedAt, DateTime now, int days) {

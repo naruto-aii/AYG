@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../models/calculation/landing_guidance.dart';
 import '../../models/alcohol_entry.dart';
@@ -12,10 +13,12 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/local_date.dart';
 import '../../utils/nutrition_format.dart';
+import '../../widgets/announcements/home_announcements_entry.dart';
 import '../../widgets/brand/app_logo.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/design/calorie_ring.dart';
+import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
@@ -70,8 +73,12 @@ class HomeScreen extends StatelessWidget {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const HomeAnnouncementsEntry(),
+              const SizedBox(height: 8),
               Center(child: _ring(summary)),
-              const SizedBox(height: 4),
+              const SizedBox(height: 12),
+              _coachEntry(context),
+              const SizedBox(height: 8),
               _stats(summary),
               const SizedBox(height: 4),
               _weightUsage(controller),
@@ -85,8 +92,6 @@ class HomeScreen extends StatelessWidget {
               _macroCard(summary),
               const SizedBox(height: 8),
               _quickAdd(context, profile.weightKg),
-              const SizedBox(height: 8),
-              _coachEntry(context),
               const SizedBox(height: 8),
               _foodSection(context, todayFood),
               const SizedBox(height: 8),
@@ -336,17 +341,19 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _coachEntry(BuildContext context) {
-    return DesignCard(
-      onTap: () => _openCoach(context),
-      child: Row(
-        children: [
-          Expanded(child: Text('今日のコーチ', style: AppTypography.titleM)),
-          const DesignIcon(
-            Symbols.chevron_right_rounded,
-            size: 16,
-            color: AppColors.iconMuted,
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: DesignButton(
+        label: '今日のコーチ',
+        height: 52,
+        style: DesignButtonStyle.secondary,
+        showTrailingIcon: false,
+        leading: SvgPicture.asset(
+          'assets/illustrations/coach_mark.svg',
+          width: 28,
+          height: 28,
+        ),
+        onPressed: () => _openCoach(context),
       ),
     );
   }

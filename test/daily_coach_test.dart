@@ -262,10 +262,4 @@ void main() {
       expect(message, '今日やるならランニング0.5kmにします。');
     },
   );
-
-  test('the second open on the same day needs Calonavi Plus', () {
-    expect(coachAllowsAnotherOpen(opensToday: 0, isPlus: false), isTrue);
-    expect(coachAllowsAnotherOpen(opensToday: 1, isPlus: false), isFalse);
-    expect(coachAllowsAnotherOpen(opensToday: 3, isPlus: true), isTrue);
-  });
 }

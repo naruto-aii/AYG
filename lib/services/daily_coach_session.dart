@@ -3,11 +3,10 @@ import '../models/food_entry.dart';
 import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../repositories/coach_nutrition_source.dart';
-import '../repositories/coach_usage_store.dart';
 import '../state/app_controller.dart';
 import 'daily_coach.dart';
 
-enum DailyCoachStatus { ready, blocked, nutritionMissing }
+enum DailyCoachStatus { ready, nutritionMissing }
 
 class DailyCoachLoadResult {
   const DailyCoachLoadResult({
@@ -25,21 +24,12 @@ class DailyCoachSession {
   DailyCoachSession({
     required this.controller,
     CoachNutritionSource? nutritionSource,
-    CoachUsageStore? usageStore,
-  }) : nutritionSource = nutritionSource ?? SupabaseCoachNutritionSource(),
-       usageStore = usageStore ?? PreferencesCoachUsageStore();
+  }) : nutritionSource = nutritionSource ?? SupabaseCoachNutritionSource();
 
   final AppController controller;
   final CoachNutritionSource nutritionSource;
-  final CoachUsageStore usageStore;
 
   Future<DailyCoachLoadResult> load(DateTime now) async {
-    final plus = controller.subscriptionRepository.isPlusActive;
-    final opens = await usageStore.opensOn(now);
-    if (!coachAllowsAnotherOpen(opensToday: opens, isPlus: plus)) {
-      return const DailyCoachLoadResult(status: DailyCoachStatus.blocked);
-    }
-
     final summary = controller.summary;
     if (summary == null) {
       return const DailyCoachLoadResult(
@@ -59,10 +49,6 @@ class DailyCoachSession {
       return const DailyCoachLoadResult(
         status: DailyCoachStatus.nutritionMissing,
       );
-    }
-
-    if (!plus) {
-      await usageStore.recordOpen(now);
     }
 
     final excluded = <String>{

@@ -5,12 +5,9 @@ import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
-import '../../widgets/design/design_button.dart';
+import '../../repositories/coach_nutrition_source.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_page.dart';
-import '../subscription/calonavi_plus_flow.dart';
-import '../../repositories/coach_nutrition_source.dart';
-import '../../repositories/coach_usage_store.dart';
 
 /// ホームから開く、その日の食事と運動の提案。
 class DailyCoachScreen extends StatefulWidget {
@@ -19,18 +16,14 @@ class DailyCoachScreen extends StatefulWidget {
     this.controller,
     this.load,
     this.onSelectMeal,
-    this.onOpenPlus,
     this.nutritionSource,
-    this.usageStore,
     this.now,
   });
 
   final AppController? controller;
   final Future<DailyCoachLoadResult> Function()? load;
   final Future<void> Function(CoachMealProposal proposal)? onSelectMeal;
-  final VoidCallback? onOpenPlus;
   final CoachNutritionSource? nutritionSource;
-  final CoachUsageStore? usageStore;
   final DateTime? now;
 
   @override
@@ -57,7 +50,6 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     return DailyCoachSession(
       controller: controller,
       nutritionSource: widget.nutritionSource,
-      usageStore: widget.usageStore,
     ).load(widget.now ?? DateTime.now());
   }
 
@@ -103,19 +95,6 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     }
   }
 
-  void _openPlus() {
-    final open = widget.onOpenPlus;
-    if (open != null) {
-      open();
-      return;
-    }
-    final controller = widget.controller;
-    if (controller == null) {
-      return;
-    }
-    showCalonaviPlus(context, repository: controller.subscriptionRepository);
-  }
-
   @override
   Widget build(BuildContext context) {
     final result = _result;
@@ -131,15 +110,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
           const SizedBox(height: 8),
           if (result == null)
             Text('提案を作っています', style: AppTypography.bodyS)
-          else if (result.status == DailyCoachStatus.blocked) ...[
-            Text(coachSecondOpenMessage, style: AppTypography.bodyM),
-            const SizedBox(height: 12),
-            DesignButton(
-              label: 'カロナビ+を見る',
-              showTrailingIcon: false,
-              onPressed: _openPlus,
-            ),
-          ] else if (result.status == DailyCoachStatus.nutritionMissing)
+          else if (result.status == DailyCoachStatus.nutritionMissing)
             Text(coachNutritionMissingMessage, style: AppTypography.bodyS)
           else ...[
             if (result.exerciseMessage != null) ...[

@@ -4,6 +4,7 @@ import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
 import 'package:ayg/screens/home/home_screen.dart';
+import 'package:ayg/widgets/design/design_button.dart';
 import 'package:ayg/services/daily_coach.dart';
 import 'package:ayg/services/daily_coach_session.dart';
 import 'package:ayg/services/nutrition_engine.dart';
@@ -48,7 +49,6 @@ void main() {
     WidgetTester tester, {
     required Future<DailyCoachLoadResult> Function() load,
     Future<void> Function(CoachMealProposal proposal)? onSelectMeal,
-    VoidCallback? onOpenPlus,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -62,7 +62,6 @@ void main() {
                     builder: (context) => DailyCoachScreen(
                       load: load,
                       onSelectMeal: onSelectMeal,
-                      onOpenPlus: onOpenPlus,
                     ),
                   ),
                 );
@@ -106,25 +105,20 @@ void main() {
     expect(find.text('open'), findsOneWidget);
   });
 
-  testWidgets(
-    'the second open shows the notice and Calonavi Plus, not a meal',
-    (tester) async {
-      var openedPlus = false;
-      await openCoach(
-        tester,
-        load: () async =>
-            const DailyCoachLoadResult(status: DailyCoachStatus.blocked),
-        onOpenPlus: () => openedPlus = true,
-      );
+  testWidgets('the coach stays open without a paid gate', (tester) async {
+    await openCoach(
+      tester,
+      load: () async => DailyCoachLoadResult(
+        status: DailyCoachStatus.ready,
+        meals: [sampleMeal()],
+      ),
+    );
 
-      expect(find.text(coachTrialNotice), findsOneWidget);
-      expect(find.text(coachSecondOpenMessage), findsOneWidget);
-      expect(find.text(headline), findsNothing);
-      await tester.tap(find.text('カロナビ+を見る'));
-      await tester.pump();
-      expect(openedPlus, isTrue);
-    },
-  );
+    expect(find.text(coachTrialNotice), findsOneWidget);
+    expect(find.text('2回目以降はカロナビ+です。'), findsNothing);
+    expect(find.text('カロナビ+を見る'), findsNothing);
+    expect(find.text(headline), findsOneWidget);
+  });
 
   testWidgets('home shows 今日のコーチ', (tester) async {
     final controller = AppController(
@@ -162,7 +156,13 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text('今日のコーチ'), findsOneWidget);
+    expect(find.text('お知らせ'), findsOneWidget);
+    expect(find.byKey(const Key('announcement_unread_dot')), findsNothing);
+    final remainingTop = tester.getTopLeft(find.text('今日あと')).dy;
+    final coachTop = tester.getTopLeft(find.text('今日のコーチ')).dy;
+    expect(coachTop, greaterThan(remainingTop));
+    expect(tester.widget<DesignButton>(find.byType(DesignButton)).height, 52);
   });
 }

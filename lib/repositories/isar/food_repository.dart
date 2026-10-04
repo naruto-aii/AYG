@@ -25,9 +25,35 @@ class FoodRepository implements FoodRepositoryBase {
   }
 
   Future<List<FoodEntry>> loadAll() async {
-    final entities = await _isar.foodEntryEntitys.where().findAll();
-    entities.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
-    return entities.map(EntityMapper.fromFoodEntryEntity).toList();
+    final List<FoodEntryEntity> entities;
+    try {
+      entities = await _isar.foodEntryEntitys.where().findAll();
+    } on Object {
+      return _loadAllSkippingUnreadable();
+    }
+    return _entriesFrom(entities);
+  }
+
+  Future<List<FoodEntry>> _loadAllSkippingUnreadable() async {
+    final ids = await _isar.foodEntryEntitys.where().idProperty().findAll();
+    final entities = <FoodEntryEntity>[];
+    for (final id in ids) {
+      try {
+        final entity = await _isar.foodEntryEntitys.get(id);
+        if (entity != null) {
+          entities.add(entity);
+        }
+      } on Object {
+        // この1件だけ飛ばす。保存そのものは続ける。
+      }
+    }
+    return _entriesFrom(entities);
+  }
+
+  List<FoodEntry> _entriesFrom(List<FoodEntryEntity> entities) {
+    final readable = entities.where(isReadableStoredFoodEntry).toList()
+      ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+    return readable.map(EntityMapper.fromFoodEntryEntity).toList();
   }
 
   Future<void> delete(String entryId) async {

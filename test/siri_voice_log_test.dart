@@ -58,7 +58,7 @@ void main() {
     );
 
     expect(plan.asksConfirmation, isTrue);
-    expect(plan.spoken, 'ささみを300gですね');
+    expect(plan.spoken, 'ささみ300gの食事でいいですね');
 
     final declined = finish(plan, SiriAnswer.no);
     expect(declined.food, isNull);
@@ -85,7 +85,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, 'ささみを300gですね');
+    expect(plan.spoken, 'ささみ300gの食事でいいですね');
     expect(finish(plan, SiriAnswer.yes).food!.consumedAmount, 300);
   });
 
@@ -110,8 +110,8 @@ void main() {
 
       expect(noApp.asksConfirmation, isFalse);
       expect(noApp.spoken, 'アプリ名が無いので登録しません');
-      expect(noKind.spoken, '食事か運動か分からないので登録しません');
-      expect(wrongKind.spoken, '食事か運動か分からないので登録しません');
+      expect(noKind.spoken, 'ジョギングはkmで指定してください');
+      expect(wrongKind.spoken, 'ささみは見つかりません');
       expect(finish(noApp, SiriAnswer.yes).registered, isFalse);
       expect(finish(noKind, SiriAnswer.yes).registered, isFalse);
       expect(finish(wrongKind, SiriAnswer.yes).registered, isFalse);
@@ -186,7 +186,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, '水泳を30分ですね');
+    expect(plan.spoken, '水泳30分の運動でいいですね');
     expect(finish(plan, SiriAnswer.no).exercise, isNull);
     expect(finish(plan, SiriAnswer.silence).exercise, isNull);
 
@@ -219,7 +219,7 @@ void main() {
       quantity: '5km',
     );
 
-    expect(plan.spoken, 'ジョギングを5kmですね');
+    expect(plan.spoken, 'ジョギング5kmの運動でいいですね');
     final exercise = finish(plan, SiriAnswer.yes).exercise!;
     expect(exercise.distanceKm, 5);
     expect(exercise.netKcal, 300);
@@ -242,6 +242,107 @@ void main() {
     expect(manual.spoken, 'スクワットは分で指定してください');
     expect(finish(missing, SiriAnswer.yes).registered, isFalse);
     expect(finish(manual, SiriAnswer.yes).registered, isFalse);
+  });
+
+  test('a meal is recognized and repeated before it is saved', () {
+    final plan = planSiriUtterance(
+      context: context(
+        foods: [
+          SiriFoodRecord.official(
+            foodCode: '11288',
+            name: '鶏むね',
+            speakName: '鶏むね',
+            matchTexts: const ['鶏むね'],
+            baseAmount: 100,
+            unit: FoodUnitType.g,
+            kcalPerBase: 108,
+          ),
+        ],
+      ),
+      name: 'Hey Siri、カロナビで、鶏むね100グラム',
+      quantity: '',
+    );
+
+    expect(plan.spoken, '鶏むね100gの食事でいいですね');
+    expect(plan.asksKind, isFalse);
+    final saved = finish(plan, SiriAnswer.yes);
+    expect(saved.food!.name, '鶏むね');
+    expect(saved.food!.consumedAmount, 100);
+    expect(saved.exercise, isNull);
+  });
+
+  test('an exercise without a marker is repeated as exercise', () {
+    final plan = planSiriUtterance(
+      context: context(),
+      name: 'Hey Siri、カロナビで、ジョギング5キロ',
+      quantity: '',
+    );
+
+    expect(plan.spoken, 'ジョギング5kmの運動でいいですね');
+    final saved = finish(plan, SiriAnswer.yes);
+    expect(saved.exercise!.name, 'ジョギング');
+    expect(saved.exercise!.distanceKm, 5);
+    expect(saved.food, isNull);
+  });
+
+  test('words that match neither ask meal or exercise in the repeat', () {
+    final plan = planSiriUtterance(
+      context: context(),
+      name: 'Hey Siri、カロナビで、宇宙遊泳を10分',
+      quantity: '',
+    );
+
+    expect(plan.asksKind, isTrue);
+    expect(plan.spoken, '宇宙遊泳10分は、食事ですか、運動ですか');
+    expect(finish(plan, SiriAnswer.yes).registered, isFalse);
+
+    final resolved = resolveSiriSpokenKind(
+      context: context(),
+      plan: plan,
+      kind: SiriSpokenKind.exercise,
+    );
+    expect(resolved.spoken, '宇宙遊泳は見つかりません');
+    expect(finish(resolved, SiriAnswer.yes).registered, isFalse);
+  });
+
+  test('a word that is both a food and an exercise asks which one', () {
+    final both = context(
+      foods: [
+        SiriFoodRecord.official(
+          foodCode: '1',
+          name: 'ジョギング',
+          speakName: 'ジョギング',
+          matchTexts: const ['ジョギング'],
+          baseAmount: 100,
+          unit: FoodUnitType.g,
+          kcalPerBase: 100,
+        ),
+      ],
+    );
+    final plan = planSiriUtterance(
+      context: both,
+      name: 'カロナビで、ジョギングを5km',
+      quantity: '',
+    );
+
+    expect(plan.spoken, 'ジョギング5kmは、食事ですか、運動ですか');
+    expect(finish(plan, SiriAnswer.yes).registered, isFalse);
+
+    final meal = resolveSiriSpokenKind(
+      context: both,
+      plan: plan,
+      kind: SiriSpokenKind.meal,
+    );
+    expect(meal.spoken, 'ジョギングはgで指定してください');
+    expect(finish(meal, SiriAnswer.yes).registered, isFalse);
+
+    final exercise = resolveSiriSpokenKind(
+      context: both,
+      plan: plan,
+      kind: SiriSpokenKind.exercise,
+    );
+    expect(exercise.spoken, 'ジョギング5kmの運動でいいですね');
+    expect(finish(exercise, SiriAnswer.yes).exercise!.distanceKm, 5);
   });
 
   test('pending json imports one confirmed food and skips another user', () {

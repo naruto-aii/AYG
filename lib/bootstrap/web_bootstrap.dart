@@ -29,6 +29,7 @@ import '../repositories/food_master_repositories.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/first_meal_guide_store.dart';
 import '../repositories/local_session_store.dart';
+import '../repositories/coach_proposal_log.dart';
 import '../repositories/usage_record_repository.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase/supabase_food_rating_repository.dart';
@@ -213,6 +214,9 @@ Future<void> bootstrapWebApp() async {
       usageRecordRepository: SupabaseConfig.isConfigured
           ? SupabaseUsageRecordRepository()
           : const NoOpUsageRecordRepository(),
+      coachProposalLog: SupabaseConfig.isConfigured
+          ? SupabaseCoachProposalLog()
+          : const NoOpCoachProposalLog(),
     );
 
     if (kDebugMode) {

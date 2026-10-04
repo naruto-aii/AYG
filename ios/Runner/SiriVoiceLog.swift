@@ -3,14 +3,17 @@ import Foundation
 
 /// 食事と運動を、復唱して「はい」のときだけ1件登録する。
 ///
-/// 話し方は次の2文だけ。アプリ名が無い文と、食事・運動の区分が無い文は登録しない。
+/// 決まった始まりは「Hey Siri、カロナビで」。食事か運動かは言葉から判別する。
+/// 登録前に「鶏むね100gの食事でいいですね」のように復唱する。
+/// どちらとも取れない言葉は、復唱で食事か運動かを確認する。
 /// 「Hey Siri、カロナビで、食事にささみを300グラム。」
 /// 「Hey Siri、カロナビで、運動にジョギングを30分。」
 ///
 /// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
 /// 食事テンプレートの一発登録は作らない。未課金は登録しない。
 /// `openAppWhenRun` は false。判定と書き込みは App Group だけで、アプリが閉じていても Siri が実行する。
-/// 判定の順は Dart の `planSiriFood` / `planSiriExercise` と同じ。
+/// 判定の順は Dart の `planSiriUtterance` と同じ。
+/// ショートカットのアイコンは後で差し替える。今はプレースホルダー。
 enum SiriVoiceStore {
   static let catalogKey = "siriVoiceCatalog"
   static let pendingKey = "siriVoicePending"
@@ -46,90 +49,164 @@ enum SiriVoiceStore {
   struct Plan {
     var spoken: String
     var asksConfirmation: Bool
+    var asksKind: Bool = false
     var record: [String: Any]?
+    var pendingName: String?
+    var pendingAmount: Double?
+    var pendingUnit: String?
   }
 
   static func planFood(name: String, quantity: String) async -> Plan {
+    await plan(name: name, quantity: quantity, forced: .meal)
+  }
+
+  static func planExercise(name: String, quantity: String) async -> Plan {
+    await plan(name: name, quantity: quantity, forced: .exercise)
+  }
+
+  static func planUtterance(name: String, quantity: String) async -> Plan {
+    await plan(name: name, quantity: quantity, forced: nil)
+  }
+
+  static func resolveKind(_ plan: Plan, kind: SiriSpokenKind) async -> Plan {
+    guard plan.asksKind,
+          let name = plan.pendingName,
+          let amount = plan.pendingAmount,
+          let unit = plan.pendingUnit
+    else {
+      return plan
+    }
+    let parsed = ParsedQuantity(amount: amount, unit: unit)
+    if kind == .meal {
+      return await mealPlan(name: name, parsed: parsed)
+    }
+    return exercisePlan(name: name, parsed: parsed)
+  }
+
+  private static func plan(
+    name: String,
+    quantity: String,
+    forced: SiriSpokenKind?
+  ) async -> Plan {
     if let blocked = blocked() {
       return blocked
     }
-    if let rejected = rejectIncompleteUtterance(name: name, quantity: quantity, food: true) {
-      return rejected
+    let source = utterance(name, quantity)
+    if mentionsPhraseShape(source) && !source.contains("カロナビ") {
+      return stop("アプリ名が無いので登録しません")
     }
     let split = splitUtterance(name: name, quantity: quantity)
-    guard let parsed = parseQuantity(split.quantity) else {
-      if cleanName(split.name).isEmpty {
+    let explicit = explicitKind(source)
+    let kind = explicit ?? (mentionsPhraseShape(source) ? nil : forced)
+    if kind == .meal {
+      return await mealPlan(spoken: split.name, quantity: split.quantity)
+    }
+    if kind == .exercise {
+      return exercisePlan(spoken: split.name, quantity: split.quantity)
+    }
+    return await classify(name: split.name, quantity: split.quantity)
+  }
+
+  private static func classify(name: String, quantity: String) async -> Plan {
+    let spokenName = cleanName(name)
+    if spokenName.isEmpty {
+      return stop("内容が分かりません")
+    }
+    guard let parsed = parseQuantity(quantity) else {
+      return stop("量が分かりません")
+    }
+    let foodNamed = await mealNamed(spokenName)
+    let exerciseNamed = exerciseNamed(spokenName)
+    if foodNamed && !exerciseNamed {
+      return await mealPlan(name: spokenName, parsed: parsed)
+    }
+    if exerciseNamed && !foodNamed {
+      return exercisePlan(name: spokenName, parsed: parsed)
+    }
+    return Plan(
+      spoken: "\(spokenName)\(formatQuantity(parsed))は、食事ですか、運動ですか",
+      asksConfirmation: true,
+      asksKind: true,
+      record: nil,
+      pendingName: spokenName,
+      pendingAmount: parsed.amount,
+      pendingUnit: parsed.unit
+    )
+  }
+
+  private static func mealPlan(spoken: String, quantity: String) async -> Plan {
+    guard let parsed = parseQuantity(quantity) else {
+      if cleanName(spoken).isEmpty {
         return stop("食品名が分かりません")
       }
       return stop("量が分かりません")
     }
-    let spokenName = cleanName(split.name)
-    if spokenName.isEmpty {
+    return await mealPlan(name: cleanName(spoken), parsed: parsed)
+  }
+
+  private static func mealPlan(name: String, parsed: ParsedQuantity) async -> Plan {
+    if name.isEmpty {
       return stop("食品名が分かりません")
     }
-    let key = normalize(spokenName)
+    let key = normalize(name)
     var matches = foods().filter { food in
       let keys = food["keys"] as? [String] ?? []
       return keys.contains(key)
     }
     if matches.isEmpty {
-      matches = await officialFoods(query: spokenName, key: key)
+      matches = await officialFoods(query: name, key: key)
     }
     let saved = matches.filter { $0["source"] as? String == "saved_food" }
     let pool = saved.isEmpty
       ? matches.filter { $0["source"] as? String == "mext_sfct" }
       : saved
     if pool.isEmpty {
-      return stop("\(spokenName)は見つかりません")
+      return stop("\(name)は見つかりません")
     }
     let ids = Set(pool.compactMap { $0["id"] as? String })
     if ids.count != 1 {
-      return stop("\(spokenName)はひとつに決まりません")
+      return stop("\(name)はひとつに決まりません")
     }
     let food = pool[0]
-    let speakName = food["speakName"] as? String ?? spokenName
+    let speakName = food["speakName"] as? String ?? name
     let unit = food["unit"] as? String ?? ""
     guard foodUnitFits(unit, spoken: parsed.unit) else {
       return stop("\(speakName)は\(foodUnitLabel(unit))で指定してください")
     }
     return Plan(
-      spoken: "\(speakName)を\(formatQuantity(parsed))ですね",
+      spoken: "\(speakName)\(formatQuantity(parsed))の食事でいいですね",
       asksConfirmation: true,
       record: foodRecord(food, amount: parsed.amount)
     )
   }
 
-  static func planExercise(name: String, quantity: String) -> Plan {
-    if let blocked = blocked() {
-      return blocked
-    }
-    if let rejected = rejectIncompleteUtterance(name: name, quantity: quantity, food: false) {
-      return rejected
-    }
-    let split = splitUtterance(name: name, quantity: quantity)
-    guard let parsed = parseQuantity(split.quantity) else {
-      if cleanName(split.name).isEmpty {
+  private static func exercisePlan(spoken: String, quantity: String) -> Plan {
+    guard let parsed = parseQuantity(quantity) else {
+      if cleanName(spoken).isEmpty {
         return stop("種目が分かりません")
       }
       return stop("量が分かりません")
     }
-    let spokenName = cleanName(split.name)
-    if spokenName.isEmpty {
+    return exercisePlan(name: cleanName(spoken), parsed: parsed)
+  }
+
+  private static func exercisePlan(name: String, parsed: ParsedQuantity) -> Plan {
+    if name.isEmpty {
       return stop("種目が分かりません")
     }
-    let key = normalize(spokenName)
+    let key = normalize(name)
     let matches = activities().filter { activity in
       let keys = activity["keys"] as? [String] ?? []
       return keys.contains(key)
     }
     if matches.isEmpty {
-      return stop("\(spokenName)は見つかりません")
+      return stop("\(name)は見つかりません")
     }
     if matches.count != 1 {
-      return stop("\(spokenName)はひとつに決まりません")
+      return stop("\(name)はひとつに決まりません")
     }
     let activity = matches[0]
-    let speakName = activity["speakName"] as? String ?? spokenName
+    let speakName = activity["speakName"] as? String ?? name
     if (activity["requiresManualKcal"] as? Bool) == true || activity["unit"] as? String == "reps" {
       return stop("\(speakName)は手入力の種目です")
     }
@@ -145,10 +222,40 @@ enum SiriVoiceStore {
       return stop("体重が無いので登録できません")
     }
     return Plan(
-      spoken: "\(speakName)を\(formatQuantity(parsed))ですね",
+      spoken: "\(speakName)\(formatQuantity(parsed))の運動でいいですね",
       asksConfirmation: true,
       record: exerciseRecord(activity, parsed: parsed)
     )
+  }
+
+  private static func mealNamed(_ name: String) async -> Bool {
+    let key = normalize(name)
+    if key.isEmpty {
+      return false
+    }
+    var matches = foods().filter { food in
+      let keys = food["keys"] as? [String] ?? []
+      return keys.contains(key)
+    }
+    if matches.isEmpty {
+      matches = await officialFoods(query: name, key: key)
+    }
+    let saved = matches.filter { $0["source"] as? String == "saved_food" }
+    let pool = saved.isEmpty
+      ? matches.filter { $0["source"] as? String == "mext_sfct" }
+      : saved
+    return !pool.isEmpty
+  }
+
+  private static func exerciseNamed(_ name: String) -> Bool {
+    let key = normalize(name)
+    if key.isEmpty {
+      return false
+    }
+    return activities().contains { activity in
+      let keys = activity["keys"] as? [String] ?? []
+      return keys.contains(key)
+    }
   }
 
   private static func blocked() -> Plan? {
@@ -414,23 +521,13 @@ enum SiriVoiceStore {
     }
   }
 
-  private static func rejectIncompleteUtterance(
-    name: String,
-    quantity: String,
-    food: Bool
-  ) -> Plan? {
-    let source = utterance(name, quantity)
-    if !mentionsPhraseShape(source) {
+  private static func explicitKind(_ source: String) -> SiriSpokenKind? {
+    let meal = source.contains("食事に")
+    let exercise = source.contains("運動に")
+    if meal == exercise {
       return nil
     }
-    if !source.contains("カロナビ") {
-      return stop("アプリ名が無いので登録しません")
-    }
-    let marker = food ? "食事に" : "運動に"
-    if !source.contains(marker) {
-      return stop("食事か運動か分からないので登録しません")
-    }
-    return nil
+    return meal ? .meal : .exercise
   }
 
   private static func utterance(_ name: String, _ quantity: String) -> String {
@@ -469,13 +566,29 @@ enum SiriVoiceStore {
       return (cleanName(name), quantity)
     }
     let range = NSRange(source.startIndex..., in: source)
-    guard let found = regex.firstMatch(in: source, range: range),
-          let nameRange = Range(found.range(at: 1), in: source),
-          let quantityRange = Range(found.range(at: 2), in: source)
-    else {
-      return (name, quantity)
+    if let found = regex.firstMatch(in: source, range: range),
+       let nameRange = Range(found.range(at: 1), in: source),
+       let quantityRange = Range(found.range(at: 2), in: source) {
+      return (String(source[nameRange]), String(source[quantityRange]))
     }
-    return (String(source[nameRange]), String(source[quantityRange]))
+    let compact = source
+      .replacingOccurrences(of: " ", with: "")
+      .replacingOccurrences(of: "　", with: "")
+    let units = "ミリリットル|キロメートル|グラム|分間|食分|ml|mL|ML|ｍｌ|km|KM|㎞|キロ|個|こ|コ|食|分|回|g|G|ｇ"
+    if let tail = try? NSRegularExpression(pattern: "(\\d+(?:\\.\\d+)?)(\(units))$"),
+       let tailMatch = tail.firstMatch(
+        in: compact,
+        range: NSRange(compact.startIndex..., in: compact)
+       ),
+       let amountRange = Range(tailMatch.range(at: 1), in: compact),
+       let unitRange = Range(tailMatch.range(at: 2), in: compact) {
+      let cleaned = cleanName(String(compact[..<amountRange.lowerBound]))
+      let spokenQuantity = String(compact[amountRange]) + String(compact[unitRange])
+      if !cleaned.isEmpty && parseQuantity(spokenQuantity) != nil {
+        return (cleaned, spokenQuantity)
+      }
+    }
+    return (name, quantity)
   }
 
   private static func cleanName(_ raw: String) -> String {
@@ -624,11 +737,20 @@ struct LogSpokenFoodIntent: AppIntent {
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    let plan = await SiriVoiceStore.planFood(name: foodName, quantity: quantity)
+    var plan = await SiriVoiceStore.planFood(name: foodName, quantity: quantity)
+    if plan.asksKind {
+      let choice = try await requestDisambiguation(
+        among: SiriSpokenKind.allCases,
+        dialog: IntentDialog(stringLiteral: plan.spoken)
+      )
+      plan = await SiriVoiceStore.resolveKind(plan, kind: choice)
+    }
     guard plan.asksConfirmation, let record = plan.record else {
       return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
     }
-    try await requestConfirmation(result: .result(dialog: IntentDialog(stringLiteral: plan.spoken)))
+    try await requestConfirmation(
+      result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+    )
     SiriVoiceStore.commit(record)
     return .result(dialog: "登録しました")
   }
@@ -652,14 +774,69 @@ struct LogSpokenExerciseIntent: AppIntent {
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    let plan = SiriVoiceStore.planExercise(name: activityName, quantity: quantity)
+    var plan = await SiriVoiceStore.planExercise(name: activityName, quantity: quantity)
+    if plan.asksKind {
+      let choice = try await requestDisambiguation(
+        among: SiriSpokenKind.allCases,
+        dialog: IntentDialog(stringLiteral: plan.spoken)
+      )
+      plan = await SiriVoiceStore.resolveKind(plan, kind: choice)
+    }
     guard plan.asksConfirmation, let record = plan.record else {
       return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
     }
-    try await requestConfirmation(result: .result(dialog: IntentDialog(stringLiteral: plan.spoken)))
+    try await requestConfirmation(
+      result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+    )
     SiriVoiceStore.commit(record)
     return .result(dialog: "登録しました")
   }
+}
+
+@available(iOS 17.0, *)
+struct LogSpokenEntryIntent: AppIntent {
+  static var title: LocalizedStringResource = "食事か運動を登録"
+  static var description = IntentDescription("話した内容が食事か運動かを判別し、復唱してはいのときだけ1件登録します。")
+  static var openAppWhenRun = false
+
+  @Parameter(title: "内容")
+  var utterance: String
+
+  init() {
+    self.utterance = ""
+  }
+
+  func perform() async throws -> some IntentResult & ProvidesDialog {
+    var plan = await SiriVoiceStore.planUtterance(name: utterance, quantity: "")
+    if plan.asksKind {
+      let choice = try await requestDisambiguation(
+        among: SiriSpokenKind.allCases,
+        dialog: IntentDialog(stringLiteral: plan.spoken)
+      )
+      plan = await SiriVoiceStore.resolveKind(plan, kind: choice)
+    }
+    guard plan.asksConfirmation, let record = plan.record else {
+      return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+    }
+    try await requestConfirmation(
+      result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+    )
+    SiriVoiceStore.commit(record)
+    return .result(dialog: "登録しました")
+  }
+}
+
+@available(iOS 16.0, *)
+enum SiriSpokenKind: String, AppEnum {
+  case meal
+  case exercise
+
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "種類")
+
+  static var caseDisplayRepresentations: [SiriSpokenKind: DisplayRepresentation] = [
+    .meal: DisplayRepresentation(title: "食事"),
+    .exercise: DisplayRepresentation(title: "運動"),
+  ]
 }
 
 @available(iOS 17.0, *)
@@ -680,6 +857,14 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
       ],
       shortTitle: "運動を登録",
       systemImageName: "figure.run"
+    )
+    AppShortcut(
+      intent: LogSpokenEntryIntent(),
+      phrases: [
+        "\(.applicationName)で \(\.$utterance\)",
+      ],
+      shortTitle: "食事か運動を登録",
+      systemImageName: "mic"
     )
   }
 }

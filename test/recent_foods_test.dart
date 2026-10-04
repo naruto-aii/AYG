@@ -138,6 +138,36 @@ void main() {
     },
   );
 
+  test(
+    'a later registration of the same food does not keep the memo',
+    () async {
+      final plus = _controller(plus: true);
+      addTearDown(plus.dispose);
+      await plus.registerFoodMealFromDrafts(
+        mealGroupName: 'ささみ定食',
+        items: [_draft()],
+        loggedAt: DateTime(2026, 10, 3, 8),
+        memo: '少し多かったから明日は150',
+      );
+      await plus.registerFoodMealFromDrafts(
+        mealGroupName: 'ささみ定食',
+        items: [_draft()],
+        loggedAt: now,
+      );
+
+      expect(plus.foodEntries.first.memo, '少し多かったから明日は150');
+      expect(plus.foodEntries.last.memo, isNull);
+
+      final added = await plus.repeatRecentFood(
+        plus.foodEntries.first,
+        loggedAt: now,
+      );
+      expect(added, isTrue);
+      expect(plus.foodEntries.last.memo, isNull);
+      expect(plus.foodEntries.first.memo, '少し多かったから明日は150');
+    },
+  );
+
   test('memo survives the remote row', () {
     final entry = food(
       id: 'e1',

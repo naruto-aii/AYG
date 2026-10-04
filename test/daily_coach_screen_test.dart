@@ -3,6 +3,7 @@ import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/coach_intro_store.dart';
+import 'package:ayg/repositories/coach_proposal_log.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
 import 'package:ayg/screens/home/home_screen.dart';
 import 'package:ayg/widgets/design/design_button.dart';
@@ -51,6 +52,8 @@ void main() {
     required Future<DailyCoachLoadResult> Function() load,
     Future<void> Function(CoachMealProposal proposal)? onSelectMeal,
     CoachIntroStore? introStore,
+    CoachProposalLog? proposalLog,
+    DateTime? now,
   }) async {
     final intros = introStore ?? _MemoryIntro(seen: true);
     await tester.pumpWidget(
@@ -66,6 +69,8 @@ void main() {
                       load: load,
                       onSelectMeal: onSelectMeal,
                       introStore: intros,
+                      proposalLog: proposalLog,
+                      now: now,
                     ),
                   ),
                 );
@@ -107,6 +112,8 @@ void main() {
     expect(find.textContaining('約10g多くなります'), findsOneWidget);
     expect(find.textContaining('ランニング12.4km'), findsOneWidget);
     expect(find.text('今日は提案できません'), findsNothing);
+    expect(find.text('Good'), findsNothing);
+    expect(find.text('悪い'), findsNothing);
 
     await tester.tap(find.text(headline));
     await tester.pumpAndSettle();
@@ -162,6 +169,37 @@ void main() {
       expect(find.text(coachTrialNotice), findsOneWidget);
     },
   );
+
+  testWidgets('shown proposals are saved and a chosen meal is marked', (
+    tester,
+  ) async {
+    final log = MemoryCoachProposalLog();
+    await openCoach(
+      tester,
+      proposalLog: log,
+      now: DateTime(2026, 10, 4, 9),
+      load: () async => DailyCoachLoadResult(
+        status: DailyCoachStatus.ready,
+        meals: [sampleMeal()],
+        exerciseMessage: '今日やるなら3kmまでにします。',
+      ),
+      onSelectMeal: (_) async {},
+    );
+
+    expect(log.records, hasLength(1));
+    final shown = log.records.single;
+    expect(shown.localDate, '2026-10-04');
+    expect(shown.meals.single.headline, headline);
+    expect(shown.meals.single.foods.single.code, '01088');
+    expect(shown.exerciseMessage, '今日やるなら3kmまでにします。');
+    expect(shown.registeredPosition, isNull);
+    expect(find.text('Good'), findsNothing);
+
+    await tester.tap(find.text(headline));
+    await tester.pumpAndSettle();
+
+    expect(log.records.single.registeredPosition, 1);
+  });
 
   testWidgets('home shows 今日のコーチ', (tester) async {
     final controller = AppController(

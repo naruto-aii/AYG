@@ -14,6 +14,7 @@ class MealTemplateApplyService {
     required String Function() generateEntryId,
     String? memo,
   }) {
+    // メモはこの適用の1回だけ。テンプレート自体には残さない。
     final entries = <FoodEntry>[];
     for (final item in items) {
       entries.add(

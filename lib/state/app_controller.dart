@@ -73,6 +73,7 @@ import '../config/supabase_config.dart';
 import '../repositories/subscription_exceptions.dart';
 import '../repositories/subscription_repository.dart';
 import '../repositories/unavailable_subscription_repository.dart';
+import '../repositories/coach_proposal_log.dart';
 import '../repositories/usage_record_repository.dart';
 import '../services/usage_record.dart';
 import '../services/lock_screen_meal.dart';
@@ -124,6 +125,7 @@ class AppController extends ChangeNotifier {
     SiriVoiceGateway? siriVoiceGateway,
     SubscriptionRepository? subscriptionRepository,
     UsageRecordRepository? usageRecordRepository,
+    CoachProposalLog? coachProposalLog,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -148,6 +150,7 @@ class AppController extends ChangeNotifier {
        _subscriptionRepository =
            subscriptionRepository ?? UnavailableSubscriptionRepository(),
        _usageRecordRepository = usageRecordRepository,
+       _coachProposalLog = coachProposalLog ?? const NoOpCoachProposalLog(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -182,6 +185,9 @@ class AppController extends ChangeNotifier {
   final SiriVoiceGateway? _siriVoiceGateway;
   final SubscriptionRepository _subscriptionRepository;
   final UsageRecordRepository? _usageRecordRepository;
+  final CoachProposalLog _coachProposalLog;
+
+  CoachProposalLog get coachProposalLog => _coachProposalLog;
   StreamSubscription<bool>? _plusSubscription;
   StreamSubscription<void>? _entitlementSyncSubscription;
 
@@ -1029,6 +1035,7 @@ class AppController extends ChangeNotifier {
     if (amount <= 0) {
       return false;
     }
+    // メモは前回の登録に残す。同じ食品をあとから足しても写さない。
     await addFood(
       FoodEntry(
         id: generateId(),
@@ -1057,9 +1064,7 @@ class AppController extends ChangeNotifier {
       return false;
     }
     final stored = storedFoodMemo(memo);
-    await updateFood(
-      entry.copyWith(memo: stored, clearMemo: stored == null),
-    );
+    await updateFood(entry.copyWith(memo: stored, clearMemo: stored == null));
     return true;
   }
 

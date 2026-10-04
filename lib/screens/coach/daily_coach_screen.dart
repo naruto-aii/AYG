@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../repositories/coach_intro_store.dart';
 import '../../repositories/coach_nutrition_source.dart';
+import '../../repositories/coach_proposal_log.dart';
 import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
@@ -21,6 +22,7 @@ class DailyCoachScreen extends StatefulWidget {
     this.nutritionSource,
     this.now,
     this.introStore,
+    this.proposalLog,
   });
 
   final AppController? controller;
@@ -29,6 +31,7 @@ class DailyCoachScreen extends StatefulWidget {
   final CoachNutritionSource? nutritionSource;
   final DateTime? now;
   final CoachIntroStore? introStore;
+  final CoachProposalLog? proposalLog;
 
   @override
   State<DailyCoachScreen> createState() => _DailyCoachScreenState();
@@ -37,6 +40,14 @@ class DailyCoachScreen extends StatefulWidget {
 class _DailyCoachScreenState extends State<DailyCoachScreen> {
   DailyCoachLoadResult? _result;
   bool _saving = false;
+  String? _shownId;
+  Future<void> _recorded = Future<void>.value();
+
+  CoachProposalLog get _log {
+    return widget.proposalLog ??
+        widget.controller?.coachProposalLog ??
+        const NoOpCoachProposalLog();
+  }
 
   @override
   void initState() {
@@ -90,10 +101,18 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     if (!mounted) {
       return;
     }
+    if (result.status == DailyCoachStatus.ready) {
+      final snapshot = CoachProposalSnapshot.shown(
+        now: widget.now ?? DateTime.now(),
+        result: result,
+      );
+      _shownId = snapshot.id;
+      _recorded = _log.recordShown(snapshot);
+    }
     setState(() => _result = result);
   }
 
-  Future<void> _select(CoachMealProposal proposal) async {
+  Future<void> _select(CoachMealProposal proposal, int index) async {
     if (_saving) {
       return;
     }
@@ -108,6 +127,13 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
           return;
         }
         await DailyCoachSession(controller: controller).save(proposal);
+      }
+      final shownId = _shownId;
+      if (shownId != null) {
+        try {
+          await _recorded;
+          await _log.markRegistered(id: shownId, position: index + 1);
+        } catch (_) {}
       }
       if (!mounted) {
         return;
@@ -167,24 +193,24 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             ],
             if (result.meals.isNotEmpty)
               Text('食事の案', style: AppTypography.titleM),
-            for (final meal in result.meals) ...[
+            for (final indexed in result.meals.indexed) ...[
               const SizedBox(height: 8),
               DesignCard(
-                onTap: _saving ? null : () => _select(meal),
+                onTap: _saving ? null : () => _select(indexed.$2, indexed.$1),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(meal.headline, style: AppTypography.titleM),
+                    Text(indexed.$2.headline, style: AppTypography.titleM),
                     const SizedBox(height: 4),
                     Text(
-                      '約${meal.kcal.round()}kcal',
+                      '約${indexed.$2.kcal.round()}kcal',
                       style: AppTypography.bodyS.copyWith(
                         color: AppColors.textMuted,
                       ),
                     ),
-                    if (meal.macroNote != null) ...[
+                    if (indexed.$2.macroNote != null) ...[
                       const SizedBox(height: 4),
-                      Text(meal.macroNote!, style: AppTypography.bodyS),
+                      Text(indexed.$2.macroNote!, style: AppTypography.bodyS),
                     ],
                   ],
                 ),

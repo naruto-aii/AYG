@@ -14,9 +14,10 @@ import 'lock_screen_meal.dart';
 
 /// Siri の食事・運動登録。
 ///
-/// 話し方は「カロナビで、食事に食品を量」と「カロナビで、運動に種目を量」だけ。
-/// アプリ名が無い文と、食事・運動の区分が無い文は登録しない。
-/// 復唱して「はい」のときだけ1件作る。「いいえ」と無言では作らない。
+/// 決まった始まりは「Hey Siri、カロナビで」。食事か運動かは言葉から判別する。
+/// 登録前に「鶏むね100gの食事でいいですね」のように復唱し、合っていれば1件作る。
+/// どちらとも取れない言葉は、復唱で食事か運動かを確認する。
+/// 「いいえ」と無言では作らない。アプリ名が無い文は登録しない。
 /// 食品は渡されたデータベースの完全一致だけ。運動は既存の式で計算できる量だけ。
 /// 食事テンプレートの一発登録はここには無い。
 /// 判定と書き込みはアプリを開かずに行い、アプリは次に開いたとき取り込む。
@@ -24,12 +25,15 @@ const String siriVoiceMethodChannel = 'com.narutoaii.ayg/siri_voice';
 
 enum SiriAnswer { yes, no, silence }
 
+enum SiriSpokenKind { meal, exercise }
+
 enum SiriVoiceStatus {
   ready,
   unpaid,
   signedOut,
   notFound,
   ambiguous,
+  needsKind,
   unsupportedAmount,
   missingWeight,
   declined,
@@ -157,19 +161,26 @@ class SiriVoicePlan {
     required this.status,
     required this.spoken,
     required this.asksConfirmation,
+    this.asksKind = false,
     this.food,
     this.activityId,
     this.quantity,
+    this.spokenName,
   });
 
   final SiriVoiceStatus status;
   final String spoken;
   final bool asksConfirmation;
+
+  /// 復唱が食事か運動かの質問。はいでは登録しない。
+  final bool asksKind;
   final SiriFoodRecord? food;
   final String? activityId;
   final SiriQuantity? quantity;
+  final String? spokenName;
 
-  bool get isReady => status == SiriVoiceStatus.ready && asksConfirmation;
+  bool get isReady =>
+      status == SiriVoiceStatus.ready && asksConfirmation && !asksKind;
 }
 
 class SiriVoiceResult {
@@ -254,58 +265,11 @@ SiriVoicePlan planSiriFood({
   required String name,
   required String quantity,
 }) {
-  final blocked = _blocked(context);
-  if (blocked != null) {
-    return blocked;
-  }
-  final rejected = _rejectIncompleteUtterance(
+  return _plan(
+    context: context,
     name: name,
     quantity: quantity,
-    food: true,
-  );
-  if (rejected != null) {
-    return rejected;
-  }
-  final split = _split(name, quantity);
-  final parsed = parseSiriQuantity(split.quantity);
-  if (split.name.isEmpty) {
-    return _stop(SiriVoiceStatus.notFound, '食品名が分かりません');
-  }
-  if (parsed == null) {
-    return _stop(SiriVoiceStatus.unsupportedAmount, '量が分かりません');
-  }
-  final key = FoodSearchNormalizer.normalize(split.name);
-  final matches = context.foods
-      .where((food) => food.keys.contains(key))
-      .toList();
-  final saved = matches
-      .where((food) => food.source == FoodEntrySource.savedFood)
-      .toList();
-  final pool = saved.isNotEmpty
-      ? saved
-      : matches
-            .where((food) => food.source == FoodEntrySource.mextSfct)
-            .toList();
-  if (pool.isEmpty) {
-    return _stop(SiriVoiceStatus.notFound, '${split.name}は見つかりません');
-  }
-  final ids = pool.map((food) => food.id).toSet();
-  if (ids.length != 1) {
-    return _stop(SiriVoiceStatus.ambiguous, '${split.name}はひとつに決まりません');
-  }
-  final food = pool.first;
-  if (!_foodUnitFits(food.unit, parsed.unit)) {
-    return _stop(
-      SiriVoiceStatus.unsupportedAmount,
-      '${food.speakName}は${food.unit.label}で指定してください',
-    );
-  }
-  return SiriVoicePlan._(
-    status: SiriVoiceStatus.ready,
-    spoken: '${food.speakName}を${formatSiriQuantity(parsed)}ですね',
-    asksConfirmation: true,
-    food: food,
-    quantity: parsed,
+    forced: SiriSpokenKind.meal,
   );
 }
 
@@ -314,40 +278,169 @@ SiriVoicePlan planSiriExercise({
   required String name,
   required String quantity,
 }) {
+  return _plan(
+    context: context,
+    name: name,
+    quantity: quantity,
+    forced: SiriSpokenKind.exercise,
+  );
+}
+
+/// 「カロナビで」のあとの文。食事か運動かはここで判別する。
+SiriVoicePlan planSiriUtterance({
+  required SiriVoiceContext context,
+  required String name,
+  required String quantity,
+}) {
+  return _plan(context: context, name: name, quantity: quantity, forced: null);
+}
+
+/// 食事か運動かの復唱に答えたあと、その種類で中身を確認する。
+SiriVoicePlan resolveSiriSpokenKind({
+  required SiriVoiceContext context,
+  required SiriVoicePlan plan,
+  required SiriSpokenKind kind,
+}) {
+  final spokenName = plan.spokenName;
+  final quantity = plan.quantity;
+  if (!plan.asksKind || spokenName == null || quantity == null) {
+    return plan;
+  }
+  final quantityText = formatSiriQuantity(quantity);
+  if (kind == SiriSpokenKind.meal) {
+    return _planFoodBody(
+      context,
+      name: spokenName,
+      quantityText: quantityText,
+    );
+  }
+  return _planExerciseBody(
+    context,
+    name: spokenName,
+    quantityText: quantityText,
+  );
+}
+
+SiriVoicePlan _plan({
+  required SiriVoiceContext context,
+  required String name,
+  required String quantity,
+  required SiriSpokenKind? forced,
+}) {
   final blocked = _blocked(context);
   if (blocked != null) {
     return blocked;
   }
-  final rejected = _rejectIncompleteUtterance(
-    name: name,
-    quantity: quantity,
-    food: false,
-  );
-  if (rejected != null) {
-    return rejected;
+  final source = _utterance(name, quantity);
+  if (_mentionsPhraseShape(source) && !source.contains('カロナビ')) {
+    return _stop(SiriVoiceStatus.unsupportedAmount, 'アプリ名が無いので登録しません');
   }
   final split = _split(name, quantity);
-  final parsed = parseSiriQuantity(split.quantity);
-  if (split.name.isEmpty) {
+  final explicit = _explicitSpokenKind(source);
+  final kind = explicit ?? (_mentionsPhraseShape(source) ? null : forced);
+  if (kind == SiriSpokenKind.meal) {
+    return _planFoodBody(
+      context,
+      name: split.name,
+      quantityText: split.quantity,
+    );
+  }
+  if (kind == SiriSpokenKind.exercise) {
+    return _planExerciseBody(
+      context,
+      name: split.name,
+      quantityText: split.quantity,
+    );
+  }
+  return _classify(context, name: split.name, quantityText: split.quantity);
+}
+
+SiriVoicePlan _classify(
+  SiriVoiceContext context, {
+  required String name,
+  required String quantityText,
+}) {
+  if (name.isEmpty) {
+    return _stop(SiriVoiceStatus.notFound, '内容が分かりません');
+  }
+  final parsed = parseSiriQuantity(quantityText);
+  if (parsed == null) {
+    return _stop(SiriVoiceStatus.unsupportedAmount, '量が分かりません');
+  }
+  final foodNamed = _foodPool(context, name).isNotEmpty;
+  final exerciseNamed = _exerciseMatches(name).isNotEmpty;
+  if (foodNamed && !exerciseNamed) {
+    return _planFoodBody(context, name: name, quantityText: quantityText);
+  }
+  if (exerciseNamed && !foodNamed) {
+    return _planExerciseBody(context, name: name, quantityText: quantityText);
+  }
+  return SiriVoicePlan._(
+    status: SiriVoiceStatus.needsKind,
+    spoken: '$name${formatSiriQuantity(parsed)}は、食事ですか、運動ですか',
+    asksConfirmation: true,
+    asksKind: true,
+    quantity: parsed,
+    spokenName: name,
+  );
+}
+
+SiriVoicePlan _planFoodBody(
+  SiriVoiceContext context, {
+  required String name,
+  required String quantityText,
+}) {
+  final parsed = parseSiriQuantity(quantityText);
+  if (name.isEmpty) {
+    return _stop(SiriVoiceStatus.notFound, '食品名が分かりません');
+  }
+  if (parsed == null) {
+    return _stop(SiriVoiceStatus.unsupportedAmount, '量が分かりません');
+  }
+  final pool = _foodPool(context, name);
+  if (pool.isEmpty) {
+    return _stop(SiriVoiceStatus.notFound, '$nameは見つかりません');
+  }
+  final ids = pool.map((food) => food.id).toSet();
+  if (ids.length != 1) {
+    return _stop(SiriVoiceStatus.ambiguous, '$nameはひとつに決まりません');
+  }
+  final food = pool.first;
+  if (!_foodUnitFits(food.unit, parsed.unit)) {
+    return _stop(
+      SiriVoiceStatus.unsupportedAmount,
+      '${food.speakName}は${food.unit.label}で指定してください',
+    );
+  }
+  final amount = formatSiriQuantity(parsed);
+  return SiriVoicePlan._(
+    status: SiriVoiceStatus.ready,
+    spoken: '${food.speakName}$amountの食事でいいですね',
+    asksConfirmation: true,
+    food: food,
+    quantity: parsed,
+    spokenName: food.speakName,
+  );
+}
+
+SiriVoicePlan _planExerciseBody(
+  SiriVoiceContext context, {
+  required String name,
+  required String quantityText,
+}) {
+  final parsed = parseSiriQuantity(quantityText);
+  if (name.isEmpty) {
     return _stop(SiriVoiceStatus.notFound, '種目が分かりません');
   }
   if (parsed == null) {
     return _stop(SiriVoiceStatus.unsupportedAmount, '量が分かりません');
   }
-  final key = FoodSearchNormalizer.normalize(split.name);
-  final matches = MetActivityCatalog.activities.where((activity) {
-    if (!activity.searchable) {
-      return false;
-    }
-    return activity.aliases.any(
-      (alias) => FoodSearchNormalizer.normalize(alias) == key,
-    );
-  }).toList();
+  final matches = _exerciseMatches(name);
   if (matches.isEmpty) {
-    return _stop(SiriVoiceStatus.notFound, '${split.name}は見つかりません');
+    return _stop(SiriVoiceStatus.notFound, '$nameは見つかりません');
   }
   if (matches.length != 1) {
-    return _stop(SiriVoiceStatus.ambiguous, '${split.name}はひとつに決まりません');
+    return _stop(SiriVoiceStatus.ambiguous, '$nameはひとつに決まりません');
   }
   final activity = matches.single;
   if (activity.requiresManualKcal ||
@@ -390,13 +483,49 @@ SiriVoicePlan planSiriExercise({
   if (built == null) {
     return _stop(SiriVoiceStatus.unsupportedAmount, '計算できないので登録しません');
   }
+  final amount = formatSiriQuantity(parsed);
   return SiriVoicePlan._(
     status: SiriVoiceStatus.ready,
-    spoken: '${activity.displayName}を${formatSiriQuantity(parsed)}ですね',
+    spoken: '${activity.displayName}$amountの運動でいいですね',
     asksConfirmation: true,
     activityId: activity.id,
     quantity: parsed,
+    spokenName: activity.displayName,
   );
+}
+
+List<SiriFoodRecord> _foodPool(SiriVoiceContext context, String name) {
+  final key = FoodSearchNormalizer.normalize(name);
+  if (key.isEmpty) {
+    return const [];
+  }
+  final matches = context.foods
+      .where((food) => food.keys.contains(key))
+      .toList();
+  final saved = matches
+      .where((food) => food.source == FoodEntrySource.savedFood)
+      .toList();
+  if (saved.isNotEmpty) {
+    return saved;
+  }
+  return matches
+      .where((food) => food.source == FoodEntrySource.mextSfct)
+      .toList();
+}
+
+List<MetActivityDefinition> _exerciseMatches(String name) {
+  final key = FoodSearchNormalizer.normalize(name);
+  if (key.isEmpty) {
+    return const [];
+  }
+  return MetActivityCatalog.activities.where((activity) {
+    if (!activity.searchable) {
+      return false;
+    }
+    return activity.aliases.any(
+      (alias) => FoodSearchNormalizer.normalize(alias) == key,
+    );
+  }).toList();
 }
 
 SiriVoiceResult commitSiriVoice({
@@ -790,23 +919,13 @@ SiriVoicePlan _stop(SiriVoiceStatus status, String spoken) {
   );
 }
 
-SiriVoicePlan? _rejectIncompleteUtterance({
-  required String name,
-  required String quantity,
-  required bool food,
-}) {
-  final source = _utterance(name, quantity);
-  if (!_mentionsPhraseShape(source)) {
+SiriSpokenKind? _explicitSpokenKind(String source) {
+  final meal = source.contains('食事に');
+  final exercise = source.contains('運動に');
+  if (meal == exercise) {
     return null;
   }
-  if (!source.contains('カロナビ')) {
-    return _stop(SiriVoiceStatus.unsupportedAmount, 'アプリ名が無いので登録しません');
-  }
-  final marker = food ? '食事に' : '運動に';
-  if (!source.contains(marker)) {
-    return _stop(SiriVoiceStatus.unsupportedAmount, '食事か運動か分からないので登録しません');
-  }
-  return null;
+  return meal ? SiriSpokenKind.meal : SiriSpokenKind.exercise;
 }
 
 String _utterance(String name, String quantity) {
@@ -836,11 +955,25 @@ bool _mentionsPhraseShape(String source) {
   final match = RegExp(
     r'^(?:カロナビで[、,]?)?(?:食事に|運動に)?(.+?)を\s*(\d.*)$',
   ).firstMatch(source);
-  if (match == null) {
-    return (name: _cleanName(name), quantity: quantity.trim());
+  if (match != null) {
+    return (name: match.group(1)!.trim(), quantity: match.group(2)!.trim());
   }
-  return (name: match.group(1)!.trim(), quantity: match.group(2)!.trim());
+  final compact = source.replaceAll(' ', '').replaceAll('　', '');
+  final tail = RegExp(
+    '(\\d+(?:\\.\\d+)?)($_siriUnitPattern)\$',
+  ).firstMatch(compact);
+  if (tail != null) {
+    final cleaned = _cleanName(compact.substring(0, tail.start));
+    final spokenQuantity = '${tail.group(1)}${tail.group(2)}';
+    if (cleaned.isNotEmpty && parseSiriQuantity(spokenQuantity) != null) {
+      return (name: cleaned, quantity: spokenQuantity);
+    }
+  }
+  return (name: _cleanName(name), quantity: quantity.trim());
 }
+
+const _siriUnitPattern =
+    'ミリリットル|キロメートル|グラム|分間|食分|ml|mL|ML|ｍｌ|km|KM|㎞|キロ|個|こ|コ|食|分|回|g|G|ｇ';
 
 String _cleanName(String raw) {
   var name = raw.trim();

@@ -29,6 +29,7 @@ import '../repositories/user_repository.dart';
 import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../repositories/storekit_subscription_repository.dart';
+import '../repositories/coach_proposal_log.dart';
 import '../repositories/usage_record_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
@@ -149,6 +150,9 @@ Future<void> bootstrapApp() async {
     usageRecordRepository: SupabaseConfig.isConfigured
         ? SupabaseUsageRecordRepository()
         : const NoOpUsageRecordRepository(),
+    coachProposalLog: SupabaseConfig.isConfigured
+        ? SupabaseCoachProposalLog()
+        : const NoOpCoachProposalLog(),
   );
   await controller.initialize();
 

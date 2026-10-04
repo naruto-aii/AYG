@@ -7,9 +7,8 @@ import '../models/exercise_quantity_unit.dart';
 import '../services/exercise_calorie_calculator.dart';
 import '../utils/local_date.dart';
 
-/// ホームのコーチ画面に必ず出す注記。
-const coachTrialNotice =
-    'この提案は検証中です。食品の種類や量が偏ることがあります。気になった点はアプリ内の問い合わせから送ってください。次の版の改善に使います。';
+/// 初めて開いたときのポップアップと、コーチページの下に出す文。
+const coachTrialNotice = '精度を検証しています。今は無料で使えます。検証が終わると、有料プランの機能になります。';
 
 const coachNutritionMissingMessage = '食品の数値が取れませんでした。';
 

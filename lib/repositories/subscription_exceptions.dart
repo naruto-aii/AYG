@@ -13,7 +13,7 @@ class SubscriptionLimitExceededException implements Exception {
       SubscriptionLimitKind.publicFoodSearch =>
         '公開食品検索は1日${SubscriptionCatalog.publicFoodSearchesPerDay}回までです。',
       SubscriptionLimitKind.mealTemplate =>
-        '食事テンプレートは${SubscriptionCatalog.mealTemplateLimit}件までです。',
+        '食事テンプレートの${SubscriptionCatalog.mealTemplateLimit + 1}件目からは、カロナビ+です。',
       SubscriptionLimitKind.workoutTemplate =>
         '運動テンプレートは${SubscriptionCatalog.workoutTemplateLimit}件までです。',
     };

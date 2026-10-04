@@ -2,6 +2,7 @@ import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
+import 'package:ayg/repositories/coach_intro_store.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
 import 'package:ayg/screens/home/home_screen.dart';
 import 'package:ayg/widgets/design/design_button.dart';
@@ -49,7 +50,9 @@ void main() {
     WidgetTester tester, {
     required Future<DailyCoachLoadResult> Function() load,
     Future<void> Function(CoachMealProposal proposal)? onSelectMeal,
+    CoachIntroStore? introStore,
   }) async {
+    final intros = introStore ?? _MemoryIntro(seen: true);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
@@ -62,6 +65,7 @@ void main() {
                     builder: (context) => DailyCoachScreen(
                       load: load,
                       onSelectMeal: onSelectMeal,
+                      introStore: intros,
                     ),
                   ),
                 );
@@ -94,6 +98,11 @@ void main() {
     );
 
     expect(find.text(coachTrialNotice), findsOneWidget);
+    final mealBottom = tester.getBottomLeft(find.text(headline)).dy;
+    final noteTop = tester
+        .getTopLeft(find.byKey(const Key('coach_verification_notice')))
+        .dy;
+    expect(noteTop, greaterThan(mealBottom));
     expect(find.text(headline), findsOneWidget);
     expect(find.textContaining('約10g多くなります'), findsOneWidget);
     expect(find.textContaining('ランニング12.4km'), findsOneWidget);
@@ -119,6 +128,40 @@ void main() {
     expect(find.text('カロナビ+を見る'), findsNothing);
     expect(find.text(headline), findsOneWidget);
   });
+
+  testWidgets(
+    'the first open shows the notice in a dialog, later opens do not',
+    (tester) async {
+      final intros = _MemoryIntro();
+      await openCoach(
+        tester,
+        introStore: intros,
+        load: () async => DailyCoachLoadResult(
+          status: DailyCoachStatus.ready,
+          meals: [sampleMeal()],
+        ),
+      );
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text(coachTrialNotice), findsNWidgets(2));
+
+      await tester.tap(find.widgetWithText(TextButton, '閉じる'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(intros.seen, isTrue);
+      expect(find.text(coachTrialNotice), findsOneWidget);
+      expect(find.byType(DailyCoachScreen), findsOneWidget);
+
+      await tester.tap(find.text('戻る'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text(coachTrialNotice), findsOneWidget);
+    },
+  );
 
   testWidgets('home shows 今日のコーチ', (tester) async {
     final controller = AppController(
@@ -164,5 +207,39 @@ void main() {
     final coachTop = tester.getTopLeft(find.text('今日のコーチ')).dy;
     expect(coachTop, greaterThan(remainingTop));
     expect(tester.widget<DesignButton>(find.byType(DesignButton)).height, 52);
+
+    await tester.tap(find.text('今日のコーチ'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DailyCoachScreen), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    final route = ModalRoute.of(tester.element(find.text('戻る')));
+    expect(route, isA<MaterialPageRoute<bool>>());
+    expect((route! as PageRoute<bool>).fullscreenDialog, isFalse);
+
+    await tester.tap(find.text('戻る'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DailyCoachScreen), findsNothing);
+
+    await tester.tap(find.text('今日のコーチ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('閉じる'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DailyCoachScreen), findsNothing);
+    expect(find.text('今日あと'), findsOneWidget);
   });
+}
+
+class _MemoryIntro implements CoachIntroStore {
+  _MemoryIntro({this.seen = false});
+
+  bool seen;
+
+  @override
+  Future<bool> hasSeen() async => seen;
+
+  @override
+  Future<void> markSeen() async {
+    seen = true;
+  }
 }

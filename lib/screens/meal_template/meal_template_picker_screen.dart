@@ -5,6 +5,7 @@ import '../../state/app_controller.dart';
 import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
 import 'meal_template_form_screen.dart';
+import 'meal_template_plus_gate.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_button.dart';
@@ -58,6 +59,12 @@ class _MealTemplatePickerScreenState extends State<MealTemplatePickerScreen> {
   }
 
   Future<void> _openCreate() async {
+    if (!await allowMealTemplateCreate(context, widget.controller)) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) =>

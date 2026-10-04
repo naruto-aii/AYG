@@ -1,0 +1,40 @@
+import 'package:flutter/material.dart';
+
+import '../../repositories/subscription_exceptions.dart';
+import '../../state/app_controller.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
+import '../subscription/calonavi_plus_flow.dart';
+
+/// 5件目からの新規作成はカロナビ+。作ってよいときは true。
+Future<bool> allowMealTemplateCreate(
+  BuildContext context,
+  AppController controller,
+) async {
+  if (await controller.canCreateMealTemplate()) {
+    return true;
+  }
+  if (!context.mounted) {
+    return false;
+  }
+  final openPlus = await showAppConfirmDialog(
+    context: context,
+    title: 'こちらは有料の機能です',
+    message: SubscriptionLimitExceededException(
+      SubscriptionLimitKind.mealTemplate,
+    ).toString(),
+    confirmLabel: 'カロナビ+を見る',
+    cancelLabel: '閉じる',
+  );
+  if (openPlus == true && context.mounted) {
+    final custom = controller.openCalonaviPlusFlow;
+    if (custom != null) {
+      await custom(context);
+    } else {
+      await showCalonaviPlus(
+        context,
+        repository: controller.subscriptionRepository,
+      );
+    }
+  }
+  return false;
+}

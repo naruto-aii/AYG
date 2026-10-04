@@ -68,7 +68,9 @@ import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
 import '../services/local_user_data_clearer_base.dart';
 import '../config/official_foods_flag.dart';
+import '../config/subscription_catalog.dart';
 import '../config/supabase_config.dart';
+import '../repositories/subscription_exceptions.dart';
 import '../repositories/subscription_repository.dart';
 import '../repositories/unavailable_subscription_repository.dart';
 import '../repositories/usage_record_repository.dart';
@@ -2355,6 +2357,19 @@ class AppController extends ChangeNotifier {
     return MealTemplateWithItems(template: template, items: items);
   }
 
+  /// 無料は4件まで。5件目からの新規作成はカロナビ+。編集は止めない。
+  Future<bool> canCreateMealTemplate() async {
+    final repository = _mealTemplateRepository;
+    if (repository == null) {
+      return true;
+    }
+    final existing = await repository.getAll(currentOwnerUserId);
+    return !SubscriptionCatalog.mealTemplateCreateRequiresPlus(
+      savedCount: existing.length,
+      isPlus: _subscriptionRepository.isPlusActive,
+    );
+  }
+
   Future<MealTemplate> saveMealTemplate({
     required MealTemplateDraft draft,
     String? templateId,
@@ -2368,6 +2383,11 @@ class AppController extends ChangeNotifier {
     }
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
+    }
+    if (templateId == null && !await canCreateMealTemplate()) {
+      throw SubscriptionLimitExceededException(
+        SubscriptionLimitKind.mealTemplate,
+      );
     }
 
     final now = DateTime.now();

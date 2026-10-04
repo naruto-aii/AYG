@@ -8,6 +8,7 @@ import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import 'meal_template_form_screen.dart';
+import 'meal_template_plus_gate.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
@@ -60,6 +61,12 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   }
 
   Future<void> _openCreate() async {
+    if (!await allowMealTemplateCreate(context, widget.controller)) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) =>

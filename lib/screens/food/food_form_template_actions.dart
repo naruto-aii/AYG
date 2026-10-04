@@ -5,14 +5,21 @@ import '../../models/macro_field.dart';
 import '../../models/meal_template_draft.dart';
 import '../../state/app_controller.dart';
 import '../meal_template/meal_template_form_screen.dart';
+import '../meal_template/meal_template_plus_gate.dart';
 import 'food_meal_registration_screen.dart';
 
 /// 食事フォームからテンプレート関連の導線を開く。
 Future<void> openFoodTemplateCreate(
   BuildContext context,
   AppController controller,
-) {
-  return Navigator.of(context).push<void>(
+) async {
+  if (!await allowMealTemplateCreate(context, controller)) {
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
+  await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       builder: (context) => MealTemplateFormScreen(controller: controller),
     ),
@@ -40,6 +47,12 @@ Future<void> saveCurrentFoodAsTemplate({
   required AppController controller,
   required MealTemplateItemDraft itemDraft,
 }) async {
+  if (!await allowMealTemplateCreate(context, controller)) {
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
   final nameController = TextEditingController();
   final saved = await showDialog<bool>(
     context: context,

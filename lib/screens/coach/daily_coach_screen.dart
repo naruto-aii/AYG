@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../repositories/coach_intro_store.dart';
+import '../../repositories/coach_nutrition_source.dart';
 import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
-import '../../repositories/coach_nutrition_source.dart';
 import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 
 /// ホームから開く、その日の食事と運動の提案。
@@ -18,6 +20,7 @@ class DailyCoachScreen extends StatefulWidget {
     this.onSelectMeal,
     this.nutritionSource,
     this.now,
+    this.introStore,
   });
 
   final AppController? controller;
@@ -25,6 +28,7 @@ class DailyCoachScreen extends StatefulWidget {
   final Future<void> Function(CoachMealProposal proposal)? onSelectMeal;
   final CoachNutritionSource? nutritionSource;
   final DateTime? now;
+  final CoachIntroStore? introStore;
 
   @override
   State<DailyCoachScreen> createState() => _DailyCoachScreenState();
@@ -38,6 +42,34 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   void initState() {
     super.initState();
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowIntro();
+    });
+  }
+
+  Future<void> _maybeShowIntro() async {
+    final store = widget.introStore ?? PreferencesCoachIntroStore();
+    final seen = await store.hasSeen();
+    if (!mounted || seen) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: const Text(coachTrialNotice),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+    await store.markSeen();
+  }
+
+  void _close() {
+    Navigator.of(context).maybePop();
   }
 
   Future<DailyCoachLoadResult> _defaultLoad() {
@@ -102,12 +134,23 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const DesignTitleBlock(title: '今日のコーチ'),
-          const SizedBox(height: 8),
-          const DesignCard(
-            child: Text(coachTrialNotice, style: AppTypography.bodyS),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              DesignBackButton(onPressed: _close),
+              const Spacer(),
+              IconButton(
+                tooltip: '閉じる',
+                onPressed: _close,
+                icon: const DesignIcon(
+                  Symbols.close_rounded,
+                  size: 22,
+                  color: AppColors.iconMuted,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const DesignTitleBlock(title: '今日のコーチ', showBack: false),
           if (result == null)
             Text('提案を作っています', style: AppTypography.bodyS)
           else if (result.status == DailyCoachStatus.nutritionMissing)
@@ -148,6 +191,11 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
               ),
             ],
           ],
+          const SizedBox(height: 16),
+          const DesignCard(
+            key: Key('coach_verification_notice'),
+            child: Text(coachTrialNotice, style: AppTypography.bodyS),
+          ),
         ],
       ),
     );

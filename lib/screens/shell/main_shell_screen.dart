@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -13,6 +15,7 @@ import '../../widgets/layout/app_sidebar_navigation.dart';
 import '../food/food_form_navigation.dart';
 import '../food/food_tab_screen.dart';
 import '../history/history_calendar_screen.dart';
+import '../review/store_review_request.dart';
 import '../home/home_screen.dart';
 import '../settings/settings_screen.dart';
 import '../weight/weight_tab_screen.dart';
@@ -43,10 +46,13 @@ class MainShellScreen extends StatefulWidget {
 
 class _MainShellScreenState extends State<MainShellScreen> {
   ShellTab _selected = ShellTab.home;
+  bool _askingForReview = false;
 
   @override
   void initState() {
     super.initState();
+    widget.controller.reviewPromptTick.addListener(_onReviewPrompt);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onReviewPrompt());
     widget.controller.recordScreenAction(
       screen: _selected.name,
       action: UsageScreenAction.open,
@@ -67,6 +73,38 @@ class _MainShellScreenState extends State<MainShellScreen> {
         guideFirstMeal: true,
       );
     });
+  }
+
+  @override
+  void dispose() {
+    widget.controller.reviewPromptTick.removeListener(_onReviewPrompt);
+    super.dispose();
+  }
+
+  void _onReviewPrompt() {
+    unawaited(_maybeAskForReview());
+  }
+
+  Future<void> _maybeAskForReview() async {
+    if (!mounted || _askingForReview) {
+      return;
+    }
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
+    final tick = widget.controller.reviewPromptTick.value;
+    _askingForReview = true;
+    try {
+      await presentStoreReviewRequest(
+        context: context,
+        store: widget.controller.reviewPromptStore,
+      );
+    } finally {
+      _askingForReview = false;
+    }
+    if (mounted && widget.controller.reviewPromptTick.value != tick) {
+      await _maybeAskForReview();
+    }
   }
 
   void _selectTab(ShellTab tab) {

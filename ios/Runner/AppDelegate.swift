@@ -1,4 +1,5 @@
 import Flutter
+import StoreKit
 import UIKit
 
 @main
@@ -58,5 +59,27 @@ import UIKit
         result(FlutterMethodNotImplemented)
       }
     }
+    let review = FlutterMethodChannel(
+      name: "com.narutoaii.ayg/store_review",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    review.setMethodCallHandler { call, result in
+      switch call.method {
+      case "requestReview":
+        requestStoreReview()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
   }
+}
+
+/// システムにレビューを頼むだけ。星も本文も受け取らない。
+private func requestStoreReview() {
+  let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+  guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
+    return
+  }
+  SKStoreReviewController.requestReview(in: scene)
 }

@@ -1,0 +1,46 @@
+import 'package:flutter/material.dart';
+
+import '../../repositories/review_prompt_store.dart';
+import '../../services/store_review.dart';
+
+/// 依頼は1回だけ。断ったら再び出さない。書いたレビューは受け取らない。
+Future<void> presentStoreReviewRequest({
+  required BuildContext context,
+  required ReviewPromptStore store,
+  StoreReviewRequester requester = const MethodChannelStoreReviewRequester(),
+}) async {
+  if (!context.mounted) {
+    return;
+  }
+  final closed = await store.isClosed();
+  final due = closed ? false : await store.hasDue();
+  if (closed || !due || !context.mounted) {
+    return;
+  }
+  final review = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return AlertDialog(
+        key: const Key('store_review_request'),
+        content: const Text('レビューをお願いできますか'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('断る'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('レビューする'),
+          ),
+        ],
+      );
+    },
+  );
+  if (review == true) {
+    await store.markAsked();
+    await requester.request();
+    return;
+  }
+  await store.markDeclined();
+}

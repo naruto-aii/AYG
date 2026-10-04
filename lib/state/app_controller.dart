@@ -76,7 +76,9 @@ import '../repositories/unavailable_subscription_repository.dart';
 import '../repositories/coach_proposal_log.dart';
 import '../repositories/usage_record_repository.dart';
 import '../services/usage_record.dart';
+import '../repositories/review_prompt_store.dart';
 import '../services/lock_screen_meal.dart';
+import '../services/review_prompt.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
 import '../services/siri_voice_log.dart';
@@ -126,6 +128,7 @@ class AppController extends ChangeNotifier {
     SubscriptionRepository? subscriptionRepository,
     UsageRecordRepository? usageRecordRepository,
     CoachProposalLog? coachProposalLog,
+    ReviewPromptStore? reviewPromptStore,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -151,6 +154,7 @@ class AppController extends ChangeNotifier {
            subscriptionRepository ?? UnavailableSubscriptionRepository(),
        _usageRecordRepository = usageRecordRepository,
        _coachProposalLog = coachProposalLog ?? const NoOpCoachProposalLog(),
+       _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -186,8 +190,14 @@ class AppController extends ChangeNotifier {
   final SubscriptionRepository _subscriptionRepository;
   final UsageRecordRepository? _usageRecordRepository;
   final CoachProposalLog _coachProposalLog;
+  final ReviewPromptStore _reviewPromptStore;
 
   CoachProposalLog get coachProposalLog => _coachProposalLog;
+
+  ReviewPromptStore get reviewPromptStore => _reviewPromptStore;
+
+  /// 依頼を出してよい状態になった回数。画面はこれでダイアログを開く。
+  final ValueNotifier<int> reviewPromptTick = ValueNotifier(0);
   StreamSubscription<bool>? _plusSubscription;
   StreamSubscription<void>? _entitlementSyncSubscription;
 
@@ -727,6 +737,7 @@ class AppController extends ChangeNotifier {
         (latestManual.weightKg - weightKg).abs() < 0.05) {
       return;
     }
+    final daysBefore = _reviewLoggedDays();
     final entry = WeightEntry(
       id: generateId(),
       weightKg: weightKg,
@@ -734,6 +745,7 @@ class AppController extends ChangeNotifier {
       source: WeightSource.manual,
     );
     weightEntries.add(entry);
+    _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
     final repository = _weightRepository;
     if (repository != null) {
       unawaited(repository.save(entry));
@@ -1068,7 +1080,46 @@ class AppController extends ChangeNotifier {
     return true;
   }
 
+  Set<DateTime> _reviewLoggedDays() {
+    return reviewLoggedDays(
+      foodLoggedAts: foodEntries.map((entry) => entry.loggedAt),
+      exerciseLoggedAts: exerciseEntries.map((entry) => entry.loggedAt),
+      alcoholConsumedAts: alcoholEntries.map((entry) => entry.consumedAt),
+      weightEntries: weightEntries,
+    );
+  }
+
+  void _noteReviewRecords({
+    required Set<DateTime> daysBefore,
+    required ReviewRecordOrigin origin,
+  }) {
+    final streak = reviewStreakJustCompleted(
+      daysBefore: daysBefore,
+      daysAfter: _reviewLoggedDays(),
+      now: DateTime.now(),
+    );
+    final external = reviewOriginIsExternal(origin);
+    if (!streak && !external) {
+      return;
+    }
+    unawaited(_markReviewDue(streak: streak, external: external));
+  }
+
+  Future<void> _markReviewDue({
+    required bool streak,
+    required bool external,
+  }) async {
+    final opened = await _reviewPromptStore.markDue(
+      streak: streak,
+      external: external,
+    );
+    if (opened) {
+      reviewPromptTick.value++;
+    }
+  }
+
   Future<void> addFood(FoodEntry entry) async {
+    final daysBefore = _reviewLoggedDays();
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
       await foodRepository.save(entry);
@@ -1078,6 +1129,7 @@ class AppController extends ChangeNotifier {
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+    _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
   }
 
   Future<void> restoreFoodEntry(FoodEntry entry) async {
@@ -1243,7 +1295,11 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> addExercise(ExerciseEntry entry) async {
+  Future<void> addExercise(
+    ExerciseEntry entry, {
+    ReviewRecordOrigin origin = ReviewRecordOrigin.app,
+  }) async {
+    final daysBefore = _reviewLoggedDays();
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
       await exerciseRepository.save(entry);
@@ -1253,6 +1309,7 @@ class AppController extends ChangeNotifier {
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+    _noteReviewRecords(daysBefore: daysBefore, origin: origin);
   }
 
   Future<void> restoreExerciseEntry(ExerciseEntry entry) async {
@@ -1317,6 +1374,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> addAlcohol(AlcoholEntry entry) async {
+    final daysBefore = _reviewLoggedDays();
     final alcoholRepository = _alcoholRepository;
     if (alcoholRepository != null) {
       await alcoholRepository.save(entry);
@@ -1326,6 +1384,7 @@ class AppController extends ChangeNotifier {
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+    _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
   }
 
   Future<void> restoreAlcoholEntry(AlcoholEntry entry) async {
@@ -2113,10 +2172,14 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<void> addFoodEntriesBatch(List<FoodEntry> entries) async {
+  Future<void> addFoodEntriesBatch(
+    List<FoodEntry> entries, {
+    ReviewRecordOrigin origin = ReviewRecordOrigin.app,
+  }) async {
     if (entries.isEmpty) {
       return;
     }
+    final daysBefore = _reviewLoggedDays();
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
       await foodRepository.saveAll(entries);
@@ -2126,6 +2189,7 @@ class AppController extends ChangeNotifier {
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+    _noteReviewRecords(daysBefore: daysBefore, origin: origin);
   }
 
   Future<void> registerFoodMealFromDrafts({
@@ -2785,10 +2849,10 @@ class AppController extends ChangeNotifier {
       existingExerciseIds: exerciseEntries.map((entry) => entry.id).toSet(),
     );
     if (plan.foods.isNotEmpty) {
-      await addFoodEntriesBatch(plan.foods);
+      await addFoodEntriesBatch(plan.foods, origin: ReviewRecordOrigin.siri);
     }
     for (final exercise in plan.exercises) {
-      await addExercise(exercise);
+      await addExercise(exercise, origin: ReviewRecordOrigin.siri);
     }
     await gateway.acknowledge(plan.acknowledgeIds);
   }
@@ -2856,7 +2920,10 @@ class AppController extends ChangeNotifier {
       existingEntryIds: foodEntries.map((entry) => entry.id).toSet(),
     );
     if (plan.entries.isNotEmpty) {
-      await addFoodEntriesBatch(plan.entries);
+      await addFoodEntriesBatch(
+        plan.entries,
+        origin: ReviewRecordOrigin.widget,
+      );
       await _countLockScreenTemplateUses(plan.templateIds);
     }
     final acknowledged = plan.acknowledgeIds.toSet();
@@ -3279,6 +3346,7 @@ class AppController extends ChangeNotifier {
     _authSubscription?.cancel();
     _plusSubscription?.cancel();
     _entitlementSyncSubscription?.cancel();
+    reviewPromptTick.dispose();
     super.dispose();
   }
 }

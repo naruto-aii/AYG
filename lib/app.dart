@@ -12,6 +12,7 @@ import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'screens/splash/splash_screen.dart';
 import 'theme/app_theme.dart';
+import 'widgets/common/keyboard_done_bar.dart';
 import 'widgets/startup/app_startup_gate.dart';
 
 class AygApp extends StatefulWidget {
@@ -92,6 +93,14 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
       navigatorKey: _navigatorKey,
       title: AppStrings.appTitle,
       theme: AppTheme.light,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            if (child != null) child,
+            const KeyboardDoneBar(),
+          ],
+        );
+      },
       home: _buildHome(),
     );
   }

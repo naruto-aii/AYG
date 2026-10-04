@@ -102,6 +102,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   double _baseAmount = 1;
   FoodUnitType _unitType = FoodUnitType.serving;
   List<FoodFormSuggestion> _formSuggestions = const [];
+  Timer? _suggestionTimer;
+  int _suggestionGeneration = 0;
+  String? _suggestionQuery;
   late DateTime _loggedAt;
 
   bool get _showSaveAsFoodCheckbox =>
@@ -167,6 +170,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
   @override
   void dispose() {
+    _suggestionTimer?.cancel();
     _nameController.removeListener(_onNameChanged);
     _barcodeController.dispose();
     _nameController.dispose();
@@ -181,21 +185,38 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     if (widget.isEditing || _fromSavedFoodSelection) {
       return;
     }
-    final results = await widget.controller.getFoodFormSuggestions('');
-    if (!mounted) {
-      return;
-    }
-    setState(() => _formSuggestions = results);
+    _suggestionQuery = '';
+    await _refreshSuggestions('');
   }
 
-  Future<void> _onNameChanged() async {
+  /// 選択範囲が変わっただけでもコントローラは通知する。語が同じなら検索しない。
+  void _onNameChanged() {
+    if (widget.isEditing || _fromSavedFoodSelection) {
+      _suggestionTimer?.cancel();
+      _suggestionGeneration++;
+      return;
+    }
+    final query = _nameController.text.trim();
+    if (query == _suggestionQuery) {
+      return;
+    }
+    _suggestionQuery = query;
+    _suggestionTimer?.cancel();
+    _suggestionTimer = Timer(const Duration(milliseconds: 250), () {
+      unawaited(_refreshSuggestions(query));
+    });
+  }
+
+  Future<void> _refreshSuggestions(String query) async {
+    final generation = ++_suggestionGeneration;
+    final results = await widget.controller.getFoodFormSuggestions(query);
+    if (!mounted || generation != _suggestionGeneration) {
+      return;
+    }
     if (widget.isEditing || _fromSavedFoodSelection) {
       return;
     }
-
-    final query = _nameController.text.trim();
-    final results = await widget.controller.getFoodFormSuggestions(query);
-    if (!mounted) {
+    if (_nameController.text.trim() != query) {
       return;
     }
     setState(() => _formSuggestions = results);
@@ -899,7 +920,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    onChanged: (_) => setState(() {}),
                     style: AppTypography.bodyM.copyWith(
                       color: AppColors.textPrimary,
                     ),
@@ -933,7 +953,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               ),
             ],
           ),
-          if (_buildTotalPreview() != null) _buildTotalPreview()!,
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _quantityController,
+            builder: (_, _, _) =>
+                _buildTotalPreview() ?? const SizedBox.shrink(),
+          ),
           if (!widget.isEditing) ...[
             const SizedBox(height: 10),
             DesignButton(

@@ -44,6 +44,7 @@ class AppTextField extends StatelessWidget {
         suffixIcon: suffixIcon,
       ),
       keyboardType: keyboardType,
+      textInputAction: maxLines == 1 ? TextInputAction.done : null,
       inputFormatters: inputFormatters,
       obscureText: obscureText,
       maxLines: maxLines,

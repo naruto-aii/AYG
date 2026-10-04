@@ -8,6 +8,8 @@ import Foundation
 /// どちらとも取れない言葉は、復唱で食事か運動かを確認する。
 /// 「Hey Siri、カロナビで、食事にささみを300グラム。」
 /// 「Hey Siri、カロナビで、運動にジョギングを30分。」
+/// ショートカットのフレーズはパラメータを1つだけ持ち、型は AppEntity。
+/// 食品名と量は、その1つの言葉から今までどおり分ける。
 ///
 /// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
 /// 食事テンプレートの一発登録は作らない。未課金は登録しない。
@@ -725,29 +727,57 @@ enum SiriVoiceStore {
   }
 }
 
+/// 話した通りの文字列を受け取る。候補の一覧は持たず、言葉そのものを返す。
+@available(iOS 16.0, *)
+struct SiriSpokenText: AppEntity {
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "内容")
+  static var defaultQuery = SiriSpokenTextQuery()
+
+  var id: String
+  var text: String
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: LocalizedStringResource(stringLiteral: text))
+  }
+}
+
+@available(iOS 16.0, *)
+struct SiriSpokenTextQuery: EntityStringQuery {
+  func entities(for identifiers: [SiriSpokenText.ID]) async throws -> [SiriSpokenText] {
+    identifiers.map { SiriSpokenText(id: $0, text: $0) }
+  }
+
+  func entities(matching string: String) async throws -> [SiriSpokenText] {
+    let text = string.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty else { return [] }
+    return [SiriSpokenText(id: text, text: text)]
+  }
+
+  func suggestedEntities() async throws -> [SiriSpokenText] {
+    []
+  }
+}
+
 @available(iOS 17.0, *)
 struct LogSpokenFoodIntent: AppIntent {
   static var title: LocalizedStringResource = "食事を登録"
   static var description = IntentDescription("食品名と量を復唱し、はいのときだけ今日の食事に1件登録します。")
   static var openAppWhenRun = false
 
+  /// フレーズに置けるパラメータはこれだけ。食品名と量はこの言葉から分ける。
   @Parameter(title: "食品")
-  var foodName: String
-
-  @Parameter(title: "量")
-  var quantity: String
+  var foodName: SiriSpokenText
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
   var kind: SiriSpokenKind?
 
   init() {
-    self.foodName = ""
-    self.quantity = ""
+    self.foodName = SiriSpokenText(id: "", text: "")
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    var plan = await SiriVoiceStore.planFood(name: foodName, quantity: quantity)
+    var plan = await SiriVoiceStore.planFood(name: foodName.text, quantity: "")
     if plan.asksKind {
       let choice = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
@@ -772,23 +802,20 @@ struct LogSpokenExerciseIntent: AppIntent {
   static var description = IntentDescription("種目と量を復唱し、はいのときだけ今日の運動に1件登録します。")
   static var openAppWhenRun = false
 
+  /// フレーズに置けるパラメータはこれだけ。種目と量はこの言葉から分ける。
   @Parameter(title: "種目")
-  var activityName: String
-
-  @Parameter(title: "量")
-  var quantity: String
+  var activityName: SiriSpokenText
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
   var kind: SiriSpokenKind?
 
   init() {
-    self.activityName = ""
-    self.quantity = ""
+    self.activityName = SiriSpokenText(id: "", text: "")
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    var plan = await SiriVoiceStore.planExercise(name: activityName, quantity: quantity)
+    var plan = await SiriVoiceStore.planExercise(name: activityName.text, quantity: "")
     if plan.asksKind {
       let choice = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
@@ -813,19 +840,20 @@ struct LogSpokenEntryIntent: AppIntent {
   static var description = IntentDescription("話した内容が食事か運動かを判別し、復唱してはいのときだけ1件登録します。")
   static var openAppWhenRun = false
 
+  /// フレーズに置けるパラメータはこれだけ。
   @Parameter(title: "内容")
-  var utterance: String
+  var utterance: SiriSpokenText
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
   var kind: SiriSpokenKind?
 
   init() {
-    self.utterance = ""
+    self.utterance = SiriSpokenText(id: "", text: "")
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    var plan = await SiriVoiceStore.planUtterance(name: utterance, quantity: "")
+    var plan = await SiriVoiceStore.planUtterance(name: utterance.text, quantity: "")
     if plan.asksKind {
       let choice = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
@@ -863,7 +891,7 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenFoodIntent(),
       phrases: [
-        "\(.applicationName)で、食事に\(\.$foodName)を\(\.$quantity)",
+        "\(.applicationName)で、食事に\(\.$foodName)",
       ],
       shortTitle: "食事を登録",
       systemImageName: "fork.knife"
@@ -871,7 +899,7 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenExerciseIntent(),
       phrases: [
-        "\(.applicationName)で、運動に\(\.$activityName)を\(\.$quantity)",
+        "\(.applicationName)で、運動に\(\.$activityName)",
       ],
       shortTitle: "運動を登録",
       systemImageName: "figure.run"

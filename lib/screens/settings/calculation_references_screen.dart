@@ -20,8 +20,9 @@ class CalculationReferencesScreen extends StatelessWidget {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
     }
   }
 
@@ -79,14 +80,16 @@ class CalculationReferencesScreen extends StatelessWidget {
             references: const [
               _Ref(
                 authors: 'Mifflin MD, St Jeor ST, et al.',
-                title: 'A new predictive equation for resting energy expenditure in healthy individuals.',
+                title:
+                    'A new predictive equation for resting energy expenditure in healthy individuals.',
                 journal: 'American Journal of Clinical Nutrition. 1990.',
                 url: 'https://pubmed.ncbi.nlm.nih.gov/2305711/',
                 usage: '成人の推定安静時消費カロリー（REE）の算出に使用。',
               ),
               _Ref(
                 authors: 'Frankenfield D, et al.',
-                title: 'Comparison of predictive equations for resting metabolic rate in healthy nonobese and obese adults.',
+                title:
+                    'Comparison of predictive equations for resting metabolic rate in healthy nonobese and obese adults.',
                 journal: 'Journal of the American Dietetic Association. 2005.',
                 url: 'https://pubmed.ncbi.nlm.nih.gov/15883556/',
                 usage: 'REE 推定式の比較文献として参考。',
@@ -103,23 +106,29 @@ class CalculationReferencesScreen extends StatelessWidget {
                 '炭水化物は残余配分。AMDR は参考範囲であり唯一の最適比率ではありません。',
             references: const [
               _Ref(
-                authors: 'National Academies of Sciences, Engineering, and Medicine.',
-                title: 'Dietary Reference Intakes / Acceptable Macronutrient Distribution Ranges.',
+                authors:
+                    'National Academies of Sciences, Engineering, and Medicine.',
+                title:
+                    'Dietary Reference Intakes / Acceptable Macronutrient Distribution Ranges.',
                 journal: 'NCBI Bookshelf.',
                 url: 'https://www.ncbi.nlm.nih.gov/books/NBK610333/',
                 usage: 'P/F/C の AMDR 参考範囲（10–35% / 20–35% / 45–65%）。',
               ),
               _Ref(
                 authors: 'Jäger R, et al.',
-                title: 'International Society of Sports Nutrition Position Stand: protein and exercise.',
-                journal: 'Journal of the International Society of Sports Nutrition. 2017.',
+                title:
+                    'International Society of Sports Nutrition Position Stand: protein and exercise.',
+                journal:
+                    'Journal of the International Society of Sports Nutrition. 2017.',
                 url: 'https://pubmed.ncbi.nlm.nih.gov/28642676/',
                 usage: '運動する成人のたんぱく質 g/kg の参考範囲（1.4–2.0）。',
               ),
               _Ref(
                 authors: 'Aragon AA, et al.',
-                title: 'International Society of Sports Nutrition position stand: diets and body composition.',
-                journal: 'Journal of the International Society of Sports Nutrition. 2017.',
+                title:
+                    'International Society of Sports Nutrition position stand: diets and body composition.',
+                journal:
+                    'Journal of the International Society of Sports Nutrition. 2017.',
                 url: 'https://pubmed.ncbi.nlm.nih.gov/28630601/',
                 usage: '体組成と栄養の位置づけの参考。',
               ),
@@ -132,14 +141,14 @@ class CalculationReferencesScreen extends StatelessWidget {
             version: MetActivityCatalog.calculationVersion,
             summary:
                 '出典と式が特定できる種目だけ、時間または距離から追加消費を計算する。'
-                '歩行・走行は ACSM の水平成分×体重×距離。'
-                '自転車は公表速度の下限で分に直してから MET。'
-                '水泳、ハイキング、エアロバイク、エリプティカル、ローイング、球技、ヨガ、ストレッチは分と MET。'
+                '歩行・走行は ACSM の水平成分×体重×距離。MET は消費に使わない。'
+                '屋外の自転車は、選んだコードの説明にある速度（範囲は下限）で分に直してから MET。'
+                'それ以外で自動計算する種目は分と MET。'
+                '競歩、ノルディックウォーキング、スケート、カヌーも距離ではなく分と MET。'
+                'スクワット、デッドリフト、ベンチプレス、腕立て伏せ、腹筋、懸垂も分と MET。'
                 'ホームの残りカロリーには追加分（net）だけを加算する。'
                 '家事（コード 05030）と掃除（コード 05010）といつもの移動は生活活動に含まれるので追加分は0。'
-                'スクワット、デッドリフト、ベンチプレス、腕立て伏せ、腹筋、懸垂、'
-                '旧記録の筋トレ、その他は、1回の秒数または種目だけの式を特定できないので、'
-                '消費カロリーは手入力。',
+                '旧記録の筋トレとその他は、公表の式がないので消費カロリーは手入力。',
             references: [
               ...MetActivityCatalog.ledger.map(
                 (entry) => _Ref(
@@ -168,7 +177,8 @@ class CalculationReferencesScreen extends StatelessWidget {
             references: const [
               _Ref(
                 authors: 'Food and Agriculture Organization of the UN.',
-                title: 'FAO / WHO Expert Consultation on human vitamin and mineral requirements.',
+                title:
+                    'FAO / WHO Expert Consultation on human vitamin and mineral requirements.',
                 journal: 'FAO.',
                 url: 'https://www.fao.org/4/y2809e/y2809e00.htm',
                 usage: 'エタノールのエネルギー換算（約 7 kcal/g）の公的参考。',
@@ -187,10 +197,12 @@ class CalculationReferencesScreen extends StatelessWidget {
                 '長期予測には使用しません。',
             references: const [
               _Ref(
-                authors: 'National Institute of Diabetes and Digestive and Kidney Diseases.',
+                authors:
+                    'National Institute of Diabetes and Digestive and Kidney Diseases.',
                 title: 'Body Weight Planner / Dynamic model research.',
                 journal: 'NIDDK.',
-                url: 'https://www.niddk.nih.gov/research-funding/at-niddk/labs-branches/laboratory-biological-modeling/integrative-physiology-section/research/body-weight-planner',
+                url:
+                    'https://www.niddk.nih.gov/research-funding/at-niddk/labs-branches/laboratory-biological-modeling/integrative-physiology-section/research/body-weight-planner',
                 usage: '体重変化が動的であるという原則の参考（数式・表の転載はしていません）。',
               ),
             ],

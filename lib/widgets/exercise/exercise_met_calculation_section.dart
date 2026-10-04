@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../data/met_activity_catalog.dart';
-import '../../data/met_intensity_presets.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_category.dart';
@@ -29,7 +28,7 @@ class ExerciseMetCalculationSection extends StatefulWidget {
   static const activityMenuKey = Key('exercise-activity-menu');
   static const searchFieldKey = Key('exercise-activity-search');
   static const customFromQueryKey = Key('exercise-custom-from-query');
-  static const activityMenuHint = '種目を選ぶ';
+  static const activityMenuHint = '種目を選択してください';
   static const durationFieldKey = Key('exercise-duration');
   static const distanceFieldKey = Key('exercise-distance');
   static const repsFieldKey = Key('exercise-reps');
@@ -165,7 +164,7 @@ class _ExerciseMetCalculationSectionState
     );
     if (entry != null) {
       _activity = MetActivityCatalog.findById(entry.activityId);
-      _intensityId = entry.intensity ?? _activity?.defaultIntensityId;
+      _intensityId = _knownIntensityId(_activity, entry.intensity);
       _manualOverride =
           initialManual ||
           entry.calculationSource == ExerciseCalculationSource.manualOverride;
@@ -266,6 +265,16 @@ class _ExerciseMetCalculationSectionState
       return;
     }
     _recalculate();
+  }
+
+  String? _knownIntensityId(MetActivityDefinition? activity, String? stored) {
+    if (activity == null) {
+      return stored;
+    }
+    if (activity.intensityById(stored) != null) {
+      return stored;
+    }
+    return activity.defaultIntensityId;
   }
 
   MetIntensityOption? get _selectedIntensity {
@@ -503,7 +512,8 @@ class _ExerciseMetCalculationSectionState
             sourceKey: sourceKey,
           );
         }
-        final speed = activity.referenceSpeedKmh;
+        final speed =
+            _selectedIntensity?.referenceSpeedKmh ?? activity.referenceSpeedKmh;
         final met = _resolvedMet;
         if (speed == null || met == null) {
           return null;
@@ -595,13 +605,7 @@ class _ExerciseMetCalculationSectionState
   }
 
   List<MetIntensityOption> get _intensityOptions {
-    if (_activity == null) {
-      return const [];
-    }
-    if (_activity!.intensityOptions.isEmpty) {
-      return MetIntensityPresets.forCategory(_activity!.category);
-    }
-    return _activity!.intensityOptions;
+    return _activity?.intensityOptions ?? const [];
   }
 
   void _togglePicker() {
@@ -1098,11 +1102,14 @@ class _ExerciseMetCalculationSectionState
                   ),
                 ),
               ),
-            if (_resolvedMet != null)
+            if (_resolvedMet != null && _selectedIntensity != null)
               ListTile(
                 dense: true,
-                title: const Text('内部 MET'),
-                trailing: Text(_resolvedMet!.toStringAsFixed(2)),
+                title: const Text('計算に使ったコード'),
+                subtitle: Text(
+                  '${_selectedIntensity!.id} / ${_selectedIntensity!.met} MET\n'
+                  '${_selectedIntensity!.description}',
+                ),
               ),
             if (_weightReference != null)
               ListTile(

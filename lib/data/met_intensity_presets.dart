@@ -136,6 +136,7 @@ class MetIntensityOption {
     required this.description,
     required this.met,
     required this.sourceKey,
+    this.referenceSpeedKmh,
   });
 
   final String id;
@@ -143,4 +144,7 @@ class MetIntensityOption {
   final String description;
   final double met;
   final String sourceKey;
+
+  /// 距離を分に直す速度（km/h）。屋外自転車のコードだけ。
+  final double? referenceSpeedKmh;
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../data/met_activity_catalog.dart';
-import '../../models/exercise_category.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/exercise_quantity_unit.dart';
@@ -148,7 +147,15 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     super.dispose();
   }
 
-  bool get _isStrength => _metState.category == ExerciseCategory.strength;
+  bool get _showsLoadFields {
+    final unit = MetActivityCatalog.findById(
+      _metState.activityId,
+    )?.quantityUnit;
+    return unit == ExerciseQuantityUnit.reps;
+  }
+
+  bool get _sameActivity =>
+      widget.entry != null && widget.entry!.activityId == _metState.activityId;
 
   int? _parseOptionalInt(TextEditingController controller) {
     final raw = controller.text.trim();
@@ -171,8 +178,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return null;
     }
     if (_metState.activityId == null || _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('種目を選んでください')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('種目を選んでください')));
       return null;
     }
 
@@ -194,12 +202,14 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         : null;
     final reps = unit == ExerciseQuantityUnit.reps
         ? _parseOptionalInt(_repsController)
+        : _sameActivity
+        ? widget.entry?.reps
         : null;
     final durationMin = switch (unit) {
       ExerciseQuantityUnit.distanceKm =>
         ExerciseCalorieCalculator.companionDurationMin(
           distanceKm: distanceKm ?? 0,
-          referenceSpeedKmh: activity?.referenceSpeedKmh,
+          referenceSpeedKmh: activity?.speedFor(_metState.intensity),
         ),
       ExerciseQuantityUnit.reps =>
         activity?.requiresManualKcal == true
@@ -217,10 +227,16 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       category: _metState.category,
       activityId: _metState.activityId,
       intensity: _metState.intensity,
-      sets: _isStrength ? _parseOptionalInt(_setsController) : null,
+      sets: _showsLoadFields
+          ? _parseOptionalInt(_setsController)
+          : _sameActivity
+          ? widget.entry?.sets
+          : null,
       reps: reps,
-      liftWeightKg: _isStrength
+      liftWeightKg: _showsLoadFields
           ? _parseOptionalDouble(_liftWeightController)
+          : _sameActivity
+          ? widget.entry?.liftWeightKg
           : null,
       distanceKm: distanceKm,
       metValue: activity?.netKcalPerKgKm != null ? null : _metState.metValue,
@@ -310,7 +326,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         sourceKey: activity.sourceKey,
       );
     }
-    final speed = activity.referenceSpeedKmh;
+    final speed = activity.speedFor(_metState.intensity);
     final met = _metState.metValue;
     if (speed == null || met == null) {
       return null;
@@ -320,7 +336,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       weightKg: weight,
       distanceKm: km,
       speedKmh: speed,
-      sourceKey: activity.sourceKey,
+      sourceKey: _metState.sourceKey ?? activity.sourceKey,
     );
   }
 
@@ -398,8 +414,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         await widget.controller.saveCustomActivityTemplate(entry);
       } catch (_) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('テンプレートの追加に失敗しました')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('テンプレートの追加に失敗しました')));
         }
       }
     }
@@ -499,7 +516,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_isStrength) ...[
+        if (_showsLoadFields) ...[
           _numberField(
             fieldKey: ExerciseFormScreen.setsFieldKey,
             icon: AppIcons.dumbbell,

@@ -1,7 +1,6 @@
 import 'package:ayg/data/met_activity_catalog.dart';
 import 'package:ayg/models/exercise_quantity_unit.dart';
 import 'package:ayg/services/exercise_calorie_calculator.dart';
-import 'package:ayg/utils/food_search_normalizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -28,20 +27,23 @@ void main() {
     expect(MetActivityCatalog.search('家事').single.id, 'housework');
   });
 
-  test('blank query stays out of alias search and the list shows prepared activities', () {
-    expect(MetActivityCatalog.search(''), isEmpty);
-    expect(MetActivityCatalog.search('   '), isEmpty);
-    final listed = MetActivityCatalog.listed.map((activity) => activity.id);
-    expect(listed, contains('running'));
-    expect(listed, contains('soccer'));
-    expect(listed, isNot(contains('custom')));
-    expect(
-      listed.length,
-      MetActivityCatalog.activities
-          .where((activity) => activity.searchable)
-          .length,
-    );
-  });
+  test(
+    'blank query stays out of alias search and the list shows prepared activities',
+    () {
+      expect(MetActivityCatalog.search(''), isEmpty);
+      expect(MetActivityCatalog.search('   '), isEmpty);
+      final listed = MetActivityCatalog.listed.map((activity) => activity.id);
+      expect(listed, contains('running'));
+      expect(listed, contains('soccer'));
+      expect(listed, isNot(contains('custom')));
+      expect(
+        listed.length,
+        MetActivityCatalog.activities
+            .where((activity) => activity.searchable)
+            .length,
+      );
+    },
+  );
 
   test('custom is outside alias search', () {
     expect(MetActivityCatalog.search('その他'), isEmpty);
@@ -62,19 +64,11 @@ void main() {
     }
   });
 
-  test('short token らん is not inside another activity alias', () {
-    for (final activity in MetActivityCatalog.activities) {
-      if (activity.id == 'running') {
-        continue;
-      }
-      for (final alias in activity.aliases) {
-        expect(
-          FoodSearchNormalizer.normalize(alias).contains('らん'),
-          isFalse,
-          reason: '${activity.id} $alias',
-        );
-      }
-    }
+  test('short token らん stays on running', () {
+    expect(MetActivityCatalog.search('らん').map((activity) => activity.id), [
+      'running',
+    ]);
+    expect(MetActivityCatalog.search('水中ラン').single.id, 'water_jogging');
   });
 
   test('split names are separate activities', () {
@@ -113,11 +107,14 @@ void main() {
     final expectedNet = (6.8 - 1) * 3.5 * 70 / 200 * minutes;
     expect(cycle!.netKcal, closeTo(expectedNet, 0.001));
 
-    final squat = calculator.estimateByReps(met: 5, weightKg: 70, reps: 15);
-    final repMinutes = 15 * 4 / 60;
-    final expectedSquat = (5 - 1) * 3.5 * 70 / 200 * repMinutes;
+    final squat = calculator.estimate(
+      met: 5,
+      weightKg: 70,
+      durationMinutes: 20,
+    );
+    final expectedSquat = (5 - 1) * 3.5 * 70 / 200 * 20;
     expect(squat!.netKcal, closeTo(expectedSquat, 0.001));
-    expect(squat.calculationVersion, 'exercise_reps_v1');
+    expect(squat.calculationVersion, 'met-v1');
   });
 
   test('units follow the activity', () {
@@ -139,17 +136,22 @@ void main() {
     );
     expect(
       MetActivityCatalog.findById('squat')?.quantityUnit,
-      ExerciseQuantityUnit.reps,
+      ExerciseQuantityUnit.durationMin,
     );
     expect(MetActivityCatalog.findById('housework')?.lifestyleIncluded, isTrue);
     expect(MetActivityCatalog.findById('cleaning')?.lifestyleIncluded, isTrue);
+    expect(MetActivityCatalog.findById('housework')?.calorieFormula, isNull);
     expect(MetActivityCatalog.findById('soccer')?.calorieFormula, isNotNull);
     expect(MetActivityCatalog.findById('soccer')?.requiresManualKcal, isFalse);
-    expect(MetActivityCatalog.findById('squat')?.requiresManualKcal, isTrue);
-    expect(MetActivityCatalog.findById('squat')?.calorieFormula, isNull);
+    expect(MetActivityCatalog.findById('squat')?.requiresManualKcal, isFalse);
+    expect(MetActivityCatalog.findById('squat')?.calorieFormula, isNotNull);
     expect(
       MetActivityCatalog.findById('bench_press')?.requiresManualKcal,
-      isTrue,
+      isFalse,
+    );
+    expect(
+      MetActivityCatalog.findById('push_up')?.quantityUnit,
+      ExerciseQuantityUnit.durationMin,
     );
     expect(MetActivityCatalog.findById('custom')?.requiresManualKcal, isTrue);
     expect(
@@ -160,5 +162,102 @@ void main() {
       expect(activity.calorieFormula, isNotEmpty);
       expect(activity.requiresManualKcal, isFalse);
     }
+  });
+
+  test('search lists the 28 existing and 87 added activities', () {
+    final searchable = MetActivityCatalog.activities.where(
+      (activity) => activity.searchable,
+    );
+    expect(searchable, hasLength(115));
+    expect(MetActivityCatalog.findById('run_jog')?.id, 'running');
+    expect(
+      MetActivityCatalog.findById('strength_machine')?.id,
+      'strength_general',
+    );
+    expect(
+      MetActivityCatalog.findById('strength_general')?.searchable,
+      isFalse,
+    );
+  });
+
+  test('intensities keep one option per MET and the compendium text', () {
+    for (final activity in MetActivityCatalog.activities.where(
+      (activity) => activity.searchable,
+    )) {
+      final mets = activity.intensityOptions.map((option) => option.met);
+      expect(mets.toSet(), hasLength(mets.length), reason: activity.id);
+      for (final option in activity.intensityOptions) {
+        expect(option.sourceKey, startsWith('compendium_2024_'));
+        expect(
+          option.id,
+          option.sourceKey.replaceFirst('compendium_2024_', ''),
+        );
+        expect(option.description, isNotEmpty);
+        if (activity.lifestyleIncluded) {
+          expect(activity.calorieFormula, isNull);
+        } else {
+          expect(activity.calorieFormula, contains(option.id));
+          expect(activity.calorieFormula, contains(option.description));
+        }
+      }
+    }
+
+    final swim = MetActivityCatalog.findById('swim_lap')!;
+    expect(swim.defaultIntensityId, '18292');
+    expect(swim.intensityOptions.where((option) => option.met == 5.8), [
+      swim.intensityById('18292'),
+    ]);
+    expect(swim.intensityById('18240'), isNull);
+
+    final golf = MetActivityCatalog.findById('golf')!;
+    expect(golf.intensityOptions.map((option) => option.met), [3.5, 4.3, 4.5]);
+    expect(golf.intensityById('15255')?.met, 4.5);
+    expect(golf.intensityById('15285'), isNull);
+
+    final cycle = MetActivityCatalog.findById('cycle_road')!;
+    expect(cycle.referenceSpeedKmh, 16.09344);
+    expect(
+      cycle.intensityById('01018')?.referenceSpeedKmh,
+      closeTo(8.851392, 1e-9),
+    );
+    expect(
+      cycle.intensityById('01040')?.referenceSpeedKmh,
+      closeTo(22.530816, 1e-6),
+    );
+    expect(cycle.intensityById('01060'), isNull);
+
+    expect(
+      MetActivityCatalog.findById('race_walking')?.quantityUnit,
+      ExerciseQuantityUnit.durationMin,
+    );
+    expect(
+      MetActivityCatalog.findById('nordic_walking')?.netKcalPerKgKm,
+      isNull,
+    );
+    expect(
+      MetActivityCatalog.findById('canoe')?.quantityUnit,
+      ExerciseQuantityUnit.durationMin,
+    );
+    expect(
+      MetActivityCatalog.findById('ice_skating')?.quantityUnit,
+      ExerciseQuantityUnit.durationMin,
+    );
+  });
+
+  test('search words hit the reported activity and skip thin matches', () {
+    expect(MetActivityCatalog.search('ビーチバレー').single.id, 'volleyball');
+    expect(MetActivityCatalog.search('MTB').single.id, 'mountain_bike');
+    expect(MetActivityCatalog.search('タバタ').single.id, 'hiit');
+    expect(MetActivityCatalog.search('フィット').single.id, 'exergame');
+    expect(MetActivityCatalog.search('ダンス').single.id, 'dance');
+    expect(MetActivityCatalog.search('散歩').single.id, 'dog_walking');
+    expect(MetActivityCatalog.search('ボート').map((activity) => activity.id), [
+      'canoe',
+      'rowing',
+    ]);
+    expect(MetActivityCatalog.search('パデル'), isEmpty);
+    expect(MetActivityCatalog.search('ヒップホップ'), isEmpty);
+    expect(MetActivityCatalog.search('リングフィット'), isEmpty);
+    expect(MetActivityCatalog.search('料理'), isEmpty);
   });
 }

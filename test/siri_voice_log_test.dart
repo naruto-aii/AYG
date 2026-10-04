@@ -239,7 +239,7 @@ void main() {
     );
 
     expect(missing.spoken, '宇宙遊泳は見つかりません');
-    expect(manual.spoken, 'スクワットは手入力の種目です');
+    expect(manual.spoken, 'スクワットは分で指定してください');
     expect(finish(missing, SiriAnswer.yes).registered, isFalse);
     expect(finish(manual, SiriAnswer.yes).registered, isFalse);
   });

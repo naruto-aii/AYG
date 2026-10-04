@@ -7,6 +7,8 @@ import 'met_intensity_presets.dart';
 
 export 'met_intensity_presets.dart' show MetIntensityOption;
 
+part 'met_activity_entries.dart';
+
 /// 個別 MET 値の出典台帳エントリ。
 class MetSourceLedgerEntry {
   const MetSourceLedgerEntry({
@@ -71,8 +73,8 @@ class MetActivityDefinition {
   /// 安静分を含まない kcal·kg⁻¹·km⁻¹。歩行・走行だけ。
   final double? netKcalPerKgKm;
 
-  /// 距離を分に直す速度（km/h）。自転車はカロリーにも使う。
-  /// 歩行・走行のカロリーは [netKcalPerKgKm] で、この速度は分カラム用。
+  /// 距離を分に直す速度（km/h）。標準の強度。自転車はカロリーにも使う。
+  /// 歩行のカロリーは [netKcalPerKgKm] で、この速度は分カラム用。
   final double? referenceSpeedKmh;
 
   /// 自動計算を残す種目の出典と式。手入力の種目は null。
@@ -90,6 +92,11 @@ class MetActivityDefinition {
     return null;
   }
 
+  /// 選んだ強度の速度。無ければ種目の標準速度。
+  double? speedFor(String? intensityId) {
+    return intensityById(intensityId)?.referenceSpeedKmh ?? referenceSpeedKmh;
+  }
+
   MetIntensityOption get defaultIntensity =>
       intensityById(defaultIntensityId) ??
       (intensityOptions.isNotEmpty
@@ -103,33 +110,47 @@ class MetActivityDefinition {
             ));
 }
 
+/// 2024 Adult Compendium のコード1件。
+class _Code {
+  const _Code(this.code, this.met, this.english, {this.mph});
+
+  final String code;
+  final double met;
+  final String english;
+
+  /// 説明に書いてある速度（mph）。範囲は下限。屋外自転車だけ。
+  final double? mph;
+}
+
 /// 種目一覧。
 ///
 /// MET は 2024 Adult Compendium of Physical Activities
 /// （Herrmann et al., J Sport Health Sci. 2024;13(1):6–12。
 /// https://pacompendium.com/ ）。コード番号を [MetActivityDefinition.sourceKey] に残す。
-/// コンペンディウムが種目を分けていないものは、同じコードの MET を個別の名前で使う。
+///
+/// 同じ MET のコードは画面の強度を一つにする。残すコードは、その種目の標準コードが
+/// その MET なら標準、そうでなければ表の先に出たコード。
 ///
 /// 歩行・走行の距離式は ACSM の歩行式・走行式の水平成分。
 /// 歩行 0.1 mL·kg⁻¹·m⁻¹ = 0.5 kcal·kg⁻¹·km⁻¹。
 /// 走行 0.2 mL·kg⁻¹·m⁻¹ = 1.0 kcal·kg⁻¹·km⁻¹。
 /// 1 L の酸素を 5 kcal とする。安静の 3.5 mL·kg⁻¹·min⁻¹ は入れない。
-/// ジョギングも走行と同じ水平成分（1 km あたりのこの項は速度で変わらない）。
+/// ジョギングも走行と同じ水平成分。この MET は消費に使わない。
 ///
-/// 自転車はコード 01020（10–11.9 mph、6.8 MET）の下限 10 mph = 16.09344 km/h で
-/// 距離を分に直し、既存の MET 式（MET × 3.5 × 体重 / 200 × 分）にかける。
+/// 屋外の自転車は、選んだコードの説明にある速度（範囲は下限）で距離を分に直し、
+/// 追加消費 kcal = (MET − 1) × 3.5 × 体重kg ÷ 200 × 分。
+/// 標準はコード 01020 の下限 10 mph = 16.09344 km/h。
 ///
-/// 回数の種目は、1回の秒数をカロリーの式として特定できないので自動計算しない。
-/// ベンチプレスは単独のコードが無く、その他と旧記録の筋トレは公表 MET が無い。
+/// 競歩、ノルディックウォーキング、スケート、カヌーは距離ではなく分と MET。
 class MetActivityCatalog {
   MetActivityCatalog._();
 
   static const calculationVersion = CalculationVersions.exerciseMet;
-  static const lastUpdated = '2026-10-01';
+  static const lastUpdated = '2026-10-04';
 
   static const herrmann2024Doi = '10.1016/j.jshs.2023.10.010';
 
-  static const _standard = 'standard';
+  static const _mphToKmh = 1.609344;
 
   static final ledger = <MetSourceLedgerEntry>[
     MetSourceLedgerEntry(
@@ -138,7 +159,7 @@ class MetActivityCatalog {
           'Herrmann SD, Willis EA, Ainsworth BE, et al. 2024 Adult Compendium '
           'of Physical Activities. J Sport Health Sci. 2024;13(1):6–12. '
           'DOI: 10.1016/j.jshs.2023.10.010',
-      confirmedOn: DateTime(2026, 9, 30),
+      confirmedOn: DateTime(2026, 10, 4),
       rightsCategory: 'bibliographicCitation',
       url: 'https://doi.org/10.1016/j.jshs.2023.10.010',
     ),
@@ -147,7 +168,7 @@ class MetActivityCatalog {
       citation:
           'Compendium of Physical Activities — Definition of MET '
           '(https://pacompendium.com/)。1 MET = 1 kcal·kg⁻¹·h⁻¹。',
-      confirmedOn: DateTime(2026, 9, 30),
+      confirmedOn: DateTime(2026, 10, 4),
       rightsCategory: 'formulaOrTheory',
       url: 'https://pacompendium.com/',
     ),
@@ -160,378 +181,13 @@ class MetActivityCatalog {
           'VO2 = 0.2 × speed(m/min) + 3.5. '
           '水平成分だけを 1 km と 5 kcal/L で直すと、歩行 0.5、走行 1.0 '
           'kcal·kg⁻¹·km⁻¹（安静分を含まない）。',
-      confirmedOn: DateTime(2026, 9, 30),
+      confirmedOn: DateTime(2026, 10, 4),
       rightsCategory: 'formulaOrTheory',
       url: 'https://www.acsm.org/',
     ),
   ];
 
-  static final activities = <MetActivityDefinition>[
-    _distanceFactor(
-      id: 'walk_brisk',
-      displayName: 'ウォーキング',
-      category: ExerciseCategory.aerobic,
-      met: 3.8,
-      sourceKey: 'compendium_2024_17190',
-      description:
-          'コード 17190 Walking, 2.8 to 3.4 mph, level, moderate pace。'
-          '消費は MET ではなく 0.5 kcal·kg⁻¹·km⁻¹。'
-          '分カラム用の速度は範囲内の 3 mph（4.828 km/h）。',
-      netKcalPerKgKm: 0.5,
-      referenceSpeedKmh: 4.828032,
-      calorieFormula:
-          '追加消費 kcal = 0.5 × 体重kg × 距離km。'
-          'ACSM 歩行式 VO2 (mL·kg⁻¹·min⁻¹) = 0.1 × 速度(m/min) + 3.5 の水平成分 '
-          '0.1 mL·kg⁻¹·m⁻¹ を、1 L の酸素 = 5 kcal で 1 km にすると 0.5 kcal·kg⁻¹·km⁻¹。'
-          '安静の 3.5 は入れない。'
-          '種目の対応は 2024 Adult Compendium コード 17190（3.8 MET）。この MET は消費に使わない。'
-          '分カラムの速度 3 mph（4.828 km/h）は 2.8–3.4 mph の範囲内で、消費の式には入らない。',
-      aliases: const [
-        'うぉーきんぐ',
-        '歩き',
-        'あるき',
-        '歩く',
-        'あるく',
-        'ウォーク',
-        'うぉーく',
-        'walk',
-        'walking',
-      ],
-    ),
-    _distanceFactor(
-      id: 'jogging',
-      displayName: 'ジョギング',
-      category: ExerciseCategory.aerobic,
-      met: 7.5,
-      sourceKey: 'compendium_2024_12020',
-      description: 'コード 12020 Jogging, general。消費は走行と同じ 1.0 kcal·kg⁻¹·km⁻¹。',
-      netKcalPerKgKm: 1.0,
-      calorieFormula:
-          '追加消費 kcal = 1.0 × 体重kg × 距離km。'
-          'ACSM 走行式 VO2 (mL·kg⁻¹·min⁻¹) = 0.2 × 速度(m/min) + 3.5 の水平成分 '
-          '0.2 mL·kg⁻¹·m⁻¹ を、1 L の酸素 = 5 kcal で 1 km にすると 1.0 kcal·kg⁻¹·km⁻¹。'
-          'この水平成分は速度で変わらない。安静の 3.5 は入れない。'
-          '種目の対応は 2024 Adult Compendium コード 12020 Jogging, general（7.5 MET）。'
-          'この MET は消費に使わない。',
-      aliases: const ['じょぎんぐ', 'ジョグ', 'じょぐ', 'jog', 'jogging'],
-    ),
-    _distanceFactor(
-      id: 'running',
-      displayName: 'ランニング',
-      category: ExerciseCategory.aerobic,
-      met: 8.0,
-      sourceKey: 'compendium_2024_12150',
-      description: 'コード 12150 Running。消費は 1.0 kcal·kg⁻¹·km⁻¹。',
-      netKcalPerKgKm: 1.0,
-      calorieFormula:
-          '追加消費 kcal = 1.0 × 体重kg × 距離km。'
-          'ACSM 走行式 VO2 (mL·kg⁻¹·min⁻¹) = 0.2 × 速度(m/min) + 3.5 の水平成分 '
-          '0.2 mL·kg⁻¹·m⁻¹ を、1 L の酸素 = 5 kcal で 1 km にすると 1.0 kcal·kg⁻¹·km⁻¹。'
-          '安静の 3.5 は入れない。'
-          '種目の対応は 2024 Adult Compendium コード 12150 Running（8.0 MET）。'
-          'この MET は消費に使わない。',
-      aliases: const ['らんにんぐ', 'らん', 'ラン', '走り', 'はしり', 'run', 'running'],
-    ),
-    _distanceSpeed(
-      id: 'cycle_road',
-      displayName: '自転車',
-      category: ExerciseCategory.aerobic,
-      met: 6.8,
-      sourceKey: 'compendium_2024_01020',
-      description:
-          'コード 01020 Bicycling, 10-11.9 mph, leisure, 6.8 MET。'
-          '距離は下限 10 mph（16.09344 km/h）で分に直す。',
-      referenceSpeedKmh: 16.09344,
-      calorieFormula:
-          '分 = 距離km ÷ 16.09344 × 60。'
-          '16.09344 km/h はコード 01020（10–11.9 mph、6.8 MET）の下限 10 mph。'
-          '追加消費 kcal = (6.8 − 1) × 3.5 × 体重kg ÷ 200 × 分。'
-          '1 MET = 1 kcal·kg⁻¹·h⁻¹。安静の 1 MET は引く。',
-      aliases: const [
-        'じてんしゃ',
-        'チャリ',
-        'ちゃり',
-        'サイクリング',
-        'さいくりんぐ',
-        'bike',
-        'bicycle',
-        'cycling',
-      ],
-    ),
-    _minutes(
-      id: 'swim_lap',
-      displayName: '水泳',
-      category: ExerciseCategory.aerobic,
-      met: 5.8,
-      sourceKey: 'compendium_2024_18292',
-      description:
-          'コード 18292 Swimming, crawl, slow speed, moderate effort, 5.8 MET。',
-      aliases: const ['すいえい', '泳ぎ', 'およぎ', 'スイム', 'すいむ', 'swim', 'swimming'],
-    ),
-    _minutes(
-      id: 'hiking',
-      displayName: 'ハイキング',
-      category: ExerciseCategory.aerobic,
-      met: 5.3,
-      sourceKey: 'compendium_2024_17082',
-      description: 'コード 17082 Hiking or walking at a normal pace through fields and hillsides, 5.3 MET。',
-      aliases: const ['はいきんぐ', 'ハイク', 'はいく', 'hike', 'hiking'],
-    ),
-    _minutes(
-      id: 'stationary_bike',
-      displayName: 'エアロバイク',
-      category: ExerciseCategory.aerobic,
-      met: 6.8,
-      sourceKey: 'compendium_2024_01200',
-      description: 'コード 01200 Bicycling, stationary, general, 6.8 MET。',
-      aliases: const [
-        'えあろばいく',
-        'エアロ',
-        'えあろ',
-        'exercise bike',
-        'stationary bike',
-      ],
-    ),
-    _minutes(
-      id: 'elliptical',
-      displayName: 'エリプティカル',
-      category: ExerciseCategory.aerobic,
-      met: 5.0,
-      sourceKey: 'compendium_2024_02048',
-      description: 'コード 02048 Elliptical trainer, moderate effort, 5.0 MET。',
-      aliases: const ['えりぷてぃかる', 'クロストレーナー', 'くろすとれーなー', 'elliptical'],
-    ),
-    _minutes(
-      id: 'rowing',
-      displayName: 'ローイング',
-      category: ExerciseCategory.aerobic,
-      met: 5.0,
-      sourceKey: 'compendium_2024_02071',
-      description: 'コード 02071 Rowing, stationary ergometer, general, <100 watts, moderate effort, 5.0 MET。',
-      aliases: const ['ろーいんぐ', 'ボート', 'ぼーと', 'rowing', 'row'],
-    ),
-    _minutes(
-      id: 'basketball',
-      displayName: 'バスケットボール',
-      category: ExerciseCategory.sport,
-      met: 7.5,
-      sourceKey: 'compendium_2024_15055',
-      description: 'コード 15055 Basketball, general, 7.5 MET。',
-      aliases: const ['ばすけっとぼーる', 'バスケ', 'ばすけ', 'basketball'],
-    ),
-    _minutes(
-      id: 'soccer',
-      displayName: 'サッカー',
-      category: ExerciseCategory.sport,
-      met: 7.0,
-      sourceKey: 'compendium_2024_15610',
-      description: 'コード 15610 Soccer, casual, general, 7.0 MET。',
-      aliases: const ['さっかー', 'soccer', 'football'],
-    ),
-    _minutes(
-      id: 'futsal',
-      displayName: 'フットサル',
-      category: ExerciseCategory.sport,
-      met: 7.8,
-      sourceKey: 'compendium_2024_15195',
-      description: 'コード 15195 Futsal, 7.8 MET。',
-      aliases: const ['ふっとさる', 'futsal'],
-    ),
-    _minutes(
-      id: 'tennis',
-      displayName: 'テニス',
-      category: ExerciseCategory.sport,
-      met: 6.8,
-      sourceKey: 'compendium_2024_15675',
-      description: 'コード 15675 Tennis, general, moderate effort, 6.8 MET。',
-      aliases: const ['てにす', 'tennis'],
-    ),
-    _minutes(
-      id: 'badminton',
-      displayName: 'バドミントン',
-      category: ExerciseCategory.sport,
-      met: 5.5,
-      sourceKey: 'compendium_2024_15030',
-      description:
-          'コード 15030 Badminton, social singles and doubles, general, 5.5 MET。',
-      aliases: const ['ばどみんとん', 'バド', 'ばど', 'badminton'],
-    ),
-    _minutes(
-      id: 'table_tennis',
-      displayName: '卓球',
-      category: ExerciseCategory.sport,
-      met: 4.0,
-      sourceKey: 'compendium_2024_15660',
-      description: 'コード 15660 Table tennis, ping pong, 4.0 MET。',
-      aliases: const ['たっきゅう', 'ピンポン', 'ぴんぽん', 'table tennis', 'ping pong'],
-    ),
-    _minutes(
-      id: 'volleyball',
-      displayName: 'バレーボール',
-      category: ExerciseCategory.sport,
-      met: 4.0,
-      sourceKey: 'compendium_2024_15710',
-      description: 'コード 15710 Volleyball, 4.0 MET。',
-      aliases: const ['ばれーぼーる', 'バレー', 'ばれー', 'volleyball'],
-    ),
-    _minutes(
-      id: 'baseball',
-      displayName: '野球',
-      category: ExerciseCategory.sport,
-      met: 5.0,
-      sourceKey: 'compendium_2024_15620',
-      description:
-          'コード 15620 Softball or baseball, general, moderate effort, 5.0 MET。',
-      aliases: const ['やきゅう', 'ベースボール', 'べーすぼーる', 'baseball'],
-    ),
-    _minutes(
-      id: 'golf',
-      displayName: 'ゴルフ',
-      category: ExerciseCategory.sport,
-      met: 4.5,
-      sourceKey: 'compendium_2024_15255',
-      description: 'コード 15255 Golf, general, 4.5 MET。',
-      aliases: const ['ごるふ', 'golf'],
-    ),
-    _reps(
-      id: 'squat',
-      displayName: 'スクワット',
-      met: 5.0,
-      sourceKey: 'compendium_2024_02052',
-      description:
-          'コード 02052 Resistance training, squats, deadlift, slow or explosive, 5.0 MET。'
-          'スクワットとデッドリフトは同じコード。',
-      aliases: const ['すくわっと', 'squat', 'squats'],
-      requiresManualKcal: true,
-    ),
-    _reps(
-      id: 'deadlift',
-      displayName: 'デッドリフト',
-      met: 5.0,
-      sourceKey: 'compendium_2024_02052',
-      description:
-          'コード 02052 Resistance training, squats, deadlift, slow or explosive, 5.0 MET。'
-          'スクワットとデッドリフトは同じコード。',
-      aliases: const ['でっどりふと', 'デッド', 'でっど', 'deadlift'],
-      requiresManualKcal: true,
-    ),
-    _reps(
-      id: 'bench_press',
-      displayName: 'ベンチプレス',
-      met: 3.5,
-      sourceKey: 'compendium_2024_02054',
-      description:
-          'コード 02054 Resistance training, multiple exercises, 8-15 reps, 3.5 MET。'
-          'ベンチプレス単独のコードは無い。',
-      aliases: const ['べんちぷれす', 'ベンチ', 'べんち', 'bench press', 'bench'],
-      requiresManualKcal: true,
-    ),
-    _reps(
-      id: 'push_up',
-      displayName: '腕立て伏せ',
-      met: 3.8,
-      sourceKey: 'compendium_2024_02022',
-      description: 'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
-      aliases: const ['うでたてふせ', 'ウデタテフセ', '腕立て', 'うでたて', 'push up', 'pushup'],
-      requiresManualKcal: true,
-    ),
-    _reps(
-      id: 'sit_up',
-      displayName: '腹筋',
-      met: 3.8,
-      sourceKey: 'compendium_2024_02022',
-      description: 'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
-      aliases: const ['ふっきん', 'フクキン', 'シットアップ', 'しっとあっぷ', 'sit up', 'situp'],
-      requiresManualKcal: true,
-    ),
-    _reps(
-      id: 'pull_up',
-      displayName: '懸垂',
-      met: 3.8,
-      sourceKey: 'compendium_2024_02022',
-      description: 'コード 02022 Calisthenics, moderate effort (pushups, sit ups, pull-ups, lunges), 3.8 MET。',
-      aliases: const [
-        'けんすい',
-        'ケンスイ',
-        'チンニング',
-        'ちんにんぐ',
-        'pull up',
-        'pullup',
-        'chin up',
-      ],
-      requiresManualKcal: true,
-    ),
-    _minutes(
-      id: 'yoga',
-      displayName: 'ヨガ',
-      category: ExerciseCategory.dailyActivity,
-      met: 2.3,
-      sourceKey: 'compendium_2024_02150',
-      description: 'コード 02150 Yoga, Hatha, 2.3 MET。',
-      aliases: const ['よが', 'yoga'],
-    ),
-    _minutes(
-      id: 'stretch',
-      displayName: 'ストレッチ',
-      category: ExerciseCategory.dailyActivity,
-      met: 2.3,
-      sourceKey: 'compendium_2024_02101',
-      description: 'コード 02101 Stretching, mild, 2.3 MET。',
-      aliases: const ['すとれっち', 'stretch', 'stretching'],
-    ),
-    _minutes(
-      id: 'housework',
-      displayName: '家事',
-      category: ExerciseCategory.dailyActivity,
-      met: 3.3,
-      sourceKey: 'compendium_2024_05030',
-      description:
-          'コード 05030 Cleaning, house or cabin, general, 3.3 MET。'
-          '生活活動に含まれるため追加消費は計算しない。',
-      lifestyleIncluded: true,
-      aliases: const ['かじ', 'カジ', 'housework', 'chores'],
-    ),
-    _minutes(
-      id: 'cleaning',
-      displayName: '掃除',
-      category: ExerciseCategory.dailyActivity,
-      met: 3.3,
-      sourceKey: 'compendium_2024_05010',
-      description:
-          'コード 05010 Cleaning, sweeping carpet or floors, general, 3.3 MET。'
-          '生活活動に含まれるため追加消費は計算しない。',
-      lifestyleIncluded: true,
-      aliases: const ['そうじ', 'ソウジ', 'cleaning', 'sweeping'],
-    ),
-    MetActivityDefinition(
-      id: 'strength_general',
-      displayName: '筋トレ',
-      category: ExerciseCategory.strength,
-      defaultMet: 5.0,
-      defaultIntensityId: 'moderate',
-      sourceKey: 'weight_training_moderate_5_0',
-      description: '古い記録用。検索には出さない。',
-      quantityUnit: ExerciseQuantityUnit.durationMin,
-      aliases: const ['筋トレ'],
-      searchable: false,
-      requiresManualKcal: true,
-      intensityOptions: MetIntensityPresets.strengthOptions,
-    ),
-    MetActivityDefinition(
-      id: 'custom',
-      displayName: 'その他（手入力）',
-      category: ExerciseCategory.other,
-      defaultMet: 3.0,
-      defaultIntensityId: 'light',
-      sourceKey: 'other_light_3_0',
-      description: '別名検索の対象外。',
-      quantityUnit: ExerciseQuantityUnit.durationMin,
-      aliases: const [],
-      searchable: false,
-      requiresManualKcal: true,
-      intensityOptions: MetIntensityPresets.otherOptions,
-    ),
-  ];
+  static final activities = _activityDefinitions;
 
   static const _legacyIds = <String, String>{
     'run_jog': 'running',
@@ -566,31 +222,77 @@ class MetActivityCatalog {
     return items;
   }
 
-  /// 正規化後の入力が、別名と一致するか別名に含まれる種目。
-  /// 文字の正規化は公式食品の [FoodSearchNormalizer] と同じ。
-  /// 空文字と、検索対象外の種目は返さない。
+  /// 検索語が別名と一致する種目を先に返す。
+  /// 一致が無いときだけ、別名が検索語で始まる種目を返す。
+  /// 一致があるときは、それに加えて表示名が検索語で始まる種目だけを足す。
+  /// 長い別名の途中に検索語が含まれるだけの種目は出さない。
   static List<MetActivityDefinition> search(String query) {
     final normalizedQuery = FoodSearchNormalizer.normalize(query);
     if (normalizedQuery.isEmpty) {
       return const [];
     }
-    final hits = <MetActivityDefinition>[];
-    for (final activity in activities) {
-      if (!activity.searchable) {
-        continue;
+    final searchable = activities.where((activity) => activity.searchable);
+    final exact = <MetActivityDefinition>[];
+    final prefix = <MetActivityDefinition>[];
+    for (final activity in searchable) {
+      if (_aliasEquals(activity, normalizedQuery)) {
+        exact.add(activity);
       }
-      final matched = activity.aliases.any((alias) {
-        final normalizedAlias = FoodSearchNormalizer.normalize(alias);
-        return normalizedAlias.isNotEmpty &&
-            (normalizedAlias == normalizedQuery ||
-                normalizedAlias.contains(normalizedQuery));
-      });
-      if (matched) {
-        hits.add(activity);
+      if (_aliasStartsWith(activity, normalizedQuery)) {
+        prefix.add(activity);
+      }
+    }
+    final hits = <MetActivityDefinition>[];
+    final seen = <String>{};
+    if (exact.isEmpty) {
+      for (final activity in prefix) {
+        if (seen.add(activity.id)) {
+          hits.add(activity);
+        }
+      }
+    } else {
+      for (final activity in exact) {
+        if (seen.add(activity.id)) {
+          hits.add(activity);
+        }
+      }
+      for (final activity in prefix) {
+        if (_displayNameStartsWith(activity, normalizedQuery) &&
+            seen.add(activity.id)) {
+          hits.add(activity);
+        }
       }
     }
     hits.sort((a, b) => a.displayName.compareTo(b.displayName));
     return hits;
+  }
+
+  static bool _aliasEquals(MetActivityDefinition activity, String query) {
+    for (final alias in activity.aliases) {
+      final normalized = FoodSearchNormalizer.normalize(alias);
+      if (normalized.isNotEmpty && normalized == query) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _aliasStartsWith(MetActivityDefinition activity, String query) {
+    for (final alias in activity.aliases) {
+      final normalized = FoodSearchNormalizer.normalize(alias);
+      if (normalized.isNotEmpty && normalized.startsWith(query)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _displayNameStartsWith(
+    MetActivityDefinition activity,
+    String query,
+  ) {
+    final name = FoodSearchNormalizer.normalize(activity.displayName);
+    return name.isNotEmpty && name.startsWith(query);
   }
 
   static String quantityLabelFor(ExerciseEntry entry) {
@@ -638,149 +340,156 @@ class MetActivityCatalog {
     ExerciseCategory.other,
   ];
 
-  static MetActivityDefinition _distanceFactor({
+  static double _kmh(double mph) {
+    if (mph == 10) {
+      return 16.09344;
+    }
+    return mph * _mphToKmh;
+  }
+
+  /// 括弧の外にある最初の読点より後ろ。強度の見分けに使う。
+  static String _intensityLabel(String english) {
+    var depth = 0;
+    for (var i = 0; i < english.length; i++) {
+      final ch = english[i];
+      if (ch == '(') {
+        depth++;
+      } else if (ch == ')' && depth > 0) {
+        depth--;
+      } else if (ch == ',' && depth == 0) {
+        final rest = english.substring(i + 1).trim();
+        if (rest.isNotEmpty) {
+          return rest;
+        }
+      }
+    }
+    return english;
+  }
+
+  static List<_Code> _uniqueMets(List<_Code> codes, String defaultCode) {
+    final chosen = <double, _Code>{};
+    for (final code in codes) {
+      final current = chosen[code.met];
+      if (current == null || code.code == defaultCode) {
+        chosen[code.met] = code;
+      }
+    }
+    final seen = <double>{};
+    final result = <_Code>[];
+    for (final code in codes) {
+      if (seen.add(code.met)) {
+        result.add(chosen[code.met]!);
+      }
+    }
+    return result;
+  }
+
+  static MetActivityDefinition _define({
     required String id,
     required String displayName,
     required ExerciseCategory category,
-    required double met,
-    required String sourceKey,
-    required String description,
-    required double netKcalPerKgKm,
-    required List<String> aliases,
-    double? referenceSpeedKmh,
-    String? calorieFormula,
-  }) {
-    return _built(
-      id: id,
-      displayName: displayName,
-      category: category,
-      met: met,
-      sourceKey: sourceKey,
-      description: description,
-      quantityUnit: ExerciseQuantityUnit.distanceKm,
-      aliases: aliases,
-      netKcalPerKgKm: netKcalPerKgKm,
-      referenceSpeedKmh: referenceSpeedKmh,
-      calorieFormula: calorieFormula,
-    );
-  }
-
-  static MetActivityDefinition _distanceSpeed({
-    required String id,
-    required String displayName,
-    required ExerciseCategory category,
-    required double met,
-    required String sourceKey,
-    required String description,
-    required double referenceSpeedKmh,
-    required List<String> aliases,
-    String? calorieFormula,
-  }) {
-    return _built(
-      id: id,
-      displayName: displayName,
-      category: category,
-      met: met,
-      sourceKey: sourceKey,
-      description: description,
-      quantityUnit: ExerciseQuantityUnit.distanceKm,
-      aliases: aliases,
-      referenceSpeedKmh: referenceSpeedKmh,
-      calorieFormula: calorieFormula,
-    );
-  }
-
-  static MetActivityDefinition _minutes({
-    required String id,
-    required String displayName,
-    required ExerciseCategory category,
-    required double met,
-    required String sourceKey,
-    required String description,
-    required List<String> aliases,
-    bool lifestyleIncluded = false,
-  }) {
-    return _built(
-      id: id,
-      displayName: displayName,
-      category: category,
-      met: met,
-      sourceKey: sourceKey,
-      description: description,
-      quantityUnit: ExerciseQuantityUnit.durationMin,
-      aliases: aliases,
-      lifestyleIncluded: lifestyleIncluded,
-      calorieFormula: lifestyleIncluded
-          ? null
-          : '追加消費 kcal = ($met − 1) × 3.5 × 体重kg ÷ 200 × 分。'
-                '$description '
-                '1 MET = 1 kcal·kg⁻¹·h⁻¹（3.5 mL·kg⁻¹·min⁻¹ × 5 kcal/L）。'
-                '安静の 1 MET は引いて追加分だけにする。',
-    );
-  }
-
-  static MetActivityDefinition _reps({
-    required String id,
-    required String displayName,
-    required double met,
-    required String sourceKey,
-    required String description,
-    required List<String> aliases,
-    bool requiresManualKcal = false,
-  }) {
-    return _built(
-      id: id,
-      displayName: displayName,
-      category: ExerciseCategory.strength,
-      met: met,
-      sourceKey: sourceKey,
-      description: description,
-      quantityUnit: ExerciseQuantityUnit.reps,
-      aliases: aliases,
-      requiresManualKcal: requiresManualKcal,
-    );
-  }
-
-  static MetActivityDefinition _built({
-    required String id,
-    required String displayName,
-    required ExerciseCategory category,
-    required double met,
-    required String sourceKey,
-    required String description,
-    required ExerciseQuantityUnit quantityUnit,
-    required List<String> aliases,
-    bool lifestyleIncluded = false,
-    bool requiresManualKcal = false,
+    required List<_Code> codes,
+    String? defaultCode,
+    ExerciseQuantityUnit quantityUnit = ExerciseQuantityUnit.durationMin,
     double? netKcalPerKgKm,
     double? referenceSpeedKmh,
-    String? calorieFormula,
+    bool lifestyleIncluded = false,
+    List<String> aliases = const [],
+    String? formulaPrefix,
   }) {
+    final fallback = defaultCode ?? codes.first.code;
+    final unique = _uniqueMets(codes, fallback);
+    final labelCounts = <String, int>{};
+    for (final code in unique) {
+      final label = _intensityLabel(code.english);
+      labelCounts[label] = (labelCounts[label] ?? 0) + 1;
+    }
+    final options = <MetIntensityOption>[
+      for (final code in unique)
+        MetIntensityOption(
+          id: code.code,
+          label: (labelCounts[_intensityLabel(code.english)] ?? 0) > 1
+              ? '${_intensityLabel(code.english)} · ${code.code}'
+              : _intensityLabel(code.english),
+          description: code.english,
+          met: code.met,
+          sourceKey: 'compendium_2024_${code.code}',
+          referenceSpeedKmh: code.mph == null ? null : _kmh(code.mph!),
+        ),
+    ];
+    MetIntensityOption? standard;
+    for (final option in options) {
+      if (option.id == fallback) {
+        standard = option;
+        break;
+      }
+    }
+    if (standard == null) {
+      throw StateError('$id の標準コード $fallback が強度に無い');
+    }
+    final speed = standard.referenceSpeedKmh ?? referenceSpeedKmh;
     return MetActivityDefinition(
       id: id,
       displayName: displayName,
       category: category,
-      defaultMet: met,
-      defaultIntensityId: _standard,
-      sourceKey: sourceKey,
-      description: description,
+      defaultMet: standard.met,
+      defaultIntensityId: standard.id,
+      sourceKey: standard.sourceKey,
+      description: standard.description,
       quantityUnit: quantityUnit,
       aliases: _aliases(displayName, aliases),
       lifestyleIncluded: lifestyleIncluded,
-      requiresManualKcal: requiresManualKcal,
       netKcalPerKgKm: netKcalPerKgKm,
-      referenceSpeedKmh: referenceSpeedKmh,
-      calorieFormula: calorieFormula,
-      intensityOptions: [
-        MetIntensityOption(
-          id: _standard,
-          label: '標準',
-          description: description,
-          met: met,
-          sourceKey: sourceKey,
-        ),
-      ],
+      referenceSpeedKmh: speed,
+      calorieFormula: lifestyleIncluded
+          ? null
+          : _formula(
+              quantityUnit: quantityUnit,
+              netKcalPerKgKm: netKcalPerKgKm,
+              options: options,
+              standard: standard,
+              prefix: formulaPrefix,
+            ),
+      intensityOptions: options,
     );
+  }
+
+  static String _formula({
+    required ExerciseQuantityUnit quantityUnit,
+    required double? netKcalPerKgKm,
+    required List<MetIntensityOption> options,
+    required MetIntensityOption standard,
+    required String? prefix,
+  }) {
+    final lines = options
+        .map((option) {
+          final speed = option.referenceSpeedKmh;
+          final speedText = speed == null
+              ? ''
+              : '、速度 ${speed.toStringAsFixed(5)} km/h';
+          return '${option.id} / ${option.met} / ${option.description}$speedText';
+        })
+        .join('\n');
+    final head = prefix ?? '';
+    if (quantityUnit == ExerciseQuantityUnit.distanceKm &&
+        netKcalPerKgKm != null) {
+      return '追加消費 kcal = $netKcalPerKgKm × 体重kg × 距離km。'
+          'MET は消費に使わない。'
+          'コード ${standard.id}、${standard.met} MET、${standard.description}。'
+          '$head\n$lines';
+    }
+    if (quantityUnit == ExerciseQuantityUnit.distanceKm) {
+      return '分 = 距離km ÷ 速度km/h × 60。'
+          '速度は選んだコードの説明にある mph で、範囲は下限。1 mph = 1.609344 km/h。'
+          '標準はコード ${standard.id}、${standard.met} MET、'
+          '${standard.referenceSpeedKmh} km/h、${standard.description}。'
+          '追加消費 kcal = (MET − 1) × 3.5 × 体重kg ÷ 200 × 分。'
+          '$head\n$lines';
+    }
+    final choice = options.length > 1 ? '強度が複数あるときは、選んだコードの MET を使う。' : '';
+    return '追加消費 kcal = (MET − 1) × 3.5 × 体重kg ÷ 200 × 分。'
+        '標準はコード ${standard.id}、${standard.met} MET、${standard.description}。'
+        '$choice$head\n$lines';
   }
 
   static List<String> _aliases(String displayName, List<String> extra) {

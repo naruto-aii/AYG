@@ -399,8 +399,9 @@ void main() {
 
       await tapActivityChip(tester, 'スクワット');
 
-      expect(find.text('回数'), findsWidgets);
-      expect(find.text('消費カロリー'), findsOneWidget);
+      expect(find.text('実施時間（分）'), findsOneWidget);
+      expect(find.text('回数'), findsNothing);
+      expect(find.text('消費カロリー'), findsNothing);
       expect(find.text('軽め'), findsNothing);
       expect(find.text('マシントレーニング'), findsNothing);
       expect(find.textContaining('MET'), findsNothing);
@@ -827,6 +828,15 @@ void main() {
       expect(find.textContaining('推定総消費'), findsNothing);
       expect(find.textContaining('MET'), findsNothing);
       expect(find.text('消費 kcal（gross）'), findsNothing);
+
+      await expandAdvanced(tester);
+      expect(find.textContaining('18292 / 5.8 MET'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'Swimming, crawl, slow speed, 30-45 yards/minute, moderate effort',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('selecting an activity fills the display name', (tester) async {
@@ -854,6 +864,54 @@ void main() {
       await tapActivityChip(tester, 'ランニング');
       expect(nameController.text, 'ランニング');
     });
+
+    testWidgets(
+      'changing activity replaces the quantity and intensity fields',
+      (tester) async {
+        final controller = AppController();
+        addTearDown(controller.dispose);
+        controller.profile = profile();
+
+        await tester.pumpWidget(
+          MaterialApp(home: ExerciseFormScreen(controller: controller)),
+        );
+        await tester.pumpAndSettle();
+
+        await tapActivityChip(tester, '自転車');
+        expect(
+          find.byKey(ExerciseMetCalculationSection.distanceFieldKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(ExerciseMetCalculationSection.durationFieldKey),
+          findsNothing,
+        );
+        expect(find.text('leisure 5.5 mph'), findsOneWidget);
+        expect(find.text('実施時間（分）'), findsNothing);
+
+        await tapActivityChip(tester, 'フットサル');
+        expect(
+          find.byKey(ExerciseMetCalculationSection.durationFieldKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(ExerciseMetCalculationSection.distanceFieldKey),
+          findsNothing,
+        );
+        expect(find.text('leisure 5.5 mph'), findsNothing);
+        expect(find.text('きつさ'), findsNothing);
+
+        await tapActivityChip(tester, '腕立て伏せ');
+        expect(
+          find.byKey(ExerciseMetCalculationSection.durationFieldKey),
+          findsOneWidget,
+        );
+        expect(find.text('moderate effort'), findsOneWidget);
+        expect(find.text('vigorous effort'), findsOneWidget);
+        expect(find.text('回数'), findsNothing);
+        expect(find.text('消費カロリー'), findsNothing);
+      },
+    );
   });
 
   group('ExerciseFormScreen MET edit persistence', () {
@@ -965,14 +1023,15 @@ void main() {
 
       await tapActivityChip(tester, '筋トレ');
 
-      expect(find.byKey(ExerciseFormScreen.setsFieldKey), findsOneWidget);
-      expect(find.byKey(ExerciseFormScreen.repsFieldKey), findsOneWidget);
-      expect(find.byKey(ExerciseFormScreen.liftWeightFieldKey), findsOneWidget);
-      expect(find.text('消費カロリー'), findsOneWidget);
       expect(
-        find.textContaining('回数からは計算しません'),
+        find.byKey(ExerciseMetCalculationSection.durationFieldKey),
         findsOneWidget,
       );
+      expect(find.byKey(ExerciseFormScreen.setsFieldKey), findsNothing);
+      expect(find.byKey(ExerciseFormScreen.repsFieldKey), findsNothing);
+      expect(find.byKey(ExerciseFormScreen.liftWeightFieldKey), findsNothing);
+      expect(find.text('消費カロリー'), findsNothing);
+      expect(find.textContaining('回数からは計算しません'), findsNothing);
     });
   });
 }

@@ -21,6 +21,7 @@ import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../alcohol/alcohol_form_screen.dart';
+import '../coach/daily_coach_screen.dart';
 import '../exercise/exercise_form_screen.dart';
 import '../food/food_form_navigation.dart';
 import '../settings/daily_calculation_explanation_screen.dart';
@@ -84,6 +85,8 @@ class HomeScreen extends StatelessWidget {
               _macroCard(summary),
               const SizedBox(height: 8),
               _quickAdd(context, profile.weightKg),
+              const SizedBox(height: 8),
+              _coachEntry(context),
               const SizedBox(height: 8),
               _foodSection(context, todayFood),
               const SizedBox(height: 8),
@@ -330,6 +333,36 @@ class HomeScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _coachEntry(BuildContext context) {
+    return DesignCard(
+      onTap: () => _openCoach(context),
+      child: Row(
+        children: [
+          Expanded(child: Text('今日のコーチ', style: AppTypography.titleM)),
+          const DesignIcon(
+            Symbols.chevron_right_rounded,
+            size: 16,
+            color: AppColors.iconMuted,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openCoach(BuildContext context) async {
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => DailyCoachScreen(controller: controller),
+      ),
+    );
+    if (added != true || !context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('食事に追加しました。量はあとから変えられます。')));
   }
 
   Widget _foodSection(BuildContext context, List<FoodEntry> entries) {

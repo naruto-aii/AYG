@@ -2,6 +2,16 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261004120000 coach food candidates
+
+今日のコーチの候補表だけを戻す。official_foods の数値、食事、運動、体重は消さない。2回実行しても失敗しない。
+
+`supabase/rollback/20261004120000_coach_food_candidates_down.sql`
+
+消えるもの:
+
+- `coach_food_candidates`（画面の名前と提案単位）
+
 ## 20261003210000 lifestyle calculation source
 
 運動の `calculation_source` に足した `lifestyle_included` だけを、元の3値へ戻す。列は消さない。食事、体重、運動、目標、ヘルスケアの行は消さない。`lifestyle_included` の行が残っているときは、その行を消さずに失敗する。行が無ければ2回実行しても失敗しない。先にアプリを、生活活動をこの値で書かない版へ戻してから流す。

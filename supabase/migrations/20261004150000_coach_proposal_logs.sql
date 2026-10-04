@@ -1,60 +1,30 @@
--- 今日のコーチが出した提案と、そのうち登録した案。
--- Good/Bad は置かない。表計算への定期反映は作らない。保存だけ。
--- 体重そのものは入れない。広告には使わない。
--- 既存の行は消さない。truncate しない。
+-- 今日のコーチが出した提案。
+-- 経営判断スプレッドシート 148oUF5Coz17Bk7poFs0xQOdiO3Z_tkNB-PKN5w74H80 へ出す前提。
+-- アプリが保存するのは提案内容、登録したか、日時だけ。シートへの書き込みはしない。
+-- Good/Bad は置かない。既存の行は消さない。truncate しない。
 
 begin;
 
 create table if not exists public.coach_proposal_logs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users (id) on delete cascade,
-  local_date date not null,
-  shown_at timestamptz not null default timezone('utc', now()),
-  meals jsonb not null,
-  exercise_message text,
-  registered_position smallint,
-  registered_at timestamptz,
-  advertising_use boolean not null default false
-    check (advertising_use = false),
-  constraint coach_proposal_logs_meals_check check (
-    jsonb_typeof(meals) = 'array'
-    and jsonb_array_length(meals) between 0 and 3
-    and (
-      jsonb_array_length(meals) >= 1
-      or exercise_message is not null
-    )
-  ),
-  constraint coach_proposal_logs_exercise_message_check check (
-    exercise_message is null
-    or char_length(btrim(exercise_message)) between 1 and 500
-  ),
-  constraint coach_proposal_logs_registered_check check (
-    (
-      registered_position is null
-      and registered_at is null
-    )
-    or (
-      registered_position between 1 and 3
-      and registered_at is not null
-    )
-  )
+  proposal text not null
+    check (char_length(btrim(proposal)) between 1 and 2000),
+  registered boolean not null default false,
+  recorded_at timestamptz not null
 );
 
 comment on table public.coach_proposal_logs is
-  '今日のコーチが出した提案と、利用者がその案を食事へ登録したか。評価ボタンは無く、表計算へは送らない。';
-comment on column public.coach_proposal_logs.local_date is
-  '提案を見た日。端末のカレンダー日。';
-comment on column public.coach_proposal_logs.meals is
-  '出した食事案。見出し、kcal、食品番号、名前、単位数、グラム。最大3件。';
-comment on column public.coach_proposal_logs.exercise_message is
-  '同じ画面に出した運動の文。体重の数値そのものは入れない。';
-comment on column public.coach_proposal_logs.registered_position is
-  '登録した食事案の位置。1から3。登録しなければ null。';
-comment on column public.coach_proposal_logs.advertising_use is
-  '常に false。広告利用の印は付けられない。';
+  '今日のコーチの提案。経営判断スプレッドシート 148oUF5Coz17Bk7poFs0xQOdiO3Z_tkNB-PKN5w74H80 へ出す前提で、提案内容、登録したか、日時だけを残す。このマイグレーションはシートへ書き込まない。';
+comment on column public.coach_proposal_logs.proposal is
+  '出した提案の内容。';
+comment on column public.coach_proposal_logs.registered is
+  'その提案を食事へ登録したか。未登録は false。';
+comment on column public.coach_proposal_logs.recorded_at is
+  '提案を出した日時。';
 
-create index if not exists coach_proposal_logs_user_shown_idx
-  on public.coach_proposal_logs (user_id, shown_at desc);
+create index if not exists coach_proposal_logs_user_recorded_idx
+  on public.coach_proposal_logs (user_id, recorded_at desc);
 
 alter table public.coach_proposal_logs enable row level security;
 
@@ -68,20 +38,14 @@ drop policy if exists coach_proposal_logs_insert_own
   on public.coach_proposal_logs;
 create policy coach_proposal_logs_insert_own
   on public.coach_proposal_logs for insert
-  with check (
-    (select auth.uid()) = user_id
-    and advertising_use = false
-  );
+  with check ((select auth.uid()) = user_id);
 
 drop policy if exists coach_proposal_logs_update_own
   on public.coach_proposal_logs;
 create policy coach_proposal_logs_update_own
   on public.coach_proposal_logs for update
   using ((select auth.uid()) = user_id)
-  with check (
-    (select auth.uid()) = user_id
-    and advertising_use = false
-  );
+  with check ((select auth.uid()) = user_id);
 
 revoke all on table public.coach_proposal_logs from public, anon, authenticated;
 grant select, insert, update on table public.coach_proposal_logs to authenticated;

@@ -1,158 +1,121 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/daily_coach.dart';
 import '../services/daily_coach_session.dart';
 import '../utils/id_generator.dart';
 
-/// 今日のコーチが出した提案と、それを登録したか。
-///
-/// Good/Bad は付けない。表計算への定期反映もしない。保存だけ。
-class CoachShownFood {
-  const CoachShownFood({
-    required this.code,
-    required this.name,
-    required this.units,
-    required this.grams,
-  });
+/// 経営判断スプレッドシート。アプリはこの版では書き込まない。
+const coachDecisionSpreadsheetId =
+    '148oUF5Coz17Bk7poFs0xQOdiO3Z_tkNB-PKN5w74H80';
 
-  final String code;
-  final String name;
-  final int units;
-  final int grams;
-
-  Map<String, Object?> toJson() {
-    return {'code': code, 'name': name, 'units': units, 'grams': grams};
-  }
-}
-
-class CoachShownMeal {
-  const CoachShownMeal({
-    required this.position,
-    required this.headline,
-    required this.kcal,
-    required this.foods,
-  });
-
-  final int position;
-  final String headline;
-  final double kcal;
-  final List<CoachShownFood> foods;
-
-  Map<String, Object?> toJson() {
-    return {
-      'position': position,
-      'headline': headline,
-      'kcal': kcal,
-      'foods': [for (final food in foods) food.toJson()],
-    };
-  }
-}
-
-class CoachProposalSnapshot {
-  const CoachProposalSnapshot({
+/// 出した提案1件。保存するのは提案内容、登録したか、日時だけ。
+class CoachProposalRecord {
+  const CoachProposalRecord({
     required this.id,
-    required this.localDate,
-    required this.shownAt,
-    required this.meals,
-    this.exerciseMessage,
-    this.registeredPosition,
+    required this.proposal,
+    required this.recordedAt,
+    this.registered = false,
   });
 
   final String id;
-  final String localDate;
-  final DateTime shownAt;
-  final List<CoachShownMeal> meals;
-  final String? exerciseMessage;
-  final int? registeredPosition;
+  final String proposal;
+  final bool registered;
+  final DateTime recordedAt;
 
-  factory CoachProposalSnapshot.shown({
-    required DateTime now,
-    required DailyCoachLoadResult result,
-    String? id,
-  }) {
-    final meals = <CoachShownMeal>[];
-    for (var i = 0; i < result.meals.length && i < 3; i++) {
-      final meal = result.meals[i];
-      meals.add(
-        CoachShownMeal(
-          position: i + 1,
-          headline: meal.headline,
-          kcal: meal.kcal,
-          foods: [
-            for (final item in meal.components)
-              CoachShownFood(
-                code: item.foodCode,
-                name: item.displayName,
-                units: item.units,
-                grams: item.grams,
-              ),
-          ],
-        ),
-      );
-    }
-    final exercise = result.exerciseMessage?.trim();
-    return CoachProposalSnapshot(
-      id: id ?? generateUniqueId(),
-      localDate:
-          '${now.year.toString().padLeft(4, '0')}-'
-          '${now.month.toString().padLeft(2, '0')}-'
-          '${now.day.toString().padLeft(2, '0')}',
-      shownAt: now,
-      meals: meals,
-      exerciseMessage: exercise == null || exercise.isEmpty ? null : exercise,
-    );
-  }
-
-  CoachProposalSnapshot copyWithRegistered(int position) {
-    return CoachProposalSnapshot(
+  CoachProposalRecord copyWithRegistered() {
+    return CoachProposalRecord(
       id: id,
-      localDate: localDate,
-      shownAt: shownAt,
-      meals: meals,
-      exerciseMessage: exerciseMessage,
-      registeredPosition: position,
+      proposal: proposal,
+      recordedAt: recordedAt,
+      registered: true,
     );
   }
+}
 
-  List<Map<String, Object?>> get mealsJson => [
-    for (final meal in meals) meal.toJson(),
-  ];
+List<CoachProposalRecord> coachProposalRecords({
+  required DateTime now,
+  required DailyCoachLoadResult result,
+}) {
+  if (result.status != DailyCoachStatus.ready) {
+    return const [];
+  }
+  final records = <CoachProposalRecord>[];
+  for (final meal in result.meals.take(3)) {
+    final text = coachMealProposalText(meal);
+    if (text.isEmpty) {
+      continue;
+    }
+    records.add(
+      CoachProposalRecord(
+        id: generateUniqueId(),
+        proposal: text,
+        recordedAt: now,
+      ),
+    );
+  }
+  final exercise = result.exerciseMessage?.trim();
+  if (exercise != null && exercise.isNotEmpty) {
+    records.add(
+      CoachProposalRecord(
+        id: generateUniqueId(),
+        proposal: exercise,
+        recordedAt: now,
+      ),
+    );
+  }
+  return records;
+}
+
+String coachMealProposalText(CoachMealProposal meal) {
+  final lines = <String>[
+    meal.headline.trim(),
+    '約${meal.kcal.round()}kcal',
+    for (final item in meal.components) '${item.displayName} ${item.grams}g',
+    if (meal.macroNote != null && meal.macroNote!.trim().isNotEmpty)
+      meal.macroNote!.trim(),
+  ].where((line) => line.isNotEmpty);
+  final text = lines.join('\n');
+  if (text.length <= 2000) {
+    return text;
+  }
+  return text.substring(0, 2000);
 }
 
 abstract class CoachProposalLog {
-  Future<void> recordShown(CoachProposalSnapshot snapshot);
+  Future<void> recordShown(List<CoachProposalRecord> records);
 
-  Future<void> markRegistered({required String id, required int position});
+  Future<void> markRegistered({required String id});
 }
 
 class NoOpCoachProposalLog implements CoachProposalLog {
   const NoOpCoachProposalLog();
 
   @override
-  Future<void> recordShown(CoachProposalSnapshot snapshot) async {}
+  Future<void> recordShown(List<CoachProposalRecord> records) async {}
 
   @override
-  Future<void> markRegistered({required String id, required int position}) async {}
+  Future<void> markRegistered({required String id}) async {}
 }
 
 class MemoryCoachProposalLog implements CoachProposalLog {
-  final List<CoachProposalSnapshot> records = [];
+  final List<CoachProposalRecord> records = [];
 
   @override
-  Future<void> recordShown(CoachProposalSnapshot snapshot) async {
-    records.add(snapshot);
+  Future<void> recordShown(List<CoachProposalRecord> records) async {
+    this.records.addAll(records);
   }
 
   @override
-  Future<void> markRegistered({required String id, required int position}) async {
+  Future<void> markRegistered({required String id}) async {
     final index = records.indexWhere((record) => record.id == id);
     if (index == -1) {
       return;
     }
-    records[index] = records[index].copyWithRegistered(position);
+    records[index] = records[index].copyWithRegistered();
   }
 }
 
-/// 失敗しても提案の表示と食事の登録は止めない。
+/// 失敗しても提案の表示と食事の登録は止めない。シートへは送らない。
 class SupabaseCoachProposalLog implements CoachProposalLog {
   SupabaseCoachProposalLog({SupabaseClient? this._client});
 
@@ -161,28 +124,8 @@ class SupabaseCoachProposalLog implements CoachProposalLog {
   SupabaseClient get _supabase => _client ?? Supabase.instance.client;
 
   @override
-  Future<void> recordShown(CoachProposalSnapshot snapshot) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null ||
-        (snapshot.meals.isEmpty && snapshot.exerciseMessage == null)) {
-      return;
-    }
-    try {
-      await _supabase.from('coach_proposal_logs').insert({
-        'id': snapshot.id,
-        'user_id': userId,
-        'local_date': snapshot.localDate,
-        'shown_at': snapshot.shownAt.toUtc().toIso8601String(),
-        'meals': snapshot.mealsJson,
-        'exercise_message': snapshot.exerciseMessage,
-        'advertising_use': false,
-      });
-    } catch (_) {}
-  }
-
-  @override
-  Future<void> markRegistered({required String id, required int position}) async {
-    if (position < 1 || position > 3) {
+  Future<void> recordShown(List<CoachProposalRecord> records) async {
+    if (records.isEmpty) {
       return;
     }
     final userId = _supabase.auth.currentUser?.id;
@@ -190,12 +133,29 @@ class SupabaseCoachProposalLog implements CoachProposalLog {
       return;
     }
     try {
+      await _supabase.from('coach_proposal_logs').insert([
+        for (final record in records)
+          {
+            'id': record.id,
+            'user_id': userId,
+            'proposal': record.proposal,
+            'registered': record.registered,
+            'recorded_at': record.recordedAt.toUtc().toIso8601String(),
+          },
+      ]);
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> markRegistered({required String id}) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
+      return;
+    }
+    try {
       await _supabase
           .from('coach_proposal_logs')
-          .update({
-            'registered_position': position,
-            'registered_at': DateTime.now().toUtc().toIso8601String(),
-          })
+          .update({'registered': true})
           .eq('id', id)
           .eq('user_id', userId);
     } catch (_) {}

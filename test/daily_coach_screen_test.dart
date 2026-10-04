@@ -186,19 +186,21 @@ void main() {
       onSelectMeal: (_) async {},
     );
 
-    expect(log.records, hasLength(1));
-    final shown = log.records.single;
-    expect(shown.localDate, '2026-10-04');
-    expect(shown.meals.single.headline, headline);
-    expect(shown.meals.single.foods.single.code, '01088');
-    expect(shown.exerciseMessage, '今日やるなら3kmまでにします。');
-    expect(shown.registeredPosition, isNull);
+    expect(log.records, hasLength(2));
+    expect(log.records.first.proposal, contains(headline));
+    expect(log.records.first.proposal, contains('白米（めし） 150g'));
+    expect(log.records.first.registered, isFalse);
+    expect(log.records.first.recordedAt, DateTime(2026, 10, 4, 9));
+    expect(log.records.last.proposal, '今日やるなら3kmまでにします。');
+    expect(log.records.last.registered, isFalse);
     expect(find.text('Good'), findsNothing);
+    expect(find.text('悪い'), findsNothing);
 
     await tester.tap(find.text(headline));
     await tester.pumpAndSettle();
 
-    expect(log.records.single.registeredPosition, 1);
+    expect(log.records.first.registered, isTrue);
+    expect(log.records.last.registered, isFalse);
   });
 
   testWidgets('home shows 今日のコーチ', (tester) async {

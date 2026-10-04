@@ -40,7 +40,7 @@ class DailyCoachScreen extends StatefulWidget {
 class _DailyCoachScreenState extends State<DailyCoachScreen> {
   DailyCoachLoadResult? _result;
   bool _saving = false;
-  String? _shownId;
+  List<CoachProposalRecord> _shown = const [];
   Future<void> _recorded = Future<void>.value();
 
   CoachProposalLog get _log {
@@ -102,12 +102,11 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       return;
     }
     if (result.status == DailyCoachStatus.ready) {
-      final snapshot = CoachProposalSnapshot.shown(
+      _shown = coachProposalRecords(
         now: widget.now ?? DateTime.now(),
         result: result,
       );
-      _shownId = snapshot.id;
-      _recorded = _log.recordShown(snapshot);
+      _recorded = _log.recordShown(_shown);
     }
     setState(() => _result = result);
   }
@@ -128,11 +127,11 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
         }
         await DailyCoachSession(controller: controller).save(proposal);
       }
-      final shownId = _shownId;
-      if (shownId != null) {
+      if (index >= 0 && index < _shown.length) {
+        final shownId = _shown[index].id;
         try {
           await _recorded;
-          await _log.markRegistered(id: shownId, position: index + 1);
+          await _log.markRegistered(id: shownId);
         } catch (_) {}
       }
       if (!mounted) {

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ayg/repositories/coach_proposal_log.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -10,36 +11,33 @@ void main() {
     'supabase/rollback/20261004150000_coach_proposal_logs_down.sql',
   ).readAsStringSync();
 
-  test('the coach log stores proposals and who registered them', () {
+  test('the coach log keeps proposal, registered, and time for the sheet', () {
     expect(
-      sql,
-      contains('create table if not exists public.coach_proposal_logs'),
+      coachDecisionSpreadsheetId,
+      '148oUF5Coz17Bk7poFs0xQOdiO3Z_tkNB-PKN5w74H80',
     );
-    expect(sql, contains('meals jsonb not null'));
-    expect(sql, contains('registered_position smallint'));
-    expect(sql, contains('exercise_message text'));
-    expect(sql, contains('advertising_use = false'));
+    expect(sql, contains(coachDecisionSpreadsheetId));
+    expect(sql, contains('proposal text not null'));
+    expect(sql, contains('registered boolean not null default false'));
+    expect(sql, contains('recorded_at timestamptz not null'));
+    expect(sql, contains('シートへ書き込まない'));
     expect(sql, contains('enable row level security'));
-    expect(sql, contains('for select'));
-    expect(sql, contains('for insert'));
-    expect(sql, contains('for update'));
+    expect(sql, isNot(contains('meals jsonb')));
+    expect(sql, isNot(contains('exercise_message')));
+    expect(sql, isNot(contains('registered_position')));
+    expect(sql, isNot(contains('advertising_use')));
+    expect(sql, isNot(contains('spreadsheets')));
     expect(sql, isNot(contains('for delete')));
-    expect(
-      sql,
-      contains(
-        'grant select, insert, update on table public.coach_proposal_logs to authenticated',
-      ),
-    );
-    expect(sql, isNot(contains('to anon')));
+    expect(sql, isNot(contains('good')));
+    expect(sql, isNot(contains('bad')));
     expect(
       sql,
       contains('delete from public.coach_proposal_logs where user_id = \$1'),
     );
-    expect(sql, isNot(contains('good')));
-    expect(sql, isNot(contains('bad')));
   });
 
   test('rollback drops only the coach proposal log', () {
+    expect(rollback, contains(coachDecisionSpreadsheetId));
     expect(
       rollback,
       contains('drop table if exists public.coach_proposal_logs'),

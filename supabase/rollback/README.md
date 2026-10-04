@@ -10,7 +10,7 @@
 
 消えるもの:
 
-- `coach_proposal_logs`（出した提案と、登録した案の位置）
+- `coach_proposal_logs`（提案内容、登録したか、日時）
 
 ## 20261004140000 food entry memo
 

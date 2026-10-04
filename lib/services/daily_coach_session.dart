@@ -8,16 +8,56 @@ import 'daily_coach.dart';
 
 enum DailyCoachStatus { ready, nutritionMissing }
 
+/// その日に出すのは食事か運動のどちらか一方。
+enum DailyCoachFocus { meals, exercise, none }
+
 class DailyCoachLoadResult {
   const DailyCoachLoadResult({
     required this.status,
     this.meals = const [],
     this.exerciseMessage,
+    this.exercise,
+    this.focus,
   });
 
   final DailyCoachStatus status;
   final List<CoachMealProposal> meals;
   final String? exerciseMessage;
+  final CoachExerciseProposal? exercise;
+
+  /// 未指定のときは、入っている方だけを出す。両方入っているときは出さない。
+  final DailyCoachFocus? focus;
+
+  bool get offersMeals {
+    if (status != DailyCoachStatus.ready || meals.isEmpty) {
+      return false;
+    }
+    if (focus == DailyCoachFocus.exercise || focus == DailyCoachFocus.none) {
+      return false;
+    }
+    if (focus == DailyCoachFocus.meals) {
+      return true;
+    }
+    return exercise == null &&
+        (exerciseMessage == null || exerciseMessage!.trim().isEmpty);
+  }
+
+  bool get offersExercise {
+    if (status != DailyCoachStatus.ready || _exerciseText.isEmpty) {
+      return false;
+    }
+    if (focus == DailyCoachFocus.meals || focus == DailyCoachFocus.none) {
+      return false;
+    }
+    if (focus == DailyCoachFocus.exercise) {
+      return true;
+    }
+    return meals.isEmpty;
+  }
+
+  String get _exerciseText {
+    return (exercise?.message ?? exerciseMessage)?.trim() ?? '';
+  }
 }
 
 class DailyCoachSession {
@@ -34,6 +74,32 @@ class DailyCoachSession {
     if (summary == null) {
       return const DailyCoachLoadResult(
         status: DailyCoachStatus.nutritionMissing,
+      );
+    }
+
+    final remaining = summary.remainingKcal;
+    if (!remaining.isFinite || remaining == 0) {
+      return const DailyCoachLoadResult(
+        status: DailyCoachStatus.ready,
+        focus: DailyCoachFocus.none,
+      );
+    }
+    if (remaining < 0) {
+      final weight = controller.currentWeightSelection.kg;
+      final overage = summary.calorieOverageKcal > 0
+          ? summary.calorieOverageKcal
+          : remaining.abs();
+      final exercise = buildCoachExerciseProposal(
+        overageKcal: overage,
+        weightKg: weight > 0 ? weight : null,
+        exercises: controller.exerciseEntries,
+        now: now,
+      );
+      return DailyCoachLoadResult(
+        status: DailyCoachStatus.ready,
+        focus: DailyCoachFocus.exercise,
+        exercise: exercise,
+        exerciseMessage: exercise?.message,
       );
     }
 
@@ -57,27 +123,25 @@ class DailyCoachSession {
             coachLoggedWithinDays(entry.loggedAt, now, 3))
           entry.officialFoodCode!,
     };
-    final weight = controller.currentWeightSelection.kg;
     return DailyCoachLoadResult(
       status: DailyCoachStatus.ready,
+      focus: DailyCoachFocus.meals,
       meals: planCoachMeals(
         foods: stocks,
         excludedFoodCodes: excluded,
-        remainingKcal: summary.remainingKcal,
+        remainingKcal: remaining,
         remainingProteinG: summary.targetProteinG - summary.intakeProteinG,
         remainingFatG: summary.targetFatG - summary.intakeFatG,
         remainingCarbG: summary.targetCarbG - summary.intakeCarbG,
       ),
-      exerciseMessage: buildCoachExerciseMessage(
-        overageKcal: summary.calorieOverageKcal,
-        weightKg: weight > 0 ? weight : null,
-        exercises: controller.exerciseEntries,
-        now: now,
-      ),
     );
   }
 
-  Future<void> save(CoachMealProposal proposal) async {
+  /// [grams] は食品ごとの登録グラム。省略した欄は提案のグラム。
+  Future<void> saveMeal(
+    CoachMealProposal proposal, {
+    List<double>? grams,
+  }) async {
     if (proposal.components.isEmpty) {
       return;
     }
@@ -86,6 +150,17 @@ class DailyCoachSession {
     final entries = <FoodEntry>[];
     for (var i = 0; i < proposal.components.length; i++) {
       final item = proposal.components[i];
+      final edited = grams != null && i < grams.length
+          ? grams[i]
+          : item.grams.toDouble();
+      final consumed = coachMealConsumedAmount(
+        units: item.units,
+        proposedGrams: item.grams,
+        editedGrams: edited,
+      );
+      if (consumed == null) {
+        throw StateError('coach meal amount');
+      }
       entries.add(
         FoodEntry(
           id: controller.generateId(),
@@ -96,7 +171,7 @@ class DailyCoachSession {
           carbPerBase: item.carbPerUnit,
           baseAmount: 1,
           unitType: FoodUnitType.serving,
-          consumedAmount: item.units.toDouble(),
+          consumedAmount: consumed,
           sourceType: FoodEntrySource.mextSfct,
           officialFoodCode: item.foodCode,
           officialFoodName: item.officialName,
@@ -108,5 +183,25 @@ class DailyCoachSession {
       );
     }
     await controller.addFoodEntriesBatch(entries);
+  }
+
+  /// 変えた [amount] で運動を記録する。記録できなければ false。
+  Future<bool> saveExercise(
+    CoachExerciseProposal proposal, {
+    required double amount,
+  }) async {
+    final weight = controller.currentWeightSelection.kg;
+    final entry = coachExerciseEntry(
+      proposal: proposal,
+      amount: amount,
+      weightKg: weight > 0 ? weight : null,
+      id: controller.generateId(),
+      loggedAt: DateTime.now(),
+    );
+    if (entry == null) {
+      return false;
+    }
+    await controller.addExercise(entry);
+    return true;
   }
 }

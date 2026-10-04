@@ -70,6 +70,56 @@ class CoachMealProposal {
   Set<String> get foodCodes => {for (final item in components) item.foodCode};
 }
 
+/// 提案グラムを、変えたグラムに合わせて食事記録の数量へ直す。
+///
+/// 数量は提案単位の数。150g の 1 単位を 100g にするなら 100/150。
+double? coachMealConsumedAmount({
+  required int units,
+  required int proposedGrams,
+  required double editedGrams,
+}) {
+  if (units <= 0 ||
+      proposedGrams <= 0 ||
+      !editedGrams.isFinite ||
+      editedGrams <= 0) {
+    return null;
+  }
+  final amount = units * editedGrams / proposedGrams;
+  if (!amount.isFinite || amount <= 0) {
+    return null;
+  }
+  return amount;
+}
+
+/// 登録欄の数字。0 以下や空は登録しない。
+double? parseCoachAmount(String raw) {
+  final text = raw.trim().replaceAll(',', '');
+  if (text.isEmpty) {
+    return null;
+  }
+  final value = double.tryParse(text);
+  if (value == null || !value.isFinite || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+/// 分は整数で記録する。小数は登録しない。
+int? coachWholeMinutes(double amount) {
+  if (!amount.isFinite || amount <= 0) {
+    return null;
+  }
+  final nearest = amount.roundToDouble();
+  if ((amount - nearest).abs() > 0.001) {
+    return null;
+  }
+  final minutes = nearest.toInt();
+  if (minutes < 1 || minutes >= 24 * 60) {
+    return null;
+  }
+  return minutes;
+}
+
 class _Portion {
   const _Portion({required this.stock, required this.count});
 
@@ -345,12 +395,100 @@ class _Practice {
   final DateTime latest;
 }
 
+enum CoachExerciseUnit { kilometers, minutes }
+
+/// 超過の日に出す運動。登録できるのは、文に書いた今日の量。
+class CoachExerciseProposal {
+  const CoachExerciseProposal({
+    required this.message,
+    this.activityId,
+    this.amount,
+    this.unit,
+    this.met,
+  });
+
+  final String message;
+  final String? activityId;
+
+  /// そのまま登録する量。km または分。体重が無い日は null。
+  final double? amount;
+  final CoachExerciseUnit? unit;
+
+  /// 分で計算したときの MET。距離の種目では使わない。
+  final double? met;
+
+  bool get canRegister {
+    return activityId != null &&
+        activityId!.isNotEmpty &&
+        unit != null &&
+        amount != null &&
+        amount!.isFinite &&
+        amount! > 0;
+  }
+
+  String get unitLabel => unit == CoachExerciseUnit.kilometers ? 'km' : '分';
+}
+
+class _ExercisePlan {
+  const _ExercisePlan(
+    this.message, {
+    this.activityId,
+    this.amount,
+    this.unit,
+    this.met,
+  });
+
+  final String message;
+  final String? activityId;
+  final double? amount;
+  final CoachExerciseUnit? unit;
+  final double? met;
+
+  CoachExerciseProposal get proposal {
+    return CoachExerciseProposal(
+      message: message,
+      activityId: activityId,
+      amount: amount,
+      unit: unit,
+      met: met,
+    );
+  }
+}
+
 /// 超過を戻す運動。超過が無い日は null。
 ///
 /// 今すぐの量は、その種目の直近30日で一番長い記録の1.5倍まで、かつ45分以内。
 /// やったことが無い人は、歩くか軽い自重で20分まで。
-/// 体重が無い日は距離を出さない。
+/// 体重が無い日は距離を出さない。登録もしない。
+CoachExerciseProposal? buildCoachExerciseProposal({
+  required double overageKcal,
+  required double? weightKg,
+  required List<ExerciseEntry> exercises,
+  required DateTime now,
+}) {
+  return _exercisePlan(
+    overageKcal: overageKcal,
+    weightKg: weightKg,
+    exercises: exercises,
+    now: now,
+  )?.proposal;
+}
+
 String? buildCoachExerciseMessage({
+  required double overageKcal,
+  required double? weightKg,
+  required List<ExerciseEntry> exercises,
+  required DateTime now,
+}) {
+  return buildCoachExerciseProposal(
+    overageKcal: overageKcal,
+    weightKg: weightKg,
+    exercises: exercises,
+    now: now,
+  )?.message;
+}
+
+_ExercisePlan? _exercisePlan({
   required double overageKcal,
   required double? weightKg,
   required List<ExerciseEntry> exercises,
@@ -374,13 +512,16 @@ String? buildCoachExerciseMessage({
   }
   final factor = practice.activity.netKcalPerKgKm;
   if (factor != null && practice.longestKm > 0) {
-    return _distanceMessage(
+    final distance = _distanceMessage(
       practice: practice,
       overageKcal: overageKcal,
       weightKg: weight,
       requiredRunKm: requiredRunKm,
       factor: factor,
     );
+    if (distance != null) {
+      return distance;
+    }
   }
   if (practice.longestMinutes > 0) {
     final timed = _durationMessage(
@@ -397,6 +538,144 @@ String? buildCoachExerciseMessage({
     overageKcal: overageKcal,
     weightKg: weight,
     requiredRunKm: requiredRunKm,
+  );
+}
+
+/// 画面の数字を、その種目の式で運動記録にする。
+ExerciseEntry? coachExerciseEntry({
+  required CoachExerciseProposal proposal,
+  required double amount,
+  required double? weightKg,
+  required String id,
+  required DateTime loggedAt,
+}) {
+  if (!proposal.canRegister || !amount.isFinite || amount <= 0) {
+    return null;
+  }
+  final activity = MetActivityCatalog.findById(proposal.activityId);
+  final weight = weightKg;
+  if (activity == null ||
+      activity.lifestyleIncluded ||
+      activity.requiresManualKcal ||
+      activity.calorieFormula == null ||
+      weight == null ||
+      weight <= 0) {
+    return null;
+  }
+  const calculator = ExerciseCalorieCalculator();
+  switch (proposal.unit!) {
+    case CoachExerciseUnit.minutes:
+      if (activity.quantityUnit == ExerciseQuantityUnit.distanceKm) {
+        final speed = activity.referenceSpeedKmh;
+        if (speed == null || speed <= 0) {
+          return null;
+        }
+        return _coachDistanceEntry(
+          activity: activity,
+          distanceKm: amount / 60 * speed,
+          weightKg: weight,
+          id: id,
+          loggedAt: loggedAt,
+          calculator: calculator,
+        );
+      }
+      if (activity.quantityUnit != ExerciseQuantityUnit.durationMin) {
+        return null;
+      }
+      final minutes = coachWholeMinutes(amount);
+      final met = proposal.met ?? activity.defaultMet;
+      if (minutes == null || met <= 1) {
+        return null;
+      }
+      final estimate = calculator.estimate(
+        met: met,
+        weightKg: weight,
+        durationMinutes: minutes,
+        sourceKey: activity.sourceKey,
+      );
+      if (estimate == null) {
+        return null;
+      }
+      return ExerciseEntry(
+        id: id,
+        name: activity.displayName,
+        durationMin: minutes,
+        burnedKcal: estimate.grossKcal,
+        loggedAt: loggedAt,
+        category: activity.category,
+        activityId: activity.id,
+        intensity: activity.defaultIntensityId,
+        metValue: met,
+        grossKcal: estimate.grossKcal,
+        netKcal: estimate.netKcal,
+        weightKgSnapshot: weight,
+        calculationSource: estimate.calculationSource,
+        calculationVersion: estimate.calculationVersion,
+        sourceKey: activity.sourceKey,
+      );
+    case CoachExerciseUnit.kilometers:
+      if (activity.quantityUnit != ExerciseQuantityUnit.distanceKm) {
+        return null;
+      }
+      return _coachDistanceEntry(
+        activity: activity,
+        distanceKm: amount,
+        weightKg: weight,
+        id: id,
+        loggedAt: loggedAt,
+        calculator: calculator,
+      );
+  }
+}
+
+ExerciseEntry? _coachDistanceEntry({
+  required MetActivityDefinition activity,
+  required double distanceKm,
+  required double weightKg,
+  required String id,
+  required DateTime loggedAt,
+  required ExerciseCalorieCalculator calculator,
+}) {
+  final factor = activity.netKcalPerKgKm;
+  final estimate = factor != null
+      ? calculator.estimateByDistanceFactor(
+          weightKg: weightKg,
+          distanceKm: distanceKm,
+          netKcalPerKgKm: factor,
+          sourceKey: activity.sourceKey,
+        )
+      : activity.referenceSpeedKmh == null
+      ? null
+      : calculator.estimateByDistanceSpeed(
+          met: activity.defaultMet,
+          weightKg: weightKg,
+          distanceKm: distanceKm,
+          speedKmh: activity.referenceSpeedKmh!,
+          sourceKey: activity.sourceKey,
+        );
+  if (estimate == null) {
+    return null;
+  }
+  return ExerciseEntry(
+    id: id,
+    name: activity.displayName,
+    durationMin: ExerciseCalorieCalculator.companionDurationMin(
+      distanceKm: distanceKm,
+      referenceSpeedKmh: activity.referenceSpeedKmh,
+    ),
+    burnedKcal: estimate.grossKcal,
+    loggedAt: loggedAt,
+    category: activity.category,
+    activityId: activity.id,
+    intensity: activity.defaultIntensityId,
+    distanceKm: distanceKm,
+    metValue: factor == null ? activity.defaultMet : null,
+    grossKcal: estimate.grossKcal,
+    netKcal: estimate.netKcal,
+    weightKgSnapshot: weightKg,
+    calculationSource: estimate.calculationSource,
+    calculationVersion: estimate.calculationVersion,
+    sourceKey: activity.sourceKey,
   );
 }
 
@@ -484,17 +763,19 @@ double? _paceKmh(ExerciseEntry entry) {
   return kmh;
 }
 
-String _withoutWeight(_Practice? practice) {
+_ExercisePlan _withoutWeight(_Practice? practice) {
   const head = '体重がないため、距離は出していません。';
   if (practice == null || practice.longestMinutes <= 0) {
-    return '$head今日やるなら、歩くか軽い自重で20分までにします。';
+    return const _ExercisePlan('$head今日やるなら、歩くか軽い自重で20分までにします。');
   }
   final cap = math.min(45.0, practice.longestMinutes * 1.5);
   final minutes = math.max(1, cap.round());
-  return '$head今日やるなら${practice.activity.displayName}$minutes分までにします。';
+  return _ExercisePlan(
+    '$head今日やるなら${practice.activity.displayName}$minutes分までにします。',
+  );
 }
 
-String _noviceMessage({
+_ExercisePlan _noviceMessage({
   required double overageKcal,
   required double weightKg,
   required double requiredRunKm,
@@ -503,24 +784,27 @@ String _noviceMessage({
   final speed = walk?.referenceSpeedKmh;
   final factor = walk?.netKcalPerKgKm;
   if (walk == null || speed == null || speed <= 0 || factor == null) {
-    return '今日やるなら、歩くか軽い自重で20分までにします。';
+    return const _ExercisePlan('今日やるなら、歩くか軽い自重で20分までにします。');
   }
   final neededKm = overageKcal / (factor * weightKg);
   final neededMin = neededKm / speed * 60;
   final today = math.min(20.0, neededMin);
   final shown = math.max(1, today.round());
-  if (neededMin > 45) {
-    return _partialReturn(
-      requiredRunKm: requiredRunKm,
-      today: '、歩くか軽い自重で20分までにします',
-    );
-  }
-  final capped = today + 0.05 < neededMin;
-  final verb = capped ? 'までにします' : 'にします';
-  return '今日やるなら、歩くか軽い自重で$shown分$verb。';
+  final message = neededMin > 45
+      ? _partialReturn(
+          requiredRunKm: requiredRunKm,
+          today: '、歩くか軽い自重で20分までにします',
+        )
+      : '今日やるなら、歩くか軽い自重で$shown分${today + 0.05 < neededMin ? 'までにします' : 'にします'}。';
+  return _ExercisePlan(
+    message,
+    activityId: walk.id,
+    amount: shown.toDouble(),
+    unit: CoachExerciseUnit.minutes,
+  );
 }
 
-String? _distanceMessage({
+_ExercisePlan? _distanceMessage({
   required _Practice practice,
   required double overageKcal,
   required double weightKg,
@@ -548,18 +832,23 @@ String? _distanceMessage({
       ? neededMin > 45
       : todayKm + 0.05 < neededKm;
   final kmText = _formatKm(todayKm);
-  if (exceeds) {
-    final today = practice.activity.id == 'running'
-        ? '${kmText}kmまでにします'
-        : '${practice.activity.displayName}${kmText}kmまでにします';
-    return _partialReturn(requiredRunKm: requiredRunKm, today: today);
-  }
-  final capped = todayKm + 0.05 < neededKm;
-  final verb = capped ? 'までにします' : 'にします';
-  return '今日やるなら${practice.activity.displayName}${kmText}km$verb。';
+  final message = exceeds
+      ? _partialReturn(
+          requiredRunKm: requiredRunKm,
+          today: practice.activity.id == 'running'
+              ? '${kmText}kmまでにします'
+              : '${practice.activity.displayName}${kmText}kmまでにします',
+        )
+      : '今日やるなら${practice.activity.displayName}${kmText}km${todayKm + 0.05 < neededKm ? 'までにします' : 'にします'}。';
+  return _ExercisePlan(
+    message,
+    activityId: practice.activity.id,
+    amount: double.parse(kmText),
+    unit: CoachExerciseUnit.kilometers,
+  );
 }
 
-String? _durationMessage({
+_ExercisePlan? _durationMessage({
   required _Practice practice,
   required double overageKcal,
   required double weightKg,
@@ -587,21 +876,41 @@ String? _durationMessage({
   }
   final today = math.min(neededMin, cap);
   final shown = math.max(1, today.round());
-  if (neededMin > 45) {
-    return _partialReturn(
-      requiredRunKm: requiredRunKm,
-      today: '${practice.activity.displayName}$shown分までにします',
-    );
+  final message = neededMin > 45
+      ? _partialReturn(
+          requiredRunKm: requiredRunKm,
+          today: '${practice.activity.displayName}$shown分までにします',
+        )
+      : '今日やるなら${practice.activity.displayName}$shown分${today + 0.05 < neededMin ? 'までにします' : 'にします'}。';
+  final distanceWithoutSpeed =
+      practice.activity.quantityUnit == ExerciseQuantityUnit.distanceKm &&
+      (practice.activity.referenceSpeedKmh == null ||
+          practice.activity.referenceSpeedKmh! <= 0);
+  if (distanceWithoutSpeed || practice.met <= 1) {
+    return _ExercisePlan(message);
   }
-  final capped = today + 0.05 < neededMin;
-  final verb = capped ? 'までにします' : 'にします';
-  return '今日やるなら${practice.activity.displayName}$shown分$verb。';
+  return _ExercisePlan(
+    message,
+    activityId: practice.activity.id,
+    amount: shown.toDouble(),
+    unit: CoachExerciseUnit.minutes,
+    met: practice.activity.quantityUnit == ExerciseQuantityUnit.durationMin
+        ? practice.met
+        : null,
+  );
 }
 
 String _partialReturn({required double requiredRunKm, required String today}) {
   return '今日の超過を戻すには、ランニング${_formatKm(requiredRunKm)}kmが必要です。'
       '今日やるなら$today。'
       '残りは明日以降の食事で調整しましょう。';
+}
+
+String formatCoachAmount(double value) {
+  if (!value.isFinite || value <= 0) {
+    return '';
+  }
+  return _formatKm(value);
 }
 
 String _formatKm(double km) {

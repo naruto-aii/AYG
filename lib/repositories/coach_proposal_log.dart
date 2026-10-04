@@ -40,28 +40,33 @@ List<CoachProposalRecord> coachProposalRecords({
     return const [];
   }
   final records = <CoachProposalRecord>[];
-  for (final meal in result.meals.take(3)) {
-    final text = coachMealProposalText(meal);
-    if (text.isEmpty) {
-      continue;
+  if (result.offersMeals) {
+    for (final meal in result.meals.take(3)) {
+      final text = coachMealProposalText(meal);
+      if (text.isEmpty) {
+        continue;
+      }
+      records.add(
+        CoachProposalRecord(
+          id: generateUniqueId(),
+          proposal: text,
+          recordedAt: now,
+        ),
+      );
     }
-    records.add(
-      CoachProposalRecord(
-        id: generateUniqueId(),
-        proposal: text,
-        recordedAt: now,
-      ),
-    );
   }
-  final exercise = result.exerciseMessage?.trim();
-  if (exercise != null && exercise.isNotEmpty) {
-    records.add(
-      CoachProposalRecord(
-        id: generateUniqueId(),
-        proposal: exercise,
-        recordedAt: now,
-      ),
-    );
+  if (result.offersExercise) {
+    final exercise = (result.exercise?.message ?? result.exerciseMessage)
+        ?.trim();
+    if (exercise != null && exercise.isNotEmpty) {
+      records.add(
+        CoachProposalRecord(
+          id: generateUniqueId(),
+          proposal: exercise,
+          recordedAt: now,
+        ),
+      );
+    }
   }
   return records;
 }
@@ -117,7 +122,7 @@ class MemoryCoachProposalLog implements CoachProposalLog {
 
 /// 失敗しても提案の表示と食事の登録は止めない。シートへは送らない。
 class SupabaseCoachProposalLog implements CoachProposalLog {
-  SupabaseCoachProposalLog({SupabaseClient? this._client});
+  SupabaseCoachProposalLog({this._client});
 
   final SupabaseClient? _client;
 

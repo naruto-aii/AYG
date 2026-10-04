@@ -369,17 +369,25 @@ class HomeScreen extends StatelessWidget {
   }
 
   Future<void> _openCoach(BuildContext context) async {
-    final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    final added = await Navigator.of(context).push<CoachSavedKind>(
+      MaterialPageRoute<CoachSavedKind>(
         builder: (context) => DailyCoachScreen(controller: controller),
       ),
     );
-    if (added != true || !context.mounted) {
+    if (!context.mounted) {
+      return;
+    }
+    final message = switch (added) {
+      CoachSavedKind.meal => '食事に追加しました',
+      CoachSavedKind.exercise => '運動に追加しました',
+      null => null,
+    };
+    if (message == null) {
       return;
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('食事に追加しました。量はあとから変えられます。')));
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _foodSection(BuildContext context, List<FoodEntry> entries) {

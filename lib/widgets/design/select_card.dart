@@ -27,7 +27,7 @@ class SelectCard extends StatelessWidget {
   /// 任意のバッジ（例:「お得」）。タイトルの右に置く。
   final Widget? badge;
 
-  /// カード右端に置く任意のウィジェット。
+  /// カード右端に置く任意のウィジェット（例: 価格）。
   final Widget? trailing;
 
   @override
@@ -92,7 +92,10 @@ class SelectCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+              if (trailing != null) ...[
+                const SizedBox(width: 10),
+                trailing!,
+              ],
             ],
           ),
         ),

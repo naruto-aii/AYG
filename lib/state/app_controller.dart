@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../config/subscription_catalog.dart';
 import '../constants/app_strings.dart';
 import '../models/alcohol_entry.dart';
 import '../models/app_settings.dart';
@@ -2412,6 +2413,14 @@ class AppController extends ChangeNotifier {
     }
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
+    }
+    if (templateId == null && !_subscriptionRepository.isPlusActive) {
+      final current = await repository.getAll(currentOwnerUserId);
+      if (current.length >= SubscriptionCatalog.workoutTemplateLimit) {
+        throw SubscriptionLimitExceededException(
+          SubscriptionLimitKind.workoutTemplate,
+        );
+      }
     }
 
     final now = DateTime.now();

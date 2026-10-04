@@ -4,7 +4,9 @@ import '../../models/food_unit_type.dart';
 import '../../models/meal_template_draft.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_entry_selection.dart';
+import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/subscription/subscription_limit_prompt.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
@@ -250,6 +252,15 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
         return;
       }
       Navigator.of(context).pop(true);
+    } on SubscriptionLimitExceededException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await showSubscriptionLimitPrompt(
+        context,
+        controller: widget.controller,
+        exception: error,
+      );
     } catch (error) {
       if (!mounted) {
         return;

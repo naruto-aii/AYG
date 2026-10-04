@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
 import '../../models/meal_template_draft.dart';
+import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/subscription/subscription_limit_prompt.dart';
 import '../meal_template/meal_template_form_screen.dart';
 import '../meal_template/meal_template_plus_gate.dart';
 import 'food_meal_registration_screen.dart';
@@ -103,6 +105,15 @@ Future<void> saveCurrentFoodAsTemplate({
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('「$name」をテンプレートとして保存しました')));
+  } on SubscriptionLimitExceededException catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    await showSubscriptionLimitPrompt(
+      context,
+      controller: controller,
+      exception: error,
+    );
   } catch (error) {
     if (!context.mounted) {
       return;

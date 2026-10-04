@@ -12,19 +12,10 @@ class SubscriptionCatalog {
   static const halfYearProductId = 'calonavi_plus_half_year';
   static const yearlyProductId = 'calonavi_plus_yearly';
 
-  /// 公開から1ヶ月の初回だけ。月額には使わない。
-  static const halfYearIntroProductId = 'calonavi_plus_half_year_intro';
-  static const yearlyIntroProductId = 'calonavi_plus_yearly_intro';
-
-  /// 公開日時（UTC）。この瞬間から1ヶ月の間、半年と年額は初回の商品IDを買う。
-  static final DateTime introWindowStart = DateTime.utc(2026, 10, 4);
-
   static const plusProductIds = <String>{
     monthlyProductId,
     halfYearProductId,
     yearlyProductId,
-    halfYearIntroProductId,
-    yearlyIntroProductId,
   };
 
   static const publicFoodSearchesPerDay = 5;
@@ -45,29 +36,11 @@ class SubscriptionCatalog {
     return plusProductIds.contains(productId);
   }
 
-  /// 公開日時から1ヶ月、半年と年額だけ初回の商品にする。月額はいつも同じ。
-  static bool introWindowOpen(DateTime now) {
-    final start = introWindowStart.toUtc();
-    final end = DateTime.utc(
-      start.year,
-      start.month + 1,
-      start.day,
-      start.hour,
-      start.minute,
-      start.second,
-      start.millisecond,
-      start.microsecond,
-    );
-    final instant = now.toUtc();
-    return !instant.isBefore(start) && instant.isBefore(end);
-  }
-
-  static String productIdFor(PlusPlan plan, DateTime now) {
-    final intro = introWindowOpen(now);
+  static String productIdFor(PlusPlan plan) {
     return switch (plan) {
       PlusPlan.monthly => monthlyProductId,
-      PlusPlan.halfYear => intro ? halfYearIntroProductId : halfYearProductId,
-      PlusPlan.yearly => intro ? yearlyIntroProductId : yearlyProductId,
+      PlusPlan.halfYear => halfYearProductId,
+      PlusPlan.yearly => yearlyProductId,
     };
   }
 }

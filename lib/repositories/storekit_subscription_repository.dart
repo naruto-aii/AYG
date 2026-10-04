@@ -154,7 +154,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       if (!available) {
         return SubscriptionOfferings.failed;
       }
-      final now = _clock();
       final response = await store.queryProductDetails(
         SubscriptionCatalog.plusProductIds,
       );
@@ -164,17 +163,16 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       return SubscriptionOfferings(
         monthly: _offerFor(
           response.productDetails,
-          SubscriptionCatalog.productIdFor(PlusPlan.monthly, now),
+          SubscriptionCatalog.productIdFor(PlusPlan.monthly),
         ),
         halfYear: _offerFor(
           response.productDetails,
-          SubscriptionCatalog.productIdFor(PlusPlan.halfYear, now),
+          SubscriptionCatalog.productIdFor(PlusPlan.halfYear),
         ),
         yearly: _offerFor(
           response.productDetails,
-          SubscriptionCatalog.productIdFor(PlusPlan.yearly, now),
+          SubscriptionCatalog.productIdFor(PlusPlan.yearly),
         ),
-        introOffer: SubscriptionCatalog.introWindowOpen(now),
         loadFailed: false,
       );
     } catch (_) {
@@ -210,7 +208,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   @override
   Future<void> purchasePlan(PlusPlan plan) {
-    return _buy(SubscriptionCatalog.productIdFor(plan, _clock()));
+    return _buy(SubscriptionCatalog.productIdFor(plan));
   }
 
   Future<void> _buy(String productId) async {

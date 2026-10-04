@@ -26,7 +26,6 @@ class SubscriptionOfferings {
     required this.monthly,
     this.halfYear,
     required this.yearly,
-    this.introOffer = false,
     required this.loadFailed,
   });
 
@@ -40,9 +39,6 @@ class SubscriptionOfferings {
   final SubscriptionProductOffer? monthly;
   final SubscriptionProductOffer? halfYear;
   final SubscriptionProductOffer? yearly;
-
-  /// 公開から1ヶ月のあいだ true。半年と年額の商品IDが初回用になる。
-  final bool introOffer;
   final bool loadFailed;
 
   SubscriptionProductOffer? offerFor(PlusPlan plan) {
@@ -103,12 +99,10 @@ PlusBillingPeriod periodForProduct({
   if (productId == SubscriptionCatalog.monthlyProductId) {
     return PlusBillingPeriod.month;
   }
-  if (productId == SubscriptionCatalog.halfYearProductId ||
-      productId == SubscriptionCatalog.halfYearIntroProductId) {
+  if (productId == SubscriptionCatalog.halfYearProductId) {
     return PlusBillingPeriod.halfYear;
   }
-  if (productId == SubscriptionCatalog.yearlyProductId ||
-      productId == SubscriptionCatalog.yearlyIntroProductId) {
+  if (productId == SubscriptionCatalog.yearlyProductId) {
     return PlusBillingPeriod.year;
   }
   return PlusBillingPeriod.other;

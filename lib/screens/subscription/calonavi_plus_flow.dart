@@ -105,32 +105,22 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     };
   }
 
-  String _note(
-    PlusPlan plan,
-    SubscriptionProductOffer? offer, {
-    required bool intro,
-  }) {
-    final introPrice = intro && _hasStorePrice(offer);
+  String _note(PlusPlan plan) {
     return switch (plan) {
       PlusPlan.monthly => AppStrings.plusMonthlyNote,
-      PlusPlan.halfYear =>
-        introPrice
-            ? AppStrings.plusHalfYearIntroNote
-            : AppStrings.plusHalfYearNote,
-      PlusPlan.yearly =>
-        introPrice ? AppStrings.plusYearlyIntroNote : AppStrings.plusYearlyNote,
+      PlusPlan.halfYear => AppStrings.plusHalfYearNote,
+      PlusPlan.yearly => AppStrings.plusYearlyNote,
     };
   }
 
   List<_PlanOption> get _plans {
     final offerings = _offerings;
-    final intro = offerings?.introOffer == true;
     return [
       for (final plan in PlusPlan.values)
         _PlanOption(
           plan: plan,
           price: _displayPrice(plan, offerings?.offerFor(plan)),
-          note: _note(plan, offerings?.offerFor(plan), intro: intro),
+          note: _note(plan),
           badgeLabel: switch (plan) {
             PlusPlan.monthly => null,
             PlusPlan.halfYear => AppStrings.plusBadgeSave,
@@ -311,10 +301,6 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
             )
           else ...[
             Text('プランを選ぶ', style: AppTypography.titleM),
-            if (_offerings?.introOffer == true) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(AppStrings.plusIntroWindowNote, style: AppTypography.bodyS),
-            ],
             const SizedBox(height: AppSpacing.sm),
             for (var i = 0; i < plans.length; i++) ...[
               if (i > 0) const SizedBox(height: AppSpacing.sm),

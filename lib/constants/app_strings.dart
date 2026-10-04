@@ -90,10 +90,6 @@ class AppStrings {
   static const plusHalfYearNote = '6ヶ月分が5ヶ月分の価格';
   static const plusYearlyNote = '12ヶ月分が10ヶ月分の価格';
   static const plusMonthlyNote = 'いつでも解約できます';
-  static const plusIntroWindowNote =
-      '公開から1ヶ月のあいだ、半年と年額は初回の商品です。月額は同じです。2回目以降は通常価格です。';
-  static const plusHalfYearIntroNote = '初回はさらに1ヶ月分安い。2回目以降は通常価格';
-  static const plusYearlyIntroNote = '初回はさらに1ヶ月分安い。2回目以降は通常価格';
 
   /// ストアが金額を返せないときだけの表示。購入処理では使わない。
   static const plusFallbackMonthlyPrice = '¥580';

@@ -861,7 +861,7 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenEntryIntent(),
       phrases: [
-        "\(.applicationName)で \(\.$utterance\)",
+        "\(.applicationName)で \(\.$utterance)",
       ],
       shortTitle: "食事か運動を登録",
       systemImageName: "mic"

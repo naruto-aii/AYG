@@ -74,7 +74,40 @@ class FoodEntryEntity {
   String? officialFoodName;
 
   /// その食事へのメモ。未入力の古い行は null。
+  ///
+  /// Isar は offset 表をプロパティ名のアルファベット順で作る。
+  /// `schemas.g.dart` の id をその順からずらすと、保存時に文字列長を誤読して
+  /// isarworker が落ちる。列を足すときは id を名前順に差し込む。
   String? memo;
+}
+
+/// 1件の読み取りが失敗しても、食事コレクション全体は落とさない。
+FoodEntryEntity readStoredFoodEntry(Id id, FoodEntryEntity Function() read) {
+  try {
+    final entity = read();
+    if (!isReadableStoredFoodEntry(entity)) {
+      return unreadableStoredFoodEntry(id);
+    }
+    return entity;
+  } on RangeError {
+    return unreadableStoredFoodEntry(id);
+  } on FormatException {
+    return unreadableStoredFoodEntry(id);
+  }
+}
+
+/// 壊れた行は entryId を空にしておき、読み込み側で1件だけ飛ばす。
+bool isReadableStoredFoodEntry(FoodEntryEntity entity) {
+  return entity.entryId.isNotEmpty;
+}
+
+FoodEntryEntity unreadableStoredFoodEntry(Id id) {
+  return FoodEntryEntity()
+    ..id = id
+    ..entryId = ''
+    ..name = ''
+    ..quantity = 0
+    ..loggedAt = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 @collection

@@ -50,6 +50,28 @@ MealTemplate _sampleTemplate({
 
 void main() {
   group('FoodEntry Isar compatibility', () {
+    test('property ids stay in Isar name order', () {
+      final props = FoodEntryEntitySchema.properties.values.toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+      for (var i = 0; i < props.length; i++) {
+        expect(props[i].id, i, reason: props[i].name);
+      }
+    });
+
+    test('a broken row is skipped instead of failing the read', () {
+      final broken = readStoredFoodEntry(4, () {
+        throw RangeError('range end index out of range');
+      });
+      expect(isReadableStoredFoodEntry(broken), isFalse);
+
+      final kept = FoodEntryEntity()
+        ..entryId = 'kept'
+        ..name = 'rice'
+        ..quantity = 1
+        ..loggedAt = DateTime.utc(2026, 10, 4);
+      expect(isReadableStoredFoodEntry(kept), isTrue);
+    });
+
     test('reads legacy entity with quantity only', () async {
       final harness = await setUpIsarHarness();
       final loggedAt = DateTime(2025, 6, 1, 8);
@@ -137,16 +159,36 @@ void main() {
           id: 'mext-meal',
           name: 'ご飯',
           kcalPerBase: 156,
+          proteinPerBase: 2.5,
           baseAmount: 100,
           unitType: FoodUnitType.g,
           consumedAmount: 150,
           sourceType: FoodEntrySource.mextSfct,
           officialFoodCode: '01088',
           officialFoodName: officialName,
+          memo: '少なめ',
           loggedAt: DateTime(2026, 9, 28),
         ),
       );
-      final meal = (await harness.foodRepository.loadAll()).single;
+      await harness.foodRepository.save(
+        FoodEntry(
+          id: 'mext-meal-2',
+          name: 'みそ汁',
+          kcalPerBase: 30,
+          baseAmount: 1,
+          consumedAmount: 1,
+          sourceType: FoodEntrySource.mextSfct,
+          officialFoodCode: '17007',
+          officialFoodName: 'みそ汁',
+          loggedAt: DateTime(2026, 9, 28, 12),
+        ),
+      );
+      final meals = await harness.foodRepository.loadAll();
+      final meal = meals.firstWhere((entry) => entry.id == 'mext-meal');
+      expect(meals, hasLength(2));
+      expect(meal.name, 'ご飯');
+      expect(meal.proteinPerBase, 2.5);
+      expect(meal.memo, '少なめ');
       expect(meal.sourceType, FoodEntrySource.mextSfct);
       expect(meal.officialFoodCode, '01088');
       expect(meal.officialFoodName, officialName);

@@ -419,3 +419,7 @@ verify_jwt = true
 
 [functions.delete-account]
 verify_jwt = true
+
+# 20:00 Asia/Tokyo。呼び出しは service role だけ。本文は関数の中で、その瞬間の行から作る。
+[functions.daily-calorie-reminder]
+verify_jwt = true

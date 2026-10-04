@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -51,6 +53,14 @@ class _MainShellScreenState extends State<MainShellScreen> {
       screen: _selected.name,
       action: UsageScreenAction.open,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        widget.controller.syncDailyCalorieReminder(requestIfNeeded: true),
+      );
+    });
     if (!widget.controller.shouldOfferFirstMealGuide) {
       return;
     }

@@ -2,6 +2,19 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261004120000 daily calorie reminder
+
+20:00 の通知用トークンと、送った日の記録、Health 上乗せの2列だけを戻す。食事、運動、体重、目標、ヘルスケアの測定値、アカウント削除の関数は残す。2回実行しても失敗しない。先にアプリを、このトークンを書かない版へ戻してから流す。
+
+`supabase/rollback/20261004120000_daily_calorie_reminder_down.sql`
+
+消えるもの:
+
+- `user_push_tokens`（APNs のデバイストークン）
+- `daily_reminder_deliveries`（その日本の日付に通知を受け取る権利を1回取った記録）
+- `health_snapshots.activity_excess_kcal` と `activity_excess_on`
+- `daily_calorie_reminder_page` / `claim_daily_calorie_reminder` / `release_daily_calorie_reminder`
+
 ## 20261003210000 lifestyle calculation source
 
 運動の `calculation_source` に足した `lifestyle_included` だけを、元の3値へ戻す。列は消さない。食事、体重、運動、目標、ヘルスケアの行は消さない。`lifestyle_included` の行が残っているときは、その行を消さずに失敗する。行が無ければ2回実行しても失敗しない。先にアプリを、生活活動をこの値で書かない版へ戻してから流す。

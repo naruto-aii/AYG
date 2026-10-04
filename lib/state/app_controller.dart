@@ -73,6 +73,7 @@ import '../repositories/subscription_repository.dart';
 import '../repositories/unavailable_subscription_repository.dart';
 import '../repositories/usage_record_repository.dart';
 import '../services/usage_record.dart';
+import '../services/daily_calorie_reminder.dart';
 import '../services/lock_screen_meal.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
@@ -120,6 +121,7 @@ class AppController extends ChangeNotifier {
     FirstMealGuideStore? firstMealGuideStore,
     LockScreenMealGateway? lockScreenMealGateway,
     SiriVoiceGateway? siriVoiceGateway,
+    DailyReminderSession? dailyReminderSession,
     SubscriptionRepository? subscriptionRepository,
     UsageRecordRepository? usageRecordRepository,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
@@ -143,6 +145,8 @@ class AppController extends ChangeNotifier {
        _firstMealGuideStore = firstMealGuideStore,
        _lockScreenMealGateway = lockScreenMealGateway,
        _siriVoiceGateway = siriVoiceGateway,
+       _dailyReminderSession =
+           dailyReminderSession ?? const NoOpDailyReminderSession(),
        _subscriptionRepository =
            subscriptionRepository ?? UnavailableSubscriptionRepository(),
        _usageRecordRepository = usageRecordRepository,
@@ -177,6 +181,7 @@ class AppController extends ChangeNotifier {
   final WorkoutTemplateRepositoryBase? _workoutTemplateRepository;
   final FirstMealGuideStore? _firstMealGuideStore;
   final LockScreenMealGateway? _lockScreenMealGateway;
+  final DailyReminderSession _dailyReminderSession;
   final SiriVoiceGateway? _siriVoiceGateway;
   final SubscriptionRepository _subscriptionRepository;
   final UsageRecordRepository? _usageRecordRepository;
@@ -463,9 +468,20 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> syncDailyCalorieReminder({required bool requestIfNeeded}) {
+    return _dailyReminderSession.sync(requestIfNeeded: requestIfNeeded);
+  }
+
   Future<void> logout({bool force = false}) async {
     if (_isSyncInProgress && !force) {
       return;
+    }
+    try {
+      await _dailyReminderSession.unregisterDevice();
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[AYG] daily reminder unregister failed: $error');
+      }
     }
     _resetSyncState();
     _clearInMemoryState();
@@ -927,6 +943,28 @@ class AppController extends ChangeNotifier {
     _persistAutoTargetAnchor(day);
     notifyListeners();
     unawaited(publishLockScreenMealSnapshot());
+    _publishDailyReminderHealthExcess(day);
+  }
+
+  void _publishDailyReminderHealthExcess(DateTime day) {
+    if (!isSameLocalDay(day, DateTime.now())) {
+      return;
+    }
+    final userId = _authenticationRepository?.currentUser?.id;
+    final sync = _dataSyncRepository;
+    final excess = summary?.remainingBreakdown?.healthActivityExcessKcal;
+    if (userId == null || sync == null || excess == null || !excess.isFinite) {
+      return;
+    }
+    unawaited(
+      sync
+          .saveDailyReminderHealthExcess(
+            userId: userId,
+            excessKcal: excess,
+            recordedOn: DateTime(day.year, day.month, day.day),
+          )
+          .then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+    );
   }
 
   void _persistAutoTargetAnchor(DateTime referenceDate) {

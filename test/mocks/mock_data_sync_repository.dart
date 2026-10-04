@@ -135,4 +135,11 @@ class MockDataSyncRepository implements DataSyncRepository {
     }
     deletedWeightEntryIds.add(entryId);
   }
+
+  @override
+  Future<void> saveDailyReminderHealthExcess({
+    required String userId,
+    required double excessKcal,
+    required DateTime recordedOn,
+  }) async {}
 }

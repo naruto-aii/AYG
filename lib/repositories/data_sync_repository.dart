@@ -88,6 +88,14 @@ abstract class DataSyncRepository {
     required String entryId,
   });
 
+  /// 今日の Health 上乗せ。20:00 の通知は食事と運動をその場で足し、この値は
+  /// アプリが計算した当日分だけを使う。
+  Future<void> saveDailyReminderHealthExcess({
+    required String userId,
+    required double excessKcal,
+    required DateTime recordedOn,
+  });
+
   /// Supabase 等のリモート削除が有効か。
   bool get supportsRemoteFoodEntryDelete;
 
@@ -634,6 +642,21 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }, onConflict: 'user_id');
   }
 
+  @override
+  Future<void> saveDailyReminderHealthExcess({
+    required String userId,
+    required double excessKcal,
+    required DateTime recordedOn,
+  }) async {
+    final month = recordedOn.month.toString().padLeft(2, '0');
+    final day = recordedOn.day.toString().padLeft(2, '0');
+    await _client.from('health_snapshots').upsert({
+      'user_id': userId,
+      'activity_excess_kcal': excessKcal < 0 ? 0 : excessKcal,
+      'activity_excess_on': '${recordedOn.year}-$month-$day',
+    }, onConflict: 'user_id');
+  }
+
   Future<void> _pullAppSettings(String userId) async {
     final row = await _client
         .from('app_settings')
@@ -692,8 +715,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       }
       final fallback = [
         for (final row in rows)
-          Map<String, dynamic>.from(row)
-            ..remove('source_saved_food_version'),
+          Map<String, dynamic>.from(row)..remove('source_saved_food_version'),
       ];
       await _client
           .from('food_entries')
@@ -1123,5 +1145,12 @@ class NoOpDataSyncRepository implements DataSyncRepository {
   Future<void> deleteWeightEntry({
     required String userId,
     required String entryId,
+  }) async {}
+
+  @override
+  Future<void> saveDailyReminderHealthExcess({
+    required String userId,
+    required double excessKcal,
+    required DateTime recordedOn,
   }) async {}
 }

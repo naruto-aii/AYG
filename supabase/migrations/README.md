@@ -77,6 +77,19 @@ three columns again. CI job `sql-pr31-then-pr29` applies this branch
 first and PR #29 second, then inserts, updates, and publishes a My Food
 as `authenticated`.
 
+### Daily calorie reminder (`20261004120000`)
+
+`user_push_tokens` stores an iOS APNs device token for the signed-in user.
+`anon` has no privileges. `authenticated` can select, insert, update, and
+delete only its own rows. `daily_reminder_deliveries` records that the
+20:00 Japan-time reminder was claimed for one user and one Japan date.
+Clients cannot read or write it. `service_role` runs the page, claim, and
+release functions. `health_snapshots.activity_excess_kcal` is the Health
+excess the app calculated, used only when `activity_excess_on` is that
+Japan date. Existing meal, exercise, and goal rows are not deleted.
+Account deletion SQL is unchanged; the sender skips `users.deleted_at`.
+Rollback drops the two tables, the two columns, and the three functions.
+
 ### Apple token revocation (`20261003200000`)
 
 `internal.apple_refresh_tokens` keeps a Sign in with Apple refresh token

@@ -737,6 +737,10 @@ struct LogSpokenFoodIntent: AppIntent {
   @Parameter(title: "量")
   var quantity: String
 
+  /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
+  @Parameter(title: "種類")
+  var kind: SiriSpokenKind? = nil
+
   init() {
     self.foodName = ""
     self.quantity = ""
@@ -745,7 +749,7 @@ struct LogSpokenFoodIntent: AppIntent {
   func perform() async throws -> some IntentResult & ProvidesDialog {
     var plan = await SiriVoiceStore.planFood(name: foodName, quantity: quantity)
     if plan.asksKind {
-      let choice = try await requestDisambiguation(
+      let choice = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
         dialog: IntentDialog(stringLiteral: plan.spoken)
       )
@@ -774,6 +778,10 @@ struct LogSpokenExerciseIntent: AppIntent {
   @Parameter(title: "量")
   var quantity: String
 
+  /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
+  @Parameter(title: "種類")
+  var kind: SiriSpokenKind? = nil
+
   init() {
     self.activityName = ""
     self.quantity = ""
@@ -782,7 +790,7 @@ struct LogSpokenExerciseIntent: AppIntent {
   func perform() async throws -> some IntentResult & ProvidesDialog {
     var plan = await SiriVoiceStore.planExercise(name: activityName, quantity: quantity)
     if plan.asksKind {
-      let choice = try await requestDisambiguation(
+      let choice = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
         dialog: IntentDialog(stringLiteral: plan.spoken)
       )
@@ -808,6 +816,10 @@ struct LogSpokenEntryIntent: AppIntent {
   @Parameter(title: "内容")
   var utterance: String
 
+  /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
+  @Parameter(title: "種類")
+  var kind: SiriSpokenKind? = nil
+
   init() {
     self.utterance = ""
   }
@@ -815,7 +827,7 @@ struct LogSpokenEntryIntent: AppIntent {
   func perform() async throws -> some IntentResult & ProvidesDialog {
     var plan = await SiriVoiceStore.planUtterance(name: utterance, quantity: "")
     if plan.asksKind {
-      let choice = try await requestDisambiguation(
+      let choice = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
         dialog: IntentDialog(stringLiteral: plan.spoken)
       )

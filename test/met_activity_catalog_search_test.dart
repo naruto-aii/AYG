@@ -202,6 +202,25 @@ void main() {
       }
     }
 
+    final pushUp = MetActivityCatalog.findById('push_up')!;
+    expect(pushUp.intensityOptions.map((option) => option.label), [
+      'ゆっくり',
+      'きつめ',
+    ]);
+    expect(pushUp.intensityOptions.map((option) => option.id), [
+      '02022',
+      '02020',
+    ]);
+    expect(pushUp.intensityOptions.map((option) => option.met), [3.8, 7.5]);
+
+    for (final activity in MetActivityCatalog.activities) {
+      final labels = activity.intensityOptions.map((option) => option.label);
+      expect(labels.toSet(), hasLength(labels.length), reason: activity.id);
+      for (final label in labels) {
+        expect(label, isNot(contains(RegExp('[A-Za-z]'))), reason: activity.id);
+      }
+    }
+
     final swim = MetActivityCatalog.findById('swim_lap')!;
     expect(swim.defaultIntensityId, '18292');
     expect(swim.intensityOptions.where((option) => option.met == 5.8), [

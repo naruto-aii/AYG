@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app.dart';
+import '../config/development_plus_preview.dart';
 import '../config/open_food_facts_config.dart';
 import '../config/supabase_config.dart';
 import '../database/isar_service.dart';
@@ -123,6 +124,7 @@ Future<void> bootstrapApp() async {
   final preferences = await SharedPreferences.getInstance();
   final subscriptionRepository = StoreKitSubscriptionRepository(
     preferences: preferences,
+    developmentPlusPreview: developmentPlusPreview,
   );
   await subscriptionRepository.initialize();
 

@@ -29,6 +29,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     Stream<List<PurchaseDetails>>? purchaseUpdates,
     Future<EntitlementLoad> Function()? loadEntitlements,
     DateTime Function()? clock,
+    this.developmentPlusPreview = false,
   }) : _store = store,
        _preferences = preferences,
        _purchaseUpdates = purchaseUpdates,
@@ -44,6 +45,9 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   final Stream<List<PurchaseDetails>>? _purchaseUpdates;
   final Future<EntitlementLoad> Function()? _loadEntitlements;
   final DateTime Function() _clock;
+
+  /// 開発用ビルドで、購入せずに有料画面を見る。ストアの購入結果は上書きしない。
+  final bool developmentPlusPreview;
 
   final StreamController<bool> _plusController =
       StreamController<bool>.broadcast();
@@ -87,7 +91,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   Stream<void> get entitlementChanges => _entitlementSignals.stream;
 
   @override
-  bool get isPlusActive => _plus;
+  bool get isPlusActive => _plus || developmentPlusPreview;
 
   @override
   Stream<bool> get plusChanges => _plusController.stream;

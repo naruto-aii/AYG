@@ -15,6 +15,7 @@ import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../../widgets/design/weight_parts.dart';
+import '../../widgets/layout/active_tab_listenable_builder.dart';
 import 'weight_record_screen.dart';
 
 /// グラフの表示期間。
@@ -86,9 +87,9 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
+    return ActiveTabListenableBuilder(
       listenable: widget.controller,
-      builder: (context, child) {
+      builder: (context) {
         final all = _sorted;
         final ranged = _inRange(all);
         final latest = all.isEmpty ? null : all.last;

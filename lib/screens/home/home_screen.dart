@@ -23,6 +23,7 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
+import '../../widgets/layout/active_tab_listenable_builder.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../coach/daily_coach_screen.dart';
 import '../food/food_memo_dialog.dart';
@@ -56,9 +57,9 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
+    return ActiveTabListenableBuilder(
       listenable: controller,
-      builder: (context, child) {
+      builder: (context) {
         final profile = controller.profile;
         final goal = controller.goal;
         final summary = controller.summary;

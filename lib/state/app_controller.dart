@@ -638,20 +638,29 @@ class AppController extends ChangeNotifier {
       recordedAt: recordedAt ?? DateTime.now(),
       source: WeightSource.manual,
     );
-    await _weightRepository?.save(entry);
-    await _reloadWeightEntries();
+    final weightRepository = _weightRepository;
+    await weightRepository?.save(entry);
+    if (weightRepository != null) {
+      _placeWeightEntry(entry);
+    }
     await _refreshProfileWeightFromEntries();
   }
 
   Future<void> updateWeightEntry(WeightEntry entry) async {
-    await _weightRepository?.save(entry);
-    await _reloadWeightEntries();
+    final weightRepository = _weightRepository;
+    await weightRepository?.save(entry);
+    if (weightRepository != null) {
+      _placeWeightEntry(entry);
+    }
     await _refreshProfileWeightFromEntries();
   }
 
   Future<void> restoreWeightEntry(WeightEntry entry) async {
-    await _weightRepository?.save(entry);
-    await _reloadWeightEntries();
+    final weightRepository = _weightRepository;
+    await weightRepository?.save(entry);
+    if (weightRepository != null) {
+      _placeWeightEntry(entry);
+    }
     await _refreshProfileWeightFromEntriesWithoutScheduledSync();
     await _persistToRemoteNow();
   }
@@ -689,7 +698,7 @@ class AppController extends ChangeNotifier {
 
     if (weightRepository != null) {
       await weightRepository.delete(entryId);
-      await _reloadWeightEntries();
+      weightEntries.removeWhere((item) => item.id == entryId);
       await _refreshProfileWeightFromEntries();
     }
   }
@@ -1017,6 +1026,50 @@ class AppController extends ChangeNotifier {
       ..addAll(await alcoholRepository.loadAll());
   }
 
+  void _placeExerciseEntry(ExerciseEntry entry) {
+    _placeByTime(
+      exerciseEntries,
+      entry,
+      (item) => item.id,
+      (item) => item.loggedAt,
+    );
+  }
+
+  void _placeAlcoholEntry(AlcoholEntry entry) {
+    _placeByTime(
+      alcoholEntries,
+      entry,
+      (item) => item.id,
+      (item) => item.consumedAt,
+    );
+  }
+
+  void _placeWeightEntry(WeightEntry entry) {
+    _placeByTime(
+      weightEntries,
+      entry,
+      (item) => item.id,
+      (item) => item.recordedAt,
+    );
+  }
+
+  /// 新しい順。loadAll の並びと同じで、全件は読み直さない。
+  void _placeByTime<T>(
+    List<T> items,
+    T entry,
+    String Function(T item) id,
+    DateTime Function(T item) time,
+  ) {
+    final entryId = id(entry);
+    items.removeWhere((item) => id(item) == entryId);
+    final at = time(entry);
+    var index = 0;
+    while (index < items.length && !at.isAfter(time(items[index]))) {
+      index++;
+    }
+    items.insert(index, entry);
+  }
+
   String generateId() => generateUniqueId();
 
   static const foodMemoMaxLength = 200;
@@ -1144,13 +1197,39 @@ class AppController extends ChangeNotifier {
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
       await foodRepository.save(entry);
-      await _reloadFoodEntries();
+      // 全件 loadAll は UI アイソレートを止める。保存した1件だけ足す。
+      _placeSavedFoodEntry(entry);
     } else {
       foodEntries.add(entry);
     }
-    _scheduleRemoteSync();
+    _scheduleFoodEntrySync(entry);
     refreshDailySummary();
     _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
+  }
+
+  /// 新しい順（loggedAt 降順）。loadAll と同じ並び。
+  void _placeSavedFoodEntry(FoodEntry entry) {
+    foodEntries.removeWhere((item) => item.id == entry.id);
+    var index = 0;
+    while (index < foodEntries.length &&
+        !entry.loggedAt.isAfter(foodEntries[index].loggedAt)) {
+      index++;
+    }
+    foodEntries.insert(index, entry);
+  }
+
+  void _scheduleFoodEntrySync(FoodEntry entry) {
+    if (!_hasInitialSyncCompleted || _lastSyncFailed) {
+      return;
+    }
+
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    if (userId == null || dataSyncRepository == null) {
+      return;
+    }
+
+    unawaited(dataSyncRepository.pushFoodEntry(userId: userId, entry: entry));
   }
 
   Future<void> restoreFoodEntry(FoodEntry entry) async {
@@ -1163,7 +1242,7 @@ class AppController extends ChangeNotifier {
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
       await foodRepository.save(entry);
-      await _reloadFoodEntries();
+      _placeSavedFoodEntry(entry);
     } else {
       final index = foodEntries.indexWhere((item) => item.id == entry.id);
       if (index == -1) {
@@ -1178,7 +1257,7 @@ class AppController extends ChangeNotifier {
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
       await foodRepository.save(entry);
-      await _reloadFoodEntries();
+      _placeSavedFoodEntry(entry);
     } else {
       final index = foodEntries.indexWhere((item) => item.id == entry.id);
       if (index == -1) {
@@ -1309,7 +1388,7 @@ class AppController extends ChangeNotifier {
 
     if (foodRepository != null) {
       await foodRepository.delete(id);
-      await _reloadFoodEntries();
+      foodEntries.removeWhere((item) => item.id == id);
     } else {
       foodEntries.removeWhere((item) => item.id == id);
     }
@@ -1325,7 +1404,7 @@ class AppController extends ChangeNotifier {
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
       await exerciseRepository.save(stored);
-      await _reloadExerciseEntries();
+      _placeExerciseEntry(stored);
     } else {
       exerciseEntries.add(stored);
     }
@@ -1344,7 +1423,7 @@ class AppController extends ChangeNotifier {
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
       await exerciseRepository.save(entry);
-      await _reloadExerciseEntries();
+      _placeExerciseEntry(entry);
     } else {
       final index = exerciseEntries.indexWhere((item) => item.id == entry.id);
       if (index == -1) {
@@ -1360,7 +1439,7 @@ class AppController extends ChangeNotifier {
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
       await exerciseRepository.save(stored);
-      await _reloadExerciseEntries();
+      _placeExerciseEntry(stored);
     } else {
       final index = exerciseEntries.indexWhere((item) => item.id == stored.id);
       if (index == -1) {
@@ -1389,7 +1468,7 @@ class AppController extends ChangeNotifier {
 
     if (exerciseRepository != null) {
       await exerciseRepository.delete(id);
-      await _reloadExerciseEntries();
+      exerciseEntries.removeWhere((item) => item.id == id);
     } else {
       exerciseEntries.removeWhere((item) => item.id == id);
     }
@@ -1401,7 +1480,7 @@ class AppController extends ChangeNotifier {
     final alcoholRepository = _alcoholRepository;
     if (alcoholRepository != null) {
       await alcoholRepository.save(entry);
-      await _reloadAlcoholEntries();
+      _placeAlcoholEntry(entry);
     } else {
       alcoholEntries.add(entry);
     }
@@ -1420,7 +1499,7 @@ class AppController extends ChangeNotifier {
     final alcoholRepository = _alcoholRepository;
     if (alcoholRepository != null) {
       await alcoholRepository.save(entry);
-      await _reloadAlcoholEntries();
+      _placeAlcoholEntry(entry);
     } else {
       final index = alcoholEntries.indexWhere((item) => item.id == entry.id);
       if (index == -1) {
@@ -1435,7 +1514,7 @@ class AppController extends ChangeNotifier {
     final alcoholRepository = _alcoholRepository;
     if (alcoholRepository != null) {
       await alcoholRepository.save(entry);
-      await _reloadAlcoholEntries();
+      _placeAlcoholEntry(entry);
     } else {
       final index = alcoholEntries.indexWhere((item) => item.id == entry.id);
       if (index == -1) {
@@ -1461,7 +1540,7 @@ class AppController extends ChangeNotifier {
 
     if (alcoholRepository != null) {
       await alcoholRepository.delete(id);
-      await _reloadAlcoholEntries();
+      alcoholEntries.removeWhere((item) => item.id == id);
     } else {
       alcoholEntries.removeWhere((item) => item.id == id);
     }
@@ -2226,7 +2305,9 @@ class AppController extends ChangeNotifier {
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
       await foodRepository.saveAll(entries);
-      await _reloadFoodEntries();
+      for (final entry in entries) {
+        _placeSavedFoodEntry(entry);
+      }
     } else {
       foodEntries.addAll(entries);
     }
@@ -3424,6 +3505,9 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  bool _remoteSyncInFlight = false;
+  bool _remoteSyncQueued = false;
+
   void _scheduleRemoteSync() {
     if (!_hasInitialSyncCompleted || _lastSyncFailed) {
       return;
@@ -3435,7 +3519,28 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    unawaited(dataSyncRepository.pushLocalToRemote(userId));
+    if (_remoteSyncInFlight) {
+      _remoteSyncQueued = true;
+      return;
+    }
+    _remoteSyncInFlight = true;
+    unawaited(_drainRemoteSync(dataSyncRepository, userId));
+  }
+
+  Future<void> _drainRemoteSync(
+    DataSyncRepository dataSyncRepository,
+    String userId,
+  ) async {
+    try {
+      do {
+        _remoteSyncQueued = false;
+        await dataSyncRepository.pushLocalToRemote(userId);
+      } while (_remoteSyncQueued &&
+          _hasInitialSyncCompleted &&
+          !_lastSyncFailed);
+    } finally {
+      _remoteSyncInFlight = false;
+    }
   }
 
   void dispose() {

@@ -1,3 +1,4 @@
+import 'package:flutter/scheduler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/activity_level.dart';
@@ -67,6 +68,12 @@ abstract class DataSyncRepository {
   Future<void> pullSavedFoodsRemoteToLocal(String userId);
 
   Future<void> pushLocalToRemote(String userId);
+
+  /// 保存した食事1件だけを送る。全表の読み直しは画面を止める。
+  Future<void> pushFoodEntry({
+    required String userId,
+    required FoodEntry entry,
+  });
 
   Future<void> deleteFoodEntry({
     required String userId,
@@ -290,18 +297,56 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   @override
   Future<void> pushLocalToRemote(String userId) async {
     await _pushProfile(userId);
+    await _yieldToUi();
     await _pushGoal(userId);
+    await _yieldToUi();
     await _pushNutritionSettings(userId);
+    await _yieldToUi();
     await _pushHealthSnapshot(userId);
+    await _yieldToUi();
     await _pushAppSettings(userId);
+    await _yieldToUi();
     await _pushFoodEntries(userId);
+    await _yieldToUi();
     await _pushExerciseEntries(userId);
+    await _yieldToUi();
     await _pushAlcoholEntries(userId);
+    await _yieldToUi();
     await _pushWeightEntries(userId);
+    await _yieldToUi();
     await _pushSavedFoods(userId);
+    await _yieldToUi();
     await _pushMealTemplates(userId);
+    await _yieldToUi();
     await _pushWorkoutTemplates(userId);
+    await _yieldToUi();
     await _pushHealthWorkouts(userId);
+  }
+
+  Future<List<R>> _mapYielding<T, R>(
+    List<T> items,
+    R Function(T item) map,
+  ) async {
+    if (items.length < 200) {
+      return [for (final item in items) map(item)];
+    }
+    final rows = <R>[];
+    for (var i = 0; i < items.length; i++) {
+      rows.add(map(items[i]));
+      if ((i + 1) % 200 == 0) {
+        await _yieldToUi();
+      }
+    }
+    return rows;
+  }
+
+  /// 表と表のあいだにタップを通す。テストではタイマーを待たずに返す。
+  Future<void> _yieldToUi() {
+    final bindingName = SchedulerBinding.instance.runtimeType.toString();
+    if (bindingName.contains('TestWidgetsFlutterBinding')) {
+      return Future<void>.value();
+    }
+    return Future<void>.delayed(Duration.zero);
   }
 
   @override
@@ -671,17 +716,32 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _foodRepository.saveAll(entries);
   }
 
+  @override
+  Future<void> pushFoodEntry({
+    required String userId,
+    required FoodEntry entry,
+  }) {
+    return _upsertFoodEntries(userId, [entry]);
+  }
+
   Future<void> _pushFoodEntries(String userId) async {
     final entries = await _foodRepository.loadAll();
+    await _yieldToUi();
+    await _upsertFoodEntries(userId, entries);
+  }
+
+  Future<void> _upsertFoodEntries(
+    String userId,
+    List<FoodEntry> entries,
+  ) async {
     if (entries.isEmpty) {
       return;
     }
 
-    final rows = entries
-        .map(
-          (entry) => FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
-        )
-        .toList();
+    final rows = await _mapYielding(
+      entries,
+      (entry) => FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
+    );
     try {
       await _client
           .from('food_entries')
@@ -692,8 +752,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       }
       final fallback = [
         for (final row in rows)
-          Map<String, dynamic>.from(row)
-            ..remove('source_saved_food_version'),
+          Map<String, dynamic>.from(row)..remove('source_saved_food_version'),
       ];
       await _client
           .from('food_entries')
@@ -1100,6 +1159,12 @@ class NoOpDataSyncRepository implements DataSyncRepository {
 
   @override
   Future<void> pushLocalToRemote(String userId) async {}
+
+  @override
+  Future<void> pushFoodEntry({
+    required String userId,
+    required FoodEntry entry,
+  }) async {}
 
   @override
   Future<void> deleteFoodEntry({

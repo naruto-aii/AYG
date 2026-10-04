@@ -1144,13 +1144,39 @@ class AppController extends ChangeNotifier {
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
       await foodRepository.save(entry);
-      await _reloadFoodEntries();
+      // 全件 loadAll は UI アイソレートを止める。保存した1件だけ足す。
+      _placeSavedFoodEntry(entry);
     } else {
       foodEntries.add(entry);
     }
-    _scheduleRemoteSync();
+    _scheduleFoodEntrySync(entry);
     refreshDailySummary();
     _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
+  }
+
+  /// 新しい順（loggedAt 降順）。loadAll と同じ並び。
+  void _placeSavedFoodEntry(FoodEntry entry) {
+    foodEntries.removeWhere((item) => item.id == entry.id);
+    var index = 0;
+    while (index < foodEntries.length &&
+        !entry.loggedAt.isAfter(foodEntries[index].loggedAt)) {
+      index++;
+    }
+    foodEntries.insert(index, entry);
+  }
+
+  void _scheduleFoodEntrySync(FoodEntry entry) {
+    if (!_hasInitialSyncCompleted || _lastSyncFailed) {
+      return;
+    }
+
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    if (userId == null || dataSyncRepository == null) {
+      return;
+    }
+
+    unawaited(dataSyncRepository.pushFoodEntry(userId: userId, entry: entry));
   }
 
   Future<void> restoreFoodEntry(FoodEntry entry) async {

@@ -68,6 +68,12 @@ abstract class DataSyncRepository {
 
   Future<void> pushLocalToRemote(String userId);
 
+  /// 保存した食事1件だけを送る。全表の読み直しは画面を止める。
+  Future<void> pushFoodEntry({
+    required String userId,
+    required FoodEntry entry,
+  });
+
   Future<void> deleteFoodEntry({
     required String userId,
     required String entryId,
@@ -671,8 +677,22 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _foodRepository.saveAll(entries);
   }
 
+  @override
+  Future<void> pushFoodEntry({
+    required String userId,
+    required FoodEntry entry,
+  }) {
+    return _upsertFoodEntries(userId, [entry]);
+  }
+
   Future<void> _pushFoodEntries(String userId) async {
-    final entries = await _foodRepository.loadAll();
+    await _upsertFoodEntries(userId, await _foodRepository.loadAll());
+  }
+
+  Future<void> _upsertFoodEntries(
+    String userId,
+    List<FoodEntry> entries,
+  ) async {
     if (entries.isEmpty) {
       return;
     }
@@ -1100,6 +1120,12 @@ class NoOpDataSyncRepository implements DataSyncRepository {
 
   @override
   Future<void> pushLocalToRemote(String userId) async {}
+
+  @override
+  Future<void> pushFoodEntry({
+    required String userId,
+    required FoodEntry entry,
+  }) async {}
 
   @override
   Future<void> deleteFoodEntry({

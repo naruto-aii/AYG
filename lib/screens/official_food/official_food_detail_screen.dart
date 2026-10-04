@@ -72,6 +72,11 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
       return;
     }
     setState(() => _busy = true);
+    // 同フレームで保存へ入ると、スピナーを描く前に画面が固まる。
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      return;
+    }
     try {
       final entry = widget.logger.buildEntry(
         match: widget.match,

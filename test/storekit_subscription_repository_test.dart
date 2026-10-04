@@ -274,4 +274,30 @@ void main() {
 
     await repository.dispose();
   });
+
+  test(
+    'development preview shows plus without a purchase or stored entitlement',
+    () async {
+      final prefs = await prefsWith({});
+      final repository = StoreKitSubscriptionRepository(
+        preferences: prefs,
+        purchaseUpdates: const Stream.empty(),
+        loadEntitlements: () async =>
+            const EntitlementLoad(records: [], authoritative: true),
+        clock: () => now,
+        developmentPlusPreview: true,
+      );
+
+      await repository.initialize();
+
+      expect(repository.isPlusActive, isTrue);
+      expect(repository.confirmedEntitlements, isEmpty);
+      expect(
+        prefs.getString(StoreKitSubscriptionRepository.entitlementsKey),
+        '[]',
+      );
+      expect(prefs.getInt(StoreKitSubscriptionRepository.expiryKey), isNull);
+      await repository.dispose();
+    },
+  );
 }

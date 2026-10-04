@@ -347,23 +347,56 @@ class MetActivityCatalog {
     return mph * _mphToKmh;
   }
 
-  /// 括弧の外にある最初の読点より後ろ。強度の見分けに使う。
-  static String _intensityLabel(String english) {
-    var depth = 0;
-    for (var i = 0; i < english.length; i++) {
-      final ch = english[i];
-      if (ch == '(') {
-        depth++;
-      } else if (ch == ')' && depth > 0) {
-        depth--;
-      } else if (ch == ',' && depth == 0) {
-        final rest = english.substring(i + 1).trim();
-        if (rest.isNotEmpty) {
-          return rest;
-        }
-      }
+  /// きつさのチップ。弱い方から強い方。英語は付けない。
+  static const plainStrengthLabels = [
+    'とてもゆっくり',
+    'ゆっくり',
+    'ややゆっくり',
+    '普通より楽',
+    '普通',
+    '普通より少し',
+    'ややきつめ',
+    'きつめ',
+    'きつめの上',
+    'かなりきつめ',
+    'とてもきつい',
+    'かなり激しい',
+    '非常にきつい',
+    'いちばんきつい',
+  ];
+
+  /// 同じ種目の中で、MET が低い順に平易な言葉を割り当てる。
+  static List<String> plainStrengthLabelsFor(int count) {
+    if (count <= 0) {
+      return const [];
     }
-    return english;
+    if (count == 1) {
+      return const ['普通'];
+    }
+    if (count == 2) {
+      return const ['ゆっくり', 'きつめ'];
+    }
+    if (count == 3) {
+      return const ['ゆっくり', '普通', 'きつめ'];
+    }
+    if (count > plainStrengthLabels.length) {
+      throw StateError('きつさの言葉が $count 件に足りない');
+    }
+    final last = plainStrengthLabels.length - 1;
+    final labels = <String>[];
+    var previous = -1;
+    for (var i = 0; i < count; i++) {
+      var index = ((i * last) / (count - 1)).round();
+      if (index <= previous) {
+        index = previous + 1;
+      }
+      if (index > last) {
+        index = last;
+      }
+      labels.add(plainStrengthLabels[index]);
+      previous = index;
+    }
+    return labels;
   }
 
   static List<_Code> _uniqueMets(List<_Code> codes, String defaultCode) {
@@ -399,18 +432,23 @@ class MetActivityCatalog {
   }) {
     final fallback = defaultCode ?? codes.first.code;
     final unique = _uniqueMets(codes, fallback);
-    final labelCounts = <String, int>{};
-    for (final code in unique) {
-      final label = _intensityLabel(code.english);
-      labelCounts[label] = (labelCounts[label] ?? 0) + 1;
-    }
+    final byEffort = [...unique]
+      ..sort((a, b) {
+        final byMet = a.met.compareTo(b.met);
+        if (byMet != 0) {
+          return byMet;
+        }
+        return a.code.compareTo(b.code);
+      });
+    final words = plainStrengthLabelsFor(byEffort.length);
+    final labelByCode = <String, String>{
+      for (var i = 0; i < byEffort.length; i++) byEffort[i].code: words[i],
+    };
     final options = <MetIntensityOption>[
       for (final code in unique)
         MetIntensityOption(
           id: code.code,
-          label: (labelCounts[_intensityLabel(code.english)] ?? 0) > 1
-              ? '${_intensityLabel(code.english)} · ${code.code}'
-              : _intensityLabel(code.english),
+          label: labelByCode[code.code]!,
           description: code.english,
           met: code.met,
           sourceKey: 'compendium_2024_${code.code}',

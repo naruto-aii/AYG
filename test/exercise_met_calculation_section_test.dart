@@ -889,7 +889,7 @@ void main() {
           find.byKey(ExerciseMetCalculationSection.durationFieldKey),
           findsNothing,
         );
-        expect(find.text('leisure 5.5 mph'), findsOneWidget);
+        expect(find.text('とてもゆっくり'), findsOneWidget);
         expect(find.text('実施時間（分）'), findsNothing);
 
         await tapActivityChip(tester, 'フットサル');
@@ -901,7 +901,7 @@ void main() {
           find.byKey(ExerciseMetCalculationSection.distanceFieldKey),
           findsNothing,
         );
-        expect(find.text('leisure 5.5 mph'), findsNothing);
+        expect(find.text('とてもゆっくり'), findsNothing);
         expect(find.text('きつさ'), findsNothing);
 
         await tapActivityChip(tester, '腕立て伏せ');
@@ -909,8 +909,8 @@ void main() {
           find.byKey(ExerciseMetCalculationSection.durationFieldKey),
           findsOneWidget,
         );
-        expect(find.text('moderate effort'), findsOneWidget);
-        expect(find.text('vigorous effort'), findsOneWidget);
+        expect(find.text('ゆっくり'), findsOneWidget);
+        expect(find.text('きつめ'), findsOneWidget);
         expect(find.text('回数'), findsNothing);
         expect(find.text('消費カロリー'), findsNothing);
       },

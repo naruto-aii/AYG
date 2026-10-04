@@ -1,7 +1,7 @@
 import '../config/subscription_catalog.dart';
 import 'subscription_entitlement.dart';
 
-enum PlusBillingPeriod { month, year, other }
+enum PlusBillingPeriod { month, semiannual, year, other }
 
 class SubscriptionProductOffer {
   const SubscriptionProductOffer({
@@ -24,17 +24,20 @@ class SubscriptionProductOffer {
 class SubscriptionOfferings {
   const SubscriptionOfferings({
     required this.monthly,
+    required this.semiannual,
     required this.yearly,
     required this.loadFailed,
   });
 
   static const failed = SubscriptionOfferings(
     monthly: null,
+    semiannual: null,
     yearly: null,
     loadFailed: true,
   );
 
   final SubscriptionProductOffer? monthly;
+  final SubscriptionProductOffer? semiannual;
   final SubscriptionProductOffer? yearly;
   final bool loadFailed;
 }
@@ -42,6 +45,7 @@ class SubscriptionOfferings {
 String plusPeriodLabel(PlusBillingPeriod period) {
   return switch (period) {
     PlusBillingPeriod.month => '月額',
+    PlusBillingPeriod.semiannual => '半年',
     PlusBillingPeriod.year => '年額',
     PlusBillingPeriod.other => '定期購入',
   };
@@ -86,6 +90,9 @@ PlusBillingPeriod periodForProduct({
   }
   if (productId == SubscriptionCatalog.monthlyProductId) {
     return PlusBillingPeriod.month;
+  }
+  if (productId == SubscriptionCatalog.semiannualProductId) {
+    return PlusBillingPeriod.semiannual;
   }
   if (productId == SubscriptionCatalog.yearlyProductId) {
     return PlusBillingPeriod.year;

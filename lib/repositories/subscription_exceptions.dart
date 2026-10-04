@@ -1,6 +1,6 @@
 import '../config/subscription_catalog.dart';
 
-enum SubscriptionLimitKind { publicFoodSearch, mealTemplate, workoutTemplate }
+enum SubscriptionLimitKind { mealTemplate, workoutTemplate }
 
 class SubscriptionLimitExceededException implements Exception {
   SubscriptionLimitExceededException(this.kind);
@@ -10,8 +10,6 @@ class SubscriptionLimitExceededException implements Exception {
   @override
   String toString() {
     return switch (kind) {
-      SubscriptionLimitKind.publicFoodSearch =>
-        '公開食品検索は1日${SubscriptionCatalog.publicFoodSearchesPerDay}回までです。',
       SubscriptionLimitKind.mealTemplate =>
         '食事テンプレートは${SubscriptionCatalog.mealTemplateLimit}件までです。',
       SubscriptionLimitKind.workoutTemplate =>

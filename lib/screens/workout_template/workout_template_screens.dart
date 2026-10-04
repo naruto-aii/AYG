@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/exercise_category.dart';
 import '../../models/workout_template.dart';
+import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/id_generator.dart';
@@ -11,6 +12,7 @@ import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/layout/app_content_constraint.dart';
+import '../../widgets/subscription/subscription_limit_prompt.dart';
 
 class WorkoutTemplateFormScreen extends StatefulWidget {
   const WorkoutTemplateFormScreen({
@@ -104,6 +106,15 @@ class _WorkoutTemplateFormScreenState extends State<WorkoutTemplateFormScreen> {
         return;
       }
       Navigator.of(context).pop(true);
+    } on SubscriptionLimitExceededException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await showSubscriptionLimitPrompt(
+        context,
+        controller: widget.controller,
+        exception: error,
+      );
     } catch (error) {
       if (!mounted) {
         return;

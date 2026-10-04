@@ -29,5 +29,7 @@ abstract class SubscriptionRepository {
 
   Future<void> purchaseMonthly();
 
+  Future<void> purchaseSemiannual();
+
   Future<void> purchaseYearly();
 }

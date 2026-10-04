@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../config/subscription_catalog.dart';
 import '../constants/app_strings.dart';
 import '../models/alcohol_entry.dart';
 import '../models/app_settings.dart';
@@ -69,6 +70,7 @@ import '../repositories/local_session_store.dart';
 import '../services/local_user_data_clearer_base.dart';
 import '../config/official_foods_flag.dart';
 import '../config/supabase_config.dart';
+import '../repositories/subscription_exceptions.dart';
 import '../repositories/subscription_repository.dart';
 import '../repositories/unavailable_subscription_repository.dart';
 import '../repositories/usage_record_repository.dart';
@@ -2255,6 +2257,14 @@ class AppController extends ChangeNotifier {
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
     }
+    if (templateId == null && !_subscriptionRepository.isPlusActive) {
+      final current = await repository.getAll(currentOwnerUserId);
+      if (current.length >= SubscriptionCatalog.workoutTemplateLimit) {
+        throw SubscriptionLimitExceededException(
+          SubscriptionLimitKind.workoutTemplate,
+        );
+      }
+    }
 
     final now = DateTime.now();
     final id = templateId ?? generateId();
@@ -2368,6 +2378,14 @@ class AppController extends ChangeNotifier {
     }
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
+    }
+    if (templateId == null && !_subscriptionRepository.isPlusActive) {
+      final current = await repository.getAll(currentOwnerUserId);
+      if (current.length >= SubscriptionCatalog.mealTemplateLimit) {
+        throw SubscriptionLimitExceededException(
+          SubscriptionLimitKind.mealTemplate,
+        );
+      }
     }
 
     final now = DateTime.now();

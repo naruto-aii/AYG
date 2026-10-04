@@ -156,6 +156,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       }
       final response = await store.queryProductDetails({
         SubscriptionCatalog.monthlyProductId,
+        SubscriptionCatalog.semiannualProductId,
         SubscriptionCatalog.yearlyProductId,
       });
       if (response.error != null) {
@@ -165,6 +166,10 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         monthly: _offerFor(
           response.productDetails,
           SubscriptionCatalog.monthlyProductId,
+        ),
+        semiannual: _offerFor(
+          response.productDetails,
+          SubscriptionCatalog.semiannualProductId,
         ),
         yearly: _offerFor(
           response.productDetails,
@@ -199,6 +204,11 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   }
 
   @override
+  Future<void> purchaseSemiannual() {
+    return _buy(SubscriptionCatalog.semiannualProductId);
+  }
+
+  @override
   Future<void> purchaseYearly() {
     return _buy(SubscriptionCatalog.yearlyProductId);
   }
@@ -211,6 +221,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     }
     final response = await store.queryProductDetails({
       SubscriptionCatalog.monthlyProductId,
+      SubscriptionCatalog.semiannualProductId,
       SubscriptionCatalog.yearlyProductId,
     });
     if (response.error != null) {
@@ -370,6 +381,8 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     return switch (period.unit) {
       SK2SubscriptionPeriodUnit.month when period.value == 1 =>
         PlusBillingPeriod.month,
+      SK2SubscriptionPeriodUnit.month when period.value == 6 =>
+        PlusBillingPeriod.semiannual,
       SK2SubscriptionPeriodUnit.year when period.value == 1 =>
         PlusBillingPeriod.year,
       _ => PlusBillingPeriod.other,

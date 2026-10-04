@@ -81,11 +81,15 @@ void main() {
         find.textContaining(AppStrings.siriVoiceFoodPhrase),
         findsOneWidget,
       );
-      expect(find.text('月額 ¥480'), findsOneWidget);
+      expect(find.text('月額'), findsOneWidget);
+      expect(
+        find.text('¥480 ・ ${AppStrings.plusMonthlyNote}'),
+        findsOneWidget,
+      );
       expect(find.textContaining('380'), findsNothing);
       expect(gateway.paid, isFalse);
 
-      await tester.tap(find.text('月額 ¥480'));
+      await tester.tap(find.text('¥480${AppStrings.plusCtaPrefix}'));
       await tester.pumpAndSettle();
 
       expect(plus.monthlyPurchases, 1);
@@ -120,6 +124,7 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
         period: PlusBillingPeriod.month,
         localizedPrice: '¥480',
       ),
+      semiannual: null,
       yearly: null,
       loadFailed: false,
     );

@@ -21,13 +21,31 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('月額 ¥480'), findsOneWidget);
-    expect(find.text('年額 ¥4,800'), findsOneWidget);
+    expect(find.text('月額'), findsOneWidget);
+    expect(find.text('半年'), findsOneWidget);
+    expect(find.text('年額'), findsOneWidget);
+    expect(
+      find.text('¥580 ・ ${AppStrings.plusMonthlyNote}'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('¥2,900 ・ ${AppStrings.plusSemiannualNote}'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('¥5,800 ・ ${AppStrings.plusYearlyNote}'),
+      findsOneWidget,
+    );
+    expect(find.text(AppStrings.plusBadgeSave), findsOneWidget);
+    expect(find.text(AppStrings.plusBadgeBestValue), findsOneWidget);
     expect(find.text(AppStrings.plusBillingPeriod), findsOneWidget);
     expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);
     expect(find.text(AppStrings.plusCancelHow), findsOneWidget);
     expect(find.textContaining('現在の有効期限'), findsNothing);
     expect(find.textContaining('380'), findsNothing);
+
+    // 一番お得な年額が初期選択され、CTA にその価格が出る。
+    expect(find.text('¥5,800${AppStrings.plusCtaPrefix}'), findsOneWidget);
   });
 
   testWidgets('paywall shows a store expiry when one is already known', (
@@ -67,12 +85,17 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥480',
+        localizedPrice: '¥580',
+      ),
+      semiannual: SubscriptionProductOffer(
+        productId: SubscriptionCatalog.semiannualProductId,
+        period: PlusBillingPeriod.semiannual,
+        localizedPrice: '¥2,900',
       ),
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,
         period: PlusBillingPeriod.year,
-        localizedPrice: '¥4,800',
+        localizedPrice: '¥5,800',
       ),
       loadFailed: false,
     );

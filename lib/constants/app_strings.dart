@@ -74,11 +74,28 @@ class AppStrings {
       'アカウントは削除しました。Appleのサインインの解除に失敗したので、Apple IDの「サインインとセキュリティ」からカロナビを削除してください。';
   static const accountDeletionAppleRevokeFailedClose = '閉じる';
   static const plusBillingPeriod =
-      '月額は1か月、年額は1年の定期購入です。価格はボタンに出る、ストアの税込価格だけを使います。';
+      '月額は1か月、半年は6か月、年額は1年の定期購入です。価格は選んだプランに出る、ストアの税込価格だけを使います。';
   static const plusAutoRenew = '期限が来る前に解約しないと、同じ期間で自動更新されます。';
   static const plusCancelHow =
       '解約は iPhone の「設定」> Apple ID >「サブスクリプション」から行えます。アプリを消しても課金は止まりません。';
   static const plusCurrentExpiryPrefix = '現在の有効期限';
+
+  static const plusHeroSubtitle = 'テンプレートの上限をなくし、ウィジェットとSiriで記録をもっと速く。';
+  static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
+  static const plusBenefitTemplateBody = '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
+  static const plusBenefitNoteTitle = '食事・運動の記録にメモを追加';
+  static const plusBenefitNoteBody = '無料ではメモは使えません。カロナビ+なら、食事にも運動にもメモを残せます。';
+  static const plusBenefitWidgetTitle = 'ホーム画面とロック画面からワンタップ記録';
+  static const plusBenefitWidgetBody =
+      'アプリを開かずに、食事テンプレート3種類と運動テンプレート2件を、いつでもウィジェットから登録できます。';
+  static const plusBenefitSiriTitle = 'Siriに話しかけるだけで記録';
+  static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
+  static const plusCtaPrefix = 'で始める';
+  static const plusBadgeBestValue = '一番お得';
+  static const plusBadgeSave = 'お得';
+  static const plusSemiannualNote = '6ヶ月分が5ヶ月分の価格';
+  static const plusYearlyNote = '12ヶ月分が10ヶ月分の価格';
+  static const plusMonthlyNote = 'いつでも解約できます';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
 
   /// ログイン画面の同意文言（Figma のとおり2行で固定表示）。

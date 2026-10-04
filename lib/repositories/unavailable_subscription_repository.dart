@@ -27,6 +27,11 @@ class UnavailableSubscriptionRepository extends SubscriptionRepository {
   }
 
   @override
+  Future<void> purchaseSemiannual() {
+    throw SubscriptionPurchaseUnavailableException();
+  }
+
+  @override
   Future<void> purchaseYearly() {
     throw SubscriptionPurchaseUnavailableException();
   }

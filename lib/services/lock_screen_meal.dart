@@ -1,16 +1,23 @@
 import 'dart:convert';
 
+import '../data/met_activity_catalog.dart';
+import '../models/exercise_entry.dart';
+import '../models/exercise_quantity_unit.dart';
 import '../models/food_entry.dart';
 import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../models/meal_template.dart';
+import 'exercise_calorie_calculator.dart';
 
-/// ホームとロック画面のウィジェットが共有する JSON（version 2）。
+/// ホームとロック画面のウィジェットが共有する JSON（version 3）。
 ///
 /// ウィジェット拡張は Isar を開けない。ボタンを押した瞬間に App Group へ
-/// 今日の食事を1件追記し、アプリは次回の起動・復帰でそれを取り込む。
+/// 今日の食事か運動を1件追記し、アプリは次回の起動・復帰でそれを取り込む。
 /// `loggedAt` は押した時刻の壁時計（オフセット無し）で、取り込み時刻ではない。
-const int lockScreenMealSchemaVersion = 2;
+///
+/// ボタンの中身はウィジェット専用のパターンです。食事テンプレートの4件や
+/// 運動テンプレートの一覧とは別で、テンプレート id では引きません。
+const int lockScreenMealSchemaVersion = 3;
 
 const String lockScreenMealMethodChannel = 'com.narutoaii.ayg/lock_screen_meal';
 
@@ -24,26 +31,87 @@ abstract final class LockScreenMealPaidFlag {
   static bool readValue(bool? stored) => stored ?? false;
 }
 
+/// ウィジェットのボタンが食事か運動か。食事テンプレートの行ではない。
+enum WidgetPatternKind { meal, exercise }
+
+class WidgetExercisePattern {
+  const WidgetExercisePattern({
+    required this.itemId,
+    required this.activityId,
+    required this.name,
+    required this.sortOrder,
+    this.durationMin = 0,
+    this.distanceKm,
+  });
+
+  final String itemId;
+  final String activityId;
+  final String name;
+  final int durationMin;
+  final double? distanceKm;
+  final int sortOrder;
+
+  bool get canRegister {
+    if (activityId.trim().isEmpty) {
+      return false;
+    }
+    final distance = distanceKm;
+    if (distance != null && distance > 0) {
+      return true;
+    }
+    return durationMin > 0;
+  }
+
+  WidgetExercisePattern copyWith({String? itemId}) {
+    return WidgetExercisePattern(
+      itemId: itemId ?? this.itemId,
+      activityId: activityId,
+      name: name,
+      sortOrder: sortOrder,
+      durationMin: durationMin,
+      distanceKm: distanceKm,
+    );
+  }
+}
+
 class LockScreenMealButtonConfig {
   const LockScreenMealButtonConfig({
     required this.slot,
     required this.label,
-    this.templateId,
+    this.kind = WidgetPatternKind.meal,
+    this.contentName,
+    this.items = const [],
+    this.exercises = const [],
   });
 
   final int slot;
   final String label;
-  final String? templateId;
+  final WidgetPatternKind kind;
+
+  /// 食事のまとまり名。ボタンの短い文字とは別に、登録時の食事名に使う。
+  final String? contentName;
+  final List<MealTemplateItem> items;
+  final List<WidgetExercisePattern> exercises;
+
+  bool get hasContent => kind == WidgetPatternKind.exercise
+      ? exercises.any((item) => item.canRegister)
+      : items.isNotEmpty;
 
   LockScreenMealButtonConfig copyWith({
     String? label,
-    String? templateId,
-    bool clearTemplate = false,
+    WidgetPatternKind? kind,
+    String? contentName,
+    bool clearContentName = false,
+    List<MealTemplateItem>? items,
+    List<WidgetExercisePattern>? exercises,
   }) {
     return LockScreenMealButtonConfig(
       slot: slot,
       label: label ?? this.label,
-      templateId: clearTemplate ? null : (templateId ?? this.templateId),
+      kind: kind ?? this.kind,
+      contentName: clearContentName ? null : (contentName ?? this.contentName),
+      items: items ?? this.items,
+      exercises: exercises ?? this.exercises,
     );
   }
 }
@@ -61,8 +129,16 @@ class LockScreenMealConfig {
     '朝ごはん',
     '昼ごはん',
     '夜ごはん',
-    '間食',
+    'ウォーキング',
     'ジョギング',
+  ];
+
+  static const List<WidgetPatternKind> homeDefaultKinds = [
+    WidgetPatternKind.meal,
+    WidgetPatternKind.meal,
+    WidgetPatternKind.meal,
+    WidgetPatternKind.exercise,
+    WidgetPatternKind.exercise,
   ];
 
   static const List<String> lockDefaultLabels = ['朝', '昼', '夜'];
@@ -77,6 +153,7 @@ class LockScreenMealConfig {
           LockScreenMealButtonConfig(
             slot: slot,
             label: homeDefaultLabels[slot],
+            kind: homeDefaultKinds[slot],
           ),
       ],
       lockButtons: [
@@ -108,7 +185,10 @@ class LockScreenMealConfig {
     final label = slot >= 0 && slot < fallbackLabels.length
         ? fallbackLabels[slot]
         : '';
-    return LockScreenMealButtonConfig(slot: slot, label: label);
+    final kind = fallbackLabels.length == homeSlotCount && slot >= lockSlotCount
+        ? WidgetPatternKind.exercise
+        : WidgetPatternKind.meal;
+    return LockScreenMealButtonConfig(slot: slot, label: label, kind: kind);
   }
 }
 
@@ -125,19 +205,26 @@ class LockScreenMealButtonSnapshot {
   const LockScreenMealButtonSnapshot({
     required this.slot,
     required this.label,
+    this.kind = WidgetPatternKind.meal,
     this.templateId,
     this.templateName,
     this.items = const [],
+    this.exercises = const [],
   });
 
   final int slot;
   final String label;
+  final WidgetPatternKind kind;
+
+  /// ウィジェット内のパターン id。食事テンプレートの id ではない。
   final String? templateId;
   final String? templateName;
   final List<MealTemplateItem> items;
+  final List<WidgetExercisePattern> exercises;
 
-  bool get canRegister =>
-      templateId != null && templateId!.trim().isNotEmpty && items.isNotEmpty;
+  bool get canRegister => kind == WidgetPatternKind.exercise
+      ? exercises.any((item) => item.canRegister)
+      : items.isNotEmpty;
 }
 
 class LockScreenMealSnapshot {
@@ -174,6 +261,8 @@ class PendingLockScreenMeal {
     required this.loggedAt,
     required this.entries,
     this.surface,
+    this.kind = WidgetPatternKind.meal,
+    this.exercises = const [],
   });
 
   final String registrationId;
@@ -187,6 +276,8 @@ class PendingLockScreenMeal {
 
   /// `home` または `lock`。ウィジェットが書いたときだけある。
   final String? surface;
+  final WidgetPatternKind kind;
+  final List<WidgetExercisePattern> exercises;
 }
 
 class LockScreenMealImportPlan {
@@ -194,11 +285,13 @@ class LockScreenMealImportPlan {
     required this.entries,
     required this.acknowledgeIds,
     required this.templateIds,
+    this.exerciseRecords = const [],
   });
 
   final List<FoodEntry> entries;
   final List<String> acknowledgeIds;
   final List<String> templateIds;
+  final List<PendingLockScreenMeal> exerciseRecords;
 }
 
 /// ボタン押下の判定。Swift の `LockScreenMealStore.register` と同じ条件。
@@ -215,15 +308,25 @@ abstract final class LockScreenMealRegistrar {
         status: LockScreenMealRegisterStatus.unpaid,
       );
     }
-    final templateId = button.templateId?.trim();
-    if (ownerUserId.trim().isEmpty ||
-        templateId == null ||
-        templateId.isEmpty ||
-        button.items.isEmpty) {
+    if (ownerUserId.trim().isEmpty) {
       return const LockScreenMealRegisterResult(
         status: LockScreenMealRegisterStatus.unassigned,
       );
     }
+    if (button.kind == WidgetPatternKind.exercise) {
+      return _registerExercise(
+        button: button,
+        ownerUserId: ownerUserId,
+        loggedAt: loggedAt,
+        newId: newId,
+      );
+    }
+    if (button.items.isEmpty) {
+      return const LockScreenMealRegisterResult(
+        status: LockScreenMealRegisterStatus.unassigned,
+      );
+    }
+    final templateId = _patternId(button);
 
     final mealGroupId = newId();
     final entries = <FoodEntry>[];
@@ -273,8 +376,49 @@ abstract final class LockScreenMealRegistrar {
         mealGroupName: button.templateName ?? button.label,
         loggedAt: loggedAt,
         entries: entries,
+        kind: WidgetPatternKind.meal,
       ),
     );
+  }
+
+  static LockScreenMealRegisterResult _registerExercise({
+    required LockScreenMealButtonSnapshot button,
+    required String ownerUserId,
+    required DateTime loggedAt,
+    required String Function() newId,
+  }) {
+    final usable = [
+      for (final item in button.exercises)
+        if (item.canRegister) item.copyWith(itemId: newId()),
+    ];
+    if (usable.isEmpty) {
+      return const LockScreenMealRegisterResult(
+        status: LockScreenMealRegisterStatus.unassigned,
+      );
+    }
+    return LockScreenMealRegisterResult(
+      status: LockScreenMealRegisterStatus.registered,
+      meal: PendingLockScreenMeal(
+        registrationId: newId(),
+        ownerUserId: ownerUserId,
+        slot: button.slot,
+        templateId: _patternId(button),
+        mealGroupId: '',
+        mealGroupName: button.templateName ?? button.label,
+        loggedAt: loggedAt,
+        entries: const [],
+        kind: WidgetPatternKind.exercise,
+        exercises: usable,
+      ),
+    );
+  }
+
+  static String _patternId(LockScreenMealButtonSnapshot button) {
+    final templateId = button.templateId?.trim();
+    if (templateId != null && templateId.isNotEmpty) {
+      return templateId;
+    }
+    return 'widget-${button.kind.name}-${button.slot}';
   }
 }
 
@@ -286,8 +430,13 @@ LockScreenMealImportPlan planLockScreenMealImport({
   final entries = <FoodEntry>[];
   final acknowledgeIds = <String>[];
   final templateIds = <String>[];
+  final exerciseRecords = <PendingLockScreenMeal>[];
   for (final meal in pending) {
     if (meal.ownerUserId != ownerUserId) {
+      continue;
+    }
+    if (meal.kind == WidgetPatternKind.exercise) {
+      exerciseRecords.add(meal);
       continue;
     }
     final fresh = meal.entries
@@ -303,6 +452,7 @@ LockScreenMealImportPlan planLockScreenMealImport({
     entries: entries,
     acknowledgeIds: acknowledgeIds,
     templateIds: templateIds,
+    exerciseRecords: exerciseRecords,
   );
 }
 
@@ -323,7 +473,12 @@ abstract final class LockScreenMealCodec {
         {
           'slot': button.slot,
           'label': button.label,
-          'templateId': button.templateId,
+          'kind': button.kind.name,
+          if (button.contentName != null) 'name': button.contentName,
+          'items': [for (final item in button.items) _mealItemJson(item)],
+          'exercises': [
+            for (final item in button.exercises) _exerciseJson(item),
+          ],
         },
     ];
   }
@@ -366,13 +521,17 @@ abstract final class LockScreenMealCodec {
         if (slot < 0 || slot >= count) {
           continue;
         }
-        final templateId = _asString(row['templateId']);
         bySlot[slot] = LockScreenMealButtonConfig(
           slot: slot,
           label: _asString(row['label']) ?? '',
-          templateId: templateId == null || templateId.isEmpty
-              ? null
-              : templateId,
+          kind: _patternKind(
+            row['kind'],
+            slot: slot,
+            homeSized: count == LockScreenMealConfig.homeSlotCount,
+          ),
+          contentName: _asString(row['name']),
+          items: _mealItems(row['items']),
+          exercises: _exercisePatterns(row['exercises']),
         );
       }
     }
@@ -400,12 +559,17 @@ abstract final class LockScreenMealCodec {
           'registrationId': meal.registrationId,
           'ownerUserId': meal.ownerUserId,
           'slot': meal.slot,
+          'kind': meal.kind.name,
           'templateId': meal.templateId,
           'mealGroupId': meal.mealGroupId,
           'mealGroupName': meal.mealGroupName,
           'loggedAt': formatLockScreenLoggedAt(meal.loggedAt),
           if (meal.surface != null) 'surface': meal.surface,
           'items': [for (final entry in meal.entries) _entryJson(entry)],
+          if (meal.exercises.isNotEmpty)
+            'exercises': [
+              for (final item in meal.exercises) _exerciseJson(item),
+            ],
         },
     ]);
   }
@@ -425,14 +589,38 @@ abstract final class LockScreenMealCodec {
       }
       final registrationId = _asString(row['registrationId']);
       final ownerUserId = _asString(row['ownerUserId']);
-      final templateId = _asString(row['templateId']);
-      final mealGroupId = _asString(row['mealGroupId']);
       final loggedAtRaw = _asString(row['loggedAt']);
       if (registrationId == null ||
           ownerUserId == null ||
-          templateId == null ||
-          mealGroupId == null ||
           loggedAtRaw == null) {
+        continue;
+      }
+      final kind = _patternKind(row['kind'], slot: _asInt(row['slot']));
+      if (kind == WidgetPatternKind.exercise) {
+        final exercises = _exercisePatterns(row['exercises']);
+        if (exercises.isEmpty) {
+          continue;
+        }
+        meals.add(
+          PendingLockScreenMeal(
+            registrationId: registrationId,
+            ownerUserId: ownerUserId,
+            slot: _asInt(row['slot']),
+            templateId: _asString(row['templateId']) ?? '',
+            mealGroupId: _asString(row['mealGroupId']) ?? '',
+            mealGroupName: _asString(row['mealGroupName']) ?? '',
+            loggedAt: parseLockScreenLoggedAt(loggedAtRaw),
+            entries: const [],
+            surface: _asString(row['surface']),
+            kind: WidgetPatternKind.exercise,
+            exercises: exercises,
+          ),
+        );
+        continue;
+      }
+      final templateId = _asString(row['templateId']);
+      final mealGroupId = _asString(row['mealGroupId']);
+      if (templateId == null || mealGroupId == null) {
         continue;
       }
       final itemRows = row['items'];
@@ -468,6 +656,7 @@ abstract final class LockScreenMealCodec {
           loggedAt: parseLockScreenLoggedAt(loggedAtRaw),
           entries: entries,
           surface: _asString(row['surface']),
+          kind: WidgetPatternKind.meal,
         ),
       );
     }
@@ -478,6 +667,7 @@ abstract final class LockScreenMealCodec {
     return {
       'slot': button.slot,
       'label': button.label,
+      'kind': button.kind.name,
       'templateId': button.templateId,
       'templateName': button.templateName,
       'items': [
@@ -496,6 +686,7 @@ abstract final class LockScreenMealCodec {
             'sortOrder': item.sortOrder,
           },
       ],
+      'exercises': [for (final item in button.exercises) _exerciseJson(item)],
     };
   }
 
@@ -559,6 +750,264 @@ abstract final class LockScreenMealCodec {
       loggedAt: loggedAt,
     );
   }
+}
+
+WidgetPatternKind _patternKind(
+  Object? raw, {
+  required int slot,
+  bool homeSized = false,
+}) {
+  final value = _asString(raw);
+  if (value == WidgetPatternKind.exercise.name) {
+    return WidgetPatternKind.exercise;
+  }
+  if (value == WidgetPatternKind.meal.name) {
+    return WidgetPatternKind.meal;
+  }
+  if (homeSized && slot >= LockScreenMealConfig.lockSlotCount) {
+    return WidgetPatternKind.exercise;
+  }
+  return WidgetPatternKind.meal;
+}
+
+List<MealTemplateItem> _mealItems(Object? raw) {
+  if (raw is! List) {
+    return const [];
+  }
+  final items = <MealTemplateItem>[];
+  for (final row in raw) {
+    if (row is! Map) {
+      continue;
+    }
+    final name = _asString(row['name']);
+    final baseAmount = _asDouble(row['baseAmount']);
+    final consumedAmount = _asDouble(row['consumedAmount']);
+    if (name == null ||
+        name.trim().isEmpty ||
+        baseAmount == null ||
+        baseAmount <= 0 ||
+        consumedAmount == null ||
+        consumedAmount <= 0) {
+      continue;
+    }
+    final savedAt = _asString(row['snapshotSavedAt']);
+    items.add(
+      MealTemplateItem(
+        itemId: _asString(row['itemId']) ?? _asString(row['id']) ?? name,
+        savedFoodId: _asString(row['savedFoodId']),
+        sourceOwnerUserId: _asString(row['sourceOwnerUserId']),
+        name: name,
+        baseAmount: baseAmount,
+        unitType:
+            FoodUnitTypeX.tryParse(_asString(row['unitType'])) ??
+            FoodUnitType.serving,
+        kcalPerBase: _asDouble(row['kcalPerBase']),
+        proteinPerBase: _asDouble(row['proteinPerBase']),
+        fatPerBase: _asDouble(row['fatPerBase']),
+        carbPerBase: _asDouble(row['carbPerBase']),
+        consumedAmount: consumedAmount,
+        sortOrder: _asInt(row['sortOrder']),
+        snapshotSavedAt: savedAt == null
+            ? DateTime(2026, 1, 1)
+            : parseLockScreenLoggedAt(savedAt),
+      ),
+    );
+  }
+  return items;
+}
+
+List<WidgetExercisePattern> _exercisePatterns(Object? raw) {
+  if (raw is! List) {
+    return const [];
+  }
+  final items = <WidgetExercisePattern>[];
+  for (final row in raw) {
+    if (row is! Map) {
+      continue;
+    }
+    final activityId = _asString(row['activityId']);
+    if (activityId == null) {
+      continue;
+    }
+    final distance = _asDouble(row['distanceKm']);
+    items.add(
+      WidgetExercisePattern(
+        itemId: _asString(row['id']) ?? _asString(row['itemId']) ?? activityId,
+        activityId: activityId,
+        name: _asString(row['name']) ?? '',
+        sortOrder: _asInt(row['sortOrder']),
+        durationMin: _asInt(row['durationMin']),
+        distanceKm: distance != null && distance > 0 ? distance : null,
+      ),
+    );
+  }
+  return items;
+}
+
+Map<String, Object?> _mealItemJson(MealTemplateItem item) {
+  return {
+    'itemId': item.itemId,
+    'name': item.name,
+    'kcalPerBase': item.kcalPerBase,
+    'proteinPerBase': item.proteinPerBase,
+    'fatPerBase': item.fatPerBase,
+    'carbPerBase': item.carbPerBase,
+    'baseAmount': item.baseAmount,
+    'unitType': item.unitType.storageValue,
+    'consumedAmount': item.consumedAmount,
+    'savedFoodId': item.savedFoodId,
+    'sourceOwnerUserId': item.sourceOwnerUserId,
+    'sortOrder': item.sortOrder,
+    'snapshotSavedAt': formatLockScreenLoggedAt(item.snapshotSavedAt),
+  };
+}
+
+Map<String, Object?> _exerciseJson(WidgetExercisePattern item) {
+  return {
+    'id': item.itemId,
+    'name': item.name,
+    'activityId': item.activityId,
+    'durationMin': item.durationMin,
+    'distanceKm': item.distanceKm,
+    'sortOrder': item.sortOrder,
+  };
+}
+
+/// ウィジェットの運動パターンを、今の体重で1件の運動記録にする。
+///
+/// 体重が無い計算種目は null。カロリーは作らない。
+ExerciseEntry? widgetExerciseEntry({
+  required WidgetExercisePattern pattern,
+  required double? weightKg,
+  required String id,
+  required DateTime loggedAt,
+}) {
+  if (!pattern.canRegister) {
+    return null;
+  }
+  final activity = MetActivityCatalog.findById(pattern.activityId);
+  if (activity == null || activity.requiresManualKcal) {
+    return null;
+  }
+  final name = pattern.name.trim().isEmpty
+      ? activity.displayName
+      : pattern.name.trim();
+  if (activity.lifestyleIncluded || activity.calorieFormula == null) {
+    return ExerciseEntry(
+      id: id,
+      name: name,
+      durationMin: pattern.durationMin > 0 ? pattern.durationMin : 1,
+      burnedKcal: 0,
+      loggedAt: loggedAt,
+      category: activity.category,
+      activityId: activity.id,
+      intensity: activity.defaultIntensityId,
+      distanceKm: pattern.distanceKm,
+      netKcal: 0,
+      grossKcal: 0,
+      calculationSource: null,
+      sourceKey: activity.sourceKey,
+    );
+  }
+  final weight = weightKg;
+  if (weight == null || !weight.isFinite || weight <= 0) {
+    return null;
+  }
+  const calculator = ExerciseCalorieCalculator();
+  if (activity.quantityUnit == ExerciseQuantityUnit.distanceKm) {
+    final distance = pattern.distanceKm;
+    if (distance == null || distance <= 0) {
+      return null;
+    }
+    final factor = activity.netKcalPerKgKm;
+    final estimate = factor != null
+        ? calculator.estimateByDistanceFactor(
+            weightKg: weight,
+            distanceKm: distance,
+            netKcalPerKgKm: factor,
+            sourceKey: activity.sourceKey,
+          )
+        : activity.referenceSpeedKmh == null
+        ? null
+        : calculator.estimateByDistanceSpeed(
+            met: activity.defaultMet,
+            weightKg: weight,
+            distanceKm: distance,
+            speedKmh: activity.referenceSpeedKmh!,
+            sourceKey: activity.sourceKey,
+          );
+    if (estimate == null) {
+      return null;
+    }
+    return ExerciseEntry(
+      id: id,
+      name: name,
+      durationMin: ExerciseCalorieCalculator.companionDurationMin(
+        distanceKm: distance,
+        referenceSpeedKmh: activity.referenceSpeedKmh,
+      ),
+      burnedKcal: estimate.grossKcal,
+      loggedAt: loggedAt,
+      category: activity.category,
+      activityId: activity.id,
+      intensity: activity.defaultIntensityId,
+      distanceKm: distance,
+      metValue: factor == null ? activity.defaultMet : null,
+      grossKcal: estimate.grossKcal,
+      netKcal: estimate.netKcal,
+      weightKgSnapshot: weight,
+      calculationSource: estimate.calculationSource,
+      calculationVersion: estimate.calculationVersion,
+      sourceKey: activity.sourceKey,
+    );
+  }
+  if (pattern.durationMin <= 0 || activity.defaultMet <= 1) {
+    return null;
+  }
+  final estimate = calculator.estimate(
+    met: activity.defaultMet,
+    weightKg: weight,
+    durationMinutes: pattern.durationMin,
+    sourceKey: activity.sourceKey,
+  );
+  if (estimate == null) {
+    return null;
+  }
+  return ExerciseEntry(
+    id: id,
+    name: name,
+    durationMin: pattern.durationMin,
+    burnedKcal: estimate.grossKcal,
+    loggedAt: loggedAt,
+    category: activity.category,
+    activityId: activity.id,
+    intensity: activity.defaultIntensityId,
+    metValue: activity.defaultMet,
+    grossKcal: estimate.grossKcal,
+    netKcal: estimate.netKcal,
+    weightKgSnapshot: weight,
+    calculationSource: estimate.calculationSource,
+    calculationVersion: estimate.calculationVersion,
+    sourceKey: activity.sourceKey,
+  );
+}
+
+/// 体重が付けば計算できる種目だけ true。手入力や不明な種目は待たない。
+bool widgetExerciseWaitsForWeight(
+  WidgetExercisePattern pattern,
+  double? weightKg,
+) {
+  if (!pattern.canRegister) {
+    return false;
+  }
+  final activity = MetActivityCatalog.findById(pattern.activityId);
+  if (activity == null ||
+      activity.requiresManualKcal ||
+      activity.lifestyleIncluded ||
+      activity.calorieFormula == null) {
+    return false;
+  }
+  return weightKg == null || !weightKg.isFinite || weightKg <= 0;
 }
 
 /// 食事の `loggedAt` と同じ、オフセット無しの壁時計。

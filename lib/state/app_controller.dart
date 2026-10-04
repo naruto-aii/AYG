@@ -2866,8 +2866,8 @@ class AppController extends ChangeNotifier {
     await gateway.publishSnapshot(
       LockScreenMealSnapshot(
         ownerUserId: currentOwnerUserId,
-        homeButtons: await _widgetButtons(config.homeButtons),
-        lockButtons: await _widgetButtons(config.lockButtons),
+        homeButtons: _widgetButtons(config.homeButtons),
+        lockButtons: _widgetButtons(config.lockButtons),
         figures: _mealWidgetFigures(),
       ),
     );
@@ -2886,27 +2886,39 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<List<LockScreenMealButtonSnapshot>> _widgetButtons(
+  List<LockScreenMealButtonSnapshot> _widgetButtons(
     List<LockScreenMealButtonConfig> buttons,
-  ) async {
-    final snapshots = <LockScreenMealButtonSnapshot>[];
-    for (final button in buttons) {
-      final templateId = button.templateId;
-      MealTemplateWithItems? bundle;
-      if (templateId != null) {
-        bundle = await getMealTemplateWithItems(templateId);
-      }
-      snapshots.add(
+  ) {
+    return [
+      for (final button in buttons)
         LockScreenMealButtonSnapshot(
           slot: button.slot,
           label: button.label,
-          templateId: bundle?.template.templateId,
-          templateName: bundle?.template.name,
-          items: bundle?.items ?? const [],
+          kind: button.kind,
+          templateId: button.hasContent
+              ? 'widget-${button.kind.name}-${button.slot}'
+              : null,
+          templateName: _widgetPatternName(button),
+          items: button.kind == WidgetPatternKind.meal
+              ? button.items
+              : const [],
+          exercises: button.kind == WidgetPatternKind.exercise
+              ? button.exercises
+              : const [],
         ),
-      );
+    ];
+  }
+
+  String? _widgetPatternName(LockScreenMealButtonConfig button) {
+    final name = button.contentName?.trim();
+    if (name != null && name.isNotEmpty) {
+      return name;
     }
-    return snapshots;
+    final label = button.label.trim();
+    if (label.isEmpty) {
+      return null;
+    }
+    return label;
   }
 
   Future<void> _importLockScreenMeals(LockScreenMealGateway gateway) async {
@@ -2927,6 +2939,36 @@ class AppController extends ChangeNotifier {
       await _countLockScreenTemplateUses(plan.templateIds);
     }
     final acknowledged = plan.acknowledgeIds.toSet();
+    final weight = currentWeightSelection.kg;
+    final weightKg = weight > 0 ? weight : null;
+    final existingExerciseIds = exerciseEntries
+        .map((entry) => entry.id)
+        .toSet();
+    for (final record in plan.exerciseRecords) {
+      var waiting = false;
+      for (final pattern in record.exercises) {
+        if (existingExerciseIds.contains(pattern.itemId)) {
+          continue;
+        }
+        final entry = widgetExerciseEntry(
+          pattern: pattern,
+          weightKg: weightKg,
+          id: pattern.itemId,
+          loggedAt: record.loggedAt,
+        );
+        if (entry == null) {
+          if (widgetExerciseWaitsForWeight(pattern, weightKg)) {
+            waiting = true;
+          }
+          continue;
+        }
+        await addExercise(entry, origin: ReviewRecordOrigin.widget);
+        existingExerciseIds.add(entry.id);
+      }
+      if (!waiting) {
+        acknowledged.add(record.registrationId);
+      }
+    }
     for (final meal in pending) {
       if (!acknowledged.contains(meal.registrationId)) {
         continue;
@@ -2937,7 +2979,7 @@ class AppController extends ChangeNotifier {
       }
       recordScreenAction(screen: action.screen, action: action.action);
     }
-    await gateway.acknowledge(plan.acknowledgeIds);
+    await gateway.acknowledge(acknowledged.toList());
   }
 
   Future<void> _countLockScreenTemplateUses(List<String> templateIds) async {
@@ -2946,6 +2988,9 @@ class AppController extends ChangeNotifier {
       return;
     }
     for (final templateId in templateIds) {
+      if (templateId.startsWith('widget-')) {
+        continue;
+      }
       final bundle = await getMealTemplateWithItems(templateId);
       if (bundle == null) {
         continue;

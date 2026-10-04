@@ -2,19 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/meal_template.dart';
+import '../../models/meal_template_draft.dart';
 import '../../services/lock_screen_meal.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/id_generator.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
-import '../meal_template/meal_template_picker_screen.dart';
+import '../meal_template/meal_template_form_screen.dart';
+import 'widget_exercise_pattern_screen.dart';
 
-/// ホームの大ウィジェット（5ボタン）とロック画面（3ボタン）の割り当て。
+/// ホームの大ウィジェット（食事3、運動2）とロック画面（同じ食事3）の中身。
+///
+/// ここでのパターンは食事テンプレートの4件とは別です。
 class LockScreenMealScreen extends StatefulWidget {
   const LockScreenMealScreen({super.key, required this.controller});
 
@@ -27,12 +32,20 @@ class LockScreenMealScreen extends StatefulWidget {
 class _ButtonEditors {
   _ButtonEditors(List<LockScreenMealButtonConfig> buttons)
     : labels = List.generate(buttons.length, (_) => TextEditingController()),
-      templateIds = [for (final button in buttons) button.templateId],
-      templateNames = List<String?>.filled(buttons.length, null);
+      kinds = [for (final button in buttons) button.kind],
+      names = [for (final button in buttons) button.contentName],
+      items = [
+        for (final button in buttons) [...button.items],
+      ],
+      exercises = [
+        for (final button in buttons) [...button.exercises],
+      ];
 
   final List<TextEditingController> labels;
-  final List<String?> templateIds;
-  final List<String?> templateNames;
+  final List<WidgetPatternKind> kinds;
+  final List<String?> names;
+  final List<List<MealTemplateItem>> items;
+  final List<List<WidgetExercisePattern>> exercises;
 
   void dispose() {
     for (final controller in labels) {
@@ -67,64 +80,124 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
 
   Future<void> _load() async {
     final config = await widget.controller.loadLockScreenMealConfig();
-    await _fill(_home, config.homeButtons);
-    await _fill(_lock, config.lockButtons);
+    _fill(_home, config.homeButtons);
+    _fill(_lock, config.lockButtons);
+    for (var slot = 0; slot < LockScreenMealConfig.lockSlotCount; slot++) {
+      final shared = _home.items[slot].isNotEmpty
+          ? _home.items[slot]
+          : _lock.items[slot];
+      final name = _home.names[slot] ?? _lock.names[slot];
+      _home.items[slot] = [...shared];
+      _lock.items[slot] = [...shared];
+      _home.names[slot] = name;
+      _lock.names[slot] = name;
+    }
     if (!mounted) {
       return;
     }
     setState(() => _loading = false);
   }
 
-  Future<void> _fill(
-    _ButtonEditors editors,
-    List<LockScreenMealButtonConfig> buttons,
-  ) async {
+  void _fill(_ButtonEditors editors, List<LockScreenMealButtonConfig> buttons) {
     for (var slot = 0; slot < buttons.length; slot++) {
       final button = buttons[slot];
       editors.labels[slot].text = button.label;
-      editors.templateIds[slot] = button.templateId;
-      final templateId = button.templateId;
-      if (templateId == null) {
-        editors.templateNames[slot] = null;
-        continue;
-      }
-      final bundle = await widget.controller.getMealTemplateWithItems(
-        templateId,
-      );
-      editors.templateNames[slot] = bundle?.template.name;
+      editors.kinds[slot] = button.kind;
+      editors.names[slot] = button.contentName;
+      editors.items[slot] = [...button.items];
+      editors.exercises[slot] = [...button.exercises];
     }
   }
 
-  Future<void> _pickTemplate(_ButtonEditors editors, int slot) async {
-    final selected = await Navigator.of(context).push<MealTemplate>(
-      MaterialPageRoute<MealTemplate>(
-        builder: (context) =>
-            MealTemplatePickerScreen(controller: widget.controller),
+  Future<void> _editMeal(int slot) async {
+    final currentName = _home.names[slot]?.trim();
+    final selected = await Navigator.of(context).push<MealTemplateDraft>(
+      MaterialPageRoute<MealTemplateDraft>(
+        builder: (context) => MealTemplateFormScreen(
+          controller: widget.controller,
+          captureOnly: true,
+          initialDraft: MealTemplateDraft(
+            name: (currentName == null || currentName.isEmpty)
+                ? _home.labels[slot].text.trim()
+                : currentName,
+            items: [
+              for (final item in _home.items[slot])
+                MealTemplateItemDraft.fromTemplateItem(item),
+            ],
+          ),
+        ),
       ),
     );
     if (selected == null || !mounted) {
       return;
     }
+    final now = DateTime.now();
+    final items = [
+      for (final draft in selected.items)
+        draft.toItem(itemId: draft.itemId ?? generateUniqueId(), now: now),
+    ];
     setState(() {
-      editors.templateIds[slot] = selected.templateId;
-      editors.templateNames[slot] = selected.name;
+      _home.items[slot] = items;
+      _lock.items[slot] = [...items];
+      _home.names[slot] = selected.name;
+      _lock.names[slot] = selected.name;
     });
   }
 
-  void _clearTemplate(_ButtonEditors editors, int slot) {
+  Future<void> _editExercise(int slot) async {
+    final selected = await Navigator.of(context)
+        .push<List<WidgetExercisePattern>>(
+          MaterialPageRoute<List<WidgetExercisePattern>>(
+            builder: (context) =>
+                WidgetExercisePatternScreen(initial: _home.exercises[slot]),
+          ),
+        );
+    if (selected == null || !mounted) {
+      return;
+    }
+    setState(() => _home.exercises[slot] = selected);
+  }
+
+  void _clearMeal(int slot) {
     setState(() {
-      editors.templateIds[slot] = null;
-      editors.templateNames[slot] = null;
+      _home.items[slot] = [];
+      _lock.items[slot] = [];
+      _home.names[slot] = null;
+      _lock.names[slot] = null;
     });
   }
 
-  List<LockScreenMealButtonConfig> _read(_ButtonEditors editors) {
+  void _clearExercise(int slot) {
+    setState(() => _home.exercises[slot] = []);
+  }
+
+  List<LockScreenMealButtonConfig> _readHome() {
     return [
-      for (var slot = 0; slot < editors.labels.length; slot++)
+      for (var slot = 0; slot < _home.labels.length; slot++)
         LockScreenMealButtonConfig(
           slot: slot,
-          label: editors.labels[slot].text.trim(),
-          templateId: editors.templateIds[slot],
+          label: _home.labels[slot].text.trim(),
+          kind: _home.kinds[slot],
+          contentName: _home.names[slot],
+          items: _home.kinds[slot] == WidgetPatternKind.meal
+              ? _home.items[slot]
+              : const [],
+          exercises: _home.kinds[slot] == WidgetPatternKind.exercise
+              ? _home.exercises[slot]
+              : const [],
+        ),
+    ];
+  }
+
+  List<LockScreenMealButtonConfig> _readLock() {
+    return [
+      for (var slot = 0; slot < _lock.labels.length; slot++)
+        LockScreenMealButtonConfig(
+          slot: slot,
+          label: _lock.labels[slot].text.trim(),
+          kind: WidgetPatternKind.meal,
+          contentName: _home.names[slot],
+          items: _home.items[slot],
         ),
     ];
   }
@@ -132,10 +205,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     await widget.controller.saveLockScreenMealConfig(
-      LockScreenMealConfig(
-        homeButtons: _read(_home),
-        lockButtons: _read(_lock),
-      ),
+      LockScreenMealConfig(homeButtons: _readHome(), lockButtons: _readLock()),
     );
     if (!mounted) {
       return;
@@ -179,20 +249,20 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
                 const DesignTitleBlock(
                   title: 'ウィジェット',
                   subtitle:
-                      'ホーム画面の大きなウィジェットにボタンを5つ、ロック画面に朝・昼・夜の3つを置きます。文字と食事テンプレートはそれぞれ決められます。押すとアプリを開かず、そのテンプレートを1件登録します。',
+                      'ホーム画面の大きなウィジェットは、残りカロリーと、食事3パターン・運動2パターンです。ロック画面は同じ食事3パターンです。このパターンは食事テンプレートの4件とは別です。押すとアプリを開かず、その内容を1件登録します。',
                 ),
                 Text('ホーム画面', style: AppTypography.titleM),
                 const SizedBox(height: AppSpacing.md),
                 for (var slot = 0; slot < _home.labels.length; slot++) ...[
                   if (slot > 0) const SizedBox(height: AppSpacing.md),
-                  _buttonCard(_home, slot, prefix: 'home'),
+                  _buttonCard(slot, prefix: 'home'),
                 ],
                 const SizedBox(height: AppSpacing.md),
                 Text('ロック画面', style: AppTypography.titleM),
                 const SizedBox(height: AppSpacing.md),
                 for (var slot = 0; slot < _lock.labels.length; slot++) ...[
                   if (slot > 0) const SizedBox(height: AppSpacing.md),
-                  _buttonCard(_lock, slot, prefix: 'lock'),
+                  _buttonCard(slot, prefix: 'lock'),
                 ],
                 const SizedBox(height: AppSpacing.md),
               ],
@@ -200,23 +270,26 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     );
   }
 
-  Widget _buttonCard(
-    _ButtonEditors editors,
-    int slot, {
-    required String prefix,
-  }) {
-    final templateName = editors.templateNames[slot];
-    final assigned = editors.templateIds[slot] != null;
+  Widget _buttonCard(int slot, {required String prefix}) {
+    final exercise =
+        prefix == 'home' && _home.kinds[slot] == WidgetPatternKind.exercise;
+    final label = exercise ? '運動パターン ${slot - 2}' : '食事パターン ${slot + 1}';
+    final summary = exercise
+        ? _exerciseSummary(_home.exercises[slot])
+        : _mealSummary(_home.items[slot]);
+    final assigned = summary != null;
     return DesignFieldCard(
-      icon: _icon(AppIcons.meal),
-      label: 'ボタン${slot + 1}',
+      icon: _icon(exercise ? AppIcons.exercise : AppIcons.meal),
+      label: label,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DesignInputBox(
             child: DesignTextInput(
               key: Key('lock-screen-meal-label-$prefix-$slot'),
-              controller: editors.labels[slot],
+              controller: prefix == 'home'
+                  ? _home.labels[slot]
+                  : _lock.labels[slot],
               hintText: '表示する文字',
               inputFormatters: [LengthLimitingTextInputFormatter(8)],
             ),
@@ -224,9 +297,9 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
           const SizedBox(height: AppSpacing.md),
           DesignInputBox(
             key: Key('lock-screen-meal-template-$prefix-$slot'),
-            onTap: () => _pickTemplate(editors, slot),
+            onTap: exercise ? () => _editExercise(slot) : () => _editMeal(slot),
             child: Text(
-              assigned ? (templateName ?? 'テンプレートが見つかりません') : '食事テンプレートを選ぶ',
+              summary ?? (exercise ? '運動の内容を入れる' : '食事の内容を入れる'),
               style: AppTypography.bodyL.copyWith(
                 color: assigned ? AppColors.textPrimary : AppColors.textMuted,
               ),
@@ -237,7 +310,9 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
-                onPressed: () => _clearTemplate(editors, slot),
+                onPressed: exercise
+                    ? () => _clearExercise(slot)
+                    : () => _clearMeal(slot),
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
@@ -245,7 +320,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
                   foregroundColor: AppColors.textMuted,
                 ),
                 child: Text(
-                  '割り当てを外す',
+                  '内容を消す',
                   style: AppTypography.labelM.copyWith(
                     color: AppColors.textMuted,
                   ),
@@ -256,5 +331,20 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
         ],
       ),
     );
+  }
+
+  String? _mealSummary(List<MealTemplateItem> items) {
+    if (items.isEmpty) {
+      return null;
+    }
+    return items.map((item) => item.name).join('、');
+  }
+
+  String? _exerciseSummary(List<WidgetExercisePattern> items) {
+    final usable = items.where((item) => item.canRegister).toList();
+    if (usable.isEmpty) {
+      return null;
+    }
+    return usable.map(widgetExercisePatternLabel).join('、');
   }
 }

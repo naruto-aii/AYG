@@ -1,5 +1,6 @@
 import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/meal_template.dart';
+import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/screens/settings/lock_screen_meal_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
@@ -303,8 +304,14 @@ void main() {
     expect(config.homeButtons, hasLength(5));
     expect(config.lockButtons, hasLength(3));
     expect(config.homeAt(0).label, '朝ごはん');
+    expect(config.homeAt(0).kind, WidgetPatternKind.meal);
+    expect(config.homeAt(2).kind, WidgetPatternKind.meal);
+    expect(config.homeAt(3).label, 'ウォーキング');
+    expect(config.homeAt(3).kind, WidgetPatternKind.exercise);
     expect(config.homeAt(4).label, 'ジョギング');
+    expect(config.homeAt(4).kind, WidgetPatternKind.exercise);
     expect(config.lockAt(0).label, '朝');
+    expect(config.lockAt(0).kind, WidgetPatternKind.meal);
     expect(config.lockAt(2).label, '夜');
 
     final decoded = LockScreenMealCodec.decodeConfig(
@@ -313,7 +320,18 @@ void main() {
           homeButtons: [
             for (final button in config.homeButtons)
               button.slot == 4
-                  ? button.copyWith(label: '夜食', templateId: 'snack')
+                  ? button.copyWith(
+                      label: '夜食',
+                      exercises: [
+                        const WidgetExercisePattern(
+                          itemId: 'jog',
+                          activityId: 'jogging',
+                          name: 'ジョギング',
+                          sortOrder: 1,
+                          distanceKm: 3,
+                        ),
+                      ],
+                    )
                   : button,
           ],
           lockButtons: config.lockButtons,
@@ -322,8 +340,11 @@ void main() {
     );
     expect(decoded.homeButtons, hasLength(5));
     expect(decoded.homeAt(4).label, '夜食');
-    expect(decoded.homeAt(4).templateId, 'snack');
+    expect(decoded.homeAt(4).kind, WidgetPatternKind.exercise);
+    expect(decoded.homeAt(4).exercises.single.distanceKm, 3);
+    expect(decoded.homeAt(4).exercises.single.activityId, 'jogging');
     expect(decoded.lockButtons, hasLength(3));
+    expect(decoded.lockAt(0).kind, WidgetPatternKind.meal);
   });
 
   test('an older three-button config stays on the lock screen', () {
@@ -332,10 +353,14 @@ void main() {
     );
 
     expect(decoded.lockAt(0).label, 'あさ');
-    expect(decoded.lockAt(0).templateId, 't1');
+    expect(decoded.lockAt(0).items, isEmpty);
+    expect(decoded.lockAt(0).kind, WidgetPatternKind.meal);
     expect(decoded.lockButtons, hasLength(3));
     expect(decoded.lockAt(2).label, '夜');
     expect(decoded.homeAt(0).label, '朝ごはん');
+    expect(decoded.homeAt(0).kind, WidgetPatternKind.meal);
+    expect(decoded.homeAt(3).label, 'ウォーキング');
+    expect(decoded.homeAt(3).kind, WidgetPatternKind.exercise);
     expect(decoded.homeButtons, hasLength(5));
   });
 
@@ -511,6 +536,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.textContaining('食事テンプレートの4件とは別'), findsOneWidget);
     expect(find.text('ホーム画面'), findsWidgets);
     expect(find.text('ロック画面'), findsWidgets);
     expect(
@@ -605,9 +631,136 @@ void main() {
     expect(gateway.saved?.lockButtons, hasLength(3));
     expect(gateway.published?.ownerUserId, 'user-1');
     expect(gateway.published?.homeButtons[4].label, '夜食');
+    expect(gateway.published?.homeButtons[4].kind, WidgetPatternKind.exercise);
+    expect(gateway.published?.homeButtons[4].templateId, isNull);
+    expect(gateway.published?.homeButtons[0].kind, WidgetPatternKind.meal);
     expect(gateway.published?.lockButtons[0].label, 'あさ');
+    expect(gateway.published?.lockButtons[0].kind, WidgetPatternKind.meal);
     await auth.dispose();
   });
+
+  test('an exercise pattern registers without a meal template', () {
+    var next = 0;
+    final result = LockScreenMealRegistrar.register(
+      paid: true,
+      button: const LockScreenMealButtonSnapshot(
+        slot: 4,
+        label: 'ジョギング',
+        kind: WidgetPatternKind.exercise,
+        exercises: [
+          WidgetExercisePattern(
+            itemId: 'old',
+            activityId: 'jogging',
+            name: 'ジョギング',
+            sortOrder: 1,
+            distanceKm: 3,
+          ),
+        ],
+      ),
+      ownerUserId: 'user-1',
+      loggedAt: loggedAt,
+      newId: () => 'id-${next++}',
+    );
+
+    expect(result.status, LockScreenMealRegisterStatus.registered);
+    final pending = result.meal!;
+    expect(pending.kind, WidgetPatternKind.exercise);
+    expect(pending.entries, isEmpty);
+    expect(pending.exercises.single.distanceKm, 3);
+    expect(pending.exercises.single.itemId, isNot('old'));
+    expect(pending.templateId, 'widget-exercise-4');
+
+    final decoded = LockScreenMealCodec.decodePending(
+      LockScreenMealCodec.encodePending([pending]),
+    );
+    expect(decoded.single.kind, WidgetPatternKind.exercise);
+    expect(decoded.single.exercises.single.activityId, 'jogging');
+  });
+
+  test('jogging distance uses weight and does not invent kcal without it', () {
+    const pattern = WidgetExercisePattern(
+      itemId: 'jog',
+      activityId: 'jogging',
+      name: 'ジョギング',
+      sortOrder: 1,
+      distanceKm: 3,
+    );
+    final entry = widgetExerciseEntry(
+      pattern: pattern,
+      weightKg: 60,
+      id: 'jog',
+      loggedAt: loggedAt,
+    );
+    expect(entry?.netKcal, 180);
+    expect(entry?.distanceKm, 3);
+    expect(
+      widgetExerciseEntry(
+        pattern: pattern,
+        weightKg: null,
+        id: 'jog',
+        loggedAt: loggedAt,
+      ),
+      isNull,
+    );
+    expect(widgetExerciseWaitsForWeight(pattern, null), isTrue);
+    expect(widgetExerciseWaitsForWeight(pattern, 60), isFalse);
+  });
+
+  test(
+    'controller imports a widget exercise once and keeps it out of foods',
+    () async {
+      final gateway = _MemoryGateway(
+        pending: [
+          PendingLockScreenMeal(
+            registrationId: 'run-1',
+            ownerUserId: 'user-1',
+            slot: 4,
+            templateId: 'widget-exercise-4',
+            mealGroupId: '',
+            mealGroupName: 'ジョギング',
+            loggedAt: loggedAt,
+            entries: const [],
+            surface: 'home',
+            kind: WidgetPatternKind.exercise,
+            exercises: const [
+              WidgetExercisePattern(
+                itemId: 'jog-1',
+                activityId: 'jogging',
+                name: 'ジョギング',
+                sortOrder: 1,
+                distanceKm: 2,
+              ),
+            ],
+          ),
+        ],
+      );
+      final auth = MockAuthenticationRepository(
+        currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+      );
+      final controller = AppController(
+        authenticationRepository: auth,
+        lockScreenMealGateway: gateway,
+      );
+      controller.profile = UserProfile(
+        birthDate: DateTime(1990, 1, 1),
+        gender: Gender.male,
+        heightCm: 170,
+        weightKg: 60,
+      );
+
+      await controller.syncLockScreenMeals();
+
+      expect(controller.foodEntries, isEmpty);
+      expect(controller.exerciseEntries, hasLength(1));
+      expect(controller.exerciseEntries.single.netKcal, 120);
+      expect(controller.exerciseEntries.single.loggedAt, loggedAt);
+      expect(gateway.acknowledged, ['run-1']);
+
+      await controller.syncLockScreenMeals();
+      expect(controller.exerciseEntries, hasLength(1));
+      await auth.dispose();
+    },
+  );
 }
 
 class _MemoryGateway implements LockScreenMealGateway {

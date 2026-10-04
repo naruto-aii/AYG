@@ -27,12 +27,18 @@ class MealTemplateFormScreen extends StatefulWidget {
     super.key,
     required this.controller,
     this.templateId,
+    this.captureOnly = false,
+    this.initialDraft,
   });
 
   final AppController controller;
   final String? templateId;
 
-  bool get isEditing => templateId != null;
+  /// 保存せずに内容だけ返す。食事テンプレートの件数には入らない。
+  final bool captureOnly;
+  final MealTemplateDraft? initialDraft;
+
+  bool get isEditing => templateId != null && !captureOnly;
 
   @override
   State<MealTemplateFormScreen> createState() => _MealTemplateFormScreenState();
@@ -47,7 +53,11 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.isEditing) {
+    final draft = widget.initialDraft;
+    if (draft != null) {
+      _nameController.text = draft.name;
+      _items.addAll(draft.items);
+    } else if (widget.isEditing) {
       _loadExisting();
     }
   }
@@ -220,6 +230,13 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
       return;
     }
 
+    if (widget.captureOnly) {
+      Navigator.of(context).pop(
+        MealTemplateDraft(name: _nameController.text.trim(), items: _items),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       await widget.controller.saveMealTemplate(
@@ -305,8 +322,14 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DesignTitleBlock(
-            title: widget.isEditing ? 'テンプレートを編集' : 'テンプレートを作成',
-            subtitle: 'よく食べる組み合わせに名前をつけて保存します。',
+            title: widget.captureOnly
+                ? '食事パターン'
+                : widget.isEditing
+                ? 'テンプレートを編集'
+                : 'テンプレートを作成',
+            subtitle: widget.captureOnly
+                ? 'この内容はウィジェット専用です。食事テンプレートの一覧には入りません。'
+                : 'よく食べる組み合わせに名前をつけて保存します。',
           ),
           if (_isLoading)
             const Padding(

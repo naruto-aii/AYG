@@ -42,7 +42,7 @@ struct HomeMealWidget: Widget {
       HomeMealWidgetView(entry: entry)
     }
     .configurationDisplayName("カロナビ")
-    .description("残りカロリー、摂取、消費と、食事テンプレートのボタンです。")
+    .description("残りカロリー、摂取、消費と、食事3パターン・運動2パターンのボタンです。")
     .supportedFamilies([.systemLarge])
   }
 }
@@ -68,7 +68,7 @@ struct LockScreenMealWidget: Widget {
       LockMealWidgetView(entry: entry)
     }
     .configurationDisplayName("カロナビ")
-    .description("残り、摂取、消費と、朝・昼・夜のボタンです。")
+    .description("残り、摂取、消費と、食事3パターンのボタンです。")
     .supportedFamilies([.accessoryRectangular])
   }
 }
@@ -215,7 +215,7 @@ struct LockMealWidgetView: View {
 /// ホームとロック画面のボタン。ショートカットや Siri には出さない。
 /// 食事と運動の復唱登録は、アプリ本体の別の App Intent。
 struct RegisterMealWidgetIntent: AppIntent {
-  static var title: LocalizedStringResource = "食事テンプレートを登録"
+  static var title: LocalizedStringResource = "ウィジェットのパターンを登録"
   static var openAppWhenRun = false
   static var isDiscoverable = false
 

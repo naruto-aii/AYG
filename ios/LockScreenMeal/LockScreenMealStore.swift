@@ -9,8 +9,9 @@ import WidgetKit
 ///
 /// 有料フラグ `lockScreenMealPaid` が true のときだけ追記する。
 /// レシート検証と販売画面は無い。フラグの既定は false。
-/// JSON の形は Dart の `LockScreenMealCodec`（version 2）と同じ。
-/// ホームは `home` が5件、ロック画面は `lock` が3件。古い `buttons` はロック画面として読む。
+/// JSON の形は Dart の `LockScreenMealCodec`（version 3）と同じ。
+/// ホームは食事3件と運動2件、ロック画面は同じ食事3件。古い `buttons` はロック画面として読む。
+/// ボタンの中身はウィジェット専用で、食事テンプレートの id では引かない。
 enum LockScreenMealStore {
   static let appGroupId = "group.com.narutoaii.ayg"
   static let paidKey = "lockScreenMealPaid"
@@ -45,7 +46,7 @@ enum LockScreenMealStore {
   }
 
   static func homeButtons() -> [LockScreenMealButton] {
-    loadButtons(key: "home", count: 5, fallbackLabels: ["朝ごはん", "昼ごはん", "夜ごはん", "間食", "ジョギング"])
+    loadButtons(key: "home", count: 5, fallbackLabels: ["朝ごはん", "昼ごはん", "夜ごはん", "ウォーキング", "ジョギング"])
   }
 
   static func lockButtons() -> [LockScreenMealButton] {
@@ -128,7 +129,7 @@ enum LockScreenMealStore {
     writePendingArray(pending)
   }
 
-  /// 有料かつテンプレート割り当て済みのときだけ、食事を1件追記する。アプリは開かない。
+  /// 有料かつパターンの中身があるときだけ、食事か運動を1件追記する。アプリは開かない。
   @discardableResult
   static func register(surface: String, slot: Int) -> String {
     guard isPaid() else {
@@ -193,6 +194,8 @@ struct LockScreenMealButton: Identifiable {
   let templateId: String?
   let templateName: String?
   let items: [[String: Any]]
+  let kind: String
+  let exercises: [[String: Any]]
 
   var id: Int { slot }
 
@@ -205,10 +208,10 @@ struct LockScreenMealButton: Identifiable {
   }
 
   var canRegister: Bool {
-    guard let templateId, !templateId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-      return false
+    if kind == "exercise" {
+      return exercises.contains { LockScreenMealButton.isUsableExercise($0) }
     }
-    return !items.isEmpty
+    return items.contains { LockScreenMealButton.isUsableItem($0) }
   }
 
   static func empty(slot: Int) -> LockScreenMealButton {
@@ -216,7 +219,7 @@ struct LockScreenMealButton: Identifiable {
   }
 
   static var homePlaceholders: [LockScreenMealButton] {
-    labeled(["朝ごはん", "昼ごはん", "夜ごはん", "間食", "ジョギング"])
+    labeled(["朝ごはん", "昼ごはん", "夜ごはん", "ウォーキング", "ジョギング"])
   }
 
   static var lockPlaceholders: [LockScreenMealButton] {
@@ -242,22 +245,63 @@ struct LockScreenMealButton: Identifiable {
     let templateName = json["templateName"] as? String
     let itemRows = json["items"] as? [[String: Any]] ?? []
     let usable = itemRows.filter { LockScreenMealButton.isUsableItem($0) }
+    let exerciseRows = json["exercises"] as? [[String: Any]] ?? []
+    let usableExercises = exerciseRows.filter { LockScreenMealButton.isUsableExercise($0) }
+    let rawKind = json["kind"] as? String
+    let kind: String
+    if rawKind == "exercise" || rawKind == "meal" {
+      kind = rawKind!
+    } else if maxSlot > 3 && slot >= 3 {
+      kind = "exercise"
+    } else {
+      kind = "meal"
+    }
     self.slot = slot
     self.label = label
     self.templateId = (templateId?.isEmpty == false) ? templateId : nil
     self.templateName = templateName
-    self.items = usable
+    self.items = kind == "exercise" ? [] : usable
+    self.kind = kind
+    self.exercises = kind == "exercise" ? usableExercises : []
   }
 
-  init(slot: Int, label: String, templateId: String?, templateName: String?, items: [[String: Any]]) {
+  init(
+    slot: Int,
+    label: String,
+    templateId: String?,
+    templateName: String?,
+    items: [[String: Any]],
+    kind: String = "meal",
+    exercises: [[String: Any]] = []
+  ) {
     self.slot = slot
     self.label = label
     self.templateId = templateId
     self.templateName = templateName
     self.items = items
+    self.kind = kind
+    self.exercises = exercises
   }
 
   func makePendingRecord(ownerUserId: String, loggedAt: Date, surface: String) -> [String: Any] {
+    if kind == "exercise" {
+      let copied: [[String: Any]] = exercises.map { item in
+        var copy = item
+        copy["id"] = UUID().uuidString
+        return copy
+      }
+      return [
+        "registrationId": UUID().uuidString,
+        "ownerUserId": ownerUserId,
+        "slot": slot,
+        "kind": "exercise",
+        "templateId": templateId ?? "",
+        "mealGroupName": displayLabel,
+        "loggedAt": LockScreenMealStore.formatLoggedAt(loggedAt),
+        "surface": surface,
+        "exercises": copied,
+      ]
+    }
     let mealGroupId = UUID().uuidString
     let mealName = templateName?.trimmingCharacters(in: .whitespacesAndNewlines)
     let mealGroupName = (mealName?.isEmpty == false) ? mealName! : displayLabel
@@ -270,6 +314,7 @@ struct LockScreenMealButton: Identifiable {
       "registrationId": UUID().uuidString,
       "ownerUserId": ownerUserId,
       "slot": slot,
+      "kind": "meal",
       "templateId": templateId ?? "",
       "mealGroupId": mealGroupId,
       "mealGroupName": mealGroupName,
@@ -290,5 +335,20 @@ struct LockScreenMealButton: Identifiable {
       return false
     }
     return true
+  }
+
+  private static func isUsableExercise(_ item: [String: Any]) -> Bool {
+    guard let activityId = item["activityId"] as? String,
+          !activityId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return false
+    }
+    if let distance = (item["distanceKm"] as? NSNumber)?.doubleValue, distance > 0 {
+      return true
+    }
+    if let minutes = (item["durationMin"] as? NSNumber)?.intValue, minutes > 0 {
+      return true
+    }
+    return false
   }
 }

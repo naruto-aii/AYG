@@ -56,18 +56,22 @@ enum SiriVoiceStore {
     var pendingUnit: String?
   }
 
+  @available(iOS 16.0, *)
   static func planFood(name: String, quantity: String) async -> Plan {
     await plan(name: name, quantity: quantity, forced: .meal)
   }
 
+  @available(iOS 16.0, *)
   static func planExercise(name: String, quantity: String) async -> Plan {
     await plan(name: name, quantity: quantity, forced: .exercise)
   }
 
+  @available(iOS 16.0, *)
   static func planUtterance(name: String, quantity: String) async -> Plan {
     await plan(name: name, quantity: quantity, forced: nil)
   }
 
+  @available(iOS 16.0, *)
   static func resolveKind(_ plan: Plan, kind: SiriSpokenKind) async -> Plan {
     guard plan.asksKind,
           let name = plan.pendingName,
@@ -83,6 +87,7 @@ enum SiriVoiceStore {
     return exercisePlan(name: name, parsed: parsed)
   }
 
+  @available(iOS 16.0, *)
   private static func plan(
     name: String,
     quantity: String,
@@ -521,6 +526,7 @@ enum SiriVoiceStore {
     }
   }
 
+  @available(iOS 16.0, *)
   private static func explicitKind(_ source: String) -> SiriSpokenKind? {
     let meal = source.contains("食事に")
     let exercise = source.contains("運動に")

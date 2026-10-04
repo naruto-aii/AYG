@@ -25,6 +25,9 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../coach/daily_coach_screen.dart';
+import '../food/food_memo_dialog.dart';
+import '../food/recent_foods_screen.dart';
+import '../subscription/plus_gate.dart';
 import '../exercise/exercise_form_screen.dart';
 import '../food/food_form_navigation.dart';
 import '../settings/daily_calculation_explanation_screen.dart';
@@ -93,6 +96,13 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 8),
               _quickAdd(context, profile.weightKg),
               const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => _openRecentFoods(context),
+                  child: const Text('直近3日の食品'),
+                ),
+              ),
               _foodSection(context, todayFood),
               const SizedBox(height: 8),
               _alcoholSection(context, todayAlcohol),
@@ -380,7 +390,7 @@ class HomeScreen extends StatelessWidget {
       onAction: onOpenHistoryCalendar,
       emptyMessage: '登録された食事はありません',
       rows: [
-        for (final entry in entries)
+        for (final entry in entries) ...[
           DesignListRow(
             icon: AppIcons.meal,
             time: _time(entry.loggedAt),
@@ -398,6 +408,24 @@ class HomeScreen extends StatelessWidget {
               onRestore: (restored) => controller.restoreFoodEntry(restored),
             ),
           ),
+          if (entry.memo != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 48, bottom: 4),
+              child: Text(
+                entry.memo!,
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => _editFoodMemo(context, entry),
+              child: Text(entry.memo == null ? 'メモ' : 'メモを編集'),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -457,6 +485,43 @@ class HomeScreen extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  Future<void> _openRecentFoods(BuildContext context) async {
+    final allowed = await ensureCalonaviPlus(
+      context,
+      controller,
+      message: '直近3日の食品からの追加は、カロナビ+です。',
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => RecentFoodsScreen(controller: controller),
+      ),
+    );
+  }
+
+  Future<void> _editFoodMemo(BuildContext context, FoodEntry entry) async {
+    final allowed = await ensureCalonaviPlus(
+      context,
+      controller,
+      message: '食品のメモは、カロナビ+です。',
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
+    final memo = await askFoodMemo(context, initial: entry.memo);
+    if (memo == null || !context.mounted) {
+      return;
+    }
+    final saved = await controller.updateFoodMemo(entry, memo);
+    if (!saved && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('メモを保存できませんでした')));
+    }
   }
 
   Widget _sectionCard({

@@ -72,6 +72,9 @@ class FoodEntryEntity {
   int? sortOrder;
   String? officialFoodCode;
   String? officialFoodName;
+
+  /// その食事へのメモ。未入力の古い行は null。
+  String? memo;
 }
 
 @collection

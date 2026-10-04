@@ -7,6 +7,7 @@ import '../../state/app_controller.dart';
 import '../../utils/macro_display.dart';
 import '../meal_template/meal_template_list_screen.dart';
 import '../meal_template/meal_template_picker_screen.dart';
+import '../subscription/plus_gate.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
@@ -47,6 +48,7 @@ class _FoodMealRegistrationScreenState
   late final List<MealTemplateItemDraft> _items;
   late DateTime _loggedAt;
   final _quantityControllers = <TextEditingController>[];
+  final _memoController = TextEditingController();
   bool _isSaving = false;
 
   @override
@@ -66,6 +68,7 @@ class _FoodMealRegistrationScreenState
     for (final controller in _quantityControllers) {
       controller.dispose();
     }
+    _memoController.dispose();
     super.dispose();
   }
 
@@ -112,6 +115,9 @@ class _FoodMealRegistrationScreenState
         items: drafts,
         loggedAt: _loggedAt,
         sourceTemplateId: widget.sourceTemplateId,
+        memo: widget.controller.subscriptionRepository.isPlusActive
+            ? _memoController.text
+            : null,
       );
       if (!mounted) {
         return;
@@ -158,6 +164,38 @@ class _FoodMealRegistrationScreenState
         pickedTime.minute,
       );
     });
+  }
+
+  Widget _memoField() {
+    final plus = widget.controller.subscriptionRepository.isPlusActive;
+    if (!plus) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: () async {
+            final allowed = await ensureCalonaviPlus(
+              context,
+              widget.controller,
+              message: '食品のメモは、カロナビ+です。',
+            );
+            if (allowed && mounted) {
+              setState(() {});
+            }
+          },
+          child: const Text('メモを付ける'),
+        ),
+      );
+    }
+    return TextField(
+      controller: _memoController,
+      maxLength: AppController.foodMemoMaxLength,
+      maxLines: 2,
+      decoration: const InputDecoration(
+        labelText: 'メモ',
+        hintText: '少し多かったから明日は150',
+        border: OutlineInputBorder(),
+      ),
+    );
   }
 
   Widget _itemCard(int i) {
@@ -300,6 +338,8 @@ class _FoodMealRegistrationScreenState
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          _memoField(),
           const SizedBox(height: 12),
           DesignFieldCard(
             icon: AppIcon(

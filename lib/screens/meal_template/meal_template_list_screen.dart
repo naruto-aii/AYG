@@ -7,6 +7,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/delete_with_undo.dart';
+import '../food/food_memo_dialog.dart';
 import 'meal_template_form_screen.dart';
 import 'meal_template_plus_gate.dart';
 import '../../theme/app_colors.dart';
@@ -96,10 +97,19 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
     if (_isApplying) {
       return;
     }
+    String? memo;
+    if (widget.controller.subscriptionRepository.isPlusActive) {
+      final entered = await askFoodMemo(context, title: 'この食事のメモ');
+      if (!mounted || entered == null) {
+        return;
+      }
+      memo = entered;
+    }
     setState(() => _isApplying = true);
     try {
       var result = await widget.controller.applyMealTemplate(
         templateId: template.templateId,
+        memo: memo,
       );
       if (!mounted) {
         return;
@@ -117,6 +127,7 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
         result = await widget.controller.applyMealTemplate(
           templateId: template.templateId,
           resolutions: resolutions,
+          memo: memo,
         );
         if (!mounted) {
           return;

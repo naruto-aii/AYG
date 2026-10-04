@@ -27,6 +27,7 @@ class FoodEntry {
     this.sortOrder,
     this.officialFoodCode,
     this.officialFoodName,
+    this.memo,
     required this.loggedAt,
   }) : kcalPerBase = kcalPerBase ?? kcalPerUnit,
        proteinPerBase = proteinPerBase ?? proteinPerUnit,
@@ -65,6 +66,9 @@ class FoodEntry {
 
   /// 成分表に載っている食品名。記録の [name] が別名でもこちらに残す。
   final String? officialFoodName;
+
+  /// その食事へのメモ。空は保存しない。
+  final String? memo;
 
   final DateTime loggedAt;
 
@@ -108,6 +112,8 @@ class FoodEntry {
     int? sortOrder,
     String? officialFoodCode,
     String? officialFoodName,
+    String? memo,
+    bool clearMemo = false,
     DateTime? loggedAt,
   }) {
     return FoodEntry(
@@ -131,6 +137,7 @@ class FoodEntry {
       sortOrder: sortOrder ?? this.sortOrder,
       officialFoodCode: officialFoodCode ?? this.officialFoodCode,
       officialFoodName: officialFoodName ?? this.officialFoodName,
+      memo: clearMemo ? null : memo ?? this.memo,
       loggedAt: loggedAt ?? this.loggedAt,
     );
   }

@@ -410,6 +410,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       sourceSavedFoodVersion: _sourceSavedFoodVersion,
       officialFoodCode: widget.entry?.officialFoodCode,
       officialFoodName: widget.entry?.officialFoodName,
+      memo: widget.entry?.memo,
       loggedAt: _loggedAt,
     );
   }

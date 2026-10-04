@@ -3032,6 +3032,7 @@ const FoodEntryEntitySchema = CollectionSchema(
       name: r'officialFoodName',
       type: IsarType.string,
     ),
+    r'memo': PropertySchema(id: 20, name: r'memo', type: IsarType.string),
   },
   estimateSize: _foodEntryEntityEstimateSize,
   serialize: _foodEntryEntitySerialize,
@@ -3105,6 +3106,12 @@ int _foodEntryEntityEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.memo;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -3134,6 +3141,7 @@ void _foodEntryEntitySerialize(
   writer.writeLong(offsets[19], object.unitTypeIndex);
   writer.writeString(offsets[10], object.officialFoodCode);
   writer.writeString(offsets[11], object.officialFoodName);
+  writer.writeString(offsets[20], object.memo);
 }
 
 FoodEntryEntity _foodEntryEntityDeserialize(
@@ -3164,6 +3172,7 @@ FoodEntryEntity _foodEntryEntityDeserialize(
   object.unitTypeIndex = reader.readLongOrNull(offsets[19]);
   object.officialFoodCode = reader.readStringOrNull(offsets[10]);
   object.officialFoodName = reader.readStringOrNull(offsets[11]);
+  object.memo = reader.readStringOrNull(offsets[20]);
   return object;
 }
 
@@ -3213,6 +3222,8 @@ P _foodEntryEntityDeserializeProp<P>(
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
+      return (reader.readStringOrNull(offset)) as P;
+    case 20:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');

@@ -126,7 +126,8 @@ class EntityMapper {
       ..mealGroupName = entry.mealGroupName
       ..sortOrder = entry.sortOrder
       ..officialFoodCode = entry.officialFoodCode
-      ..officialFoodName = entry.officialFoodName;
+      ..officialFoodName = entry.officialFoodName
+      ..memo = entry.memo;
   }
 
   static FoodEntry fromFoodEntryEntity(FoodEntryEntity entity) {
@@ -157,6 +158,7 @@ class EntityMapper {
       sortOrder: entity.sortOrder,
       officialFoodCode: entity.officialFoodCode,
       officialFoodName: entity.officialFoodName,
+      memo: entity.memo,
       loggedAt: entity.loggedAt,
     );
   }

@@ -1000,6 +1000,69 @@ class AppController extends ChangeNotifier {
 
   String generateId() => generateUniqueId();
 
+  static const foodMemoMaxLength = 200;
+
+  /// 空と、カロナビ+が無いときのメモは保存しない。
+  String? storedFoodMemo(String? memo) {
+    final trimmed = memo?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    if (!_subscriptionRepository.isPlusActive) {
+      return null;
+    }
+    if (trimmed.length <= foodMemoMaxLength) {
+      return trimmed;
+    }
+    return trimmed.substring(0, foodMemoMaxLength);
+  }
+
+  Future<bool> repeatRecentFood(
+    FoodEntry source, {
+    double? consumedAmount,
+    DateTime? loggedAt,
+  }) async {
+    if (!_subscriptionRepository.isPlusActive) {
+      return false;
+    }
+    final amount = consumedAmount ?? source.consumedAmount;
+    if (amount <= 0) {
+      return false;
+    }
+    await addFood(
+      FoodEntry(
+        id: generateId(),
+        name: source.name,
+        kcalPerBase: source.kcalPerBase,
+        proteinPerBase: source.proteinPerBase,
+        fatPerBase: source.fatPerBase,
+        carbPerBase: source.carbPerBase,
+        baseAmount: source.baseAmount,
+        unitType: source.unitType,
+        consumedAmount: amount,
+        sourceType: source.sourceType,
+        savedFoodId: source.savedFoodId,
+        sourceFoodOwnerUserId: source.sourceFoodOwnerUserId,
+        sourceSavedFoodVersion: source.sourceSavedFoodVersion,
+        officialFoodCode: source.officialFoodCode,
+        officialFoodName: source.officialFoodName,
+        loggedAt: loggedAt ?? DateTime.now(),
+      ),
+    );
+    return true;
+  }
+
+  Future<bool> updateFoodMemo(FoodEntry entry, String? memo) async {
+    if (!_subscriptionRepository.isPlusActive) {
+      return false;
+    }
+    final stored = storedFoodMemo(memo);
+    await updateFood(
+      entry.copyWith(memo: stored, clearMemo: stored == null),
+    );
+    return true;
+  }
+
   Future<void> addFood(FoodEntry entry) async {
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
@@ -2065,6 +2128,7 @@ class AppController extends ChangeNotifier {
     required List<MealTemplateItemDraft> items,
     required DateTime loggedAt,
     String? sourceTemplateId,
+    String? memo,
   }) async {
     if (items.isEmpty) {
       return;
@@ -2087,6 +2151,7 @@ class AppController extends ChangeNotifier {
       mealGroupName: mealGroupName,
       loggedAt: loggedAt,
       generateEntryId: generateId,
+      memo: storedFoodMemo(memo),
     );
     await addFoodEntriesBatch(foodEntriesToSave);
 
@@ -2827,6 +2892,7 @@ class AppController extends ChangeNotifier {
   Future<MealTemplateApplyResult> applyMealTemplate({
     required String templateId,
     List<MealTemplateItemResolution> resolutions = const [],
+    String? memo,
   }) async {
     final repository = _mealTemplateRepository;
     if (repository == null) {
@@ -2868,6 +2934,7 @@ class AppController extends ChangeNotifier {
       mealGroupName: bundle.template.name,
       loggedAt: loggedAt,
       generateEntryId: generateId,
+      memo: storedFoodMemo(memo),
     );
 
     try {

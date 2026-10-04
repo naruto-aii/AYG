@@ -12,6 +12,7 @@ class MealTemplateApplyService {
     required String mealGroupName,
     required DateTime loggedAt,
     required String Function() generateEntryId,
+    String? memo,
   }) {
     final entries = <FoodEntry>[];
     for (final item in items) {
@@ -34,6 +35,7 @@ class MealTemplateApplyService {
           mealGroupId: mealGroupId,
           mealGroupName: mealGroupName,
           sortOrder: item.sortOrder,
+          memo: memo,
           loggedAt: loggedAt,
         ),
       );

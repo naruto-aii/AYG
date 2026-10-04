@@ -5,6 +5,7 @@ import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
 import 'package:ayg/services/subscription_entitlement.dart';
 import 'package:ayg/services/subscription_offer.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/widgets/design/design_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,7 +23,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('月額 ¥480'), findsOneWidget);
+    expect(find.text('半年 ¥2,400'), findsOneWidget);
     expect(find.text('年額 ¥4,800'), findsOneWidget);
+    expect(find.text('購入する'), findsOneWidget);
+    expect(
+      tester
+          .widget<DesignButton>(find.byKey(const Key('plus-purchase')))
+          .onPressed,
+      isNull,
+    );
     expect(find.text(AppStrings.plusBillingPeriod), findsOneWidget);
     expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);
     expect(find.text(AppStrings.plusCancelHow), findsOneWidget);
@@ -68,6 +77,11 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
         localizedPrice: '¥480',
+      ),
+      halfYear: SubscriptionProductOffer(
+        productId: SubscriptionCatalog.halfYearProductId,
+        period: PlusBillingPeriod.halfYear,
+        localizedPrice: '¥2,400',
       ),
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,

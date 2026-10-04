@@ -1,7 +1,7 @@
 import '../config/subscription_catalog.dart';
 import 'subscription_entitlement.dart';
 
-enum PlusBillingPeriod { month, year, other }
+enum PlusBillingPeriod { month, halfYear, year, other }
 
 class SubscriptionProductOffer {
   const SubscriptionProductOffer({
@@ -24,24 +24,40 @@ class SubscriptionProductOffer {
 class SubscriptionOfferings {
   const SubscriptionOfferings({
     required this.monthly,
+    this.halfYear,
     required this.yearly,
+    this.introOffer = false,
     required this.loadFailed,
   });
 
   static const failed = SubscriptionOfferings(
     monthly: null,
+    halfYear: null,
     yearly: null,
     loadFailed: true,
   );
 
   final SubscriptionProductOffer? monthly;
+  final SubscriptionProductOffer? halfYear;
   final SubscriptionProductOffer? yearly;
+
+  /// 公開から1ヶ月のあいだ true。半年と年額の商品IDが初回用になる。
+  final bool introOffer;
   final bool loadFailed;
+
+  SubscriptionProductOffer? offerFor(PlusPlan plan) {
+    return switch (plan) {
+      PlusPlan.monthly => monthly,
+      PlusPlan.halfYear => halfYear,
+      PlusPlan.yearly => yearly,
+    };
+  }
 }
 
 String plusPeriodLabel(PlusBillingPeriod period) {
   return switch (period) {
     PlusBillingPeriod.month => '月額',
+    PlusBillingPeriod.halfYear => '半年',
     PlusBillingPeriod.year => '年額',
     PlusBillingPeriod.other => '定期購入',
   };
@@ -87,8 +103,21 @@ PlusBillingPeriod periodForProduct({
   if (productId == SubscriptionCatalog.monthlyProductId) {
     return PlusBillingPeriod.month;
   }
-  if (productId == SubscriptionCatalog.yearlyProductId) {
+  if (productId == SubscriptionCatalog.halfYearProductId ||
+      productId == SubscriptionCatalog.halfYearIntroProductId) {
+    return PlusBillingPeriod.halfYear;
+  }
+  if (productId == SubscriptionCatalog.yearlyProductId ||
+      productId == SubscriptionCatalog.yearlyIntroProductId) {
     return PlusBillingPeriod.year;
   }
   return PlusBillingPeriod.other;
+}
+
+String plusPlanLabel(PlusPlan plan) {
+  return switch (plan) {
+    PlusPlan.monthly => '月額',
+    PlusPlan.halfYear => '半年',
+    PlusPlan.yearly => '年額',
+  };
 }

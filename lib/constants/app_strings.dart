@@ -74,7 +74,7 @@ class AppStrings {
       'アカウントは削除しました。Appleのサインインの解除に失敗したので、Apple IDの「サインインとセキュリティ」からカロナビを削除してください。';
   static const accountDeletionAppleRevokeFailedClose = '閉じる';
   static const plusBillingPeriod =
-      '月額は1か月、年額は1年の定期購入です。価格はボタンに出る、ストアの税込価格だけを使います。';
+      '月額は1か月、半年は6か月、年額は1年の定期購入です。価格は、ストアが返す税込価格だけを使います。';
   static const plusAutoRenew = '期限が来る前に解約しないと、同じ期間で自動更新されます。';
   static const plusCancelHow =
       '解約は iPhone の「設定」> Apple ID >「サブスクリプション」から行えます。アプリを消しても課金は止まりません。';

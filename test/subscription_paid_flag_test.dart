@@ -9,6 +9,7 @@ import 'package:ayg/services/lock_screen_meal_gateway.dart';
 import 'package:ayg/services/subscription_offer.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/widgets/design/design_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -82,10 +83,23 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('月額 ¥480'), findsOneWidget);
+      expect(find.text('半年'), findsOneWidget);
+      expect(find.text('年額'), findsOneWidget);
       expect(find.textContaining('380'), findsNothing);
       expect(gateway.paid, isFalse);
+      expect(
+        tester
+            .widget<DesignButton>(find.byKey(const Key('plus-purchase')))
+            .onPressed,
+        isNull,
+      );
 
       await tester.tap(find.text('月額 ¥480'));
+      await tester.pumpAndSettle();
+      expect(plus.monthlyPurchases, 0);
+
+      await tester.ensureVisible(find.text('購入する'));
+      await tester.tap(find.text('購入する'));
       await tester.pumpAndSettle();
 
       expect(plus.monthlyPurchases, 1);
@@ -126,8 +140,10 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
   }
 
   @override
-  Future<void> purchaseMonthly() async {
-    monthlyPurchases += 1;
+  Future<void> purchasePlan(PlusPlan plan) async {
+    if (plan == PlusPlan.monthly) {
+      monthlyPurchases += 1;
+    }
   }
 }
 

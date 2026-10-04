@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/subscription_catalog.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../repositories/subscription_repository.dart';
@@ -41,6 +42,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   bool _busy = false;
   bool _loadingPrices = true;
   SubscriptionOfferings? _offerings;
+  PlusPlan? _selected;
 
   @override
   void initState() {
@@ -118,6 +120,14 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  String _planLabel(PlusPlan plan, SubscriptionProductOffer? offer) {
+    final price = offer?.localizedPrice.trim() ?? '';
+    if (offer == null || !offer.canPurchase || price.isEmpty) {
+      return plusPlanLabel(plan);
+    }
+    return '${plusPlanLabel(plan)} $price';
+  }
+
   String? get _activeExpiryLabel {
     final expiry = latestActivePlusExpiry(
       widget.repository.confirmedEntitlements,
@@ -132,16 +142,27 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final offerings = _offerings;
-    final monthly = offerings?.monthly;
-    final yearly = offerings?.yearly;
-    final showMonthly = monthly != null && monthly.canPurchase;
-    final showYearly = yearly != null && yearly.canPurchase;
-    final monthlyOffer = showMonthly ? monthly : null;
-    final yearlyOffer = showYearly ? yearly : null;
+    final priced = offerings != null && !offerings.loadFailed;
+    final anyPrice =
+        priced &&
+        (offerings.monthly?.canPurchase == true ||
+            offerings.halfYear?.canPurchase == true ||
+            offerings.yearly?.canPurchase == true);
 
     return DesignPage(
       bodyPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.screenHorizontal,
+      ),
+      bottomBar: DesignButton(
+        key: const Key('plus-purchase'),
+        label: '購入する',
+        showTrailingIcon: false,
+        onPressed: _busy || _selected == null
+            ? null
+            : () {
+                final plan = _selected!;
+                _purchase(() => widget.repository.purchasePlan(plan));
+              },
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -155,30 +176,28 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           const SizedBox(height: AppSpacing.md),
           if (_loadingPrices)
             Text('価格を確認しています', style: AppTypography.bodyS)
-          else if (monthlyOffer == null && yearlyOffer == null)
-            Text('価格を取得できませんでした', style: AppTypography.bodyS)
-          else ...[
-            if (monthlyOffer != null)
-              DesignButton(
-                label: monthlyOffer.buttonLabel,
-                onPressed: _busy
-                    ? null
-                    : () => _purchase(widget.repository.purchaseMonthly),
-              ),
-            if (monthlyOffer != null && yearlyOffer != null)
-              const SizedBox(height: AppSpacing.md),
-            if (yearlyOffer != null)
-              DesignButton(
-                label: yearlyOffer.buttonLabel,
-                style: monthlyOffer != null
-                    ? DesignButtonStyle.secondary
-                    : DesignButtonStyle.primary,
-                onPressed: _busy
-                    ? null
-                    : () => _purchase(widget.repository.purchaseYearly),
-              ),
+          else if (!anyPrice)
+            Text('価格を取得できませんでした', style: AppTypography.bodyS),
+          if (offerings?.introOffer == true) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '公開から1ヶ月のあいだ、半年と年額は初回の商品です。月額は同じです。',
+              style: AppTypography.bodyS,
+            ),
           ],
           const SizedBox(height: AppSpacing.md),
+          for (final plan in PlusPlan.values) ...[
+            DesignButton(
+              key: Key('plus-plan-${plan.name}'),
+              label: _planLabel(plan, offerings?.offerFor(plan)),
+              style: _selected == plan
+                  ? DesignButtonStyle.primary
+                  : DesignButtonStyle.secondary,
+              showTrailingIcon: false,
+              onPressed: _busy ? null : () => setState(() => _selected = plan),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           DesignButton(
             label: '購入を復元',
             style: DesignButtonStyle.outline,

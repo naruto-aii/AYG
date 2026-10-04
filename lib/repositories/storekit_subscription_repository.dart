@@ -154,22 +154,27 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       if (!available) {
         return SubscriptionOfferings.failed;
       }
-      final response = await store.queryProductDetails({
-        SubscriptionCatalog.monthlyProductId,
-        SubscriptionCatalog.yearlyProductId,
-      });
+      final now = _clock();
+      final response = await store.queryProductDetails(
+        SubscriptionCatalog.plusProductIds,
+      );
       if (response.error != null) {
         return SubscriptionOfferings.failed;
       }
       return SubscriptionOfferings(
         monthly: _offerFor(
           response.productDetails,
-          SubscriptionCatalog.monthlyProductId,
+          SubscriptionCatalog.productIdFor(PlusPlan.monthly, now),
+        ),
+        halfYear: _offerFor(
+          response.productDetails,
+          SubscriptionCatalog.productIdFor(PlusPlan.halfYear, now),
         ),
         yearly: _offerFor(
           response.productDetails,
-          SubscriptionCatalog.yearlyProductId,
+          SubscriptionCatalog.productIdFor(PlusPlan.yearly, now),
         ),
+        introOffer: SubscriptionCatalog.introWindowOpen(now),
         loadFailed: false,
       );
     } catch (_) {
@@ -195,12 +200,17 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   @override
   Future<void> purchaseMonthly() {
-    return _buy(SubscriptionCatalog.monthlyProductId);
+    return purchasePlan(PlusPlan.monthly);
   }
 
   @override
   Future<void> purchaseYearly() {
-    return _buy(SubscriptionCatalog.yearlyProductId);
+    return purchasePlan(PlusPlan.yearly);
+  }
+
+  @override
+  Future<void> purchasePlan(PlusPlan plan) {
+    return _buy(SubscriptionCatalog.productIdFor(plan, _clock()));
   }
 
   Future<void> _buy(String productId) async {
@@ -209,10 +219,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     if (!available) {
       throw SubscriptionPurchaseUnavailableException();
     }
-    final response = await store.queryProductDetails({
-      SubscriptionCatalog.monthlyProductId,
-      SubscriptionCatalog.yearlyProductId,
-    });
+    final response = await store.queryProductDetails({productId});
     if (response.error != null) {
       throw SubscriptionPurchaseFailedException(response.error!.message);
     }
@@ -370,6 +377,8 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     return switch (period.unit) {
       SK2SubscriptionPeriodUnit.month when period.value == 1 =>
         PlusBillingPeriod.month,
+      SK2SubscriptionPeriodUnit.month when period.value == 6 =>
+        PlusBillingPeriod.halfYear,
       SK2SubscriptionPeriodUnit.year when period.value == 1 =>
         PlusBillingPeriod.year,
       _ => PlusBillingPeriod.other,

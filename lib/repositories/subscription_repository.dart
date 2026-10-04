@@ -1,3 +1,4 @@
+import '../config/subscription_catalog.dart';
 import '../services/subscription_entitlement.dart';
 import '../services/subscription_offer.dart';
 
@@ -30,4 +31,7 @@ abstract class SubscriptionRepository {
   Future<void> purchaseMonthly();
 
   Future<void> purchaseYearly();
+
+  /// 選んだプランの商品IDでストアの購入を開く。未選択では呼ばない。
+  Future<void> purchasePlan(PlusPlan plan);
 }

@@ -1,3 +1,4 @@
+import '../config/subscription_catalog.dart';
 import '../services/subscription_offer.dart';
 import 'subscription_exceptions.dart';
 import 'subscription_repository.dart';
@@ -28,6 +29,11 @@ class UnavailableSubscriptionRepository extends SubscriptionRepository {
 
   @override
   Future<void> purchaseYearly() {
+    throw SubscriptionPurchaseUnavailableException();
+  }
+
+  @override
+  Future<void> purchasePlan(PlusPlan plan) {
     throw SubscriptionPurchaseUnavailableException();
   }
 }

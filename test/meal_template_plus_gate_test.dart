@@ -39,7 +39,7 @@ void main() {
       SubscriptionLimitExceededException(
         SubscriptionLimitKind.mealTemplate,
       ).toString(),
-      '食事テンプレートは何件でも、カロナビ+です。',
+      '無料の食事テンプレートは4件までです。次の1件からはカロナビ+です。',
     );
   });
 

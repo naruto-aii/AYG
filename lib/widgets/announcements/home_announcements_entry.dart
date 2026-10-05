@@ -79,17 +79,15 @@ class _HomeAnnouncementsEntryState extends State<HomeAnnouncementsEntry> {
                     ],
                   ],
                 ),
-                if (latest != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    latest,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodyS.copyWith(
-                      color: AppColors.textMuted,
-                    ),
+                const SizedBox(height: 2),
+                Text(
+                  latest ?? '運営からの連絡です',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodyS.copyWith(
+                    color: AppColors.textMuted,
                   ),
-                ],
+                ),
               ],
             ),
           ),

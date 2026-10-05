@@ -104,6 +104,12 @@ class HomeScreen extends StatelessWidget {
                   child: const Text('直近3日の食品'),
                 ),
               ),
+              Text(
+                '直近3日からの追加と、食事のメモはカロナビ+です。',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
               _foodSection(context, todayFood),
               const SizedBox(height: 8),
               _alcoholSection(context, todayAlcohol),

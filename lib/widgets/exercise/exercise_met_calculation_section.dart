@@ -1031,6 +1031,11 @@ class _ExerciseMetCalculationSectionState
                 ),
             ]),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '同じ時間でも、きつさで消費カロリーが変わります。',
+            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+          ),
         ],
         if (_activity != null) ...[
           const SizedBox(height: AppSpacing.md),

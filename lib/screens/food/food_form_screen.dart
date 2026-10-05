@@ -774,6 +774,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                 selectedIndex: _barcodeSectionExpanded ? 1 : 0,
                 onSelected: _onInputTabSelected,
               ),
+              const SizedBox(height: 8),
+              Text(
+                '手入力は名前と栄養素を自分で入れます。バーコード、保存済み、探す、テンプレートは、すでにある食品から選びます。',
+                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              ),
             ],
             const SizedBox(height: 10),
             _inputCard(context, quantityLabel),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../models/health_profile_data.dart';
 import '../../models/weight_entry.dart';
 import '../../state/app_controller.dart';
@@ -107,6 +108,11 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
               const SizedBox(height: 2),
               Text(
                 'からだの変化を、\nやさしく見える化',
+                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AppStrings.weightManualOverwriteNotice,
                 style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
               ),
               const SizedBox(height: 12),

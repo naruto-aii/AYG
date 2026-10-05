@@ -507,6 +507,9 @@ void main() {
     expect(find.text('こちらは有料の機能です'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
+    expect(find.text('使い始める前'), findsOneWidget);
+    expect(find.textContaining('ショートカットを自分で作る必要はありません'), findsWidgets);
+    expect(find.textContaining('Siriと検索'), findsOneWidget);
     expect(
       find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。'),
       findsOneWidget,
@@ -555,6 +558,8 @@ void main() {
     expect(find.text('こちらは有料の機能です'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
+    expect(find.text('使い始める前'), findsOneWidget);
+    expect(find.textContaining('Siriと検索'), findsOneWidget);
     expect(controller.foodEntries, isEmpty);
 
     await tester.tap(find.text('戻る'));

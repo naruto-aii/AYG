@@ -2818,6 +2818,18 @@ class AppController extends ChangeNotifier {
     return gateway.isPaid();
   }
 
+  /// ウィジェットと Siri を開いてよいか。
+  ///
+  /// 開発ビルドのプレビューを含むカロナビ+なら、App Group の有料フラグを
+  /// true にしてから通す。リリースで未加入のときは、そのフラグだけを見る。
+  Future<bool> ensurePaidShortcutsReady() async {
+    if (_subscriptionRepository.isPlusActive) {
+      await setLockScreenMealPaid(true);
+      return true;
+    }
+    return isMealWidgetPaid();
+  }
+
   /// ストアの加入をフラグへ写す。設定画面からは呼ばない。
   ///
   /// Health の数値は送らない。書くのは有料かどうかだけ。

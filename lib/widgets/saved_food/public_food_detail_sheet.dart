@@ -20,6 +20,7 @@ Future<SavedFood?> showPublicFoodDetailSheet({
   required AppController controller,
   required PublicFoodSearchMatch match,
   required bool selectForMealEntry,
+  String useLabel = '食事に追加',
   VoidCallback? onCopied,
   VoidCallback? onBlocked,
 }) async {
@@ -30,6 +31,7 @@ Future<SavedFood?> showPublicFoodDetailSheet({
         controller: controller,
         match: match,
         selectForMealEntry: selectForMealEntry,
+        useLabel: useLabel,
         onCopied: onCopied,
         onBlocked: onBlocked,
       );
@@ -42,6 +44,7 @@ class _PublicFoodDetailSheet extends StatefulWidget {
     required this.controller,
     required this.match,
     required this.selectForMealEntry,
+    required this.useLabel,
     this.onCopied,
     this.onBlocked,
   });
@@ -49,6 +52,7 @@ class _PublicFoodDetailSheet extends StatefulWidget {
   final AppController controller;
   final PublicFoodSearchMatch match;
   final bool selectForMealEntry;
+  final String useLabel;
   final VoidCallback? onCopied;
   final VoidCallback? onBlocked;
 
@@ -204,7 +208,7 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _useForMeal,
-                child: Text(widget.selectForMealEntry ? '食事に追加' : '食事に追加'),
+                child: Text(widget.useLabel),
               ),
               const SizedBox(height: 8),
               OutlinedButton(

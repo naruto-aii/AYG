@@ -2,6 +2,7 @@ import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/meal_template.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/screens/settings/lock_screen_meal_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/services/lock_screen_meal.dart';
@@ -500,6 +501,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('購入を復元'), findsNothing);
+    expect(find.text('ショートカットを開く'), findsOneWidget);
     expect(
       find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。'),
       findsOneWidget,
@@ -511,6 +514,55 @@ void main() {
     expect(find.text('ホーム画面'), findsNothing);
     expect(controller.foodEntries, isEmpty);
     expect(controller.exerciseEntries, isEmpty);
+    await auth.dispose();
+  });
+
+  testWidgets('development plus opens siri setup and the widget editor', (
+    tester,
+  ) async {
+    final gateway = _MemoryGateway();
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      lockScreenMealGateway: gateway,
+      subscriptionRepository: _PreviewPlus(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: auth,
+          hideHealthSettings: true,
+          showLockScreenMeal: true,
+          supportEmail: '',
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.paid, isTrue);
+    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('購入を復元'), findsNothing);
+    expect(find.text('ショートカットを開く'), findsOneWidget);
+    expect(controller.foodEntries, isEmpty);
+
+    await tester.tap(find.text('戻る'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('ウィジェット'), -200);
+    await tester.tap(find.text('ウィジェット'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('購入を復元'), findsNothing);
+    expect(find.text('ウィジェットの置き方'), findsOneWidget);
+    expect(find.textContaining('アプリの中からは追加できません'), findsOneWidget);
     await auth.dispose();
   });
 
@@ -594,6 +646,8 @@ void main() {
 
     expect(find.text('ホーム画面'), findsWidgets);
     expect(find.text('ロック画面'), findsWidgets);
+    expect(find.text('ウィジェットの置き方'), findsOneWidget);
+    expect(find.textContaining('アプリの中からは追加できません'), findsOneWidget);
     expect(find.textContaining('有料'), findsNothing);
     expect(
       find.byKey(const Key('lock-screen-meal-label-home-4')),
@@ -625,6 +679,11 @@ void main() {
       'よる',
     );
     await tester.tap(find.byKey(const Key('lock-screen-meal-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('内容を保存しました'), findsOneWidget);
+    expect(find.textContaining('左上の＋を押す'), findsWidgets);
+    await tester.tap(find.text('閉じる'));
     await tester.pumpAndSettle();
 
     expect(gateway.saved?.homeAt(0).label, '朝ごはん');
@@ -766,6 +825,11 @@ void main() {
       await auth.dispose();
     },
   );
+}
+
+class _PreviewPlus extends UnavailableSubscriptionRepository {
+  @override
+  bool get isPlusActive => true;
 }
 
 class _MemoryGateway implements LockScreenMealGateway {

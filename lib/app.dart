@@ -49,6 +49,11 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _wasAuthenticated = widget.controller.isAuthenticated;
     widget.controller.addListener(_popRoutesAfterSignOut);
+    // 起動直後は Method Channel がまだ無いことがある。画面が出てから
+    // 有料フラグとウィジェットの中身を App Group へもう一度書く。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_resumePaidFeatures());
+    });
   }
 
   @override

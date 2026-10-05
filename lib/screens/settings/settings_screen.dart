@@ -22,6 +22,7 @@ import 'calculation_references_screen.dart';
 import 'data_source_screen.dart';
 import 'how_to_use_screen.dart';
 import 'lock_screen_meal_screen.dart';
+import 'siri_voice_setup_screen.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
@@ -70,7 +71,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _openMealWidget(BuildContext context) async {
-    final paid = await controller.isMealWidgetPaid();
+    final paid = await controller.ensurePaidShortcutsReady();
     if (!context.mounted) {
       return;
     }
@@ -90,9 +91,9 @@ class SettingsScreen extends StatelessWidget {
     _push(context, LockScreenMealScreen(controller: controller));
   }
 
-  /// 音声登録の案内。登録そのものは Siri 側で有料のときだけ行う。
+  /// 音声登録。未加入だけ購入画面へ進む。加入中はショートカットの使い方を出す。
   Future<void> _openVoiceRegistration(BuildContext context) async {
-    final paid = await controller.isMealWidgetPaid();
+    final paid = await controller.ensurePaidShortcutsReady();
     if (!context.mounted) {
       return;
     }
@@ -107,8 +108,10 @@ class SettingsScreen extends StatelessWidget {
       if (openPlus != true || !context.mounted) {
         return;
       }
+      await _openCalonaviPlus(context);
+      return;
     }
-    await _openCalonaviPlus(context);
+    _push(context, const SiriVoiceSetupScreen());
   }
 
   Future<void> _openCalonaviPlus(BuildContext context) async {
@@ -219,6 +222,18 @@ class SettingsScreen extends StatelessWidget {
               title: 'ウィジェット',
               subtitle: 'ホームは5つ、ロック画面は朝・昼・夜',
               onTap: () => _openMealWidget(context),
+            ),
+            const SizedBox(height: _rowGap),
+            Text('ウィジェットの置き方', style: AppTypography.titleM),
+            const SizedBox(height: 4),
+            Text(
+              widgetPlacementLead,
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widgetPlacementSteps,
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
             ),
             const SizedBox(height: _rowGap),
             SettingsRow(

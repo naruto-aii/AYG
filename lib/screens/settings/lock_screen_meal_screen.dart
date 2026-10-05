@@ -11,11 +11,23 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/id_generator.dart';
 import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../meal_template/meal_template_form_screen.dart';
 import 'widget_exercise_pattern_screen.dart';
+
+/// 保存はボタンの中身だけ。ホーム画面とロック画面への追加手順。
+const String widgetPlacementLead =
+    'アプリの中で保存しただけでは、ホーム画面やロック画面に自動では付きません。保存は、ボタンの文字と中身をこのiPhoneに覚えるだけです。';
+
+const String widgetPlacementSteps =
+    'ホーム画面（アプリアイコンのページ）\n'
+    'いちばん左のページを長押し → 左上「編集」→「ウィジェットを追加」→「カロナビ」\n'
+    '\n'
+    'ロック画面\n'
+    'ロック画面を長押し →「カスタマイズ」→「ロック画面」→ 時刻の上下の枠をタップ →「カロナビ」→「完了」';
 
 /// ホームの大ウィジェット（食事3、運動2）とロック画面（同じ食事3）の中身。
 ///
@@ -210,6 +222,23 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     if (!mounted) {
       return;
     }
+    setState(() => _saving = false);
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('内容を保存しました'),
+        content: const Text('$widgetPlacementLead\n\n$widgetPlacementSteps'),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).pop();
   }
 
@@ -251,6 +280,24 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
                   subtitle:
                       'ホーム画面の大きなウィジェットは、残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。ロック画面は同じ食事3つです。このパターンは食事テンプレートの4件とは別です。',
                 ),
+                DesignCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('ウィジェットの置き方', style: AppTypography.titleM),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(widgetPlacementLead, style: AppTypography.bodyS),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        widgetPlacementSteps,
+                        style: AppTypography.bodyS.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
                 Text('ホーム画面', style: AppTypography.titleM),
                 const SizedBox(height: AppSpacing.md),
                 for (var slot = 0; slot < _home.labels.length; slot++) ...[

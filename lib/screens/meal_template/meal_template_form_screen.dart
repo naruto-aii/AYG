@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../models/food_unit_type.dart';
 import '../../models/meal_template_draft.dart';
+import '../../models/official_food.dart';
 import '../../models/saved_food.dart';
+import '../../repositories/official_food_repository.dart';
 import '../../models/saved_food_entry_selection.dart';
 import '../../repositories/subscription_exceptions.dart';
+import '../../services/template_food_pick.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/subscription/subscription_limit_prompt.dart';
 import '../../theme/app_spacing.dart';
@@ -12,6 +15,7 @@ import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../saved_food/public_food_search_screen.dart';
+import 'template_food_search_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_radius.dart';
@@ -31,6 +35,7 @@ class MealTemplateFormScreen extends StatefulWidget {
     this.templateId,
     this.captureOnly = false,
     this.initialDraft,
+    this.officialFoods,
   });
 
   final AppController controller;
@@ -39,6 +44,7 @@ class MealTemplateFormScreen extends StatefulWidget {
   /// 保存せずに内容だけ返す。食事テンプレートの件数には入らない。
   final bool captureOnly;
   final MealTemplateDraft? initialDraft;
+  final OfficialFoodRepository? officialFoods;
 
   bool get isEditing => templateId != null && !captureOnly;
 
@@ -140,21 +146,63 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
   }
 
   Future<void> _pickPublicFood() async {
-    final food = await Navigator.of(context).push<SavedFood>(
-      MaterialPageRoute<SavedFood>(
+    final result = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
         builder: (context) => PublicFoodSearchScreen(
           controller: widget.controller,
-          selectForMealEntry: true,
+          returnSelection: true,
         ),
       ),
     );
-    if (food != null) {
-      _addFromSelection(
-        widget.controller.selectSavedFoodForEntry(food),
-        savedFoodId: food.foodId,
-        sourceOwnerUserId: food.ownerUserId,
-      );
+    await _acceptFoodPick(result);
+  }
+
+  Future<void> _searchFood() async {
+    final result = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
+        builder: (context) => TemplateFoodSearchScreen(
+          controller: widget.controller,
+          officialFoods: widget.officialFoods,
+        ),
+      ),
+    );
+    await _acceptFoodPick(result);
+  }
+
+  Future<void> _acceptFoodPick(Object? result) async {
+    if (!mounted || result == null) {
+      return;
     }
+    if (result is SavedFood) {
+      _addFromSelection(
+        widget.controller.selectSavedFoodForEntry(result),
+        savedFoodId: result.foodId,
+        sourceOwnerUserId: result.ownerUserId,
+      );
+      return;
+    }
+    if (result is OfficialFoodMatch) {
+      final amount = await _askOfficialAmount(result);
+      if (amount == null || !mounted) {
+        return;
+      }
+      setState(() {
+        _items.add(
+          templateItemFromOfficialFood(
+            result,
+            consumedAmount: amount,
+            sortOrder: _items.length + 1,
+          ),
+        );
+      });
+    }
+  }
+
+  Future<double?> _askOfficialAmount(OfficialFoodMatch match) {
+    return showDialog<double>(
+      context: context,
+      builder: (context) => _OfficialAmountDialog(match: match),
+    );
   }
 
   void _addFromSelection(
@@ -280,11 +328,18 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              SettingsRow(
+                icon: AppIcons.search,
+                title: '食品を検索',
+                subtitle: '保存済み・公開食品・食品成分表から探す',
+                onTap: () => Navigator.of(context).pop('search'),
+              ),
+              const SizedBox(height: 8),
               SettingsRow(
                 icon: AppIcons.bookmark,
                 title: '保存済み食品から追加',
@@ -293,7 +348,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
               ),
               const SizedBox(height: 8),
               SettingsRow(
-                icon: AppIcons.search,
+                icon: AppIcons.meal,
                 title: '公開食品から追加',
                 subtitle: 'みんなが登録した食品から探す',
                 onTap: () => Navigator.of(context).pop('public'),
@@ -311,6 +366,8 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
       ),
     );
     switch (choice) {
+      case 'search':
+        await _searchFood();
       case 'own':
         await _pickOwnSavedFood();
       case 'public':
@@ -468,6 +525,68 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _OfficialAmountDialog extends StatefulWidget {
+  const _OfficialAmountDialog({required this.match});
+
+  final OfficialFoodMatch match;
+
+  @override
+  State<_OfficialAmountDialog> createState() => _OfficialAmountDialogState();
+}
+
+class _OfficialAmountDialogState extends State<_OfficialAmountDialog> {
+  late final TextEditingController _amountController;
+
+  @override
+  void initState() {
+    super.initState();
+    final base = widget.match.baseAmount <= 0 ? 100.0 : widget.match.baseAmount;
+    _amountController = TextEditingController(
+      text: base == base.roundToDouble()
+          ? base.toStringAsFixed(0)
+          : base.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unit =
+        FoodUnitTypeX.tryParse(widget.match.unitType) ?? FoodUnitType.g;
+    return AlertDialog(
+      title: Text(widget.match.listTitle),
+      content: TextField(
+        key: const Key('template-official-amount'),
+        controller: _amountController,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: '量（${unit.label}）'),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('キャンセル'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final amount = double.tryParse(_amountController.text.trim());
+            if (amount == null || amount <= 0) {
+              return;
+            }
+            Navigator.of(context).pop(amount);
+          },
+          child: const Text('この食品を追加'),
+        ),
+      ],
     );
   }
 }

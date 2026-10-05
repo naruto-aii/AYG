@@ -26,11 +26,15 @@ class PublicFoodSearchScreen extends StatefulWidget {
     required this.controller,
     this.openFoodFactsService,
     this.selectForMealEntry = false,
+    this.returnSelection = false,
   });
 
   final AppController controller;
   final OpenFoodFactsService? openFoodFactsService;
   final bool selectForMealEntry;
+
+  /// 食事には足さない。選んだ公開食品か食品成分表の行を呼び出し元へ返す。
+  final bool returnSelection;
 
   @override
   State<PublicFoodSearchScreen> createState() => _PublicFoodSearchScreenState();
@@ -112,6 +116,7 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
       controller: widget.controller,
       match: match,
       selectForMealEntry: widget.selectForMealEntry,
+      useLabel: widget.returnSelection ? 'この食品を使う' : '食事に追加',
       onBlocked: () {
         setState(() {
           _results = _results
@@ -126,6 +131,13 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
   }
 
   Future<void> _handleUseForMeal(SavedFood food) async {
+    if (widget.returnSelection) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(food);
+      return;
+    }
     if (widget.selectForMealEntry) {
       final added = await PublicFoodMealAddFlow.start(
         context: context,
@@ -214,8 +226,13 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
               source: FoodSearchSources.officialFood,
               query: query,
             ),
-            onSelected: (match) =>
-                openOfficialFoodDetail(context, widget.controller, match),
+            onSelected: (match) {
+              if (widget.returnSelection) {
+                Navigator.of(context).pop(match);
+                return;
+              }
+              openOfficialFoodDetail(context, widget.controller, match);
+            },
           ),
           if (_isSearching)
             const SizedBox.shrink()

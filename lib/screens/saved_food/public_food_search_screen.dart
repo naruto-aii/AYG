@@ -188,7 +188,7 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
         children: [
           DesignTitleBlock(
             title: widget.selectForMealEntry ? '公開食品を選ぶ' : '公開食品から追加',
-            subtitle: 'みんなが登録した食品から探して追加できます。',
+            subtitle: 'ほかの人が公開した食品です。氏名やメールは載りません。',
           ),
           DesignChipGroup<bool>(
             values: const [false, true],

@@ -322,7 +322,17 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
           const SizedBox(height: 16),
           const DesignCard(
             key: Key('coach_verification_notice'),
-            child: Text(coachTrialNotice, style: AppTypography.bodyS),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '残りのカロリーから、今日の食事か運動を一つ提案します。登録するまでは記録されません。',
+                  style: AppTypography.bodyS,
+                ),
+                SizedBox(height: 8),
+                Text(coachTrialNotice, style: AppTypography.bodyS),
+              ],
+            ),
           ),
         ],
       ),

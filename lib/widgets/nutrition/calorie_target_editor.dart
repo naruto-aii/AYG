@@ -110,6 +110,13 @@ class _CalorieTargetEditorState extends State<CalorieTargetEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('目標カロリーの手入力', style: AppTypography.titleS),
+          if (!manual) ...[
+            const SizedBox(height: 8),
+            Text(
+              '目標体重と目標日から計算した数字です。書き換えると自分で入力になり、自動では上書きしません。たんぱく質・脂質・炭水化物は、カロリーと合わせて入れます。',
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            ),
+          ],
           if (manual) ...[
             const SizedBox(height: 16),
             DesignCard(
@@ -171,7 +178,7 @@ class _CalorieTargetEditorState extends State<CalorieTargetEditor> {
           if (manual) ...[
             const SizedBox(height: 8),
             Text(
-              '2つ入れると、残り1つを計算します。',
+              '2つ入れると、残り1つを計算します。カロリーは、たんぱく質×4 + 脂質×9 + 炭水化物×4 に合わせます。',
               style: AppTypography.caption.copyWith(color: AppColors.textMuted),
             ),
           ],

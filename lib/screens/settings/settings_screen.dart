@@ -160,7 +160,7 @@ class SettingsScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.information,
             title: '使い方',
-            subtitle: '食事、残りカロリー、目標、運動',
+            subtitle: 'はじめての操作と、無料とカロナビ+の違い',
             onTap: () => _push(context, const HowToUseScreen()),
           ),
           const SizedBox(height: _rowGap),

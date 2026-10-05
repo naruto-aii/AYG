@@ -42,7 +42,7 @@ class SettingsFoodMasterScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.bookmark,
             title: '保存食品',
-            subtitle: '自分で登録した食品・公開した食品',
+            subtitle: '自分で登録した食品。公開すると、ほかの人の検索に出ます',
             onTap: () => _push(
               context,
               SavedFoodListScreen(
@@ -55,7 +55,7 @@ class SettingsFoodMasterScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.template,
             title: '食事テンプレート',
-            subtitle: 'よく食べる組み合わせ',
+            subtitle: 'よく食べる組み合わせ。無料は4件まで',
             onTap: () =>
                 _push(context, MealTemplateListScreen(controller: controller)),
           ),
@@ -63,7 +63,7 @@ class SettingsFoodMasterScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.dumbbell,
             title: '運動テンプレート',
-            subtitle: 'よくする運動の組み合わせ',
+            subtitle: 'よくする運動の組み合わせ。無料は4件まで',
             onTap: () => _push(
               context,
               WorkoutTemplateListScreen(controller: controller),

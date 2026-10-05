@@ -157,7 +157,8 @@ void main() {
       expect(find.byType(HowToUseScreen), findsOneWidget);
       expect(find.text('使い方'), findsWidgets);
       expect(find.textContaining('今日あと'), findsOneWidget);
-      expect(find.textContaining('カロナビ+'), findsOneWidget);
+      expect(find.text('無料とカロナビ+'), findsOneWidget);
+      expect(find.textContaining('カロナビ+'), findsWidgets);
       expect(find.textContaining('写真'), findsNothing);
       Navigator.of(tester.element(find.byType(HowToUseScreen))).pop();
       await tester.pumpAndSettle();

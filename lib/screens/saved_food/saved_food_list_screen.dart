@@ -190,7 +190,8 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
         children: [
           DesignTitleBlock(
             title: '保存食品',
-            subtitle: 'よく食べる食品を登録しておくと、次から選ぶだけです。',
+            subtitle:
+                'よく食べる食品を登録しておくと、次から選ぶだけです。公開すると、ほかの人の検索に出ます。氏名やメールは載りません。',
             trailing: IconButton(
               tooltip: '公開食品検索',
               onPressed: _openPublicSearch,

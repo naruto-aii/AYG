@@ -23,7 +23,10 @@ Future<void> presentStoreReviewRequest({
     builder: (context) {
       return AlertDialog(
         key: const Key('store_review_request'),
-        content: const Text('レビューをお願いできますか'),
+        title: const Text('レビューをお願いできますか'),
+        content: const Text(
+          '7日続けて記録したあと、またはウィジェットか音声で登録したあとに出します。断ると次は出ません。評価の内容はアプリでは受け取りません。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

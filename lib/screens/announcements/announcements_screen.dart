@@ -47,7 +47,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const DesignTitleBlock(title: 'お知らせ'),
+          const DesignTitleBlock(
+            title: 'お知らせ',
+            subtitle: '運営からの連絡です。ホームの赤い点は、まだ開いていないお知らせです。',
+          ),
           const SizedBox(height: 8),
           if (items == null)
             Text('読み込んでいます', style: AppTypography.bodyS)

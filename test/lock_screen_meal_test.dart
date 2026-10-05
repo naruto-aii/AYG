@@ -283,6 +283,9 @@ void main() {
     expect(find.text('ウィジェット'), findsOneWidget);
     expect(find.text('音声登録'), findsOneWidget);
     expect(find.text('カロナビ+の機能です'), findsOneWidget);
+    expect(find.textContaining('自動では付きません'), findsOneWidget);
+    expect(find.textContaining('左上「編集」'), findsOneWidget);
+    expect(find.textContaining('時刻の上下の枠をタップ'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -297,6 +300,7 @@ void main() {
     );
     expect(find.text('ウィジェット'), findsNothing);
     expect(find.text('音声登録'), findsNothing);
+    expect(find.textContaining('自動では付きません'), findsNothing);
     await auth.dispose();
   });
 
@@ -561,8 +565,10 @@ void main() {
 
     expect(find.text('こちらは有料の機能です'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
-    expect(find.text('ウィジェットの置き方'), findsOneWidget);
-    expect(find.textContaining('アプリの中からは追加できません'), findsOneWidget);
+    expect(find.text('ウィジェットの置き方'), findsWidgets);
+    expect(find.textContaining('自動では付きません'), findsWidgets);
+    expect(find.textContaining('左上「編集」'), findsWidgets);
+    expect(find.textContaining('時刻の上下の枠をタップ'), findsWidgets);
     await auth.dispose();
   });
 
@@ -647,7 +653,9 @@ void main() {
     expect(find.text('ホーム画面'), findsWidgets);
     expect(find.text('ロック画面'), findsWidgets);
     expect(find.text('ウィジェットの置き方'), findsOneWidget);
-    expect(find.textContaining('アプリの中からは追加できません'), findsOneWidget);
+    expect(find.textContaining('自動では付きません'), findsOneWidget);
+    expect(find.textContaining('左上「編集」'), findsOneWidget);
+    expect(find.textContaining('時刻の上下の枠をタップ'), findsOneWidget);
     expect(find.textContaining('有料'), findsNothing);
     expect(
       find.byKey(const Key('lock-screen-meal-label-home-4')),
@@ -682,7 +690,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('内容を保存しました'), findsOneWidget);
-    expect(find.textContaining('左上の＋を押す'), findsWidgets);
+    expect(find.textContaining('左上「編集」'), findsWidgets);
+    expect(find.textContaining('自動では付きません'), findsWidgets);
     await tester.tap(find.text('閉じる'));
     await tester.pumpAndSettle();
 

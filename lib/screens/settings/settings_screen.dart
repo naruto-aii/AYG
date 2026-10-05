@@ -224,6 +224,18 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => _openMealWidget(context),
             ),
             const SizedBox(height: _rowGap),
+            Text('ウィジェットの置き方', style: AppTypography.titleM),
+            const SizedBox(height: 4),
+            Text(
+              widgetPlacementLead,
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widgetPlacementSteps,
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: _rowGap),
             SettingsRow(
               icon: AppIcons.information,
               title: '音声登録',

@@ -154,7 +154,8 @@ enum LockScreenMealStore {
     return "registered"
   }
 
-  /// 押した直後に、残り・摂取・消費の整数を動かす。Dart の `applyMealWidgetFigures` と同じ。
+  /// 押した直後に、残り・摂取・消費・超過の整数を動かす。Dart の `applyMealWidgetFigures` と同じ。
+  /// 残りが 0 未満になった分は超過にする。目標（`target`）はそのまま残す。
   static func applyFigures(intakeDelta: Double, burnDelta: Double) {
     guard var json = snapshotObject() else {
       reloadWidgets()
@@ -167,8 +168,11 @@ enum LockScreenMealStore {
     json["intake"] = intake + intakeAdd
     json["burn"] = burn + burnAdd
     if let remaining = (json["remaining"] as? NSNumber)?.intValue {
-      let next = remaining - intakeAdd + burnAdd
+      let overage = (json["overage"] as? NSNumber)?.intValue ?? 0
+      let balance = overage > 0 ? -overage : remaining
+      let next = balance - intakeAdd + burnAdd
       json["remaining"] = next < 0 ? 0 : next
+      json["overage"] = next < 0 ? -next : NSNull()
     }
     guard JSONSerialization.isValidJSONObject(json),
           let data = try? JSONSerialization.data(withJSONObject: json),

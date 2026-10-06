@@ -55,6 +55,31 @@ void main() {
     expect(clamped.intakeKcal, 50);
   });
 
+  test('widget figures keep the target and switch to overage below zero', () {
+    final over = applyMealWidgetFigures(
+      figures: const MealWidgetFigures(
+        remainingKcal: 10,
+        intakeKcal: 2000,
+        burnKcal: 0,
+        targetKcal: 2010,
+      ),
+      intakeDelta: 50,
+      burnDelta: 0,
+    );
+    expect(over.remainingKcal, 0);
+    expect(over.overageKcal, 40);
+    expect(over.targetKcal, 2010);
+
+    final back = applyMealWidgetFigures(
+      figures: over,
+      intakeDelta: 0,
+      burnDelta: 100,
+    );
+    expect(back.remainingKcal, 60);
+    expect(back.overageKcal, isNull);
+    expect(back.targetKcal, 2010);
+  });
+
   final loggedAt = DateTime(2026, 10, 1, 8, 30);
 
   MealTemplateItem rice() {

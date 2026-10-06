@@ -81,7 +81,8 @@ class WidgetExercisePattern {
 
 /// ボタンを押した分だけ、ウィジェットの整数表示を動かす。
 ///
-/// 摂取と消費は足し、残りは「残り − 摂取増 + 消費増」を 0 未満にしない。
+/// 摂取と消費は足す。残りは「残り − 摂取増 + 消費増」で、0 未満になった分は超過にする
+/// （超過の日は「−超過」から計算する）。目標はそのまま引き継ぐ。
 /// Swift の `LockScreenMealStore.applyFigures` と同じ。
 MealWidgetFigures applyMealWidgetFigures({
   required MealWidgetFigures figures,
@@ -91,14 +92,21 @@ MealWidgetFigures applyMealWidgetFigures({
   final intakeAdd = intakeDelta.round();
   final burnAdd = burnDelta.round();
   final remaining = figures.remainingKcal;
+  final overage = figures.overageKcal;
+  int? nextRemaining;
+  int? nextOverage = overage;
+  if (remaining != null) {
+    final balance = overage != null && overage > 0 ? -overage : remaining;
+    final next = balance - intakeAdd + burnAdd;
+    nextRemaining = next < 0 ? 0 : next;
+    nextOverage = next < 0 ? -next : null;
+  }
   return MealWidgetFigures(
-    remainingKcal: remaining == null
-        ? null
-        : (remaining - intakeAdd + burnAdd) < 0
-        ? 0
-        : remaining - intakeAdd + burnAdd,
+    remainingKcal: nextRemaining,
     intakeKcal: (figures.intakeKcal ?? 0) + intakeAdd,
     burnKcal: (figures.burnKcal ?? 0) + burnAdd,
+    targetKcal: figures.targetKcal,
+    overageKcal: nextOverage,
   );
 }
 

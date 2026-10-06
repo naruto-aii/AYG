@@ -56,7 +56,7 @@ class HowToUseScreen extends StatelessWidget {
                 const _Section(
                   title: '無料とカロナビ+',
                   body:
-                      '無料でも、食事・運動・体重の記録と、食事テンプレート4件、運動テンプレート4件が使えます。カロナビ+ではテンプレートの件数制限がなくなり、食事のメモ、直近3日の食品、ウィジェット、音声登録が使えます。ウィジェットの置き方と音声の始め方は、上の節と各画面に書いてあります。',
+                      '無料でも、食事・運動・体重の記録、記録の共有、食事テンプレート4件、運動テンプレート4件が使えます。カロナビ+ではテンプレートの件数制限がなくなり、食事のメモ、直近3日の食品、ウィジェット、音声登録が使えます。ウィジェットの置き方と音声の始め方は、上の節と各画面に書いてあります。',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 const _Section(
@@ -91,6 +91,12 @@ class HowToUseScreen extends StatelessWidget {
                   title: '体重',
                   body:
                       '体重の記録は、1日のカロリー計算に使います。手入力とヘルスケアは、測った時刻が新しい方です。7日より古いときは、画面が記録を促します。',
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const _Section(
+                  title: '記録を共有する',
+                  body:
+                      'ホーム右上の共有から、今日の食事のまとめか、連続記録を画像で送れます。体重は、グラフが出ているときの右上から、その期間の変化を送れます。数字は、ぼかす・隠す・増減だけ出す、から選べます。今の体重そのものは出しません。送る相手は、iPhoneの共有で選びます。共有は無料です。',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 const _Section(

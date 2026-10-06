@@ -93,6 +93,19 @@ void main() {
       ),
       isTrue,
     );
+
+    final halfYear = File(
+      'supabase/migrations/20261006150000_calonavi_plus_half_year_product.sql',
+    ).readAsStringSync();
+    expect(halfYear, contains('calonavi_plus_half_year'));
+    expect(halfYear, contains('calonavi_plus_monthly'));
+    expect(halfYear, contains('calonavi_plus_yearly'));
+    expect(halfYear, contains('calonavi_plus_test'));
+    expect(halfYear, isNot(contains('create table')));
+    expect(
+      halfYear.toLowerCase(),
+      isNot(contains('disable row level security')),
+    );
   });
 
   test(

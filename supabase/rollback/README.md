@@ -2,6 +2,16 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261006150000 calonavi plus half year product
+
+半年プランの商品ID `calonavi_plus_half_year` だけを戻す。月額・年額・実機テストの加入行、表、RLS は残す。2回実行しても失敗しない。
+
+`supabase/rollback/20261006150000_calonavi_plus_half_year_product_down.sql`
+
+消えるもの:
+
+- `calonavi_plus_entitlements` のうち `product_id = calonavi_plus_half_year` の行だけ
+
 ## 20261006140000 calonavi plus test product
 
 実機テスト用の商品ID `calonavi_plus_test` だけを戻す。月額・年額の加入行、表、RLS は残す。2回実行しても失敗しない。

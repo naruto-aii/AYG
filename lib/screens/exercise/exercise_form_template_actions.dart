@@ -12,6 +12,7 @@ import '../../widgets/common/app_card.dart';
 import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/layout/app_form_constraint.dart';
+import '../workout_template/workout_template_plus_gate.dart';
 import '../workout_template/workout_template_screens.dart';
 
 Future<void> openWorkoutTemplatePicker({
@@ -48,8 +49,14 @@ Future<void> openWorkoutTemplatePicker({
 Future<void> openWorkoutTemplateCreate(
   BuildContext context,
   AppController controller,
-) {
-  return Navigator.of(context).push<void>(
+) async {
+  if (!await allowWorkoutTemplateCreate(context, controller)) {
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
+  await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       builder: (context) => WorkoutTemplateFormScreen(controller: controller),
     ),
@@ -61,6 +68,12 @@ Future<void> saveCurrentExerciseAsTemplate({
   required AppController controller,
   required WorkoutTemplateItem itemDraft,
 }) async {
+  if (!await allowWorkoutTemplateCreate(context, controller)) {
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
   final nameController = TextEditingController();
   final saved = await showDialog<bool>(
     context: context,
@@ -92,8 +105,9 @@ Future<void> saveCurrentExerciseAsTemplate({
   final name = nameController.text.trim();
   nameController.dispose();
   if (name.isEmpty) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('テンプレート名を入力してください')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('テンプレート名を入力してください')));
     return;
   }
 
@@ -104,14 +118,16 @@ Future<void> saveCurrentExerciseAsTemplate({
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('テンプレートを保存しました')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('テンプレートを保存しました')));
   } catch (error) {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
   }
 }
 
@@ -249,8 +265,9 @@ class _WorkoutTemplateApplyScreenState
                   child: ListTile(
                     title: Text(draft.name),
                     subtitle: Text(
-                      MetActivityCatalog.findById(draft.activityId)
-                                      ?.requiresManualKcal ==
+                      MetActivityCatalog.findById(
+                                    draft.activityId,
+                                  )?.requiresManualKcal ==
                                   true &&
                               draft.netKcal == null
                           ? '${draft.durationMin}分 · 消費カロリーは手入力'

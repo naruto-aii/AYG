@@ -16,7 +16,7 @@ import Foundation
 /// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
 /// 食事と運動のテンプレート名でも登録する。未課金は登録しない。公開食品は扱わない。
 /// `openAppWhenRun` は false。判定と書き込みは App Group だけで、アプリが閉じていても Siri が実行する。
-/// 名寄せの順は Dart の `pickSiriMatches` と同じ。0件は言い直したあと、検索語を残してアプリを開く。
+/// 名寄せの順は Dart の `pickSiriMatches` と同じ。候補が4件以上、または別の食品に分かれるときは、部位や調理を短く聞き返す。2〜3件なら読み上げる。0件は言い直したあと、検索語を残してアプリを開く。
 /// ショートカットのアイコンは後で差し替える。今はプレースホルダー。
 enum SiriVoiceStore {
   static let catalogKey = "siriVoiceCatalog"
@@ -92,9 +92,17 @@ enum SiriVoiceStore {
     var spoken: String
     var asksConfirmation: Bool
     var asksKind: Bool = false
-    var asksChoice: Bool = false
-    var asksAmount: Bool = false
-    var asksRetry: Bool = false
+  var asksChoice: Bool = false
+  var asksAmount: Bool = false
+  var asksRetry: Bool = false
+  var asksNarrow: Bool = false
+  var narrowRound: Int = 0
+  var narrowAnimal: String?
+  var narrowCut: String?
+  var narrowCook: String?
+  var narrowKind: String?
+  var narrowQuery: String?
+  var narrowFoods: [[String: Any]] = []
     var record: [String: Any]?
     var records: [[String: Any]] = []
     var choices: [[String: Any]] = []
@@ -275,12 +283,18 @@ enum SiriVoiceStore {
     if foods.isEmpty && templates.isEmpty {
       return rescue(name, kind: "food")
     }
-    if !isObvious(foods) && foods.count > 1 {
-      return choicePlan(
-        name: name,
-        quantityText: quantityText,
-        choices: foods.prefix(4).map { choice($0, kind: "food", suffix: "") }
-      )
+    if foods.count > 1 {
+      let traits = utteranceTraits(name)
+      if !isObvious(foods) || traitsConflict(foods[0], traits) {
+        return presentFoods(
+          foods,
+          name: name,
+          quantityText: quantityText,
+          traits: traits,
+          rounds: 0,
+          query: foodSearchQuery(name, traits)
+        )
+      }
     }
     if foods.isEmpty && !isObvious(templates) && templates.count > 1 {
       return choicePlan(
@@ -1563,6 +1577,572 @@ enum SiriVoiceStore {
     return !topCandidate && nextCandidate && topRank == nextRank
   }
 
+  @available(iOS 16.0, *)
+  static func resolveNarrow(_ plan: Plan, text: String) async -> Plan {
+    guard plan.asksNarrow else { return plan }
+    let reply = spokenFoodReply(text)
+    if reply.cancel {
+      return stop("登録しません")
+    }
+    let quantity = plan.pendingQuantity ?? ""
+    let spokenName = plan.pendingName ?? ""
+    if reply.unknown {
+      let pool = plan.narrowFoods
+      guard let food = representativeFood(pool, spokenKind: plan.narrowKind) else {
+        return rescue(spokenName)
+      }
+      return confirmFood(food, quantityText: quantity, parsed: parseQuantity(quantity), assumeUnit: false)
+    }
+    var traits = FoodTraits(
+      animal: plan.narrowAnimal,
+      cut: plan.narrowCut,
+      cook: plan.narrowCook,
+      kind: plan.narrowKind
+    )
+    traits = traits.merged(reply.traits)
+    let query = foodSearchQuery(plan.narrowQuery ?? spokenName, traits)
+    var pool = plan.narrowFoods
+    if let fetched = await officialFoods(query: query), !fetched.isEmpty {
+      pool = fetched
+    } else {
+      let stem = dropCookWords(query)
+      if stem != query, let fetched = await officialFoods(query: stem), !fetched.isEmpty {
+        pool = fetched
+      }
+    }
+    return presentFoods(
+      pool,
+      name: spokenName,
+      quantityText: quantity,
+      traits: traits,
+      rounds: plan.narrowRound,
+      query: query
+    )
+  }
+
+  private struct FoodTraits {
+    var animal: String?
+    var cut: String?
+    var cook: String?
+    var kind: String?
+
+    func merged(_ newer: FoodTraits) -> FoodTraits {
+      FoodTraits(
+        animal: newer.animal ?? animal,
+        cut: newer.cut ?? cut,
+        cook: newer.cook ?? cook,
+        kind: newer.kind ?? kind
+      )
+    }
+  }
+
+  private struct SpokenReply {
+    var traits = FoodTraits()
+    var cancel = false
+    var unknown = false
+  }
+
+  private static func presentFoods(
+    _ foods: [[String: Any]],
+    name: String,
+    quantityText: String,
+    traits: FoodTraits,
+    rounds: Int,
+    query: String
+  ) -> Plan {
+    let pool = applyTraitFilters(foods, traits)
+    if pool.isEmpty {
+      return rescue(name, kind: "food")
+    }
+    if pool.count == 1 || detailedFoods(pool, traits) {
+      guard let food = representativeFood(pool, spokenKind: traits.kind) else {
+        return rescue(name, kind: "food")
+      }
+      return confirmFood(food, quantityText: quantityText, parsed: parseQuantity(quantityText), assumeUnit: false)
+    }
+    let group = majorityGroup(pool)
+    let different = greatlyDifferent(pool, group)
+    if pool.count <= 3 && !different {
+      return choicePlan(
+        name: name,
+        quantityText: quantityText,
+        choices: pool.map { choice($0, kind: "food", suffix: "") }
+      )
+    }
+    let axis = nextFoodAxis(pool, traits, group)
+    if axis == nil || rounds >= 3 {
+      if pool.count <= 3 {
+        return choicePlan(
+          name: name,
+          quantityText: quantityText,
+          choices: pool.map { choice($0, kind: "food", suffix: "") }
+        )
+      }
+      guard let food = representativeFood(pool, spokenKind: traits.kind) else {
+        return rescue(name, kind: "food")
+      }
+      return confirmFood(food, quantityText: quantityText, parsed: parseQuantity(quantityText), assumeUnit: false)
+    }
+    return Plan(
+      spoken: foodQuestion(axis ?? "kind", group),
+      asksConfirmation: false,
+      asksNarrow: true,
+      pendingName: name,
+      pendingQuantity: quantityText,
+      narrowRound: rounds + 1,
+      narrowAnimal: traits.animal,
+      narrowCut: traits.cut,
+      narrowCook: traits.cook,
+      narrowKind: traits.kind,
+      narrowQuery: query,
+      narrowFoods: pool
+    )
+  }
+
+  private static func traitsConflict(_ food: [String: Any], _ traits: FoodTraits) -> Bool {
+    let found = traitsOfFood(food)
+    if let cook = traits.cook, found.cook != cook { return true }
+    if let cut = traits.cut, found.cut != cut { return true }
+    return false
+  }
+
+  private static func detailedFoods(_ foods: [[String: Any]], _ traits: FoodTraits) -> Bool {
+    let group = majorityGroup(foods)
+    let animals = Set(foods.compactMap { traitsOfFood($0).animal })
+    if group == "11" || !animals.isEmpty {
+      return traits.cut != nil && traits.cook != nil
+    }
+    if group == "10" {
+      return traits.kind != nil && traits.cook != nil && kindClusters(foods).count <= 1
+    }
+    if group == "06" || group == "07" {
+      return traits.cook != nil
+    }
+    return false
+  }
+
+  private static func greatlyDifferent(_ foods: [[String: Any]], _ group: String?) -> Bool {
+    let animals = Set(foods.compactMap { traitsOfFood($0).animal })
+    let cuts = Set(foods.compactMap { traitsOfFood($0).cut })
+    if group == "11" || animals.count >= 2 {
+      if animals.count >= 2 || cuts.count >= 2 { return true }
+    }
+    if group == "10" || group == "06" || group == "07" || group == nil {
+      if kindClusters(foods).count >= 2 { return true }
+    }
+    return false
+  }
+
+  private static func nextFoodAxis(
+    _ foods: [[String: Any]],
+    _ traits: FoodTraits,
+    _ group: String?
+  ) -> String? {
+    let animals = Set(foods.compactMap { traitsOfFood($0).animal })
+    let cuts = Set(foods.compactMap { traitsOfFood($0).cut })
+    let cooks = Set(foods.compactMap { traitsOfFood($0).cook })
+    if group == "11" || !animals.isEmpty {
+      if animals.count >= 2 && traits.animal == nil { return "animal" }
+      if cuts.count >= 2 && traits.cut == nil { return "cut" }
+      if cooks.count >= 2 && traits.cook == nil { return "cook" }
+      return nil
+    }
+    if kindClusters(foods).count >= 2 && traits.kind == nil { return "kind" }
+    if cooks.count >= 2 && traits.cook == nil { return "cook" }
+    return nil
+  }
+
+  private static func foodQuestion(_ axis: String, _ group: String?) -> String {
+    switch axis {
+    case "animal":
+      return "牛、豚、鶏のどれですか？"
+    case "cut":
+      return "どの部位ですか？"
+    case "kind":
+      switch group {
+      case "10": return "何の魚ですか？"
+      case "06": return "何の野菜ですか？"
+      case "07": return "何の果物ですか？"
+      default: return "種類はどれですか？"
+      }
+    case "cook":
+      if group == "06" || group == "07" { return "生かゆでですか？" }
+      return "生、焼き、ゆで、揚げのどれですか？"
+    default:
+      return "どれにしますか？"
+    }
+  }
+
+  private static func representativeFood(
+    _ foods: [[String: Any]],
+    spokenKind: String?
+  ) -> [String: Any]? {
+    guard !foods.isEmpty else { return nil }
+    return foods.enumerated().min { left, right in
+      let score = representativeScore(left.element, spokenKind: spokenKind)
+        - representativeScore(right.element, spokenKind: spokenKind)
+      if score != 0 { return score < 0 }
+      return left.offset < right.offset
+    }?.element
+  }
+
+  private static func representativeScore(_ food: [String: Any], spokenKind: String?) -> Int {
+    let name = food["speakName"] as? String ?? ""
+    var score = 0
+    if name.contains("脂身（") { score += 40 }
+    for word in ["新巻き", "塩ざけ", "塩さけ", "イクラ", "すじこ", "めふん", "削り節", "缶詰", "くん製", "スモーク"] {
+      if name.contains(word) { score += 12 }
+    }
+    if name.contains("副品目") || name.contains("親・") || name.contains("（親") { score += 8 }
+    if name.contains("輸入") || name.contains("乳用") { score += 6 }
+    if name.contains("和牛") || name.contains("若鶏") || name.contains("若どり") { score -= 10 }
+    if name.contains("皮なし") { score -= 2 }
+    if name.contains("皮つき") { score += 2 }
+    if let spokenKind, let kind = traitsOfFood(food).kind {
+      let spoken = foldKana(normalize(spokenKind))
+      let foodKind = foldKana(normalize(kind))
+      if foodKind == spoken || kind == spokenKind {
+        score -= 8
+      } else if foodKind.contains(spoken) || kind.contains(spokenKind) {
+        score += 4
+      }
+    }
+    return score
+  }
+
+  private static func applyTraitFilters(
+    _ foods: [[String: Any]],
+    _ want: FoodTraits
+  ) -> [[String: Any]] {
+    var pool = foods
+    if let animal = want.animal {
+      let next = pool.filter { traitsOfFood($0).animal == animal }
+      if !next.isEmpty { pool = next }
+    }
+    if let cut = want.cut {
+      let next = pool.filter { cutMatches(traitsOfFood($0).cut, cut) }
+      if !next.isEmpty { pool = next }
+    }
+    if let kind = want.kind {
+      let next = pool.filter { kindMatches(traitsOfFood($0).kind, kind) }
+      if !next.isEmpty { pool = next }
+    }
+    if let cook = want.cook {
+      let next = pool.filter { traitsOfFood($0).cook == cook }
+      if !next.isEmpty { pool = next }
+    }
+    return pool
+  }
+
+  private static func traitsOfFood(_ food: [String: Any]) -> FoodTraits {
+    let speak = food["speakName"] as? String ?? ""
+    let official = food["officialFoodName"] as? String ?? ""
+    let code = food["officialFoodCode"] as? String ?? food["id"] as? String
+    return traitsFromFoodName("\(speak) \(official)", foodCode: code)
+  }
+
+  private static func utteranceTraits(_ name: String) -> FoodTraits {
+    let compact = compactFoodText(name)
+    if compact.isEmpty || broadFoodWords.contains(compact) {
+      return FoodTraits(animal: animalOf(compact, group: nil))
+    }
+    let animal = animalOf(compact, group: nil)
+    let cook = cookOf(compact)
+    let stripped = dropCookWords(compact)
+    let cut = cutOf(stripped, allowThigh: animal != nil || ["もも", "腿", "モモ"].contains(stripped))
+    return FoodTraits(
+      animal: animal,
+      cut: cut,
+      cook: cook,
+      kind: utteranceKind(compact, animal: animal, cut: cut)
+    )
+  }
+
+  private static func spokenFoodReply(_ raw: String) -> SpokenReply {
+    var compact = compactFoodText(raw)
+    for suffix in ["です", "だよ", "だね", "かも", "かな", "やつ", "もの", "の"] {
+      if compact.hasSuffix(suffix), compact.count > suffix.count {
+        compact = String(compact.dropLast(suffix.count))
+      }
+    }
+    if cancelFoodWords.contains(compact) {
+      return SpokenReply(cancel: true)
+    }
+    if unknownFoodWords.contains(compact) {
+      return SpokenReply(unknown: true)
+    }
+    let cook = cookOf(compact) ?? spokenCook(compact)
+    let animal = animalOf(compact, group: nil) ?? spokenAnimal(compact)
+    let cut = cutOf(compact, allowThigh: true)
+    if animal != nil || cut != nil || cook != nil {
+      return SpokenReply(traits: FoodTraits(animal: animal, cut: cut, cook: cook))
+    }
+    return SpokenReply(traits: FoodTraits(kind: compact))
+  }
+
+  private static func foodSearchQuery(_ original: String, _ traits: FoodTraits) -> String {
+    if let animal = traits.animal, let cut = traits.cut,
+       let animalWord = animalSearchWord[animal], let cutWord = cutSearchWord[cut] {
+      return animalWord + cutWord
+    }
+    if let kind = traits.kind, traits.animal == nil {
+      let compact = compactFoodText(original)
+      if broadFoodWords.contains(compact) || !compact.contains(kind) {
+        return kind
+      }
+    }
+    let dropped = dropCookWords(original)
+    return dropped.isEmpty ? compactFoodText(original) : dropped
+  }
+
+  private static func dropCookWords(_ raw: String) -> String {
+    var text = compactFoodText(raw)
+    let suffixes = [
+      "のから揚げ", "から揚げ", "の唐揚げ", "唐揚げ", "の天ぷら", "天ぷら",
+      "のてんぷら", "てんぷら", "のフライ", "フライ", "の揚げ", "揚げ",
+      "のからあげ", "からあげ", "の焼き", "焼き", "焼いた", "の焼", "焼",
+      "のやき", "やいた", "やき", "のゆで", "ゆでた", "ゆで", "の茹で", "茹で",
+      "の水煮", "水煮", "の蒸し", "蒸し", "のむし", "むし", "のソテー", "ソテー",
+      "の生", "生",
+    ]
+    var changed = true
+    while changed {
+      changed = false
+      for suffix in suffixes where text.hasSuffix(suffix) && text.count > suffix.count {
+        text = String(text.dropLast(suffix.count))
+        changed = true
+        break
+      }
+    }
+    while text.hasSuffix("の"), text.count > 1 {
+      text = String(text.dropLast(1))
+    }
+    return text
+  }
+
+  private static func traitsFromFoodName(_ name: String, foodCode: String?) -> FoodTraits {
+    let group = foodCode.flatMap { $0.count >= 2 ? String($0.prefix(2)) : nil }
+    let animal = animalOf(name, group: group)
+    return FoodTraits(
+      animal: animal,
+      cut: cutOf(name, allowThigh: animal != nil || group == "11"),
+      cook: cookOf(name),
+      kind: kindOf(name)
+    )
+  }
+
+  private static func animalOf(_ name: String, group: String?) -> String? {
+    if hasAny(name, ["和牛", "牛肉", "うし", "牛", "ぎゅうにく", "ぎゅう"]) { return "beef" }
+    if hasAny(name, ["豚肉", "ぶたにく", "ぶた", "豚"]) { return "pork" }
+    if hasAny(name, ["鶏肉", "とりにく", "にわとり", "若鶏", "若どり", "わかどり", "鶏"]) {
+      return "chicken"
+    }
+    if group == "11", hasAny(name, ["とり"]) { return "chicken" }
+    return nil
+  }
+
+  private static func spokenAnimal(_ compact: String) -> String? {
+    switch compact {
+    case "牛", "牛肉", "ぎゅう", "ぎゅうにく": return "beef"
+    case "豚", "豚肉", "ぶた", "ぶたにく": return "pork"
+    case "鶏", "鶏肉", "とり", "とりにく", "チキン": return "chicken"
+    default: return nil
+    }
+  }
+
+  private static func cookOf(_ name: String) -> String? {
+    let rules: [(String, [String])] = [
+      ("fried", ["から揚げ", "からあげ", "唐揚げ", "唐揚", "天ぷら", "てんぷら", "フライ", "ふらい", "揚げ", "あげ"]),
+      ("grilled", ["ソテー", "そて", "焼き", "焼", "やき", "やいた", "焼いた"]),
+      ("boiled", ["水煮", "ゆで", "茹で", "ゆでた", "茹でた"]),
+      ("steamed", ["蒸し", "むし", "蒸した"]),
+      ("raw", ["生", "なま"]),
+    ]
+    let tokens = foodTokens(name)
+    for rule in rules {
+      for word in rule.1 where cookMarked(name, tokens, word) {
+        return rule.0
+      }
+    }
+    return nil
+  }
+
+  private static func spokenCook(_ compact: String) -> String? {
+    if ["焼いた", "焼いて", "やいた", "やいて", "グリル", "ぐりる"].contains(compact) { return "grilled" }
+    if ["ゆでた", "茹でた", "煮た", "にた"].contains(compact) { return "boiled" }
+    if ["揚げた", "あげた", "からあげ", "から揚げた"].contains(compact) { return "fried" }
+    if ["蒸した", "むした"].contains(compact) { return "steamed" }
+    if ["生で", "なまで"].contains(compact) { return "raw" }
+    return nil
+  }
+
+  private static func cookMarked(_ name: String, _ tokens: [String], _ word: String) -> Bool {
+    if tokens.contains(word) { return true }
+    if name.hasSuffix(word) || name.hasSuffix("の\(word)") { return true }
+    if word == "生" || word == "焼" || word == "なま" {
+      return name.contains("（\(word)") || name.contains("・\(word)")
+    }
+    return name.contains("（\(word)") || name.contains("・\(word)") || name.contains(" \(word)")
+  }
+
+  private static func cutOf(_ name: String, allowThigh: Bool) -> String? {
+    let patterns: [(String, String)] = [
+      ("ひき肉", "hiki"), ("ひきにく", "hiki"), ("挽肉", "hiki"), ("ミンチ", "hiki"), ("みんち", "hiki"),
+      ("ささみ", "sasami"), ("ササミ", "sasami"),
+      ("かたロース", "katarosu"), ("肩ロース", "katarosu"), ("かたろす", "katarosu"),
+      ("リブロース", "ribu"), ("りぶろす", "ribu"),
+      ("サーロイン", "sirloin"), ("さーろいん", "sirloin"), ("さろいん", "sirloin"),
+      ("そともも", "momo"), ("うちもも", "momo"),
+      ("ロース", "rosu"), ("ろす", "rosu"),
+      ("ばら", "bara"), ("バラ", "bara"),
+      ("むね", "mune"), ("胸", "mune"),
+      ("もも", "momo"), ("モモ", "momo"), ("腿", "momo"),
+      ("ひれ", "hire"), ("ヒレ", "hire"), ("フィレ", "hire"),
+      ("ランプ", "ranpu"), ("らんぷ", "ranpu"),
+      ("手羽", "teba"), ("てば", "teba"),
+      ("かた", "kata"), ("肩", "kata"),
+      ("すね", "sune"),
+    ]
+    let normalized = normalize(name)
+    for pattern in patterns {
+      if !allowThigh && pattern.1 == "momo" { continue }
+      for source in [name, normalized] {
+        guard let range = source.range(of: pattern.0) else { continue }
+        if (pattern.0 == "もも" || pattern.0 == "モモ"),
+           let before = source[..<range.lowerBound].last,
+           String(before) == "す" {
+          continue
+        }
+        return pattern.1
+      }
+    }
+    return nil
+  }
+
+  private static func cutMatches(_ foodCut: String?, _ spokenCut: String) -> Bool {
+    guard let foodCut else { return false }
+    if foodCut == spokenCut { return true }
+    if spokenCut == "rosu" && ["katarosu", "ribu", "rosu"].contains(foodCut) { return true }
+    if spokenCut == "kata" && ["kata", "katarosu"].contains(foodCut) { return true }
+    return false
+  }
+
+  private static func kindOf(_ name: String) -> String? {
+    var stripped = name
+    if let regex = try? NSRegularExpression(pattern: "（[^）]*）|＜[^＞]*＞") {
+      stripped = regex.stringByReplacingMatches(
+        in: stripped,
+        range: NSRange(stripped.startIndex..., in: stripped),
+        withTemplate: " "
+      )
+    }
+    stripped = stripped.replacingOccurrences(of: "　", with: " ").trimmingCharacters(in: .whitespaces)
+    if stripped.isEmpty { return name.trimmingCharacters(in: .whitespaces).isEmpty ? nil : name }
+    var head = stripped.split(separator: " ").first.map(String.init) ?? stripped
+    let words = ["ひき肉", "ひきにく", "ささみ", "かたロース", "リブロース", "サーロイン", "そともも", "うちもも", "ロース", "ばら", "むね", "もも", "ひれ", "ランプ", "手羽", "かた", "すね"]
+    for word in words { head = head.replacingOccurrences(of: word, with: "") }
+    head = head.trimmingCharacters(in: .whitespaces)
+    return head.isEmpty ? String(stripped.split(separator: " ").first ?? "") : head
+  }
+
+  private static func utteranceKind(_ compact: String, animal: String?, cut: String?) -> String? {
+    if broadFoodWords.contains(compact) { return nil }
+    var rest = dropCookWords(compact)
+    for word in ["牛肉", "豚肉", "鶏肉", "和牛", "牛", "豚", "鶏"] {
+      rest = rest.replacingOccurrences(of: word, with: "")
+    }
+    for word in ["ひき肉", "ささみ", "かたロース", "リブロース", "サーロイン", "ロース", "ばら", "むね", "もも", "ひれ", "かた"] {
+      rest = rest.replacingOccurrences(of: word, with: "")
+    }
+    rest = rest.replacingOccurrences(of: "[のをはがにでとや]", with: "", options: .regularExpression)
+    if rest.isEmpty || broadFoodWords.contains(rest) { return nil }
+    if animal != nil && cut != nil && rest.count <= 1 { return nil }
+    return rest
+  }
+
+  private static func kindMatches(_ foodKind: String?, _ spoken: String) -> Bool {
+    guard let foodKind, !foodKind.isEmpty, !spoken.isEmpty else { return false }
+    let food = foldKana(normalize(foodKind))
+    let want = foldKana(normalize(spoken))
+    let foodRaw = foldKana(foodKind)
+    let wantRaw = foldKana(spoken)
+    return food.contains(want) || want.contains(food) || foodRaw.contains(wantRaw) || wantRaw.contains(foodRaw)
+  }
+
+  private static func kindClusters(_ foods: [[String: Any]]) -> [String] {
+    var kinds: [String] = []
+    for food in foods {
+      guard let kind = traitsOfFood(food).kind, !kind.isEmpty else { continue }
+      let folded = foldKana(normalize(kind))
+      let key = folded.isEmpty ? foldKana(kind) : folded
+      if key.isEmpty { continue }
+      if kinds.contains(where: { $0.contains(key) || key.contains($0) }) { continue }
+      kinds.append(key)
+    }
+    return kinds
+  }
+
+  private static func majorityGroup(_ foods: [[String: Any]]) -> String? {
+    var counts: [String: Int] = [:]
+    for food in foods {
+      let code = (food["officialFoodCode"] as? String) ?? (food["id"] as? String) ?? ""
+      guard code.count >= 2 else { continue }
+      let group = String(code.prefix(2))
+      counts[group, default: 0] += 1
+    }
+    return counts.max { $0.value < $1.value }?.key
+  }
+
+  private static func foldKana(_ text: String) -> String {
+    let from = Array("がぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽ")
+    let to = Array("かきくけこさしすせそたちつてとはひふへほはひふへほ")
+    return String(text.map { char in
+      if let at = from.firstIndex(of: char) { return to[at] }
+      return char
+    })
+  }
+
+  private static func hasAny(_ name: String, _ words: [String]) -> Bool {
+    let normalized = normalize(name)
+    return words.contains { name.contains($0) || normalized.contains($0) }
+  }
+
+  private static func foodTokens(_ name: String) -> [String] {
+    name
+      .replacingOccurrences(of: "（", with: " ")
+      .replacingOccurrences(of: "）", with: " ")
+      .replacingOccurrences(of: "・", with: " ")
+      .replacingOccurrences(of: "　", with: " ")
+      .split(separator: " ")
+      .map(String.init)
+  }
+
+  private static func compactFoodText(_ raw: String) -> String {
+    raw
+      .replacingOccurrences(of: " ", with: "")
+      .replacingOccurrences(of: "　", with: "")
+      .replacingOccurrences(of: "[。．.！!？?、,]", with: "", options: .regularExpression)
+  }
+
+  private static let broadFoodWords: Set<String> = [
+    "牛肉", "豚肉", "鶏肉", "魚", "肉", "野菜", "果物", "さかな",
+    "ぎゅうにく", "ぶたにく", "とりにく", "やさい", "くだもの",
+  ]
+  private static let cancelFoodWords: Set<String> = [
+    "やめる", "やめて", "やめ", "やめた", "キャンセル", "きゃんせる", "中止", "止めて", "もういい", "登録しない",
+  ]
+  private static let unknownFoodWords: Set<String> = [
+    "わからない", "わかんない", "分からない", "分かんない", "しらない", "知らない",
+    "なんでも", "なんでもいい", "何でも", "何でもいい", "どれでも", "どれでもいい",
+    "適当", "おすすめ", "おすすめで", "普通", "ふつう", "いつもの",
+  ]
+  private static let animalSearchWord = ["beef": "牛", "pork": "豚", "chicken": "鶏"]
+  private static let cutSearchWord = [
+    "momo": "もも", "mune": "むね", "bara": "ばら", "rosu": "ロース", "katarosu": "かたロース",
+    "ribu": "リブロース", "sirloin": "サーロイン", "hiki": "ひき肉", "sasami": "ささみ",
+    "kata": "かた", "hire": "ひれ", "ranpu": "ランプ", "sune": "すね", "teba": "手羽",
+  ]
+
   private static func rankFoods(_ name: String) async -> [[String: Any]] {
     let savedHits = rankLocalFoods(
       foods().filter { $0["source"] as? String == "saved_food" },
@@ -1583,8 +2163,14 @@ enum SiriVoiceStore {
     if !localOfficial.isEmpty {
       return localOfficial
     }
-    guard let official = await officialFoods(query: name) else {
+    guard var official = await officialFoods(query: name) else {
       return []
+    }
+    if official.isEmpty {
+      let stem = dropCookWords(name)
+      if stem != name, let again = await officialFoods(query: stem) {
+        official = again
+      }
     }
     if !official.isEmpty {
       return official
@@ -1922,6 +2508,15 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "言い直し")
   var retryReply: String?
 
+  @Parameter(title: "絞り込み")
+  var narrowReply: String?
+
+  @Parameter(title: "絞り込み2")
+  var narrowReply2: String?
+
+  @Parameter(title: "絞り込み3")
+  var narrowReply3: String?
+
   init() {
     self.foodName = SiriSpokenText(id: "", text: "")
   }
@@ -1934,6 +2529,10 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
     var plan = await SiriVoiceStore.planFood(name: spoken, quantity: "")
     var retried = false
     while true {
+      if plan.asksNarrow {
+        plan = await SiriVoiceStore.resolveNarrow(plan, text: try await nextNarrow(plan))
+        continue
+      }
       if plan.asksKind {
         let picked = try await $kind.requestDisambiguation(
           among: SiriSpokenKind.allCases,
@@ -1978,6 +2577,18 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
     return .result(dialog: "登録しました")
   }
 
+  private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {
+    let dialog = IntentDialog(stringLiteral: plan.spoken)
+    switch plan.narrowRound {
+    case 2:
+      return try await $narrowReply2.requestValue(dialog)
+    case 3:
+      return try await $narrowReply3.requestValue(dialog)
+    default:
+      return try await $narrowReply.requestValue(dialog)
+    }
+  }
+
   /// 言い方に食品が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
   /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
   private func promptedFoodName() throws -> String {
@@ -2016,6 +2627,15 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "言い直し")
   var retryReply: String?
 
+  @Parameter(title: "絞り込み")
+  var narrowReply: String?
+
+  @Parameter(title: "絞り込み2")
+  var narrowReply2: String?
+
+  @Parameter(title: "絞り込み3")
+  var narrowReply3: String?
+
   init() {
     self.activityName = SiriSpokenText(id: "", text: "")
   }
@@ -2028,6 +2648,10 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     var plan = await SiriVoiceStore.planExercise(name: spoken, quantity: "")
     var retried = false
     while true {
+    if plan.asksNarrow {
+      plan = await SiriVoiceStore.resolveNarrow(plan, text: try await nextNarrow(plan))
+      continue
+    }
     if plan.asksKind {
       let picked = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
@@ -2072,6 +2696,18 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     return .result(dialog: "登録しました")
   }
 
+  private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {
+    let dialog = IntentDialog(stringLiteral: plan.spoken)
+    switch plan.narrowRound {
+    case 2:
+      return try await $narrowReply2.requestValue(dialog)
+    case 3:
+      return try await $narrowReply3.requestValue(dialog)
+    default:
+      return try await $narrowReply.requestValue(dialog)
+    }
+  }
+
   /// 言い方に種目が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
   /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
   private func promptedActivityName() throws -> String {
@@ -2107,6 +2743,15 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "言い直し")
   var retryReply: String?
 
+  @Parameter(title: "絞り込み")
+  var narrowReply: String?
+
+  @Parameter(title: "絞り込み2")
+  var narrowReply2: String?
+
+  @Parameter(title: "絞り込み3")
+  var narrowReply3: String?
+
   /// 「カロナビに登録」で種類のあとに聞く自由文。未指定のまま始め、先に聞かない。
   @Parameter(title: "答え")
   var entryReply: String?
@@ -2125,6 +2770,10 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     var plan = routed.plan
     var retried = false
     while true {
+      if plan.asksNarrow {
+        plan = await SiriVoiceStore.resolveNarrow(plan, text: try await nextNarrow(plan))
+        continue
+      }
       if plan.asksKind {
         let picked = try await $kind.requestDisambiguation(
           among: SiriSpokenKind.allCases,
@@ -2176,6 +2825,18 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     )
     SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
+  }
+
+  private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {
+    let dialog = IntentDialog(stringLiteral: plan.spoken)
+    switch plan.narrowRound {
+    case 2:
+      return try await $narrowReply2.requestValue(dialog)
+    case 3:
+      return try await $narrowReply3.requestValue(dialog)
+    default:
+      return try await $narrowReply.requestValue(dialog)
+    }
   }
 
   /// 値のある言い方はその言葉を名寄せへ渡す。

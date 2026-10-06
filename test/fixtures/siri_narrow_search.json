@@ -1,0 +1,2073 @@
+{
+ "牛肉": [
+  {
+   "food_code": "11004",
+   "food_group": "11",
+   "display_name": "和牛 かた（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ かた 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11005",
+   "food_group": "11",
+   "display_name": "和牛 かた（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ かた 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11006",
+   "food_group": "11",
+   "display_name": "和牛 かた（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ かた 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11008",
+   "food_group": "11",
+   "display_name": "和牛 かたロース（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ かたロース 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11009",
+   "food_group": "11",
+   "display_name": "和牛 かたロース（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ かたロース 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11010",
+   "food_group": "11",
+   "display_name": "和牛 かたロース（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ かたロース 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11011",
+   "food_group": "11",
+   "display_name": "和牛 リブロース（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ リブロース 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11012",
+   "food_group": "11",
+   "display_name": "和牛 リブロース（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ リブロース 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11013",
+   "food_group": "11",
+   "display_name": "和牛 リブロース（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ リブロース 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11015",
+   "food_group": "11",
+   "display_name": "和牛 サーロイン（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ サーロイン 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11016",
+   "food_group": "11",
+   "display_name": "和牛 サーロイン（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ サーロイン 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11017",
+   "food_group": "11",
+   "display_name": "和牛 サーロイン（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ サーロイン 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11018",
+   "food_group": "11",
+   "display_name": "和牛 ばら（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ ばら 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11019",
+   "food_group": "11",
+   "display_name": "和牛 もも（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11020",
+   "food_group": "11",
+   "display_name": "和牛 もも（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11021",
+   "food_group": "11",
+   "display_name": "和牛 もも（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11023",
+   "food_group": "11",
+   "display_name": "和牛 そともも（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ そともも 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11024",
+   "food_group": "11",
+   "display_name": "和牛 そともも（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ そともも 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11025",
+   "food_group": "11",
+   "display_name": "和牛 そともも（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ そともも 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11026",
+   "food_group": "11",
+   "display_name": "和牛 ランプ（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ ランプ 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11027",
+   "food_group": "11",
+   "display_name": "和牛 ランプ（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ ランプ 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11028",
+   "food_group": "11",
+   "display_name": "和牛 ランプ（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ ランプ 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11029",
+   "food_group": "11",
+   "display_name": "和牛 ヒレ（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ ヒレ 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11030",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 かた（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ かた 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11031",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 かた（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ かた 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11032",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 かた（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ かた 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11034",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 かたロース（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ かたロース 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11035",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 かたロース（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ かたロース 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11036",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 かたロース（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ かたロース 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11037",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 リブロース（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ リブロース 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  }
+ ],
+ "豚肉": [
+  {
+   "food_code": "11115",
+   "food_group": "11",
+   "display_name": "豚かた（大型種・脂身つき・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ かた 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11116",
+   "food_group": "11",
+   "display_name": "豚かた（大型種・皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ かた 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11117",
+   "food_group": "11",
+   "display_name": "豚かた（大型種・赤肉・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ かた 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11119",
+   "food_group": "11",
+   "display_name": "豚かたロース（大型種・脂身つき・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ かたロース 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11120",
+   "food_group": "11",
+   "display_name": "豚かたロース（大型種・皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ かたロース 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11121",
+   "food_group": "11",
+   "display_name": "豚かたロース（大型種・赤肉・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ かたロース 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11123",
+   "food_group": "11",
+   "display_name": "豚ロース（大型種・脂身つき・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ロース 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11126",
+   "food_group": "11",
+   "display_name": "豚ロース（大型種・皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ロース 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11127",
+   "food_group": "11",
+   "display_name": "豚ロース（大型種・赤肉・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ロース 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11129",
+   "food_group": "11",
+   "display_name": "豚ばら（大型種・脂身つき・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ばら 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11130",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・脂身つき・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11131",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11134",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・赤肉・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11136",
+   "food_group": "11",
+   "display_name": "豚そともも（大型種・脂身つき・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ そともも 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11137",
+   "food_group": "11",
+   "display_name": "豚そともも（大型種・皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ そともも 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11138",
+   "food_group": "11",
+   "display_name": "豚そともも（大型種・赤肉・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ そともも 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11140",
+   "food_group": "11",
+   "display_name": "豚ヒレ（大型種・赤肉・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ヒレ 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11124",
+   "food_group": "11",
+   "display_name": "豚ロース（大型種・脂身つき・焼き）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ロース 脂身つき 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11125",
+   "food_group": "11",
+   "display_name": "豚ロース（大型種・脂身つき・ゆで）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ロース 脂身つき ゆで",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11132",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・皮下脂肪なし・焼き）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 皮下脂肪なし 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11133",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・皮下脂肪なし・ゆで）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 皮下脂肪なし ゆで",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11141",
+   "food_group": "11",
+   "display_name": "豚かた（脂身つき・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ かた 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11142",
+   "food_group": "11",
+   "display_name": "豚かた（皮下脂肪なし・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ かた 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11143",
+   "food_group": "11",
+   "display_name": "豚かた（赤肉・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ かた 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11145",
+   "food_group": "11",
+   "display_name": "豚かたロース（脂身つき・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ かたロース 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11146",
+   "food_group": "11",
+   "display_name": "豚かたロース（皮下脂肪なし・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ かたロース 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11147",
+   "food_group": "11",
+   "display_name": "豚かたロース（赤肉・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ かたロース 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11149",
+   "food_group": "11",
+   "display_name": "豚ロース（脂身つき・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ ロース 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11150",
+   "food_group": "11",
+   "display_name": "豚ロース（皮下脂肪なし・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ ロース 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11151",
+   "food_group": "11",
+   "display_name": "豚ロース（赤肉・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ ロース 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  }
+ ],
+ "鶏肉": [
+  {
+   "food_code": "11220",
+   "food_group": "11",
+   "display_name": "若鶏むね（皮なし・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ むね 皮なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11224",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮なし・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11227",
+   "food_group": "11",
+   "display_name": "若鶏ささみ（生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11219",
+   "food_group": "11",
+   "display_name": "若鶏むね（皮つき・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ むね 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11221",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮つき・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11222",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮つき・焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮つき 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11223",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮つき・ゆで）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮つき ゆで",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11225",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮なし・焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮なし 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11226",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮なし・ゆで）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮なし ゆで",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11228",
+   "food_group": "11",
+   "display_name": "若鶏ささみ（焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11229",
+   "food_group": "11",
+   "display_name": "若鶏ささみ（ゆで）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ ゆで",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11287",
+   "food_group": "11",
+   "display_name": "若鶏むね（皮つき・焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ むね 皮つき 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11288",
+   "food_group": "11",
+   "display_name": "若鶏むね（皮なし・焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ むね 皮なし 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11289",
+   "food_group": "11",
+   "display_name": "若鶏もも から揚げ（皮つき）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮つき から揚げ",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11290",
+   "food_group": "11",
+   "display_name": "若鶏もも から揚げ（皮なし）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮なし から揚げ",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11298",
+   "food_group": "11",
+   "display_name": "若鶏ささみ ソテー",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ ソテー",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11299",
+   "food_group": "11",
+   "display_name": "若鶏ささみ（天ぷら）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ 天ぷら",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11300",
+   "food_group": "11",
+   "display_name": "若鶏ささみ フライ",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ フライ",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11212",
+   "food_group": "11",
+   "display_name": "にわとり 手羽（皮つき・親・主品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［親・主品目］ 手羽 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11213",
+   "food_group": "11",
+   "display_name": "にわとり むね（皮つき・親・主品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［親・主品目］ むね 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11214",
+   "food_group": "11",
+   "display_name": "にわとり むね（皮なし・親・主品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［親・主品目］ むね 皮なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11215",
+   "food_group": "11",
+   "display_name": "にわとり もも（皮つき・親・主品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［親・主品目］ もも 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11216",
+   "food_group": "11",
+   "display_name": "にわとり もも（皮なし・親・主品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［親・主品目］ もも 皮なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11217",
+   "food_group": "11",
+   "display_name": "にわとり ささみ（親・副品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［親・副品目］ ささみ 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11218",
+   "food_group": "11",
+   "display_name": "若鶏手羽（皮つき・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ 手羽 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11230",
+   "food_group": "11",
+   "display_name": "にわとり ひき肉（二次品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［二次品目］ ひき肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11231",
+   "food_group": "11",
+   "display_name": "にわとり 心臓（副品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［副品目］ 心臓 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11232",
+   "food_group": "11",
+   "display_name": "にわとり 肝臓（副品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［副品目］ 肝臓 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11233",
+   "food_group": "11",
+   "display_name": "にわとり すなぎも（副品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［副品目］ すなぎも 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "11234",
+   "food_group": "11",
+   "display_name": "にわとり 皮 むね（副品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［副品目］ 皮 むね 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  }
+ ],
+ "魚": [
+  {
+   "food_code": "17107",
+   "food_group": "17",
+   "display_name": "魚醤油 ナンプラー",
+   "name": "＜調味料類＞ （調味ソース類） 魚醤油 ナンプラー",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "17133",
+   "food_group": "17",
+   "display_name": "魚醤油 いかなごしょうゆ",
+   "name": "＜調味料類＞ （調味ソース類） 魚醤油 いかなごしょうゆ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "17134",
+   "food_group": "17",
+   "display_name": "魚醤油 いしる（いしり）",
+   "name": "＜調味料類＞ （調味ソース類） 魚醤油 いしる （いしり）",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "17135",
+   "food_group": "17",
+   "display_name": "魚醤油 しょっつる",
+   "name": "＜調味料類＞ （調味ソース類） 魚醤油 しょっつる",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "10001",
+   "food_group": "10",
+   "display_name": "あいなめ（生）",
+   "name": "＜魚類＞ あいなめ 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10002",
+   "food_group": "10",
+   "display_name": "あこうだい（生）",
+   "name": "＜魚類＞ あこうだい 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10003",
+   "food_group": "10",
+   "display_name": "まあじ（皮つき・生）",
+   "name": "＜魚類＞ （あじ類） まあじ 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10004",
+   "food_group": "10",
+   "display_name": "まあじ（皮つき・水煮）",
+   "name": "＜魚類＞ （あじ類） まあじ 皮つき 水煮",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10005",
+   "food_group": "10",
+   "display_name": "まあじ（皮つき・焼き）",
+   "name": "＜魚類＞ （あじ類） まあじ 皮つき 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10006",
+   "food_group": "10",
+   "display_name": "まあじ（開き干し・生）",
+   "name": "＜魚類＞ （あじ類） まあじ 開き干し 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10007",
+   "food_group": "10",
+   "display_name": "まあじ（開き干し・焼き）",
+   "name": "＜魚類＞ （あじ類） まあじ 開き干し 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10008",
+   "food_group": "10",
+   "display_name": "にしまあじ（生）",
+   "name": "＜魚類＞ （あじ類） にしまあじ 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10009",
+   "food_group": "10",
+   "display_name": "にしまあじ（水煮）",
+   "name": "＜魚類＞ （あじ類） にしまあじ 水煮",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10010",
+   "food_group": "10",
+   "display_name": "にしまあじ（焼き）",
+   "name": "＜魚類＞ （あじ類） にしまあじ 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10011",
+   "food_group": "10",
+   "display_name": "むろあじ（生）",
+   "name": "＜魚類＞ （あじ類） むろあじ 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10012",
+   "food_group": "10",
+   "display_name": "むろあじ（焼き）",
+   "name": "＜魚類＞ （あじ類） むろあじ 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10013",
+   "food_group": "10",
+   "display_name": "むろあじ（開き干し）",
+   "name": "＜魚類＞ （あじ類） むろあじ 開き干し",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10014",
+   "food_group": "10",
+   "display_name": "むろあじ くさや",
+   "name": "＜魚類＞ （あじ類） むろあじ くさや",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10015",
+   "food_group": "10",
+   "display_name": "あなご（生）",
+   "name": "＜魚類＞ あなご 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10016",
+   "food_group": "10",
+   "display_name": "あなご（蒸し）",
+   "name": "＜魚類＞ あなご 蒸し",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10017",
+   "food_group": "10",
+   "display_name": "あまご（養殖・生）",
+   "name": "＜魚類＞ あまご 養殖 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10018",
+   "food_group": "10",
+   "display_name": "あまだい（生）",
+   "name": "＜魚類＞ あまだい 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10019",
+   "food_group": "10",
+   "display_name": "あまだい（水煮）",
+   "name": "＜魚類＞ あまだい 水煮",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10020",
+   "food_group": "10",
+   "display_name": "あまだい（焼き）",
+   "name": "＜魚類＞ あまだい 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10021",
+   "food_group": "10",
+   "display_name": "あゆ（天然・生）",
+   "name": "＜魚類＞ あゆ 天然 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10022",
+   "food_group": "10",
+   "display_name": "あゆ（天然・焼き）",
+   "name": "＜魚類＞ あゆ 天然 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10023",
+   "food_group": "10",
+   "display_name": "あゆ 内臓（天然・生）",
+   "name": "＜魚類＞ あゆ 天然 内臓 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10024",
+   "food_group": "10",
+   "display_name": "あゆ 内臓（天然・焼き）",
+   "name": "＜魚類＞ あゆ 天然 内臓 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10025",
+   "food_group": "10",
+   "display_name": "あゆ（養殖・生）",
+   "name": "＜魚類＞ あゆ 養殖 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  },
+  {
+   "food_code": "10026",
+   "food_group": "10",
+   "display_name": "あゆ（養殖・焼き）",
+   "name": "＜魚類＞ あゆ 養殖 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 90
+  }
+ ],
+ "さけ": [
+  {
+   "food_code": "10134",
+   "food_group": "10",
+   "display_name": "しろさけ（生）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "16001",
+   "food_group": "16",
+   "display_name": "清酒 普通酒",
+   "name": "＜アルコール飲料類＞ （醸造酒類） 清酒 普通酒",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "16002",
+   "food_group": "16",
+   "display_name": "清酒 純米酒",
+   "name": "＜アルコール飲料類＞ （醸造酒類） 清酒 純米酒",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "16003",
+   "food_group": "16",
+   "display_name": "清酒 本醸造酒",
+   "name": "＜アルコール飲料類＞ （醸造酒類） 清酒 本醸造酒",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "16009",
+   "food_group": "16",
+   "display_name": "発泡酒",
+   "name": "＜アルコール飲料類＞ （醸造酒類） 発泡酒",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "16010",
+   "food_group": "16",
+   "display_name": "ぶどう酒 白",
+   "name": "＜アルコール飲料類＞ （醸造酒類） ぶどう酒 白",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "16011",
+   "food_group": "16",
+   "display_name": "ぶどう酒 赤",
+   "name": "＜アルコール飲料類＞ （醸造酒類） ぶどう酒 赤",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "16012",
+   "food_group": "16",
+   "display_name": "ぶどう酒 ロゼ",
+   "name": "＜アルコール飲料類＞ （醸造酒類） ぶどう酒 ロゼ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "16021",
+   "food_group": "16",
+   "display_name": "マオタイ酒",
+   "name": "＜アルコール飲料類＞ （蒸留酒類） マオタイ酒",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "16027",
+   "food_group": "16",
+   "display_name": "薬味酒",
+   "name": "＜アルコール飲料類＞ （混成酒類） 薬味酒",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "17053",
+   "food_group": "17",
+   "display_name": "酒かす",
+   "name": "＜調味料類＞ （その他） 酒かす",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10130",
+   "food_group": "10",
+   "display_name": "ぎんざけ（養殖・生）",
+   "name": "＜魚類＞ （さけ・ます類） ぎんざけ 養殖 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10131",
+   "food_group": "10",
+   "display_name": "ぎんざけ（養殖・焼き）",
+   "name": "＜魚類＞ （さけ・ます類） ぎんざけ 養殖 焼き",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10135",
+   "food_group": "10",
+   "display_name": "しろさけ（水煮）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 水煮",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10136",
+   "food_group": "10",
+   "display_name": "しろさけ（焼き）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 焼き",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10137",
+   "food_group": "10",
+   "display_name": "しろさけ 新巻き（生）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 新巻き 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10138",
+   "food_group": "10",
+   "display_name": "しろさけ 新巻き（焼き）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 新巻き 焼き",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10139",
+   "food_group": "10",
+   "display_name": "しろさけ 塩ざけ",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 塩ざけ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10140",
+   "food_group": "10",
+   "display_name": "しろさけ イクラ",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ イクラ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10141",
+   "food_group": "10",
+   "display_name": "しろさけ すじこ",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ すじこ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10142",
+   "food_group": "10",
+   "display_name": "しろさけ めふん",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ めふん",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10143",
+   "food_group": "10",
+   "display_name": "しろさけ（水煮缶詰）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 水煮缶詰",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10144",
+   "food_group": "10",
+   "display_name": "たいせいようさけ（養殖・皮つき・生）",
+   "name": "＜魚類＞ （さけ・ます類） たいせいようさけ 養殖 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10145",
+   "food_group": "10",
+   "display_name": "たいせいようさけ（養殖・皮つき・焼き）",
+   "name": "＜魚類＞ （さけ・ます類） たいせいようさけ 養殖 皮つき 焼き",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10149",
+   "food_group": "10",
+   "display_name": "べにざけ（生）",
+   "name": "＜魚類＞ （さけ・ます類） べにざけ 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10150",
+   "food_group": "10",
+   "display_name": "べにざけ（焼き）",
+   "name": "＜魚類＞ （さけ・ます類） べにざけ 焼き",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10151",
+   "food_group": "10",
+   "display_name": "べにざけ くん製",
+   "name": "＜魚類＞ （さけ・ます類） べにざけ くん製",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10433",
+   "food_group": "10",
+   "display_name": "たいせいようさけ（養殖・皮つき・水煮）",
+   "name": "＜魚類＞ （さけ・ます類） たいせいようさけ 養殖 皮つき 水煮",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10434",
+   "food_group": "10",
+   "display_name": "たいせいようさけ（養殖・皮つき・蒸し）",
+   "name": "＜魚類＞ （さけ・ます類） たいせいようさけ 養殖 皮つき 蒸し",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "10435",
+   "food_group": "10",
+   "display_name": "たいせいようさけ（養殖・皮つき・電子レンジ調理）",
+   "name": "＜魚類＞ （さけ・ます類） たいせいようさけ 養殖 皮つき 電子レンジ調理",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  }
+ ],
+ "白菜": [
+  {
+   "food_code": "06233",
+   "food_group": "06",
+   "display_name": "はくさい（生）",
+   "name": "はくさい 結球葉 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "06234",
+   "food_group": "06",
+   "display_name": "はくさい（ゆで）",
+   "name": "はくさい 結球葉 ゆで",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "06235",
+   "food_group": "06",
+   "display_name": "はくさい（塩漬・漬物）",
+   "name": "はくさい 漬物 塩漬",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "06236",
+   "food_group": "06",
+   "display_name": "はくさい キムチ（漬物）",
+   "name": "はくさい 漬物 キムチ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "06189",
+   "food_group": "06",
+   "display_name": "ながさきはくさい 葉（生）",
+   "name": "ながさきはくさい 葉 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 5
+  },
+  {
+   "food_code": "06190",
+   "food_group": "06",
+   "display_name": "ながさきはくさい 葉（ゆで）",
+   "name": "ながさきはくさい 葉 ゆで",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 5
+  }
+ ],
+ "はくさい": [
+  {
+   "food_code": "06233",
+   "food_group": "06",
+   "display_name": "はくさい（生）",
+   "name": "はくさい 結球葉 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "06234",
+   "food_group": "06",
+   "display_name": "はくさい（ゆで）",
+   "name": "はくさい 結球葉 ゆで",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "06235",
+   "food_group": "06",
+   "display_name": "はくさい（塩漬・漬物）",
+   "name": "はくさい 漬物 塩漬",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "06236",
+   "food_group": "06",
+   "display_name": "はくさい キムチ（漬物）",
+   "name": "はくさい 漬物 キムチ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "06189",
+   "food_group": "06",
+   "display_name": "ながさきはくさい 葉（生）",
+   "name": "ながさきはくさい 葉 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 5
+  },
+  {
+   "food_code": "06190",
+   "food_group": "06",
+   "display_name": "ながさきはくさい 葉（ゆで）",
+   "name": "ながさきはくさい 葉 ゆで",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 5
+  }
+ ],
+ "牛もも": [
+  {
+   "food_code": "11022",
+   "food_group": "11",
+   "display_name": "和牛 もも 脂身（生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 脂身 生",
+   "match_rank": 2,
+   "is_candidate": false,
+   "candidate_rank": null
+  },
+  {
+   "food_code": "11052",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 もも 脂身（生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ もも 脂身 生",
+   "match_rank": 2,
+   "is_candidate": false,
+   "candidate_rank": null
+  },
+  {
+   "food_code": "11078",
+   "food_group": "11",
+   "display_name": "輸入牛 もも 脂身（生）",
+   "name": "＜畜肉類＞ うし ［輸入牛肉］ もも 脂身 生",
+   "match_rank": 2,
+   "is_candidate": false,
+   "candidate_rank": null
+  },
+  {
+   "food_code": "11019",
+   "food_group": "11",
+   "display_name": "和牛 もも（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 脂身つき 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11047",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 もも（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ もも 脂身つき 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11075",
+   "food_group": "11",
+   "display_name": "輸入牛 もも（脂身つき・生）",
+   "name": "＜畜肉類＞ うし ［輸入牛肉］ もも 脂身つき 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11020",
+   "food_group": "11",
+   "display_name": "和牛 もも（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 皮下脂肪なし 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11048",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 もも（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ もも 皮下脂肪なし 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11076",
+   "food_group": "11",
+   "display_name": "輸入牛 もも（皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ うし ［輸入牛肉］ もも 皮下脂肪なし 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11021",
+   "food_group": "11",
+   "display_name": "和牛 もも（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 赤肉 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11049",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 もも（皮下脂肪なし・焼き）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ もも 皮下脂肪なし 焼き",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11077",
+   "food_group": "11",
+   "display_name": "輸入牛 もも（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［輸入牛肉］ もも 赤肉 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11050",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 もも（皮下脂肪なし・ゆで）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ もも 皮下脂肪なし ゆで",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11250",
+   "food_group": "11",
+   "display_name": "和牛 もも（皮下脂肪なし・焼き）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 皮下脂肪なし 焼き",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11270",
+   "food_group": "11",
+   "display_name": "輸入牛 もも（皮下脂肪なし・焼き）",
+   "name": "＜畜肉類＞ うし ［輸入牛肉］ もも 皮下脂肪なし 焼き",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11051",
+   "food_group": "11",
+   "display_name": "乳用肥育牛 もも（赤肉・生）",
+   "name": "＜畜肉類＞ うし ［乳用肥育牛肉］ もも 赤肉 生",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 5
+  },
+  {
+   "food_code": "11251",
+   "food_group": "11",
+   "display_name": "和牛 もも（皮下脂肪なし・ゆで）",
+   "name": "＜畜肉類＞ うし ［和牛肉］ もも 皮下脂肪なし ゆで",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 5
+  },
+  {
+   "food_code": "11271",
+   "food_group": "11",
+   "display_name": "輸入牛 もも（皮下脂肪なし・ゆで）",
+   "name": "＜畜肉類＞ うし ［輸入牛肉］ もも 皮下脂肪なし ゆで",
+   "match_rank": 2,
+   "is_candidate": true,
+   "candidate_rank": 5
+  }
+ ],
+ "豚ばら": [
+  {
+   "food_code": "11129",
+   "food_group": "11",
+   "display_name": "豚ばら（大型種・脂身つき・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ばら 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11153",
+   "food_group": "11",
+   "display_name": "豚ばら（脂身つき・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ ばら 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11277",
+   "food_group": "11",
+   "display_name": "豚ばら（大型種・脂身つき・焼き）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ ばら 脂身つき 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11183",
+   "food_group": "11",
+   "display_name": "豚ばらベーコン",
+   "name": "＜畜肉類＞ ぶた ［ベーコン類］ ばらベーコン ばらベーコン",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11314",
+   "food_group": "11",
+   "display_name": "豚ばらベーコン（ゆで）",
+   "name": "＜畜肉類＞ ぶた ［ベーコン類］ ばらベーコン ゆで",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11315",
+   "food_group": "11",
+   "display_name": "豚ばらベーコン（焼き）",
+   "name": "＜畜肉類＞ ぶた ［ベーコン類］ ばらベーコン 焼き",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11316",
+   "food_group": "11",
+   "display_name": "豚ばらベーコン（油いため）",
+   "name": "＜畜肉類＞ ぶた ［ベーコン類］ ばらベーコン 油いため",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 4
+  }
+ ],
+ "豚もも": [
+  {
+   "food_code": "11130",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・脂身つき・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11131",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・皮下脂肪なし・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11134",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・赤肉・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11132",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・皮下脂肪なし・焼き）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 皮下脂肪なし 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11133",
+   "food_group": "11",
+   "display_name": "豚もも（大型種・皮下脂肪なし・ゆで）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 皮下脂肪なし ゆで",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11154",
+   "food_group": "11",
+   "display_name": "豚もも（脂身つき・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ もも 脂身つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11155",
+   "food_group": "11",
+   "display_name": "豚もも（皮下脂肪なし・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ もも 皮下脂肪なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11156",
+   "food_group": "11",
+   "display_name": "豚もも（赤肉・中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ もも 赤肉 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11135",
+   "food_group": "11",
+   "display_name": "豚もも 脂身（大型種・生）",
+   "name": "＜畜肉類＞ ぶた ［大型種肉］ もも 脂身 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11157",
+   "food_group": "11",
+   "display_name": "豚もも 脂身（中型種肉・生）",
+   "name": "＜畜肉類＞ ぶた ［中型種肉］ もも 脂身 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 3
+  }
+ ],
+ "鶏むね": [
+  {
+   "food_code": "11220",
+   "food_group": "11",
+   "display_name": "若鶏むね（皮なし・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ むね 皮なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11219",
+   "food_group": "11",
+   "display_name": "若鶏むね（皮つき・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ むね 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11287",
+   "food_group": "11",
+   "display_name": "若鶏むね（皮つき・焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ むね 皮つき 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  },
+  {
+   "food_code": "11288",
+   "food_group": "11",
+   "display_name": "若鶏むね（皮なし・焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ むね 皮なし 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 5
+  }
+ ],
+ "鶏もも": [
+  {
+   "food_code": "11221",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮つき・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮つき 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11224",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮なし・生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮なし 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11222",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮つき・焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮つき 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "11223",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮つき・ゆで）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮つき ゆで",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 3
+  },
+  {
+   "food_code": "11225",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮なし・焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮なし 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 5
+  },
+  {
+   "food_code": "11226",
+   "food_group": "11",
+   "display_name": "若鶏もも（皮なし・ゆで）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮なし ゆで",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 6
+  },
+  {
+   "food_code": "11289",
+   "food_group": "11",
+   "display_name": "若鶏もも から揚げ（皮つき）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮つき から揚げ",
+   "match_rank": 1,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11290",
+   "food_group": "11",
+   "display_name": "若鶏もも から揚げ（皮なし）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・主品目］ もも 皮なし から揚げ",
+   "match_rank": 1,
+   "is_candidate": true,
+   "candidate_rank": 2
+  }
+ ],
+ "ささみ": [
+  {
+   "food_code": "11227",
+   "food_group": "11",
+   "display_name": "若鶏ささみ（生）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "11217",
+   "food_group": "11",
+   "display_name": "にわとり ささみ（親・副品目・生）",
+   "name": "＜鳥肉類＞ にわとり ［親・副品目］ ささみ 生",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 5
+  },
+  {
+   "food_code": "11228",
+   "food_group": "11",
+   "display_name": "若鶏ささみ（焼き）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ 焼き",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 7
+  },
+  {
+   "food_code": "11229",
+   "food_group": "11",
+   "display_name": "若鶏ささみ（ゆで）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ ゆで",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 7
+  },
+  {
+   "food_code": "11298",
+   "food_group": "11",
+   "display_name": "若鶏ささみ ソテー",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ ソテー",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 7
+  },
+  {
+   "food_code": "11299",
+   "food_group": "11",
+   "display_name": "若鶏ささみ（天ぷら）",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ 天ぷら",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 7
+  },
+  {
+   "food_code": "11300",
+   "food_group": "11",
+   "display_name": "若鶏ささみ フライ",
+   "name": "＜鳥肉類＞ にわとり ［若どり・副品目］ ささみ フライ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 7
+  }
+ ],
+ "しろさけ": [
+  {
+   "food_code": "10137",
+   "food_group": "10",
+   "display_name": "しろさけ 新巻き（生）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 新巻き 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "10134",
+   "food_group": "10",
+   "display_name": "しろさけ（生）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 生",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 1
+  },
+  {
+   "food_code": "10140",
+   "food_group": "10",
+   "display_name": "しろさけ イクラ",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ イクラ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10141",
+   "food_group": "10",
+   "display_name": "しろさけ すじこ",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ すじこ",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10142",
+   "food_group": "10",
+   "display_name": "しろさけ めふん",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ めふん",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10447",
+   "food_group": "10",
+   "display_name": "しろさけ サケ節 削り節",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ サケ節 削り節",
+   "match_rank": 0,
+   "is_candidate": false,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10138",
+   "food_group": "10",
+   "display_name": "しろさけ 新巻き（焼き）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 新巻き 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10139",
+   "food_group": "10",
+   "display_name": "しろさけ 塩ざけ",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 塩ざけ",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10135",
+   "food_group": "10",
+   "display_name": "しろさけ（水煮）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 水煮",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10136",
+   "food_group": "10",
+   "display_name": "しろさけ（焼き）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 焼き",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 2
+  },
+  {
+   "food_code": "10143",
+   "food_group": "10",
+   "display_name": "しろさけ（水煮缶詰）",
+   "name": "＜魚類＞ （さけ・ます類） しろさけ 水煮缶詰",
+   "match_rank": 0,
+   "is_candidate": true,
+   "candidate_rank": 4
+  }
+ ]
+}

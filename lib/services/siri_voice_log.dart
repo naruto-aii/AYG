@@ -10,7 +10,9 @@ import '../models/food_unit_type.dart';
 import '../models/saved_food.dart';
 import '../services/exercise_calorie_calculator.dart';
 import '../utils/food_search_normalizer.dart';
+import 'food_name_traits.dart';
 import 'lock_screen_meal.dart';
+import 'siri_food_narrow.dart';
 import 'siri_name_match.dart';
 import 'siri_speech_repair.dart';
 
@@ -19,7 +21,8 @@ import 'siri_speech_repair.dart';
 /// 決まった始まりは「Hey Siri、カロナビで」。食事か運動かは言葉から判別する。
 /// 登録前に「鶏むね100gの食事でいいですね」のように復唱し、合っていれば作る。
 /// 食品と運動とテンプレートは、アプリ内検索と同じ順位で名寄せする。
-/// ひとつに決まればそれを採用し、同じ段が続けば上位数件を選ばせる。
+/// ひとつに決まればそれを採用する。2〜3件なら読み上げて選ばせる。
+/// 4件以上、または上位が別の食品に分かれるときは、部位や調理を短く聞き返す。
 /// 0件のときは言い直すか、検索語を残してアプリを開く。
 /// 大盛りや「した」のように量が決まらないときは、g か分を聞き返す。
 /// 食事テンプレートと運動テンプレートは、名前を言うとその内容で登録する。
@@ -39,6 +42,7 @@ enum SiriVoiceStatus {
   notFound,
   ambiguous,
   needsChoice,
+  needsNarrow,
   needsAmount,
   rescue,
   needsKind,
@@ -46,6 +50,7 @@ enum SiriVoiceStatus {
   missingWeight,
   declined,
   silence,
+  cancelled,
   registered,
 }
 
@@ -248,6 +253,7 @@ class SiriVoiceContext {
     this.remoteOfficial = const [],
     this.remotePublic = const [],
     this.remoteUnavailable = false,
+    this.searchFoods,
   });
 
   final bool paid;
@@ -265,6 +271,9 @@ class SiriVoiceContext {
 
   /// 通信失敗。保存済みだけで続け、成分表と公開食品は使わない。
   final bool remoteUnavailable;
+
+  /// 成分表の検索。あるときは、絞り込みの答えで検索し直す。
+  final List<SiriFoodRecord> Function(String query)? searchFoods;
 }
 
 class SiriVoicePlan {
@@ -281,10 +290,19 @@ class SiriVoicePlan {
     this.choices = const [],
     this.asksAmount = false,
     this.asksRetry = false,
+    this.asksNarrow = false,
     this.searchQuery,
     this.mealTemplate,
     this.workoutTemplate,
     this.pendingQuantityText,
+    this.narrowRound = 0,
+    this.narrowAxis,
+    this.narrowAnimal,
+    this.narrowCut,
+    this.narrowCook,
+    this.narrowKind,
+    this.narrowQuery,
+    this.narrowFoods = const [],
   });
 
   final SiriVoiceStatus status;
@@ -301,17 +319,31 @@ class SiriVoicePlan {
   final List<SiriSpokenChoice> choices;
   final bool asksAmount;
   final bool asksRetry;
+
+  /// 部位・調理・種類を一つだけ聞く。候補の読み上げはしない。
+  final bool asksNarrow;
   final String? searchQuery;
   final SiriMealTemplate? mealTemplate;
   final SiriWorkoutTemplate? workoutTemplate;
   final String? pendingQuantityText;
+
+  /// ここまでにした絞り込みの回数。
+  final int narrowRound;
+  final String? narrowAxis;
+  final String? narrowAnimal;
+  final String? narrowCut;
+  final String? narrowCook;
+  final String? narrowKind;
+  final String? narrowQuery;
+  final List<SiriFoodRecord> narrowFoods;
 
   bool get isReady =>
       status == SiriVoiceStatus.ready &&
       asksConfirmation &&
       !asksKind &&
       !asksChoice &&
-      !asksAmount;
+      !asksAmount &&
+      !asksNarrow;
 }
 
 class SiriVoiceResult {
@@ -478,16 +510,69 @@ SiriVoicePlan resolveSiriSpokenKind({
   }
   final quantityText = formatSiriQuantity(quantity);
   if (kind == SiriSpokenKind.meal) {
-    return _planFoodBody(
-      context,
-      name: spokenName,
-      quantityText: quantityText,
-    );
+    return _planFoodBody(context, name: spokenName, quantityText: quantityText);
   }
   return _planExerciseBody(
     context,
     name: spokenName,
     quantityText: quantityText,
+  );
+}
+
+/// 部位・調理・種類の答え。分からないときは、その場のよく食べる形にする。
+SiriVoicePlan resolveSiriFoodNarrow({
+  required SiriVoiceContext context,
+  required SiriVoicePlan plan,
+  required String answer,
+}) {
+  if (!plan.asksNarrow) {
+    return plan;
+  }
+  final reply = parseSpokenFoodReply(answer);
+  if (reply.cancel) {
+    return _stop(SiriVoiceStatus.cancelled, '登録しません');
+  }
+  final traits = FoodNameTraits(
+    animal: plan.narrowAnimal,
+    cut: plan.narrowCut,
+    cook: plan.narrowCook,
+    kind: plan.narrowKind,
+  );
+  final quantityText = plan.pendingQuantityText ?? '';
+  final spokenName = plan.spokenName ?? '';
+  if (reply.unknown) {
+    final pool = plan.narrowFoods.isNotEmpty
+        ? plan.narrowFoods
+        : _recordsForFoodQuery(context, plan.narrowQuery ?? spokenName);
+    if (pool.isEmpty) {
+      return _rescue(spokenName, meal: true);
+    }
+    final picked = representativeFood([
+      for (final food in pool) _narrowItem(food),
+    ], spokenKind: traits.kind);
+    final food = _recordById(pool, picked.id);
+    if (food == null) {
+      return _rescue(spokenName, meal: true);
+    }
+    return _confirmFood(
+      context,
+      foodId: food.id,
+      quantityText: quantityText,
+      known: food,
+    );
+  }
+  final nextTraits = traits.merge(reply.traits);
+  final query = foodSearchQuery(plan.narrowQuery ?? spokenName, nextTraits);
+  final pool = _recordsForFoodQuery(context, query);
+  final foods = pool.isNotEmpty ? pool : plan.narrowFoods;
+  return _presentFoodRecords(
+    context,
+    name: spokenName,
+    quantityText: quantityText,
+    records: foods,
+    traits: nextTraits,
+    roundsAsked: plan.narrowRound,
+    searchQuery: query,
   );
 }
 
@@ -528,6 +613,7 @@ SiriVoicePlan resolveSiriChoice({
       context,
       foodId: choice.id,
       quantityText: quantityText,
+      known: _recordById(plan.narrowFoods, choice.id),
     ),
   };
 }
@@ -610,11 +696,7 @@ SiriVoicePlan? _chooseInterpretation(
         quantityText: winner.quantity,
       );
     }
-    return _classify(
-      context,
-      name: winner.name,
-      quantityText: winner.quantity,
-    );
+    return _classify(context, name: winner.name, quantityText: winner.quantity);
   }
   return _choicePlan(
     name: winners.first.name,
@@ -759,11 +841,7 @@ SiriVoicePlan _plan({
     }
   }
   if (interpretations.length > 1) {
-    final chosen = _chooseInterpretation(
-      context,
-      interpretations,
-      kind,
-    );
+    final chosen = _chooseInterpretation(context, interpretations, kind);
     if (chosen != null) {
       return chosen;
     }
@@ -829,8 +907,13 @@ SiriVoicePlan _planFoodBody(
   if (name.isEmpty) {
     return _stop(SiriVoiceStatus.notFound, '食品名が分かりません');
   }
-  final saved = _rankSavedFoods(context, name);
-  final templates = saved.hits.isNotEmpty
+  final saved = _matchedFoodRecords(
+    context.foods
+        .where((food) => food.source == FoodEntrySource.savedFood)
+        .toList(),
+    name,
+  );
+  final templates = saved.isNotEmpty
       ? SiriMatchResult.none
       : _rankTemplates(
           context.mealTemplates.map(
@@ -842,16 +925,17 @@ SiriVoicePlan _planFoodBody(
           ),
           name,
         );
-  final foods = saved.hits.isNotEmpty
+  final foods = saved.isNotEmpty
       ? saved
       : (templates.hits.isNotEmpty
-            ? SiriMatchResult.none
-            : _rankUnsavedFoods(context, name));
+            ? const <SiriFoodRecord>[]
+            : _recordsForFoodQuery(context, name));
   final templateExact =
       templates.decision == SiriMatchDecision.one &&
       templates.hits.single.matchRank == 0;
+  final foodWinner = _singleFoodWinner(foods, name);
   final foodExact =
-      foods.decision == SiriMatchDecision.one && foods.hits.single.matchRank == 0;
+      foodWinner != null && _bestKeyRank(foodWinner.keys, name) == 0;
   if (templateExact && foodExact) {
     return _choicePlan(
       name: name,
@@ -863,11 +947,12 @@ SiriVoicePlan _planFoodBody(
           kind: 'mealTemplate',
         ),
         SiriSpokenChoice(
-          id: foods.hits.single.id,
-          title: foods.hits.single.speakName,
+          id: foodWinner.id,
+          title: foodWinner.speakName,
           kind: 'food',
         ),
       ],
+      narrowFoods: foods,
     );
   }
   if (templateExact) {
@@ -877,22 +962,21 @@ SiriVoicePlan _planFoodBody(
       quantityText: quantityText,
     );
   }
-  if (foods.decision == SiriMatchDecision.none &&
-      templates.decision == SiriMatchDecision.none) {
+  if (foods.isEmpty && templates.decision == SiriMatchDecision.none) {
     return _rescue(name, meal: true);
   }
-  if (foods.decision == SiriMatchDecision.choices) {
-    return _choicePlan(
+  if (foods.isNotEmpty) {
+    return _presentFoodRecords(
+      context,
       name: name,
       quantityText: quantityText,
-      choices: [
-        for (final hit in foods.hits)
-          SiriSpokenChoice(id: hit.id, title: hit.speakName, kind: 'food'),
-      ],
+      records: foods,
+      traits: traitsFromUtterance(name),
+      roundsAsked: 0,
+      searchQuery: foodSearchQuery(name, traitsFromUtterance(name)),
     );
   }
-  if (foods.decision == SiriMatchDecision.none &&
-      templates.decision == SiriMatchDecision.choices) {
+  if (templates.decision == SiriMatchDecision.choices) {
     return _choicePlan(
       name: name,
       quantityText: quantityText,
@@ -906,17 +990,9 @@ SiriVoicePlan _planFoodBody(
       ],
     );
   }
-  if (foods.decision == SiriMatchDecision.none &&
-      templates.decision == SiriMatchDecision.one) {
-    return _confirmMealTemplate(
-      context,
-      id: templates.hits.single.id,
-      quantityText: quantityText,
-    );
-  }
-  return _confirmFood(
+  return _confirmMealTemplate(
     context,
-    foodId: foods.hits.single.id,
+    id: templates.hits.single.id,
     quantityText: quantityText,
   );
 }
@@ -931,7 +1007,8 @@ SiriVoicePlan _planExerciseBody(
   }
   final templates = _rankTemplates(
     context.workoutTemplates.map(
-      (template) => (id: template.id, speakName: template.speakName, keys: template.keys),
+      (template) =>
+          (id: template.id, speakName: template.speakName, keys: template.keys),
     ),
     name,
   );
@@ -1008,8 +1085,9 @@ SiriVoicePlan _confirmFood(
   required String foodId,
   required String quantityText,
   bool assumeFoodUnit = false,
+  SiriFoodRecord? known,
 }) {
-  final food = _foodById(context, foodId);
+  final food = known ?? _foodById(context, foodId);
   if (food == null) {
     return _rescue(quantityText, meal: true);
   }
@@ -1092,7 +1170,10 @@ SiriVoicePlan _confirmExercise(
       '${activity.displayName}は手入力の種目です',
     );
   }
-  final parsed = _parseExerciseAmount(quantityText, assumeMinutes: assumeMinutes);
+  final parsed = _parseExerciseAmount(
+    quantityText,
+    assumeMinutes: assumeMinutes,
+  );
   if (parsed == null) {
     return SiriVoicePlan._(
       status: SiriVoiceStatus.needsAmount,
@@ -1181,6 +1262,7 @@ SiriVoicePlan _choicePlan({
   required String name,
   required String quantityText,
   required List<SiriSpokenChoice> choices,
+  List<SiriFoodRecord> narrowFoods = const [],
 }) {
   final titles = choices.map((choice) => choice.title).join('、');
   return SiriVoicePlan._(
@@ -1191,7 +1273,233 @@ SiriVoicePlan _choicePlan({
     choices: choices,
     pendingQuantityText: quantityText,
     spokenName: name,
+    narrowFoods: narrowFoods,
   );
+}
+
+SiriVoicePlan _presentFoodRecords(
+  SiriVoiceContext context, {
+  required String name,
+  required String quantityText,
+  required List<SiriFoodRecord> records,
+  required FoodNameTraits traits,
+  required int roundsAsked,
+  required String searchQuery,
+}) {
+  if (records.isEmpty) {
+    return _rescue(name, meal: true);
+  }
+  final winner = _singleFoodWinner(records, name);
+  if (winner != null && !_traitsConflict(winner, traits) && roundsAsked == 0) {
+    return _confirmFood(
+      context,
+      foodId: winner.id,
+      quantityText: quantityText,
+      known: winner,
+    );
+  }
+  final turn = decideSiriFoodTurn(
+    foods: [for (final food in records) _narrowItem(food)],
+    traits: traits,
+    roundsAsked: roundsAsked,
+  );
+  final picked = [
+    for (final item in turn.foods)
+      if (_recordById(records, item.id) != null) _recordById(records, item.id)!,
+  ];
+  if (turn.kind == SiriFoodTurnKind.ask && turn.question != null) {
+    return SiriVoicePlan._(
+      status: SiriVoiceStatus.needsNarrow,
+      spoken: turn.question!,
+      asksConfirmation: false,
+      asksNarrow: true,
+      spokenName: name,
+      pendingQuantityText: quantityText,
+      narrowRound: roundsAsked + 1,
+      narrowAxis: turn.axis,
+      narrowAnimal: turn.traits.animal,
+      narrowCut: turn.traits.cut,
+      narrowCook: turn.traits.cook,
+      narrowKind: turn.traits.kind,
+      narrowQuery: searchQuery,
+      narrowFoods: picked,
+    );
+  }
+  if (turn.kind == SiriFoodTurnKind.choose && picked.length >= 2) {
+    return _choicePlan(
+      name: name,
+      quantityText: quantityText,
+      choices: [
+        for (final food in picked)
+          SiriSpokenChoice(id: food.id, title: food.speakName, kind: 'food'),
+      ],
+      narrowFoods: picked,
+    );
+  }
+  if (picked.isEmpty) {
+    return _rescue(name, meal: true);
+  }
+  final food = picked.first;
+  return _confirmFood(
+    context,
+    foodId: food.id,
+    quantityText: quantityText,
+    known: food,
+  );
+}
+
+bool _traitsConflict(SiriFoodRecord food, FoodNameTraits traits) {
+  final found = traitsOfNarrowItem(_narrowItem(food));
+  if (traits.cook != null && found.cook != traits.cook) {
+    return true;
+  }
+  if (traits.cut != null && found.cut != traits.cut) {
+    return true;
+  }
+  return false;
+}
+
+FoodNarrowItem _narrowItem(SiriFoodRecord food) {
+  return FoodNarrowItem(
+    id: food.id,
+    speakName: food.speakName,
+    officialName: food.officialFoodName,
+    foodCode: food.officialFoodCode,
+  );
+}
+
+SiriFoodRecord? _recordById(List<SiriFoodRecord> foods, String id) {
+  for (final food in foods) {
+    if (food.id == id) {
+      return food;
+    }
+  }
+  return null;
+}
+
+/// 先頭が次より明らかに良いときだけ、その1件。検索結果はその並びを使う。
+SiriFoodRecord? _singleFoodWinner(List<SiriFoodRecord> records, String name) {
+  if (records.isEmpty) {
+    return null;
+  }
+  if (records.length == 1) {
+    return records.first;
+  }
+  final hits = <SiriMatchHit>[];
+  if (records.any((food) => food.searchRank != null)) {
+    for (final food in records) {
+      final rank = food.searchRank;
+      if (rank == null || rank >= 9) {
+        continue;
+      }
+      hits.add(
+        SiriMatchHit(
+          id: food.id,
+          speakName: food.speakName,
+          matchRank: rank,
+          isCandidate: food.isCandidate,
+          candidateRank: food.candidateRank,
+          priority: food.priority,
+          aliasMatched: food.searchAliasMatched,
+        ),
+      );
+    }
+  } else {
+    hits.addAll(_foodHits(records, name));
+  }
+  if (hits.isEmpty) {
+    return records.length == 1 ? records.first : null;
+  }
+  hits.sort(compareSiriHits);
+  if (hits.length == 1 || _isObviousFood(hits.first, hits[1])) {
+    return _recordById(records, hits.first.id);
+  }
+  return null;
+}
+
+bool _isObviousFood(SiriMatchHit top, SiriMatchHit next) {
+  if (top.matchRank < next.matchRank) {
+    return true;
+  }
+  return !top.isCandidate &&
+      next.isCandidate &&
+      top.matchRank == next.matchRank;
+}
+
+List<SiriFoodRecord> _recordsForFoodQuery(
+  SiriVoiceContext context,
+  String name,
+) {
+  final traits = traitsFromUtterance(name);
+  final query = foodSearchQuery(name, traits);
+  final search = context.searchFoods;
+  if (search != null) {
+    var rows = search(query);
+    if (rows.isEmpty && query != name) {
+      rows = search(name);
+    }
+    if (rows.isEmpty) {
+      final stem = dropCookWords(name);
+      if (stem.isNotEmpty && stem != query && stem != name) {
+        rows = search(stem);
+      }
+    }
+    return rows;
+  }
+  if (context.remoteUnavailable) {
+    return _matchedFoodRecords(
+      context.foods
+          .where((food) => food.source == FoodEntrySource.mextSfct)
+          .toList(),
+      name,
+    );
+  }
+  if (context.remoteOfficial.isNotEmpty) {
+    return _preparedFoodRecords(context.remoteOfficial, name);
+  }
+  final local = _matchedFoodRecords(
+    context.foods
+        .where((food) => food.source == FoodEntrySource.mextSfct)
+        .toList(),
+    name,
+  );
+  if (local.isNotEmpty) {
+    return local;
+  }
+  return _preparedFoodRecords(context.remotePublic, name);
+}
+
+List<SiriFoodRecord> _preparedFoodRecords(
+  List<SiriFoodRecord> foods,
+  String name,
+) {
+  if (foods.any((food) => food.searchRank != null)) {
+    return [
+      for (final food in foods)
+        if (food.searchRank != null && food.searchRank! < 9) food,
+    ];
+  }
+  return _matchedFoodRecords(foods, name);
+}
+
+List<SiriFoodRecord> _matchedFoodRecords(
+  List<SiriFoodRecord> foods,
+  String name,
+) {
+  final hits = _foodHits(foods, name)..sort(compareSiriHits);
+  final byId = {for (final food in foods) food.id: food};
+  final seen = <String>{};
+  final ordered = <SiriFoodRecord>[];
+  for (final hit in hits) {
+    if (!seen.add(hit.id)) {
+      continue;
+    }
+    final food = byId[hit.id];
+    if (food != null) {
+      ordered.add(food);
+    }
+  }
+  return ordered;
 }
 
 SiriVoicePlan _rescue(String name, {required bool meal}) {
@@ -1401,10 +1709,10 @@ SiriMatchResult _rankExercisesExact(String name) {
     if (!activity.searchable) {
       continue;
     }
-    final rank = _bestKeyRank(
-      [for (final alias in activity.aliases) FoodSearchNormalizer.normalize(alias)],
-      name,
-    );
+    final rank = _bestKeyRank([
+      for (final alias in activity.aliases)
+        FoodSearchNormalizer.normalize(alias),
+    ], name);
     if (rank >= 9) {
       continue;
     }
@@ -1481,10 +1789,13 @@ SiriQuantity? _parseExerciseAmount(
   if (parsed != null || !assumeMinutes) {
     return parsed;
   }
-  return parseSiriQuantity('${quantityText}分');
+  return parseSiriQuantity('$quantityText分');
 }
 
-bool _exerciseUnitFits(MetActivityDefinition activity, SiriQuantityUnit spoken) {
+bool _exerciseUnitFits(
+  MetActivityDefinition activity,
+  SiriQuantityUnit spoken,
+) {
   return switch (activity.quantityUnit) {
     ExerciseQuantityUnit.durationMin => spoken == SiriQuantityUnit.minutes,
     ExerciseQuantityUnit.distanceKm =>
@@ -1609,23 +1920,23 @@ SiriVoiceResult commitSiriVoice({
   final quantity = plan.quantity;
   if (food != null && quantity != null) {
     final entry = FoodEntry(
-        id: newId(),
-        name: food.speakName,
-        kcalPerBase: food.kcalPerBase,
-        proteinPerBase: food.proteinPerBase,
-        fatPerBase: food.fatPerBase,
-        carbPerBase: food.carbPerBase,
-        baseAmount: food.baseAmount,
-        unitType: food.unit,
-        consumedAmount: quantity.amount,
-        sourceType: food.source,
-        savedFoodId: food.savedFoodId,
-        sourceFoodOwnerUserId: food.sourceOwnerUserId,
-        sourceSavedFoodVersion: food.version,
-        officialFoodCode: food.officialFoodCode,
-        officialFoodName: food.officialFoodName,
-        loggedAt: loggedAt,
-      );
+      id: newId(),
+      name: food.speakName,
+      kcalPerBase: food.kcalPerBase,
+      proteinPerBase: food.proteinPerBase,
+      fatPerBase: food.fatPerBase,
+      carbPerBase: food.carbPerBase,
+      baseAmount: food.baseAmount,
+      unitType: food.unit,
+      consumedAmount: quantity.amount,
+      sourceType: food.source,
+      savedFoodId: food.savedFoodId,
+      sourceFoodOwnerUserId: food.sourceOwnerUserId,
+      sourceSavedFoodVersion: food.version,
+      officialFoodCode: food.officialFoodCode,
+      officialFoodName: food.officialFoodName,
+      loggedAt: loggedAt,
+    );
     return SiriVoiceResult(
       status: SiriVoiceStatus.registered,
       spoken: '登録しました',

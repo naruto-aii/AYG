@@ -12,6 +12,9 @@ class SubscriptionCatalog {
   static const halfYearProductId = 'calonavi_plus_half_year';
   static const yearlyProductId = 'calonavi_plus_yearly';
 
+  /// 実機テストの切替だけが書く商品ID。StoreKit の商品照会には入れない。
+  static const testPurchaseProductId = 'calonavi_plus_test';
+
   static const plusProductIds = <String>{
     monthlyProductId,
     halfYearProductId,
@@ -34,6 +37,11 @@ class SubscriptionCatalog {
 
   static bool isPlusProduct(String productId) {
     return plusProductIds.contains(productId);
+  }
+
+  /// 端末から Supabase へ写す加入。テスト用IDはストア商品ではない。
+  static bool syncsEntitlement(String productId) {
+    return isPlusProduct(productId) || productId == testPurchaseProductId;
   }
 
   static String productIdFor(PlusPlan plan) {

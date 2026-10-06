@@ -2,6 +2,16 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261006140000 calonavi plus test product
+
+実機テスト用の商品ID `calonavi_plus_test` だけを戻す。月額・年額の加入行、表、RLS は残す。2回実行しても失敗しない。
+
+`supabase/rollback/20261006140000_calonavi_plus_test_product_down.sql`
+
+消えるもの:
+
+- `calonavi_plus_entitlements` のうち `product_id = calonavi_plus_test` の行だけ
+
 ## 20261006130000 app screen action share
 
 共有の操作（share_meal / share_streak / share_weight）だけを戻す。画面操作の表は残す。食事、運動、体重の行は消さない。2回実行しても失敗しない。

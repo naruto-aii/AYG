@@ -34,4 +34,10 @@ abstract class SubscriptionRepository {
 
   /// 選んだプランの商品IDでストアの購入を開く。未選択では呼ばない。
   Future<void> purchasePlan(PlusPlan plan);
+
+  /// `--dart-define=CALONAVI_TEST_PURCHASE=true` のビルドだけ true。
+  bool get testPurchaseToggleEnabled => false;
+
+  /// テスト用の有料を消す。フラグが無いビルドでは何もしない。
+  Future<void> clearTestPurchase() async {}
 }

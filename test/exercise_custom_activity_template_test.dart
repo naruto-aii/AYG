@@ -84,13 +84,13 @@ void main() {
       await pumpHost(tester, controller);
       await openForm(tester, controller);
 
-      await enterUnmatchedName(tester, 'ボルダリング');
+      await enterUnmatchedName(tester, 'オリジナル競技');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
       expect(find.text('この名前で登録'), findsNothing);
-      expect(displayName(tester), 'ボルダリング');
+      expect(displayName(tester), 'オリジナル競技');
       expect(find.text('その他（手入力）'), findsWidgets);
     });
 
@@ -105,10 +105,10 @@ void main() {
       await pumpHost(tester, controller);
       await openForm(tester, controller);
 
-      await enterUnmatchedName(tester, 'ボルダリング');
+      await enterUnmatchedName(tester, 'オリジナル競技');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
-      expect(displayName(tester), 'ボルダリング');
+      expect(displayName(tester), 'オリジナル競技');
 
       await tester.enterText(
         find.byKey(ExerciseMetCalculationSection.durationFieldKey),
@@ -123,7 +123,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('テンプレートに追加'), findsOneWidget);
-      expect(find.textContaining('「ボルダリング」をテンプレートに追加しますか？'), findsOneWidget);
+      expect(find.textContaining('「オリジナル競技」をテンプレートに追加しますか？'), findsOneWidget);
       expect(
         tester
             .widget<DesignButton>(find.widgetWithText(DesignButton, 'はい'))
@@ -141,19 +141,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.exerciseEntries, hasLength(1));
-      expect(controller.exerciseEntries.single.name, 'ボルダリング');
+      expect(controller.exerciseEntries.single.name, 'オリジナル競技');
       expect(controller.exerciseEntries.single.activityId, 'custom');
       expect(controller.exerciseEntries.single.durationMin, 30);
       final saved = await controller.listCustomActivityTemplates();
       expect(saved, hasLength(1));
-      expect(saved.single.name, 'ボルダリング');
+      expect(saved.single.name, 'オリジナル競技');
 
       await openForm(tester, controller);
       await tester.tap(
         find.byKey(ExerciseMetCalculationSection.activityMenuKey),
       );
       await tester.pumpAndSettle();
-      final tile = find.widgetWithText(ListTile, 'ボルダリング');
+      final tile = find.widgetWithText(ListTile, 'オリジナル競技');
       expect(tile, findsOneWidget);
       await tester.scrollUntilVisible(
         tile,
@@ -163,7 +163,7 @@ void main() {
       await tester.tap(tile);
       await tester.pumpAndSettle();
 
-      expect(displayName(tester), 'ボルダリング');
+      expect(displayName(tester), 'オリジナル競技');
       expect(
         tester
             .widget<TextFormField>(
@@ -197,7 +197,7 @@ void main() {
       await pumpHost(tester, controller);
       await openForm(tester, controller);
 
-      await enterUnmatchedName(tester, 'ボルダリング');
+      await enterUnmatchedName(tester, 'オリジナル競技');
       await tester.ensureVisible(
         find.byKey(ExerciseMetCalculationSection.customFromQueryKey),
       );
@@ -205,7 +205,7 @@ void main() {
         find.byKey(ExerciseMetCalculationSection.customFromQueryKey),
       );
       await tester.pumpAndSettle();
-      expect(displayName(tester), 'ボルダリング');
+      expect(displayName(tester), 'オリジナル競技');
       expect(find.widgetWithText(ListTile, 'ランニング'), findsNothing);
 
       await tester.enterText(
@@ -223,7 +223,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.exerciseEntries, hasLength(1));
-      expect(controller.exerciseEntries.single.name, 'ボルダリング');
+      expect(controller.exerciseEntries.single.name, 'オリジナル競技');
       expect(await controller.listCustomActivityTemplates(), isEmpty);
 
       await openForm(tester, controller);
@@ -232,7 +232,7 @@ void main() {
         find.byKey(ExerciseMetCalculationSection.activityMenuKey),
       );
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(ListTile, 'ボルダリング'), findsNothing);
+      expect(find.widgetWithText(ListTile, 'オリジナル競技'), findsNothing);
       expect(find.widgetWithText(ListTile, 'ランニング'), findsOneWidget);
     });
 
@@ -247,7 +247,7 @@ void main() {
       await pumpHost(tester, controller);
       await openForm(tester, controller);
 
-      await enterUnmatchedName(tester, 'ボルダリング');
+      await enterUnmatchedName(tester, 'オリジナル競技');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
       await tester.enterText(

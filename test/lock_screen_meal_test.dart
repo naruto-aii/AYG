@@ -344,9 +344,10 @@ void main() {
     expect(find.text('ウィジェット'), findsOneWidget);
     expect(find.text('音声登録'), findsOneWidget);
     expect(find.text('カロナビ+の機能です'), findsOneWidget);
-    expect(find.textContaining('自動では付きません'), findsOneWidget);
-    expect(find.textContaining('左上「編集」'), findsOneWidget);
-    expect(find.textContaining('時刻の上下の枠をタップ'), findsOneWidget);
+    expect(find.text('ウィジェットの置き方'), findsNothing);
+    expect(find.textContaining('自動では付きません'), findsNothing);
+    expect(find.textContaining('左上「編集」'), findsNothing);
+    expect(find.textContaining('時刻の上下の枠をタップ'), findsNothing);
 
     await tester.pumpWidget(
       MaterialApp(

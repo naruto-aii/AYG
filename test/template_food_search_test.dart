@@ -54,11 +54,12 @@ void main() {
     await tester.tap(find.text('食品を追加'));
     await tester.pumpAndSettle();
 
-    expect(find.text('食品を検索'), findsOneWidget);
-    expect(find.text('保存済み・公開食品・食品成分表から探す'), findsOneWidget);
+    expect(find.text('手入力'), findsOneWidget);
     expect(find.text('保存済み食品から追加'), findsOneWidget);
-    expect(find.text('公開食品から追加'), findsOneWidget);
-    expect(find.text('手入力で追加'), findsOneWidget);
+    expect(find.text('食品検索'), findsOneWidget);
+    expect(find.text('保存済み・食品成分表・公開食品から探す'), findsOneWidget);
+    expect(find.text('公開食品から追加'), findsNothing);
+    expect(find.text('食品を検索'), findsNothing);
     controller.dispose();
   });
 
@@ -134,7 +135,7 @@ void main() {
     await tester.ensureVisible(find.text('食品を追加'));
     await tester.tap(find.text('食品を追加'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('食品を検索'));
+    await tester.tap(find.text('食品検索'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
@@ -151,11 +152,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('この食品を追加'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('template-official-amount')),
+      '200',
+    );
     await tester.tap(find.text('この食品を追加'));
     await tester.pumpAndSettle();
 
     expect(find.text('白米'), findsWidgets);
-    expect(find.textContaining('100.0g'), findsOneWidget);
+    expect(find.textContaining('200.0g'), findsOneWidget);
+    // 168 kcal / 100g × 200g
+    expect(find.text('336'), findsWidgets);
     expect(controller.foodEntries, isEmpty);
     controller.dispose();
   });

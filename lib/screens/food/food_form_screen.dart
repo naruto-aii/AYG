@@ -45,8 +45,8 @@ import '../../widgets/food/source_food_update_dialog.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
 import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../../widgets/saved_food/serving_amount_fields.dart';
-import '../saved_food/public_food_search_screen.dart';
 import '../saved_food/saved_food_list_screen.dart';
+import 'meal_food_search_screen.dart';
 import 'barcode_scanner_screen.dart';
 import 'food_form_template_actions.dart';
 import 'food_meal_registration_screen.dart';
@@ -324,13 +324,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     _showMessage('商品情報を取得しました。数量を確認して保存してください。');
   }
 
-  Future<void> _openPublicFoodSearch() async {
+  Future<void> _openFoodSearch() async {
     final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute<Object?>(
-        builder: (context) => PublicFoodSearchScreen(
-          controller: widget.controller,
-          selectForMealEntry: true,
-        ),
+        builder: (context) =>
+            MealFoodSearchScreen(controller: widget.controller),
       ),
     );
     if (!mounted) {
@@ -815,7 +813,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       case 2:
         _openMyFoods();
       case 3:
-        _openPublicFoodSearch();
+        _openFoodSearch();
       case 4:
         _openTemplatePicker();
     }

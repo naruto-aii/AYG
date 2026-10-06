@@ -424,4 +424,10 @@ class _SiriGateway implements SiriVoiceGateway {
 
   @override
   Future<String> readPending() async => pending;
+
+  @override
+  Future<String?> readOpenSearch() async => null;
+
+  @override
+  Future<void> clearOpenSearch() async {}
 }

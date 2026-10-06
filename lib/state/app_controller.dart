@@ -17,6 +17,7 @@ import '../models/exercise_category.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_form_suggestion.dart';
 import '../models/food_entry.dart';
+import '../models/food_entry_source.dart';
 import '../models/goal.dart';
 import '../models/food_status.dart';
 import '../models/food_visibility.dart';
@@ -2937,6 +2938,15 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  SiriOpenSearch? _pendingSiriSearch;
+
+  /// 0件の Siri が残した検索。一度だけ取り出す。
+  SiriOpenSearch? takeSiriOpenSearch() {
+    final pending = _pendingSiriSearch;
+    _pendingSiriSearch = null;
+    return pending;
+  }
+
   Future<void> syncSiriVoiceLogs() async {
     final gateway = _siriVoiceGateway;
     if (gateway == null) {
@@ -2944,6 +2954,12 @@ class AppController extends ChangeNotifier {
     }
     try {
       await _importSiriVoiceLogs(gateway);
+      final openSearch = SiriOpenSearch.decode(await gateway.readOpenSearch());
+      if (openSearch != null) {
+        _pendingSiriSearch = openSearch;
+        await gateway.clearOpenSearch();
+        notifyListeners();
+      }
       await publishSiriVoiceCatalog();
     } catch (error, stackTrace) {
       if (kDebugMode) {
@@ -2981,8 +2997,132 @@ class AppController extends ChangeNotifier {
         supabaseUrl: SupabaseConfig.url,
         supabaseAnonKey: SupabaseConfig.anonKey,
         foods: foods,
+        mealTemplates: await _siriMealTemplates(),
+        workoutTemplates: await _siriWorkoutTemplates(),
       ),
     );
+  }
+
+  Future<List<SiriMealTemplate>> _siriMealTemplates() async {
+    final repository = _mealTemplateRepository;
+    final owner = currentOwnerUserId.trim();
+    if (repository == null || owner.isEmpty) {
+      return const [];
+    }
+    try {
+      final templates = <SiriMealTemplate>[];
+      for (final template in await repository.getAll(owner)) {
+        if (template.deletedAt != null ||
+            template.status != TemplateStatus.active) {
+          continue;
+        }
+        final items = await repository.getItems(
+          ownerUserId: owner,
+          templateId: template.templateId,
+        );
+        if (items.isEmpty) {
+          continue;
+        }
+        templates.add(
+          SiriMealTemplate(
+            id: template.templateId,
+            speakName: template.name,
+            keys: [
+              FoodSearchNormalizer.normalize(template.name),
+              FoodSearchNormalizer.normalize(template.normalizedName),
+            ].where((key) => key.isNotEmpty).toSet().toList(),
+            items: [
+              for (final item in items)
+                if (item.itemDependencyStatus == ItemDependencyStatus.available)
+                  SiriTemplateFood(
+                    consumedAmount: item.consumedAmount,
+                    food: SiriFoodRecord(
+                      id: item.itemId,
+                      speakName: item.name,
+                      keys: [FoodSearchNormalizer.normalize(item.name)],
+                      baseAmount: item.baseAmount,
+                      unit: item.unitType,
+                      source: item.savedFoodId == null
+                          ? FoodEntrySource.manual
+                          : FoodEntrySource.savedFood,
+                      kcalPerBase: item.kcalPerBase,
+                      proteinPerBase: item.proteinPerBase,
+                      fatPerBase: item.fatPerBase,
+                      carbPerBase: item.carbPerBase,
+                      savedFoodId: item.savedFoodId,
+                      sourceOwnerUserId: item.sourceOwnerUserId,
+                    ),
+                  ),
+            ],
+          ),
+        );
+      }
+      return templates.where((template) => template.items.isNotEmpty).toList();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] siri meal templates failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      return const [];
+    }
+  }
+
+  Future<List<SiriWorkoutTemplate>> _siriWorkoutTemplates() async {
+    final repository = _workoutTemplateRepository;
+    final owner = currentOwnerUserId.trim();
+    if (repository == null || owner.isEmpty) {
+      return const [];
+    }
+    try {
+      final templates = <SiriWorkoutTemplate>[];
+      for (final template in await repository.getAll(owner)) {
+        if (template.deletedAt != null ||
+            template.status != WorkoutTemplateStatus.active) {
+          continue;
+        }
+        final items = await repository.getItems(
+          ownerUserId: owner,
+          templateId: template.templateId,
+        );
+        final exercises = <SiriWorkoutTemplateExercise>[];
+        for (final item in items) {
+          final activityId = item.activityId;
+          if (activityId == null || activityId.trim().isEmpty) {
+            continue;
+          }
+          if (item.durationMin <= 0) {
+            continue;
+          }
+          exercises.add(
+            SiriWorkoutTemplateExercise(
+              activityId: activityId,
+              minutes: item.durationMin.toDouble(),
+            ),
+          );
+        }
+        if (exercises.isEmpty) {
+          continue;
+        }
+        templates.add(
+          SiriWorkoutTemplate(
+            id: template.templateId,
+            speakName: template.name,
+            keys: [
+              FoodSearchNormalizer.normalize(template.name),
+              FoodSearchNormalizer.normalize(template.normalizedName),
+            ].where((key) => key.isNotEmpty).toSet().toList(),
+            exercises: exercises,
+          ),
+        );
+      }
+      return templates;
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] siri workout templates failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      return const [];
+    }
   }
 
   Future<void> _importSiriVoiceLogs(SiriVoiceGateway gateway) async {
@@ -3047,10 +3187,22 @@ class AppController extends ChangeNotifier {
               ? button.items
               : const [],
           exercises: button.kind == WidgetPatternKind.exercise
-              ? button.exercises
+              ? [
+                  for (final item in button.exercises) _withWidgetNetKcal(item),
+                ]
               : const [],
         ),
     ];
+  }
+
+  WidgetExercisePattern _withWidgetNetKcal(WidgetExercisePattern item) {
+    final entry = widgetExerciseEntry(
+      pattern: item,
+      weightKg: profile?.weightKg,
+      id: 'widget-kcal',
+      loggedAt: DateTime.now(),
+    );
+    return item.copyWith(netKcal: entry?.netKcal ?? 0);
   }
 
   String? _widgetPatternName(LockScreenMealButtonConfig button) {

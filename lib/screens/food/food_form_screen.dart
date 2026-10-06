@@ -62,6 +62,7 @@ class FoodFormScreen extends StatefulWidget {
     this.initialPublicFood,
     this.initialLoggedAt,
     this.guideFirstMeal = false,
+    this.initialQuery,
   });
 
   final AppController controller;
@@ -72,6 +73,9 @@ class FoodFormScreen extends StatefulWidget {
 
   /// 目標設定の直後だけ、この食事登録画面の上に1件分の案内を載せる。
   final bool guideFirstMeal;
+
+  /// Siri で見つからなかった検索語。名前欄に入れて成分表を探す。
+  final String? initialQuery;
 
   bool get isEditing => entry != null;
 
@@ -133,7 +137,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     _loggedAt = (entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now())
         .toLocal();
     _sourceType = entry?.sourceType ?? FoodEntrySource.manual;
-    _nameController.text = entry?.name ?? '';
+    _nameController.text = entry?.name ?? widget.initialQuery?.trim() ?? '';
     _selectedSavedFoodId = entry?.savedFoodId;
     _sourceFoodOwnerUserId = entry?.sourceFoodOwnerUserId;
     _sourceSavedFoodVersion = entry?.sourceSavedFoodVersion;

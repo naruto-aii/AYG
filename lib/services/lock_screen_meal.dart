@@ -42,6 +42,7 @@ class WidgetExercisePattern {
     required this.sortOrder,
     this.durationMin = 0,
     this.distanceKm,
+    this.netKcal,
   });
 
   final String itemId;
@@ -49,6 +50,9 @@ class WidgetExercisePattern {
   final String name;
   final int durationMin;
   final double? distanceKm;
+
+  /// 今の体重で出した消費。ウィジェットが押した直後に残りカロリーへ足す。
+  final double? netKcal;
   final int sortOrder;
 
   bool get canRegister {
@@ -62,7 +66,7 @@ class WidgetExercisePattern {
     return durationMin > 0;
   }
 
-  WidgetExercisePattern copyWith({String? itemId}) {
+  WidgetExercisePattern copyWith({String? itemId, double? netKcal}) {
     return WidgetExercisePattern(
       itemId: itemId ?? this.itemId,
       activityId: activityId,
@@ -70,8 +74,43 @@ class WidgetExercisePattern {
       sortOrder: sortOrder,
       durationMin: durationMin,
       distanceKm: distanceKm,
+      netKcal: netKcal ?? this.netKcal,
     );
   }
+}
+
+/// ボタンを押した分だけ、ウィジェットの整数表示を動かす。
+///
+/// 摂取と消費は足し、残りは「残り − 摂取増 + 消費増」を 0 未満にしない。
+/// Swift の `LockScreenMealStore.applyFigures` と同じ。
+MealWidgetFigures applyMealWidgetFigures({
+  required MealWidgetFigures figures,
+  required double intakeDelta,
+  required double burnDelta,
+}) {
+  final intakeAdd = intakeDelta.round();
+  final burnAdd = burnDelta.round();
+  final remaining = figures.remainingKcal;
+  return MealWidgetFigures(
+    remainingKcal: remaining == null
+        ? null
+        : (remaining - intakeAdd + burnAdd) < 0
+        ? 0
+        : remaining - intakeAdd + burnAdd,
+    intakeKcal: (figures.intakeKcal ?? 0) + intakeAdd,
+    burnKcal: (figures.burnKcal ?? 0) + burnAdd,
+  );
+}
+
+double mealItemKcal({
+  required double? kcalPerBase,
+  required double baseAmount,
+  required double consumedAmount,
+}) {
+  if (kcalPerBase == null || baseAmount <= 0 || consumedAmount <= 0) {
+    return 0;
+  }
+  return kcalPerBase * consumedAmount / baseAmount;
 }
 
 class LockScreenMealButtonConfig {
@@ -870,6 +909,7 @@ Map<String, Object?> _exerciseJson(WidgetExercisePattern item) {
     'durationMin': item.durationMin,
     'distanceKm': item.distanceKm,
     'sortOrder': item.sortOrder,
+    if (item.netKcal != null) 'netKcal': item.netKcal,
   };
 }
 

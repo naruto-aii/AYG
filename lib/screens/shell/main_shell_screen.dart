@@ -13,6 +13,7 @@ import '../../widgets/design/design_tab_bar.dart';
 import '../../widgets/layout/active_tab_listenable_builder.dart';
 import '../../widgets/layout/app_responsive.dart';
 import '../../widgets/layout/app_sidebar_navigation.dart';
+import '../exercise/exercise_form_screen.dart';
 import '../food/food_form_navigation.dart';
 import '../food/food_tab_screen.dart';
 import '../history/history_calendar_screen.dart';
@@ -55,7 +56,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
     super.initState();
     _tabs = _buildTabs();
     widget.controller.reviewPromptTick.addListener(_onReviewPrompt);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onReviewPrompt());
+    widget.controller.addListener(_onSiriSearch);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onReviewPrompt();
+      _onSiriSearch();
+    });
     widget.controller.recordScreenAction(
       screen: _selected.name,
       action: UsageScreenAction.open,
@@ -93,7 +98,38 @@ class _MainShellScreenState extends State<MainShellScreen> {
   @override
   void dispose() {
     widget.controller.reviewPromptTick.removeListener(_onReviewPrompt);
+    widget.controller.removeListener(_onSiriSearch);
     super.dispose();
+  }
+
+  void _onSiriSearch() {
+    final search = widget.controller.takeSiriOpenSearch();
+    if (search == null || !mounted) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (search.kind == 'exercise') {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) => ExerciseFormScreen(
+              controller: widget.controller,
+              initialName: search.query,
+            ),
+          ),
+        );
+        return;
+      }
+      openFoodFormScreen(
+        context,
+        controller: widget.controller,
+        openFoodFactsService: widget.openFoodFactsService,
+        foodFormBuilder: widget.foodFormBuilder,
+        initialQuery: search.query,
+      );
+    });
   }
 
   List<Widget> _buildTabs() {

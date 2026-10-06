@@ -9,6 +9,11 @@ abstract class SiriVoiceGateway {
   Future<String> readPending();
 
   Future<void> acknowledge(List<String> ids);
+
+  /// 0件のとき Siri が残した検索語。無ければ null。
+  Future<String?> readOpenSearch() async => null;
+
+  Future<void> clearOpenSearch() async {}
 }
 
 class SiriVoiceGatewayImpl implements SiriVoiceGateway {
@@ -34,6 +39,20 @@ class SiriVoiceGatewayImpl implements SiriVoiceGateway {
       return;
     }
     await _invoke('acknowledge', {'ids': ids});
+  }
+
+  @override
+  Future<String?> readOpenSearch() async {
+    final raw = await _invoke('readOpenSearch');
+    if (raw is! String || raw.trim().isEmpty) {
+      return null;
+    }
+    return raw;
+  }
+
+  @override
+  Future<void> clearOpenSearch() async {
+    await _invoke('clearOpenSearch');
   }
 
   Future<Object?> _invoke(String method, [Object? arguments]) async {

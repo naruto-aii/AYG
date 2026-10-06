@@ -26,12 +26,16 @@ void main() {
     bool paid = true,
     double? weightKg = 60,
     List<SiriFoodRecord>? foods,
+    List<SiriMealTemplate> mealTemplates = const [],
+    List<SiriWorkoutTemplate> workoutTemplates = const [],
   }) {
     return SiriVoiceContext(
       paid: paid,
       ownerUserId: 'user-1',
       weightKg: weightKg,
       foods: foods ?? [sasami()],
+      mealTemplates: mealTemplates,
+      workoutTemplates: workoutTemplates,
     );
   }
 
@@ -110,10 +114,11 @@ void main() {
 
       expect(noApp.asksConfirmation, isFalse);
       expect(noApp.spoken, 'アプリ名が無いので登録しません');
-      expect(noKind.spoken, 'ジョギングはkmで指定してください');
-      expect(wrongKind.spoken, 'ささみは見つかりません');
+      expect(noKind.spoken, 'ジョギング30分の運動でいいですね');
+      expect(wrongKind.spoken, contains('ささみは見つかりません'));
+      expect(wrongKind.status, SiriVoiceStatus.rescue);
       expect(finish(noApp, SiriAnswer.yes).registered, isFalse);
-      expect(finish(noKind, SiriAnswer.yes).registered, isFalse);
+      expect(finish(noKind, SiriAnswer.yes).exercise!.durationMin, 30);
       expect(finish(wrongKind, SiriAnswer.yes).registered, isFalse);
     },
   );
@@ -126,18 +131,20 @@ void main() {
     );
 
     expect(plan.asksConfirmation, isFalse);
-    expect(plan.spoken, 'うなぎは見つかりません');
+    expect(plan.status, SiriVoiceStatus.rescue);
+    expect(plan.spoken, contains('うなぎは見つかりません'));
+    expect(plan.searchQuery, 'うなぎ');
     expect(finish(plan, SiriAnswer.yes).food, isNull);
   });
 
-  test('a partial food name is not treated as a match', () {
+  test('a partial food name is not guessed as a match', () {
     final plan = planSiriFood(context: context(), name: 'ささ', quantity: '100g');
 
-    expect(plan.status, SiriVoiceStatus.notFound);
+    expect(plan.status, SiriVoiceStatus.rescue);
     expect(finish(plan, SiriAnswer.yes).registered, isFalse);
   });
 
-  test('two foods with the same name are not guessed', () {
+  test('two foods with the same name are offered as choices', () {
     final plan = planSiriFood(
       context: context(
         foods: [
@@ -157,8 +164,31 @@ void main() {
       quantity: '100g',
     );
 
-    expect(plan.spoken, 'ささみはひとつに決まりません');
+    expect(plan.asksChoice, isTrue);
+    expect(plan.choices, hasLength(2));
+    expect(plan.spoken, contains('どれですか'));
     expect(finish(plan, SiriAnswer.yes).food, isNull);
+
+    final chosen = resolveSiriChoice(
+      context: context(
+        foods: [
+          sasami(),
+          SiriFoodRecord.official(
+            foodCode: '99999',
+            name: '別のささみ',
+            speakName: 'ささみ',
+            matchTexts: const ['ささみ'],
+            baseAmount: 100,
+            unit: FoodUnitType.g,
+            kcalPerBase: 100,
+          ),
+        ],
+      ),
+      plan: plan,
+      choiceId: '11227',
+    );
+    expect(chosen.spoken, 'ささみ100gの食事でいいですね');
+    expect(finish(chosen, SiriAnswer.yes).food!.officialFoodCode, '11227');
   });
 
   test('unpaid speech does not save food or exercise', () {
@@ -200,16 +230,19 @@ void main() {
     expect(saved.food, isNull);
   });
 
-  test('jogging minutes are not converted into a calorie', () {
+  test('jogging minutes use MET and time', () {
     final plan = planSiriExercise(
       context: context(),
       name: 'Hey Siri、カロナビで、運動にジョギングを30分。',
       quantity: '',
     );
 
-    expect(plan.asksConfirmation, isFalse);
-    expect(plan.spoken, 'ジョギングはkmで指定してください');
-    expect(finish(plan, SiriAnswer.yes).exercise, isNull);
+    expect(plan.spoken, 'ジョギング30分の運動でいいですね');
+    final exercise = finish(plan, SiriAnswer.yes).exercise!;
+    expect(exercise.durationMin, 30);
+    expect(exercise.distanceKm, isNull);
+    expect(exercise.metValue, 7.5);
+    expect(exercise.netKcal, closeTo(204.75, 0.001));
   });
 
   test('jogging distance uses the published kilometer formula', () {
@@ -238,7 +271,9 @@ void main() {
       quantity: '20回',
     );
 
-    expect(missing.spoken, '宇宙遊泳は見つかりません');
+    expect(missing.status, SiriVoiceStatus.rescue);
+    expect(missing.spoken, contains('宇宙遊泳は見つかりません'));
+    expect(missing.asksRetry, isTrue);
     expect(manual.spoken, 'スクワットは分で指定してください');
     expect(finish(missing, SiriAnswer.yes).registered, isFalse);
     expect(finish(manual, SiriAnswer.yes).registered, isFalse);
@@ -301,7 +336,8 @@ void main() {
       plan: plan,
       kind: SiriSpokenKind.exercise,
     );
-    expect(resolved.spoken, '宇宙遊泳は見つかりません');
+    expect(resolved.status, SiriVoiceStatus.rescue);
+    expect(resolved.spoken, contains('宇宙遊泳は見つかりません'));
     expect(finish(resolved, SiriAnswer.yes).registered, isFalse);
   });
 
@@ -393,8 +429,261 @@ void main() {
 
       expect(raw, contains('"supabaseAnonKey":""'));
       expect(raw, contains('ジョギング'));
+      expect(raw, contains('"mealTemplates":[]'));
+      expect(raw, contains('"workoutTemplates":[]'));
       expect(raw, isNot(contains('secret')));
-      expect(raw, isNot(contains('template')));
     },
   );
+
+  SiriFoodRecord chicken({
+    required String code,
+    required String speakName,
+    required List<String> keys,
+    bool isCandidate = false,
+    int candidateRank = 100,
+    int priority = 100,
+    String? officialName,
+  }) {
+    return SiriFoodRecord.official(
+      foodCode: code,
+      name: officialName ?? speakName,
+      speakName: speakName,
+      matchTexts: keys,
+      baseAmount: 100,
+      unit: FoodUnitType.g,
+      kcalPerBase: 108,
+      isCandidate: isCandidate,
+      candidateRank: candidateRank,
+      priority: priority,
+    );
+  }
+
+  SiriVoiceContext pantry() {
+    return context(
+      foods: [
+        sasami(),
+        SiriFoodRecord.official(
+          foodCode: '11228',
+          name: '若鶏ささみ（焼き）',
+          speakName: '若鶏ささみ（焼き）',
+          matchTexts: const ['わかどりささみやき'],
+          baseAmount: 100,
+          unit: FoodUnitType.g,
+          kcalPerBase: 125,
+        ),
+        chicken(
+          code: '11220',
+          speakName: '若鶏むね（皮なし・生）',
+          keys: const ['鶏むね', 'とりむね', 'むね肉', 'わかどりむねかわなまなま'],
+          officialName: '若鶏むね（皮なし・生）',
+        ),
+        chicken(
+          code: '11219',
+          speakName: '若鶏むね（皮つき・生）',
+          keys: const ['鶏むね'],
+          isCandidate: true,
+          candidateRank: 1,
+        ),
+        chicken(
+          code: '11287',
+          speakName: '若鶏むね（皮つき・焼き）',
+          keys: const ['鶏むね'],
+          isCandidate: true,
+          candidateRank: 3,
+        ),
+        chicken(
+          code: '11288',
+          speakName: '若鶏むね（皮なし・焼き）',
+          keys: const ['鶏むね'],
+          isCandidate: true,
+          candidateRank: 4,
+        ),
+        SiriFoodRecord.official(
+          foodCode: '01088',
+          name: '精白米めし',
+          speakName: 'ご飯',
+          matchTexts: const ['ご飯', 'ごはん'],
+          baseAmount: 100,
+          unit: FoodUnitType.g,
+          kcalPerBase: 156,
+        ),
+        SiriFoodRecord.official(
+          foodCode: '04046',
+          name: '糸引き納豆',
+          speakName: '納豆',
+          matchTexts: const ['納豆', 'なっとう'],
+          baseAmount: 100,
+          unit: FoodUnitType.g,
+          kcalPerBase: 190,
+        ),
+      ],
+    );
+  }
+
+  test('ささみ100g picks the representative raw tenderloin', () {
+    final plan = planSiriFood(
+      context: pantry(),
+      name: 'ささみ100g',
+      quantity: '',
+    );
+
+    expect(plan.spoken, 'ささみ100gの食事でいいですね');
+    expect(finish(plan, SiriAnswer.yes).food!.officialFoodCode, '11227');
+  });
+
+  test('鶏むね100g and とりむね150グラム pick skinless raw breast', () {
+    final kanji = planSiriFood(
+      context: pantry(),
+      name: '鶏むね100g',
+      quantity: '',
+    );
+    expect(kanji.spoken, '若鶏むね（皮なし・生）100gの食事でいいですね');
+    expect(finish(kanji, SiriAnswer.yes).food!.officialFoodCode, '11220');
+
+    final kana = planSiriFood(
+      context: pantry(),
+      name: 'とりむね150グラム',
+      quantity: '',
+    );
+    expect(kana.spoken, '若鶏むね（皮なし・生）150gの食事でいいですね');
+    expect(finish(kana, SiriAnswer.yes).food!.consumedAmount, 150);
+  });
+
+  test('ご飯大盛り asks how many grams and logs the answer', () {
+    final plan = planSiriFood(
+      context: pantry(),
+      name: 'ご飯大盛り',
+      quantity: '',
+    );
+
+    expect(plan.asksAmount, isTrue);
+    expect(plan.spoken, '何gですか？');
+    expect(finish(plan, SiriAnswer.yes).registered, isFalse);
+
+    final answered = resolveSiriAmount(
+      context: pantry(),
+      plan: plan,
+      amountText: '250',
+    );
+    expect(answered.spoken, 'ご飯250gの食事でいいですね');
+    expect(finish(answered, SiriAnswer.yes).food!.consumedAmount, 250);
+  });
+
+  test('納豆1パック asks how many grams', () {
+    final plan = planSiriFood(
+      context: pantry(),
+      name: '納豆1パック',
+      quantity: '',
+    );
+
+    expect(plan.asksAmount, isTrue);
+    expect(plan.spoken, '何gですか？');
+    final answered = resolveSiriAmount(
+      context: pantry(),
+      plan: plan,
+      amountText: '45g',
+    );
+    expect(answered.spoken, '納豆45gの食事でいいですね');
+  });
+
+  test('プロテイン with no hit asks to retry or open the app', () {
+    final plan = planSiriFood(
+      context: pantry(),
+      name: 'プロテイン',
+      quantity: '30g',
+    );
+
+    expect(plan.status, SiriVoiceStatus.rescue);
+    expect(plan.asksRetry, isTrue);
+    expect(plan.searchQuery, 'プロテイン');
+    expect(plan.spoken, contains('アプリで検索します'));
+    expect(finish(plan, SiriAnswer.yes).registered, isFalse);
+  });
+
+  test('walking 30 minutes and strength training 20 minutes are logged', () {
+    final walk = planSiriExercise(
+      context: context(),
+      name: 'ウォーキング30分',
+      quantity: '',
+    );
+    expect(walk.spoken, 'ウォーキング30分の運動でいいですね');
+    final walked = finish(walk, SiriAnswer.yes).exercise!;
+    expect(walked.activityId, 'walk_brisk');
+    expect(walked.durationMin, 30);
+    expect(walked.distanceKm, isNull);
+    expect(walked.netKcal, closeTo(88.2, 0.001));
+
+    final weights = planSiriExercise(
+      context: context(),
+      name: '筋トレ20分',
+      quantity: '',
+    );
+    expect(weights.spoken, 'ウェイトトレーニング20分の運動でいいですね');
+    final lifted = finish(weights, SiriAnswer.yes).exercise!;
+    expect(lifted.activityId, 'weight_training');
+    expect(lifted.durationMin, 20);
+    expect(lifted.netKcal, closeTo(52.5, 0.001));
+  });
+
+  test('散歩した asks how many minutes', () {
+    final plan = planSiriExercise(
+      context: context(),
+      name: '散歩した',
+      quantity: '',
+    );
+
+    expect(plan.asksAmount, isTrue);
+    expect(plan.spoken, '何分ですか？');
+    final answered = resolveSiriAmount(
+      context: context(),
+      plan: plan,
+      amountText: '15',
+    );
+    expect(answered.spoken, 'ウォーキング15分の運動でいいですね');
+    expect(finish(answered, SiriAnswer.yes).exercise!.activityId, 'walk_brisk');
+  });
+
+  test('a meal template name logs that template', () {
+    final breakfast = SiriMealTemplate(
+      id: 'meal-1',
+      speakName: '朝ごはん',
+      keys: const ['朝ごはん', 'あさごはん'],
+      items: [
+        SiriTemplateFood(food: sasami(), consumedAmount: 80),
+      ],
+    );
+    final plan = planSiriUtterance(
+      context: context(foods: [sasami()], mealTemplates: [breakfast]),
+      name: 'Hey Siri、カロナビで、朝ごはん',
+      quantity: '',
+    );
+
+    expect(plan.spoken, '朝ごはんのテンプレートでいいですね');
+    final saved = finish(plan, SiriAnswer.yes);
+    expect(saved.foods, hasLength(1));
+    expect(saved.foods.single.consumedAmount, 80);
+    expect(saved.foods.single.officialFoodCode, '11227');
+  });
+
+  test('a workout template name logs that template', () {
+    final routine = SiriWorkoutTemplate(
+      id: 'work-1',
+      speakName: '朝の運動',
+      keys: const ['朝の運動', 'あさのうんどう'],
+      exercises: const [
+        SiriWorkoutTemplateExercise(activityId: 'swim_lap', minutes: 20),
+      ],
+    );
+    final plan = planSiriExercise(
+      context: context(workoutTemplates: [routine]),
+      name: '朝の運動',
+      quantity: '',
+    );
+
+    expect(plan.spoken, '朝の運動のテンプレートでいいですね');
+    final saved = finish(plan, SiriAnswer.yes);
+    expect(saved.exercises, hasLength(1));
+    expect(saved.exercises.single.activityId, 'swim_lap');
+    expect(saved.exercises.single.durationMin, 20);
+  });
 }

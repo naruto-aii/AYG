@@ -19,6 +19,42 @@ import 'mocks/mock_authentication_repository.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('widget figures move remaining as soon as a button is logged', () {
+    const before = MealWidgetFigures(
+      remainingKcal: 500,
+      intakeKcal: 1000,
+      burnKcal: 200,
+    );
+    final eaten = applyMealWidgetFigures(
+      figures: before,
+      intakeDelta: 168.4,
+      burnDelta: 0,
+    );
+    expect(eaten.remainingKcal, 332);
+    expect(eaten.intakeKcal, 1168);
+    expect(eaten.burnKcal, 200);
+
+    final moved = applyMealWidgetFigures(
+      figures: eaten,
+      intakeDelta: 0,
+      burnDelta: 88.2,
+    );
+    expect(moved.remainingKcal, 420);
+    expect(moved.burnKcal, 288);
+
+    final clamped = applyMealWidgetFigures(
+      figures: const MealWidgetFigures(
+        remainingKcal: 10,
+        intakeKcal: 0,
+        burnKcal: 0,
+      ),
+      intakeDelta: 50,
+      burnDelta: 0,
+    );
+    expect(clamped.remainingKcal, 0);
+    expect(clamped.intakeKcal, 50);
+  });
+
   final loggedAt = DateTime(2026, 10, 1, 8, 30);
 
   MealTemplateItem rice() {

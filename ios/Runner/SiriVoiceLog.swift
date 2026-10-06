@@ -12,13 +12,15 @@ import Foundation
 /// 食品名と量は、その1つの言葉から今までどおり分ける。
 ///
 /// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
-/// 食事テンプレートの一発登録は作らない。未課金は登録しない。
+/// 食事と運動のテンプレート名でも登録する。未課金は登録しない。公開食品は扱わない。
 /// `openAppWhenRun` は false。判定と書き込みは App Group だけで、アプリが閉じていても Siri が実行する。
-/// 判定の順は Dart の `planSiriUtterance` と同じ。
+/// 名寄せの順は Dart の `pickSiriMatches` と同じ。0件は言い直したあと、検索語を残してアプリを開く。
 /// ショートカットのアイコンは後で差し替える。今はプレースホルダー。
 enum SiriVoiceStore {
   static let catalogKey = "siriVoiceCatalog"
   static let pendingKey = "siriVoicePending"
+  static let openSearchKey = "siriVoiceOpenSearch"
+  static let continueSearchKey = "siriVoiceContinueSearch"
 
   static var defaults: UserDefaults? {
     UserDefaults(suiteName: LockScreenMealStore.appGroupId)
@@ -43,19 +45,65 @@ enum SiriVoiceStore {
   }
 
   static func commit(_ record: [String: Any]) {
+    commitAll([record])
+  }
+
+  static func commitAll(_ records: [[String: Any]]) {
     var pending = readPendingArray()
-    pending.append(record)
+    pending.append(contentsOf: records)
     writePendingArray(pending)
+    var intake = 0.0
+    var burn = 0.0
+    for record in records {
+      if record["kind"] as? String == "food" {
+        intake += LockScreenMealStore.foodKcal([record])
+      } else {
+        burn += LockScreenMealStore.number(record["netKcal"])
+      }
+    }
+    if intake != 0 || burn != 0 {
+      LockScreenMealStore.applyFigures(intakeDelta: intake, burnDelta: burn)
+    }
+  }
+
+  private static func jsonInt(_ value: Any?) -> Int? {
+    if let number = value as? Int {
+      return number
+    }
+    if let number = value as? NSNumber {
+      return number.intValue
+    }
+    return nil
+  }
+
+  private static func jsonBool(_ value: Any?) -> Bool {
+    if let flag = value as? Bool {
+      return flag
+    }
+    if let number = value as? NSNumber {
+      return number.boolValue
+    }
+    return false
   }
 
   struct Plan {
     var spoken: String
     var asksConfirmation: Bool
     var asksKind: Bool = false
+    var asksChoice: Bool = false
+    var asksAmount: Bool = false
+    var asksRetry: Bool = false
     var record: [String: Any]?
+    var records: [[String: Any]] = []
+    var choices: [[String: Any]] = []
     var pendingName: String?
     var pendingAmount: Double?
     var pendingUnit: String?
+    var pendingQuantity: String?
+    var searchQuery: String?
+    var searchKind: String = "food"
+    var intakeKcal: Double = 0
+    var burnKcal: Double = 0
   }
 
   @available(iOS 16.0, *)
@@ -119,16 +167,20 @@ enum SiriVoiceStore {
     if spokenName.isEmpty {
       return stop("内容が分かりません")
     }
-    guard let parsed = parseQuantity(quantity) else {
-      return stop("量が分かりません")
-    }
+    let parsed = parseQuantity(quantity)
     let foodNamed = await mealNamed(spokenName)
     let exerciseNamed = exerciseNamed(spokenName)
     if foodNamed && !exerciseNamed {
-      return await mealPlan(name: spokenName, parsed: parsed)
+      return await mealPlan(name: spokenName, quantityText: quantity, parsed: parsed)
     }
     if exerciseNamed && !foodNamed {
-      return exercisePlan(name: spokenName, parsed: parsed)
+      return exercisePlan(name: spokenName, quantityText: quantity, parsed: parsed)
+    }
+    guard let parsed else {
+      if !foodNamed && !exerciseNamed {
+        return rescue(spokenName)
+      }
+      return stop("量が分かりません")
     }
     return Plan(
       spoken: "\(spokenName)\(formatQuantity(parsed))は、食事ですか、運動ですか",
@@ -137,132 +189,156 @@ enum SiriVoiceStore {
       record: nil,
       pendingName: spokenName,
       pendingAmount: parsed.amount,
-      pendingUnit: parsed.unit
+      pendingUnit: parsed.unit,
+      pendingQuantity: quantity
     )
   }
 
   private static func mealPlan(spoken: String, quantity: String) async -> Plan {
-    guard let parsed = parseQuantity(quantity) else {
-      if cleanName(spoken).isEmpty {
-        return stop("食品名が分かりません")
-      }
-      return stop("量が分かりません")
-    }
-    return await mealPlan(name: cleanName(spoken), parsed: parsed)
-  }
-
-  private static func mealPlan(name: String, parsed: ParsedQuantity) async -> Plan {
+    let name = cleanName(spoken)
+    let parsed = parseQuantity(quantity)
     if name.isEmpty {
       return stop("食品名が分かりません")
     }
-    let key = normalize(name)
-    var matches = foods().filter { food in
-      let keys = food["keys"] as? [String] ?? []
-      return keys.contains(key)
+    return await mealPlan(name: name, quantityText: quantity, parsed: parsed)
+  }
+
+  private static func mealPlan(name: String, parsed: ParsedQuantity) async -> Plan {
+    await mealPlan(name: name, quantityText: formatQuantity(parsed), parsed: parsed)
+  }
+
+  private static func mealPlan(
+    name: String,
+    quantityText: String,
+    parsed: ParsedQuantity?
+  ) async -> Plan {
+    if name.isEmpty {
+      return stop("食品名が分かりません")
     }
-    if matches.isEmpty {
-      matches = await officialFoods(query: name, key: key)
+    let templates = rankTemplates(mealTemplates(), name: name)
+    let foods = await rankFoods(name)
+    let templateExact = templates.count == 1 && (jsonInt(templates[0]["matchRank"]) ?? 9) == 0
+      && isObvious(templates)
+    let foodExact = foods.count == 1 && (jsonInt(foods[0]["matchRank"]) ?? 9) == 0
+      && isObvious(foods)
+    if templateExact && foodExact {
+      return choicePlan(
+        name: name,
+        quantityText: quantityText,
+        choices: [
+          choice(templates[0], kind: "mealTemplate", suffix: "（テンプレート）"),
+          choice(foods[0], kind: "food", suffix: ""),
+        ]
+      )
     }
-    let saved = matches.filter { $0["source"] as? String == "saved_food" }
-    let pool = saved.isEmpty
-      ? matches.filter { $0["source"] as? String == "mext_sfct" }
-      : saved
-    if pool.isEmpty {
-      return stop("\(name)は見つかりません")
+    if templateExact {
+      return confirmMealTemplate(templates[0])
     }
-    let ids = Set(pool.compactMap { $0["id"] as? String })
-    if ids.count != 1 {
-      return stop("\(name)はひとつに決まりません")
+    if foods.isEmpty && templates.isEmpty {
+      return rescue(name, kind: "food")
     }
-    let food = pool[0]
-    let speakName = food["speakName"] as? String ?? name
-    let unit = food["unit"] as? String ?? ""
-    guard foodUnitFits(unit, spoken: parsed.unit) else {
-      return stop("\(speakName)は\(foodUnitLabel(unit))で指定してください")
+    if !isObvious(foods) && foods.count > 1 {
+      return choicePlan(
+        name: name,
+        quantityText: quantityText,
+        choices: foods.prefix(4).map { choice($0, kind: "food", suffix: "") }
+      )
     }
-    return Plan(
-      spoken: "\(speakName)\(formatQuantity(parsed))の食事でいいですね",
-      asksConfirmation: true,
-      record: foodRecord(food, amount: parsed.amount)
-    )
+    if foods.isEmpty && !isObvious(templates) && templates.count > 1 {
+      return choicePlan(
+        name: name,
+        quantityText: quantityText,
+        choices: templates.prefix(4).map { choice($0, kind: "mealTemplate", suffix: "（テンプレート）") }
+      )
+    }
+    if foods.isEmpty, let template = templates.first {
+      return confirmMealTemplate(template)
+    }
+    return confirmFood(foods[0], quantityText: quantityText, parsed: parsed, assumeUnit: false)
   }
 
   private static func exercisePlan(spoken: String, quantity: String) -> Plan {
-    guard let parsed = parseQuantity(quantity) else {
-      if cleanName(spoken).isEmpty {
-        return stop("種目が分かりません")
-      }
-      return stop("量が分かりません")
-    }
-    return exercisePlan(name: cleanName(spoken), parsed: parsed)
-  }
-
-  private static func exercisePlan(name: String, parsed: ParsedQuantity) -> Plan {
+    let name = cleanName(spoken)
     if name.isEmpty {
       return stop("種目が分かりません")
     }
-    let key = normalize(name)
-    let matches = activities().filter { activity in
-      let keys = activity["keys"] as? [String] ?? []
-      return keys.contains(key)
+    return exercisePlan(name: name, quantityText: quantity, parsed: parseQuantity(quantity))
+  }
+
+  private static func exercisePlan(name: String, parsed: ParsedQuantity) -> Plan {
+    exercisePlan(name: name, quantityText: formatQuantity(parsed), parsed: parsed)
+  }
+
+  private static func exercisePlan(
+    name: String,
+    quantityText: String,
+    parsed: ParsedQuantity?
+  ) -> Plan {
+    if name.isEmpty {
+      return stop("種目が分かりません")
     }
-    if matches.isEmpty {
-      return stop("\(name)は見つかりません")
+    let templates = rankTemplates(workoutTemplates(), name: name)
+    let activities = rankExercises(name)
+    let templateExact = templates.count == 1 && (jsonInt(templates[0]["matchRank"]) ?? 9) == 0
+      && isObvious(templates)
+    let activityExact = activities.count == 1 && (jsonInt(activities[0]["matchRank"]) ?? 9) == 0
+      && isObvious(activities)
+    if templateExact && activityExact {
+      return choicePlan(
+        name: name,
+        quantityText: quantityText,
+        choices: [
+          choice(templates[0], kind: "workoutTemplate", suffix: "（テンプレート）"),
+          choice(activities[0], kind: "exercise", suffix: ""),
+        ]
+      )
     }
-    if matches.count != 1 {
-      return stop("\(name)はひとつに決まりません")
+    if templateExact {
+      return confirmWorkoutTemplate(templates[0])
     }
-    let activity = matches[0]
-    let speakName = activity["speakName"] as? String ?? name
-    if (activity["requiresManualKcal"] as? Bool) == true || activity["unit"] as? String == "reps" {
-      return stop("\(speakName)は手入力の種目です")
+    if activities.isEmpty && templates.isEmpty {
+      return rescue(name, kind: "exercise")
     }
-    let unit = activity["unit"] as? String ?? ""
-    let spokenFits = (unit == "durationMin" && parsed.unit == "minutes")
-      || (unit == "distanceKm" && parsed.unit == "kilometers")
-    if !spokenFits {
-      let label = unit == "distanceKm" ? "km" : "分"
-      return stop("\(speakName)は\(label)で指定してください")
+    if !isObvious(activities) && activities.count > 1 {
+      return choicePlan(
+        name: name,
+        quantityText: quantityText,
+        choices: activities.prefix(4).map { choice($0, kind: "exercise", suffix: "") }
+      )
     }
-    let lifestyle = (activity["lifestyleIncluded"] as? Bool) == true
-    if !lifestyle && (weightKg() == nil || (weightKg() ?? 0) <= 0) {
-      return stop("体重が無いので登録できません")
+    if activities.isEmpty, let template = templates.first, templates.count == 1 || isObvious(templates) {
+      return confirmWorkoutTemplate(template)
     }
-    return Plan(
-      spoken: "\(speakName)\(formatQuantity(parsed))の運動でいいですね",
-      asksConfirmation: true,
-      record: exerciseRecord(activity, parsed: parsed)
+    if activities.isEmpty {
+      return choicePlan(
+        name: name,
+        quantityText: quantityText,
+        choices: templates.prefix(4).map { choice($0, kind: "workoutTemplate", suffix: "（テンプレート）") }
+      )
+    }
+    return confirmExercise(
+      activities[0],
+      quantityText: quantityText,
+      parsed: parsed,
+      assumeMinutes: false
     )
   }
 
   private static func mealNamed(_ name: String) async -> Bool {
-    let key = normalize(name)
-    if key.isEmpty {
-      return false
+    if !rankTemplates(mealTemplates(), name: name).isEmpty {
+      return true
     }
-    var matches = foods().filter { food in
-      let keys = food["keys"] as? [String] ?? []
-      return keys.contains(key)
-    }
-    if matches.isEmpty {
-      matches = await officialFoods(query: name, key: key)
-    }
-    let saved = matches.filter { $0["source"] as? String == "saved_food" }
-    let pool = saved.isEmpty
-      ? matches.filter { $0["source"] as? String == "mext_sfct" }
-      : saved
-    return !pool.isEmpty
+    return !(await rankFoods(name)).isEmpty
   }
 
   private static func exerciseNamed(_ name: String) -> Bool {
-    let key = normalize(name)
-    if key.isEmpty {
-      return false
+    if spokenExerciseId(name) != nil {
+      return true
     }
-    return activities().contains { activity in
-      let keys = activity["keys"] as? [String] ?? []
-      return keys.contains(key)
+    if !rankExercises(name).isEmpty {
+      return true
     }
+    return !rankTemplates(workoutTemplates(), name: name).isEmpty
   }
 
   private static func blocked() -> Plan? {
@@ -347,7 +423,33 @@ enum SiriVoiceStore {
     if let weight = weightKg() {
       record["weightKg"] = weight
     }
+    record["netKcal"] = exerciseNetKcal(activity, parsed: parsed)
     return record
+  }
+
+  private static func exerciseNetKcal(_ activity: [String: Any], parsed: ParsedQuantity) -> Double {
+    if (activity["lifestyleIncluded"] as? Bool) == true {
+      return 0
+    }
+    let weight = weightKg() ?? 0
+    if weight <= 0 {
+      return 0
+    }
+    if parsed.unit == "minutes" {
+      let met = LockScreenMealStore.number(activity["met"])
+      if met <= 1 {
+        return 0
+      }
+      return (met - 1) * 3.5 * weight / 200 * parsed.amount
+    }
+    if parsed.unit == "kilometers" {
+      let factor = LockScreenMealStore.number(activity["netKcalPerKgKm"])
+      if factor <= 0 {
+        return 0
+      }
+      return factor * weight * parsed.amount
+    }
+    return 0
   }
 
   private static func copy(_ source: [String: Any], _ key: String, into record: inout [String: Any]) {
@@ -356,7 +458,7 @@ enum SiriVoiceStore {
     }
   }
 
-  private static func officialFoods(query: String, key: String) async -> [[String: Any]] {
+  private static func officialFoodRows(query: String) async -> [[String: Any]] {
     let json = catalog()
     guard json["officialFoodsEnabled"] as? Bool == true,
           let base = json["supabaseUrl"] as? String, !base.isEmpty,
@@ -371,7 +473,7 @@ enum SiriVoiceStore {
     request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.httpBody = try? JSONSerialization.data(withJSONObject: [
-      "p_query": query,
+      "p_query": String(query.prefix(64)),
       "p_limit": 30,
     ])
     guard
@@ -382,32 +484,46 @@ enum SiriVoiceStore {
     else {
       return []
     }
-    var byCode: [String: [String: Any]] = [:]
-    for row in rows {
-      guard let food = officialFood(row, key: key), let id = food["id"] as? String else {
-        continue
-      }
-      byCode[id] = food
-    }
-    return Array(byCode.values)
+    return rows
   }
 
-  private static func officialFood(_ row: [String: Any], key: String) -> [String: Any]? {
+  /// 助詞を除いた言い方も成分表へ投げる。SQL の並びを sqlOrder で残す。
+  /// 2文字以下は完全一致だけを残し、「ささ」で「ささみ」を採らない。
+  private static func officialFoods(query: String) async -> [[String: Any]] {
+    var merged: [String: [String: Any]] = [:]
+    var sequence = 0
+    for variant in queryVariants(query) {
+      let rows = await officialFoodRows(query: variant)
+      for row in rows {
+        guard var food = officialFood(row), let id = food["id"] as? String else {
+          continue
+        }
+        let rank = jsonInt(food["matchRank"]) ?? 9
+        if variant.count < 3, rank > 0 {
+          continue
+        }
+        food["sqlOrder"] = sequence
+        sequence += 1
+        if let current = merged[id] {
+          merged[id] = hitPrecedes(food, current) ? food : current
+        } else {
+          merged[id] = food
+        }
+      }
+    }
+    return merged.values.sorted(by: hitPrecedes)
+  }
+
+  /// SQL が順位づけ済みの行を、完全一致で捨てない。
+  private static func officialFood(_ row: [String: Any]) -> [String: Any]? {
     let name = row["name"] as? String ?? ""
     let display = row["display_name"] as? String ?? ""
     let alias = row["matched_alias"] as? String ?? ""
-    let reading = row["reading"] as? String ?? ""
-    let matched = [alias, display, name, reading].contains { normalize($0) == key && !key.isEmpty }
-    if !matched {
-      return nil
-    }
     let unit = (row["unit_type"] as? String ?? "g").lowercased()
     guard unit == "g" || unit == "ml" else {
       return nil
     }
-    let speak = normalize(alias) == key && !alias.isEmpty
-      ? alias
-      : (normalize(display) == key && !display.isEmpty ? display : name)
+    let speak = !display.isEmpty ? display : (!alias.isEmpty ? alias : name)
     let code = row["food_code"] as? String ?? ""
     if code.isEmpty || speak.isEmpty {
       return nil
@@ -415,12 +531,17 @@ enum SiriVoiceStore {
     var food: [String: Any] = [
       "id": code,
       "speakName": speak,
-      "keys": [key],
+      "keys": [normalize(speak)],
       "baseAmount": row["base_amount"] as? NSNumber ?? 100,
       "unit": unit,
       "source": "mext_sfct",
       "officialFoodCode": code,
       "officialFoodName": name,
+      "matchRank": jsonInt(row["match_rank"]) ?? 9,
+      "isCandidate": jsonBool(row["is_candidate"]),
+      "candidateRank": jsonInt(row["candidate_rank"]) ?? 100,
+      "priority": jsonInt(row["priority"]) ?? 100,
+      "aliasMatched": !alias.isEmpty,
     ]
     if let kcal = row["kcal"] as? NSNumber { food["kcalPerBase"] = kcal }
     if let protein = row["protein_g"] as? NSNumber { food["proteinPerBase"] = protein }
@@ -596,6 +717,9 @@ enum SiriVoiceStore {
         return (cleaned, spokenQuantity)
       }
     }
+    if let vague = splitVagueTail(cleanName(compact)) {
+      return vague
+    }
     return (name, quantity)
   }
 
@@ -705,6 +829,492 @@ enum SiriVoiceStore {
     return code >= 8192 && code <= 8202
   }
 
+  private static func confirmFood(
+    _ food: [String: Any],
+    quantityText: String,
+    parsed: ParsedQuantity?,
+    assumeUnit: Bool
+  ) -> Plan {
+    let speakName = food["speakName"] as? String ?? ""
+    let unit = food["unit"] as? String ?? "g"
+    let amount = parsed ?? (assumeUnit ? parseQuantity(quantityText + foodUnitSuffix(unit)) : nil)
+    guard let amount else {
+      return Plan(
+        spoken: foodAmountQuestion(unit),
+        asksConfirmation: false,
+        asksAmount: true,
+        record: food,
+        pendingName: speakName,
+        pendingQuantity: quantityText
+      )
+    }
+    guard foodUnitFits(unit, spoken: amount.unit) else {
+      return stop("\(speakName)は\(foodUnitLabel(unit))で指定してください")
+    }
+    let record = foodRecord(food, amount: amount.amount)
+    return Plan(
+      spoken: "\(speakName)\(formatQuantity(amount))の食事でいいですね",
+      asksConfirmation: true,
+      record: record,
+      records: [record],
+      intakeKcal: LockScreenMealStore.foodKcal([record])
+    )
+  }
+
+  private static func confirmExercise(
+    _ activity: [String: Any],
+    quantityText: String,
+    parsed: ParsedQuantity?,
+    assumeMinutes: Bool
+  ) -> Plan {
+    let speakName = activity["speakName"] as? String ?? ""
+    if (activity["requiresManualKcal"] as? Bool) == true || activity["unit"] as? String == "reps" {
+      return stop("\(speakName)は手入力の種目です")
+    }
+    let amount = parsed ?? (assumeMinutes ? parseQuantity(quantityText + "分") : nil)
+    guard let amount else {
+      return Plan(
+        spoken: "何分ですか？",
+        asksConfirmation: false,
+        asksAmount: true,
+        record: activity,
+        pendingName: speakName,
+        pendingQuantity: quantityText
+      )
+    }
+    let unit = activity["unit"] as? String ?? ""
+    let minutesOk = unit == "distanceKm" && amount.unit == "minutes"
+    let spokenFits = (unit == "durationMin" && amount.unit == "minutes")
+      || (unit == "distanceKm" && amount.unit == "kilometers")
+      || minutesOk
+    if !spokenFits {
+      let label = unit == "distanceKm" ? "kmか分" : "分"
+      return stop("\(speakName)は\(label)で指定してください")
+    }
+    let lifestyle = (activity["lifestyleIncluded"] as? Bool) == true
+    if !lifestyle && (weightKg() == nil || (weightKg() ?? 0) <= 0) {
+      return stop("体重が無いので登録できません")
+    }
+    let record = exerciseRecord(activity, parsed: amount)
+    let burn = LockScreenMealStore.number(record["netKcal"])
+    return Plan(
+      spoken: "\(speakName)\(formatQuantity(amount))の運動でいいですね",
+      asksConfirmation: true,
+      record: record,
+      records: [record],
+      burnKcal: burn
+    )
+  }
+
+  private static func confirmMealTemplate(_ template: [String: Any]) -> Plan {
+    let items = template["items"] as? [[String: Any]] ?? []
+    if items.isEmpty {
+      return stop("テンプレートの中身がありません")
+    }
+    let speakName = template["speakName"] as? String ?? ""
+    var records: [[String: Any]] = []
+    for item in items {
+      let amount = (item["consumedAmount"] as? NSNumber)?.doubleValue ?? 0
+      if amount <= 0 { continue }
+      records.append(foodRecord(item, amount: amount))
+    }
+    if records.isEmpty {
+      return stop("テンプレートの中身がありません")
+    }
+    return Plan(
+      spoken: "\(speakName)のテンプレートでいいですね",
+      asksConfirmation: true,
+      record: records[0],
+      records: records,
+      intakeKcal: LockScreenMealStore.foodKcal(records)
+    )
+  }
+
+  private static func confirmWorkoutTemplate(_ template: [String: Any]) -> Plan {
+    let items = template["exercises"] as? [[String: Any]] ?? []
+    let speakName = template["speakName"] as? String ?? ""
+    var records: [[String: Any]] = []
+    var burn = 0.0
+    for item in items {
+      let activityId = item["activityId"] as? String ?? ""
+      guard let activity = activities().first(where: { $0["id"] as? String == activityId }) else {
+        continue
+      }
+      let kilometers = (item["kilometers"] as? NSNumber)?.doubleValue ?? 0
+      let minutes = (item["minutes"] as? NSNumber)?.doubleValue ?? 0
+      let parsed: ParsedQuantity?
+      if kilometers > 0 {
+        parsed = ParsedQuantity(amount: kilometers, unit: "kilometers")
+      } else if minutes > 0 {
+        parsed = ParsedQuantity(amount: minutes, unit: "minutes")
+      } else {
+        parsed = nil
+      }
+      guard let parsed else { continue }
+      let lifestyle = (activity["lifestyleIncluded"] as? Bool) == true
+      if !lifestyle && (weightKg() == nil || (weightKg() ?? 0) <= 0) {
+        return stop("体重が無いので登録できません")
+      }
+      let record = exerciseRecord(activity, parsed: parsed)
+      burn += LockScreenMealStore.number(record["netKcal"])
+      records.append(record)
+    }
+    if records.isEmpty {
+      return stop("テンプレートの中身がありません")
+    }
+    return Plan(
+      spoken: "\(speakName)のテンプレートでいいですね",
+      asksConfirmation: true,
+      record: records[0],
+      records: records,
+      burnKcal: burn
+    )
+  }
+
+  @available(iOS 16.0, *)
+  static func resolveChoice(_ plan: Plan, id: String) async -> Plan {
+    guard plan.asksChoice,
+          let choice = plan.choices.first(where: { $0["id"] as? String == id }),
+          let kind = choice["kind"] as? String
+    else {
+      return plan
+    }
+    let quantity = plan.pendingQuantity ?? ""
+    let parsed = parseQuantity(quantity)
+    if kind == "mealTemplate" {
+      if let template = mealTemplates().first(where: { $0["id"] as? String == id }) {
+        return confirmMealTemplate(template)
+      }
+    }
+    if kind == "workoutTemplate" {
+      if let template = workoutTemplates().first(where: { $0["id"] as? String == id }) {
+        return confirmWorkoutTemplate(template)
+      }
+    }
+    if kind == "exercise" {
+      if let activity = activities().first(where: { $0["id"] as? String == id }) {
+        return confirmExercise(activity, quantityText: quantity, parsed: parsed, assumeMinutes: false)
+      }
+    }
+    if let food = foods().first(where: { $0["id"] as? String == id }) {
+      return confirmFood(food, quantityText: quantity, parsed: parsed, assumeUnit: false)
+    }
+    let pool = await rankFoods(plan.pendingName ?? "")
+    if let food = pool.first(where: { $0["id"] as? String == id }) {
+      return confirmFood(food, quantityText: quantity, parsed: parsed, assumeUnit: false)
+    }
+    return rescue(plan.pendingName ?? "")
+  }
+
+  static func resolveAmount(_ plan: Plan, text: String) -> Plan {
+    guard plan.asksAmount, let stored = plan.record else {
+      return plan
+    }
+    if stored["items"] != nil {
+      return confirmMealTemplate(stored)
+    }
+    if stored["activityId"] != nil || stored["unit"] as? String == "durationMin" || stored["unit"] as? String == "distanceKm" {
+      if stored["speakName"] != nil && stored["source"] == nil {
+        return confirmExercise(stored, quantityText: text, parsed: nil, assumeMinutes: true)
+      }
+    }
+    return confirmFood(stored, quantityText: text, parsed: nil, assumeUnit: true)
+  }
+
+  private static func choicePlan(
+    name: String,
+    quantityText: String,
+    choices: [[String: Any]]
+  ) -> Plan {
+    let titles = choices.compactMap { $0["title"] as? String }.joined(separator: "、")
+    return Plan(
+      spoken: "\(name)は次のどれですか。\(titles)",
+      asksConfirmation: false,
+      asksChoice: true,
+      choices: choices,
+      pendingName: name,
+      pendingQuantity: quantityText
+    )
+  }
+
+  private static func rescue(_ name: String, kind: String = "food") -> Plan {
+    let label = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    let spokenName = label.isEmpty ? "それ" : label
+    return Plan(
+      spoken: "\(spokenName)は見つかりません。もう一度言うか、アプリで検索します",
+      asksConfirmation: false,
+      asksRetry: true,
+      searchQuery: spokenName,
+      searchKind: kind,
+      pendingName: spokenName
+    )
+  }
+
+  private static func choice(_ hit: [String: Any], kind: String, suffix: String) -> [String: Any] {
+    let title = (hit["speakName"] as? String ?? "") + suffix
+    return [
+      "id": hit["id"] as? String ?? "",
+      "title": title,
+      "kind": kind,
+    ]
+  }
+
+  private static func isObvious(_ hits: [[String: Any]]) -> Bool {
+    if hits.count <= 1 {
+      return !hits.isEmpty
+    }
+    let top = hits[0]
+    let next = hits[1]
+    let topRank = jsonInt(top["matchRank"]) ?? 9
+    let nextRank = jsonInt(next["matchRank"]) ?? 9
+    if topRank < nextRank {
+      return true
+    }
+    let topCandidate = jsonBool(top["isCandidate"])
+    let nextCandidate = jsonBool(next["isCandidate"])
+    return !topCandidate && nextCandidate && topRank == nextRank
+  }
+
+  private static func rankFoods(_ name: String) async -> [[String: Any]] {
+    let saved = foods().filter { $0["source"] as? String == "saved_food" }
+    let savedHits = rankLocalFoods(saved, name: name)
+    if !savedHits.isEmpty {
+      return savedHits
+    }
+    let localOfficial = rankLocalFoods(
+      foods().filter { $0["source"] as? String == "mext_sfct" },
+      name: name
+    )
+    if !localOfficial.isEmpty {
+      return localOfficial
+    }
+    return await officialFoods(query: name)
+  }
+
+  private static func rankLocalFoods(_ rows: [[String: Any]], name: String) -> [[String: Any]] {
+    var hits: [[String: Any]] = []
+    for row in rows {
+      let keys = row["keys"] as? [String] ?? []
+      let rank = bestRank(keys, name: name)
+      if rank >= 9 { continue }
+      var hit = row
+      hit["matchRank"] = rank
+      hit["isCandidate"] = jsonBool(row["isCandidate"])
+      hit["candidateRank"] = jsonInt(row["candidateRank"]) ?? 100
+      hit["priority"] = jsonInt(row["priority"]) ?? 100
+      hit["aliasMatched"] = rank == 0
+      hits.append(hit)
+    }
+    return hits.sorted(by: hitPrecedes)
+  }
+
+  private static func rankExercises(_ name: String) -> [[String: Any]] {
+    if let id = spokenExerciseId(name),
+       let activity = activities().first(where: { $0["id"] as? String == id }) {
+      var hit = activity
+      hit["matchRank"] = 0
+      hit["isCandidate"] = false
+      return [hit]
+    }
+    var hits: [[String: Any]] = []
+    for activity in activities() {
+      let keys = activity["keys"] as? [String] ?? []
+      let rank = bestRank(keys, name: name)
+      if rank >= 9 { continue }
+      var hit = activity
+      hit["matchRank"] = rank
+      hit["isCandidate"] = false
+      hits.append(hit)
+    }
+    return hits.sorted(by: hitPrecedes)
+  }
+
+  private static func rankTemplates(_ rows: [[String: Any]], name: String) -> [[String: Any]] {
+    var hits: [[String: Any]] = []
+    for row in rows {
+      let keys = row["keys"] as? [String] ?? []
+      let rank = bestRank(keys, name: name)
+      if rank >= 9 { continue }
+      var hit = row
+      hit["matchRank"] = rank
+      hit["isCandidate"] = false
+      hits.append(hit)
+    }
+    return hits.sorted(by: hitPrecedes)
+  }
+
+  private static func bestRank(_ keys: [String], name: String) -> Int {
+    var best = 9
+    for variant in queryVariants(name) {
+      for key in keys {
+        let rank = textRank(haystack: key, needle: variant)
+        if rank < best { best = rank }
+      }
+    }
+    return best
+  }
+
+  private static func textRank(haystack: String, needle: String) -> Int {
+    if haystack.isEmpty || needle.isEmpty { return 9 }
+    if haystack == needle { return 0 }
+    if needle.count < 3 { return 9 }
+    if haystack.hasPrefix(needle) { return 1 }
+    if haystack.contains(needle) { return 2 }
+    return 9
+  }
+
+  private static func queryVariants(_ raw: String) -> [String] {
+    let primary = normalize(raw)
+    if primary.isEmpty { return [] }
+    let stripped = primary.replacingOccurrences(
+      of: "[をのはがにとでも]",
+      with: "",
+      options: .regularExpression
+    )
+    if stripped.isEmpty || stripped == primary { return [primary] }
+    return [primary, stripped]
+  }
+
+  /// Dart の `spokenExerciseActivityIds` と同じ。キーは正規化後。
+  private static func spokenExerciseId(_ raw: String) -> String? {
+    let map = [
+      "さんぽ": "walk_brisk",
+      "散歩": "walk_brisk",
+      "うぉきんぐ": "walk_brisk",
+      "うぉく": "walk_brisk",
+      "歩き": "walk_brisk",
+      "あるき": "walk_brisk",
+      "歩く": "walk_brisk",
+      "あるく": "walk_brisk",
+      "じょぎんぐ": "jogging",
+      "じょぐ": "jogging",
+      "らんにんぐ": "running",
+      "らん": "running",
+      "走り": "running",
+      "はしり": "running",
+      "筋トレ": "weight_training",
+      "きんとれ": "weight_training",
+      "自転車": "cycle_road",
+      "じてんしゃ": "cycle_road",
+      "ちゃり": "cycle_road",
+    ]
+    for variant in queryVariants(raw) {
+      if let id = map[variant] { return id }
+    }
+    return nil
+  }
+
+  private static func hitPrecedes(_ a: [String: Any], _ b: [String: Any]) -> Bool {
+    let rankA = jsonInt(a["matchRank"]) ?? 9
+    let rankB = jsonInt(b["matchRank"]) ?? 9
+    if rankA != rankB { return rankA < rankB }
+    let candA = jsonBool(a["isCandidate"]) ? 1 : 0
+    let candB = jsonBool(b["isCandidate"]) ? 1 : 0
+    if candA != candB { return candA < candB }
+    let orderA = jsonInt(a["candidateRank"]) ?? 100
+    let orderB = jsonInt(b["candidateRank"]) ?? 100
+    if orderA != orderB { return orderA < orderB }
+    let aliasA = jsonBool(a["aliasMatched"]) ? 0 : 1
+    let aliasB = jsonBool(b["aliasMatched"]) ? 0 : 1
+    if aliasA != aliasB { return aliasA < aliasB }
+    let priA = jsonInt(a["priority"]) ?? 100
+    let priB = jsonInt(b["priority"]) ?? 100
+    if priA != priB { return priA < priB }
+    if let sqlA = jsonInt(a["sqlOrder"]), let sqlB = jsonInt(b["sqlOrder"]), sqlA != sqlB {
+      return sqlA < sqlB
+    }
+    let idA = a["id"] as? String ?? ""
+    let idB = b["id"] as? String ?? ""
+    return idA < idB
+  }
+
+  private static func preferHit(_ candidate: [String: Any], _ current: [String: Any]) -> [String: Any] {
+    hitPrecedes(candidate, current) ? candidate : current
+  }
+
+  private static func mealTemplates() -> [[String: Any]] {
+    catalog()["mealTemplates"] as? [[String: Any]] ?? []
+  }
+
+  private static func workoutTemplates() -> [[String: Any]] {
+    catalog()["workoutTemplates"] as? [[String: Any]] ?? []
+  }
+
+  private static func foodAmountQuestion(_ unit: String) -> String {
+    switch unit {
+    case "ml": return "何mlですか？"
+    case "piece": return "何個ですか？"
+    case "serving": return "何食分ですか？"
+    default: return "何gですか？"
+    }
+  }
+
+  private static func foodUnitSuffix(_ unit: String) -> String {
+    switch unit {
+    case "ml": return "ml"
+    case "piece": return "個"
+    case "serving": return "食"
+    default: return "g"
+    }
+  }
+
+  private static let vagueWords = [
+    "大盛り", "おおもり", "大盛", "少なめ", "すくなめ", "半分", "はんぶん",
+    "普通", "ふつう", "多め", "おおめ", "一杯", "いっぱい", "カップ", "かっぷ",
+    "パック", "ぱっく", "袋", "皿", "さら", "杯", "膳", "人前",
+    "ちょっと", "少し", "すこし", "軽く", "かるく", "しました", "やった", "やって", "した",
+  ]
+
+  private static func splitVagueTail(_ raw: String) -> (name: String, quantity: String)? {
+    var compact = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+      .replacingOccurrences(of: " ", with: "")
+      .replacingOccurrences(of: "　", with: "")
+    if let trailing = try? NSRegularExpression(pattern: #"[。．.！!？?]+$"#) {
+      let range = NSRange(compact.startIndex..., in: compact)
+      compact = trailing.stringByReplacingMatches(in: compact, range: range, withTemplate: "")
+    }
+    let words = vagueWords.sorted { $0.count > $1.count }
+    for word in words {
+      if let regex = try? NSRegularExpression(pattern: "(\\d+(?:\\.\\d+)?)\(NSRegularExpression.escapedPattern(for: word))$"),
+         let found = regex.firstMatch(in: compact, range: NSRange(compact.startIndex..., in: compact)),
+         let range = Range(found.range, in: compact),
+         range.lowerBound > compact.startIndex {
+        return (String(compact[..<range.lowerBound]), String(compact[range]))
+      }
+      if compact.hasSuffix(word), compact.count > word.count {
+        return (String(compact.dropLast(word.count)), word)
+      }
+    }
+    return nil
+  }
+
+  static func rememberSearch(kind: String, query: String) {
+    let payload: [String: String] = ["kind": kind, "query": query]
+    guard let data = try? JSONSerialization.data(withJSONObject: payload),
+          let raw = String(data: data, encoding: .utf8)
+    else {
+      return
+    }
+    defaults?.set(raw, forKey: openSearchKey)
+    defaults?.set(true, forKey: continueSearchKey)
+  }
+
+  static func readOpenSearch() -> String {
+    defaults?.string(forKey: openSearchKey) ?? ""
+  }
+
+  static func clearOpenSearch() {
+    defaults?.removeObject(forKey: openSearchKey)
+  }
+
+  static func consumeContinueSearch() -> Bool {
+    let armed = defaults?.bool(forKey: continueSearchKey) ?? false
+    if armed {
+      defaults?.set(false, forKey: continueSearchKey)
+    }
+    return armed
+  }
+
   private static func readPendingArray() -> [[String: Any]] {
     guard
       let raw = defaults?.string(forKey: pendingKey),
@@ -759,7 +1369,7 @@ struct SiriSpokenTextQuery: EntityStringQuery {
 }
 
 @available(iOS 17.0, *)
-struct LogSpokenFoodIntent: AppIntent {
+struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "食事を登録"
   static var description = IntentDescription("食品名と量を復唱し、はいのときだけ今日の食事に1件登録します。")
   static var openAppWhenRun = false
@@ -772,32 +1382,73 @@ struct LogSpokenFoodIntent: AppIntent {
   @Parameter(title: "種類")
   var kind: SiriSpokenKind?
 
+  @Parameter(title: "候補")
+  var choice: SiriChoiceEntity?
+
+  @Parameter(title: "量")
+  var amountReply: String?
+
+  @Parameter(title: "言い直し")
+  var retryReply: String?
+
   init() {
     self.foodName = SiriSpokenText(id: "", text: "")
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    var plan = await SiriVoiceStore.planFood(name: foodName.text, quantity: "")
-    if plan.asksKind {
-      let choice = try await $kind.requestDisambiguation(
-        among: SiriSpokenKind.allCases,
-        dialog: IntentDialog(stringLiteral: plan.spoken)
-      )
-      plan = await SiriVoiceStore.resolveKind(plan, kind: choice)
+    if SiriVoiceStore.consumeContinueSearch() {
+      return .result(dialog: "アプリで検索します")
     }
-    guard plan.asksConfirmation, let record = plan.record else {
+    var plan = await SiriVoiceStore.planFood(name: foodName.text, quantity: "")
+    var retried = false
+    while true {
+      if plan.asksKind {
+        let picked = try await $kind.requestDisambiguation(
+          among: SiriSpokenKind.allCases,
+          dialog: IntentDialog(stringLiteral: plan.spoken)
+        )
+        plan = await SiriVoiceStore.resolveKind(plan, kind: picked)
+      }
+      if plan.asksChoice {
+        let options = SiriChoiceEntity.list(plan.choices)
+        guard !options.isEmpty else {
+          return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+        }
+        let picked = try await $choice.requestDisambiguation(
+          among: options,
+          dialog: IntentDialog(stringLiteral: plan.spoken)
+        )
+        plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
+      }
+      if plan.asksAmount {
+        let text = try await $amountReply.requestValue(IntentDialog(stringLiteral: plan.spoken))
+        plan = SiriVoiceStore.resolveAmount(plan, text: text)
+      }
+      if plan.asksRetry {
+        if retried {
+          SiriVoiceStore.rememberSearch(kind: "food", query: plan.searchQuery ?? foodName.text)
+          throw needsToContinueInForegroundError()
+        }
+        retried = true
+        let again = try await $retryReply.requestValue(IntentDialog(stringLiteral: plan.spoken))
+        plan = await SiriVoiceStore.planFood(name: again, quantity: "")
+        continue
+      }
+      break
+    }
+    guard plan.asksConfirmation, !plan.records.isEmpty else {
       return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
     }
     try await requestConfirmation(
       result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
     )
-    SiriVoiceStore.commit(record)
+    SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
   }
 }
 
 @available(iOS 17.0, *)
-struct LogSpokenExerciseIntent: AppIntent {
+struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "運動を登録"
   static var description = IntentDescription("種目と量を復唱し、はいのときだけ今日の運動に1件登録します。")
   static var openAppWhenRun = false
@@ -810,32 +1461,73 @@ struct LogSpokenExerciseIntent: AppIntent {
   @Parameter(title: "種類")
   var kind: SiriSpokenKind?
 
+  @Parameter(title: "候補")
+  var choice: SiriChoiceEntity?
+
+  @Parameter(title: "量")
+  var amountReply: String?
+
+  @Parameter(title: "言い直し")
+  var retryReply: String?
+
   init() {
     self.activityName = SiriSpokenText(id: "", text: "")
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    if SiriVoiceStore.consumeContinueSearch() {
+      return .result(dialog: "アプリで検索します")
+    }
     var plan = await SiriVoiceStore.planExercise(name: activityName.text, quantity: "")
+    var retried = false
+    while true {
     if plan.asksKind {
-      let choice = try await $kind.requestDisambiguation(
+      let picked = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
         dialog: IntentDialog(stringLiteral: plan.spoken)
       )
-      plan = await SiriVoiceStore.resolveKind(plan, kind: choice)
+      plan = await SiriVoiceStore.resolveKind(plan, kind: picked)
     }
-    guard plan.asksConfirmation, let record = plan.record else {
+    if plan.asksChoice {
+      let options = SiriChoiceEntity.list(plan.choices)
+      let picked = try await $choice.requestDisambiguation(
+        among: options,
+        dialog: IntentDialog(stringLiteral: plan.spoken)
+      )
+      plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
+    }
+    if plan.asksAmount {
+      let text = try await $amountReply.requestValue(IntentDialog(stringLiteral: plan.spoken))
+      plan = SiriVoiceStore.resolveAmount(plan, text: text)
+    }
+    if plan.asksRetry {
+      if retried {
+        SiriVoiceStore.rememberSearch(
+          kind: "exercise",
+          query: plan.searchQuery ?? activityName.text
+        )
+        throw needsToContinueInForegroundError()
+      }
+      retried = true
+      let again = try await $retryReply.requestValue(IntentDialog(stringLiteral: plan.spoken))
+      plan = await SiriVoiceStore.planExercise(name: again, quantity: "")
+      continue
+    }
+    break
+    }
+    guard plan.asksConfirmation, !plan.records.isEmpty else {
       return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
     }
     try await requestConfirmation(
       result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
     )
-    SiriVoiceStore.commit(record)
+    SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
   }
 }
 
 @available(iOS 17.0, *)
-struct LogSpokenEntryIntent: AppIntent {
+struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "食事か運動を登録"
   static var description = IntentDescription("話した内容が食事か運動かを判別し、復唱してはいのときだけ1件登録します。")
   static var openAppWhenRun = false
@@ -848,27 +1540,109 @@ struct LogSpokenEntryIntent: AppIntent {
   @Parameter(title: "種類")
   var kind: SiriSpokenKind?
 
+  @Parameter(title: "候補")
+  var choice: SiriChoiceEntity?
+
+  @Parameter(title: "量")
+  var amountReply: String?
+
+  @Parameter(title: "言い直し")
+  var retryReply: String?
+
   init() {
     self.utterance = SiriSpokenText(id: "", text: "")
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    var plan = await SiriVoiceStore.planUtterance(name: utterance.text, quantity: "")
-    if plan.asksKind {
-      let choice = try await $kind.requestDisambiguation(
-        among: SiriSpokenKind.allCases,
-        dialog: IntentDialog(stringLiteral: plan.spoken)
-      )
-      plan = await SiriVoiceStore.resolveKind(plan, kind: choice)
+    if SiriVoiceStore.consumeContinueSearch() {
+      return .result(dialog: "アプリで検索します")
     }
-    guard plan.asksConfirmation, let record = plan.record else {
+    var plan = await SiriVoiceStore.planUtterance(name: utterance.text, quantity: "")
+    var retried = false
+    while true {
+      if plan.asksKind {
+        let picked = try await $kind.requestDisambiguation(
+          among: SiriSpokenKind.allCases,
+          dialog: IntentDialog(stringLiteral: plan.spoken)
+        )
+        plan = await SiriVoiceStore.resolveKind(plan, kind: picked)
+      }
+      if plan.asksChoice {
+        let options = SiriChoiceEntity.list(plan.choices)
+        guard !options.isEmpty else {
+          return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+        }
+        let picked = try await $choice.requestDisambiguation(
+          among: options,
+          dialog: IntentDialog(stringLiteral: plan.spoken)
+        )
+        plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
+      }
+      if plan.asksAmount {
+        let text = try await $amountReply.requestValue(IntentDialog(stringLiteral: plan.spoken))
+        plan = SiriVoiceStore.resolveAmount(plan, text: text)
+      }
+      if plan.asksRetry {
+        if retried {
+          SiriVoiceStore.rememberSearch(
+            kind: plan.searchKind,
+            query: plan.searchQuery ?? utterance.text
+          )
+          throw needsToContinueInForegroundError()
+        }
+        retried = true
+        let again = try await $retryReply.requestValue(IntentDialog(stringLiteral: plan.spoken))
+        plan = await SiriVoiceStore.planUtterance(name: again, quantity: "")
+        continue
+      }
+      break
+    }
+    guard plan.asksConfirmation, !plan.records.isEmpty else {
       return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
     }
     try await requestConfirmation(
       result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
     )
-    SiriVoiceStore.commit(record)
+    SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
+  }
+}
+
+@available(iOS 16.0, *)
+struct SiriChoiceEntity: AppEntity {
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "候補")
+  static var defaultQuery = SiriChoiceQuery()
+
+  var id: String
+  var title: String
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: LocalizedStringResource(stringLiteral: title))
+  }
+
+  static func list(_ rows: [[String: Any]]) -> [SiriChoiceEntity] {
+    rows.compactMap { row in
+      guard let id = row["id"] as? String, !id.isEmpty else { return nil }
+      let title = row["title"] as? String ?? id
+      return SiriChoiceEntity(id: id, title: title)
+    }
+  }
+}
+
+@available(iOS 16.0, *)
+struct SiriChoiceQuery: EntityStringQuery {
+  func entities(for identifiers: [SiriChoiceEntity.ID]) async throws -> [SiriChoiceEntity] {
+    identifiers.map { SiriChoiceEntity(id: $0, title: $0) }
+  }
+
+  func entities(matching string: String) async throws -> [SiriChoiceEntity] {
+    let text = string.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty else { return [] }
+    return [SiriChoiceEntity(id: text, title: text)]
+  }
+
+  func suggestedEntities() async throws -> [SiriChoiceEntity] {
+    []
   }
 }
 

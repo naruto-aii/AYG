@@ -1,0 +1,7168 @@
+{
+  "version": 1,
+  "frozen_before_mechanism": true,
+  "note": "確認用。このファイルをコミットしたあとは、外れた語を別名として個別に足さない。外れたら検索の仕組みを直す。accept が空の語は、当たらないのが正解。",
+  "official": [
+    {
+      "query": "ご飯",
+      "accept": [
+        "01088"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ごはん",
+      "accept": [
+        "01088"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ゴハン",
+      "accept": [
+        "01088"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "白米",
+      "accept": [
+        "01088"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "白飯",
+      "accept": [
+        "01088"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ライス",
+      "accept": [
+        "01088"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ごはんん",
+      "accept": [
+        "01088"
+      ],
+      "group": "01",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "玄米",
+      "accept": [
+        "01085"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "げんまい",
+      "accept": [
+        "01085"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "おかゆ",
+      "accept": [
+        "01093"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "お粥",
+      "accept": [
+        "01093"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "おにぎり",
+      "accept": [
+        "01111"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "おむすび",
+      "accept": [
+        "01111"
+      ],
+      "group": "01",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "赤飯",
+      "accept": [
+        "01118"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "せきはん",
+      "accept": [
+        "01118"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "餅",
+      "accept": [
+        "01117"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "もち",
+      "accept": [
+        "01117"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "モチ",
+      "accept": [
+        "01117"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "食パン",
+      "accept": [
+        "01026"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しょくぱん",
+      "accept": [
+        "01026"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "フランスパン",
+      "accept": [
+        "01031"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ロールパン",
+      "accept": [
+        "01034"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "クロワッサン",
+      "accept": [
+        "01209",
+        "01035"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "うどん",
+      "accept": [
+        "01039"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ウドン",
+      "accept": [
+        "01039"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "そば",
+      "accept": [
+        "01128"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ソバ",
+      "accept": [
+        "01128"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "そうめん",
+      "accept": [
+        "01044"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "素麺",
+      "accept": [
+        "01044"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ラーメン",
+      "accept": [
+        "01048"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "らーめん",
+      "accept": [
+        "01048"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "中華麺",
+      "accept": [
+        "01048"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "パスタ",
+      "accept": [
+        "01064"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "スパゲティ",
+      "accept": [
+        "01064"
+      ],
+      "group": "01",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "スパゲッティ",
+      "accept": [
+        "01064"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "オートミール",
+      "accept": [
+        "01004"
+      ],
+      "group": "01",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "押麦",
+      "accept": [
+        "01006"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "おしむぎ",
+      "accept": [
+        "01006"
+      ],
+      "group": "01",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "焼きおにぎり",
+      "accept": [
+        "01112"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "七分つき米",
+      "accept": [
+        "01087"
+      ],
+      "group": "01",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "さつまいも",
+      "accept": [
+        "02007",
+        "02008",
+        "02006"
+      ],
+      "group": "02",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "サツマイモ",
+      "accept": [
+        "02007",
+        "02008",
+        "02006"
+      ],
+      "group": "02",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "薩摩芋",
+      "accept": [
+        "02007",
+        "02008",
+        "02006"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "焼き芋",
+      "accept": [
+        "02008"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "じゃがいも",
+      "accept": [
+        "02017",
+        "02019"
+      ],
+      "group": "02",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ジャガイモ",
+      "accept": [
+        "02017",
+        "02019"
+      ],
+      "group": "02",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "馬鈴薯",
+      "accept": [
+        "02017"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "フライドポテト",
+      "accept": [
+        "02020"
+      ],
+      "group": "02",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "さといも",
+      "accept": [
+        "02010",
+        "02011"
+      ],
+      "group": "02",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "里芋",
+      "accept": [
+        "02010",
+        "02011"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ながいも",
+      "accept": [
+        "02023"
+      ],
+      "group": "02",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "長芋",
+      "accept": [
+        "02023"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "山芋",
+      "accept": [
+        "02025"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "こんにゃく",
+      "accept": [
+        "02003",
+        "02004"
+      ],
+      "group": "02",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "蒟蒻",
+      "accept": [
+        "02003",
+        "02004"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しらたき",
+      "accept": [
+        "02005"
+      ],
+      "group": "02",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "白滝",
+      "accept": [
+        "02005"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "はるさめ",
+      "accept": [
+        "02039"
+      ],
+      "group": "02",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "春雨",
+      "accept": [
+        "02039"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "くず",
+      "accept": [
+        "02029"
+      ],
+      "group": "02",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "葛",
+      "accept": [
+        "02029"
+      ],
+      "group": "02",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "マッシュポテト",
+      "accept": [
+        "02021"
+      ],
+      "group": "02",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "じゃがいもお",
+      "accept": [
+        "02017",
+        "02019"
+      ],
+      "group": "02",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "砂糖",
+      "accept": [
+        "03003"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "上白糖",
+      "accept": [
+        "03003"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "じょうはくとう",
+      "accept": [
+        "03003"
+      ],
+      "group": "03",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "三温糖",
+      "accept": [
+        "03004"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "グラニュー糖",
+      "accept": [
+        "03005"
+      ],
+      "group": "03",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "黒砂糖",
+      "accept": [
+        "03001"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "黒糖",
+      "accept": [
+        "03001"
+      ],
+      "group": "03",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "はちみつ",
+      "accept": [
+        "03022"
+      ],
+      "group": "03",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "蜂蜜",
+      "accept": [
+        "03022"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ハチミツ",
+      "accept": [
+        "03022"
+      ],
+      "group": "03",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "メープルシロップ",
+      "accept": [
+        "03023"
+      ],
+      "group": "03",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "角砂糖",
+      "accept": [
+        "03008"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "氷砂糖",
+      "accept": [
+        "03009"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "粉糖",
+      "accept": [
+        "03011"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "和三盆",
+      "accept": [
+        "03002"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "水あめ",
+      "accept": [
+        "03024"
+      ],
+      "group": "03",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "水飴",
+      "accept": [
+        "03024"
+      ],
+      "group": "03",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ざらめ",
+      "accept": [
+        "03005"
+      ],
+      "group": "03",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "さとう",
+      "accept": [
+        "03003"
+      ],
+      "group": "03",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "上白糖う",
+      "accept": [
+        "03003"
+      ],
+      "group": "03",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "黒砂糖あ",
+      "accept": [
+        "03001"
+      ],
+      "group": "03",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "はちみつう",
+      "accept": [
+        "03022"
+      ],
+      "group": "03",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "豆腐",
+      "accept": [
+        "04032"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "とうふ",
+      "accept": [
+        "04032"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "トウフ",
+      "accept": [
+        "04032"
+      ],
+      "group": "04",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "木綿豆腐",
+      "accept": [
+        "04032"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "絹ごし",
+      "accept": [
+        "04033"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "絹ごし豆腐",
+      "accept": [
+        "04033"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "納豆",
+      "accept": [
+        "04046"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "なっとう",
+      "accept": [
+        "04046"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ナットウ",
+      "accept": [
+        "04046"
+      ],
+      "group": "04",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "なっと",
+      "accept": [
+        "04046"
+      ],
+      "group": "04",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "油揚げ",
+      "accept": [
+        "04040",
+        "04039"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "あぶらあげ",
+      "accept": [
+        "04040",
+        "04039"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "厚揚げ",
+      "accept": [
+        "04039"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "生揚げ",
+      "accept": [
+        "04039"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "がんも",
+      "accept": [
+        "04041"
+      ],
+      "group": "04",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "がんもどき",
+      "accept": [
+        "04041"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "高野豆腐",
+      "accept": [
+        "04042"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "凍り豆腐",
+      "accept": [
+        "04042"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "おから",
+      "accept": [
+        "04051"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "豆乳",
+      "accept": [
+        "04052"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "とうにゅう",
+      "accept": [
+        "04052"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "調整豆乳",
+      "accept": [
+        "04053"
+      ],
+      "group": "04",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "きなこ",
+      "accept": [
+        "04029"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "きな粉",
+      "accept": [
+        "04029"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "大豆",
+      "accept": [
+        "04023"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "だいず",
+      "accept": [
+        "04023"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "あずき",
+      "accept": [
+        "04002",
+        "04001"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "小豆",
+      "accept": [
+        "04002",
+        "04001"
+      ],
+      "group": "04",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "いんげん",
+      "accept": [
+        "04008",
+        "04007"
+      ],
+      "group": "04",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "とうふふ",
+      "accept": [
+        "04032"
+      ],
+      "group": "04",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "アーモンド",
+      "accept": [
+        "05001"
+      ],
+      "group": "05",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "あーもんど",
+      "accept": [
+        "05001"
+      ],
+      "group": "05",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "くるみ",
+      "accept": [
+        "05014"
+      ],
+      "group": "05",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "胡桃",
+      "accept": [
+        "05014"
+      ],
+      "group": "05",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "カシューナッツ",
+      "accept": [
+        "05005"
+      ],
+      "group": "05",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ピスタチオ",
+      "accept": [
+        "05026"
+      ],
+      "group": "05",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ピーナッツ",
+      "accept": [
+        "05034",
+        "05035"
+      ],
+      "group": "05",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "落花生",
+      "accept": [
+        "05034",
+        "05035"
+      ],
+      "group": "05",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "らっかせい",
+      "accept": [
+        "05034"
+      ],
+      "group": "05",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ぎんなん",
+      "accept": [
+        "05008"
+      ],
+      "group": "05",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "銀杏",
+      "accept": [
+        "05008"
+      ],
+      "group": "05",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ヘーゼルナッツ",
+      "accept": [
+        "05029"
+      ],
+      "group": "05",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ブラジルナッツ",
+      "accept": [
+        "05028"
+      ],
+      "group": "05",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ペカン",
+      "accept": [
+        "05030"
+      ],
+      "group": "05",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "えごま",
+      "accept": [
+        "05004"
+      ],
+      "group": "05",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "チアシード",
+      "accept": [
+        "05046"
+      ],
+      "group": "05",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ひまわりの種",
+      "accept": [
+        "05027"
+      ],
+      "group": "05",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "かぼちゃの種",
+      "accept": [
+        "05006"
+      ],
+      "group": "05",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "アーモンドド",
+      "accept": [
+        "05001"
+      ],
+      "group": "05",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "くるみい",
+      "accept": [
+        "05014"
+      ],
+      "group": "05",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "ぎんなんん",
+      "accept": [
+        "05008"
+      ],
+      "group": "05",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "ピスタチオオ",
+      "accept": [
+        "05026"
+      ],
+      "group": "05",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "白菜",
+      "accept": [
+        "06233",
+        "06234"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "はくさい",
+      "accept": [
+        "06233",
+        "06234"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ハクサイ",
+      "accept": [
+        "06233",
+        "06234"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "キャベツ",
+      "accept": [
+        "06061"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "きゃべつ",
+      "accept": [
+        "06061"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "トマト",
+      "accept": [
+        "06182"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "とまと",
+      "accept": [
+        "06182"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ミニトマト",
+      "accept": [
+        "06183"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "きゅうり",
+      "accept": [
+        "06065"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "キュウリ",
+      "accept": [
+        "06065"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "胡瓜",
+      "accept": [
+        "06065"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "にんじん",
+      "accept": [
+        "06212"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "人参",
+      "accept": [
+        "06212"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ニンジン",
+      "accept": [
+        "06212"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "たまねぎ",
+      "accept": [
+        "06153"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "玉ねぎ",
+      "accept": [
+        "06153"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "タマネギ",
+      "accept": [
+        "06153"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "大根",
+      "accept": [
+        "06132"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "だいこん",
+      "accept": [
+        "06132"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ほうれん草",
+      "accept": [
+        "06267"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ほうれんそう",
+      "accept": [
+        "06267"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ホウレンソウ",
+      "accept": [
+        "06267"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ねぎ",
+      "accept": [
+        "06226"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "長ねぎ",
+      "accept": [
+        "06226"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ピーマン",
+      "accept": [
+        "06245"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ぴーまん",
+      "accept": [
+        "06245"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "なす",
+      "accept": [
+        "06191"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "茄子",
+      "accept": [
+        "06191"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ナス",
+      "accept": [
+        "06191"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ブロッコリー",
+      "accept": [
+        "06263",
+        "06264"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ぶろっこりー",
+      "accept": [
+        "06263",
+        "06264"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "レタス",
+      "accept": [
+        "06312"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "れたす",
+      "accept": [
+        "06312"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ごぼう",
+      "accept": [
+        "06084"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "牛蒡",
+      "accept": [
+        "06084"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "れんこん",
+      "accept": [
+        "06317"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "蓮根",
+      "accept": [
+        "06317"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "かぼちゃ",
+      "accept": [
+        "06048",
+        "06049"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "南瓜",
+      "accept": [
+        "06048",
+        "06049"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "カボチャ",
+      "accept": [
+        "06048",
+        "06049"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "枝豆",
+      "accept": [
+        "06016",
+        "06015"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "えだまめ",
+      "accept": [
+        "06016",
+        "06015"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "エダマメ",
+      "accept": [
+        "06016",
+        "06015"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "小松菜",
+      "accept": [
+        "06086"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "こまつな",
+      "accept": [
+        "06086"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "春菊",
+      "accept": [
+        "06099"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しゅんぎく",
+      "accept": [
+        "06099"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "チンゲンサイ",
+      "accept": [
+        "06160"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "もやし",
+      "accept": [
+        "06291"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "モヤシ",
+      "accept": [
+        "06291"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "にら",
+      "accept": [
+        "06207"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "韮",
+      "accept": [
+        "06207"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "にんにく",
+      "accept": [
+        "06223"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ニンニク",
+      "accept": [
+        "06223"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "大蒜",
+      "accept": [
+        "06223"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しょうが",
+      "accept": [
+        "06103"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "生姜",
+      "accept": [
+        "06103"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ショウガ",
+      "accept": [
+        "06103"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "アスパラ",
+      "accept": [
+        "06007"
+      ],
+      "group": "06",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "アスパラガス",
+      "accept": [
+        "06007"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "オクラ",
+      "accept": [
+        "06032"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "おくら",
+      "accept": [
+        "06032"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ゴーヤ",
+      "accept": [
+        "06205"
+      ],
+      "group": "06",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "にがうり",
+      "accept": [
+        "06205"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ゴーヤあ",
+      "accept": [
+        "06205"
+      ],
+      "group": "06",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "ズッキーニ",
+      "accept": [
+        "06116"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "たけのこ",
+      "accept": [
+        "06149"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "筍",
+      "accept": [
+        "06149"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しそ",
+      "accept": [
+        "06095"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "大葉",
+      "accept": [
+        "06095"
+      ],
+      "group": "06",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "みょうが",
+      "accept": [
+        "06280"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "茗荷",
+      "accept": [
+        "06280"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ふき",
+      "accept": [
+        "06256"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "蕗",
+      "accept": [
+        "06256"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "セロリ",
+      "accept": [
+        "06119"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "せろり",
+      "accept": [
+        "06119"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "パセリ",
+      "accept": [
+        "06239"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "バジル",
+      "accept": [
+        "06238"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "カリフラワー",
+      "accept": [
+        "06054"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "かいわれ",
+      "accept": [
+        "06128"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "かいわれ大根",
+      "accept": [
+        "06128"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "らっきょう",
+      "accept": [
+        "06305"
+      ],
+      "group": "06",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "辣韮",
+      "accept": [
+        "06305"
+      ],
+      "group": "06",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "はくさいい",
+      "accept": [
+        "06233",
+        "06234"
+      ],
+      "group": "06",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "きゃべつう",
+      "accept": [
+        "06061"
+      ],
+      "group": "06",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "トマトト",
+      "accept": [
+        "06182"
+      ],
+      "group": "06",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "アイスプラント",
+      "accept": [
+        "06402"
+      ],
+      "group": "06",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "バナナ",
+      "accept": [
+        "07107"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ばなな",
+      "accept": [
+        "07107"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ばななな",
+      "accept": [
+        "07107"
+      ],
+      "group": "07",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "りんご",
+      "accept": [
+        "07148"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "リンゴ",
+      "accept": [
+        "07148"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "林檎",
+      "accept": [
+        "07148"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "りんごお",
+      "accept": [
+        "07148"
+      ],
+      "group": "07",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "みかん",
+      "accept": [
+        "07027"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ミカン",
+      "accept": [
+        "07027"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "温州みかん",
+      "accept": [
+        "07027"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "いちご",
+      "accept": [
+        "07012"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "イチゴ",
+      "accept": [
+        "07012"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "苺",
+      "accept": [
+        "07012"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ぶどう",
+      "accept": [
+        "07187"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ブドウ",
+      "accept": [
+        "07187"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "葡萄",
+      "accept": [
+        "07187"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "マスカット",
+      "accept": [
+        "07187"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "柿",
+      "accept": [
+        "07049",
+        "07050"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "かき",
+      "accept": [
+        "07049",
+        "07050",
+        "10292"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "干し柿",
+      "accept": [
+        "07051"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "桃",
+      "accept": [
+        "07136",
+        "07184"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "もも",
+      "accept": [
+        "07136",
+        "07184"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "モモ",
+      "accept": [
+        "07136",
+        "07184"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "スイカ",
+      "accept": [
+        "07077"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "すいか",
+      "accept": [
+        "07077"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "西瓜",
+      "accept": [
+        "07077"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "メロン",
+      "accept": [
+        "07134"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "めろん",
+      "accept": [
+        "07134"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "キウイ",
+      "accept": [
+        "07054"
+      ],
+      "group": "07",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "キウイフルーツ",
+      "accept": [
+        "07054"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "アボカド",
+      "accept": [
+        "07006"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "あぼかど",
+      "accept": [
+        "07006"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "オレンジ",
+      "accept": [
+        "07040"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ネーブル",
+      "accept": [
+        "07040"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "グレープフルーツ",
+      "accept": [
+        "07062"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "パイナップル",
+      "accept": [
+        "07097"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "パイン",
+      "accept": [
+        "07097"
+      ],
+      "group": "07",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "マンゴー",
+      "accept": [
+        "07132"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "まんごー",
+      "accept": [
+        "07132"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "レモン",
+      "accept": [
+        "07155",
+        "07156"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "れもん",
+      "accept": [
+        "07155",
+        "07156"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "梨",
+      "accept": [
+        "07088"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "なし",
+      "accept": [
+        "07088"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ナシ",
+      "accept": [
+        "07088"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "さくらんぼ",
+      "accept": [
+        "07070"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "サクランボ",
+      "accept": [
+        "07070"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ブルーベリー",
+      "accept": [
+        "07124"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "びわ",
+      "accept": [
+        "07114"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "枇杷",
+      "accept": [
+        "07114"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "いちじく",
+      "accept": [
+        "07015"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "無花果",
+      "accept": [
+        "07015"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "すだち",
+      "accept": [
+        "07078"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ゆず",
+      "accept": [
+        "07142"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "柚子",
+      "accept": [
+        "07142"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "かぼす",
+      "accept": [
+        "07052"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "きんかん",
+      "accept": [
+        "07056"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "金柑",
+      "accept": [
+        "07056"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "プルーン",
+      "accept": [
+        "07082",
+        "07081"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "レーズン",
+      "accept": [
+        "07117"
+      ],
+      "group": "07",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "干しぶどう",
+      "accept": [
+        "07117"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ライチ",
+      "accept": [
+        "07144"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ドラゴンフルーツ",
+      "accept": [
+        "07111"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "いよかん",
+      "accept": [
+        "07018"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "はっさく",
+      "accept": [
+        "07105"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "八朔",
+      "accept": [
+        "07105"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ポンカン",
+      "accept": [
+        "07129"
+      ],
+      "group": "07",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "夏みかん",
+      "accept": [
+        "07093"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "すもも",
+      "accept": [
+        "07080"
+      ],
+      "group": "07",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "李",
+      "accept": [
+        "07080"
+      ],
+      "group": "07",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しいたけ",
+      "accept": [
+        "08039"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "椎茸",
+      "accept": [
+        "08039"
+      ],
+      "group": "08",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "シイタケ",
+      "accept": [
+        "08039"
+      ],
+      "group": "08",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "えのき",
+      "accept": [
+        "08001"
+      ],
+      "group": "08",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "えのきたけ",
+      "accept": [
+        "08001"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "エノキ",
+      "accept": [
+        "08001"
+      ],
+      "group": "08",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "しめじ",
+      "accept": [
+        "08016"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ブナシメジ",
+      "accept": [
+        "08016"
+      ],
+      "group": "08",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ぶなしめじ",
+      "accept": [
+        "08016"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "まいたけ",
+      "accept": [
+        "08028"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "舞茸",
+      "accept": [
+        "08028"
+      ],
+      "group": "08",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "マイタケ",
+      "accept": [
+        "08028"
+      ],
+      "group": "08",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "エリンギ",
+      "accept": [
+        "08025"
+      ],
+      "group": "08",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "えりんぎ",
+      "accept": [
+        "08025"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "マッシュルーム",
+      "accept": [
+        "08031"
+      ],
+      "group": "08",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "まっしゅるーむ",
+      "accept": [
+        "08031"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "なめこ",
+      "accept": [
+        "08020"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "滑子",
+      "accept": [
+        "08020"
+      ],
+      "group": "08",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "きくらげ",
+      "accept": [
+        "08006",
+        "08004"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "木耳",
+      "accept": [
+        "08006",
+        "08004"
+      ],
+      "group": "08",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "まつたけ",
+      "accept": [
+        "08034"
+      ],
+      "group": "08",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "松茸",
+      "accept": [
+        "08034"
+      ],
+      "group": "08",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "エリンギい",
+      "accept": [
+        "08025"
+      ],
+      "group": "08",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "しいたけけ",
+      "accept": [
+        "08039"
+      ],
+      "group": "08",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "なめここ",
+      "accept": [
+        "08020"
+      ],
+      "group": "08",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "のり",
+      "accept": [
+        "09004",
+        "09003"
+      ],
+      "group": "09",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "海苔",
+      "accept": [
+        "09004",
+        "09003"
+      ],
+      "group": "09",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "焼きのり",
+      "accept": [
+        "09004"
+      ],
+      "group": "09",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "焼海苔",
+      "accept": [
+        "09004"
+      ],
+      "group": "09",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "味付けのり",
+      "accept": [
+        "09005"
+      ],
+      "group": "09",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "味海苔",
+      "accept": [
+        "09005"
+      ],
+      "group": "09",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "わかめ",
+      "accept": [
+        "09044",
+        "09045"
+      ],
+      "group": "09",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ワカメ",
+      "accept": [
+        "09044",
+        "09045"
+      ],
+      "group": "09",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "若布",
+      "accept": [
+        "09044",
+        "09045"
+      ],
+      "group": "09",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "カットわかめ",
+      "accept": [
+        "09044"
+      ],
+      "group": "09",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "こんぶ",
+      "accept": [
+        "09017"
+      ],
+      "group": "09",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "昆布",
+      "accept": [
+        "09017"
+      ],
+      "group": "09",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "コンブ",
+      "accept": [
+        "09017"
+      ],
+      "group": "09",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ひじき",
+      "accept": [
+        "09050"
+      ],
+      "group": "09",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ヒジキ",
+      "accept": [
+        "09050"
+      ],
+      "group": "09",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鹿尾菜",
+      "accept": [
+        "09050"
+      ],
+      "group": "09",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "もずく",
+      "accept": [
+        "09038",
+        "09037"
+      ],
+      "group": "09",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "モズク",
+      "accept": [
+        "09038",
+        "09037"
+      ],
+      "group": "09",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "あおさ",
+      "accept": [
+        "09001"
+      ],
+      "group": "09",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "あおのり",
+      "accept": [
+        "09002"
+      ],
+      "group": "09",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "青海苔",
+      "accept": [
+        "09002"
+      ],
+      "group": "09",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "わかめめ",
+      "accept": [
+        "09044",
+        "09045"
+      ],
+      "group": "09",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "こんぶう",
+      "accept": [
+        "09017"
+      ],
+      "group": "09",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "ひじきき",
+      "accept": [
+        "09050"
+      ],
+      "group": "09",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "いわし",
+      "accept": [
+        "10047"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "イワシ",
+      "accept": [
+        "10047"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鰯",
+      "accept": [
+        "10047"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "まいわし",
+      "accept": [
+        "10047"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "さば",
+      "accept": [
+        "10154"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "サバ",
+      "accept": [
+        "10154"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鯖",
+      "accept": [
+        "10154"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "あじ",
+      "accept": [
+        "10003"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "アジ",
+      "accept": [
+        "10003"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鯵",
+      "accept": [
+        "10003"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "さんま",
+      "accept": [
+        "10173"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "サンマ",
+      "accept": [
+        "10173"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "秋刀魚",
+      "accept": [
+        "10173"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "たい",
+      "accept": [
+        "10192"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "タイ",
+      "accept": [
+        "10192"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鯛",
+      "accept": [
+        "10192"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "まだい",
+      "accept": [
+        "10192"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "かつお",
+      "accept": [
+        "10087",
+        "10086"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "カツオ",
+      "accept": [
+        "10087",
+        "10086"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鰹",
+      "accept": [
+        "10087",
+        "10086"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "さけ",
+      "accept": [
+        "10134"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "鮭",
+      "accept": [
+        "10134"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しゃけ",
+      "accept": [
+        "10134"
+      ],
+      "group": "10",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "サーモン",
+      "accept": [
+        "10130",
+        "10144"
+      ],
+      "group": "10",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "銀鮭",
+      "accept": [
+        "10130"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "まぐろ",
+      "accept": [
+        "10253",
+        "10255"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "マグロ",
+      "accept": [
+        "10253",
+        "10255"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鮪",
+      "accept": [
+        "10253",
+        "10255"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ツナ",
+      "accept": [
+        "10263",
+        "10264"
+      ],
+      "group": "10",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "つな",
+      "accept": [
+        "10263",
+        "10264"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ツナ缶",
+      "accept": [
+        "10263",
+        "10264"
+      ],
+      "group": "10",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "たこ",
+      "accept": [
+        "10362",
+        "10472"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "タコ",
+      "accept": [
+        "10362",
+        "10472"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "蛸",
+      "accept": [
+        "10362",
+        "10472"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ゆでだこ",
+      "accept": [
+        "10362",
+        "10472"
+      ],
+      "group": "10",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "えび",
+      "accept": [
+        "10321",
+        "10319",
+        "10327",
+        "10328",
+        "10415"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "エビ",
+      "accept": [
+        "10321",
+        "10319",
+        "10327",
+        "10328",
+        "10415"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "海老",
+      "accept": [
+        "10321",
+        "10319",
+        "10327",
+        "10328",
+        "10415"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "車海老",
+      "accept": [
+        "10321"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "甘えび",
+      "accept": [
+        "10319"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "いか",
+      "accept": [
+        "10345"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "イカ",
+      "accept": [
+        "10345"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "烏賊",
+      "accept": [
+        "10345"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "するめいか",
+      "accept": [
+        "10345"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "あかいか",
+      "accept": [
+        "10342"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ほたて",
+      "accept": [
+        "10313",
+        "10311"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ホタテ",
+      "accept": [
+        "10313",
+        "10311"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "帆立",
+      "accept": [
+        "10313",
+        "10311"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "あさり",
+      "accept": [
+        "10281"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "アサリ",
+      "accept": [
+        "10281"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "浅蜊",
+      "accept": [
+        "10281"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しじみ",
+      "accept": [
+        "10297"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "シジミ",
+      "accept": [
+        "10297"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "蛤",
+      "accept": [
+        "10306"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "はまぐり",
+      "accept": [
+        "10306"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ハマグリ",
+      "accept": [
+        "10306"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "牡蠣",
+      "accept": [
+        "10292"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "かきフライ",
+      "accept": [
+        "18055",
+        "10430"
+      ],
+      "group": "10",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ちくわ",
+      "accept": [
+        "10381"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "竹輪",
+      "accept": [
+        "10381"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "かまぼこ",
+      "accept": [
+        "10379"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "蒲鉾",
+      "accept": [
+        "10379"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "はんぺん",
+      "accept": [
+        "10385"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "さつま揚げ",
+      "accept": [
+        "10386"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "薩摩揚げ",
+      "accept": [
+        "10386"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "うなぎ",
+      "accept": [
+        "10070",
+        "10067"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ウナギ",
+      "accept": [
+        "10070",
+        "10067"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鰻",
+      "accept": [
+        "10070",
+        "10067"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "うな丼",
+      "accept": [
+        "10070"
+      ],
+      "group": "10",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ぶり",
+      "accept": [
+        "10241"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ブリ",
+      "accept": [
+        "10241"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鰤",
+      "accept": [
+        "10241"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "はまち",
+      "accept": [
+        "10243",
+        "10411"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ひらめ",
+      "accept": [
+        "10234"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ヒラメ",
+      "accept": [
+        "10234"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "平目",
+      "accept": [
+        "10234"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "明太子",
+      "accept": [
+        "10204"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "めんたいこ",
+      "accept": [
+        "10204"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "たらこ",
+      "accept": [
+        "10202"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "いくら",
+      "accept": [
+        "10140"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "イクラ",
+      "accept": [
+        "10140"
+      ],
+      "group": "10",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "すじこ",
+      "accept": [
+        "10141"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "筋子",
+      "accept": [
+        "10141"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "かつお節",
+      "accept": [
+        "10091"
+      ],
+      "group": "10",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "かつおぶし",
+      "accept": [
+        "10091"
+      ],
+      "group": "10",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "さばあ",
+      "accept": [
+        "10154"
+      ],
+      "group": "10",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "まぐろお",
+      "accept": [
+        "10253",
+        "10255"
+      ],
+      "group": "10",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "豚肉",
+      "accept": [
+        "11115",
+        "11116",
+        "11117",
+        "11119",
+        "11120",
+        "11121",
+        "11123",
+        "11126",
+        "11127",
+        "11129",
+        "11130",
+        "11131",
+        "11134",
+        "11136",
+        "11137",
+        "11138",
+        "11140",
+        "11141",
+        "11142",
+        "11143",
+        "11145",
+        "11146",
+        "11147",
+        "11149",
+        "11150",
+        "11151",
+        "11153",
+        "11154",
+        "11155",
+        "11156",
+        "11158",
+        "11159",
+        "11160",
+        "11162",
+        "11163"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 3
+    },
+    {
+      "query": "ぶたにく",
+      "accept": [
+        "11115",
+        "11116",
+        "11117",
+        "11119",
+        "11120",
+        "11121",
+        "11123",
+        "11126",
+        "11127",
+        "11129",
+        "11130",
+        "11131",
+        "11134",
+        "11136",
+        "11137",
+        "11138",
+        "11140",
+        "11141",
+        "11142",
+        "11143",
+        "11145",
+        "11146",
+        "11147",
+        "11149",
+        "11150",
+        "11151",
+        "11153",
+        "11154",
+        "11155",
+        "11156",
+        "11158",
+        "11159",
+        "11160",
+        "11162",
+        "11163"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 3
+    },
+    {
+      "query": "ブタニク",
+      "accept": [
+        "11115",
+        "11116",
+        "11117",
+        "11119",
+        "11120",
+        "11121",
+        "11123",
+        "11126",
+        "11127",
+        "11129",
+        "11130",
+        "11131",
+        "11134",
+        "11136",
+        "11137",
+        "11138",
+        "11140",
+        "11141",
+        "11142",
+        "11143",
+        "11145",
+        "11146",
+        "11147",
+        "11149",
+        "11150",
+        "11151",
+        "11153",
+        "11154",
+        "11155",
+        "11156",
+        "11158",
+        "11159",
+        "11160",
+        "11162",
+        "11163"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 3
+    },
+    {
+      "query": "牛肉",
+      "accept": [
+        "11004",
+        "11005",
+        "11006",
+        "11008",
+        "11009",
+        "11010",
+        "11011",
+        "11012",
+        "11013",
+        "11015",
+        "11016",
+        "11017",
+        "11018",
+        "11019",
+        "11020",
+        "11021",
+        "11023",
+        "11024",
+        "11025",
+        "11026",
+        "11027",
+        "11028",
+        "11029",
+        "11030",
+        "11031",
+        "11032",
+        "11034",
+        "11035",
+        "11036",
+        "11037",
+        "11040",
+        "11041",
+        "11043",
+        "11044",
+        "11045",
+        "11046",
+        "11047",
+        "11048",
+        "11051",
+        "11053",
+        "11054",
+        "11055",
+        "11056",
+        "11057",
+        "11058",
+        "11059",
+        "11060",
+        "11061",
+        "11062",
+        "11064",
+        "11065",
+        "11066",
+        "11067",
+        "11068",
+        "11069",
+        "11071",
+        "11072",
+        "11073",
+        "11074",
+        "11075",
+        "11076",
+        "11077",
+        "11079",
+        "11080",
+        "11081",
+        "11082",
+        "11083",
+        "11084",
+        "11085",
+        "11254",
+        "11257",
+        "11258",
+        "11260",
+        "11261",
+        "11262",
+        "11265",
+        "11267"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 3
+    },
+    {
+      "query": "ぎゅうにく",
+      "accept": [
+        "11004",
+        "11005",
+        "11006",
+        "11008",
+        "11009",
+        "11010",
+        "11011",
+        "11012",
+        "11013",
+        "11015",
+        "11016",
+        "11017",
+        "11018",
+        "11019",
+        "11020",
+        "11021",
+        "11023",
+        "11024",
+        "11025",
+        "11026",
+        "11027",
+        "11028",
+        "11029",
+        "11030",
+        "11031",
+        "11032",
+        "11034",
+        "11035",
+        "11036",
+        "11037",
+        "11040",
+        "11041",
+        "11043",
+        "11044",
+        "11045",
+        "11046",
+        "11047",
+        "11048",
+        "11051",
+        "11053",
+        "11054",
+        "11055",
+        "11056",
+        "11057",
+        "11058",
+        "11059",
+        "11060",
+        "11061",
+        "11062",
+        "11064",
+        "11065",
+        "11066",
+        "11067",
+        "11068",
+        "11069",
+        "11071",
+        "11072",
+        "11073",
+        "11074",
+        "11075",
+        "11076",
+        "11077",
+        "11079",
+        "11080",
+        "11081",
+        "11082",
+        "11083",
+        "11084",
+        "11085",
+        "11254",
+        "11257",
+        "11258",
+        "11260",
+        "11261",
+        "11262",
+        "11265",
+        "11267"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 3
+    },
+    {
+      "query": "ギューニク",
+      "accept": [
+        "11004",
+        "11005",
+        "11006",
+        "11008",
+        "11009",
+        "11010",
+        "11011",
+        "11012",
+        "11013",
+        "11015",
+        "11016",
+        "11017",
+        "11018",
+        "11019",
+        "11020",
+        "11021",
+        "11023",
+        "11024",
+        "11025",
+        "11026",
+        "11027",
+        "11028",
+        "11029",
+        "11030",
+        "11031",
+        "11032",
+        "11034",
+        "11035",
+        "11036",
+        "11037",
+        "11040",
+        "11041",
+        "11043",
+        "11044",
+        "11045",
+        "11046",
+        "11047",
+        "11048",
+        "11051",
+        "11053",
+        "11054",
+        "11055",
+        "11056",
+        "11057",
+        "11058",
+        "11059",
+        "11060",
+        "11061",
+        "11062",
+        "11064",
+        "11065",
+        "11066",
+        "11067",
+        "11068",
+        "11069",
+        "11071",
+        "11072",
+        "11073",
+        "11074",
+        "11075",
+        "11076",
+        "11077",
+        "11079",
+        "11080",
+        "11081",
+        "11082",
+        "11083",
+        "11084",
+        "11085",
+        "11254",
+        "11257",
+        "11258",
+        "11260",
+        "11261",
+        "11262",
+        "11265",
+        "11267"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 3
+    },
+    {
+      "query": "鶏肉",
+      "accept": [
+        "11220",
+        "11224",
+        "11227",
+        "11219",
+        "11221"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "とりにく",
+      "accept": [
+        "11220",
+        "11224",
+        "11227"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "鶏むね",
+      "accept": [
+        "11220"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "とりむね",
+      "accept": [
+        "11220"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "むね肉",
+      "accept": [
+        "11220"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "胸肉",
+      "accept": [
+        "11220"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ささみ",
+      "accept": [
+        "11227"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ササミ",
+      "accept": [
+        "11227"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "鶏ささみ",
+      "accept": [
+        "11227"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "さささみ",
+      "accept": [
+        "11227"
+      ],
+      "group": "11",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "鶏もも",
+      "accept": [
+        "11224",
+        "11221"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "もも肉",
+      "accept": [
+        "11224",
+        "11221"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "手羽",
+      "accept": [
+        "11218"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "手羽先",
+      "accept": [
+        "11285"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "砂肝",
+      "accept": [
+        "11233"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "すなぎも",
+      "accept": [
+        "11233"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "豚こま",
+      "accept": [
+        "11115",
+        "11116",
+        "11117",
+        "11141",
+        "11142",
+        "11143"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "豚コマ",
+      "accept": [
+        "11115",
+        "11116",
+        "11117",
+        "11141",
+        "11142",
+        "11143"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "豚ロース",
+      "accept": [
+        "11123"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "豚バラ",
+      "accept": [
+        "11129"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "豚ばら",
+      "accept": [
+        "11129"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "豚もも",
+      "accept": [
+        "11130"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "豚ヒレ",
+      "accept": [
+        "11140"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ひき肉",
+      "accept": [
+        "11163",
+        "11089",
+        "11230"
+      ],
+      "group": "11",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "挽肉",
+      "accept": [
+        "11163",
+        "11089",
+        "11230"
+      ],
+      "group": "11",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "豚ひき肉",
+      "accept": [
+        "11163"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "牛ひき肉",
+      "accept": [
+        "11089"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "鶏ひき肉",
+      "accept": [
+        "11230"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "サーロイン",
+      "accept": [
+        "11015",
+        "11071",
+        "11043"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ステーキ",
+      "accept": [
+        "11015",
+        "11071"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "バラ肉",
+      "accept": [
+        "11129",
+        "11018"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ロース",
+      "accept": [
+        "11123",
+        "11015"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ヒレ",
+      "accept": [
+        "11140",
+        "11029"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ハム",
+      "accept": [
+        "11176"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ロースハム",
+      "accept": [
+        "11176"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ベーコン",
+      "accept": [
+        "11183"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ウインナー",
+      "accept": [
+        "11186"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ソーセージ",
+      "accept": [
+        "11186",
+        "11189"
+      ],
+      "group": "11",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ウィンナー",
+      "accept": [
+        "11186"
+      ],
+      "group": "11",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "サラダチキン",
+      "accept": [
+        "11220",
+        "11288"
+      ],
+      "group": "11",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "卵",
+      "accept": [
+        "12004"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "たまご",
+      "accept": [
+        "12004"
+      ],
+      "group": "12",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "タマゴ",
+      "accept": [
+        "12004"
+      ],
+      "group": "12",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "生卵",
+      "accept": [
+        "12004"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ゆで卵",
+      "accept": [
+        "12005"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ゆでたまご",
+      "accept": [
+        "12005"
+      ],
+      "group": "12",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "茹で卵",
+      "accept": [
+        "12005"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "目玉焼き",
+      "accept": [
+        "12021"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "めだまやき",
+      "accept": [
+        "12021"
+      ],
+      "group": "12",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "卵焼き",
+      "accept": [
+        "12018",
+        "12019"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "たまごやき",
+      "accept": [
+        "12018",
+        "12019"
+      ],
+      "group": "12",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "タマゴヤキ",
+      "accept": [
+        "12018",
+        "12019"
+      ],
+      "group": "12",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "だし巻き",
+      "accept": [
+        "12019"
+      ],
+      "group": "12",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "だし巻きたまご",
+      "accept": [
+        "12019"
+      ],
+      "group": "12",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "厚焼き",
+      "accept": [
+        "12018"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "厚焼きたまご",
+      "accept": [
+        "12018"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "卵黄",
+      "accept": [
+        "12010"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "卵白",
+      "accept": [
+        "12014"
+      ],
+      "group": "12",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "うずら卵",
+      "accept": [
+        "12002"
+      ],
+      "group": "12",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ウズラ",
+      "accept": [
+        "12002"
+      ],
+      "group": "12",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "ポーチドエッグ",
+      "accept": [
+        "12006"
+      ],
+      "group": "12",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "たまごご",
+      "accept": [
+        "12004"
+      ],
+      "group": "12",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "ゆでたまごご",
+      "accept": [
+        "12005"
+      ],
+      "group": "12",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "牛乳",
+      "accept": [
+        "13003"
+      ],
+      "group": "13",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ぎゅうにゅう",
+      "accept": [
+        "13003"
+      ],
+      "group": "13",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ギュウニュウ",
+      "accept": [
+        "13003"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ミルク",
+      "accept": [
+        "13003"
+      ],
+      "group": "13",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ぎゅうにゅ",
+      "accept": [
+        "13003"
+      ],
+      "group": "13",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "低脂肪牛乳",
+      "accept": [
+        "13005"
+      ],
+      "group": "13",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ヨーグルト",
+      "accept": [
+        "13025"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "よーぐると",
+      "accept": [
+        "13025"
+      ],
+      "group": "13",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "チーズ",
+      "accept": [
+        "13040"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "プロセスチーズ",
+      "accept": [
+        "13040"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "カマンベール",
+      "accept": [
+        "13034"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "モッツァレラ",
+      "accept": [
+        "13056"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "バター",
+      "accept": [
+        "14017"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "生クリーム",
+      "accept": [
+        "13017",
+        "13014"
+      ],
+      "group": "13",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ホイップクリーム",
+      "accept": [
+        "13017"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "練乳",
+      "accept": [
+        "13012"
+      ],
+      "group": "13",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "脱脂粉乳",
+      "accept": [
+        "13010"
+      ],
+      "group": "13",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "アイス",
+      "accept": [
+        "13043",
+        "13042",
+        "13044",
+        "13045",
+        "13047"
+      ],
+      "group": "13",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "アイスクリーム",
+      "accept": [
+        "13043",
+        "13042"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "あいす",
+      "accept": [
+        "13043",
+        "13042",
+        "13044",
+        "13045",
+        "13047"
+      ],
+      "group": "13",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ソフトクリーム",
+      "accept": [
+        "13047"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "アイスミルク",
+      "accept": [
+        "13044"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ラクトアイス",
+      "accept": [
+        "13045"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "しゃーべっと",
+      "accept": [
+        "13049"
+      ],
+      "group": "13",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "シャーベット",
+      "accept": [
+        "13049"
+      ],
+      "group": "13",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "プロテイン",
+      "accept": [],
+      "group": "13",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ぷろていん",
+      "accept": [],
+      "group": "13",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "オリーブオイル",
+      "accept": [
+        "14001"
+      ],
+      "group": "14",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "オリーブ油",
+      "accept": [
+        "14001"
+      ],
+      "group": "14",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "おりーぶゆ",
+      "accept": [
+        "14001"
+      ],
+      "group": "14",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ごま油",
+      "accept": [
+        "14002"
+      ],
+      "group": "14",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ごまあぶら",
+      "accept": [
+        "14002"
+      ],
+      "group": "14",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "サラダ油",
+      "accept": [
+        "14006",
+        "14008"
+      ],
+      "group": "14",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "なたね油",
+      "accept": [
+        "14008"
+      ],
+      "group": "14",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "菜種油",
+      "accept": [
+        "14008"
+      ],
+      "group": "14",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "こめ油",
+      "accept": [
+        "14003"
+      ],
+      "group": "14",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "米油",
+      "accept": [
+        "14003"
+      ],
+      "group": "14",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "大豆油",
+      "accept": [
+        "14005"
+      ],
+      "group": "14",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "とうもろこし油",
+      "accept": [
+        "14007"
+      ],
+      "group": "14",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "コーン油",
+      "accept": [
+        "14007"
+      ],
+      "group": "14",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ラード",
+      "accept": [
+        "14016"
+      ],
+      "group": "14",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "らーど",
+      "accept": [
+        "14016"
+      ],
+      "group": "14",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "マーガリン",
+      "accept": [
+        "14020"
+      ],
+      "group": "14",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "まーがりん",
+      "accept": [
+        "14020"
+      ],
+      "group": "14",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ショートニング",
+      "accept": [
+        "14022"
+      ],
+      "group": "14",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "有塩バター",
+      "accept": [
+        "14017"
+      ],
+      "group": "14",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "無塩バター",
+      "accept": [
+        "14018"
+      ],
+      "group": "14",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "オリーブオイルル",
+      "accept": [
+        "14001"
+      ],
+      "group": "14",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "ごまあぶらあ",
+      "accept": [
+        "14002"
+      ],
+      "group": "14",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "カステラ",
+      "accept": [
+        "15009"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "かすてら",
+      "accept": [
+        "15009"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ようかん",
+      "accept": [
+        "15038"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "羊羹",
+      "accept": [
+        "15038"
+      ],
+      "group": "15",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "大福",
+      "accept": [
+        "15023"
+      ],
+      "group": "15",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "だいふく",
+      "accept": [
+        "15023"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "どら焼き",
+      "accept": [
+        "15027"
+      ],
+      "group": "15",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "どらやき",
+      "accept": [
+        "15027"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "あんぱん",
+      "accept": [
+        "15069"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "あんパン",
+      "accept": [
+        "15069"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "メロンパン",
+      "accept": [
+        "15132"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "めろんぱん",
+      "accept": [
+        "15132"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "シュークリーム",
+      "accept": [
+        "15073"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "しゅーくりーむ",
+      "accept": [
+        "15073"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ドーナツ",
+      "accept": [
+        "15077"
+      ],
+      "group": "15",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ドーナッツ",
+      "accept": [
+        "15077"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "プリン",
+      "accept": [
+        "15086"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ぷりん",
+      "accept": [
+        "15086"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ポテトチップス",
+      "accept": [
+        "15103"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ポテチ",
+      "accept": [
+        "15103"
+      ],
+      "group": "15",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "ビスケット",
+      "accept": [
+        "15097"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "クッキー",
+      "accept": [
+        "15054"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ガム",
+      "accept": [
+        "15118"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "今川焼",
+      "accept": [
+        "15005"
+      ],
+      "group": "15",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ういろう",
+      "accept": [
+        "15006"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "外郎",
+      "accept": [
+        "15006"
+      ],
+      "group": "15",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "せんべい",
+      "accept": [
+        "15060",
+        "15058",
+        "15057"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "かりんとう",
+      "accept": [
+        "15042"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "まんじゅう",
+      "accept": [
+        "15029"
+      ],
+      "group": "15",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "饅頭",
+      "accept": [
+        "15029"
+      ],
+      "group": "15",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "チョコレート",
+      "accept": [
+        "15114"
+      ],
+      "group": "15",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "チョコ",
+      "accept": [
+        "15114"
+      ],
+      "group": "15",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "カステラあ",
+      "accept": [
+        "15009"
+      ],
+      "group": "15",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "プリンン",
+      "accept": [
+        "15086"
+      ],
+      "group": "15",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "緑茶",
+      "accept": [
+        "16036"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "せん茶",
+      "accept": [
+        "16036"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "煎茶",
+      "accept": [
+        "16036"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ほうじ茶",
+      "accept": [
+        "16040"
+      ],
+      "group": "16",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "焙じ茶",
+      "accept": [
+        "16040"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "麦茶",
+      "accept": [
+        "16055"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "むぎ茶",
+      "accept": [
+        "16055"
+      ],
+      "group": "16",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "紅茶",
+      "accept": [
+        "16043"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "こうちゃ",
+      "accept": [
+        "16043"
+      ],
+      "group": "16",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "コーヒー",
+      "accept": [
+        "16045",
+        "16046"
+      ],
+      "group": "16",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "こーひー",
+      "accept": [
+        "16045",
+        "16046"
+      ],
+      "group": "16",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "インスタントコーヒー",
+      "accept": [
+        "16046"
+      ],
+      "group": "16",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ココア",
+      "accept": [
+        "16048"
+      ],
+      "group": "16",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ここあ",
+      "accept": [
+        "16048"
+      ],
+      "group": "16",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "コーラ",
+      "accept": [
+        "16053"
+      ],
+      "group": "16",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "こーら",
+      "accept": [
+        "16053"
+      ],
+      "group": "16",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ビール",
+      "accept": [
+        "16006"
+      ],
+      "group": "16",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "びーる",
+      "accept": [
+        "16006"
+      ],
+      "group": "16",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "日本酒",
+      "accept": [
+        "16001"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "清酒",
+      "accept": [
+        "16001"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "焼酎",
+      "accept": [
+        "16014"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しょうちゅう",
+      "accept": [
+        "16014"
+      ],
+      "group": "16",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "赤ワイン",
+      "accept": [
+        "16011"
+      ],
+      "group": "16",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "白ワイン",
+      "accept": [
+        "16010"
+      ],
+      "group": "16",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ワイン",
+      "accept": [
+        "16011",
+        "16010"
+      ],
+      "group": "16",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ウイスキー",
+      "accept": [
+        "16016"
+      ],
+      "group": "16",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "玉露",
+      "accept": [
+        "16034",
+        "16033"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "抹茶",
+      "accept": [
+        "16035"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "番茶",
+      "accept": [
+        "16039"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "玄米茶",
+      "accept": [
+        "16041"
+      ],
+      "group": "16",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ウーロン茶",
+      "accept": [
+        "16042"
+      ],
+      "group": "16",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "こーひーー",
+      "accept": [
+        "16045",
+        "16046"
+      ],
+      "group": "16",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "レッドブル",
+      "accept": [],
+      "group": "16",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "しょうゆ",
+      "accept": [
+        "17007"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "醤油",
+      "accept": [
+        "17007"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しょう油",
+      "accept": [
+        "17007"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "こいくちしょうゆ",
+      "accept": [
+        "17007"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "薄口醤油",
+      "accept": [
+        "17008"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "うすくちしょうゆ",
+      "accept": [
+        "17008"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "塩",
+      "accept": [
+        "17012",
+        "17014"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しお",
+      "accept": [
+        "17012",
+        "17014"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "食塩",
+      "accept": [
+        "17012"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "酢",
+      "accept": [
+        "17016",
+        "17015"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "す",
+      "accept": [
+        "17016",
+        "17015"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "米酢",
+      "accept": [
+        "17016"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "穀物酢",
+      "accept": [
+        "17015"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "黒酢",
+      "accept": [
+        "17090"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ポン酢",
+      "accept": [
+        "17110"
+      ],
+      "group": "17",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ぽん酢",
+      "accept": [
+        "17110"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "みりん",
+      "accept": [
+        "16025"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "本みりん",
+      "accept": [
+        "16025"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "料理酒",
+      "accept": [
+        "17138"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "味噌",
+      "accept": [
+        "17049",
+        "17050"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "みそ",
+      "accept": [
+        "17049",
+        "17050"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "味噌汁",
+      "accept": [
+        "17049",
+        "17050"
+      ],
+      "group": "17",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "みそしる",
+      "accept": [
+        "17049",
+        "17050"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "顆粒だし",
+      "accept": [
+        "17028"
+      ],
+      "group": "17",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "和風だし",
+      "accept": [
+        "17028"
+      ],
+      "group": "17",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "鶏がらスープ",
+      "accept": [
+        "17024"
+      ],
+      "group": "17",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "めんつゆ",
+      "accept": [
+        "17029"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "麺つゆ",
+      "accept": [
+        "17029"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ケチャップ",
+      "accept": [
+        "17036"
+      ],
+      "group": "17",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "トマトケチャップ",
+      "accept": [
+        "17036"
+      ],
+      "group": "17",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "マヨネーズ",
+      "accept": [
+        "17042"
+      ],
+      "group": "17",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "マヨ",
+      "accept": [
+        "17042"
+      ],
+      "group": "17",
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "まよねーず",
+      "accept": [
+        "17042"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ウスターソース",
+      "accept": [
+        "17001"
+      ],
+      "group": "17",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "中濃ソース",
+      "accept": [
+        "17002"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ソース",
+      "accept": [
+        "17001",
+        "17002"
+      ],
+      "group": "17",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "こしょう",
+      "accept": [
+        "17063"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "胡椒",
+      "accept": [
+        "17063"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ブラックペッパー",
+      "accept": [
+        "17063"
+      ],
+      "group": "17",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "わさび",
+      "accept": [
+        "06322",
+        "17080"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "からし",
+      "accept": [
+        "17057"
+      ],
+      "group": "17",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "辛子",
+      "accept": [
+        "17057"
+      ],
+      "group": "17",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "オイスターソース",
+      "accept": [
+        "17031"
+      ],
+      "group": "17",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ケチャッププ",
+      "accept": [
+        "17036"
+      ],
+      "group": "17",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "マヨネーズー",
+      "accept": [
+        "17042"
+      ],
+      "group": "17",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "カレー",
+      "accept": [
+        "18001"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "かれー",
+      "accept": [
+        "18001"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ビーフカレー",
+      "accept": [
+        "18001"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "餃子",
+      "accept": [
+        "18002"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ぎょうざ",
+      "accept": [
+        "18002"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ギョーザ",
+      "accept": [
+        "18002"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "から揚げ",
+      "accept": [
+        "18054"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "からあげ",
+      "accept": [
+        "18054"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "唐揚げ",
+      "accept": [
+        "18054"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "牛丼",
+      "accept": [
+        "18031"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ぎゅうどん",
+      "accept": [
+        "18031"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "親子丼",
+      "accept": [
+        "18030"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "おやこどん",
+      "accept": [
+        "18030"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "肉じゃが",
+      "accept": [
+        "18036"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "にくじゃが",
+      "accept": [
+        "18036"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "コロッケ",
+      "accept": [
+        "18018",
+        "18007"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ころっけ",
+      "accept": [
+        "18018",
+        "18007"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "酢豚",
+      "accept": [
+        "18047"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "すぶた",
+      "accept": [
+        "18047"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "麻婆豆腐",
+      "accept": [
+        "18049"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "マーボー豆腐",
+      "accept": [
+        "18049"
+      ],
+      "group": "18",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "お好み焼き",
+      "accept": [
+        "18053"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "おこのみやき",
+      "accept": [
+        "18053"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "チャーハン",
+      "accept": [
+        "18057"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "炒飯",
+      "accept": [
+        "18057"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ハンバーグ",
+      "accept": [
+        "18050"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "はんばーぐ",
+      "accept": [
+        "18050"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "八宝菜",
+      "accept": [
+        "18048"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "しゅうまい",
+      "accept": [
+        "18012"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "焼売",
+      "accept": [
+        "18012"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "シュウマイ",
+      "accept": [
+        "18012"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "春巻き",
+      "accept": [
+        "18056"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "はるまき",
+      "accept": [
+        "18056"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "グラタン",
+      "accept": [
+        "18003"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "えびグラタン",
+      "accept": [
+        "18003"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "コーンスープ",
+      "accept": [
+        "18005",
+        "18004"
+      ],
+      "group": "18",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "シチュー",
+      "accept": [
+        "18011",
+        "18045"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ビーフシチュー",
+      "accept": [
+        "18011"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "きんぴら",
+      "accept": [
+        "18033"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "きんぴらごぼう",
+      "accept": [
+        "18033"
+      ],
+      "group": "18",
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "筑前煮",
+      "accept": [
+        "18035"
+      ],
+      "group": "18",
+      "kind": "kanji",
+      "limit": 5
+    },
+    {
+      "query": "ひじきの煮物",
+      "accept": [
+        "18037"
+      ],
+      "group": "18",
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ミートボール",
+      "accept": [
+        "18015"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "えびフライ",
+      "accept": [
+        "18020"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "メンチカツ",
+      "accept": [
+        "18022"
+      ],
+      "group": "18",
+      "kind": "katakana",
+      "limit": 5
+    },
+    {
+      "query": "ぎょうざあ",
+      "accept": [
+        "18002"
+      ],
+      "group": "18",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "からあげえ",
+      "accept": [
+        "18054"
+      ],
+      "group": "18",
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "めかぶ",
+      "accept": [
+        "09047"
+      ],
+      "group": "09",
+      "kind": "hiragana",
+      "limit": 5
+    }
+  ],
+  "public_fixtures": [
+    {
+      "id": "pub-salad-chicken",
+      "name": "自家製サラダチキン"
+    },
+    {
+      "id": "pub-protein",
+      "name": "プロテインチョコ味"
+    },
+    {
+      "id": "pub-nikujaga",
+      "name": "ママの肉じゃが"
+    },
+    {
+      "id": "pub-onigiri",
+      "name": "コンビニおにぎり"
+    },
+    {
+      "id": "pub-curry",
+      "name": "週末のカレー"
+    },
+    {
+      "id": "pub-parfait",
+      "name": "ヨーグルトパフェ"
+    },
+    {
+      "id": "pub-saute",
+      "name": "鶏むねのソテー"
+    },
+    {
+      "id": "pub-bento-broc",
+      "name": "弁当のブロッコリー"
+    },
+    {
+      "id": "pub-miso",
+      "name": "朝の味噌汁"
+    },
+    {
+      "id": "pub-tamagoyaki",
+      "name": "お弁当の卵焼き"
+    }
+  ],
+  "public": [
+    {
+      "query": "自家製サラダチキン",
+      "accept_ids": [
+        "pub-salad-chicken"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "サラダチキン",
+      "accept_ids": [
+        "pub-salad-chicken"
+      ],
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "さらだちきん",
+      "accept_ids": [
+        "pub-salad-chicken"
+      ],
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "プロテインチョコ味",
+      "accept_ids": [
+        "pub-protein"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "プロテインチョコ",
+      "accept_ids": [
+        "pub-protein"
+      ],
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "ぷろていんチョコ味",
+      "accept_ids": [
+        "pub-protein"
+      ],
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "ママの肉じゃが",
+      "accept_ids": [
+        "pub-nikujaga"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "肉じゃが",
+      "accept_ids": [
+        "pub-nikujaga"
+      ],
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "コンビニおにぎり",
+      "accept_ids": [
+        "pub-onigiri"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "おにぎリ",
+      "accept_ids": [
+        "pub-onigiri"
+      ],
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "週末のカレー",
+      "accept_ids": [
+        "pub-curry"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "週末カレー",
+      "accept_ids": [
+        "pub-curry"
+      ],
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "ヨーグルトパフェ",
+      "accept_ids": [
+        "pub-parfait"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "よーぐるとぱふぇ",
+      "accept_ids": [
+        "pub-parfait"
+      ],
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "鶏むねのソテー",
+      "accept_ids": [
+        "pub-saute"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "とりむねのソテー",
+      "accept_ids": [
+        "pub-saute"
+      ],
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "弁当のブロッコリー",
+      "accept_ids": [
+        "pub-bento-broc"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "ぶろっこりー",
+      "accept_ids": [
+        "pub-bento-broc"
+      ],
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "朝の味噌汁",
+      "accept_ids": [
+        "pub-miso"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "味噌汁",
+      "accept_ids": [
+        "pub-miso"
+      ],
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "お弁当の卵焼き",
+      "accept_ids": [
+        "pub-tamagoyaki"
+      ],
+      "kind": "exact",
+      "limit": 5
+    },
+    {
+      "query": "卵焼き",
+      "accept_ids": [
+        "pub-tamagoyaki"
+      ],
+      "kind": "colloquial",
+      "limit": 5
+    },
+    {
+      "query": "自家製サラダチキ",
+      "accept_ids": [
+        "pub-salad-chicken"
+      ],
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "プロテインチョコ味え",
+      "accept_ids": [
+        "pub-protein"
+      ],
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "ママの肉じゃがあ",
+      "accept_ids": [
+        "pub-nikujaga"
+      ],
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "週末のカレー",
+      "accept_ids": [
+        "pub-curry"
+      ],
+      "kind": "exact",
+      "limit": 3
+    },
+    {
+      "query": "ヨーグルトパフェえ",
+      "accept_ids": [
+        "pub-parfait"
+      ],
+      "kind": "typo",
+      "limit": 5
+    },
+    {
+      "query": "鶏むねソテー",
+      "accept_ids": [
+        "pub-saute"
+      ],
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "弁当ブロッコリー",
+      "accept_ids": [
+        "pub-bento-broc"
+      ],
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "朝のみそしる",
+      "accept_ids": [
+        "pub-miso"
+      ],
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "お弁当たまごやき",
+      "accept_ids": [
+        "pub-tamagoyaki"
+      ],
+      "kind": "hiragana",
+      "limit": 5
+    },
+    {
+      "query": "パフェ",
+      "accept_ids": [
+        "pub-parfait"
+      ],
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "ソテー",
+      "accept_ids": [
+        "pub-saute"
+      ],
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "チョコ味",
+      "accept_ids": [
+        "pub-protein"
+      ],
+      "kind": "abbreviation",
+      "limit": 5
+    },
+    {
+      "query": "存在しない公開食品xyz",
+      "accept_ids": [],
+      "kind": "miss",
+      "limit": 5
+    }
+  ]
+}

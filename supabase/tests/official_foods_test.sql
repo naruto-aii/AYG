@@ -146,10 +146,18 @@ declare
   n integer;
 begin
   select count(*) into n from public.search_official_foods('鶏肉', 1);
+  if n <> 1 then
+    raise exception '鶏肉 did not honor limit 1 (got %)', n;
+  end if;
+  select count(*) into n from public.search_official_foods('鶏肉', 3);
   if n <> 3 then
     raise exception '鶏肉 group returned % rows, expected 3', n;
   end if;
   select count(*) into n from public.search_official_foods('とりにく', 1);
+  if n <> 1 then
+    raise exception 'とりにく did not honor limit 1 (got %)', n;
+  end if;
+  select count(*) into n from public.search_official_foods('とりにく', 3);
   if n <> 3 then
     raise exception 'とりにく group returned % rows, expected 3', n;
   end if;

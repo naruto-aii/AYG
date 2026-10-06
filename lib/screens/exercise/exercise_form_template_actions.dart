@@ -4,7 +4,6 @@ import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_category.dart';
 import '../../models/workout_template.dart';
-import '../../repositories/subscription_exceptions.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../services/exercise_weight_resolver.dart';
 import '../../state/app_controller.dart';
@@ -13,7 +12,6 @@ import '../../widgets/common/app_card.dart';
 import '../../widgets/common/logged_at_picker_field.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/layout/app_form_constraint.dart';
-import '../../widgets/subscription/subscription_limit_prompt.dart';
 import '../workout_template/workout_template_screens.dart';
 
 Future<void> openWorkoutTemplatePicker({
@@ -108,15 +106,6 @@ Future<void> saveCurrentExerciseAsTemplate({
     }
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('テンプレートを保存しました')));
-  } on SubscriptionLimitExceededException catch (error) {
-    if (!context.mounted) {
-      return;
-    }
-    await showSubscriptionLimitPrompt(
-      context,
-      controller: controller,
-      exception: error,
-    );
   } catch (error) {
     if (!context.mounted) {
       return;

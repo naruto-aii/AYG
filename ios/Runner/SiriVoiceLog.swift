@@ -152,9 +152,30 @@ enum SiriVoiceStore {
     if mentionsPhraseShape(source) && !source.contains("カロナビ") {
       return stop("アプリ名が無いので登録しません")
     }
-    let split = splitUtterance(name: name, quantity: quantity)
     let explicit = explicitKind(source)
     let kind = explicit ?? (mentionsPhraseShape(source) ? nil : forced)
+    let spoken = quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      ? name
+      : name.trimmingCharacters(in: .whitespacesAndNewlines)
+        + " "
+        + quantity.trimmingCharacters(in: .whitespacesAndNewlines)
+    var interpretations: [String] = []
+    for option in speechInterpretations(spoken) {
+      let folded = foldSpokenQuantities(option)
+      if !folded.isEmpty && !interpretations.contains(folded) {
+        interpretations.append(folded)
+      }
+    }
+    if interpretations.count > 1 {
+      if let chosen = await chooseInterpretation(interpretations, kind: kind) {
+        return chosen
+      }
+    }
+    let repaired = interpretations.first ?? spoken
+    let split = splitUtterance(
+      name: repaired,
+      quantity: interpretations.isEmpty ? quantity : ""
+    )
     if kind == .meal {
       return await mealPlan(spoken: split.name, quantity: split.quantity)
     }
@@ -676,6 +697,337 @@ enum SiriVoiceStore {
       || source.contains("運動に")
       || source.contains("HeySiri")
       || source.contains("heySiri")
+  }
+
+  /// Dart の `siriSpeechInterpretations` と同じ。孤立したフィラーだけを落とす。
+  private static func speechInterpretations(_ raw: String) -> [String] {
+    let tokens = contentTokens(raw)
+    if tokens.isEmpty {
+      return []
+    }
+    let concatenated = tokens.joined()
+    let adopted = adoptLater(tokens).joined()
+    var interpretations: [String] = []
+    if !adopted.isEmpty {
+      interpretations.append(adopted)
+    }
+    if !concatenated.isEmpty && concatenated != adopted {
+      interpretations.append(concatenated)
+    }
+    return interpretations
+  }
+
+  private static let fillerSurfaces = [
+    "あ", "あー", "あぁ", "ああ", "あっ", "あ〜", "あ～",
+    "え", "えー", "えぇ", "ええ", "えっ", "え〜",
+    "えっと", "えーっと", "えーと", "えと",
+    "うーん", "ううん", "うん",
+    "んー", "んん", "ん",
+    "あの", "あのー", "あのう", "あのね",
+    "その", "そのー", "そのね",
+    "まあ", "まー", "まぁ",
+    "なんか", "なんかー", "なんかね",
+    "えっとね", "えーっとね", "えーとね",
+  ]
+
+  private static func contentTokens(_ raw: String) -> [String] {
+    var tokens: [String] = []
+    var buffer = ""
+    let characters = Array(raw)
+    for index in characters.indices {
+      let character = String(characters[index])
+      let previous = index == characters.startIndex ? "" : String(characters[characters.index(before: index)])
+      let nextIndex = characters.index(after: index)
+      let next = nextIndex < characters.endIndex ? String(characters[nextIndex]) : ""
+      if isSpeechDelimiter(character, previous: previous, next: next) {
+        flushToken(&buffer, into: &tokens)
+      } else {
+        buffer.append(character)
+      }
+    }
+    flushToken(&buffer, into: &tokens)
+    return tokens
+  }
+
+  private static func flushToken(_ buffer: inout String, into tokens: inout [String]) {
+    let token = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
+    buffer = ""
+    if token.isEmpty || isFiller(token) {
+      return
+    }
+    tokens.append(token)
+  }
+
+  private static func isSpeechDelimiter(
+    _ character: String,
+    previous: String,
+    next: String
+  ) -> Bool {
+    if character == " " || character == "\n" || character == "\t" || character == "\r" || character == "　" {
+      return true
+    }
+    if "、。，,！!？?・…".contains(character) {
+      return true
+    }
+    if character == "." || character == "．" {
+      let before = Int(previous) != nil
+      let after = Int(next) != nil
+      return !(before && after)
+    }
+    return false
+  }
+
+  private static func isFiller(_ token: String) -> Bool {
+    fillerKeys.contains(fillerKey(token))
+  }
+
+  private static let fillerKeys: Set<String> = Set(fillerSurfaces.map { fillerKey($0) })
+
+  private static func fillerKey(_ token: String) -> String {
+    var folded = token
+    let pairs = [
+      ("ぁ", "あ"), ("ぃ", "い"), ("ぅ", "う"), ("ぇ", "え"), ("ぉ", "お"),
+      ("ァ", "ア"), ("ィ", "イ"), ("ゥ", "ウ"), ("ェ", "エ"), ("ォ", "オ"),
+    ]
+    for pair in pairs {
+      folded = folded.replacingOccurrences(of: pair.0, with: pair.1)
+    }
+    return normalize(folded)
+  }
+
+  private static func adoptLater(_ tokens: [String]) -> [String] {
+    var kept: [String] = []
+    for token in tokens {
+      if let last = kept.last, laterCorrects(token, earlier: last) {
+        kept[kept.count - 1] = token
+      } else {
+        kept.append(token)
+      }
+    }
+    return kept
+  }
+
+  private static func laterCorrects(_ later: String, earlier: String) -> Bool {
+    let laterKey = normalize(later)
+    let earlierKey = normalize(earlier)
+    return !earlierKey.isEmpty && laterKey.hasPrefix(earlierKey)
+  }
+
+  private static let quantityUnits = [
+    "ミリリットル", "キロメートル", "グラム", "分間", "食分",
+    "ml", "mL", "ML", "ｍｌ", "km", "KM", "㎞", "キロ",
+    "個", "こ", "コ", "食", "分", "回", "g", "G", "ｇ",
+  ]
+
+  private static func foldSpokenQuantities(_ text: String) -> String {
+    var result = text
+    for unit in quantityUnits {
+      var from = result.startIndex
+      while from < result.endIndex,
+            let range = result.range(of: unit, range: from..<result.endIndex) {
+        if let number = japaneseNumberBefore(result, at: range.lowerBound) {
+          let digits = String(number.value)
+          let prefixCount = result.distance(from: result.startIndex, to: number.start)
+          result.replaceSubrange(number.start..<range.lowerBound, with: digits)
+          let start = result.index(result.startIndex, offsetBy: prefixCount)
+          let afterDigits = result.index(start, offsetBy: digits.count, limitedBy: result.endIndex)
+            ?? result.endIndex
+          from = result.index(afterDigits, offsetBy: unit.count, limitedBy: result.endIndex)
+            ?? result.endIndex
+        } else {
+          from = range.upperBound
+        }
+      }
+    }
+    return result
+  }
+
+  private static func japaneseNumberBefore(
+    _ text: String,
+    at: String.Index
+  ) -> (start: String.Index, value: Int)? {
+    var index = at
+    while index > text.startIndex {
+      let previous = text.index(before: index)
+      if !isHiragana(text[previous]) {
+        break
+      }
+      index = previous
+    }
+    let slice = String(text[index..<at])
+    if slice.isEmpty {
+      return nil
+    }
+    var cut = slice.startIndex
+    while cut < slice.endIndex {
+      let part = String(slice[cut...])
+      if let value = parseJapaneseNumber(part) {
+        let start = text.index(index, offsetBy: slice.distance(from: slice.startIndex, to: cut))
+        return (start, value)
+      }
+      cut = slice.index(after: cut)
+    }
+    return nil
+  }
+
+  private static func isHiragana(_ character: Character) -> Bool {
+    guard let scalar = character.unicodeScalars.first, character.unicodeScalars.count == 1 else {
+      return false
+    }
+    return scalar.value >= 0x3041 && scalar.value <= 0x3096
+  }
+
+  private static func parseJapaneseNumber(_ text: String) -> Int? {
+    if text.isEmpty {
+      return nil
+    }
+    let ones = [
+      "れい": 0, "いち": 1, "に": 2, "さん": 3, "よん": 4, "し": 4,
+      "ご": 5, "ろく": 6, "なな": 7, "しち": 7, "はち": 8, "きゅう": 9, "く": 9,
+    ]
+    let units = [
+      "せん": 1000, "ぜん": 1000, "ひゃく": 100, "びゃく": 100, "ぴゃく": 100,
+      "じゅう": 10, "じゅっ": 10, "じっ": 10,
+    ]
+    var index = text.startIndex
+    var total = 0
+    var current = 0
+    var saw = false
+    while index < text.endIndex {
+      if let taken = takeNumber(units, from: text, at: index) {
+        let count = current == 0 ? 1 : current
+        total += count * taken.value
+        current = 0
+        index = text.index(index, offsetBy: taken.length)
+        saw = true
+        continue
+      }
+      guard let one = takeNumber(ones, from: text, at: index) else {
+        return nil
+      }
+      current = one.value
+      index = text.index(index, offsetBy: one.length)
+      saw = true
+    }
+    if !saw {
+      return nil
+    }
+    return total + current
+  }
+
+  private static func takeNumber(
+    _ table: [String: Int],
+    from text: String,
+    at index: String.Index
+  ) -> (value: Int, length: Int)? {
+    let keys = table.keys.sorted { $0.count > $1.count }
+    for key in keys where text[index...].hasPrefix(key) {
+      return (table[key] ?? 0, key.count)
+    }
+    return nil
+  }
+
+  private static func chooseInterpretation(
+    _ interpretations: [String],
+    kind: SiriSpokenKind?
+  ) async -> Plan? {
+    struct Score {
+      var name: String
+      var quantity: String
+      var rank: Int
+      var id: String
+      var title: String
+      var choiceKind: String
+    }
+    var scores: [Score] = []
+    for text in interpretations {
+      let split = splitUtterance(name: text, quantity: "")
+      if let hit = await bestSpeechHit(split.name, kind: kind) {
+        scores.append(
+          Score(
+            name: split.name,
+            quantity: split.quantity,
+            rank: hit.rank,
+            id: hit.id,
+            title: hit.title,
+            choiceKind: hit.choiceKind
+          )
+        )
+      } else {
+        scores.append(
+          Score(
+            name: split.name,
+            quantity: split.quantity,
+            rank: 9,
+            id: "",
+            title: "",
+            choiceKind: ""
+          )
+        )
+      }
+    }
+    guard let best = scores.map(\.rank).min(), best < 9 else {
+      return nil
+    }
+    let winners = scores.filter { $0.rank == best && !$0.id.isEmpty }
+    let ids = Set(winners.map(\.id))
+    guard let winner = winners.first else {
+      return nil
+    }
+    if ids.count <= 1 {
+      if kind == .meal {
+        return await mealPlan(spoken: winner.name, quantity: winner.quantity)
+      }
+      if kind == .exercise {
+        return exercisePlan(spoken: winner.name, quantity: winner.quantity)
+      }
+      return await classify(name: winner.name, quantity: winner.quantity)
+    }
+    return choicePlan(
+      name: winner.name,
+      quantityText: winner.quantity,
+      choices: winners.map { item in
+        [
+          "id": item.id,
+          "title": item.title,
+          "kind": item.choiceKind,
+        ]
+      }
+    )
+  }
+
+  private static func bestSpeechHit(
+    _ name: String,
+    kind: SiriSpokenKind?
+  ) async -> (rank: Int, id: String, title: String, choiceKind: String)? {
+    var bestRank = 9
+    var best: (rank: Int, id: String, title: String, choiceKind: String)?
+    func consider(_ hits: [[String: Any]], choiceKind: String, suffix: String) {
+      guard let top = hits.first else { return }
+      let rank = jsonInt(top["matchRank"]) ?? 9
+      if rank < bestRank {
+        bestRank = rank
+        let speak = (top["speakName"] as? String ?? "") + suffix
+        best = (rank, top["id"] as? String ?? "", speak, choiceKind)
+      }
+    }
+    if kind != .exercise {
+      consider(await rankFoods(name), choiceKind: "food", suffix: "")
+      consider(
+        rankTemplates(mealTemplates(), name: name),
+        choiceKind: "mealTemplate",
+        suffix: "（テンプレート）"
+      )
+    }
+    if kind != .meal {
+      consider(rankExercises(name), choiceKind: "exercise", suffix: "")
+      consider(
+        rankTemplates(workoutTemplates(), name: name),
+        choiceKind: "workoutTemplate",
+        suffix: "（テンプレート）"
+      )
+    }
+    return best
   }
 
   private static func splitUtterance(name: String, quantity: String) -> (name: String, quantity: String) {

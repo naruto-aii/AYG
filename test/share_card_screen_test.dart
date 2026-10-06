@@ -93,11 +93,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sent, isNotNull);
-    expect(sent!.headline, '500');
-    expect(sent!.message, contains('500 kcal'));
+    expect(sent!.intakeLabel, '500');
+    expect(sent!.figure, contains('500 /'));
+    expect(sent!.message, contains('のうち500kcalを摂りました。'));
     expect(sent!.message, contains(AppStrings.loginTagline));
     expect(sent!.message, contains(shareDownloadUrl));
-    expect(sent!.message, isNot(contains('運動で')));
+    expect(sent!.message, isNot(contains('たんぱく質')));
+    expect(sent!.message, isNot(contains('目標まで')));
     expect(sent!.message, isNot(contains('kg')));
     expect(find.text('この内容で送る'), findsNothing);
     expect(find.text('連続記録'), findsNothing);

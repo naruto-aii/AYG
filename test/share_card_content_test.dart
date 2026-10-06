@@ -11,9 +11,6 @@ void main() {
     double intake = 1820,
     double remaining = 180,
     double target = 2000,
-    double protein = 25,
-    double fat = 10,
-    double carb = 30,
     double exercise = 0,
     bool overage = false,
     double overageKcal = 0,
@@ -25,58 +22,52 @@ void main() {
       targetFatG: 50,
       targetCarbG: 200,
       intakeKcal: intake,
-      intakeProteinG: protein,
-      intakeFatG: fat,
-      intakeCarbG: carb,
+      intakeProteinG: 25,
+      intakeFatG: 10,
+      intakeCarbG: 30,
       exerciseBurnKcal: exercise,
       isCalorieOverage: overage,
       calorieOverageKcal: overageKcal,
     );
   }
 
-  test('macro percentages use energy and add up to 100', () {
-    final balance = macroEnergyBalance(proteinG: 25, fatG: 10, carbG: 30);
-    expect(balance, isNotNull);
-    expect(balance!.protein, 32);
-    expect(balance.fat, 29);
-    expect(balance.carb, 39);
-    expect(balance.protein + balance.fat + balance.carb, 100);
-    expect(macroEnergyBalance(proteinG: 0, fatG: 0, carbG: 0), isNull);
-  });
-
-  test('meal text keeps the gap, the balance, the tagline, and the link', () {
+  test('meal text states intake against the goal, then the tagline and link', () {
     final card = buildMealShareCard(
       summary: summary(exercise: 320),
       day: day,
     );
-    expect(card.headline, '1,820');
-    expect(card.detail, '目標まであと 180kcal');
+    expect(card.eyebrow, '今日の摂取カロリー');
+    expect(card.figure, '1,820 / 2,000');
+    expect(card.progress, closeTo(1820 / 2000, 0.0001));
+    expect(card.isOverage, isFalse);
     expect(card.message, '''
-今日の食事は1,820 kcalで、目標まであと180kcalです。
-たんぱく質32%、脂質29%、炭水化物39%です。
+今日は目標2,000kcalのうち1,820kcalを摂りました。
 ${AppStrings.loginTagline}
 $shareDownloadUrl''');
-    expect(card.message, isNot(contains('運動で')));
+    expect(card.message.split('\n'), hasLength(3));
+    expect(card.message, isNot(contains('たんぱく質')));
+    expect(card.message, isNot(contains('目標まで')));
     expect(card.message, isNot(contains('320')));
     expect(card.message, isNot(contains('kg')));
   });
 
-  test('an overage is stated instead of a remaining calorie', () {
+  test('an overage fills the ring and still uses the same sentence', () {
     final card = buildMealShareCard(
       summary: summary(
         intake: 2400,
         remaining: -200,
         overage: true,
         overageKcal: 200,
-        protein: 0,
-        fat: 0,
-        carb: 0,
       ),
       day: day,
     );
-    expect(card.detail, contains('超えています'));
-    expect(card.macros, isNull);
-    expect(card.message, contains('200kcal超えています'));
+    expect(card.figure, '2,400 / 2,000');
+    expect(card.progress, 1);
+    expect(card.isOverage, isTrue);
+    expect(
+      card.message,
+      startsWith('今日は目標2,000kcalのうち2,400kcalを摂りました。'),
+    );
     expect(card.message, contains(AppStrings.loginTagline));
     expect(card.message, contains(shareDownloadUrl));
     expect(card.message, isNot(contains('たんぱく質')));

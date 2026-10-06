@@ -2516,6 +2516,11 @@ class AppController extends ChangeNotifier {
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
     }
+    if (templateId == null && !await canCreateWorkoutTemplate()) {
+      throw SubscriptionLimitExceededException(
+        SubscriptionLimitKind.workoutTemplate,
+      );
+    }
 
     final now = DateTime.now();
     final id = templateId ?? generateId();
@@ -2614,6 +2619,19 @@ class AppController extends ChangeNotifier {
       templateId: templateId,
     );
     return MealTemplateWithItems(template: template, items: items);
+  }
+
+  /// 無料は4件まで。カロナビ+は件数の上限なし。編集と復元は止めない。
+  Future<bool> canCreateWorkoutTemplate() async {
+    final repository = _workoutTemplateRepository;
+    if (repository == null) {
+      return true;
+    }
+    final existing = await repository.getAll(currentOwnerUserId);
+    return !SubscriptionCatalog.workoutTemplateCreateRequiresPlus(
+      savedCount: existing.length,
+      isPlus: _subscriptionRepository.isPlusActive,
+    );
   }
 
   /// 無料は4件まで。カロナビ+は件数の上限なし。編集は止めない。
@@ -3184,9 +3202,7 @@ class AppController extends ChangeNotifier {
               ? button.items
               : const [],
           exercises: button.kind == WidgetPatternKind.exercise
-              ? [
-                  for (final item in button.exercises) _withWidgetNetKcal(item),
-                ]
+              ? [for (final item in button.exercises) _withWidgetNetKcal(item)]
               : const [],
         ),
     ];

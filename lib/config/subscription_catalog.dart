@@ -23,9 +23,9 @@ class SubscriptionCatalog {
 
   static const publicFoodSearchesPerDay = 5;
 
-  /// 無料で作れる食事テンプレートの件数。カロナビ+は件数の上限なし。
+  /// 無料で作れるテンプレートの件数。食事と運動はそれぞれこの件数まで。カロナビ+は上限なし。
   static const mealTemplateLimit = 4;
-  static const workoutTemplateLimit = 3;
+  static const workoutTemplateLimit = 4;
 
   /// 保存済みが上限以上で、カロナビ+でなければ、新しい食事テンプレートは有料。
   static bool mealTemplateCreateRequiresPlus({
@@ -33,6 +33,14 @@ class SubscriptionCatalog {
     required bool isPlus,
   }) {
     return !isPlus && savedCount >= mealTemplateLimit;
+  }
+
+  /// 保存済みが上限以上で、カロナビ+でなければ、新しい運動テンプレートは有料。
+  static bool workoutTemplateCreateRequiresPlus({
+    required int savedCount,
+    required bool isPlus,
+  }) {
+    return !isPlus && savedCount >= workoutTemplateLimit;
   }
 
   static bool isPlusProduct(String productId) {

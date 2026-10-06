@@ -87,14 +87,16 @@ class AppStrings {
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';
-  static const plusHalfYearNote = '6ヶ月分が5ヶ月分の価格';
-  static const plusYearlyNote = '12ヶ月分が10ヶ月分の価格';
+
+  /// 月額580円との比較。半年は 2,900÷6≒483 で「お得」、年額は 5,400÷12=450 で「一番お得」。
+  static const plusHalfYearNote = '月あたり約483円';
+  static const plusYearlyNote = '月あたり450円';
   static const plusMonthlyNote = 'いつでも解約できます';
 
   /// ストアが金額を返せないときだけの表示。購入処理では使わない。
   static const plusFallbackMonthlyPrice = '¥580';
   static const plusFallbackHalfYearPrice = '¥2,900';
-  static const plusFallbackYearlyPrice = '¥5,800';
+  static const plusFallbackYearlyPrice = '¥5,400';
   static const plusAutoRenew = '期限が来る前に解約しないと、同じ期間で自動更新されます。';
   static const plusCancelHow =
       '解約は iPhone の「設定」> Apple ID >「サブスクリプション」から行えます。アプリを消しても課金は止まりません。';

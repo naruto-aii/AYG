@@ -123,6 +123,13 @@ Entitlements also allow insert and update. The search and screen tables
 are insert-only for the client. `advertising_use` must stay false.
 Rollback drops only these four tables.
 
+### Half-year product (`20261006150000`)
+
+`calonavi_plus_entitlements_product_id_check` also allows
+`calonavi_plus_half_year`. The migration does not create a table and does
+not change RLS. Apply it by hand. Rollback removes only rows whose
+`product_id` is `calonavi_plus_half_year`.
+
 ### `supabase_admin` default privileges
 
 Migration runner (`postgres`) may lack permission to

@@ -50,7 +50,7 @@ void main() {
     expect(find.text('月額'), findsOneWidget);
     expect(find.text('半年'), findsOneWidget);
     expect(find.text('年額'), findsOneWidget);
-    expect(find.text('¥5,800で始める'), findsOneWidget);
+    expect(find.text('¥5,400で始める'), findsOneWidget);
     expect(find.textContaining('¥580'), findsWidgets);
     expect(find.textContaining('初回'), findsNothing);
     expect(find.textContaining('公開から1ヶ月'), findsNothing);

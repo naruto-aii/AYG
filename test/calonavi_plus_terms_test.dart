@@ -23,8 +23,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('¥480 ・ いつでも解約できます'), findsOneWidget);
-    expect(find.text('¥2,400 ・ 6ヶ月分が5ヶ月分の価格'), findsOneWidget);
-    expect(find.text('¥4,800 ・ 12ヶ月分が10ヶ月分の価格'), findsOneWidget);
+    expect(find.text('¥2,400 ・ 月あたり約483円'), findsOneWidget);
+    expect(find.text('¥4,800 ・ 月あたり450円'), findsOneWidget);
     expect(find.text('¥4,800で始める'), findsOneWidget);
     expect(find.text('お得'), findsOneWidget);
     expect(find.text('一番お得'), findsOneWidget);

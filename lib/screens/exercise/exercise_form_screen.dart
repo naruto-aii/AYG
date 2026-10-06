@@ -18,6 +18,7 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../widgets/exercise/exercise_met_calculation_section.dart';
+import '../workout_template/workout_template_plus_gate.dart';
 
 Future<bool?> showSaveCustomActivityTemplateDialog({
   required BuildContext context,
@@ -403,7 +404,16 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         if (answer == null || !mounted) {
           return;
         }
-        addTemplate = answer;
+        if (answer) {
+          final allowed = await allowWorkoutTemplateCreate(
+            context,
+            widget.controller,
+          );
+          if (!mounted) {
+            return;
+          }
+          addTemplate = allowed;
+        }
       }
     }
 

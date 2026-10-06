@@ -11,6 +11,7 @@ import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/layout/app_content_constraint.dart';
+import 'workout_template_plus_gate.dart';
 
 class WorkoutTemplateFormScreen extends StatefulWidget {
   const WorkoutTemplateFormScreen({
@@ -208,6 +209,12 @@ class _WorkoutTemplateListScreenState extends State<WorkoutTemplateListScreen> {
   }
 
   Future<void> _openCreate() async {
+    if (!await allowWorkoutTemplateCreate(context, widget.controller)) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) =>
@@ -479,6 +486,12 @@ class _WorkoutTemplatePickerScreenState
   }
 
   Future<void> _openCreate() async {
+    if (!await allowWorkoutTemplateCreate(context, widget.controller)) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) =>

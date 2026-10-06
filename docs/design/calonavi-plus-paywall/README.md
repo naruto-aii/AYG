@@ -11,7 +11,7 @@ Cursor など他のツールからもこのデザインをそのまま把握・�
 - `legal-footer.png` — プラン選択の続きと規約・特商法リンク
 
 開いたときは年額が選ばれています。月額か半年を押すと、そのプランに変わり、下のボタンの文言も変わります。
-価格はプレビュー用の仮の表示です（月額¥580 / 半年¥2,900 / 年額¥5,800）。
+価格はプレビュー用の仮の表示です（月額¥580 / 半年¥2,900 / 年額¥5,400）。半年は月あたり約483円、年額は月あたり450円です。
 実機では StoreKit（App Store Connect の商品設定）が返す金額がそのまま出ます。
 この確認用の画面は購入も登録も走らせません。`UnavailableSubscriptionRepository` の購入は例外になります。
 
@@ -56,7 +56,7 @@ class _PreviewPlus extends UnavailableSubscriptionRepository {
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,
         period: PlusBillingPeriod.year,
-        localizedPrice: '¥5,800',
+        localizedPrice: '¥5,400',
       ),
       loadFailed: false,
     );

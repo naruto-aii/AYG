@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
 import '../config/subscription_catalog.dart';
 import '../constants/app_strings.dart';
@@ -2520,6 +2521,11 @@ class AppController extends ChangeNotifier {
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
     }
+    if (templateId == null && !await canCreateWorkoutTemplate()) {
+      throw SubscriptionLimitExceededException(
+        SubscriptionLimitKind.workoutTemplate,
+      );
+    }
 
     final now = DateTime.now();
     final id = templateId ?? generateId();
@@ -2618,6 +2624,19 @@ class AppController extends ChangeNotifier {
       templateId: templateId,
     );
     return MealTemplateWithItems(template: template, items: items);
+  }
+
+  /// 無料は4件まで。カロナビ+は件数の上限なし。編集と復元は止めない。
+  Future<bool> canCreateWorkoutTemplate() async {
+    final repository = _workoutTemplateRepository;
+    if (repository == null) {
+      return true;
+    }
+    final existing = await repository.getAll(currentOwnerUserId);
+    return !SubscriptionCatalog.workoutTemplateCreateRequiresPlus(
+      savedCount: existing.length,
+      isPlus: _subscriptionRepository.isPlusActive,
+    );
   }
 
   /// 無料は4件まで。カロナビ+は件数の上限なし。編集は止めない。
@@ -2986,6 +3005,15 @@ class AppController extends ChangeNotifier {
       }
     }
     final official = OfficialFoodsFlag.enabled && SupabaseConfig.isConfigured;
+    var accessToken = '';
+    if (official) {
+      try {
+        accessToken =
+            Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+      } catch (_) {
+        accessToken = '';
+      }
+    }
     await gateway.publishCatalog(
       SiriVoiceCodec.encodeCatalog(
         ownerUserId: currentOwnerUserId,
@@ -2993,6 +3021,7 @@ class AppController extends ChangeNotifier {
         officialFoodsEnabled: official,
         supabaseUrl: SupabaseConfig.url,
         supabaseAnonKey: SupabaseConfig.anonKey,
+        supabaseAccessToken: accessToken,
         foods: foods,
         mealTemplates: await _siriMealTemplates(),
         workoutTemplates: await _siriWorkoutTemplates(),

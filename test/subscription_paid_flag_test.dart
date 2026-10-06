@@ -85,7 +85,7 @@ void main() {
       expect(find.textContaining('¥480'), findsOneWidget);
       expect(find.text('半年'), findsOneWidget);
       expect(find.text('年額'), findsOneWidget);
-      expect(find.text('¥5,800で始める'), findsOneWidget);
+      expect(find.text('¥5,400で始める'), findsOneWidget);
       expect(find.textContaining('380'), findsNothing);
       expect(gateway.paid, isFalse);
       expect(plus.monthlyPurchases, 0);

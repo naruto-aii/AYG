@@ -1,6 +1,12 @@
 import 'saved_food.dart';
 
-enum PublicFoodSearchMatchType { exactName, prefixName, partialName, barcode }
+enum PublicFoodSearchMatchType {
+  exactName,
+  prefixName,
+  partialName,
+  barcode,
+  fuzzyName,
+}
 
 extension PublicFoodSearchMatchTypeX on PublicFoodSearchMatchType {
   int get rankScore => switch (this) {
@@ -8,6 +14,7 @@ extension PublicFoodSearchMatchTypeX on PublicFoodSearchMatchType {
     PublicFoodSearchMatchType.barcode => 95,
     PublicFoodSearchMatchType.prefixName => 80,
     PublicFoodSearchMatchType.partialName => 40,
+    PublicFoodSearchMatchType.fuzzyName => 20,
   };
 }
 

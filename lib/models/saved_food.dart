@@ -39,6 +39,7 @@ class SavedFood {
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
+    this.searchMatchRank,
   }) : assert(baseAmount > 0, 'baseAmount must be positive');
 
   final String foodId;
@@ -89,6 +90,9 @@ class SavedFood {
   final DateTime updatedAt;
   final DateTime? deletedAt;
 
+  /// 公開食品検索が付けた一致段。保存データではない。
+  final int? searchMatchRank;
+
   bool get isPublicActive =>
       visibility == FoodVisibility.public &&
       status == FoodStatus.active &&
@@ -136,6 +140,7 @@ class SavedFood {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
+    int? searchMatchRank,
   }) {
     return SavedFood(
       foodId: foodId ?? this.foodId,
@@ -169,6 +174,7 @@ class SavedFood {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      searchMatchRank: searchMatchRank ?? this.searchMatchRank,
     );
   }
 

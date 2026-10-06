@@ -463,7 +463,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('購入を復元'), findsOneWidget);
-    expect(find.text('¥5,800で始める'), findsOneWidget);
+    expect(find.text('¥5,400で始める'), findsOneWidget);
     expect(find.textContaining('¥580'), findsWidgets);
     expect(find.textContaining(r'$'), findsNothing);
     expect(controller.foodEntries, isEmpty);
@@ -529,7 +529,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('購入を復元'), findsOneWidget);
-    expect(find.text('¥5,800で始める'), findsOneWidget);
+    expect(find.text('¥5,400で始める'), findsOneWidget);
     expect(find.textContaining('¥580'), findsWidgets);
     expect(find.textContaining(r'$'), findsNothing);
     expect(find.text('ホーム画面'), findsNothing);

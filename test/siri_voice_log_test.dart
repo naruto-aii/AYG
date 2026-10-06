@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:ayg/models/food_entry_source.dart';
 import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/services/siri_voice_log.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +29,9 @@ void main() {
     List<SiriFoodRecord>? foods,
     List<SiriMealTemplate> mealTemplates = const [],
     List<SiriWorkoutTemplate> workoutTemplates = const [],
+    List<SiriFoodRecord> remoteOfficial = const [],
+    List<SiriFoodRecord> remotePublic = const [],
+    bool remoteUnavailable = false,
   }) {
     return SiriVoiceContext(
       paid: paid,
@@ -36,6 +40,9 @@ void main() {
       foods: foods ?? [sasami()],
       mealTemplates: mealTemplates,
       workoutTemplates: workoutTemplates,
+      remoteOfficial: remoteOfficial,
+      remotePublic: remotePublic,
+      remoteUnavailable: remoteUnavailable,
     );
   }
 
@@ -685,5 +692,91 @@ void main() {
     expect(saved.exercises, hasLength(1));
     expect(saved.exercises.single.activityId, 'swim_lap');
     expect(saved.exercises.single.durationMin, 20);
+  });
+
+  SiriFoodRecord remoteRice() {
+    return SiriFoodRecord.official(
+      foodCode: '01088',
+      name: '精白米',
+      speakName: '精白米（うるち米・水稲めし）',
+      matchTexts: const ['精白米'],
+      baseAmount: 100,
+      unit: FoodUnitType.g,
+      kcalPerBase: 156,
+      searchRank: 0,
+      searchAliasMatched: true,
+    );
+  }
+
+  SiriFoodRecord remotePublicChicken() {
+    return const SiriFoodRecord(
+      id: 'owner-2:food-9',
+      speakName: '自家製サラダチキン',
+      keys: ['自家製さらだちきん'],
+      baseAmount: 100,
+      unit: FoodUnitType.g,
+      source: FoodEntrySource.savedFood,
+      savedFoodId: 'food-9',
+      sourceOwnerUserId: 'owner-2',
+      kcalPerBase: 110,
+      searchRank: 0,
+    );
+  }
+
+  test('official search is used before a public food', () {
+    final plan = planSiriFood(
+      context: context(
+        foods: const [],
+        remoteOfficial: [remoteRice()],
+        remotePublic: [remotePublicChicken()],
+      ),
+      name: 'ご飯',
+      quantity: '',
+    );
+
+    expect(plan.food?.officialFoodCode, '01088');
+    expect(plan.asksAmount, isTrue);
+    expect(plan.spoken, '何gですか？');
+  });
+
+  test('a public food is used when the composition table misses', () {
+    final plan = planSiriFood(
+      context: context(
+        foods: const [],
+        remotePublic: [remotePublicChicken()],
+      ),
+      name: 'サラダチキン',
+      quantity: '80g',
+    );
+
+    expect(plan.food?.savedFoodId, 'food-9');
+    expect(plan.food?.sourceOwnerUserId, 'owner-2');
+    expect(plan.spoken, '自家製サラダチキン80gの食事でいいですね');
+  });
+
+  test('a network failure keeps saved foods and skips remote rows', () {
+    final plan = planSiriFood(
+      context: context(
+        foods: const [],
+        remoteOfficial: [remoteRice()],
+        remotePublic: [remotePublicChicken()],
+        remoteUnavailable: true,
+      ),
+      name: 'ご飯',
+      quantity: '100g',
+    );
+
+    expect(plan.status, SiriVoiceStatus.rescue);
+    expect(plan.spoken, contains('アプリで検索します'));
+  });
+
+  test('an empty access token does not invent a public food', () {
+    final plan = planSiriFood(
+      context: context(foods: const [], remotePublic: const []),
+      name: 'サラダチキン',
+      quantity: '100g',
+    );
+
+    expect(plan.status, SiriVoiceStatus.rescue);
   });
 }

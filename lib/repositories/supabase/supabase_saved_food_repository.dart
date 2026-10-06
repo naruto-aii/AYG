@@ -166,6 +166,19 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
       return const [];
     }
     try {
+      final ranked = await _searchPublicRpc(query: query, limit: limit);
+      if (ranked != null) {
+        return ranked;
+      }
+    } on PostgrestException catch (error) {
+      if (!_isMissingSearchRpc(error)) {
+        throw SupabaseErrorMapper.map(
+          error,
+          context: 'saved_foods search public',
+        );
+      }
+    }
+    try {
       final candidates = <SavedFood>[];
       final seen = <String>{};
 
@@ -346,6 +359,50 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
     } catch (error) {
       throw SupabaseErrorMapper.map(error, context: 'saved_foods find similar');
     }
+  }
+
+  /// null は RPC が未適用。空リストは検索できたが該当が無い。
+  Future<List<SavedFood>?> _searchPublicRpc({
+    required String query,
+    required int limit,
+  }) async {
+    try {
+      final rows = await _client.rpc(
+        'search_public_foods',
+        params: {'p_query': query, 'p_limit': limit},
+      );
+      if (rows is! List) {
+        return const [];
+      }
+      final foods = <SavedFood>[];
+      for (final row in rows) {
+        if (row is! Map) {
+          continue;
+        }
+        final mapped = Map<String, dynamic>.from(row);
+        final food = FoodMasterRowMapper.savedFoodFromRow(mapped);
+        final rank = mapped['match_rank'];
+        foods.add(
+          food.copyWith(
+            searchMatchRank: rank is num ? rank.round() : null,
+          ),
+        );
+      }
+      return foods;
+    } on PostgrestException catch (error) {
+      if (_isMissingSearchRpc(error)) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  bool _isMissingSearchRpc(PostgrestException error) {
+    final code = error.code ?? '';
+    final message = error.message;
+    return code == 'PGRST202' ||
+        message.contains('search_public_foods') ||
+        message.contains('Could not find the function');
   }
 
   SavedFood buildPrivateCopy({

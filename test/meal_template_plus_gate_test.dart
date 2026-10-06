@@ -1,6 +1,7 @@
 import 'package:ayg/config/subscription_catalog.dart';
 import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/meal_template_draft.dart';
+import 'package:ayg/models/workout_template.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/subscription_exceptions.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
@@ -85,6 +86,83 @@ void main() {
       hasLength(8),
     );
   });
+
+  test('the fifth workout template is the first paid one', () {
+    expect(SubscriptionCatalog.workoutTemplateLimit, 4);
+    expect(
+      SubscriptionCatalog.workoutTemplateCreateRequiresPlus(
+        savedCount: 3,
+        isPlus: false,
+      ),
+      isFalse,
+    );
+    expect(
+      SubscriptionCatalog.workoutTemplateCreateRequiresPlus(
+        savedCount: 4,
+        isPlus: false,
+      ),
+      isTrue,
+    );
+    expect(
+      SubscriptionCatalog.workoutTemplateCreateRequiresPlus(
+        savedCount: 4,
+        isPlus: true,
+      ),
+      isFalse,
+    );
+    expect(
+      SubscriptionLimitExceededException(
+        SubscriptionLimitKind.workoutTemplate,
+      ).toString(),
+      '無料の運動テンプレートは4件までです。次の1件からはカロナビ+です。',
+    );
+  });
+
+  test('a free account cannot save a fifth workout template', () async {
+    final harness = await IsarTestHarness.create();
+    addTearDown(harness.dispose);
+    final controller = _controller(harness, workouts: true);
+    addTearDown(controller.dispose);
+
+    for (var index = 0; index < 4; index++) {
+      await controller.saveWorkoutTemplate(draft: _workout('散歩$index'));
+    }
+
+    expect(
+      controller.saveWorkoutTemplate(draft: _workout('5件目')),
+      throwsA(isA<SubscriptionLimitExceededException>()),
+    );
+
+    final first = (await harness.workoutTemplateRepository.getAll(
+      'test-user-id',
+    )).first;
+    await controller.saveWorkoutTemplate(
+      draft: _workout('編集'),
+      templateId: first.templateId,
+    );
+    expect(
+      await harness.workoutTemplateRepository.getAll('test-user-id'),
+      hasLength(4),
+    );
+  });
+
+  test(
+    'Calonavi Plus can save workout templates without a count cap',
+    () async {
+      final harness = await IsarTestHarness.create();
+      addTearDown(harness.dispose);
+      final controller = _controller(harness, plus: true, workouts: true);
+      addTearDown(controller.dispose);
+
+      for (var index = 0; index < 8; index++) {
+        await controller.saveWorkoutTemplate(draft: _workout('散歩$index'));
+      }
+      expect(
+        await harness.workoutTemplateRepository.getAll('test-user-id'),
+        hasLength(8),
+      );
+    },
+  );
 }
 
 MealTemplateDraft _draft(String name) {
@@ -103,7 +181,25 @@ MealTemplateDraft _draft(String name) {
   );
 }
 
-AppController _controller(IsarTestHarness harness, {bool plus = false}) {
+WorkoutTemplateDraft _workout(String name) {
+  return WorkoutTemplateDraft(
+    name: name,
+    items: [
+      WorkoutTemplateItem(
+        itemId: 'item-$name',
+        name: name,
+        durationMin: 30,
+        sortOrder: 1,
+      ),
+    ],
+  );
+}
+
+AppController _controller(
+  IsarTestHarness harness, {
+  bool plus = false,
+  bool workouts = false,
+}) {
   return AppController(
     healthRepository: MockHealthRepository(isAvailable: false),
     authenticationRepository: MockAuthenticationRepository(
@@ -121,6 +217,9 @@ AppController _controller(IsarTestHarness harness, {bool plus = false}) {
     weightRepository: harness.weightRepository,
     savedFoodRepository: harness.savedFoodRepository,
     mealTemplateRepository: harness.mealTemplateRepository,
+    workoutTemplateRepository: workouts
+        ? harness.workoutTemplateRepository
+        : null,
   );
 }
 

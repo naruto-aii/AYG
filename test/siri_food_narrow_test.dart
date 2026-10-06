@@ -160,7 +160,9 @@ void main() {
         item.code,
         reason: run.lines.join('\n'),
       );
-      expect(run.plan.asksConfirmation, isTrue, reason: run.lines.join('\n'));
+      expect(run.plan.confident, isTrue, reason: run.lines.join('\n'));
+      expect(run.plan.asksConfirmation, isFalse, reason: run.lines.join('\n'));
+      expect(run.plan.spoken, contains('を登録しました'), reason: run.lines.join('\n'));
       expect(
         run.plan.quantity?.amount,
         item.amount,
@@ -181,6 +183,49 @@ void main() {
       expect(saved.food!.consumedAmount, item.amount);
     }
     expect(rounds, everyElement(1));
+  });
+
+  test('a low-confidence food asks once, then reports what was saved', () {
+    final run = _talk(context(), 'さけ100g', const []);
+    expect(run.plan.confident, isFalse, reason: run.lines.join('\n'));
+    expect(run.plan.asksConfirmation, isTrue, reason: run.lines.join('\n'));
+    expect(run.plan.spoken, contains('でいいですね'), reason: run.lines.join('\n'));
+    expect(run.plan.spoken, isNot(contains('生、焼き')));
+    expect(run.plan.food?.officialFoodCode, '10134');
+
+    final declined = commitSiriVoice(
+      plan: run.plan,
+      answer: SiriAnswer.no,
+      loggedAt: DateTime(2026, 10, 6, 12),
+      ownerUserId: 'user-1',
+      weightKg: 60,
+      newId: () => 'id-1',
+    );
+    expect(declined.status, SiriVoiceStatus.declined);
+    expect(declined.food, isNull);
+
+    final saved = commitSiriVoice(
+      plan: run.plan,
+      answer: SiriAnswer.yes,
+      loggedAt: DateTime(2026, 10, 6, 12),
+      ownerUserId: 'user-1',
+      weightKg: 60,
+      newId: () => 'id-1',
+    );
+    expect(saved.status, SiriVoiceStatus.registered);
+    expect(saved.spoken, contains('を登録しました'));
+    expect(saved.spoken, contains('100g'));
+    expect(saved.food!.officialFoodCode, '10134');
+    expect(saved.food!.consumedAmount, 100);
+  });
+
+  test('an unknown answer is confirmed before it is saved', () {
+    final run = _talk(context(), '牛肉', const ['わからない', '100g']);
+    expect(run.plan.confident, isFalse, reason: run.lines.join('\n'));
+    expect(run.plan.asksConfirmation, isTrue, reason: run.lines.join('\n'));
+    expect(run.plan.spoken, contains('でいいですね'), reason: run.lines.join('\n'));
+    expect(run.plan.food?.officialFoodCode, '11004');
+    expect(run.lines.join('\n'), isNot(contains('生、焼き')));
   });
 
   test('cancel ends the dialog', () {

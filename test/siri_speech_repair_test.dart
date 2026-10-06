@@ -72,21 +72,21 @@ void main() {
       name: 'ささ、あー、ささみ',
       quantity: '300g',
     );
-    expect(restarted.spoken, 'ささみ300gの食事でいいですね');
+    expect(restarted.spoken, 'ささみ300gを登録しました');
 
     final joined = planSiriFood(
       context: context([sasami]),
       name: 'ささ、あー、み',
       quantity: '100g',
     );
-    expect(joined.spoken, 'ささみ100gの食事でいいですね');
+    expect(joined.spoken, 'ささみ100gを登録しました');
 
     final spokenAmount = planSiriFood(
       context: context([sasami]),
       name: 'ささみをひゃく、えー、グラム',
       quantity: '',
     );
-    expect(spokenAmount.spoken, 'ささみ100gの食事でいいですね');
+    expect(spokenAmount.spoken, 'ささみ100gを登録しました');
   });
 
   test('tied interpretations become a choice', () {
@@ -113,13 +113,13 @@ void main() {
       name: 'ジョギング、えー、30分',
       quantity: '',
     );
-    expect(filled.spoken, 'ジョギング30分の運動でいいですね');
+    expect(filled.spoken, 'ジョギング30分を登録しました');
 
     final restarted = planSiriExercise(
       context: context(const []),
       name: 'ジョ、ジョギングを30分',
       quantity: '',
     );
-    expect(restarted.spoken, 'ジョギング30分の運動でいいですね');
+    expect(restarted.spoken, 'ジョギング30分を登録しました');
   });
 }

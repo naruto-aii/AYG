@@ -19,7 +19,9 @@ import 'siri_speech_repair.dart';
 /// Siri の食事・運動登録。
 ///
 /// 決まった始まりは「Hey Siri、カロナビで」。食事か運動かは言葉から判別する。
-/// 登録前に「鶏むね100gの食事でいいですね」のように復唱し、合っていれば作る。
+/// 名寄せの自信が高いときは、確認せず登録し「ささみ100gを登録しました」と読む。
+/// 自信が低いときだけ「でいいですね」と確認してから登録する。
+/// 「さっきの登録を取り消して」で、直前の1件を取り消す。
 /// 食品と運動とテンプレートは、アプリ内検索と同じ順位で名寄せする。
 /// ひとつに決まるとき、生・ゆでだけの違いは、聞かずに代表の形にする。
 /// 2〜3件の別食品なら読み上げて選ばせる。
@@ -53,6 +55,7 @@ enum SiriVoiceStatus {
   silence,
   cancelled,
   registered,
+  undone,
 }
 
 enum SiriQuantityUnit {
@@ -255,6 +258,7 @@ class SiriVoiceContext {
     this.remotePublic = const [],
     this.remoteUnavailable = false,
     this.searchFoods,
+    this.lastLogLabel,
   });
 
   final bool paid;
@@ -275,6 +279,9 @@ class SiriVoiceContext {
 
   /// 成分表の検索。あるときは、絞り込みの答えで検索し直す。
   final List<SiriFoodRecord> Function(String query)? searchFoods;
+
+  /// 直前に登録した1件の読み上げ。「ささみ100g」のように量まで含む。
+  final String? lastLogLabel;
 }
 
 class SiriVoicePlan {
@@ -304,13 +311,14 @@ class SiriVoicePlan {
     this.narrowKind,
     this.narrowQuery,
     this.narrowFoods = const [],
+    this.confident = false,
   });
 
   final SiriVoiceStatus status;
   final String spoken;
   final bool asksConfirmation;
 
-  /// 復唱が食事か運動かの質問。はいでは登録しない。
+  /// 食事か運動かの質問。はいでは登録しない。
   final bool asksKind;
   final SiriFoodRecord? food;
   final String? activityId;
@@ -338,14 +346,21 @@ class SiriVoicePlan {
   final String? narrowQuery;
   final List<SiriFoodRecord> narrowFoods;
 
+  /// 名寄せの自信が高い。確認せず登録し、内容を読み上げる。
+  final bool confident;
+
   bool get isReady =>
       status == SiriVoiceStatus.ready &&
-      asksConfirmation &&
+      (asksConfirmation || confident) &&
       !asksKind &&
       !asksChoice &&
       !asksAmount &&
       !asksNarrow;
 }
+
+String siriRegisteredSpeech(String label) => '$labelを登録しました';
+
+String siriUndoSpeech(String label) => '$labelの登録を取り消しました';
 
 class SiriVoiceResult {
   const SiriVoiceResult({
@@ -409,11 +424,13 @@ class SiriVoiceImportPlan {
     required this.foods,
     required this.exercises,
     required this.acknowledgeIds,
+    this.undoIds = const [],
   });
 
   final List<FoodEntry> foods;
   final List<ExerciseEntry> exercises;
   final List<String> acknowledgeIds;
+  final List<String> undoIds;
 }
 
 SiriQuantity? parseSiriQuantity(String raw) {
@@ -498,7 +515,7 @@ SiriVoicePlan planSiriUtterance({
   return _plan(context: context, name: name, quantity: quantity, forced: null);
 }
 
-/// 食事か運動かの復唱に答えたあと、その種類で中身を確認する。
+/// 食事か運動かの質問に答えたあと、その種類で登録まで進める。
 SiriVoicePlan resolveSiriSpokenKind({
   required SiriVoiceContext context,
   required SiriVoicePlan plan,
@@ -560,6 +577,7 @@ SiriVoicePlan resolveSiriFoodNarrow({
       foodId: food.id,
       quantityText: quantityText,
       known: food,
+      confident: false,
     );
   }
   final nextTraits = traits.merge(reply.traits);
@@ -577,7 +595,7 @@ SiriVoicePlan resolveSiriFoodNarrow({
   );
 }
 
-/// 候補を選んだあと、量があれば復唱まで進める。
+/// 候補を選んだあと、量があれば登録まで進める。
 SiriVoicePlan resolveSiriChoice({
   required SiriVoiceContext context,
   required SiriVoicePlan plan,
@@ -639,6 +657,7 @@ SiriVoicePlan resolveSiriAmount({
       foodId: food.id,
       quantityText: amountText,
       assumeFoodUnit: true,
+      confident: plan.confident,
     );
   }
   final activityId = plan.activityId;
@@ -826,6 +845,9 @@ SiriVoicePlan _plan({
     return blocked;
   }
   final source = _utterance(name, quantity);
+  if (siriUndoUtterance(source)) {
+    return _undoPlan(context);
+  }
   if (_mentionsPhraseShape(source) && !source.contains('カロナビ')) {
     return _stop(SiriVoiceStatus.unsupportedAmount, 'アプリ名が無いので登録しません');
   }
@@ -1087,6 +1109,7 @@ SiriVoicePlan _confirmFood(
   required String quantityText,
   bool assumeFoodUnit = false,
   SiriFoodRecord? known,
+  bool confident = true,
 }) {
   final food = known ?? _foodById(context, foodId);
   if (food == null) {
@@ -1106,6 +1129,7 @@ SiriVoicePlan _confirmFood(
       food: food,
       spokenName: food.speakName,
       pendingQuantityText: quantityText,
+      confident: confident,
     );
   }
   if (!_foodUnitFits(food.unit, parsed.unit)) {
@@ -1115,10 +1139,12 @@ SiriVoicePlan _confirmFood(
     );
   }
   final amount = formatSiriQuantity(parsed);
+  final label = '${food.speakName}$amount';
   return SiriVoicePlan._(
     status: SiriVoiceStatus.ready,
-    spoken: '${food.speakName}$amountの食事でいいですね',
-    asksConfirmation: true,
+    spoken: confident ? siriRegisteredSpeech(label) : '$labelの食事でいいですね',
+    asksConfirmation: !confident,
+    confident: confident,
     food: food,
     quantity: parsed,
     spokenName: food.speakName,
@@ -1146,8 +1172,9 @@ SiriVoicePlan _confirmMealTemplate(
 SiriVoicePlan _readyMealTemplate(SiriMealTemplate template) {
   return SiriVoicePlan._(
     status: SiriVoiceStatus.ready,
-    spoken: '${template.speakName}のテンプレートでいいですね',
-    asksConfirmation: true,
+    spoken: siriRegisteredSpeech(template.speakName),
+    asksConfirmation: false,
+    confident: true,
     mealTemplate: template,
     spokenName: template.speakName,
   );
@@ -1184,6 +1211,7 @@ SiriVoicePlan _confirmExercise(
       activityId: activity.id,
       spokenName: activity.displayName,
       pendingQuantityText: quantityText,
+      confident: true,
     );
   }
   final spokenUnitFits = _exerciseUnitFits(activity, parsed.unit);
@@ -1218,8 +1246,9 @@ SiriVoicePlan _confirmExercise(
   final amount = formatSiriQuantity(parsed);
   return SiriVoicePlan._(
     status: SiriVoiceStatus.ready,
-    spoken: '${activity.displayName}$amountの運動でいいですね',
-    asksConfirmation: true,
+    spoken: siriRegisteredSpeech('${activity.displayName}$amount'),
+    asksConfirmation: false,
+    confident: true,
     activityId: activity.id,
     quantity: parsed,
     spokenName: activity.displayName,
@@ -1252,8 +1281,9 @@ SiriVoicePlan _confirmWorkoutTemplate(
   }
   return SiriVoicePlan._(
     status: SiriVoiceStatus.ready,
-    spoken: '${template.speakName}のテンプレートでいいですね',
-    asksConfirmation: true,
+    spoken: siriRegisteredSpeech(template.speakName),
+    asksConfirmation: false,
+    confident: true,
     workoutTemplate: template,
     spokenName: template.speakName,
   );
@@ -1346,6 +1376,7 @@ SiriVoicePlan _presentFoodRecords(
     foodId: food.id,
     quantityText: quantityText,
     known: food,
+    confident: turn.confident,
   );
 }
 
@@ -1826,13 +1857,13 @@ SiriVoiceResult commitSiriVoice({
   if (!plan.isReady) {
     return SiriVoiceResult(status: plan.status, spoken: plan.spoken);
   }
-  if (answer == SiriAnswer.no) {
+  if (plan.asksConfirmation && answer == SiriAnswer.no) {
     return const SiriVoiceResult(
       status: SiriVoiceStatus.declined,
       spoken: '登録しません',
     );
   }
-  if (answer != SiriAnswer.yes) {
+  if (plan.asksConfirmation && answer != SiriAnswer.yes) {
     return const SiriVoiceResult(
       status: SiriVoiceStatus.silence,
       spoken: '登録しません',
@@ -1872,7 +1903,7 @@ SiriVoiceResult commitSiriVoice({
     }
     return SiriVoiceResult(
       status: SiriVoiceStatus.registered,
-      spoken: '登録しました',
+      spoken: siriRegisteredSpeech(mealTemplate.speakName),
       food: foods.length == 1 ? foods.single : null,
       foods: foods,
     );
@@ -1912,7 +1943,7 @@ SiriVoiceResult commitSiriVoice({
     }
     return SiriVoiceResult(
       status: SiriVoiceStatus.registered,
-      spoken: '登録しました',
+      spoken: siriRegisteredSpeech(workoutTemplate.speakName),
       exercise: exercises.length == 1 ? exercises.single : null,
       exercises: exercises,
     );
@@ -1940,7 +1971,7 @@ SiriVoiceResult commitSiriVoice({
     );
     return SiriVoiceResult(
       status: SiriVoiceStatus.registered,
-      spoken: '登録しました',
+      spoken: siriRegisteredSpeech('${food.speakName}${formatSiriQuantity(quantity)}'),
       food: entry,
       foods: [entry],
     );
@@ -1961,9 +1992,11 @@ SiriVoiceResult commitSiriVoice({
         spoken: '計算できないので登録しません',
       );
     }
+    final activity = MetActivityCatalog.findById(activityId);
+    final activityName = activity?.displayName ?? plan.spokenName ?? '';
     return SiriVoiceResult(
       status: SiriVoiceStatus.registered,
-      spoken: '登録しました',
+      spoken: siriRegisteredSpeech('$activityName${formatSiriQuantity(quantity)}'),
       exercise: exercise,
       exercises: [exercise],
     );
@@ -2281,6 +2314,7 @@ abstract final class SiriVoiceCodec {
     final foods = <FoodEntry>[];
     final exercises = <ExerciseEntry>[];
     final acknowledgeIds = <String>[];
+    final undoIds = <String>[];
     for (final row in decoded) {
       if (row is! Map) {
         continue;
@@ -2291,6 +2325,13 @@ abstract final class SiriVoiceCodec {
         continue;
       }
       acknowledgeIds.add(id);
+      if (row['kind'] == 'undo') {
+        final target = _string(row['targetId']);
+        if (target != null) {
+          undoIds.add(target);
+        }
+        continue;
+      }
       final loggedAt = _loggedAt(row['loggedAt']);
       if (loggedAt == null) {
         continue;
@@ -2332,8 +2373,68 @@ abstract final class SiriVoiceCodec {
       foods: foods,
       exercises: exercises,
       acknowledgeIds: acknowledgeIds,
+      undoIds: undoIds,
     );
   }
+}
+
+bool siriUndoUtterance(String raw) {
+  var text = raw
+      .trim()
+      .replaceAll(' ', '')
+      .replaceAll('　', '')
+      .replaceAll(RegExp(r'[。．.！!？?、,]'), '');
+  text = text.replaceFirst(
+    RegExp(r'^(?:HeySiri|heySiri|へいしり)'),
+    '',
+  );
+  text = text.replaceFirst(RegExp(r'^カロナビで'), '');
+  text = text.replaceFirst(RegExp(r'^(?:食事に|運動に)'), '');
+  text = text.replaceFirst(RegExp(r'(です|ください|くれ)$'), '');
+  const phrases = {
+    '今登録したやつ消して',
+    '今登録したやつくして',
+    '今登録したもの消して',
+    '今登録したものを消して',
+    'さっきの登録を取り消して',
+    'さっきの登録取り消して',
+    '直前の登録を取り消して',
+    '直前の登録取り消して',
+    '今の登録を取り消して',
+    '今の登録取り消して',
+    '登録を取り消して',
+    '登録取り消して',
+    '取り消して',
+    '取り消し',
+    '元に戻して',
+    'さっきの消して',
+    '今の消して',
+    '今登録したやつ削除して',
+    'さっきの登録を削除して',
+    'さっきの登録削除して',
+  };
+  if (phrases.contains(text)) {
+    return true;
+  }
+  final removes = text.contains('取り消') ||
+      text.contains('消して') ||
+      text.contains('削除');
+  final aboutLast = text.contains('登録') ||
+      text.contains('さっき') ||
+      text.contains('直前');
+  return removes && aboutLast && text.length <= 24;
+}
+
+SiriVoicePlan _undoPlan(SiriVoiceContext context) {
+  final label = context.lastLogLabel?.trim() ?? '';
+  if (label.isEmpty) {
+    return _stop(SiriVoiceStatus.notFound, '取り消す登録がありません');
+  }
+  return SiriVoicePlan._(
+    status: SiriVoiceStatus.undone,
+    spoken: siriUndoSpeech(label),
+    asksConfirmation: false,
+  );
 }
 
 SiriVoicePlan? _blocked(SiriVoiceContext context) {

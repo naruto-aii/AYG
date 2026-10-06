@@ -32,6 +32,7 @@ void main() {
     List<SiriFoodRecord> remoteOfficial = const [],
     List<SiriFoodRecord> remotePublic = const [],
     bool remoteUnavailable = false,
+    String? lastLogLabel,
   }) {
     return SiriVoiceContext(
       paid: paid,
@@ -43,6 +44,7 @@ void main() {
       remoteOfficial: remoteOfficial,
       remotePublic: remotePublic,
       remoteUnavailable: remoteUnavailable,
+      lastLogLabel: lastLogLabel,
     );
   }
 
@@ -61,26 +63,20 @@ void main() {
     );
   }
 
-  test('food is repeated and saved only after yes', () {
+  test('a confident food is registered and reported without asking', () {
     final plan = planSiriFood(
       context: context(),
       name: 'ささみ',
       quantity: '300g',
     );
 
-    expect(plan.asksConfirmation, isTrue);
-    expect(plan.spoken, 'ささみ300gの食事でいいですね');
-
-    final declined = finish(plan, SiriAnswer.no);
-    expect(declined.food, isNull);
-    expect(declined.status, SiriVoiceStatus.declined);
-
-    final silent = finish(plan, SiriAnswer.silence);
-    expect(silent.food, isNull);
-    expect(silent.status, SiriVoiceStatus.silence);
+    expect(plan.confident, isTrue);
+    expect(plan.asksConfirmation, isFalse);
+    expect(plan.spoken, 'ささみ300gを登録しました');
 
     final saved = finish(plan, SiriAnswer.yes);
     expect(saved.status, SiriVoiceStatus.registered);
+    expect(saved.spoken, 'ささみ300gを登録しました');
     expect(saved.food!.name, 'ささみ');
     expect(saved.food!.consumedAmount, 300);
     expect(saved.food!.loggedAt, loggedAt);
@@ -96,7 +92,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, 'ささみ300gの食事でいいですね');
+    expect(plan.spoken, 'ささみ300gを登録しました');
     expect(finish(plan, SiriAnswer.yes).food!.consumedAmount, 300);
   });
 
@@ -121,7 +117,7 @@ void main() {
 
       expect(noApp.asksConfirmation, isFalse);
       expect(noApp.spoken, 'アプリ名が無いので登録しません');
-      expect(noKind.spoken, 'ジョギング30分の運動でいいですね');
+      expect(noKind.spoken, 'ジョギング30分を登録しました');
       expect(wrongKind.spoken, contains('ささみは見つかりません'));
       expect(wrongKind.status, SiriVoiceStatus.rescue);
       expect(finish(noApp, SiriAnswer.yes).registered, isFalse);
@@ -194,7 +190,7 @@ void main() {
       plan: plan,
       choiceId: '11227',
     );
-    expect(chosen.spoken, 'ささみ100gの食事でいいですね');
+    expect(chosen.spoken, 'ささみ100gを登録しました');
     expect(finish(chosen, SiriAnswer.yes).food!.officialFoodCode, '11227');
   });
 
@@ -216,16 +212,18 @@ void main() {
     expect(finish(exercise, SiriAnswer.yes).registered, isFalse);
   });
 
-  test('exercise is repeated and saved only after yes', () {
+  test('a confident exercise is registered and reported without asking', () {
     final plan = planSiriExercise(
       context: context(),
       name: 'カロナビで、運動に水泳を30分',
       quantity: '',
     );
 
-    expect(plan.spoken, '水泳30分の運動でいいですね');
-    expect(finish(plan, SiriAnswer.no).exercise, isNull);
-    expect(finish(plan, SiriAnswer.silence).exercise, isNull);
+    expect(plan.confident, isTrue);
+    expect(plan.asksConfirmation, isFalse);
+    expect(plan.spoken, '水泳30分を登録しました');
+    expect(finish(plan, SiriAnswer.no).exercise!.durationMin, 30);
+    expect(finish(plan, SiriAnswer.silence).exercise!.durationMin, 30);
 
     final saved = finish(plan, SiriAnswer.yes);
     final exercise = saved.exercise!;
@@ -244,7 +242,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, 'ジョギング30分の運動でいいですね');
+    expect(plan.spoken, 'ジョギング30分を登録しました');
     final exercise = finish(plan, SiriAnswer.yes).exercise!;
     expect(exercise.durationMin, 30);
     expect(exercise.distanceKm, isNull);
@@ -259,7 +257,7 @@ void main() {
       quantity: '5km',
     );
 
-    expect(plan.spoken, 'ジョギング5kmの運動でいいですね');
+    expect(plan.spoken, 'ジョギング5kmを登録しました');
     final exercise = finish(plan, SiriAnswer.yes).exercise!;
     expect(exercise.distanceKm, 5);
     expect(exercise.netKcal, 300);
@@ -305,7 +303,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, '鶏むね100gの食事でいいですね');
+    expect(plan.spoken, '鶏むね100gを登録しました');
     expect(plan.asksKind, isFalse);
     final saved = finish(plan, SiriAnswer.yes);
     expect(saved.food!.name, '鶏むね');
@@ -320,7 +318,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, 'ジョギング5kmの運動でいいですね');
+    expect(plan.spoken, 'ジョギング5kmを登録しました');
     final saved = finish(plan, SiriAnswer.yes);
     expect(saved.exercise!.name, 'ジョギング');
     expect(saved.exercise!.distanceKm, 5);
@@ -384,7 +382,7 @@ void main() {
       plan: plan,
       kind: SiriSpokenKind.exercise,
     );
-    expect(exercise.spoken, 'ジョギング5kmの運動でいいですね');
+    expect(exercise.spoken, 'ジョギング5kmを登録しました');
     expect(finish(exercise, SiriAnswer.yes).exercise!.distanceKm, 5);
   });
 
@@ -534,7 +532,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, 'ささみ100gの食事でいいですね');
+    expect(plan.spoken, 'ささみ100gを登録しました');
     expect(finish(plan, SiriAnswer.yes).food!.officialFoodCode, '11227');
   });
 
@@ -544,7 +542,7 @@ void main() {
       name: '鶏むね100g',
       quantity: '',
     );
-    expect(kanji.spoken, '若鶏むね（皮なし・生）100gの食事でいいですね');
+    expect(kanji.spoken, '若鶏むね（皮なし・生）100gを登録しました');
     expect(finish(kanji, SiriAnswer.yes).food!.officialFoodCode, '11220');
 
     final kana = planSiriFood(
@@ -552,7 +550,7 @@ void main() {
       name: 'とりむね150グラム',
       quantity: '',
     );
-    expect(kana.spoken, '若鶏むね（皮なし・生）150gの食事でいいですね');
+    expect(kana.spoken, '若鶏むね（皮なし・生）150gを登録しました');
     expect(finish(kana, SiriAnswer.yes).food!.consumedAmount, 150);
   });
 
@@ -572,7 +570,7 @@ void main() {
       plan: plan,
       amountText: '250',
     );
-    expect(answered.spoken, 'ご飯250gの食事でいいですね');
+    expect(answered.spoken, 'ご飯250gを登録しました');
     expect(finish(answered, SiriAnswer.yes).food!.consumedAmount, 250);
   });
 
@@ -590,7 +588,7 @@ void main() {
       plan: plan,
       amountText: '45g',
     );
-    expect(answered.spoken, '納豆45gの食事でいいですね');
+    expect(answered.spoken, '納豆45gを登録しました');
   });
 
   test('プロテイン with no hit asks to retry or open the app', () {
@@ -613,7 +611,7 @@ void main() {
       name: 'ウォーキング30分',
       quantity: '',
     );
-    expect(walk.spoken, 'ウォーキング30分の運動でいいですね');
+    expect(walk.spoken, 'ウォーキング30分を登録しました');
     final walked = finish(walk, SiriAnswer.yes).exercise!;
     expect(walked.activityId, 'walk_brisk');
     expect(walked.durationMin, 30);
@@ -625,7 +623,7 @@ void main() {
       name: '筋トレ20分',
       quantity: '',
     );
-    expect(weights.spoken, 'ウェイトトレーニング20分の運動でいいですね');
+    expect(weights.spoken, 'ウェイトトレーニング20分を登録しました');
     final lifted = finish(weights, SiriAnswer.yes).exercise!;
     expect(lifted.activityId, 'weight_training');
     expect(lifted.durationMin, 20);
@@ -646,7 +644,7 @@ void main() {
       plan: plan,
       amountText: '15',
     );
-    expect(answered.spoken, 'ウォーキング15分の運動でいいですね');
+    expect(answered.spoken, 'ウォーキング15分を登録しました');
     expect(finish(answered, SiriAnswer.yes).exercise!.activityId, 'walk_brisk');
   });
 
@@ -665,7 +663,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, '朝ごはんのテンプレートでいいですね');
+    expect(plan.spoken, '朝ごはんを登録しました');
     final saved = finish(plan, SiriAnswer.yes);
     expect(saved.foods, hasLength(1));
     expect(saved.foods.single.consumedAmount, 80);
@@ -687,7 +685,7 @@ void main() {
       quantity: '',
     );
 
-    expect(plan.spoken, '朝の運動のテンプレートでいいですね');
+    expect(plan.spoken, '朝の運動を登録しました');
     final saved = finish(plan, SiriAnswer.yes);
     expect(saved.exercises, hasLength(1));
     expect(saved.exercises.single.activityId, 'swim_lap');
@@ -751,7 +749,7 @@ void main() {
 
     expect(plan.food?.savedFoodId, 'food-9');
     expect(plan.food?.sourceOwnerUserId, 'owner-2');
-    expect(plan.spoken, '自家製サラダチキン80gの食事でいいですね');
+    expect(plan.spoken, '自家製サラダチキン80gを登録しました');
   });
 
   test('a network failure keeps saved foods and skips remote rows', () {
@@ -778,5 +776,74 @@ void main() {
     );
 
     expect(plan.status, SiriVoiceStatus.rescue);
+  });
+
+  test('the last registration can be undone in one phrase', () {
+    final remembered = context(lastLogLabel: 'ささみ100g');
+    for (final phrase in [
+      'さっきの登録を取り消して',
+      '今登録したやつ消して',
+      '取り消して',
+      'Hey Siri、カロナビで、さっきの登録を取り消して',
+    ]) {
+      final plan = planSiriUtterance(
+        context: remembered,
+        name: phrase,
+        quantity: '',
+      );
+      expect(plan.status, SiriVoiceStatus.undone, reason: phrase);
+      expect(plan.spoken, 'ささみ100gの登録を取り消しました', reason: phrase);
+      expect(plan.food, isNull, reason: phrase);
+    }
+
+    final exercise = planSiriExercise(
+      context: context(lastLogLabel: 'ジョギング30分'),
+      name: '今登録したやつ消して',
+      quantity: '',
+    );
+    expect(exercise.status, SiriVoiceStatus.undone);
+    expect(exercise.spoken, 'ジョギング30分の登録を取り消しました');
+
+    final missing = planSiriFood(
+      context: context(),
+      name: 'さっきの登録を取り消して',
+      quantity: '',
+    );
+    expect(missing.status, SiriVoiceStatus.notFound);
+    expect(missing.spoken, '取り消す登録がありません');
+
+    final today = planSiriFood(
+      context: remembered,
+      name: '今日の牛肉消して',
+      quantity: '',
+    );
+    expect(today.status, isNot(SiriVoiceStatus.undone));
+  });
+
+  test('an undo marker names the registration to delete', () {
+    final imported = SiriVoiceCodec.decodePending(
+      raw: jsonEncode([
+        {
+          'kind': 'undo',
+          'id': 'marker-1',
+          'ownerUserId': 'user-1',
+          'targetId': 'food-9',
+        },
+        {
+          'kind': 'undo',
+          'id': 'marker-2',
+          'ownerUserId': 'user-2',
+          'targetId': 'other',
+        },
+      ]),
+      ownerUserId: 'user-1',
+      existingFoodIds: const {},
+      existingExerciseIds: const {},
+    );
+
+    expect(imported.undoIds, ['food-9']);
+    expect(imported.acknowledgeIds, ['marker-1']);
+    expect(imported.foods, isEmpty);
+    expect(imported.exercises, isEmpty);
   });
 }

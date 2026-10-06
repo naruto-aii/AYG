@@ -395,7 +395,7 @@ private struct LockCapsule: View {
 }
 
 /// ホームとロック画面のボタン。ショートカットや Siri には出さない。
-/// 食事と運動の復唱登録は、アプリ本体の別の App Intent。
+/// 食事と運動の音声登録は、アプリ本体の別の App Intent。
 struct RegisterMealWidgetIntent: AppIntent {
   static var title: LocalizedStringResource = "ウィジェットのパターンを登録"
   static var openAppWhenRun = false

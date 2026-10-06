@@ -1,11 +1,13 @@
 import AppIntents
 import Foundation
 
-/// 食事と運動を、復唱して「はい」のときだけ1件登録する。
+/// 食事と運動を登録し、何をどれだけ登録したかを読み上げる。
 ///
 /// 決まった始まりは「Hey Siri、カロナビで」。食事か運動かは言葉から判別する。
-/// 登録前に「鶏むね100gの食事でいいですね」のように復唱する。
-/// どちらとも取れない言葉は、復唱で食事か運動かを確認する。
+/// 名寄せの自信が高いときは確認せず登録し、「ささみ100gを登録しました」と読む。
+/// 自信が低いときだけ「でいいですね」と確認してから登録する。
+/// 「さっきの登録を取り消して」で、直前の1件を取り消す。
+/// どちらとも取れない言葉は、食事か運動かを確認する。
 /// 「Hey Siri、カロナビに登録」では、先に食事か運動かを聞き、そのあと食品か種目を聞く。
 /// 「カロナビで登録」「カロナビで記録」も同じ。答えた自由文は今までの名寄せへ渡す。
 /// 「Hey Siri、カロナビで、食事にささみを300グラム。」
@@ -13,7 +15,7 @@ import Foundation
 /// 食事だけの言い方と運動だけの言い方も残す。フレーズのパラメータは1つだけ、型は AppEntity。
 /// 食品名と量は、その1つの言葉から今までどおり分ける。
 ///
-/// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
+/// 確認が必要なときだけ「いいえ」や無言で書かない。自信が高いときは、その場で書く。
 /// 食事と運動のテンプレート名でも登録する。未課金は登録しない。公開食品は扱わない。
 /// `openAppWhenRun` は false。判定と書き込みは App Group だけで、アプリが閉じていても Siri が実行する。
 /// 名寄せの順は Dart の `pickSiriMatches` と同じ。同じ食品の生・ゆでは聞かず代表にする。部位や種類が分かれて長いときだけ聞き返す。2〜3件の別食品は読み上げる。0件は言い直したあと、検索語を残してアプリを開く。
@@ -23,6 +25,7 @@ enum SiriVoiceStore {
   static let pendingKey = "siriVoicePending"
   static let openSearchKey = "siriVoiceOpenSearch"
   static let continueSearchKey = "siriVoiceContinueSearch"
+  static let lastCommitKey = "siriVoiceLastCommit"
 
   static var defaults: UserDefaults? {
     UserDefaults(suiteName: LockScreenMealStore.appGroupId)
@@ -114,6 +117,32 @@ enum SiriVoiceStore {
     var searchKind: String = "food"
     var intakeKcal: Double = 0
     var burnKcal: Double = 0
+    var confident: Bool = false
+    var label: String = ""
+  }
+
+  enum CommitStep {
+    case speak(String)
+    case confirm(dialog: String, report: String)
+  }
+
+  /// 自信が高いときはここで書く。確認が要るときは、はいのあとに `commitConfirmed` する。
+  static func commitStep(_ plan: Plan) -> CommitStep {
+    if plan.asksConfirmation && !plan.records.isEmpty {
+      let report = plan.label.isEmpty ? "登録しました" : registeredSpeech(plan.label)
+      return .confirm(dialog: plan.spoken, report: report)
+    }
+    if plan.confident && !plan.records.isEmpty {
+      commitAll(plan.records)
+      rememberLast(plan)
+      return .speak(plan.spoken)
+    }
+    return .speak(plan.spoken)
+  }
+
+  static func commitConfirmed(_ plan: Plan) {
+    commitAll(plan.records)
+    rememberLast(plan)
   }
 
   @available(iOS 16.0, *)
@@ -157,6 +186,9 @@ enum SiriVoiceStore {
       return blocked
     }
     let source = utterance(name, quantity)
+    if undoUtterance(source) {
+      return undoLast()
+    }
     if mentionsPhraseShape(source) && !source.contains("カロナビ") {
       return stop("アプリ名が無いので登録しません")
     }
@@ -766,6 +798,10 @@ enum SiriVoiceStore {
     return ParsedQuantity(amount: amount, unit: mapped)
   }
 
+  private static func registeredSpeech(_ label: String) -> String {
+    "\(label)を登録しました"
+  }
+
   private static func formatQuantity(_ quantity: ParsedQuantity) -> String {
     let number = quantity.amount == quantity.amount.rounded()
       ? String(Int(quantity.amount.rounded()))
@@ -820,6 +856,144 @@ enum SiriVoiceStore {
       return nil
     }
     return meal ? .meal : .exercise
+  }
+
+  private static func undoUtterance(_ raw: String) -> Bool {
+    var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    let punctuation = CharacterSet(charactersIn: " 。．.！!？?、,")
+    text = String(text.unicodeScalars.filter { !punctuation.contains($0) })
+    if text.hasPrefix("HeySiri") {
+      text = String(text.dropFirst("HeySiri".count))
+    } else if text.hasPrefix("heySiri") {
+      text = String(text.dropFirst("heySiri".count))
+    }
+    if text.hasPrefix("カロナビで") {
+      text = String(text.dropFirst("カロナビで".count))
+    }
+    if text.hasPrefix("食事に") {
+      text = String(text.dropFirst("食事に".count))
+    } else if text.hasPrefix("運動に") {
+      text = String(text.dropFirst("運動に".count))
+    }
+    if text.hasSuffix("ください") {
+      text = String(text.dropLast("ください".count))
+    } else if text.hasSuffix("です") {
+      text = String(text.dropLast("です".count))
+    } else if text.hasSuffix("くれ") {
+      text = String(text.dropLast("くれ".count))
+    }
+    let phrases: Set<String> = [
+      "今登録したやつ消して",
+      "今登録したやつくして",
+      "今登録したもの消して",
+      "今登録したものを消して",
+      "さっきの登録を取り消して",
+      "さっきの登録取り消して",
+      "直前の登録を取り消して",
+      "直前の登録取り消して",
+      "今の登録を取り消して",
+      "今の登録取り消して",
+      "登録を取り消して",
+      "登録取り消して",
+      "取り消して",
+      "取り消し",
+      "元に戻して",
+      "さっきの消して",
+      "今の消して",
+      "今登録したやつ削除して",
+      "さっきの登録を削除して",
+      "さっきの登録削除して",
+    ]
+    if phrases.contains(text) {
+      return true
+    }
+    let removes = text.contains("取り消") || text.contains("消して") || text.contains("削除")
+    let aboutLast = text.contains("登録") || text.contains("さっき") || text.contains("直前")
+    return removes && aboutLast && text.count <= 24
+  }
+
+  private struct LastCommit {
+    var ids: [String]
+    var label: String
+    var intake: Double
+    var burn: Double
+  }
+
+  private static func readLastCommit() -> LastCommit? {
+    guard
+      let raw = defaults?.string(forKey: lastCommitKey),
+      let data = raw.data(using: .utf8),
+      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      return nil
+    }
+    let ids = json["ids"] as? [String] ?? []
+    let label = (json["label"] as? String ?? "")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    if ids.isEmpty || label.isEmpty {
+      return nil
+    }
+    return LastCommit(
+      ids: ids,
+      label: label,
+      intake: LockScreenMealStore.number(json["intakeKcal"]),
+      burn: LockScreenMealStore.number(json["burnKcal"])
+    )
+  }
+
+  private static func rememberLast(_ plan: Plan) {
+    let ids = plan.records.compactMap { $0["id"] as? String }
+    let label = plan.label.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !ids.isEmpty, !label.isEmpty else { return }
+    let payload: [String: Any] = [
+      "ids": ids,
+      "label": label,
+      "intakeKcal": plan.intakeKcal,
+      "burnKcal": plan.burnKcal,
+    ]
+    guard JSONSerialization.isValidJSONObject(payload),
+          let data = try? JSONSerialization.data(withJSONObject: payload),
+          let raw = String(data: data, encoding: .utf8)
+    else {
+      return
+    }
+    defaults?.set(raw, forKey: lastCommitKey)
+  }
+
+  /// 直前の1件を消す。未取り込みなら待ち行列から除き、取り込み済みなら削除印を残す。
+  private static func undoLast() -> Plan {
+    guard let last = readLastCommit() else {
+      return Plan(spoken: "取り消す登録がありません", asksConfirmation: false)
+    }
+    var pending = readPendingArray()
+    let idSet = Set(last.ids)
+    pending.removeAll { record in
+      guard let id = record["id"] as? String else { return false }
+      return idSet.contains(id)
+    }
+    let owner = ownerUserId()
+    let loggedAt = LockScreenMealStore.formatLoggedAt(Date())
+    for target in last.ids {
+      pending.append([
+        "kind": "undo",
+        "id": UUID().uuidString,
+        "ownerUserId": owner,
+        "targetId": target,
+        "loggedAt": loggedAt,
+      ])
+    }
+    guard JSONSerialization.isValidJSONObject(pending) else {
+      return Plan(spoken: "取り消す登録がありません", asksConfirmation: false)
+    }
+    writePendingArray(pending)
+    if last.intake != 0 || last.burn != 0 {
+      LockScreenMealStore.applyFigures(intakeDelta: -last.intake, burnDelta: -last.burn)
+    }
+    defaults?.removeObject(forKey: lastCommitKey)
+    return Plan(
+      spoken: "\(last.label)の登録を取り消しました",
+      asksConfirmation: false
+    )
   }
 
   private static func utterance(_ name: String, _ quantity: String) -> String {
@@ -1335,7 +1509,8 @@ enum SiriVoiceStore {
     _ food: [String: Any],
     quantityText: String,
     parsed: ParsedQuantity?,
-    assumeUnit: Bool
+    assumeUnit: Bool,
+    confident: Bool = true
   ) -> Plan {
     let speakName = food["speakName"] as? String ?? ""
     let unit = food["unit"] as? String ?? "g"
@@ -1345,6 +1520,7 @@ enum SiriVoiceStore {
         spoken: foodAmountQuestion(unit),
         asksConfirmation: false,
         asksAmount: true,
+        confident: confident,
         record: food,
         pendingName: speakName,
         pendingQuantity: quantityText
@@ -1354,9 +1530,12 @@ enum SiriVoiceStore {
       return stop("\(speakName)は\(foodUnitLabel(unit))で指定してください")
     }
     let record = foodRecord(food, amount: amount.amount)
+    let label = "\(speakName)\(formatQuantity(amount))"
     return Plan(
-      spoken: "\(speakName)\(formatQuantity(amount))の食事でいいですね",
-      asksConfirmation: true,
+      spoken: confident ? registeredSpeech(label) : "\(label)の食事でいいですね",
+      asksConfirmation: !confident,
+      confident: confident,
+      label: label,
       record: record,
       records: [record],
       intakeKcal: LockScreenMealStore.foodKcal([record])
@@ -1399,9 +1578,12 @@ enum SiriVoiceStore {
     }
     let record = exerciseRecord(activity, parsed: amount)
     let burn = LockScreenMealStore.number(record["netKcal"])
+    let label = "\(speakName)\(formatQuantity(amount))"
     return Plan(
-      spoken: "\(speakName)\(formatQuantity(amount))の運動でいいですね",
-      asksConfirmation: true,
+      spoken: registeredSpeech(label),
+      asksConfirmation: false,
+      confident: true,
+      label: label,
       record: record,
       records: [record],
       burnKcal: burn
@@ -1424,8 +1606,10 @@ enum SiriVoiceStore {
       return stop("テンプレートの中身がありません")
     }
     return Plan(
-      spoken: "\(speakName)のテンプレートでいいですね",
-      asksConfirmation: true,
+      spoken: registeredSpeech(speakName),
+      asksConfirmation: false,
+      confident: true,
+      label: speakName,
       record: records[0],
       records: records,
       intakeKcal: LockScreenMealStore.foodKcal(records)
@@ -1465,8 +1649,10 @@ enum SiriVoiceStore {
       return stop("テンプレートの中身がありません")
     }
     return Plan(
-      spoken: "\(speakName)のテンプレートでいいですね",
-      asksConfirmation: true,
+      spoken: registeredSpeech(speakName),
+      asksConfirmation: false,
+      confident: true,
+      label: speakName,
       record: records[0],
       records: records,
       burnKcal: burn
@@ -1520,7 +1706,13 @@ enum SiriVoiceStore {
         return confirmExercise(stored, quantityText: text, parsed: nil, assumeMinutes: true)
       }
     }
-    return confirmFood(stored, quantityText: text, parsed: nil, assumeUnit: true)
+    return confirmFood(
+      stored,
+      quantityText: text,
+      parsed: nil,
+      assumeUnit: true,
+      confident: plan.confident
+    )
   }
 
   private static func choicePlan(
@@ -1591,7 +1783,13 @@ enum SiriVoiceStore {
       guard let food = representativeFood(pool, spokenKind: plan.narrowKind) else {
         return rescue(spokenName)
       }
-      return confirmFood(food, quantityText: quantity, parsed: parseQuantity(quantity), assumeUnit: false)
+      return confirmFood(
+        food,
+        quantityText: quantity,
+        parsed: parseQuantity(quantity),
+        assumeUnit: false,
+        confident: false
+      )
     }
     var traits = FoodTraits(
       animal: plan.narrowAnimal,
@@ -1682,7 +1880,13 @@ enum SiriVoiceStore {
       guard let food = representativeFood(pool, spokenKind: traits.kind) else {
         return rescue(name, kind: "food")
       }
-      return confirmFood(food, quantityText: quantityText, parsed: parseQuantity(quantityText), assumeUnit: false)
+      return confirmFood(
+        food,
+        quantityText: quantityText,
+        parsed: parseQuantity(quantityText),
+        assumeUnit: false,
+        confident: false
+      )
     }
     return Plan(
       spoken: foodQuestion(axis ?? "kind", group),
@@ -2509,7 +2713,7 @@ struct SiriSpokenTextQuery: EntityStringQuery {
 @available(iOS 17.0, *)
 struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "食事を登録"
-  static var description = IntentDescription("食品名と量を復唱し、はいのときだけ今日の食事に1件登録します。")
+  static var description = IntentDescription("食品名と量を登録し、何を登録したかを読み上げます。直前の1件は取り消せます。")
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。食品名と量はこの言葉から分ける。
@@ -2592,14 +2796,16 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       }
       break
     }
-    guard plan.asksConfirmation, !plan.records.isEmpty else {
-      return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+    switch SiriVoiceStore.commitStep(plan) {
+    case .speak(let text):
+      return .result(dialog: IntentDialog(stringLiteral: text))
+    case .confirm(let dialog, let report):
+      try await requestConfirmation(
+        result: .result(dialog: IntentDialog(stringLiteral: dialog))
+      )
+      SiriVoiceStore.commitConfirmed(plan)
+      return .result(dialog: IntentDialog(stringLiteral: report))
     }
-    try await requestConfirmation(
-      result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
-    )
-    SiriVoiceStore.commitAll(plan.records)
-    return .result(dialog: "登録しました")
   }
 
   private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {
@@ -2628,7 +2834,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
 @available(iOS 17.0, *)
 struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "運動を登録"
-  static var description = IntentDescription("種目と量を復唱し、はいのときだけ今日の運動に1件登録します。")
+  static var description = IntentDescription("種目と量を登録し、何を登録したかを読み上げます。直前の1件は取り消せます。")
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。種目と量はこの言葉から分ける。
@@ -2711,14 +2917,16 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     }
     break
     }
-    guard plan.asksConfirmation, !plan.records.isEmpty else {
-      return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+    switch SiriVoiceStore.commitStep(plan) {
+    case .speak(let text):
+      return .result(dialog: IntentDialog(stringLiteral: text))
+    case .confirm(let dialog, let report):
+      try await requestConfirmation(
+        result: .result(dialog: IntentDialog(stringLiteral: dialog))
+      )
+      SiriVoiceStore.commitConfirmed(plan)
+      return .result(dialog: IntentDialog(stringLiteral: report))
     }
-    try await requestConfirmation(
-      result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
-    )
-    SiriVoiceStore.commitAll(plan.records)
-    return .result(dialog: "登録しました")
   }
 
   private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {
@@ -2747,7 +2955,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
 @available(iOS 17.0, *)
 struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "食事か運動を登録"
-  static var description = IntentDescription("話した内容が食事か運動かを判別し、復唱してはいのときだけ1件登録します。")
+  static var description = IntentDescription("話した内容が食事か運動かを判別して登録し、何を登録したかを読み上げます。直前の1件は取り消せます。")
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。
@@ -2842,14 +3050,16 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
       }
       break
     }
-    guard plan.asksConfirmation, !plan.records.isEmpty else {
-      return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+    switch SiriVoiceStore.commitStep(plan) {
+    case .speak(let text):
+      return .result(dialog: IntentDialog(stringLiteral: text))
+    case .confirm(let dialog, let report):
+      try await requestConfirmation(
+        result: .result(dialog: IntentDialog(stringLiteral: dialog))
+      )
+      SiriVoiceStore.commitConfirmed(plan)
+      return .result(dialog: IntentDialog(stringLiteral: report))
     }
-    try await requestConfirmation(
-      result: .result(dialog: IntentDialog(stringLiteral: plan.spoken))
-    )
-    SiriVoiceStore.commitAll(plan.records)
-    return .result(dialog: "登録しました")
   }
 
   private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {

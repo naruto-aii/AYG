@@ -31,6 +31,7 @@ class SiriFoodTurn {
     required this.traits,
     this.question,
     this.axis,
+    this.confident = true,
   });
 
   final SiriFoodTurnKind kind;
@@ -38,6 +39,9 @@ class SiriFoodTurn {
   final FoodNameTraits traits;
   final String? question;
   final String? axis;
+
+  /// 別の食品の中から推測したときは false。確認してから登録する。
+  final bool confident;
 }
 
 FoodNameTraits traitsOfNarrowItem(FoodNarrowItem food) {
@@ -91,6 +95,7 @@ SiriFoodTurn decideSiriFoodTurn({
       kind: SiriFoodTurnKind.confirm,
       foods: [representativeFood(pool, spokenKind: traits.kind)],
       traits: traits,
+      confident: false,
     );
   }
   return SiriFoodTurn(

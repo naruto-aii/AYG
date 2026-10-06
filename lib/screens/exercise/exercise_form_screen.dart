@@ -19,6 +19,7 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../widgets/exercise/exercise_met_calculation_section.dart';
 import '../workout_template/workout_template_plus_gate.dart';
+import 'exercise_form_template_actions.dart';
 
 Future<bool?> showSaveCustomActivityTemplateDialog({
   required BuildContext context,
@@ -617,6 +618,18 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
               initialEntry: widget.entry,
               onEstimateChanged: (state) => setState(() => _metState = state),
             ),
+            if (!widget.isEditing) ...[
+              const SizedBox(height: AppSpacing.md),
+              DesignButton(
+                key: const Key('exercise-create-template'),
+                label: 'テンプレートを作成',
+                style: DesignButtonStyle.outline,
+                showTrailingIcon: false,
+                height: 48,
+                onPressed: () =>
+                    openWorkoutTemplateCreate(context, widget.controller),
+              ),
+            ],
             const SizedBox(height: AppSpacing.md),
           ],
         ),

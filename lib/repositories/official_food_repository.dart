@@ -11,6 +11,20 @@ abstract class OfficialFoodRepository {
   Future<List<OfficialFoodMatch>> search(String query, {int limit = 30});
 }
 
+/// [OfficialFoodRepository.search] の成否。空の一覧と失敗を分ける。
+class OfficialFoodSearchResult {
+  const OfficialFoodSearchResult({this.matches = const [], this.error});
+
+  factory OfficialFoodSearchResult.failed(Object error) {
+    return OfficialFoodSearchResult(error: error);
+  }
+
+  final List<OfficialFoodMatch> matches;
+  final Object? error;
+
+  bool get failed => error != null;
+}
+
 /// テストから検索 RPC の戻りだけを差し替える。
 typedef OfficialFoodSearchCall =
     Future<dynamic> Function(String query, int limit);
@@ -30,26 +44,35 @@ class SupabaseOfficialFoodRepository implements OfficialFoodRepository {
 
   @override
   Future<List<OfficialFoodMatch>> search(String query, {int limit = 30}) async {
+    final result = await searchReporting(query, limit: limit);
+    return result.matches;
+  }
+
+  /// 通信失敗を空の一覧と区別する。食事の保存は止めない。
+  Future<OfficialFoodSearchResult> searchReporting(
+    String query, {
+    int limit = 30,
+  }) async {
     if (!OfficialFoodsFlag.enabled) {
-      return const [];
+      return const OfficialFoodSearchResult();
     }
     final trimmed = OfficialFoodLimits.cap(query.trim());
     if (trimmed.isEmpty) {
-      return const [];
+      return const OfficialFoodSearchResult();
     }
     try {
       final rows = await _fetchRows(trimmed, limit);
       if (rows is! List) {
-        return const [];
+        return const OfficialFoodSearchResult();
       }
       final matches = [
         for (final row in rows)
           if (row is Map)
             OfficialFoodMatch.fromRpc(Map<String, dynamic>.from(row)),
       ];
-      return await _applyHistory(matches);
-    } catch (_) {
-      return const [];
+      return OfficialFoodSearchResult(matches: await _applyHistory(matches));
+    } catch (error) {
+      return OfficialFoodSearchResult.failed(error);
     }
   }
 

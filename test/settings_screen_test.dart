@@ -74,9 +74,21 @@ void main() {
 
     expect(find.text(AppStrings.settingsContactOperator), findsOneWidget);
     expect(find.text('support@ayg.life'), findsOneWidget);
-    expect(find.text(AppStrings.settingsSupport), findsOneWidget);
+    expect(find.text(AppStrings.settingsSupport), findsNothing);
     expect(find.text(AppStrings.settingsTokushoho), findsOneWidget);
     expect(find.text(AppStrings.settingsAccountDeletion), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text(AppStrings.settingsContactOperator),
+      200,
+    );
+    await tester.tap(find.text(AppStrings.settingsContactOperator));
+    await tester.pumpAndSettle();
+
+    expect(find.text('問い合わせ先'), findsOneWidget);
+    expect(find.text('support@ayg.life'), findsWidgets);
+    expect(find.textContaining('順次対応'), findsOneWidget);
+    expect(find.textContaining('ログインに使っているメールアドレス'), findsOneWidget);
 
     await authRepository.dispose();
   });

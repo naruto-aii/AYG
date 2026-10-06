@@ -1,7 +1,7 @@
 import '../utils/food_search_normalizer.dart';
 import 'food_name_traits.dart';
 
-/// 読み上げて選んでもらう上限。これより多いときは質問する。
+/// 読み上げて選んでもらう上限。これより多くの別食品は、質問して絞る。
 const int siriReadableChoices = 3;
 
 /// 絞り込みの質問は、この回数で止める。
@@ -59,31 +59,34 @@ SiriFoodTurn decideSiriFoodTurn({
       traits: traits,
     );
   }
-  if (pool.length == 1 || _detailed(pool, traits)) {
+  final groups = _identityGroups(pool);
+  if (pool.length == 1 || groups.length == 1) {
     return SiriFoodTurn(
       kind: SiriFoodTurnKind.confirm,
       foods: [representativeFood(pool, spokenKind: traits.kind)],
       traits: traits,
     );
   }
-  final group = _majorityGroup(pool);
-  final different = _greatlyDifferent(pool, group);
-  if (pool.length <= siriReadableChoices && !different) {
+  if (pool.length <= siriReadableChoices) {
     return SiriFoodTurn(
       kind: SiriFoodTurnKind.choose,
       foods: pool,
       traits: traits,
     );
   }
+  final group = _majorityGroup(pool);
+  if (groups.length <= siriReadableChoices) {
+    return SiriFoodTurn(
+      kind: SiriFoodTurnKind.choose,
+      foods: [
+        for (final items in groups)
+          representativeFood(items, spokenKind: traits.kind),
+      ],
+      traits: traits,
+    );
+  }
   final axis = _nextAxis(pool, traits, group);
   if (axis == null || roundsAsked >= siriNarrowQuestionLimit) {
-    if (pool.length <= siriReadableChoices) {
-      return SiriFoodTurn(
-        kind: SiriFoodTurnKind.choose,
-        foods: pool,
-        traits: traits,
-      );
-    }
     return SiriFoodTurn(
       kind: SiriFoodTurnKind.confirm,
       foods: [representativeFood(pool, spokenKind: traits.kind)],
@@ -118,37 +121,95 @@ FoodNarrowItem representativeFood(
   return ranked.first.value;
 }
 
-bool _detailed(List<FoodNarrowItem> foods, FoodNameTraits traits) {
-  final group = _majorityGroup(foods);
-  if (group == '11' || _animals(foods).isNotEmpty) {
-    return traits.cut != null && traits.cook != null;
+/// 生・ゆで・皮・品種の違いを除いた食品。同じなら聞き返さない。
+String _identityKey(FoodNarrowItem food) {
+  final traits = traitsOfNarrowItem(food);
+  final code = food.foodCode;
+  final group = code != null && code.length >= 2 ? code.substring(0, 2) : null;
+  if (traits.cut != null && (group == '11' || traits.animal != null)) {
+    return 'cut:${traits.animal ?? ''}:${traits.cut}';
   }
-  if (group == '10') {
-    return traits.kind != null &&
-        traits.cook != null &&
-        _kindClusters(foods).length <= 1;
-  }
-  if (group == '06' || group == '07') {
-    return traits.cook != null;
-  }
-  return false;
+  return 'core:${_coreName(food.speakName)}';
 }
 
-bool _greatlyDifferent(List<FoodNarrowItem> foods, String? group) {
-  if (group == '11' || _animals(foods).length >= 2) {
-    if (_animals(foods).length >= 2) {
-      return true;
-    }
-    if (_cuts(foods).length >= 2) {
-      return true;
+String _coreName(String speakName) {
+  var text = speakName.replaceAll(RegExp(r'（[^）]*）'), '');
+  const drop = [
+    '皮下脂肪なし',
+    '脂身つき',
+    '脂身',
+    '皮なし',
+    '皮つき',
+    '赤肉',
+    '乳用肥育牛',
+    '輸入牛',
+    '和牛',
+    '若鶏',
+    '若どり',
+    'にわとり',
+    '大型種肉',
+    '中型種肉',
+    '大型種',
+    '中型種',
+    '養殖',
+    '副品目',
+    '主品目',
+    '結球葉',
+    'から揚げ',
+    '唐揚げ',
+    '天ぷら',
+    'てんぷら',
+    'ソテー',
+    'フライ',
+    '水煮',
+    '焼き',
+    'ゆで',
+    '茹で',
+    '蒸し',
+    '生',
+  ];
+  for (final word in drop) {
+    text = text.replaceAll(word, '');
+  }
+  text = text.replaceAll(RegExp(r'\s+'), '');
+  if (text.isEmpty) {
+    return speakName;
+  }
+  return text;
+}
+
+bool _sameFamily(String a, String b) {
+  if (a == b) {
+    return true;
+  }
+  if (a.startsWith('cut:') || b.startsWith('cut:')) {
+    return false;
+  }
+  final left = a.startsWith('core:') ? a.substring(5) : a;
+  final right = b.startsWith('core:') ? b.substring(5) : b;
+  if (left.length < 2 || right.length < 2) {
+    return false;
+  }
+  return left.contains(right) || right.contains(left);
+}
+
+List<List<FoodNarrowItem>> _identityGroups(List<FoodNarrowItem> foods) {
+  final keyed = <String, List<FoodNarrowItem>>{};
+  final order = <String>[];
+  for (final food in foods) {
+    final key = _identityKey(food);
+    final matched = order.cast<String?>().firstWhere(
+      (have) => _sameFamily(have!, key),
+      orElse: () => null,
+    );
+    if (matched == null) {
+      order.add(key);
+      keyed[key] = [food];
+    } else {
+      keyed[matched]!.add(food);
     }
   }
-  if (group == '10' || group == '06' || group == '07' || group == null) {
-    if (_kindClusters(foods).length >= 2) {
-      return true;
-    }
-  }
-  return false;
+  return [for (final key in order) keyed[key]!];
 }
 
 String? _nextAxis(
@@ -163,16 +224,10 @@ String? _nextAxis(
     if (_cuts(foods).length >= 2 && traits.cut == null) {
       return 'cut';
     }
-    if (_cooks(foods).length >= 2 && traits.cook == null) {
-      return 'cook';
-    }
     return null;
   }
   if (_kindClusters(foods).length >= 2 && traits.kind == null) {
     return 'kind';
-  }
-  if (_cooks(foods).length >= 2 && traits.cook == null) {
-    return 'cook';
   }
   return null;
 }
@@ -207,13 +262,6 @@ Set<String> _cuts(List<FoodNarrowItem> foods) {
   return {
     for (final food in foods)
       if (traitsOfNarrowItem(food).cut != null) traitsOfNarrowItem(food).cut!,
-  };
-}
-
-Set<String> _cooks(List<FoodNarrowItem> foods) {
-  return {
-    for (final food in foods)
-      if (traitsOfNarrowItem(food).cook != null) traitsOfNarrowItem(food).cook!,
   };
 }
 

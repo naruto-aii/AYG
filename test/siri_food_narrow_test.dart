@@ -81,15 +81,16 @@ void main() {
 
   test('coarse speech reaches a food without reading the whole list', () {
     final cases = [
-      _Case('牛肉', const ['もも', '焼き'], '11250', question: 'どの部位ですか？'),
-      _Case('豚肉', const ['ばら', 'わからない'], '11129', question: 'どの部位ですか？'),
-      _Case('鶏肉', const ['むね', '生'], '11220', question: 'どの部位ですか？'),
-      _Case('魚', const ['さけ', '生'], '10134', question: '何の魚ですか？'),
-      _Case('さけ', const ['生'], '10134', question: '生、焼き、ゆで、揚げのどれですか？'),
-      _Case('白菜', const ['生'], '06233', question: '生かゆでですか？'),
+      _Case('牛肉', const ['もも'], '11019', question: 'どの部位ですか？'),
+      _Case('豚肉', const ['ばら'], '11129', question: 'どの部位ですか？'),
+      _Case('鶏肉', const ['むね'], '11220', question: 'どの部位ですか？'),
+      _Case('魚', const ['さけ'], '10134', question: '何の魚ですか？'),
+      _Case('さけ', const [], '10134'),
+      _Case('白菜', const [], '06233'),
       _Case('牛肉', const ['わからない'], '11004', question: 'どの部位ですか？'),
     ];
     final rounds = <int>[];
+    var narrowQuestions = 0;
     for (final item in cases) {
       final run = _talk(context(), item.utterance, item.answers);
       expect(run.plan.asksNarrow, isFalse, reason: run.lines.join('\n'));
@@ -98,17 +99,48 @@ void main() {
         item.code,
         reason: run.lines.join('\n'),
       );
-      expect(run.lines[1], 'S: ${item.question}', reason: run.lines.join('\n'));
+      if (item.question != null) {
+        expect(
+          run.lines[1],
+          'S: ${item.question}',
+          reason: run.lines.join('\n'),
+        );
+      }
       expect(run.lines.join('\n'), isNot(contains('次のどれですか')));
+      expect(run.lines.join('\n'), isNot(contains('生、焼き')));
+      expect(run.lines.join('\n'), isNot(contains('生かゆで')));
+      narrowQuestions += run.narrowQuestions;
       rounds.add(run.roundsToFood);
     }
     final mean = rounds.reduce((a, b) => a + b) / rounds.length;
     final maxRound = rounds.reduce((a, b) => a > b ? a : b);
-    expect(mean, lessThan(3.5));
-    expect(maxRound, lessThanOrEqualTo(3));
-    // 報告用。平均と最大はテストが落とすので、ここでも残す。
-    expect(rounds, [3, 3, 3, 3, 2, 2, 2]);
-    expect(mean, closeTo(2.57, 0.01));
+    expect(maxRound, lessThanOrEqualTo(2));
+    expect(rounds, [2, 2, 2, 2, 1, 1, 2]);
+    expect(mean, closeTo(1.71, 0.01));
+    expect(narrowQuestions, 5);
+    expect(narrowQuestions / cases.length, closeTo(5 / 7, 0.01));
+  });
+
+  test('cook-only differences do not ask, and different foods do', () {
+    const quiet = ['ささみ', '鶏むね', '鶏もも', '白菜', 'さけ', '牛もも', '豚ばら', 'しろさけ'];
+    const ask = ['牛肉', '豚肉', '鶏肉', '魚'];
+    final asked = <String>[];
+    for (final name in [...ask, ...quiet]) {
+      final plan = planSiriFood(context: context(), name: name, quantity: '');
+      expect(plan.spoken, isNot(contains('生、焼き')), reason: name);
+      expect(plan.spoken, isNot(contains('生かゆで')), reason: name);
+      if (plan.asksNarrow) {
+        asked.add(name);
+      }
+      if (quiet.contains(name)) {
+        expect(plan.asksNarrow, isFalse, reason: '$name ${plan.spoken}');
+        expect(plan.food?.officialFoodCode, isNotNull, reason: name);
+      } else {
+        expect(plan.asksNarrow, isTrue, reason: '$name ${plan.spoken}');
+      }
+    }
+    expect(asked, ask);
+    expect(asked.length / (ask.length + quiet.length), closeTo(4 / 12, 0.001));
   });
 
   test('a detailed phrase skips the questions and keeps the amount', () {
@@ -203,11 +235,12 @@ class _Case {
 }
 
 class _Talk {
-  const _Talk(this.roundsToFood, this.plan, this.lines);
+  const _Talk(this.roundsToFood, this.plan, this.lines, this.narrowQuestions);
 
   final int roundsToFood;
   final SiriVoicePlan plan;
   final List<String> lines;
+  final int narrowQuestions;
 }
 
 _Talk _talk(SiriVoiceContext context, String utterance, List<String> answers) {
@@ -215,6 +248,7 @@ _Talk _talk(SiriVoiceContext context, String utterance, List<String> answers) {
   var plan = planSiriFood(context: context, name: utterance, quantity: '');
   final lines = <String>['U: $utterance', 'S: ${plan.spoken}'];
   var roundsToFood = 1;
+  var narrowQuestions = plan.asksNarrow ? 1 : 0;
   var guard = 0;
   while (guard++ < 8 && plan.food == null) {
     if (plan.asksNarrow) {
@@ -227,6 +261,9 @@ _Talk _talk(SiriVoiceContext context, String utterance, List<String> answers) {
       );
       lines.add('U: $answer');
       lines.add('S: ${plan.spoken}');
+      if (plan.asksNarrow) {
+        narrowQuestions += 1;
+      }
       roundsToFood += 1;
       continue;
     }
@@ -247,7 +284,7 @@ _Talk _talk(SiriVoiceContext context, String utterance, List<String> answers) {
     lines.add('U: $answer');
     lines.add('S: ${plan.spoken}');
   }
-  return _Talk(roundsToFood, plan, lines);
+  return _Talk(roundsToFood, plan, lines, narrowQuestions);
 }
 
 class _Catalog {

@@ -16,7 +16,7 @@ import Foundation
 /// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
 /// 食事と運動のテンプレート名でも登録する。未課金は登録しない。公開食品は扱わない。
 /// `openAppWhenRun` は false。判定と書き込みは App Group だけで、アプリが閉じていても Siri が実行する。
-/// 名寄せの順は Dart の `pickSiriMatches` と同じ。候補が4件以上、または別の食品に分かれるときは、部位や調理を短く聞き返す。2〜3件なら読み上げる。0件は言い直したあと、検索語を残してアプリを開く。
+/// 名寄せの順は Dart の `pickSiriMatches` と同じ。同じ食品の生・ゆでは聞かず代表にする。部位や種類が分かれて長いときだけ聞き返す。2〜3件の別食品は読み上げる。0件は言い直したあと、検索語を残してアプリを開く。
 /// ショートカットのアイコンは後で差し替える。今はプレースホルダー。
 enum SiriVoiceStore {
   static let catalogKey = "siriVoiceCatalog"
@@ -1654,30 +1654,31 @@ enum SiriVoiceStore {
     if pool.isEmpty {
       return rescue(name, kind: "food")
     }
-    if pool.count == 1 || detailedFoods(pool, traits) {
+    let groups = identityGroups(pool)
+    if pool.count == 1 || groups.count == 1 {
       guard let food = representativeFood(pool, spokenKind: traits.kind) else {
         return rescue(name, kind: "food")
       }
       return confirmFood(food, quantityText: quantityText, parsed: parseQuantity(quantityText), assumeUnit: false)
     }
-    let group = majorityGroup(pool)
-    let different = greatlyDifferent(pool, group)
-    if pool.count <= 3 && !different {
+    if pool.count <= 3 {
       return choicePlan(
         name: name,
         quantityText: quantityText,
         choices: pool.map { choice($0, kind: "food", suffix: "") }
       )
     }
+    let group = majorityGroup(pool)
+    if groups.count <= 3 {
+      let picks = groups.compactMap { representativeFood($0, spokenKind: traits.kind) }
+      return choicePlan(
+        name: name,
+        quantityText: quantityText,
+        choices: picks.map { choice($0, kind: "food", suffix: "") }
+      )
+    }
     let axis = nextFoodAxis(pool, traits, group)
     if axis == nil || rounds >= 3 {
-      if pool.count <= 3 {
-        return choicePlan(
-          name: name,
-          quantityText: quantityText,
-          choices: pool.map { choice($0, kind: "food", suffix: "") }
-        )
-      }
       guard let food = representativeFood(pool, spokenKind: traits.kind) else {
         return rescue(name, kind: "food")
       }
@@ -1706,31 +1707,58 @@ enum SiriVoiceStore {
     return false
   }
 
-  private static func detailedFoods(_ foods: [[String: Any]], _ traits: FoodTraits) -> Bool {
-    let group = majorityGroup(foods)
-    let animals = Set(foods.compactMap { traitsOfFood($0).animal })
-    if group == "11" || !animals.isEmpty {
-      return traits.cut != nil && traits.cook != nil
+  private static func identityKey(_ food: [String: Any]) -> String {
+    let traits = traitsOfFood(food)
+    let code = food["officialFoodCode"] as? String ?? food["id"] as? String
+    let group = code.flatMap { $0.count >= 2 ? String($0.prefix(2)) : nil }
+    if let cut = traits.cut, group == "11" || traits.animal != nil {
+      return "cut:\(traits.animal ?? ""):\(cut)"
     }
-    if group == "10" {
-      return traits.kind != nil && traits.cook != nil && kindClusters(foods).count <= 1
-    }
-    if group == "06" || group == "07" {
-      return traits.cook != nil
-    }
-    return false
+    return "core:\(coreFoodName(food["speakName"] as? String ?? ""))"
   }
 
-  private static func greatlyDifferent(_ foods: [[String: Any]], _ group: String?) -> Bool {
-    let animals = Set(foods.compactMap { traitsOfFood($0).animal })
-    let cuts = Set(foods.compactMap { traitsOfFood($0).cut })
-    if group == "11" || animals.count >= 2 {
-      if animals.count >= 2 || cuts.count >= 2 { return true }
+  private static func coreFoodName(_ speakName: String) -> String {
+    var text = speakName.replacingOccurrences(
+      of: "（[^）]*）",
+      with: "",
+      options: .regularExpression
+    )
+    let drop = [
+      "皮下脂肪なし", "脂身つき", "脂身", "皮なし", "皮つき", "赤肉",
+      "乳用肥育牛", "輸入牛", "和牛", "若鶏", "若どり", "にわとり",
+      "大型種肉", "中型種肉", "大型種", "中型種", "養殖", "副品目", "主品目", "結球葉",
+      "から揚げ", "唐揚げ", "天ぷら", "てんぷら", "ソテー", "フライ", "水煮",
+      "焼き", "ゆで", "茹で", "蒸し", "生",
+    ]
+    for word in drop {
+      text = text.replacingOccurrences(of: word, with: "")
     }
-    if group == "10" || group == "06" || group == "07" || group == nil {
-      if kindClusters(foods).count >= 2 { return true }
+    text = text.replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
+    return text.isEmpty ? speakName : text
+  }
+
+  private static func sameFoodFamily(_ a: String, _ b: String) -> Bool {
+    if a == b { return true }
+    if a.hasPrefix("cut:") || b.hasPrefix("cut:") { return false }
+    let left = a.hasPrefix("core:") ? String(a.dropFirst(5)) : a
+    let right = b.hasPrefix("core:") ? String(b.dropFirst(5)) : b
+    if left.count < 2 || right.count < 2 { return false }
+    return left.contains(right) || right.contains(left)
+  }
+
+  private static func identityGroups(_ foods: [[String: Any]]) -> [[[String: Any]]] {
+    var keyed: [String: [[String: Any]]] = [:]
+    var order: [String] = []
+    for food in foods {
+      let key = identityKey(food)
+      if let matched = order.first(where: { sameFoodFamily($0, key) }) {
+        keyed[matched, default: []].append(food)
+      } else {
+        order.append(key)
+        keyed[key] = [food]
+      }
     }
-    return false
+    return order.compactMap { keyed[$0] }
   }
 
   private static func nextFoodAxis(
@@ -1740,15 +1768,12 @@ enum SiriVoiceStore {
   ) -> String? {
     let animals = Set(foods.compactMap { traitsOfFood($0).animal })
     let cuts = Set(foods.compactMap { traitsOfFood($0).cut })
-    let cooks = Set(foods.compactMap { traitsOfFood($0).cook })
     if group == "11" || !animals.isEmpty {
       if animals.count >= 2 && traits.animal == nil { return "animal" }
       if cuts.count >= 2 && traits.cut == nil { return "cut" }
-      if cooks.count >= 2 && traits.cook == nil { return "cook" }
       return nil
     }
     if kindClusters(foods).count >= 2 && traits.kind == nil { return "kind" }
-    if cooks.count >= 2 && traits.cook == nil { return "cook" }
     return nil
   }
 

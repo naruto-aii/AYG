@@ -6,9 +6,11 @@ import Foundation
 /// 決まった始まりは「Hey Siri、カロナビで」。食事か運動かは言葉から判別する。
 /// 登録前に「鶏むね100gの食事でいいですね」のように復唱する。
 /// どちらとも取れない言葉は、復唱で食事か運動かを確認する。
+/// 「Hey Siri、カロナビで記録」と話し、聞かれたら「ささみ100g」と答える。
 /// 「Hey Siri、カロナビで、食事にささみを300グラム。」
 /// 「Hey Siri、カロナビで、運動にジョギングを30分。」
-/// ショートカットのフレーズはパラメータを1つだけ持ち、型は AppEntity。
+/// パラメータなしの言い方は、食品・種目・内容を requestValueDialog で聞く。
+/// パラメータ付きの言い方は残す。フレーズのパラメータは1つだけ、型は AppEntity。
 /// 食品名と量は、その1つの言葉から今までどおり分ける。
 ///
 /// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
@@ -1375,7 +1377,11 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。食品名と量はこの言葉から分ける。
-  @Parameter(title: "食品")
+  /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
+  @Parameter(
+    title: "食品",
+    requestValueDialog: IntentDialog(stringLiteral: "何を食べましたか？")
+  )
   var foodName: SiriSpokenText
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
@@ -1399,7 +1405,8 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
     if SiriVoiceStore.consumeContinueSearch() {
       return .result(dialog: "アプリで検索します")
     }
-    var plan = await SiriVoiceStore.planFood(name: foodName.text, quantity: "")
+    let spoken = try promptedFoodName()
+    var plan = await SiriVoiceStore.planFood(name: spoken, quantity: "")
     var retried = false
     while true {
       if plan.asksKind {
@@ -1426,7 +1433,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       }
       if plan.asksRetry {
         if retried {
-          SiriVoiceStore.rememberSearch(kind: "food", query: plan.searchQuery ?? foodName.text)
+          SiriVoiceStore.rememberSearch(kind: "food", query: plan.searchQuery ?? spoken)
           throw needsToContinueInForegroundError()
         }
         retried = true
@@ -1445,6 +1452,16 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
     SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
   }
+
+  /// 言い方に食品が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
+  /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
+  private func promptedFoodName() throws -> String {
+    let current = foodName.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !current.isEmpty {
+      return current
+    }
+    throw $foodName.needsValueError(IntentDialog(stringLiteral: "何を食べましたか？"))
+  }
 }
 
 @available(iOS 17.0, *)
@@ -1454,7 +1471,11 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。種目と量はこの言葉から分ける。
-  @Parameter(title: "種目")
+  /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
+  @Parameter(
+    title: "種目",
+    requestValueDialog: IntentDialog(stringLiteral: "何をしましたか？")
+  )
   var activityName: SiriSpokenText
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
@@ -1478,7 +1499,8 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     if SiriVoiceStore.consumeContinueSearch() {
       return .result(dialog: "アプリで検索します")
     }
-    var plan = await SiriVoiceStore.planExercise(name: activityName.text, quantity: "")
+    let spoken = try promptedActivityName()
+    var plan = await SiriVoiceStore.planExercise(name: spoken, quantity: "")
     var retried = false
     while true {
     if plan.asksKind {
@@ -1504,7 +1526,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
       if retried {
         SiriVoiceStore.rememberSearch(
           kind: "exercise",
-          query: plan.searchQuery ?? activityName.text
+          query: plan.searchQuery ?? spoken
         )
         throw needsToContinueInForegroundError()
       }
@@ -1524,6 +1546,16 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
   }
+
+  /// 言い方に種目が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
+  /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
+  private func promptedActivityName() throws -> String {
+    let current = activityName.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !current.isEmpty {
+      return current
+    }
+    throw $activityName.needsValueError(IntentDialog(stringLiteral: "何をしましたか？"))
+  }
 }
 
 @available(iOS 17.0, *)
@@ -1533,7 +1565,11 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。
-  @Parameter(title: "内容")
+  /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
+  @Parameter(
+    title: "内容",
+    requestValueDialog: IntentDialog(stringLiteral: "何を記録しますか？")
+  )
   var utterance: SiriSpokenText
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
@@ -1557,7 +1593,8 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     if SiriVoiceStore.consumeContinueSearch() {
       return .result(dialog: "アプリで検索します")
     }
-    var plan = await SiriVoiceStore.planUtterance(name: utterance.text, quantity: "")
+    let spoken = try promptedUtterance()
+    var plan = await SiriVoiceStore.planUtterance(name: spoken, quantity: "")
     var retried = false
     while true {
       if plan.asksKind {
@@ -1586,7 +1623,7 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
         if retried {
           SiriVoiceStore.rememberSearch(
             kind: plan.searchKind,
-            query: plan.searchQuery ?? utterance.text
+            query: plan.searchQuery ?? spoken
           )
           throw needsToContinueInForegroundError()
         }
@@ -1605,6 +1642,16 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     )
     SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
+  }
+
+  /// 言い方に内容が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
+  /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
+  private func promptedUtterance() throws -> String {
+    let current = utterance.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !current.isEmpty {
+      return current
+    }
+    throw $utterance.needsValueError(IntentDialog(stringLiteral: "何を記録しますか？"))
   }
 }
 
@@ -1665,6 +1712,8 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenFoodIntent(),
       phrases: [
+        "\(.applicationName)で食事を記録",
+        "\(.applicationName)で食事を登録",
         "\(.applicationName)で、食事に\(\.$foodName)",
       ],
       shortTitle: "食事を登録",
@@ -1673,6 +1722,8 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenExerciseIntent(),
       phrases: [
+        "\(.applicationName)で運動を記録",
+        "\(.applicationName)で運動を登録",
         "\(.applicationName)で、運動に\(\.$activityName)",
       ],
       shortTitle: "運動を登録",
@@ -1681,6 +1732,8 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenEntryIntent(),
       phrases: [
+        "\(.applicationName)で記録",
+        "\(.applicationName)で登録",
         "\(.applicationName)で \(\.$utterance)",
       ],
       shortTitle: "食事か運動を登録",

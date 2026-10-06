@@ -106,7 +106,7 @@ class SiriVoiceSetupScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'テンプレート名だけでも登録できます。復唱を聞いて、合っていれば「はい」で登録されます。公開食品はSiriから登録できません。Siriで記録しそうなものは、テンプレートにしておくのがおすすめです。',
+                  'テンプレート名だけでも登録できます。復唱を聞いて、合っていれば「はい」で登録されます。食品成分表と、ブロックしていない人の公開食品も登録できます。成分表は100gあたりなので、量が無いときは何gかを聞き返します。よく食べるものはテンプレートにしておくと、より確実です。',
                   style: AppTypography.bodyS.copyWith(
                     color: AppColors.textMuted,
                   ),

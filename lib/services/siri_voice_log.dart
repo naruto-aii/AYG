@@ -86,6 +86,8 @@ class SiriFoodRecord {
     this.isCandidate = false,
     this.candidateRank = 100,
     this.priority = 100,
+    this.searchRank,
+    this.searchAliasMatched = false,
   });
 
   final String id;
@@ -108,6 +110,12 @@ class SiriFoodRecord {
   final bool isCandidate;
   final int candidateRank;
   final int priority;
+
+  /// 成分表・公開食品の検索が付けた順位。あるときはキーの再計算をしない。
+  final int? searchRank;
+
+  /// 検索が別名で当たった。
+  final bool searchAliasMatched;
 
   factory SiriFoodRecord.saved(SavedFood food) {
     return SiriFoodRecord(
@@ -143,6 +151,8 @@ class SiriFoodRecord {
     bool isCandidate = false,
     int candidateRank = 100,
     int priority = 100,
+    int? searchRank,
+    bool searchAliasMatched = false,
   }) {
     return SiriFoodRecord(
       id: foodCode,
@@ -160,6 +170,8 @@ class SiriFoodRecord {
       isCandidate: isCandidate,
       candidateRank: candidateRank,
       priority: priority,
+      searchRank: searchRank,
+      searchAliasMatched: searchAliasMatched,
     );
   }
 }
@@ -233,6 +245,9 @@ class SiriVoiceContext {
     this.weightKg,
     this.mealTemplates = const [],
     this.workoutTemplates = const [],
+    this.remoteOfficial = const [],
+    this.remotePublic = const [],
+    this.remoteUnavailable = false,
   });
 
   final bool paid;
@@ -241,6 +256,15 @@ class SiriVoiceContext {
   final List<SiriFoodRecord> foods;
   final List<SiriMealTemplate> mealTemplates;
   final List<SiriWorkoutTemplate> workoutTemplates;
+
+  /// 食品成分表の検索結果。アプリ内の `search_official_foods` と同じ並び。
+  final List<SiriFoodRecord> remoteOfficial;
+
+  /// 公開食品の検索結果。ブロック済みは検索側で除く。
+  final List<SiriFoodRecord> remotePublic;
+
+  /// 通信失敗。保存済みだけで続け、成分表と公開食品は使わない。
+  final bool remoteUnavailable;
 }
 
 class SiriVoicePlan {
@@ -631,9 +655,11 @@ _SpeechHit? _bestSpeechHit(
   }
 
   if (kind != SiriSpokenKind.exercise) {
-    add(_rankFoods(context, name), 'food');
-    add(
-      _rankTemplates(
+    final saved = _rankSavedFoods(context, name);
+    if (saved.hits.isNotEmpty) {
+      add(saved, 'food');
+    } else {
+      final templates = _rankTemplates(
         context.mealTemplates.map(
           (template) => (
             id: template.id,
@@ -642,10 +668,13 @@ _SpeechHit? _bestSpeechHit(
           ),
         ),
         name,
-      ),
-      'mealTemplate',
-      suffix: '（テンプレート）',
-    );
+      );
+      if (templates.hits.isNotEmpty) {
+        add(templates, 'mealTemplate', suffix: '（テンプレート）');
+      } else {
+        add(_rankUnsavedFoods(context, name), 'food');
+      }
+    }
   }
   if (kind != SiriSpokenKind.meal) {
     add(_rankExercises(name), 'exercise');
@@ -800,13 +829,24 @@ SiriVoicePlan _planFoodBody(
   if (name.isEmpty) {
     return _stop(SiriVoiceStatus.notFound, '食品名が分かりません');
   }
-  final templates = _rankTemplates(
-    context.mealTemplates.map(
-      (template) => (id: template.id, speakName: template.speakName, keys: template.keys),
-    ),
-    name,
-  );
-  final foods = _rankFoods(context, name);
+  final saved = _rankSavedFoods(context, name);
+  final templates = saved.hits.isNotEmpty
+      ? SiriMatchResult.none
+      : _rankTemplates(
+          context.mealTemplates.map(
+            (template) => (
+              id: template.id,
+              speakName: template.speakName,
+              keys: template.keys,
+            ),
+          ),
+          name,
+        );
+  final foods = saved.hits.isNotEmpty
+      ? saved
+      : (templates.hits.isNotEmpty
+            ? SiriMatchResult.none
+            : _rankUnsavedFoods(context, name));
   final templateExact =
       templates.decision == SiriMatchDecision.one &&
       templates.hits.single.matchRank == 0;
@@ -969,13 +1009,7 @@ SiriVoicePlan _confirmFood(
   required String quantityText,
   bool assumeFoodUnit = false,
 }) {
-  SiriFoodRecord? food;
-  for (final item in context.foods) {
-    if (item.id == foodId) {
-      food = item;
-      break;
-    }
-  }
+  final food = _foodById(context, foodId);
   if (food == null) {
     return _rescue(quantityText, meal: true);
   }
@@ -1210,21 +1244,84 @@ bool _namesExercise(SiriVoiceContext context, String name) {
 }
 
 SiriMatchResult _rankFoods(SiriVoiceContext context, String name) {
-  final saved = context.foods
-      .where((food) => food.source == FoodEntrySource.savedFood)
-      .toList();
-  final savedHits = _foodHits(saved, name);
-  if (savedHits.isNotEmpty) {
-    return pickSiriMatches(savedHits);
+  final saved = _rankSavedFoods(context, name);
+  if (saved.hits.isNotEmpty) {
+    return saved;
   }
+  return _rankUnsavedFoods(context, name);
+}
+
+SiriMatchResult _rankSavedFoods(SiriVoiceContext context, String name) {
   return pickSiriMatches(
     _foodHits(
       context.foods
-          .where((food) => food.source == FoodEntrySource.mextSfct)
+          .where((food) => food.source == FoodEntrySource.savedFood)
           .toList(),
       name,
     ),
   );
+}
+
+/// テンプレートの次。手元の成分表、検索の成分表、公開食品。
+SiriMatchResult _rankUnsavedFoods(SiriVoiceContext context, String name) {
+  final local = _foodHits(
+    context.foods
+        .where((food) => food.source == FoodEntrySource.mextSfct)
+        .toList(),
+    name,
+  );
+  if (local.isNotEmpty) {
+    return pickSiriMatches(local);
+  }
+  if (context.remoteUnavailable) {
+    return SiriMatchResult.none;
+  }
+  final official = _rankPrepared(context.remoteOfficial, name);
+  if (official.hits.isNotEmpty) {
+    return official;
+  }
+  return _rankPrepared(context.remotePublic, name);
+}
+
+/// 検索結果には順位が付いている。付いていなければキーで引き直す。
+SiriMatchResult _rankPrepared(List<SiriFoodRecord> foods, String name) {
+  if (foods.any((food) => food.searchRank != null)) {
+    final hits = <SiriMatchHit>[];
+    for (final food in foods) {
+      final rank = food.searchRank;
+      if (rank == null || rank >= 9) {
+        continue;
+      }
+      hits.add(
+        SiriMatchHit(
+          id: food.id,
+          speakName: _foodSpeakLabel(food, foods),
+          matchRank: rank,
+          isCandidate: food.isCandidate,
+          candidateRank: food.candidateRank,
+          priority: food.priority,
+          aliasMatched: food.searchAliasMatched,
+        ),
+      );
+    }
+    return pickSiriMatches(hits);
+  }
+  return pickSiriMatches(_foodHits(foods, name));
+}
+
+SiriFoodRecord? _foodById(SiriVoiceContext context, String foodId) {
+  for (final list in [
+    context.foods,
+    context.remoteOfficial,
+    context.remotePublic,
+  ]) {
+    for (final item in list) {
+      if (item.id == foodId) {
+        return item;
+      }
+    }
+  }
+  return null;
 }
 
 List<SiriMatchHit> _foodHits(List<SiriFoodRecord> foods, String name) {
@@ -1262,6 +1359,29 @@ String _foodSpeakLabel(SiriFoodRecord food, List<SiriFoodRecord> peers) {
 }
 
 SiriMatchResult _rankExercises(String name) {
+  final direct = _rankExercisesExact(name);
+  if (direct.decision != SiriMatchDecision.none) {
+    return direct;
+  }
+  final stem = _exerciseStem(name);
+  if (stem == name) {
+    return direct;
+  }
+  return _rankExercisesExact(stem);
+}
+
+/// 「散歩した」「筋トレして」の語尾。食品名には掛けない。
+String _exerciseStem(String name) {
+  const suffixes = ['しました', 'やって', 'やった', 'して', 'した'];
+  for (final suffix in suffixes) {
+    if (name.endsWith(suffix) && name.length > suffix.length) {
+      return name.substring(0, name.length - suffix.length);
+    }
+  }
+  return name;
+}
+
+SiriMatchResult _rankExercisesExact(String name) {
   final spokenId = spokenExerciseActivityId(name);
   if (spokenId != null) {
     final activity = MetActivityCatalog.findById(spokenId);
@@ -1703,17 +1823,19 @@ abstract final class SiriVoiceCodec {
     required bool officialFoodsEnabled,
     required String supabaseUrl,
     required String supabaseAnonKey,
+    String supabaseAccessToken = '',
     required List<SiriFoodRecord> foods,
     List<SiriMealTemplate> mealTemplates = const [],
     List<SiriWorkoutTemplate> workoutTemplates = const [],
   }) {
     return jsonEncode({
-      'version': 2,
+      'version': 3,
       'ownerUserId': ownerUserId,
       'weightKg': weightKg,
       'officialFoodsEnabled': officialFoodsEnabled,
       'supabaseUrl': officialFoodsEnabled ? supabaseUrl : '',
       'supabaseAnonKey': officialFoodsEnabled ? supabaseAnonKey : '',
+      'supabaseAccessToken': officialFoodsEnabled ? supabaseAccessToken : '',
       'foods': [for (final food in foods) _foodJson(food)],
       'activities': [
         for (final activity in MetActivityCatalog.activities)

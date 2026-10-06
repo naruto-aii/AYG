@@ -1,6 +1,7 @@
 import '../constants/official_food_limits.dart';
 import '../models/official_food.dart';
 import '../utils/food_search_normalizer.dart';
+import 'food_search_fuzzy.dart';
 
 /// 公式食品1件と、その別名。
 class OfficialFoodCatalogItem {
@@ -14,6 +15,7 @@ class OfficialFoodCatalogItem {
 ///
 /// 完全一致、前方一致、部分一致の順。別名は食品名と同じ段で比べる。
 /// 食品番号ごとに一番よい一致を残す。
+/// その3段で1件も無いときだけ、1文字の言い間違いを足す。
 class OfficialFoodRanker {
   const OfficialFoodRanker();
 
@@ -21,6 +23,7 @@ class OfficialFoodRanker {
     required String query,
     required List<OfficialFoodCatalogItem> catalog,
     int limit = 30,
+    bool fuzzyFallback = true,
   }) {
     final key = OfficialFoodLimits.cap(
       FoodSearchNormalizer.normalize(OfficialFoodLimits.cap(query)),
@@ -32,46 +35,16 @@ class OfficialFoodRanker {
 
     final hits = <OfficialFoodMatch>[];
     for (final item in catalog) {
-      final food = item.food;
-      final nameRank = _bestRank([
-        _rank(food.normalizedName, key),
-        _rank(FoodSearchNormalizer.normalize(food.displayName), key),
-        _rank(FoodSearchNormalizer.normalize(food.name), key),
-        _rank(FoodSearchNormalizer.normalize(food.reading), key),
-      ]);
-      if (nameRank < 9) {
-        hits.add(
-          _copy(
-            food,
-            rank: nameRank,
-            alias: null,
-            aliasReading: null,
-            priority: 100,
-            isCandidate: false,
-            candidateRank: null,
-          ),
-        );
+      hits.addAll(_strictHits(item, key));
+    }
+    // 完全・前方・部分が1件でもあれば、言い間違いは足さない。
+    if (hits.isEmpty && fuzzyFallback) {
+      final fuzzy = <OfficialFoodMatch>[];
+      for (final item in catalog) {
+        fuzzy.addAll(_fuzzyHits(item, key));
       }
-      for (final alias in item.aliases) {
-        final aliasRank = _bestRank([
-          _rank(alias.normalized, key),
-          _rank(FoodSearchNormalizer.normalize(alias.reading), key),
-          _rank(FoodSearchNormalizer.normalize(alias.alias), key),
-        ]);
-        if (aliasRank < 9) {
-          hits.add(
-            _copy(
-              food,
-              rank: aliasRank,
-              alias: alias.alias,
-              aliasReading: alias.reading,
-              priority: alias.priority,
-              isCandidate: alias.isCandidate,
-              candidateRank: alias.candidateRank,
-            ),
-          );
-        }
-      }
+      final close = fuzzy.where((hit) => (hit.candidateRank ?? 9) <= 1);
+      hits.addAll(close.isNotEmpty ? close : fuzzy);
     }
 
     final best = <String, OfficialFoodMatch>{};
@@ -112,6 +85,102 @@ class OfficialFoodRanker {
     return ordered.sublist(0, capped);
   }
 
+  static List<OfficialFoodMatch> _strictHits(
+    OfficialFoodCatalogItem item,
+    String key,
+  ) {
+    final food = item.food;
+    final hits = <OfficialFoodMatch>[];
+    final nameRank = _bestRank([
+      _rank(food.normalizedName, key),
+      _rank(FoodSearchNormalizer.normalize(food.displayName), key),
+      _rank(FoodSearchNormalizer.normalize(food.name), key),
+      _rank(FoodSearchNormalizer.normalize(food.reading), key),
+    ]);
+    if (nameRank < 9) {
+      hits.add(
+        _copy(
+          food,
+          rank: nameRank,
+          alias: null,
+          aliasReading: null,
+          priority: 100,
+          isCandidate: false,
+          candidateRank: null,
+        ),
+      );
+    }
+    for (final alias in item.aliases) {
+      final aliasRank = _bestRank([
+        _rank(alias.normalized, key),
+        _rank(FoodSearchNormalizer.normalize(alias.reading), key),
+        _rank(FoodSearchNormalizer.normalize(alias.alias), key),
+      ]);
+      if (aliasRank < 9) {
+        hits.add(
+          _copy(
+            food,
+            rank: aliasRank,
+            alias: alias.alias,
+            aliasReading: alias.reading,
+            priority: alias.priority,
+            isCandidate: alias.isCandidate,
+            candidateRank: alias.candidateRank,
+          ),
+        );
+      }
+    }
+    return hits;
+  }
+
+  static List<OfficialFoodMatch> _fuzzyHits(
+    OfficialFoodCatalogItem item,
+    String key,
+  ) {
+    final food = item.food;
+    final hits = <OfficialFoodMatch>[];
+    final nameDistance = _fuzzyDistance([
+      food.normalizedName,
+      FoodSearchNormalizer.normalize(food.displayName),
+      FoodSearchNormalizer.normalize(food.name),
+      FoodSearchNormalizer.normalize(food.reading),
+    ], key);
+    if (nameDistance != null) {
+      hits.add(
+        _copy(
+          food,
+          rank: 3,
+          alias: null,
+          aliasReading: null,
+          priority: 100,
+          isCandidate: true,
+          candidateRank: nameDistance,
+        ),
+      );
+    }
+    for (final alias in item.aliases) {
+      final distance = _fuzzyDistance([
+        alias.normalized,
+        FoodSearchNormalizer.normalize(alias.reading),
+        FoodSearchNormalizer.normalize(alias.alias),
+      ], key);
+      if (distance != null) {
+        hits.add(
+          _copy(
+            food,
+            rank: 3,
+            alias: alias.alias,
+            aliasReading: alias.reading,
+            priority: alias.priority,
+            isCandidate: true,
+            candidateRank: distance,
+          ),
+        );
+      }
+    }
+    return hits;
+  }
+
   static int _rank(String haystack, String needle) {
     if (haystack.isEmpty || needle.isEmpty) {
       return 9;
@@ -127,6 +196,20 @@ class OfficialFoodRanker {
       return 2;
     }
     return 9;
+  }
+
+  static int? _fuzzyDistance(List<String> haystacks, String needle) {
+    int? best;
+    for (final haystack in haystacks) {
+      final distance = FoodSearchFuzzy.distance(haystack, needle);
+      if (distance == null) {
+        continue;
+      }
+      if (best == null || distance < best) {
+        best = distance;
+      }
+    }
+    return best;
   }
 
   static int _bestRank(List<int> ranks) {

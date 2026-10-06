@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
 import '../config/subscription_catalog.dart';
 import '../constants/app_strings.dart';
@@ -2990,6 +2991,15 @@ class AppController extends ChangeNotifier {
       }
     }
     final official = OfficialFoodsFlag.enabled && SupabaseConfig.isConfigured;
+    var accessToken = '';
+    if (official) {
+      try {
+        accessToken =
+            Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+      } catch (_) {
+        accessToken = '';
+      }
+    }
     await gateway.publishCatalog(
       SiriVoiceCodec.encodeCatalog(
         ownerUserId: currentOwnerUserId,
@@ -2997,6 +3007,7 @@ class AppController extends ChangeNotifier {
         officialFoodsEnabled: official,
         supabaseUrl: SupabaseConfig.url,
         supabaseAnonKey: SupabaseConfig.anonKey,
+        supabaseAccessToken: accessToken,
         foods: foods,
         mealTemplates: await _siriMealTemplates(),
         workoutTemplates: await _siriWorkoutTemplates(),

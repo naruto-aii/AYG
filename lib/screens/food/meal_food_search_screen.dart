@@ -69,7 +69,7 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
         children: [
           const DesignTitleBlock(
             title: '食品を探す',
-            subtitle: '保存済み、食品成分表、公開食品をまとめて表示します。',
+            subtitle: '保存済み、定番の食品、公開食品をまとめて表示します。',
           ),
           DesignSearchField(
             key: const Key('meal-food-search-field'),

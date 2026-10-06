@@ -152,7 +152,7 @@ class _OfficialFoodSearchSectionState extends State<OfficialFoodSearchSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '分類',
+          '定番の食品',
           style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 8),

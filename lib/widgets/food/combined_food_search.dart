@@ -35,13 +35,13 @@ class CombinedFoodSearch extends StatefulWidget {
     this.debounce = const Duration(milliseconds: 250),
   });
 
-  static const hint = '食品名を入れると、保存済み・食品成分表・公開食品から候補が出ます。';
+  static const hint = '食品名を入れると、保存済み・定番の食品・公開食品から候補が出ます。';
   static const emptyMessage = '該当する食品が見つかりませんでした';
   static const savedHeading = '保存済み';
-  static const officialHeading = '食品成分表';
+  static const officialHeading = '定番の食品';
   static const publicHeading = '公開食品';
   static const savedError = '保存済み食品の検索に失敗しました';
-  static const officialError = '食品成分表の検索に失敗しました';
+  static const officialError = '定番の食品の検索に失敗しました';
   static const publicError = '公開食品の検索に失敗しました';
   static const loadingLabel = '検索中';
 

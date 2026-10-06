@@ -238,8 +238,23 @@ enum SiriVoiceStore {
     if name.isEmpty {
       return stop("食品名が分かりません")
     }
-    let templates = rankTemplates(mealTemplates(), name: name)
-    let foods = await rankFoods(name)
+    let savedHits = rankLocalFoods(
+      foods().filter { $0["source"] as? String == "saved_food" },
+      name: name
+    )
+    let templateHits = rankTemplates(mealTemplates(), name: name)
+    let templates: [[String: Any]]
+    let foods: [[String: Any]]
+    if !savedHits.isEmpty {
+      templates = []
+      foods = savedHits
+    } else if !templateHits.isEmpty {
+      templates = templateHits
+      foods = []
+    } else {
+      templates = []
+      foods = await rankUnsavedFoods(name)
+    }
     let templateExact = templates.count == 1 && (jsonInt(templates[0]["matchRank"]) ?? 9) == 0
       && isObvious(templates)
     let foodExact = foods.count == 1 && (jsonInt(foods[0]["matchRank"]) ?? 9) == 0
@@ -481,42 +496,84 @@ enum SiriVoiceStore {
     }
   }
 
-  private static func officialFoodRows(query: String) async -> [[String: Any]] {
+  /// nil は通信失敗。空配列は、検索はできたが該当が無い。
+  private static func officialFoodRows(query: String) async -> [[String: Any]]? {
+    guard let url = rpcURL("search_official_foods") else {
+      return []
+    }
+    return await postRpc(url, body: [
+      "p_query": String(query.prefix(64)),
+      "p_limit": 30,
+    ], bearer: anonBearer())
+  }
+
+  private static func publicFoodRows(query: String) async -> [[String: Any]]? {
+    guard let url = rpcURL("search_public_foods") else {
+      return []
+    }
+    let token = (catalog()["supabaseAccessToken"] as? String ?? "")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    if token.isEmpty {
+      return []
+    }
+    return await postRpc(url, body: [
+      "p_query": String(query.prefix(64)),
+      "p_limit": 30,
+    ], bearer: token)
+  }
+
+  private static func rpcURL(_ name: String) -> URL? {
     let json = catalog()
     guard json["officialFoodsEnabled"] as? Bool == true,
           let base = json["supabaseUrl"] as? String, !base.isEmpty,
-          let apiKey = json["supabaseAnonKey"] as? String, !apiKey.isEmpty,
-          let url = URL(string: "\(base)/rest/v1/rpc/search_official_foods")
+          catalog()["supabaseAnonKey"] as? String != nil
     else {
+      return nil
+    }
+    return URL(string: "\(base)/rest/v1/rpc/\(name)")
+  }
+
+  private static func anonBearer() -> String {
+    catalog()["supabaseAnonKey"] as? String ?? ""
+  }
+
+  private static func postRpc(
+    _ url: URL,
+    body: [String: Any],
+    bearer: String
+  ) async -> [[String: Any]]? {
+    let apiKey = anonBearer()
+    if apiKey.isEmpty || bearer.isEmpty {
       return []
     }
     var request = URLRequest(url: url, timeoutInterval: 8)
     request.httpMethod = "POST"
     request.setValue(apiKey, forHTTPHeaderField: "apikey")
-    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+    request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.httpBody = try? JSONSerialization.data(withJSONObject: [
-      "p_query": String(query.prefix(64)),
-      "p_limit": 30,
-    ])
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
     guard
       let (data, response) = try? await URLSession.shared.data(for: request),
       let http = response as? HTTPURLResponse,
       http.statusCode == 200,
       let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
     else {
-      return []
+      return nil
     }
     return rows
   }
 
   /// 助詞を除いた言い方も成分表へ投げる。SQL の並びを sqlOrder で残す。
   /// 2文字以下は完全一致だけを残し、「ささ」で「ささみ」を採らない。
-  private static func officialFoods(query: String) async -> [[String: Any]] {
+  private static func officialFoods(query: String) async -> [[String: Any]]? {
     var merged: [String: [String: Any]] = [:]
     var sequence = 0
+    var sawFailure = false
     for variant in queryVariants(query) {
-      let rows = await officialFoodRows(query: variant)
+      guard let rows = await officialFoodRows(query: variant) else {
+        sawFailure = true
+        continue
+      }
       for row in rows {
         guard var food = officialFood(row), let id = food["id"] as? String else {
           continue
@@ -534,7 +591,76 @@ enum SiriVoiceStore {
         }
       }
     }
+    if sawFailure && merged.isEmpty {
+      return nil
+    }
     return merged.values.sorted(by: hitPrecedes)
+  }
+
+  private static func publicFoods(query: String) async -> [[String: Any]]? {
+    var merged: [String: [String: Any]] = [:]
+    var sequence = 0
+    var sawFailure = false
+    for variant in queryVariants(query) {
+      guard let rows = await publicFoodRows(query: variant) else {
+        sawFailure = true
+        continue
+      }
+      for row in rows {
+        guard var food = publicFood(row), let id = food["id"] as? String else {
+          continue
+        }
+        let rank = jsonInt(food["matchRank"]) ?? 9
+        if variant.count < 3, rank > 0 {
+          continue
+        }
+        food["sqlOrder"] = sequence
+        sequence += 1
+        if let current = merged[id] {
+          merged[id] = hitPrecedes(food, current) ? food : current
+        } else {
+          merged[id] = food
+        }
+      }
+    }
+    if sawFailure && merged.isEmpty {
+      return nil
+    }
+    return merged.values.sorted(by: hitPrecedes)
+  }
+
+  private static func publicFood(_ row: [String: Any]) -> [String: Any]? {
+    let name = row["name"] as? String ?? ""
+    let unit = (row["unit_type"] as? String ?? "g").lowercased()
+    guard unit == "g" || unit == "ml" || unit == "piece" || unit == "serving" else {
+      return nil
+    }
+    let foodId = row["food_id"] as? String ?? ""
+    let owner = row["user_id"] as? String ?? ""
+    if foodId.isEmpty || owner.isEmpty || name.isEmpty {
+      return nil
+    }
+    var food: [String: Any] = [
+      "id": "\(owner):\(foodId)",
+      "speakName": name,
+      "keys": [normalize(name)],
+      "baseAmount": row["base_amount"] as? NSNumber ?? 100,
+      "unit": unit,
+      "source": "saved_food",
+      "savedFoodId": foodId,
+      "sourceOwnerUserId": owner,
+      "matchRank": jsonInt(row["match_rank"]) ?? 9,
+      "isCandidate": (jsonInt(row["match_rank"]) ?? 0) >= 3,
+      "candidateRank": jsonInt(row["match_rank"]) ?? 100,
+      "priority": 100,
+      "aliasMatched": false,
+    ]
+    if let version = row["version"] as? NSNumber { food["version"] = version }
+    if let kcal = row["kcal_per_base"] as? NSNumber { food["kcalPerBase"] = kcal }
+    if let protein = row["protein_per_base"] as? NSNumber { food["proteinPerBase"] = protein }
+    if let fat = row["fat_per_base"] as? NSNumber { food["fatPerBase"] = fat }
+    if let carb = row["carb_per_base"] as? NSNumber { food["carbPerBase"] = carb }
+    return food
   }
 
   /// SQL が順位づけ済みの行を、完全一致で捨てない。
@@ -1012,12 +1138,20 @@ enum SiriVoiceStore {
       }
     }
     if kind != .exercise {
-      consider(await rankFoods(name), choiceKind: "food", suffix: "")
-      consider(
-        rankTemplates(mealTemplates(), name: name),
-        choiceKind: "mealTemplate",
-        suffix: "（テンプレート）"
+      let saved = rankLocalFoods(
+        foods().filter { $0["source"] as? String == "saved_food" },
+        name: name
       )
+      if !saved.isEmpty {
+        consider(saved, choiceKind: "food", suffix: "")
+      } else {
+        let templates = rankTemplates(mealTemplates(), name: name)
+        if !templates.isEmpty {
+          consider(templates, choiceKind: "mealTemplate", suffix: "（テンプレート）")
+        } else {
+          consider(await rankUnsavedFoods(name), choiceKind: "food", suffix: "")
+        }
+      }
     }
     if kind != .meal {
       consider(rankExercises(name), choiceKind: "exercise", suffix: "")
@@ -1430,11 +1564,18 @@ enum SiriVoiceStore {
   }
 
   private static func rankFoods(_ name: String) async -> [[String: Any]] {
-    let saved = foods().filter { $0["source"] as? String == "saved_food" }
-    let savedHits = rankLocalFoods(saved, name: name)
+    let savedHits = rankLocalFoods(
+      foods().filter { $0["source"] as? String == "saved_food" },
+      name: name
+    )
     if !savedHits.isEmpty {
       return savedHits
     }
+    return await rankUnsavedFoods(name)
+  }
+
+  /// 保存済みの次。手元の成分表、食品成分表、公開食品。通信失敗時は空。
+  private static func rankUnsavedFoods(_ name: String) async -> [[String: Any]] {
     let localOfficial = rankLocalFoods(
       foods().filter { $0["source"] as? String == "mext_sfct" },
       name: name
@@ -1442,7 +1583,16 @@ enum SiriVoiceStore {
     if !localOfficial.isEmpty {
       return localOfficial
     }
-    return await officialFoods(query: name)
+    guard let official = await officialFoods(query: name) else {
+      return []
+    }
+    if !official.isEmpty {
+      return official
+    }
+    guard let published = await publicFoods(query: name) else {
+      return []
+    }
+    return published
   }
 
   private static func rankLocalFoods(_ rows: [[String: Any]], name: String) -> [[String: Any]] {
@@ -1463,6 +1613,29 @@ enum SiriVoiceStore {
   }
 
   private static func rankExercises(_ name: String) -> [[String: Any]] {
+    let direct = rankExercisesExact(name)
+    if !direct.isEmpty {
+      return direct
+    }
+    let stem = exerciseStem(name)
+    if stem == name {
+      return direct
+    }
+    return rankExercisesExact(stem)
+  }
+
+  /// 「散歩した」「筋トレして」の語尾。食品名には掛けない。
+  private static func exerciseStem(_ name: String) -> String {
+    let suffixes = ["しました", "やって", "やった", "して", "した"]
+    for suffix in suffixes {
+      if name.hasSuffix(suffix), name.count > suffix.count {
+        return String(name.dropLast(suffix.count))
+      }
+    }
+    return name
+  }
+
+  private static func rankExercisesExact(_ name: String) -> [[String: Any]] {
     if let id = spokenExerciseId(name),
        let activity = activities().first(where: { $0["id"] as? String == id }) {
       var hit = activity

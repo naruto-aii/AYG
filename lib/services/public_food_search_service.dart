@@ -45,6 +45,14 @@ class PublicFoodSearchService {
       if (scoreA != scoreB) {
         return scoreB.compareTo(scoreA);
       }
+      if (a.matchType == PublicFoodSearchMatchType.fuzzyName &&
+          b.matchType == PublicFoodSearchMatchType.fuzzyName) {
+        final rankA = a.food.searchMatchRank ?? 9;
+        final rankB = b.food.searchMatchRank ?? 9;
+        if (rankA != rankB) {
+          return rankA.compareTo(rankB);
+        }
+      }
       final updatedCompare = b.food.updatedAt.compareTo(a.food.updatedAt);
       if (updatedCompare != 0) {
         return updatedCompare;
@@ -94,7 +102,19 @@ class PublicFoodSearchService {
       consider(PublicFoodSearchMatchType.barcode);
     }
 
-    return best;
+    if (best != null) {
+      return best;
+    }
+    final rank = food.searchMatchRank;
+    if (rank == null) {
+      return null;
+    }
+    return switch (rank) {
+      0 => PublicFoodSearchMatchType.exactName,
+      1 => PublicFoodSearchMatchType.prefixName,
+      2 => PublicFoodSearchMatchType.partialName,
+      _ => PublicFoodSearchMatchType.fuzzyName,
+    };
   }
 
   String _foodKey(SavedFood food) => '${food.ownerUserId}:${food.foodId}';

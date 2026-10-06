@@ -5,11 +5,10 @@ import '../../repositories/announcement_read_store.dart';
 import '../../repositories/announcement_repository.dart';
 import '../../screens/announcements/announcements_screen.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_typography.dart';
-import '../design/design_card.dart';
 import '../design/design_icon.dart';
 
-/// ホームのお知らせ欄。未読が1件でもあれば赤い点を付ける。
+/// ホーム右上の共有ボタンの隣に置く、お知らせを開く丸ボタン。
+/// 未読が1件でもあれば右上に赤い点を付ける。
 class HomeAnnouncementsEntry extends StatefulWidget {
   const HomeAnnouncementsEntry({super.key, this.repository, this.readStore});
 
@@ -61,41 +60,31 @@ class _HomeAnnouncementsEntryState extends State<HomeAnnouncementsEntry> {
   @override
   Widget build(BuildContext context) {
     final unread = Announcement.hasUnread(_items, _readIds);
-    final latest = _items.isEmpty ? null : _items.first.title;
-    return DesignCard(
-      onTap: _open,
-      child: Row(
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text('お知らせ', style: AppTypography.titleM),
-                    if (unread) ...[
-                      const SizedBox(width: 8),
-                      const _UnreadDot(),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  latest ?? '運営からの連絡です',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyS.copyWith(
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ],
+          IconButton(
+            key: const Key('home_announcements_button'),
+            tooltip: 'お知らせ',
+            onPressed: _open,
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            icon: const DesignIcon(
+              Symbols.campaign_rounded,
+              size: 20,
+              color: AppColors.iconMuted,
             ),
           ),
-          const DesignIcon(
-            Symbols.chevron_right_rounded,
-            size: 16,
-            color: AppColors.iconMuted,
-          ),
+          if (unread)
+            const Positioned(
+              top: 1,
+              right: 1,
+              child: IgnorePointer(child: _UnreadDot()),
+            ),
         ],
       ),
     );

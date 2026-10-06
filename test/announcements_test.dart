@@ -4,6 +4,7 @@ import 'package:ayg/repositories/announcement_repository.dart';
 import 'package:ayg/screens/announcements/announcements_screen.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/widgets/announcements/home_announcements_entry.dart';
+import 'package:ayg/widgets/design/design_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -40,11 +41,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('announcement_unread_dot')), findsOneWidget);
-    expect(find.text('検証中の機能について'), findsOneWidget);
+    expect(find.byIcon(Symbols.campaign_rounded), findsOneWidget);
+    expect(find.text('検証中の機能について'), findsNothing);
 
-    await tester.tap(find.text('お知らせ'));
+    await tester.tap(find.byTooltip('お知らせ'));
     await tester.pumpAndSettle();
 
+    expect(find.text('検証中の機能について'), findsOneWidget);
     expect(find.text('今日のコーチは検証中です。'), findsOneWidget);
     expect(reads.ids, {'a1'});
 

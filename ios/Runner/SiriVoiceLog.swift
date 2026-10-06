@@ -1044,9 +1044,9 @@ enum SiriVoiceStore {
       spoken: "\(spokenName)は見つかりません。もう一度言うか、アプリで検索します",
       asksConfirmation: false,
       asksRetry: true,
+      pendingName: spokenName,
       searchQuery: spokenName,
-      searchKind: kind,
-      pendingName: spokenName
+      searchKind: kind
     )
   }
 

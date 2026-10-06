@@ -1992,8 +1992,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<List<PublicFoodSearchMatch>> searchPublicSavedFoods(
-    String query,
-  ) async {
+    String query, {
+    bool surfaceErrors = false,
+  }) async {
     final repository = _savedFoodRepository;
     if (repository == null) {
       return const [];
@@ -2019,7 +2020,10 @@ class AppController extends ChangeNotifier {
         query: query,
         ratingsByKey: ratingsByKey,
       );
-    } catch (_) {
+    } catch (error) {
+      if (surfaceErrors) {
+        rethrow;
+      }
       return const [];
     }
   }
@@ -3192,9 +3196,7 @@ class AppController extends ChangeNotifier {
               ? button.items
               : const [],
           exercises: button.kind == WidgetPatternKind.exercise
-              ? [
-                  for (final item in button.exercises) _withWidgetNetKcal(item),
-                ]
+              ? [for (final item in button.exercises) _withWidgetNetKcal(item)]
               : const [],
         ),
     ];

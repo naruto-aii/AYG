@@ -999,7 +999,7 @@ void main() {
         80,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
+      await tester.ensureVisible(memoButton);
       await tester.pumpAndSettle();
       await tester.tap(memoButton);
       await tester.pumpAndSettle();

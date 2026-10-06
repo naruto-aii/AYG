@@ -14,7 +14,6 @@ import '../../theme/app_spacing.dart';
 import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/app_text_field.dart';
-import '../saved_food/public_food_search_screen.dart';
 import 'template_food_search_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -143,18 +142,6 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
         sourceOwnerUserId: selected.ownerUserId,
       );
     }
-  }
-
-  Future<void> _pickPublicFood() async {
-    final result = await Navigator.of(context).push<Object?>(
-      MaterialPageRoute<Object?>(
-        builder: (context) => PublicFoodSearchScreen(
-          controller: widget.controller,
-          returnSelection: true,
-        ),
-      ),
-    );
-    await _acceptFoodPick(result);
   }
 
   Future<void> _searchFood() async {
@@ -334,10 +321,10 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               SettingsRow(
-                icon: AppIcons.search,
-                title: '食品を検索',
-                subtitle: '保存済み・公開食品・食品成分表から探す',
-                onTap: () => Navigator.of(context).pop('search'),
+                icon: AppIcons.pen,
+                title: '手入力',
+                subtitle: '名前と栄養素を直接入れる',
+                onTap: () => Navigator.of(context).pop('manual'),
               ),
               const SizedBox(height: 8),
               SettingsRow(
@@ -348,17 +335,10 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
               ),
               const SizedBox(height: 8),
               SettingsRow(
-                icon: AppIcons.meal,
-                title: '公開食品から追加',
-                subtitle: 'みんなが登録した食品から探す',
-                onTap: () => Navigator.of(context).pop('public'),
-              ),
-              const SizedBox(height: 8),
-              SettingsRow(
-                icon: AppIcons.pen,
-                title: '手入力で追加',
-                subtitle: '名前と栄養素を直接入れる',
-                onTap: () => Navigator.of(context).pop('manual'),
+                icon: AppIcons.search,
+                title: '食品検索',
+                subtitle: '保存済み・食品成分表・公開食品から探す',
+                onTap: () => Navigator.of(context).pop('search'),
               ),
             ],
           ),
@@ -366,14 +346,12 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
       ),
     );
     switch (choice) {
-      case 'search':
-        await _searchFood();
-      case 'own':
-        await _pickOwnSavedFood();
-      case 'public':
-        await _pickPublicFood();
       case 'manual':
         await _addManualItem();
+      case 'own':
+        await _pickOwnSavedFood();
+      case 'search':
+        await _searchFood();
     }
   }
 

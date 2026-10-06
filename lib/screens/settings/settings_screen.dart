@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/app_contact_config.dart';
 import '../../config/official_foods_flag.dart';
@@ -22,6 +21,7 @@ import 'calculation_references_screen.dart';
 import 'data_source_screen.dart';
 import 'how_to_use_screen.dart';
 import 'lock_screen_meal_screen.dart';
+import 'operator_contact_screen.dart';
 import 'siri_voice_setup_screen.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
@@ -32,8 +32,9 @@ import 'settings_health_activity_screen.dart';
 ///
 /// Figma: SP / 10 設定（24:345）
 ///
-/// Figma にない「特定商取引法に基づく表記」「サポート」も、ストア審査で
+/// Figma にない「特定商取引法に基づく表記」も、ストア審査で
 /// 到達できる必要があるため同じ行で並べてある。
+/// 問い合わせは「運営連絡」にまとめてある。
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
@@ -57,18 +58,6 @@ class SettingsScreen extends StatelessWidget {
   final String? supportEmail;
 
   static const double _rowGap = 8;
-
-  Future<void> _openUrl(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
-    }
-  }
 
   Future<void> _openMealWidget(BuildContext context) async {
     final paid = await controller.ensurePaidShortcutsReady();
@@ -246,18 +235,6 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => _openMealWidget(context),
             ),
             const SizedBox(height: _rowGap),
-            Text('ウィジェットの置き方', style: AppTypography.titleM),
-            const SizedBox(height: 4),
-            Text(
-              widgetPlacementLead,
-              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widgetPlacementSteps,
-              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-            ),
-            const SizedBox(height: _rowGap),
             SettingsRow(
               icon: AppIcons.information,
               title: '音声登録',
@@ -302,20 +279,14 @@ class SettingsScreen extends StatelessWidget {
             subtitle: '販売条件・事業者情報',
             onTap: () => showLegalDocument(context, LegalDocument.tokushoho),
           ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            icon: AppIcons.information,
-            title: AppStrings.settingsSupport,
-            subtitle: '使い方・よくある質問',
-            onTap: () => showLegalDocument(context, LegalDocument.support),
-          ),
           if (contactEmail.isNotEmpty) ...[
             const SizedBox(height: _rowGap),
             SettingsRow(
               icon: AppIcons.mail,
               title: AppStrings.settingsContactOperator,
               subtitle: contactEmail,
-              onTap: () => _openUrl(context, 'mailto:$contactEmail'),
+              onTap: () =>
+                  _push(context, OperatorContactScreen(email: contactEmail)),
             ),
           ],
           const SizedBox(height: _rowGap),

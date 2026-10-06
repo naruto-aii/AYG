@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../models/exercise_category.dart';
 import '../../models/workout_template.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
-import '../../utils/id_generator.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -15,6 +13,7 @@ import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import '../../widgets/subscription/subscription_limit_prompt.dart';
+import 'workout_template_item_editor.dart';
 
 class WorkoutTemplateFormScreen extends StatefulWidget {
   const WorkoutTemplateFormScreen({
@@ -77,10 +76,13 @@ class _WorkoutTemplateFormScreenState extends State<WorkoutTemplateFormScreen> {
   }
 
   Future<void> _addItem() async {
-    final item = await showDialog<WorkoutTemplateItem>(
-      context: context,
-      builder: (context) =>
-          _WorkoutTemplateItemDialog(sortOrder: _items.length + 1),
+    final item = await Navigator.of(context).push<WorkoutTemplateItem>(
+      MaterialPageRoute<WorkoutTemplateItem>(
+        builder: (context) => WorkoutTemplateItemEditor(
+          controller: widget.controller,
+          sortOrder: _items.length + 1,
+        ),
+      ),
     );
     if (item != null) {
       setState(() => _items.add(item));
@@ -331,120 +333,6 @@ class _WorkoutTemplateListScreenState extends State<WorkoutTemplateListScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _WorkoutTemplateItemDialog extends StatefulWidget {
-  const _WorkoutTemplateItemDialog({required this.sortOrder});
-
-  final int sortOrder;
-
-  @override
-  State<_WorkoutTemplateItemDialog> createState() =>
-      _WorkoutTemplateItemDialogState();
-}
-
-class _WorkoutTemplateItemDialogState
-    extends State<_WorkoutTemplateItemDialog> {
-  final _nameController = TextEditingController();
-  final _durationController = TextEditingController(text: '30');
-  final _setsController = TextEditingController();
-  final _repsController = TextEditingController();
-  final _weightController = TextEditingController();
-  ExerciseCategory _category = ExerciseCategory.strength;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _durationController.dispose();
-    _setsController.dispose();
-    _repsController.dispose();
-    _weightController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final name = _nameController.text.trim();
-    final duration = int.tryParse(_durationController.text.trim());
-    if (name.isEmpty || duration == null || duration <= 0) {
-      return;
-    }
-
-    Navigator.of(context).pop(
-      WorkoutTemplateItem(
-        itemId: generateUniqueId(),
-        name: name,
-        categoryKey: _category.id,
-        durationMin: duration,
-        sets: int.tryParse(_setsController.text.trim()),
-        reps: int.tryParse(_repsController.text.trim()),
-        liftWeightKg: double.tryParse(_weightController.text.trim()),
-        sortOrder: widget.sortOrder,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('種目を追加'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppTextField(controller: _nameController, label: '種目名'),
-            const SizedBox(height: AppSpacing.sm),
-            DropdownButtonFormField<ExerciseCategory>(
-              value: _category,
-              decoration: const InputDecoration(labelText: '分類'),
-              items: ExerciseCategory.values
-                  .map(
-                    (category) => DropdownMenuItem(
-                      value: category,
-                      child: Text(category.labelJa),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _category = value);
-                }
-              },
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              controller: _durationController,
-              label: '時間（分）',
-              keyboardType: TextInputType.number,
-            ),
-            AppTextField(
-              controller: _setsController,
-              label: 'セット',
-              keyboardType: TextInputType.number,
-            ),
-            AppTextField(
-              controller: _repsController,
-              label: '回数',
-              keyboardType: TextInputType.number,
-            ),
-            AppTextField(
-              controller: _weightController,
-              label: '重量（kg）',
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('キャンセル'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('追加')),
-      ],
     );
   }
 }

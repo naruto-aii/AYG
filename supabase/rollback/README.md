@@ -2,6 +2,16 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261006130000 app screen action share
+
+共有の操作（share_meal / share_streak / share_weight）だけを戻す。画面操作の表は残す。食事、運動、体重の行は消さない。2回実行しても失敗しない。
+
+`supabase/rollback/20261006130000_app_screen_action_share_down.sql`
+
+消えるもの:
+
+- `app_screen_actions` のうち、共有の操作の行だけ
+
 ## 20261004150000 coach proposal logs
 
 今日のコーチが出した提案の記録だけを戻す。食事、運動、公式食品、お知らせ、候補食品は消さない。2回実行しても失敗しない。

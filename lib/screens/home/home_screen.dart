@@ -7,6 +7,8 @@ import '../../models/daily_summary.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/share_card_content.dart';
+import '../../services/share_sheet_client.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -24,6 +26,8 @@ import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../../widgets/layout/active_tab_listenable_builder.dart';
+import '../../widgets/share/share_composer.dart';
+import '../../widgets/share/share_icon_button.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../coach/daily_coach_screen.dart';
 import '../food/food_memo_dialog.dart';
@@ -46,6 +50,7 @@ class HomeScreen extends StatelessWidget {
     this.onOpenHistoryCalendar,
     this.onOpenWorkoutTab,
     this.onOpenWeightTab,
+    this.shareCard,
   });
 
   final AppController controller;
@@ -54,6 +59,9 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onOpenHistoryCalendar;
   final VoidCallback? onOpenWorkoutTab;
   final VoidCallback? onOpenWeightTab;
+
+  /// テストが共有シートの代わりに受け取る。未指定なら iOS の共有シート。
+  final ShareCardRequest? shareCard;
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +81,7 @@ class HomeScreen extends StatelessWidget {
         final todayExercise = _todayExercise(controller.exerciseEntries);
 
         return DesignPage(
-          header: _Header(),
+          header: _Header(onShare: () => _shareToday(context)),
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -574,6 +582,67 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _shareToday(BuildContext context) async {
+    final summary = controller.summary;
+    if (summary == null) {
+      return;
+    }
+    final now = DateTime.now();
+    final streak = currentRecordingStreakDays(
+      foodLoggedAts: controller.foodEntries.map((entry) => entry.loggedAt),
+      exerciseLoggedAts: controller.exerciseEntries.map(
+        (entry) => entry.loggedAt,
+      ),
+      alcoholConsumedAts: controller.alcoholEntries.map(
+        (entry) => entry.consumedAt,
+      ),
+      weightEntries: controller.weightEntries,
+      now: now,
+    );
+    await showShareComposer(
+      context: context,
+      kinds: const [ShareCardKind.meal, ShareCardKind.streak],
+      initialKind: ShareCardKind.meal,
+      showsWeightPrivacy: false,
+      build: ({required kind, required format, required privacy}) {
+        return switch (kind) {
+          ShareCardKind.meal => buildMealShareCard(
+            summary: summary,
+            day: now,
+            format: format,
+          ),
+          ShareCardKind.streak => buildStreakShareCard(
+            days: streak,
+            day: now,
+            format: format,
+          ),
+          ShareCardKind.weight => buildMealShareCard(
+            summary: summary,
+            day: now,
+            format: format,
+          ),
+        };
+      },
+      onShare: (content, boundaryKey) {
+        final override = shareCard;
+        if (override != null) {
+          return override(content, boundaryKey);
+        }
+        final action = shareScreenAction(content.kind);
+        return sendShareCard(
+          content: content,
+          boundaryKey: boundaryKey,
+          onSent: () {
+            controller.recordScreenAction(
+              screen: action.screen,
+              action: action.action,
+            );
+          },
+        );
+      },
+    );
+  }
+
   // --- 画面遷移 ----------------------------------------------------------
 
   void _openFoodForm(BuildContext context, {FoodEntry? entry}) {
@@ -660,18 +729,24 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-/// Figma: header（左上にロゴだけ）。
+/// 左にロゴ、右に小さな共有。
 class _Header extends StatelessWidget {
+  const _Header({required this.onShare});
+
+  final VoidCallback onShare;
+
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       height: 48,
       child: Padding(
-        padding: EdgeInsets.only(left: 16, top: 4),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          // Figma の Logo/Horizontal はマークを 40 の箱に収めている。
-          child: AppLogo(markSize: 27.5, titleSize: 20, gap: 14),
+        padding: const EdgeInsets.only(left: 16, right: 8, top: 4),
+        child: Row(
+          children: [
+            const AppLogo(markSize: 27.5, titleSize: 20, gap: 14),
+            const Spacer(),
+            ShareIconButton(tooltip: '記録を共有', onPressed: onShare),
+          ],
         ),
       ),
     );

@@ -89,7 +89,39 @@ void main() {
       isTrue,
     );
     expect(
+      screenActionAllowed(
+        screen: UsageScreen.home,
+        action: UsageScreenAction.shareMeal,
+      ),
+      isTrue,
+    );
+    expect(
+      screenActionAllowed(
+        screen: UsageScreen.home,
+        action: UsageScreenAction.shareStreak,
+      ),
+      isTrue,
+    );
+    expect(
+      screenActionAllowed(
+        screen: UsageScreen.weight,
+        action: UsageScreenAction.shareWeight,
+      ),
+      isTrue,
+    );
+    expect(
+      screenActionAllowed(
+        screen: UsageScreen.weight,
+        action: UsageScreenAction.shareMeal,
+      ),
+      isFalse,
+    );
+    expect(
       screenActionAllowed(screen: UsageScreen.home, action: 'kcal'),
+      isFalse,
+    );
+    expect(
+      screenActionAllowed(screen: UsageScreen.home, action: 'share_meal_1800'),
       isFalse,
     );
     expect(

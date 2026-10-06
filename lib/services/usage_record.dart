@@ -40,6 +40,9 @@ abstract final class UsageScreenAction {
   static const open = 'open';
   static const select = 'select';
   static const mealButton = 'meal_button';
+  static const shareMeal = 'share_meal';
+  static const shareStreak = 'share_streak';
+  static const shareWeight = 'share_weight';
 }
 
 abstract final class UsageEntitlementStatus {
@@ -80,6 +83,14 @@ bool exerciseSearchSourceAllowed(String source) {
 }
 
 bool screenActionAllowed({required String screen, required String action}) {
+  if (screen == UsageScreen.home &&
+      (action == UsageScreenAction.shareMeal ||
+          action == UsageScreenAction.shareStreak)) {
+    return true;
+  }
+  if (screen == UsageScreen.weight && action == UsageScreenAction.shareWeight) {
+    return true;
+  }
   if (screen == UsageScreen.homeWidget || screen == UsageScreen.lockScreen) {
     return action == UsageScreenAction.mealButton;
   }

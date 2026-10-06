@@ -1,9 +1,7 @@
+import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/models/daily_summary.dart';
-import 'package:ayg/models/health_profile_data.dart';
-import 'package:ayg/models/weight_entry.dart';
 import 'package:ayg/services/share_card_content.dart';
 import 'package:ayg/services/share_links.dart';
-import 'package:ayg/services/usage_record.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -46,22 +44,21 @@ void main() {
     expect(macroEnergyBalance(proteinG: 0, fatG: 0, carbG: 0), isNull);
   });
 
-  test('meal text keeps the gap, the balance, and the link', () {
+  test('meal text keeps the gap, the balance, the tagline, and the link', () {
     final card = buildMealShareCard(
       summary: summary(exercise: 320),
       day: day,
-      format: ShareCardFormat.story,
     );
     expect(card.headline, '1,820');
     expect(card.detail, '目標まであと 180kcal');
-    expect(card.extra, '運動で 320kcal');
-    expect(card.message, contains('1,820 kcal'));
-    expect(card.message, contains('あと180kcal'));
-    expect(card.message, contains('320kcal'));
-    expect(card.message, contains('たんぱく質32%'));
-    expect(card.message, contains(shareDownloadUrl));
+    expect(card.message, '''
+今日の食事は1,820 kcalで、目標まであと180kcalです。
+たんぱく質32%、脂質29%、炭水化物39%です。
+${AppStrings.loginTagline}
+$shareDownloadUrl''');
+    expect(card.message, isNot(contains('運動で')));
+    expect(card.message, isNot(contains('320')));
     expect(card.message, isNot(contains('kg')));
-    expect(shareScreenAction(card.kind).action, UsageScreenAction.shareMeal);
   });
 
   test('an overage is stated instead of a remaining calorie', () {
@@ -76,103 +73,12 @@ void main() {
         carb: 0,
       ),
       day: day,
-      format: ShareCardFormat.square,
     );
     expect(card.detail, contains('超えています'));
-    expect(card.message, contains('200kcal超えています'));
     expect(card.macros, isNull);
+    expect(card.message, contains('200kcal超えています'));
+    expect(card.message, contains(AppStrings.loginTagline));
     expect(card.message, contains(shareDownloadUrl));
-  });
-
-  test('streak counts recorded days and skips a health-only weight', () {
-    final today = DateTime(2026, 10, 6, 12);
-    final days = {
-      DateTime(2026, 10, 6),
-      DateTime(2026, 10, 5),
-      DateTime(2026, 10, 4),
-    };
-    expect(recordingStreakLength(days, today), 3);
-    expect(
-      recordingStreakLength({
-        DateTime(2026, 10, 5),
-        DateTime(2026, 10, 4),
-      }, today),
-      2,
-    );
-    expect(recordingStreakLength({DateTime(2026, 10, 4)}, today), 0);
-
-    final streak = currentRecordingStreakDays(
-      foodLoggedAts: [DateTime(2026, 10, 6, 8)],
-      exerciseLoggedAts: const [],
-      alcoholConsumedAts: const [],
-      weightEntries: [
-        WeightEntry(
-          id: 'health',
-          weightKg: 70,
-          recordedAt: DateTime(2026, 10, 5, 7),
-          source: WeightSource.health,
-        ),
-      ],
-      now: today,
-    );
-    expect(streak, 1);
-
-    final card = buildStreakShareCard(
-      days: 7,
-      day: day,
-      format: ShareCardFormat.square,
-    );
-    expect(card.headline, '7');
-    expect(card.message, contains('7日連続'));
-    expect(card.message, contains(shareDownloadUrl));
-    expect(card.message, isNot(contains('kg')));
-    expect(shareScreenAction(card.kind).screen, UsageScreen.home);
-  });
-
-  test('weight share can hide the numbers in both the card and the text', () {
-    const weights = [80.0, 79.2, 78.4];
-    final shown = buildWeightShareCard(
-      periodLabel: '1ヶ月',
-      weightsKg: weights,
-      privacy: WeightPrivacy.shown,
-      day: day,
-      format: ShareCardFormat.square,
-    );
-    expect(shown.headline, '1.6');
-    expect(shown.detail, '1ヶ月で減りました');
-    expect(shown.trend, weights);
-    expect(shown.message, contains('1.6kg減りました'));
-    expect(shown.message, isNot(contains('80')));
-    expect(shown.message, isNot(contains('78.4')));
-    expect(shown.message, contains(shareDownloadUrl));
-
-    final blurred = buildWeightShareCard(
-      periodLabel: '1ヶ月',
-      weightsKg: weights,
-      privacy: WeightPrivacy.blurred,
-      day: day,
-      format: ShareCardFormat.story,
-    );
-    expect(blurred.privacy, WeightPrivacy.blurred);
-    expect(blurred.message, isNot(contains('1.6')));
-    expect(blurred.message, isNot(contains('kg')));
-    expect(RegExp(r'\d').hasMatch(blurred.message), isFalse);
-
-    final hidden = buildWeightShareCard(
-      periodLabel: '1ヶ月',
-      weightsKg: weights,
-      privacy: WeightPrivacy.hidden,
-      day: day,
-      format: ShareCardFormat.square,
-    );
-    expect(hidden.headline, '非公開');
-    expect(hidden.trend, isNull);
-    expect(hidden.unit, isEmpty);
-    expect(RegExp(r'\d').hasMatch(hidden.message), isFalse);
-    expect(hidden.message, contains(shareDownloadUrl));
-    expect(
-      shareScreenAction(hidden.kind).action,
-      UsageScreenAction.shareWeight,
-    );
+    expect(card.message, isNot(contains('たんぱく質')));
   });
 }

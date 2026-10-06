@@ -1,6 +1,3 @@
-import 'dart:math' as math;
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
@@ -11,7 +8,7 @@ import '../../theme/app_radius.dart';
 import '../../theme/app_typography.dart';
 import '../brand/app_brand_mark.dart';
 
-/// 共有用のカード。白と緑、アプリアイコン、入手先を載せる。
+/// 今日のまとめの共有カード。正方形、白と緑、アプリアイコン、入手先。
 class ShareCardView extends StatelessWidget {
   const ShareCardView({super.key, required this.content});
 
@@ -19,8 +16,6 @@ class ShareCardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final story = content.format == ShareCardFormat.story;
-    final headlineSize = story ? 64.0 : 42.0;
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
       child: ColoredBox(
@@ -29,11 +24,11 @@ class ShareCardView extends StatelessWidget {
           child: Stack(
             children: [
               Positioned(
-                right: story ? -30 : -46,
-                top: story ? -10 : -36,
+                right: -46,
+                top: -36,
                 child: Container(
-                  width: story ? 220 : 150,
-                  height: story ? 220 : 150,
+                  width: 150,
+                  height: 150,
                   decoration: const BoxDecoration(
                     color: AppColors.green100,
                     shape: BoxShape.circle,
@@ -41,17 +36,12 @@ class ShareCardView extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.fromLTRB(
-                  22,
-                  story ? 36 : 12,
-                  22,
-                  story ? 16 : 12,
-                ),
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const _BrandLockup(),
-                    SizedBox(height: story ? 28 : 6),
+                    const SizedBox(height: 6),
                     Text(
                       content.dateLabel,
                       style: _text(AppTypography.caption),
@@ -65,7 +55,7 @@ class ShareCardView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    _figure(child: _headline(headlineSize)),
+                    _headline(),
                     const SizedBox(height: 6),
                     Text(
                       content.detail,
@@ -74,37 +64,19 @@ class ShareCardView extends StatelessWidget {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    if (content.extra != null) ...[
-                      const SizedBox(height: 2),
-                      Text(content.extra!, style: _text(AppTypography.bodyS)),
-                    ],
                     if (content.macros != null) ...[
-                      SizedBox(height: story ? 22 : 8),
+                      const SizedBox(height: 8),
                       _MacroBar(balance: content.macros!),
                     ],
-                    if (content.trend != null) ...[
-                      SizedBox(height: story ? 22 : 12),
-                      _figure(
-                        child: SizedBox(
-                          height: story ? 120 : 56,
-                          width: double.infinity,
-                          child: CustomPaint(
-                            painter: _TrendPainter(content.trend!),
-                          ),
-                        ),
-                      ),
-                    ],
                     const Spacer(),
-                    if (story) ...[
-                      Text(
-                        AppStrings.loginTagline,
-                        style: _text(
-                          AppTypography.bodyM,
-                          color: AppColors.textPrimary,
-                        ),
+                    Text(
+                      AppStrings.loginTagline,
+                      style: _text(
+                        AppTypography.bodyM,
+                        color: AppColors.textPrimary,
                       ),
-                      const SizedBox(height: 16),
-                    ],
+                    ),
+                    const SizedBox(height: 12),
                     const _DownloadFooter(),
                   ],
                 ),
@@ -116,7 +88,7 @@ class ShareCardView extends StatelessWidget {
     );
   }
 
-  Widget _headline(double size) {
+  Widget _headline() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
@@ -126,7 +98,7 @@ class ShareCardView extends StatelessWidget {
             content.headline,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _text(AppTypography.displayNumber, fontSize: size),
+            style: _text(AppTypography.displayNumber, fontSize: 42),
           ),
         ),
         if (content.unit.isNotEmpty) ...[
@@ -140,18 +112,6 @@ class ShareCardView extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-
-  Widget _figure({required Widget child}) {
-    if (content.privacy != WeightPrivacy.blurred) {
-      return child;
-    }
-    return ClipRect(
-      child: ImageFiltered(
-        imageFilter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: child,
-      ),
     );
   }
 }
@@ -265,57 +225,6 @@ class _MacroBar extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _TrendPainter extends CustomPainter {
-  _TrendPainter(this.values);
-
-  final List<double> values;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.length < 2 || size.width <= 0 || size.height <= 0) {
-      return;
-    }
-    final minValue = values.reduce(math.min);
-    final maxValue = values.reduce(math.max);
-    final span = (maxValue - minValue).abs() < 0.01 ? 1.0 : maxValue - minValue;
-    final points = <Offset>[
-      for (var i = 0; i < values.length; i++)
-        Offset(
-          size.width * i / (values.length - 1),
-          size.height -
-              6 -
-              ((values[i] - minValue) / span) * (size.height - 12),
-        ),
-    ];
-    final fill = Path()..moveTo(points.first.dx, size.height);
-    for (final point in points) {
-      fill.lineTo(point.dx, point.dy);
-    }
-    fill
-      ..lineTo(points.last.dx, size.height)
-      ..close();
-    canvas.drawPath(fill, Paint()..color = AppColors.green100);
-    final line = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final point in points.skip(1)) {
-      line.lineTo(point.dx, point.dy);
-    }
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = AppColors.green700
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrendPainter oldDelegate) {
-    return oldDelegate.values != values;
   }
 }
 

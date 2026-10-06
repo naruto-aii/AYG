@@ -9,6 +9,7 @@ import '../../models/food_entry.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/share_card_content.dart';
 import '../../services/share_sheet_client.dart';
+import '../../services/usage_record.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -26,7 +27,7 @@ import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../../widgets/layout/active_tab_listenable_builder.dart';
-import '../../widgets/share/share_composer.dart';
+import '../../widgets/share/share_card_view.dart';
 import '../../widgets/share/share_icon_button.dart';
 import '../alcohol/alcohol_form_screen.dart';
 import '../coach/daily_coach_screen.dart';
@@ -61,7 +62,7 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onOpenWeightTab;
 
   /// テストが共有シートの代わりに受け取る。未指定なら iOS の共有シート。
-  final ShareCardRequest? shareCard;
+  final Future<ShareResult> Function(ShareCardContent content)? shareCard;
 
   @override
   Widget build(BuildContext context) {
@@ -587,57 +588,23 @@ class HomeScreen extends StatelessWidget {
     if (summary == null) {
       return;
     }
-    final now = DateTime.now();
-    final streak = currentRecordingStreakDays(
-      foodLoggedAts: controller.foodEntries.map((entry) => entry.loggedAt),
-      exerciseLoggedAts: controller.exerciseEntries.map(
-        (entry) => entry.loggedAt,
-      ),
-      alcoholConsumedAts: controller.alcoholEntries.map(
-        (entry) => entry.consumedAt,
-      ),
-      weightEntries: controller.weightEntries,
-      now: now,
-    );
-    await showShareComposer(
+    final content = buildMealShareCard(summary: summary, day: DateTime.now());
+    final override = shareCard;
+    if (override != null) {
+      await override(content);
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    await presentCapturedShareCard(
       context: context,
-      kinds: const [ShareCardKind.meal, ShareCardKind.streak],
-      initialKind: ShareCardKind.meal,
-      showsWeightPrivacy: false,
-      build: ({required kind, required format, required privacy}) {
-        return switch (kind) {
-          ShareCardKind.meal => buildMealShareCard(
-            summary: summary,
-            day: now,
-            format: format,
-          ),
-          ShareCardKind.streak => buildStreakShareCard(
-            days: streak,
-            day: now,
-            format: format,
-          ),
-          ShareCardKind.weight => buildMealShareCard(
-            summary: summary,
-            day: now,
-            format: format,
-          ),
-        };
-      },
-      onShare: (content, boundaryKey) {
-        final override = shareCard;
-        if (override != null) {
-          return override(content, boundaryKey);
-        }
-        final action = shareScreenAction(content.kind);
-        return sendShareCard(
-          content: content,
-          boundaryKey: boundaryKey,
-          onSent: () {
-            controller.recordScreenAction(
-              screen: action.screen,
-              action: action.action,
-            );
-          },
+      content: content,
+      card: ShareCardView(content: content),
+      onSent: () {
+        controller.recordScreenAction(
+          screen: UsageScreen.home,
+          action: UsageScreenAction.shareMeal,
         );
       },
     );

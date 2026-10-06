@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/models/daily_summary.dart';
 import 'package:ayg/services/share_card_content.dart';
 import 'package:ayg/services/share_links.dart';
@@ -43,14 +44,15 @@ void main() {
     exerciseBurnKcal: 320,
   );
 
-  Future<void> expectPng(
-    WidgetTester tester, {
-    required String name,
-    required ShareCardContent content,
-  }) async {
+  testWidgets('today meal card renders a square png', (tester) async {
+    final content = buildMealShareCard(summary: meal, day: day);
+    expect(content.message, isNot(contains('320')));
+    expect(content.message, contains(AppStrings.loginTagline));
+    expect(content.message, contains(shareDownloadUrl));
+
     final key = GlobalKey();
     await tester.binding.setSurfaceSize(
-      Size(content.format.width + 40, content.format.height + 40),
+      const Size(shareCardSize + 40, shareCardSize + 40),
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -60,8 +62,8 @@ void main() {
             child: RepaintBoundary(
               key: key,
               child: SizedBox(
-                width: content.format.width,
-                height: content.format.height,
+                width: shareCardSize,
+                height: shareCardSize,
                 child: ShareCardView(content: content),
               ),
             ),
@@ -70,6 +72,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.text('運動で 320kcal'), findsNothing);
+    expect(find.text(AppStrings.loginTagline), findsOneWidget);
+
     final bytes = await tester.runAsync(
       () => pngBytesFromBoundary(key, pixelRatio: 2),
     );
@@ -82,78 +87,14 @@ void main() {
     if (directory != null && directory.isNotEmpty) {
       final folder = Directory(directory);
       folder.createSync(recursive: true);
-      File('${folder.path}/$name.png').writeAsBytesSync(bytes);
+      File('${folder.path}/meal_final.png').writeAsBytesSync(bytes);
     }
     final image = await tester.runAsync(() async {
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();
       return frame.image;
     });
-    expect(image!.width, content.format.width * 2);
-    expect(image.height, content.format.height * 2);
-  }
-
-  testWidgets('meal, streak, and weight cards render pngs', (tester) async {
-    await expectPng(
-      tester,
-      name: 'meal_story',
-      content: buildMealShareCard(
-        summary: meal,
-        day: day,
-        format: ShareCardFormat.story,
-      ),
-    );
-    await expectPng(
-      tester,
-      name: 'meal_square',
-      content: buildMealShareCard(
-        summary: meal,
-        day: day,
-        format: ShareCardFormat.square,
-      ),
-    );
-    await expectPng(
-      tester,
-      name: 'streak_story',
-      content: buildStreakShareCard(
-        days: 7,
-        day: day,
-        format: ShareCardFormat.story,
-      ),
-    );
-    await expectPng(
-      tester,
-      name: 'weight_shown_square',
-      content: buildWeightShareCard(
-        periodLabel: '1ヶ月',
-        weightsKg: const [80, 79.2, 78.4],
-        privacy: WeightPrivacy.shown,
-        day: day,
-        format: ShareCardFormat.square,
-      ),
-    );
-    await expectPng(
-      tester,
-      name: 'weight_blurred_story',
-      content: buildWeightShareCard(
-        periodLabel: '1ヶ月',
-        weightsKg: const [80, 79.2, 78.4],
-        privacy: WeightPrivacy.blurred,
-        day: day,
-        format: ShareCardFormat.story,
-      ),
-    );
-    await expectPng(
-      tester,
-      name: 'weight_hidden_square',
-      content: buildWeightShareCard(
-        periodLabel: '1ヶ月',
-        weightsKg: const [80, 79.2, 78.4],
-        privacy: WeightPrivacy.hidden,
-        day: day,
-        format: ShareCardFormat.square,
-      ),
-    );
-    expect(shareDownloadUrl, startsWith('https://'));
+    expect(image!.width, shareCardSize * 2);
+    expect(image.height, shareCardSize * 2);
   });
 }

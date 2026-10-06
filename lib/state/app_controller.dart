@@ -2844,6 +2844,7 @@ class AppController extends ChangeNotifier {
   void _listenForPaidEntitlement() {
     _plusSubscription ??= _subscriptionRepository.plusChanges.listen((_) {
       unawaited(_applyPaidEntitlement());
+      notifyListeners();
     });
     _entitlementSyncSubscription ??= _subscriptionRepository.entitlementChanges
         .listen((_) {

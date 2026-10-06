@@ -14,10 +14,15 @@ LOCAL_DEFINES="${ROOT_DIR}/tool/dart_defines.local.json"
 chmod +x "${ROOT_DIR}/tool/configure_google_signin_ios.sh"
 "${ROOT_DIR}/tool/configure_google_signin_ios.sh"
 
+# 実機テストの有料／無料切替。後から渡すのでローカル定義より優先する。
+# Xcode Archive（ios/Flutter/Release.xcconfig）には付けない。
+TEST_PURCHASE_DEFINE="--dart-define=CALONAVI_TEST_PURCHASE=true"
+
 if [ -f "$LOCAL_DEFINES" ]; then
   # The later dart-define wins, so a local file cannot leave the search off.
   exec flutter run "$@" --dart-define-from-file="$LOCAL_DEFINES" \
-    --dart-define=officialFoodsEnabled=true
+    --dart-define=officialFoodsEnabled=true \
+    "$TEST_PURCHASE_DEFINE"
 fi
 
 if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ] || \
@@ -39,5 +44,6 @@ if [ -n "${OFF_CONTACT_EMAIL:-}" ]; then
 fi
 
 DART_DEFINES+=("--dart-define=officialFoodsEnabled=true")
+DART_DEFINES+=("$TEST_PURCHASE_DEFINE")
 
 exec flutter run "$@" "${DART_DEFINES[@]}"

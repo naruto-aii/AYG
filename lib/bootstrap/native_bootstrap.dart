@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app.dart';
 import '../config/development_plus_preview.dart';
+import '../config/test_purchase.dart';
 import '../config/open_food_facts_config.dart';
 import '../config/supabase_config.dart';
 import '../database/isar_service.dart';
@@ -125,6 +126,7 @@ Future<void> bootstrapApp() async {
   final subscriptionRepository = StoreKitSubscriptionRepository(
     preferences: preferences,
     developmentPlusPreview: developmentPlusPreview,
+    testPurchaseEnabled: testPurchaseEnabled,
   );
   await subscriptionRepository.initialize();
 

@@ -30,6 +30,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     Future<EntitlementLoad> Function()? loadEntitlements,
     DateTime Function()? clock,
     this.developmentPlusPreview = false,
+    this.testPurchaseEnabled = false,
   }) : _store = store,
        _preferences = preferences,
        _purchaseUpdates = purchaseUpdates,
@@ -40,6 +41,12 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   static const legacyPlusKey = 'calonavi_plus_active';
   static const entitlementsKey = 'calonavi_plus_entitlements_v1';
 
+  /// ストアの加入とは別キー。フラグの無いビルドは読まない。
+  static const testPlusKey = 'calonavi_plus_test_override';
+
+  /// テスト加入の期限。本番の期限キーには書かない。
+  static final testPurchaseExpiry = DateTime.utc(2099, 1, 1);
+
   final InAppPurchase? _store;
   final SharedPreferences? _preferences;
   final Stream<List<PurchaseDetails>>? _purchaseUpdates;
@@ -47,7 +54,11 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   final DateTime Function() _clock;
 
   /// 開発用ビルドで、購入せずに有料画面を見る。ストアの購入結果は上書きしない。
+  /// テスト購入フラグがあるときは false にして、購入ボタンと無料化で切り替える。
   final bool developmentPlusPreview;
+
+  /// 実機テスト用。true のとき購入ボタンは StoreKit を開かず、即時に有料へする。
+  final bool testPurchaseEnabled;
 
   final StreamController<bool> _plusController =
       StreamController<bool>.broadcast();
@@ -61,8 +72,11 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Timer? _expiryTimer;
   bool _plus = false;
+  bool _testPlus = false;
+  bool _testOverridePresent = false;
   bool _productsConfirmed = false;
   bool _authoritative = false;
+  bool _suppressAuthoritativeSweep = false;
 
   @override
   List<SubscriptionEntitlementRecord> get confirmedEntitlements => [
@@ -72,6 +86,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
           productId: id,
           expiresAt: _entitlement.expiryByProduct[id],
         ),
+    ?_testConfirmed,
   ];
 
   @override
@@ -82,16 +97,42 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
           productId: id,
           expiresAt: _lastExpiry[id],
         ),
+    ?_testInactive,
   ];
 
+  SubscriptionEntitlementRecord? get _testConfirmed {
+    if (!testPurchaseEnabled || !_testPlus) {
+      return null;
+    }
+    return SubscriptionEntitlementRecord(
+      productId: SubscriptionCatalog.testPurchaseProductId,
+      expiresAt: testPurchaseExpiry,
+    );
+  }
+
+  SubscriptionEntitlementRecord? get _testInactive {
+    if (!testPurchaseEnabled || !_testOverridePresent || _testPlus) {
+      return null;
+    }
+    return const SubscriptionEntitlementRecord(
+      productId: SubscriptionCatalog.testPurchaseProductId,
+      expiresAt: null,
+    );
+  }
+
   @override
-  bool get entitlementAuthoritative => _authoritative;
+  bool get entitlementAuthoritative =>
+      _suppressAuthoritativeSweep ? false : _authoritative;
 
   @override
   Stream<void> get entitlementChanges => _entitlementSignals.stream;
 
   @override
-  bool get isPlusActive => _plus || developmentPlusPreview;
+  bool get testPurchaseToggleEnabled => testPurchaseEnabled;
+
+  @override
+  bool get isPlusActive =>
+      _plus || developmentPlusPreview || (testPurchaseEnabled && _testPlus);
 
   @override
   Stream<bool> get plusChanges => _plusController.stream;
@@ -126,6 +167,11 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       _confirmedIds.clear();
     }
     _plus = _entitlement.isActive(_clock());
+    if (testPurchaseEnabled) {
+      final stored = prefs.getBool(testPlusKey);
+      _testOverridePresent = stored != null;
+      _testPlus = stored ?? false;
+    }
     _purchaseSubscription ??= _updates.listen(_onPurchases);
     try {
       await _refreshEntitlement();
@@ -152,6 +198,9 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   @override
   Future<SubscriptionOfferings> loadOfferings() async {
+    if (testPurchaseEnabled) {
+      return SubscriptionOfferings.failed;
+    }
     final store = _purchases ?? InAppPurchase.instance;
     try {
       final available = await store.isAvailable();
@@ -212,7 +261,43 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   @override
   Future<void> purchasePlan(PlusPlan plan) {
+    if (testPurchaseEnabled) {
+      return _setTestPlus(true);
+    }
     return _buy(SubscriptionCatalog.productIdFor(plan));
+  }
+
+  @override
+  Future<void> clearTestPurchase() async {
+    if (!testPurchaseEnabled || !_testPlus) {
+      return;
+    }
+    await _setTestPlus(false);
+  }
+
+  Future<void> _setTestPlus(bool active) async {
+    _testPlus = active;
+    _testOverridePresent = true;
+    final prefs = await _prefs();
+    await prefs.setBool(testPlusKey, active);
+    _emitPlus();
+    if (_entitlementSignals.isClosed) {
+      return;
+    }
+    // テスト切替では、ストアが空でも本物の加入行を消さない。
+    // 通知は次のマイクロタスクで届くので、フラグはその後に戻す。
+    _suppressAuthoritativeSweep = true;
+    _entitlementSignals.add(null);
+    scheduleMicrotask(() {
+      _suppressAuthoritativeSweep = false;
+    });
+  }
+
+  void _emitPlus() {
+    if (_plusController.isClosed) {
+      return;
+    }
+    _plusController.add(isPlusActive);
   }
 
   Future<void> _buy(String productId) async {

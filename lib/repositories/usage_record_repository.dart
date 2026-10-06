@@ -191,7 +191,7 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
     try {
       final currentIds = <String>{};
       for (final record in confirmed) {
-        if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+        if (!SubscriptionCatalog.syncsEntitlement(record.productId)) {
           continue;
         }
         if (record.expiresAt == null) {
@@ -210,7 +210,7 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
         );
       }
       for (final record in inactive) {
-        if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+        if (!SubscriptionCatalog.syncsEntitlement(record.productId)) {
           continue;
         }
         if (currentIds.contains(record.productId)) {

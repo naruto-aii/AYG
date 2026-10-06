@@ -8,7 +8,13 @@
 tool/run_ios.sh
 ```
 
-iOS の端末またはシミュレータでは、`flutter run` でも起動できます。
+release で実機に入れるときも同じスクリプトを使う。どちらもテスト用の有料／無料切替が付く。
+
+```bash
+tool/run_ios.sh --release
+```
+
+App Store 提出用の Archive はこのスクリプトを通さない。切替は付かない。
 
 ## ウェブサイト
 

@@ -98,7 +98,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('分類'), findsNothing);
+    expect(find.text('定番の食品'), findsNothing);
     expect(find.text('精白米'), findsNothing);
   });
 
@@ -131,7 +131,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
-    expect(find.text('分類'), findsOneWidget);
+    expect(find.text('定番の食品'), findsOneWidget);
     expect(find.text('精白米（うるち米・水稲めし）'), findsOneWidget);
     expect(find.text('156 kcal / 100g'), findsOneWidget);
     expect(find.text('こめ　［水稲めし］　精白米　うるち米'), findsNothing);
@@ -170,7 +170,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 1));
 
-      expect(find.text('分類'), findsOneWidget);
+      expect(find.text('定番の食品'), findsOneWidget);
       expect(find.text('くろまぐろ（天然・赤身・生）'), findsOneWidget);
       expect(find.text('魚・まぐろ · 115 kcal / 100g'), findsOneWidget);
       expect(find.textContaining('＜魚類＞'), findsNothing);

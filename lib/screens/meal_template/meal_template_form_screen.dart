@@ -326,7 +326,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
               SettingsRow(
                 icon: AppIcons.search,
                 title: '食品検索',
-                subtitle: '保存済み・食品成分表・公開食品から探す',
+                subtitle: '保存済み・定番の食品・公開食品から探す',
                 onTap: () => Navigator.of(context).pop('search'),
               ),
             ],

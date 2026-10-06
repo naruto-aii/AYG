@@ -57,7 +57,7 @@ void main() {
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('保存済み食品から追加'), findsOneWidget);
     expect(find.text('食品検索'), findsOneWidget);
-    expect(find.text('保存済み・食品成分表・公開食品から探す'), findsOneWidget);
+    expect(find.text('保存済み・定番の食品・公開食品から探す'), findsOneWidget);
     expect(find.text('公開食品から追加'), findsNothing);
     expect(find.text('食品を検索'), findsNothing);
     controller.dispose();

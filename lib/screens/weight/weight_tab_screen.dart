@@ -15,12 +15,8 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
-import '../../services/share_card_content.dart';
-import '../../services/share_sheet_client.dart';
 import '../../widgets/design/weight_parts.dart';
 import '../../widgets/layout/active_tab_listenable_builder.dart';
-import '../../widgets/share/share_composer.dart';
-import '../../widgets/share/share_icon_button.dart';
 import 'weight_record_screen.dart';
 
 /// グラフの表示期間。
@@ -40,12 +36,9 @@ enum WeightRange {
 ///
 /// Figma: SP / 09 体重（30:955）
 class WeightTabScreen extends StatefulWidget {
-  const WeightTabScreen({super.key, required this.controller, this.shareCard});
+  const WeightTabScreen({super.key, required this.controller});
 
   final AppController controller;
-
-  /// テストが共有シートの代わりに受け取る。未指定なら iOS の共有シート。
-  final ShareCardRequest? shareCard;
 
   @override
   State<WeightTabScreen> createState() => _WeightTabScreenState();
@@ -79,45 +72,6 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
               entry?.weightKg ?? widget.controller.profile?.weightKg,
         ),
       ),
-    );
-  }
-
-  Future<void> _shareTrend(List<WeightEntry> ranged) async {
-    if (ranged.length < 2) {
-      return;
-    }
-    final now = DateTime.now();
-    await showShareComposer(
-      context: context,
-      kinds: const [ShareCardKind.weight],
-      initialKind: ShareCardKind.weight,
-      showsWeightPrivacy: true,
-      build: ({required kind, required format, required privacy}) {
-        return buildWeightShareCard(
-          periodLabel: _range.label,
-          weightsKg: [for (final entry in ranged) entry.weightKg],
-          privacy: privacy,
-          day: now,
-          format: format,
-        );
-      },
-      onShare: (content, boundaryKey) {
-        final override = widget.shareCard;
-        if (override != null) {
-          return override(content, boundaryKey);
-        }
-        final action = shareScreenAction(content.kind);
-        return sendShareCard(
-          content: content,
-          boundaryKey: boundaryKey,
-          onSent: () {
-            widget.controller.recordScreenAction(
-              screen: action.screen,
-              action: action.action,
-            );
-          },
-        );
-      },
     );
   }
 
@@ -229,21 +183,11 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          '最新の体重',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (ranged.length >= 2)
-                          ShareIconButton(
-                            tooltip: '変化を共有',
-                            onPressed: () => _shareTrend(ranged),
-                          ),
-                      ],
+                    Text(
+                      '最新の体重',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Row(

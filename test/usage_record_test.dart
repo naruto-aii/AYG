@@ -96,18 +96,12 @@ void main() {
       isTrue,
     );
     expect(
-      screenActionAllowed(
-        screen: UsageScreen.home,
-        action: UsageScreenAction.shareStreak,
-      ),
-      isTrue,
+      screenActionAllowed(screen: UsageScreen.home, action: 'share_streak'),
+      isFalse,
     );
     expect(
-      screenActionAllowed(
-        screen: UsageScreen.weight,
-        action: UsageScreenAction.shareWeight,
-      ),
-      isTrue,
+      screenActionAllowed(screen: UsageScreen.weight, action: 'share_weight'),
+      isFalse,
     );
     expect(
       screenActionAllowed(

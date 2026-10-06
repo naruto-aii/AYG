@@ -96,7 +96,7 @@ class HowToUseScreen extends StatelessWidget {
                 const _Section(
                   title: '記録を共有する',
                   body:
-                      'ホーム右上の共有から、今日の食事のまとめか、連続記録を画像で送れます。体重は、グラフが出ているときの右上から、その期間の変化を送れます。数字は、ぼかす・隠す・増減だけ出す、から選べます。今の体重そのものは出しません。送る相手は、iPhoneの共有で選びます。共有は無料です。',
+                      'ホーム右上の共有を押すと、今日の食事のまとめが画像で送れます。一緒に、摂取カロリーと目標までの差、PFC、アプリの紹介とリンクも渡します。送る相手は、iPhoneの共有で選びます。共有は無料です。',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 const _Section(

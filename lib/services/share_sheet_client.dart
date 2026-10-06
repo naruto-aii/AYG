@@ -42,6 +42,43 @@ Future<bool> presentIosShareSheet(Uint8List png, String text) async {
   return sent ?? false;
 }
 
+/// 画面の外にカードを一度描いてから、共有シートを開く。
+Future<ShareResult> presentCapturedShareCard({
+  required BuildContext context,
+  required ShareCardContent content,
+  required Widget card,
+  required VoidCallback onSent,
+  SharePresenter? present,
+}) async {
+  final key = GlobalKey();
+  final entry = OverlayEntry(
+    builder: (context) => Positioned(
+      left: -4000,
+      top: 0,
+      child: RepaintBoundary(
+        key: key,
+        child: SizedBox(
+          width: shareCardSize,
+          height: shareCardSize,
+          child: card,
+        ),
+      ),
+    ),
+  );
+  Overlay.of(context).insert(entry);
+  try {
+    await WidgetsBinding.instance.endOfFrame;
+    return await sendShareCard(
+      content: content,
+      boundaryKey: key,
+      onSent: onSent,
+      present: present,
+    );
+  } finally {
+    entry.remove();
+  }
+}
+
 Future<ShareResult> sendShareCard({
   required ShareCardContent content,
   required GlobalKey boundaryKey,

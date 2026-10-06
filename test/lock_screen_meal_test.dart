@@ -469,11 +469,11 @@ void main() {
     expect(controller.foodEntries, isEmpty);
     expect(controller.exerciseEntries, isEmpty);
     expect(
-      find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。'),
+      find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。復唱してはいで登録。'),
+      find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。「さっきの登録を取り消して」で直前を消せます。'),
       findsOneWidget,
     );
     expect(find.text('ホーム画面'), findsNothing);
@@ -506,11 +506,11 @@ void main() {
 
     expect(find.text('こちらは有料の機能です'), findsOneWidget);
     expect(
-      find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。'),
+      find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。復唱してはいで登録。'),
+      find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。「さっきの登録を取り消して」で直前を消せます。'),
       findsOneWidget,
     );
     expect(controller.foodEntries, isEmpty);
@@ -521,11 +521,11 @@ void main() {
 
     expect(find.text('こちらは有料の機能です'), findsNothing);
     expect(
-      find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。'),
+      find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。復唱してはいで登録。'),
+      find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。「さっきの登録を取り消して」で直前を消せます。'),
       findsOneWidget,
     );
     expect(find.text('購入を復元'), findsOneWidget);
@@ -573,7 +573,7 @@ void main() {
     expect(find.textContaining('ショートカットを自分で作る必要はありません'), findsWidgets);
     expect(find.textContaining('Siriと検索'), findsOneWidget);
     final meal = find.textContaining(
-      '食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。',
+      '食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。',
     );
     final registered = find.textContaining('登録：Hey Siri、カロナビに登録');
     expect(meal, findsOneWidget);
@@ -588,7 +588,7 @@ void main() {
       greaterThan(tester.getTopLeft(meal).dy),
     );
     expect(
-      find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。復唱してはいで登録。'),
+      find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。「さっきの登録を取り消して」で直前を消せます。'),
       findsOneWidget,
     );
     expect(find.text('ホーム画面'), findsNothing);

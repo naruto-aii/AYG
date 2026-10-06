@@ -464,7 +464,12 @@ String _foodQuery(String utterance) {
     r'(\d+(?:\.\d+)?)(ミリリットル|キロメートル|グラム|分間|食分|ml|mL|km|キロ|個|こ|食|分|回|g|G|ｇ)$',
   ).firstMatch(compact);
   if (tail != null && tail.start > 0) {
-    return compact.substring(0, tail.start);
+    // プランナーと同じく、量の前の「を」は食品名に残さない。
+    var stem = compact.substring(0, tail.start);
+    if (stem.endsWith('を')) {
+      stem = stem.substring(0, stem.length - 1);
+    }
+    return stem;
   }
   final vague = splitSiriVagueTail(compact);
   if (vague != null && vague.name.trim().isNotEmpty) {

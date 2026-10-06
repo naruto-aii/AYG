@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 
 import 'siri_voice_log.dart';
 
-/// Siri が読む食品・種目の一覧と、復唱のあとに追記された登録待ち。
+/// Siri が読む食品・種目の一覧と、登録のあとに追記された待ち行列。
 abstract class SiriVoiceGateway {
   Future<void> publishCatalog(String catalogJson);
 

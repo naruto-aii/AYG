@@ -10,9 +10,9 @@ class AppStrings {
 
   /// 有料案内に出す Siri の話し方。この2文だけ。
   static const siriVoiceFoodPhrase =
-      '食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。';
+      '食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。';
   static const siriVoiceExercisePhrase =
-      '運動：Hey Siri、カロナビで、運動にジョギングを30分。復唱してはいで登録。';
+      '運動：Hey Siri、カロナビで、運動にジョギングを30分。「さっきの登録を取り消して」で直前を消せます。';
   static const siriVoicePaidGuidance =
       '$siriVoiceFoodPhrase\n$siriVoiceExercisePhrase';
 

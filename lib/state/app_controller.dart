@@ -3158,6 +3158,14 @@ class AppController extends ChangeNotifier {
       existingFoodIds: foodEntries.map((entry) => entry.id).toSet(),
       existingExerciseIds: exerciseEntries.map((entry) => entry.id).toSet(),
     );
+    for (final id in plan.undoIds) {
+      if (foodEntries.any((entry) => entry.id == id)) {
+        await deleteFood(id);
+      }
+      if (exerciseEntries.any((entry) => entry.id == id)) {
+        await deleteExercise(id);
+      }
+    }
     if (plan.foods.isNotEmpty) {
       await addFoodEntriesBatch(plan.foods, origin: ReviewRecordOrigin.siri);
     }

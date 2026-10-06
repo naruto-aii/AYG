@@ -3167,6 +3167,10 @@ class AppController extends ChangeNotifier {
       remainingKcal: remaining < 0 ? 0 : remaining.round(),
       intakeKcal: current.intakeKcal.round(),
       burnKcal: current.exerciseBurnKcal.round(),
+      targetKcal: current.targetKcal.round(),
+      overageKcal: current.isCalorieOverage
+          ? current.calorieOverageKcal.round()
+          : null,
     );
   }
 

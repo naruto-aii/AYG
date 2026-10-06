@@ -60,12 +60,15 @@ enum LockScreenMealStore {
     return parsed
   }
 
-  static func figures() -> (remaining: Int?, intake: Int?, burn: Int?) {
+  /// `target` と `overage` は後から足したキー。古いアプリが書いた JSON では nil になる。
+  static func figures() -> (remaining: Int?, intake: Int?, burn: Int?, target: Int?, overage: Int?) {
     let json = snapshotObject()
     return (
       (json?["remaining"] as? NSNumber)?.intValue,
       (json?["intake"] as? NSNumber)?.intValue,
-      (json?["burn"] as? NSNumber)?.intValue
+      (json?["burn"] as? NSNumber)?.intValue,
+      (json?["target"] as? NSNumber)?.intValue,
+      (json?["overage"] as? NSNumber)?.intValue
     )
   }
 

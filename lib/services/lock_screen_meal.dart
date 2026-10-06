@@ -232,12 +232,23 @@ class LockScreenMealConfig {
 }
 
 /// ウィジェットに出す、今日の残り・摂取・消費。
+///
+/// 目標と超過は、ウィジェットのカロリーリングをアプリのホームと同じ見た目にするために渡す。
+/// 超過していない日は [overageKcal] を null にする。
 class MealWidgetFigures {
-  const MealWidgetFigures({this.remainingKcal, this.intakeKcal, this.burnKcal});
+  const MealWidgetFigures({
+    this.remainingKcal,
+    this.intakeKcal,
+    this.burnKcal,
+    this.targetKcal,
+    this.overageKcal,
+  });
 
   final int? remainingKcal;
   final int? intakeKcal;
   final int? burnKcal;
+  final int? targetKcal;
+  final int? overageKcal;
 }
 
 class LockScreenMealButtonSnapshot {
@@ -586,6 +597,8 @@ abstract final class LockScreenMealCodec {
       'remaining': snapshot.figures.remainingKcal,
       'intake': snapshot.figures.intakeKcal,
       'burn': snapshot.figures.burnKcal,
+      'target': snapshot.figures.targetKcal,
+      'overage': snapshot.figures.overageKcal,
       'home': [for (final button in snapshot.homeButtons) _buttonJson(button)],
       'lock': [for (final button in snapshot.lockButtons) _buttonJson(button)],
     });

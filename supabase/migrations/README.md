@@ -38,7 +38,10 @@ They run with owner privileges.
 `anon` has no privileges. `INSERT` / `UPDATE` / `DELETE` / `TRUNCATE` are
 revoked from `anon` and `authenticated`. The import script writes as the
 database owner. `search_official_foods` grants `EXECUTE` to
-`authenticated` only. It is `security definer` with `search_path = ''`
+`authenticated`, and `20261006120000` also grants `anon`. Siri calls it
+with the anon key before a user session exists. The function reads only
+the composition tables, so anon still cannot see saved foods or entries.
+It is `security definer` with `search_path = ''`
 so it can call `normalize_food_search_text`. That normalizer keeps the
 first 256 characters and does not grant `EXECUTE` to `anon`,
 `authenticated`, or `public`. Search keeps the first 64 characters of

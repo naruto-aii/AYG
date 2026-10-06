@@ -86,7 +86,7 @@ class SiriVoiceSetupScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  '「Hey Siri、カロナビで」のあとに、食事か運動と量を話します。復唱を聞いて、合っていれば「はい」で登録されます。',
+                  '「Hey Siri、カロナビで」のあとに、食事か運動と量を話します。テンプレート名だけでも登録できます。復唱を聞いて、合っていれば「はい」で登録されます。公開食品はSiriから登録できません。Siriで記録しそうなものは、テンプレートにしておくのがおすすめです。',
                   style: AppTypography.bodyS.copyWith(
                     color: AppColors.textMuted,
                   ),

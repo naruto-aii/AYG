@@ -55,6 +55,11 @@ import UIKit
         let ids = args?["ids"] as? [String] ?? []
         SiriVoiceStore.acknowledge(ids: ids)
         result(nil)
+      case "readOpenSearch":
+        result(SiriVoiceStore.readOpenSearch())
+      case "clearOpenSearch":
+        SiriVoiceStore.clearOpenSearch()
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }

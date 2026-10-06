@@ -145,7 +145,73 @@ enum LockScreenMealStore {
       button.makePendingRecord(ownerUserId: owner, loggedAt: Date(), surface: surface)
     )
     writePendingArray(pending)
+    let intake = button.kind == "exercise" ? 0 : foodKcal(button.items)
+    let burn = button.kind == "exercise" ? exerciseKcal(button.exercises) : 0
+    applyFigures(intakeDelta: intake, burnDelta: burn)
     return "registered"
+  }
+
+  /// 押した直後に、残り・摂取・消費の整数を動かす。Dart の `applyMealWidgetFigures` と同じ。
+  static func applyFigures(intakeDelta: Double, burnDelta: Double) {
+    guard var json = snapshotObject() else {
+      reloadWidgets()
+      return
+    }
+    let intakeAdd = Int(intakeDelta.rounded())
+    let burnAdd = Int(burnDelta.rounded())
+    let intake = (json["intake"] as? NSNumber)?.intValue ?? 0
+    let burn = (json["burn"] as? NSNumber)?.intValue ?? 0
+    json["intake"] = intake + intakeAdd
+    json["burn"] = burn + burnAdd
+    if let remaining = (json["remaining"] as? NSNumber)?.intValue {
+      let next = remaining - intakeAdd + burnAdd
+      json["remaining"] = next < 0 ? 0 : next
+    }
+    guard JSONSerialization.isValidJSONObject(json),
+          let data = try? JSONSerialization.data(withJSONObject: json),
+          let raw = String(data: data, encoding: .utf8)
+    else {
+      reloadWidgets()
+      return
+    }
+    defaults?.set(raw, forKey: snapshotKey)
+    defaults?.synchronize()
+    reloadWidgets()
+  }
+
+  static func foodKcal(_ items: [[String: Any]]) -> Double {
+    var total = 0.0
+    for item in items {
+      let base = number(item["baseAmount"])
+      let consumed = number(item["consumedAmount"])
+      let kcal = number(item["kcalPerBase"])
+      if base > 0, consumed > 0 {
+        total += kcal * consumed / base
+      }
+    }
+    return total
+  }
+
+  static func exerciseKcal(_ items: [[String: Any]]) -> Double {
+    var total = 0.0
+    for item in items {
+      total += number(item["netKcal"])
+    }
+    return total
+  }
+
+  /// JSON の NSNumber と、同じプロセスで入れた Double の両方を読む。
+  static func number(_ value: Any?) -> Double {
+    if let number = value as? Double {
+      return number
+    }
+    if let number = value as? Int {
+      return Double(number)
+    }
+    if let number = value as? NSNumber {
+      return number.doubleValue
+    }
+    return 0
   }
 
   static func formatLoggedAt(_ date: Date) -> String {

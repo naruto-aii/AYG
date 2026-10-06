@@ -80,11 +80,13 @@ class ExerciseFormScreen extends StatefulWidget {
     required this.controller,
     this.entry,
     this.initialLoggedAt,
+    this.initialName,
   });
 
   final AppController controller;
   final ExerciseEntry? entry;
   final DateTime? initialLoggedAt;
+  final String? initialName;
 
   bool get isEditing => entry != null;
 
@@ -112,7 +114,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     final entry = widget.entry;
     _loggedAt = (entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now())
         .toLocal();
-    _nameController = TextEditingController(text: entry?.name ?? '');
+    _nameController = TextEditingController(
+      text: entry?.name ?? widget.initialName?.trim() ?? '',
+    );
     _durationController = TextEditingController(
       text: entry?.durationMin.toString() ?? '',
     );

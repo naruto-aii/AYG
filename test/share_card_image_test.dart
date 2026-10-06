@@ -46,7 +46,9 @@ void main() {
 
   testWidgets('today meal card renders a square png', (tester) async {
     final content = buildMealShareCard(summary: meal, day: day);
+    expect(content.figure, '1,820 / 2,000');
     expect(content.message, isNot(contains('320')));
+    expect(content.message, isNot(contains('たんぱく質')));
     expect(content.message, contains(AppStrings.loginTagline));
     expect(content.message, contains(shareDownloadUrl));
 
@@ -72,7 +74,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('運動で 320kcal'), findsNothing);
+    expect(find.text('今日の摂取カロリー'), findsOneWidget);
+    expect(find.text('1,820 / 2,000'), findsOneWidget);
+    expect(find.text('たんぱく質'), findsNothing);
+    expect(find.textContaining('目標まで'), findsNothing);
     expect(find.text(AppStrings.loginTagline), findsOneWidget);
 
     final bytes = await tester.runAsync(
@@ -87,7 +92,7 @@ void main() {
     if (directory != null && directory.isNotEmpty) {
       final folder = Directory(directory);
       folder.createSync(recursive: true);
-      File('${folder.path}/meal_final.png').writeAsBytesSync(bytes);
+      File('${folder.path}/meal_final2.png').writeAsBytesSync(bytes);
     }
     final image = await tester.runAsync(() async {
       final codec = await ui.instantiateImageCodec(bytes);

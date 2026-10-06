@@ -6,6 +6,8 @@ import '../../models/alcohol_entry.dart';
 import '../../models/daily_summary.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
+import '../../repositories/announcement_read_store.dart';
+import '../../repositories/announcement_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/share_card_content.dart';
 import '../../services/share_sheet_client.dart';
@@ -52,6 +54,8 @@ class HomeScreen extends StatelessWidget {
     this.onOpenWorkoutTab,
     this.onOpenWeightTab,
     this.shareCard,
+    this.announcementRepository,
+    this.announcementReadStore,
   });
 
   final AppController controller;
@@ -63,6 +67,10 @@ class HomeScreen extends StatelessWidget {
 
   /// テストが共有シートの代わりに受け取る。未指定なら iOS の共有シート。
   final Future<ShareResult> Function(ShareCardContent content)? shareCard;
+
+  /// 未指定なら公開済みのお知らせを読む。テストと画面確認用。
+  final AnnouncementRepository? announcementRepository;
+  final AnnouncementReadStore? announcementReadStore;
 
   @override
   Widget build(BuildContext context) {
@@ -82,12 +90,16 @@ class HomeScreen extends StatelessWidget {
         final todayExercise = _todayExercise(controller.exerciseEntries);
 
         return DesignPage(
-          header: _Header(onShare: () => _shareToday(context)),
+          header: _Header(
+            onShare: () => _shareToday(context),
+            announcements: HomeAnnouncementsEntry(
+              repository: announcementRepository,
+              readStore: announcementReadStore,
+            ),
+          ),
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const HomeAnnouncementsEntry(),
-              const SizedBox(height: 8),
               Center(child: _ring(summary)),
               const SizedBox(height: 12),
               _coachEntry(context),
@@ -696,11 +708,12 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-/// 左にロゴ、右に小さな共有。
+/// 左にロゴ、右にお知らせと共有。共有ボタンの大きさは変えない。
 class _Header extends StatelessWidget {
-  const _Header({required this.onShare});
+  const _Header({required this.onShare, required this.announcements});
 
   final VoidCallback onShare;
+  final Widget announcements;
 
   @override
   Widget build(BuildContext context) {
@@ -712,6 +725,7 @@ class _Header extends StatelessWidget {
           children: [
             const AppLogo(markSize: 27.5, titleSize: 20, gap: 14),
             const Spacer(),
+            announcements,
             ShareIconButton(tooltip: '記録を共有', onPressed: onShare),
           ],
         ),

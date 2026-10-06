@@ -437,7 +437,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('お知らせ'), findsOneWidget);
+    expect(find.byTooltip('お知らせ'), findsOneWidget);
     expect(find.byKey(const Key('announcement_unread_dot')), findsNothing);
     final remainingTop = tester.getTopLeft(find.text('今日あと')).dy;
     final coachTop = tester.getTopLeft(find.text('今日のコーチ')).dy;

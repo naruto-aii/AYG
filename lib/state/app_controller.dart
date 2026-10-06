@@ -2520,14 +2520,6 @@ class AppController extends ChangeNotifier {
     if (draft.items.isEmpty) {
       throw ArgumentError('Template must include at least one item');
     }
-    if (templateId == null && !_subscriptionRepository.isPlusActive) {
-      final current = await repository.getAll(currentOwnerUserId);
-      if (current.length >= SubscriptionCatalog.workoutTemplateLimit) {
-        throw SubscriptionLimitExceededException(
-          SubscriptionLimitKind.workoutTemplate,
-        );
-      }
-    }
 
     final now = DateTime.now();
     final id = templateId ?? generateId();

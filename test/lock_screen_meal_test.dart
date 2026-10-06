@@ -572,9 +572,20 @@ void main() {
     expect(find.text('使い始める前'), findsOneWidget);
     expect(find.textContaining('ショートカットを自分で作る必要はありません'), findsWidgets);
     expect(find.textContaining('Siriと検索'), findsOneWidget);
+    final meal = find.textContaining(
+      '食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。',
+    );
+    final registered = find.textContaining('登録：Hey Siri、カロナビに登録');
+    expect(meal, findsOneWidget);
+    expect(registered, findsOneWidget);
+    expect(find.textContaining('食事ですか、運動ですか？'), findsWidgets);
     expect(
-      find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。復唱してはいで登録。'),
+      find.textContaining('「○○を100g登録」のような言い方は、リマインダーに流れることがあるので非推奨。'),
       findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(registered).dy,
+      greaterThan(tester.getTopLeft(meal).dy),
     );
     expect(
       find.textContaining('運動：Hey Siri、カロナビで、運動にジョギングを30分。復唱してはいで登録。'),

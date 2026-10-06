@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../models/workout_template.dart';
-import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
-import '../../theme/app_typography.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/layout/app_content_constraint.dart';
-import '../../widgets/subscription/subscription_limit_prompt.dart';
 import 'workout_template_item_editor.dart';
 
 class WorkoutTemplateFormScreen extends StatefulWidget {
@@ -110,15 +106,6 @@ class _WorkoutTemplateFormScreenState extends State<WorkoutTemplateFormScreen> {
         return;
       }
       Navigator.of(context).pop(true);
-    } on SubscriptionLimitExceededException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      await showSubscriptionLimitPrompt(
-        context,
-        controller: widget.controller,
-        exception: error,
-      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -285,7 +272,6 @@ class _WorkoutTemplateListScreenState extends State<WorkoutTemplateListScreen> {
           expandVertically: true,
           child: Column(
             children: [
-              const _TemplateLimitNote(),
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: AppTextField(
@@ -410,7 +396,6 @@ class _WorkoutTemplatePickerScreenState
           expandVertically: true,
           child: Column(
             children: [
-              const _TemplateLimitNote(),
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: AppTextField(
@@ -441,26 +426,6 @@ class _WorkoutTemplatePickerScreenState
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _TemplateLimitNote extends StatelessWidget {
-  const _TemplateLimitNote();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-        0,
-      ),
-      child: Text(
-        '無料は4件までです。カロナビ+は何件でも保存できます。',
-        style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
       ),
     );
   }

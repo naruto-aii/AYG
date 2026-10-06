@@ -63,7 +63,7 @@ class SettingsFoodMasterScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.dumbbell,
             title: '運動テンプレート',
-            subtitle: 'よくする運動の組み合わせ。無料は4件まで',
+            subtitle: 'よくする運動の組み合わせ。',
             onTap: () => _push(
               context,
               WorkoutTemplateListScreen(controller: controller),

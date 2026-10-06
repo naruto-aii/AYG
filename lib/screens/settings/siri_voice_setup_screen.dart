@@ -21,10 +21,18 @@ const String siriSetupSteps =
     'カロナビを開いて、ログインした状態にしておく。ログインしていないと、Siriは登録せず「ログインしてください」と返す。\n'
     '\n'
     '話しかける\n'
-    '「Hey Siri、カロナビで」のあとに、下の例のとおり食事か運動と量を話す。復唱を聞いて、合っていれば「はい」。\n'
+    '「Hey Siri、カロナビに登録」と話す。Siriが「食事ですか、運動ですか？」と聞くので食事か運動を答え、次に「何を食べましたか？」または「何をしましたか？」と聞くので「ささみ100g」のように答える。復唱を聞いて、合っていれば「はい」。「カロナビで登録」「カロナビで記録」でも同じ。\n'
     '\n'
     'ショートカットの追加は不要\n'
     '「食事を登録」「運動を登録」「食事か運動を登録」は、アプリを入れた時点で使える。言い方を変えるときだけ、ショートカットアプリで編集する。';
+
+/// 既存の食事・運動の言い方と並べる。「カロナビに登録」の流れ。
+const String siriSetupRegisterExample =
+    '登録：Hey Siri、カロナビに登録。「食事ですか、運動ですか？」と聞かれたら食事か運動を答え、「何を食べましたか？」または「何をしましたか？」と聞かれたら「ささみ100g」のように答える。復唱してはいで登録。「カロナビで登録」「カロナビで記録」でも同じ。';
+
+/// 「○○を100g登録」は他アプリに流れることがある。
+const String siriSetupFreeformCaution =
+    '「○○を100g登録」のような言い方は、リマインダーに流れることがあるので非推奨。';
 
 /// カロナビ+が有効なときの音声登録。購入画面は出さない。
 class SiriVoiceSetupScreen extends StatelessWidget {
@@ -86,7 +94,19 @@ class SiriVoiceSetupScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  '「Hey Siri、カロナビで」のあとに、食事か運動と量を話します。テンプレート名だけでも登録できます。復唱を聞いて、合っていれば「はい」で登録されます。公開食品はSiriから登録できません。Siriで記録しそうなものは、テンプレートにしておくのがおすすめです。',
+                  siriSetupRegisterExample,
+                  style: AppTypography.bodyS,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  siriSetupFreeformCaution,
+                  style: AppTypography.bodyS.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'テンプレート名だけでも登録できます。復唱を聞いて、合っていれば「はい」で登録されます。公開食品はSiriから登録できません。Siriで記録しそうなものは、テンプレートにしておくのがおすすめです。',
                   style: AppTypography.bodyS.copyWith(
                     color: AppColors.textMuted,
                   ),

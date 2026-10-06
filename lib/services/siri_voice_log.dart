@@ -12,6 +12,7 @@ import '../services/exercise_calorie_calculator.dart';
 import '../utils/food_search_normalizer.dart';
 import 'lock_screen_meal.dart';
 import 'siri_name_match.dart';
+import 'siri_speech_repair.dart';
 
 /// Siri の食事・運動登録。
 ///
@@ -542,6 +543,166 @@ SiriVoicePlan resolveSiriAmount({
   return plan;
 }
 
+SiriVoicePlan? _chooseInterpretation(
+  SiriVoiceContext context,
+  List<String> interpretations,
+  SiriSpokenKind? kind,
+) {
+  final scored = <_SpeechScore>[];
+  for (final text in interpretations) {
+    final split = _split(text, '');
+    final hit = _bestSpeechHit(context, split.name, kind);
+    scored.add(
+      _SpeechScore(
+        name: split.name,
+        quantity: split.quantity,
+        rank: hit?.rank ?? 9,
+        id: hit?.id,
+        title: hit?.title,
+        choiceKind: hit?.choiceKind,
+      ),
+    );
+  }
+  scored.sort((a, b) => a.rank.compareTo(b.rank));
+  final best = scored.first.rank;
+  if (best >= 9) {
+    return null;
+  }
+  final winners = scored.where((item) => item.rank == best).toList();
+  final ids = winners.map((item) => item.id).toSet();
+  if (ids.length == 1) {
+    final winner = winners.first;
+    if (kind == SiriSpokenKind.meal) {
+      return _planFoodBody(
+        context,
+        name: winner.name,
+        quantityText: winner.quantity,
+      );
+    }
+    if (kind == SiriSpokenKind.exercise) {
+      return _planExerciseBody(
+        context,
+        name: winner.name,
+        quantityText: winner.quantity,
+      );
+    }
+    return _classify(
+      context,
+      name: winner.name,
+      quantityText: winner.quantity,
+    );
+  }
+  return _choicePlan(
+    name: winners.first.name,
+    quantityText: winners.first.quantity,
+    choices: [
+      for (final winner in winners)
+        if (winner.id != null &&
+            winner.title != null &&
+            winner.choiceKind != null)
+          SiriSpokenChoice(
+            id: winner.id!,
+            title: winner.title!,
+            kind: winner.choiceKind!,
+          ),
+    ],
+  );
+}
+
+_SpeechHit? _bestSpeechHit(
+  SiriVoiceContext context,
+  String name,
+  SiriSpokenKind? kind,
+) {
+  final hits = <_SpeechHit>[];
+  void add(SiriMatchResult result, String choiceKind, {String suffix = ''}) {
+    if (result.hits.isEmpty) {
+      return;
+    }
+    final top = result.hits.first;
+    hits.add(
+      _SpeechHit(
+        rank: top.matchRank,
+        id: top.id,
+        title: '${top.speakName}$suffix',
+        choiceKind: choiceKind,
+      ),
+    );
+  }
+
+  if (kind != SiriSpokenKind.exercise) {
+    add(_rankFoods(context, name), 'food');
+    add(
+      _rankTemplates(
+        context.mealTemplates.map(
+          (template) => (
+            id: template.id,
+            speakName: template.speakName,
+            keys: template.keys,
+          ),
+        ),
+        name,
+      ),
+      'mealTemplate',
+      suffix: '（テンプレート）',
+    );
+  }
+  if (kind != SiriSpokenKind.meal) {
+    add(_rankExercises(name), 'exercise');
+    add(
+      _rankTemplates(
+        context.workoutTemplates.map(
+          (template) => (
+            id: template.id,
+            speakName: template.speakName,
+            keys: template.keys,
+          ),
+        ),
+        name,
+      ),
+      'workoutTemplate',
+      suffix: '（テンプレート）',
+    );
+  }
+  if (hits.isEmpty) {
+    return null;
+  }
+  hits.sort((a, b) => a.rank.compareTo(b.rank));
+  return hits.first;
+}
+
+class _SpeechScore {
+  const _SpeechScore({
+    required this.name,
+    required this.quantity,
+    required this.rank,
+    required this.id,
+    required this.title,
+    required this.choiceKind,
+  });
+
+  final String name;
+  final String quantity;
+  final int rank;
+  final String? id;
+  final String? title;
+  final String? choiceKind;
+}
+
+class _SpeechHit {
+  const _SpeechHit({
+    required this.rank,
+    required this.id,
+    required this.title,
+    required this.choiceKind,
+  });
+
+  final int rank;
+  final String id;
+  final String title;
+  final String choiceKind;
+}
+
 SiriVoicePlan _plan({
   required SiriVoiceContext context,
   required String name,
@@ -556,9 +717,30 @@ SiriVoicePlan _plan({
   if (_mentionsPhraseShape(source) && !source.contains('カロナビ')) {
     return _stop(SiriVoiceStatus.unsupportedAmount, 'アプリ名が無いので登録しません');
   }
-  final split = _split(name, quantity);
   final explicit = _explicitSpokenKind(source);
   final kind = explicit ?? (_mentionsPhraseShape(source) ? null : forced);
+  final spoken = quantity.trim().isEmpty
+      ? name
+      : '${name.trim()} ${quantity.trim()}';
+  final interpretations = <String>[];
+  for (final option in siriSpeechInterpretations(spoken)) {
+    final folded = foldSiriSpokenQuantities(option);
+    if (folded.isNotEmpty && !interpretations.contains(folded)) {
+      interpretations.add(folded);
+    }
+  }
+  if (interpretations.length > 1) {
+    final chosen = _chooseInterpretation(
+      context,
+      interpretations,
+      kind,
+    );
+    if (chosen != null) {
+      return chosen;
+    }
+  }
+  final repaired = interpretations.isEmpty ? spoken : interpretations.first;
+  final split = _split(repaired, interpretations.isEmpty ? quantity : '');
   if (kind == SiriSpokenKind.meal) {
     return _planFoodBody(
       context,

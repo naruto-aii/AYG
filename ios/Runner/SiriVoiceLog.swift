@@ -6,9 +6,11 @@ import Foundation
 /// 決まった始まりは「Hey Siri、カロナビで」。食事か運動かは言葉から判別する。
 /// 登録前に「鶏むね100gの食事でいいですね」のように復唱する。
 /// どちらとも取れない言葉は、復唱で食事か運動かを確認する。
+/// 「Hey Siri、カロナビに登録」では、先に食事か運動かを聞き、そのあと食品か種目を聞く。
+/// 「カロナビで登録」「カロナビで記録」も同じ。答えた自由文は今までの名寄せへ渡す。
 /// 「Hey Siri、カロナビで、食事にささみを300グラム。」
 /// 「Hey Siri、カロナビで、運動にジョギングを30分。」
-/// ショートカットのフレーズはパラメータを1つだけ持ち、型は AppEntity。
+/// 食事だけの言い方と運動だけの言い方も残す。フレーズのパラメータは1つだけ、型は AppEntity。
 /// 食品名と量は、その1つの言葉から今までどおり分ける。
 ///
 /// 「いいえ」や無言では `requestConfirmation` が途中で終わるので、その前には書かない。
@@ -150,9 +152,30 @@ enum SiriVoiceStore {
     if mentionsPhraseShape(source) && !source.contains("カロナビ") {
       return stop("アプリ名が無いので登録しません")
     }
-    let split = splitUtterance(name: name, quantity: quantity)
     let explicit = explicitKind(source)
     let kind = explicit ?? (mentionsPhraseShape(source) ? nil : forced)
+    let spoken = quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      ? name
+      : name.trimmingCharacters(in: .whitespacesAndNewlines)
+        + " "
+        + quantity.trimmingCharacters(in: .whitespacesAndNewlines)
+    var interpretations: [String] = []
+    for option in speechInterpretations(spoken) {
+      let folded = foldSpokenQuantities(option)
+      if !folded.isEmpty && !interpretations.contains(folded) {
+        interpretations.append(folded)
+      }
+    }
+    if interpretations.count > 1 {
+      if let chosen = await chooseInterpretation(interpretations, kind: kind) {
+        return chosen
+      }
+    }
+    let repaired = interpretations.first ?? spoken
+    let split = splitUtterance(
+      name: repaired,
+      quantity: interpretations.isEmpty ? quantity : ""
+    )
     if kind == .meal {
       return await mealPlan(spoken: split.name, quantity: split.quantity)
     }
@@ -674,6 +697,337 @@ enum SiriVoiceStore {
       || source.contains("運動に")
       || source.contains("HeySiri")
       || source.contains("heySiri")
+  }
+
+  /// Dart の `siriSpeechInterpretations` と同じ。孤立したフィラーだけを落とす。
+  private static func speechInterpretations(_ raw: String) -> [String] {
+    let tokens = contentTokens(raw)
+    if tokens.isEmpty {
+      return []
+    }
+    let concatenated = tokens.joined()
+    let adopted = adoptLater(tokens).joined()
+    var interpretations: [String] = []
+    if !adopted.isEmpty {
+      interpretations.append(adopted)
+    }
+    if !concatenated.isEmpty && concatenated != adopted {
+      interpretations.append(concatenated)
+    }
+    return interpretations
+  }
+
+  private static let fillerSurfaces = [
+    "あ", "あー", "あぁ", "ああ", "あっ", "あ〜", "あ～",
+    "え", "えー", "えぇ", "ええ", "えっ", "え〜",
+    "えっと", "えーっと", "えーと", "えと",
+    "うーん", "ううん", "うん",
+    "んー", "んん", "ん",
+    "あの", "あのー", "あのう", "あのね",
+    "その", "そのー", "そのね",
+    "まあ", "まー", "まぁ",
+    "なんか", "なんかー", "なんかね",
+    "えっとね", "えーっとね", "えーとね",
+  ]
+
+  private static func contentTokens(_ raw: String) -> [String] {
+    var tokens: [String] = []
+    var buffer = ""
+    let characters = Array(raw)
+    for index in characters.indices {
+      let character = String(characters[index])
+      let previous = index == characters.startIndex ? "" : String(characters[characters.index(before: index)])
+      let nextIndex = characters.index(after: index)
+      let next = nextIndex < characters.endIndex ? String(characters[nextIndex]) : ""
+      if isSpeechDelimiter(character, previous: previous, next: next) {
+        flushToken(&buffer, into: &tokens)
+      } else {
+        buffer.append(character)
+      }
+    }
+    flushToken(&buffer, into: &tokens)
+    return tokens
+  }
+
+  private static func flushToken(_ buffer: inout String, into tokens: inout [String]) {
+    let token = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
+    buffer = ""
+    if token.isEmpty || isFiller(token) {
+      return
+    }
+    tokens.append(token)
+  }
+
+  private static func isSpeechDelimiter(
+    _ character: String,
+    previous: String,
+    next: String
+  ) -> Bool {
+    if character == " " || character == "\n" || character == "\t" || character == "\r" || character == "　" {
+      return true
+    }
+    if "、。，,！!？?・…".contains(character) {
+      return true
+    }
+    if character == "." || character == "．" {
+      let before = Int(previous) != nil
+      let after = Int(next) != nil
+      return !(before && after)
+    }
+    return false
+  }
+
+  private static func isFiller(_ token: String) -> Bool {
+    fillerKeys.contains(fillerKey(token))
+  }
+
+  private static let fillerKeys: Set<String> = Set(fillerSurfaces.map { fillerKey($0) })
+
+  private static func fillerKey(_ token: String) -> String {
+    var folded = token
+    let pairs = [
+      ("ぁ", "あ"), ("ぃ", "い"), ("ぅ", "う"), ("ぇ", "え"), ("ぉ", "お"),
+      ("ァ", "ア"), ("ィ", "イ"), ("ゥ", "ウ"), ("ェ", "エ"), ("ォ", "オ"),
+    ]
+    for pair in pairs {
+      folded = folded.replacingOccurrences(of: pair.0, with: pair.1)
+    }
+    return normalize(folded)
+  }
+
+  private static func adoptLater(_ tokens: [String]) -> [String] {
+    var kept: [String] = []
+    for token in tokens {
+      if let last = kept.last, laterCorrects(token, earlier: last) {
+        kept[kept.count - 1] = token
+      } else {
+        kept.append(token)
+      }
+    }
+    return kept
+  }
+
+  private static func laterCorrects(_ later: String, earlier: String) -> Bool {
+    let laterKey = normalize(later)
+    let earlierKey = normalize(earlier)
+    return !earlierKey.isEmpty && laterKey.hasPrefix(earlierKey)
+  }
+
+  private static let quantityUnits = [
+    "ミリリットル", "キロメートル", "グラム", "分間", "食分",
+    "ml", "mL", "ML", "ｍｌ", "km", "KM", "㎞", "キロ",
+    "個", "こ", "コ", "食", "分", "回", "g", "G", "ｇ",
+  ]
+
+  private static func foldSpokenQuantities(_ text: String) -> String {
+    var result = text
+    for unit in quantityUnits {
+      var from = result.startIndex
+      while from < result.endIndex,
+            let range = result.range(of: unit, range: from..<result.endIndex) {
+        if let number = japaneseNumberBefore(result, at: range.lowerBound) {
+          let digits = String(number.value)
+          let prefixCount = result.distance(from: result.startIndex, to: number.start)
+          result.replaceSubrange(number.start..<range.lowerBound, with: digits)
+          let start = result.index(result.startIndex, offsetBy: prefixCount)
+          let afterDigits = result.index(start, offsetBy: digits.count, limitedBy: result.endIndex)
+            ?? result.endIndex
+          from = result.index(afterDigits, offsetBy: unit.count, limitedBy: result.endIndex)
+            ?? result.endIndex
+        } else {
+          from = range.upperBound
+        }
+      }
+    }
+    return result
+  }
+
+  private static func japaneseNumberBefore(
+    _ text: String,
+    at: String.Index
+  ) -> (start: String.Index, value: Int)? {
+    var index = at
+    while index > text.startIndex {
+      let previous = text.index(before: index)
+      if !isHiragana(text[previous]) {
+        break
+      }
+      index = previous
+    }
+    let slice = String(text[index..<at])
+    if slice.isEmpty {
+      return nil
+    }
+    var cut = slice.startIndex
+    while cut < slice.endIndex {
+      let part = String(slice[cut...])
+      if let value = parseJapaneseNumber(part) {
+        let start = text.index(index, offsetBy: slice.distance(from: slice.startIndex, to: cut))
+        return (start, value)
+      }
+      cut = slice.index(after: cut)
+    }
+    return nil
+  }
+
+  private static func isHiragana(_ character: Character) -> Bool {
+    guard let scalar = character.unicodeScalars.first, character.unicodeScalars.count == 1 else {
+      return false
+    }
+    return scalar.value >= 0x3041 && scalar.value <= 0x3096
+  }
+
+  private static func parseJapaneseNumber(_ text: String) -> Int? {
+    if text.isEmpty {
+      return nil
+    }
+    let ones = [
+      "れい": 0, "いち": 1, "に": 2, "さん": 3, "よん": 4, "し": 4,
+      "ご": 5, "ろく": 6, "なな": 7, "しち": 7, "はち": 8, "きゅう": 9, "く": 9,
+    ]
+    let units = [
+      "せん": 1000, "ぜん": 1000, "ひゃく": 100, "びゃく": 100, "ぴゃく": 100,
+      "じゅう": 10, "じゅっ": 10, "じっ": 10,
+    ]
+    var index = text.startIndex
+    var total = 0
+    var current = 0
+    var saw = false
+    while index < text.endIndex {
+      if let taken = takeNumber(units, from: text, at: index) {
+        let count = current == 0 ? 1 : current
+        total += count * taken.value
+        current = 0
+        index = text.index(index, offsetBy: taken.length)
+        saw = true
+        continue
+      }
+      guard let one = takeNumber(ones, from: text, at: index) else {
+        return nil
+      }
+      current = one.value
+      index = text.index(index, offsetBy: one.length)
+      saw = true
+    }
+    if !saw {
+      return nil
+    }
+    return total + current
+  }
+
+  private static func takeNumber(
+    _ table: [String: Int],
+    from text: String,
+    at index: String.Index
+  ) -> (value: Int, length: Int)? {
+    let keys = table.keys.sorted { $0.count > $1.count }
+    for key in keys where text[index...].hasPrefix(key) {
+      return (table[key] ?? 0, key.count)
+    }
+    return nil
+  }
+
+  private static func chooseInterpretation(
+    _ interpretations: [String],
+    kind: SiriSpokenKind?
+  ) async -> Plan? {
+    struct Score {
+      var name: String
+      var quantity: String
+      var rank: Int
+      var id: String
+      var title: String
+      var choiceKind: String
+    }
+    var scores: [Score] = []
+    for text in interpretations {
+      let split = splitUtterance(name: text, quantity: "")
+      if let hit = await bestSpeechHit(split.name, kind: kind) {
+        scores.append(
+          Score(
+            name: split.name,
+            quantity: split.quantity,
+            rank: hit.rank,
+            id: hit.id,
+            title: hit.title,
+            choiceKind: hit.choiceKind
+          )
+        )
+      } else {
+        scores.append(
+          Score(
+            name: split.name,
+            quantity: split.quantity,
+            rank: 9,
+            id: "",
+            title: "",
+            choiceKind: ""
+          )
+        )
+      }
+    }
+    guard let best = scores.map(\.rank).min(), best < 9 else {
+      return nil
+    }
+    let winners = scores.filter { $0.rank == best && !$0.id.isEmpty }
+    let ids = Set(winners.map(\.id))
+    guard let winner = winners.first else {
+      return nil
+    }
+    if ids.count <= 1 {
+      if kind == .meal {
+        return await mealPlan(spoken: winner.name, quantity: winner.quantity)
+      }
+      if kind == .exercise {
+        return exercisePlan(spoken: winner.name, quantity: winner.quantity)
+      }
+      return await classify(name: winner.name, quantity: winner.quantity)
+    }
+    return choicePlan(
+      name: winner.name,
+      quantityText: winner.quantity,
+      choices: winners.map { item in
+        [
+          "id": item.id,
+          "title": item.title,
+          "kind": item.choiceKind,
+        ]
+      }
+    )
+  }
+
+  private static func bestSpeechHit(
+    _ name: String,
+    kind: SiriSpokenKind?
+  ) async -> (rank: Int, id: String, title: String, choiceKind: String)? {
+    var bestRank = 9
+    var best: (rank: Int, id: String, title: String, choiceKind: String)?
+    func consider(_ hits: [[String: Any]], choiceKind: String, suffix: String) {
+      guard let top = hits.first else { return }
+      let rank = jsonInt(top["matchRank"]) ?? 9
+      if rank < bestRank {
+        bestRank = rank
+        let speak = (top["speakName"] as? String ?? "") + suffix
+        best = (rank, top["id"] as? String ?? "", speak, choiceKind)
+      }
+    }
+    if kind != .exercise {
+      consider(await rankFoods(name), choiceKind: "food", suffix: "")
+      consider(
+        rankTemplates(mealTemplates(), name: name),
+        choiceKind: "mealTemplate",
+        suffix: "（テンプレート）"
+      )
+    }
+    if kind != .meal {
+      consider(rankExercises(name), choiceKind: "exercise", suffix: "")
+      consider(
+        rankTemplates(workoutTemplates(), name: name),
+        choiceKind: "workoutTemplate",
+        suffix: "（テンプレート）"
+      )
+    }
+    return best
   }
 
   private static func splitUtterance(name: String, quantity: String) -> (name: String, quantity: String) {
@@ -1375,7 +1729,11 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。食品名と量はこの言葉から分ける。
-  @Parameter(title: "食品")
+  /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
+  @Parameter(
+    title: "食品",
+    requestValueDialog: IntentDialog(stringLiteral: "何を食べましたか？")
+  )
   var foodName: SiriSpokenText
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
@@ -1399,7 +1757,8 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
     if SiriVoiceStore.consumeContinueSearch() {
       return .result(dialog: "アプリで検索します")
     }
-    var plan = await SiriVoiceStore.planFood(name: foodName.text, quantity: "")
+    let spoken = try promptedFoodName()
+    var plan = await SiriVoiceStore.planFood(name: spoken, quantity: "")
     var retried = false
     while true {
       if plan.asksKind {
@@ -1426,7 +1785,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       }
       if plan.asksRetry {
         if retried {
-          SiriVoiceStore.rememberSearch(kind: "food", query: plan.searchQuery ?? foodName.text)
+          SiriVoiceStore.rememberSearch(kind: "food", query: plan.searchQuery ?? spoken)
           throw needsToContinueInForegroundError()
         }
         retried = true
@@ -1445,6 +1804,16 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
     SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
   }
+
+  /// 言い方に食品が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
+  /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
+  private func promptedFoodName() throws -> String {
+    let current = foodName.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !current.isEmpty {
+      return current
+    }
+    throw $foodName.needsValueError(IntentDialog(stringLiteral: "何を食べましたか？"))
+  }
 }
 
 @available(iOS 17.0, *)
@@ -1454,7 +1823,11 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。種目と量はこの言葉から分ける。
-  @Parameter(title: "種目")
+  /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
+  @Parameter(
+    title: "種目",
+    requestValueDialog: IntentDialog(stringLiteral: "何をしましたか？")
+  )
   var activityName: SiriSpokenText
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
@@ -1478,7 +1851,8 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     if SiriVoiceStore.consumeContinueSearch() {
       return .result(dialog: "アプリで検索します")
     }
-    var plan = await SiriVoiceStore.planExercise(name: activityName.text, quantity: "")
+    let spoken = try promptedActivityName()
+    var plan = await SiriVoiceStore.planExercise(name: spoken, quantity: "")
     var retried = false
     while true {
     if plan.asksKind {
@@ -1504,7 +1878,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
       if retried {
         SiriVoiceStore.rememberSearch(
           kind: "exercise",
-          query: plan.searchQuery ?? activityName.text
+          query: plan.searchQuery ?? spoken
         )
         throw needsToContinueInForegroundError()
       }
@@ -1524,6 +1898,16 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
   }
+
+  /// 言い方に種目が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
+  /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
+  private func promptedActivityName() throws -> String {
+    let current = activityName.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !current.isEmpty {
+      return current
+    }
+    throw $activityName.needsValueError(IntentDialog(stringLiteral: "何をしましたか？"))
+  }
 }
 
 @available(iOS 17.0, *)
@@ -1533,6 +1917,7 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   static var openAppWhenRun = false
 
   /// フレーズに置けるパラメータはこれだけ。
+  /// 「カロナビに登録」など値の無い言い方では空のまま。種類を聞いてから自由文を聞く。
   @Parameter(title: "内容")
   var utterance: SiriSpokenText
 
@@ -1549,6 +1934,10 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "言い直し")
   var retryReply: String?
 
+  /// 「カロナビに登録」で種類のあとに聞く自由文。未指定のまま始め、先に聞かない。
+  @Parameter(title: "答え")
+  var entryReply: String?
+
   init() {
     self.utterance = SiriSpokenText(id: "", text: "")
   }
@@ -1557,7 +1946,10 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     if SiriVoiceStore.consumeContinueSearch() {
       return .result(dialog: "アプリで検索します")
     }
-    var plan = await SiriVoiceStore.planUtterance(name: utterance.text, quantity: "")
+    let routed = try await routedEntry()
+    let spoken = routed.text
+    let forced = routed.kind
+    var plan = routed.plan
     var retried = false
     while true {
       if plan.asksKind {
@@ -1586,13 +1978,19 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
         if retried {
           SiriVoiceStore.rememberSearch(
             kind: plan.searchKind,
-            query: plan.searchQuery ?? utterance.text
+            query: plan.searchQuery ?? spoken
           )
           throw needsToContinueInForegroundError()
         }
         retried = true
         let again = try await $retryReply.requestValue(IntentDialog(stringLiteral: plan.spoken))
-        plan = await SiriVoiceStore.planUtterance(name: again, quantity: "")
+        if forced == .meal {
+          plan = await SiriVoiceStore.planFood(name: again, quantity: "")
+        } else if forced == .exercise {
+          plan = await SiriVoiceStore.planExercise(name: again, quantity: "")
+        } else {
+          plan = await SiriVoiceStore.planUtterance(name: again, quantity: "")
+        }
         continue
       }
       break
@@ -1605,6 +2003,41 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     )
     SiriVoiceStore.commitAll(plan.records)
     return .result(dialog: "登録しました")
+  }
+
+  /// 値のある言い方はその言葉を名寄せへ渡す。
+  /// 値の無い「カロナビに登録」は、食事か運動かを聞いてから食品か種目を聞く。
+  private func routedEntry() async throws -> (
+    text: String,
+    kind: SiriSpokenKind?,
+    plan: SiriVoiceStore.Plan
+  ) {
+    let current = utterance.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !current.isEmpty {
+      if kind == .meal {
+        return (current, kind, await SiriVoiceStore.planFood(name: current, quantity: ""))
+      }
+      if kind == .exercise {
+        return (current, kind, await SiriVoiceStore.planExercise(name: current, quantity: ""))
+      }
+      return (current, nil, await SiriVoiceStore.planUtterance(name: current, quantity: ""))
+    }
+    let picked: SiriSpokenKind
+    if let kind {
+      picked = kind
+    } else {
+      picked = try await $kind.requestDisambiguation(
+        among: SiriSpokenKind.allCases,
+        dialog: IntentDialog(stringLiteral: "食事ですか、運動ですか？")
+      )
+    }
+    let text: String
+    if picked == .meal {
+      text = try await $entryReply.requestValue(IntentDialog(stringLiteral: "何を食べましたか？"))
+      return (text, picked, await SiriVoiceStore.planFood(name: text, quantity: ""))
+    }
+    text = try await $entryReply.requestValue(IntentDialog(stringLiteral: "何をしましたか？"))
+    return (text, picked, await SiriVoiceStore.planExercise(name: text, quantity: ""))
   }
 }
 
@@ -1665,6 +2098,8 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenFoodIntent(),
       phrases: [
+        "\(.applicationName)で食事を記録",
+        "\(.applicationName)で食事を登録",
         "\(.applicationName)で、食事に\(\.$foodName)",
       ],
       shortTitle: "食事を登録",
@@ -1673,6 +2108,8 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenExerciseIntent(),
       phrases: [
+        "\(.applicationName)で運動を記録",
+        "\(.applicationName)で運動を登録",
         "\(.applicationName)で、運動に\(\.$activityName)",
       ],
       shortTitle: "運動を登録",
@@ -1681,6 +2118,9 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: LogSpokenEntryIntent(),
       phrases: [
+        "\(.applicationName)に登録",
+        "\(.applicationName)で登録",
+        "\(.applicationName)で記録",
         "\(.applicationName)で \(\.$utterance)",
       ],
       shortTitle: "食事か運動を登録",

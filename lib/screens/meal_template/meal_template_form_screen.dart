@@ -115,6 +115,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
     }
 
     final selected = await showModalBottomSheet<SavedFood>(
+      routeSettings: const RouteSettings(name: 'meal_template_form_screen_showModalBottomSheet_0'),
       context: context,
       builder: (context) => SafeArea(
         child: ListView(
@@ -145,6 +146,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
   Future<void> _searchFood() async {
     final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute<Object?>(
+      settings: const RouteSettings(name: 'meal_template_form_screen_MaterialPageRoute_0'),
         builder: (context) => TemplateFoodSearchScreen(
           controller: widget.controller,
           officialFoods: widget.officialFoods,
@@ -185,6 +187,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
 
   Future<double?> _askOfficialAmount(OfficialFoodMatch match) {
     return showDialog<double>(
+      routeSettings: const RouteSettings(name: 'meal_template_form_screen_showDialog_0'),
       context: context,
       builder: (context) => _OfficialAmountDialog(match: match),
     );
@@ -216,6 +219,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
 
   Future<void> _addManualItem() async {
     final draft = await showDialog<MealTemplateItemDraft>(
+      routeSettings: const RouteSettings(name: 'meal_template_form_screen_showDialog_1'),
       context: context,
       builder: (context) => _ManualItemDialog(sortOrder: _items.length + 1),
     );
@@ -301,6 +305,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
 
   Future<void> _showAddMenu() async {
     final choice = await showModalBottomSheet<String>(
+      routeSettings: const RouteSettings(name: 'meal_template_form_screen_showModalBottomSheet_1'),
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(

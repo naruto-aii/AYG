@@ -5,6 +5,7 @@ import '../../config/app_contact_config.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
@@ -51,7 +52,9 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
   }
 
   Future<void> _confirmAndDelete() async {
+    CatalogActions.accountDeletionStarted('confirm');
     final confirmed = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'account_deletion_screen_showDialog_0'),
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -104,6 +107,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
 
   Future<void> _showAppleRevokeFailed() async {
     await showDialog<void>(
+      routeSettings: const RouteSettings(name: 'account_deletion_screen_showDialog_1'),
       context: context,
       barrierDismissible: false,
       builder: (context) {
@@ -123,6 +127,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
 
   Future<void> _showUnavailable() async {
     await showDialog<void>(
+      routeSettings: const RouteSettings(name: 'account_deletion_screen_showDialog_2'),
       context: context,
       builder: (context) {
         return AlertDialog(

@@ -85,6 +85,7 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
   void _openBasicInfo(HealthProfileData prefill) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'health_setup_screen_MaterialPageRoute_0'),
         builder: (context) => BasicInfoScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,

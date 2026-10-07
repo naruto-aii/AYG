@@ -55,6 +55,7 @@ class SettingsAccountScreen extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'settings_account_screen_MaterialPageRoute_0'),
                   builder: (context) => AccountDeletionScreen(
                     controller: controller,
                     authenticationRepository: authenticationRepository,

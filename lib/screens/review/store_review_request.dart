@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../repositories/review_prompt_store.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/store_review.dart';
 
 /// 依頼は1回だけ。断ったら再び出さない。書いたレビューは受け取らない。
@@ -17,7 +18,9 @@ Future<void> presentStoreReviewRequest({
   if (closed || !due || !context.mounted) {
     return;
   }
+  CatalogActions.reviewPromptShown('streak');
   final review = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'store_review_request_showDialog_0'),
     context: context,
     barrierDismissible: false,
     builder: (context) {
@@ -41,9 +44,11 @@ Future<void> presentStoreReviewRequest({
     },
   );
   if (review == true) {
+    CatalogActions.reviewPromptAnswer('review');
     await store.markAsked();
     await requester.request();
     return;
   }
+  CatalogActions.reviewPromptAnswer('decline');
   await store.markDeclined();
 }

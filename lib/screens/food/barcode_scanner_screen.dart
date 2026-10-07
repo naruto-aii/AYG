@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../services/analytics/catalog_actions.dart';
 import '../../utils/nutrition_format.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -25,6 +26,13 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
 
   final _manualController = TextEditingController();
   bool _hasScanned = false;
+  final DateTime _openedAt = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    CatalogActions.barcodeScanOpen();
+  }
 
   @override
   void dispose() {
@@ -43,6 +51,11 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
       return;
     }
     _hasScanned = true;
+    CatalogActions.barcodeScanResult(
+      method: 'manual',
+      result: 'found',
+      durationMs: DateTime.now().difference(_openedAt).inMilliseconds,
+    );
     Navigator.of(context).pop(normalized);
   }
 
@@ -58,6 +71,11 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     }
 
     _hasScanned = true;
+    CatalogActions.barcodeScanResult(
+      method: 'camera',
+      result: 'found',
+      durationMs: DateTime.now().difference(_openedAt).inMilliseconds,
+    );
     await _controller.stop();
 
     if (!mounted) {

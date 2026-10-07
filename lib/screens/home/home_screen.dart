@@ -9,6 +9,7 @@ import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
 import '../../repositories/announcement_read_store.dart';
 import '../../repositories/announcement_repository.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/share_card_content.dart';
 import '../../services/share_sheet_client.dart';
@@ -269,6 +270,7 @@ class HomeScreen extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_0'),
             builder: (context) =>
                 DailyCalculationExplanationScreen(summary: summary),
           ),
@@ -420,6 +422,7 @@ class HomeScreen extends StatelessWidget {
     }
     final added = await Navigator.of(context).push<CoachSavedKind>(
       MaterialPageRoute<CoachSavedKind>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_1'),
         builder: (context) => DailyCoachScreen(controller: controller),
       ),
     );
@@ -554,8 +557,12 @@ class HomeScreen extends StatelessWidget {
     if (!allowed || !context.mounted) {
       return;
     }
+    CatalogActions.recentFoodsOpen(
+      isPlus: controller.subscriptionRepository.isPlusActive,
+    );
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_2'),
         builder: (context) => RecentFoodsScreen(controller: controller),
       ),
     );
@@ -660,6 +667,7 @@ class HomeScreen extends StatelessWidget {
   void _openAlcoholForm(BuildContext context, {AlcoholEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_3'),
         builder: (context) =>
             AlcoholFormScreen(controller: controller, entry: entry),
       ),
@@ -669,6 +677,7 @@ class HomeScreen extends StatelessWidget {
   void _openExerciseForm(BuildContext context, {ExerciseEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_4'),
         builder: (context) =>
             ExerciseFormScreen(controller: controller, entry: entry),
       ),
@@ -678,6 +687,7 @@ class HomeScreen extends StatelessWidget {
   void _openWeightRecord(BuildContext context, double currentWeightKg) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_5'),
         builder: (context) => WeightRecordScreen(
           controller: controller,
           initialWeightKg: currentWeightKg,

@@ -28,6 +28,14 @@ abstract class SubscriptionRepository {
   /// A no-op where there is no store.
   Future<void> refreshEntitlement();
 
+  /// StoreKit が自分で `entitlement_observed` を送るとき true。
+  bool get reportsEntitlementAnalytics => false;
+
+  /// 購入の appAccountToken に使う、小文字の利用者番号。
+  void bindStoreAccountToken(String? userId) {}
+
+  String? get storeOriginalTransactionId => null;
+
   Future<void> purchaseMonthly();
 
   Future<void> purchaseYearly();

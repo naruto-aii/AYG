@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../config/subscription_catalog.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/plus_funnel_repository.dart';
+import '../../services/analytics/analytics.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../repositories/subscription_repository.dart';
 import '../../services/subscription_offer.dart';
@@ -33,6 +34,7 @@ Future<void> showCalonaviPlus(
 }) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'calonavi_plus_flow_MaterialPageRoute_0'),
       fullscreenDialog: true,
       builder: (context) => CalonaviPlusEntryScreen(
         repository: repository,
@@ -108,11 +110,62 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   @override
   void initState() {
     super.initState();
+    _openedAt = DateTime.now();
     _record(PlusFunnelEvent.paywallOpen);
     _loadPrices();
   }
 
+  DateTime _openedAt = DateTime.now();
+  bool _purchased = false;
+
+  @override
+  void dispose() {
+    Analytics.emit('paywall_close', {
+      'dwell_ms': DateTime.now().difference(_openedAt).inMilliseconds,
+      'last_selected_product_id': SubscriptionCatalog.productIdFor(_selected),
+      'purchased': _purchased,
+    });
+    super.dispose();
+  }
+
   void _record(PlusFunnelEvent event, {String? productId}) {
+    final featureName = switch (widget.feature) {
+      PlusFunnelFeature.memo => 'food_memo',
+      null => 'other',
+      _ => widget.feature!.storageValue,
+    };
+    switch (event) {
+      case PlusFunnelEvent.paywallOpen:
+        Analytics.emit('paywall_open', {
+          'entry_point': widget.feature == null ? 'settings' : 'gate_$featureName',
+          'products_loaded': !_loadingPrices && _offerings != null,
+        });
+      case PlusFunnelEvent.purchaseTap:
+        Analytics.emit('purchase_tap', {
+          'product_id': productId,
+          'entry_point': widget.feature == null ? 'settings' : 'gate_$featureName',
+        });
+      case PlusFunnelEvent.purchaseSuccess:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'purchased',
+        });
+      case PlusFunnelEvent.purchaseCancel:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'cancelled',
+        });
+      case PlusFunnelEvent.purchaseFailed:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'failed',
+        });
+      case PlusFunnelEvent.restoreTap:
+        Analytics.emit('restore_tap');
+      case PlusFunnelEvent.gateShown:
+      case PlusFunnelEvent.gateTap:
+        break;
+    }
     final funnel = widget.funnel;
     if (funnel == null) {
       return;
@@ -277,6 +330,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         return;
       }
       if (widget.repository.isPlusActive) {
+        _purchased = true;
         _record(PlusFunnelEvent.purchaseSuccess, productId: productId);
         _showMessage(
           widget.repository.testPurchaseToggleEnabled
@@ -299,6 +353,9 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       if (!mounted) {
         return;
       }
+      Analytics.emit('restore_result', {
+        'result': widget.repository.isPlusActive ? 'restored' : 'none_found',
+      });
       _showMessage(
         widget.repository.isPlusActive ? '購入を復元しました' : '有効な購入は見つかりませんでした',
       );
@@ -478,7 +535,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
                     : _PlanBadge(label: plans[i].badgeLabel!),
                 onTap: _busy
                     ? null
-                    : () => setState(() => _selected = plans[i].plan),
+                    : () {
+                        setState(() => _selected = plans[i].plan);
+                        Analytics.emit('plan_select', {
+                          'product_id': SubscriptionCatalog.productIdFor(plans[i].plan),
+                        });
+                      },
               ),
             ],
           ],

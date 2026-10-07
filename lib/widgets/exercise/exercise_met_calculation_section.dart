@@ -5,6 +5,7 @@ import '../../models/exercise_entry.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_quantity_unit.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../services/usage_record.dart';
 import '../../services/exercise_weight_resolver.dart';
@@ -379,6 +380,11 @@ class _ExerciseMetCalculationSectionState
   }
 
   void _selectChoice(_ActivityChoice choice) {
+    CatalogActions.exerciseSearchResultSelect(
+      source: 'exercise_catalog',
+      position: 0,
+      resultCount: _activityChoices().length,
+    );
     final activity = choice.activity;
     if (activity != null) {
       setState(() {
@@ -1201,6 +1207,10 @@ class _ExerciseMetCalculationSectionState
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
+                    settings: const RouteSettings(
+                      name:
+                          'exercise_met_calculation_section_MaterialPageRoute_0',
+                    ),
                     builder: (context) => const CalculationReferencesScreen(),
                   ),
                 );

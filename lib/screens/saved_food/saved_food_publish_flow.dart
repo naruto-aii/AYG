@@ -52,6 +52,7 @@ Future<bool> startSavedFoodPublishFlow({
 
   final result = await Navigator.of(context).push<PublishConfirmationAction>(
     MaterialPageRoute(
+      settings: const RouteSettings(name: 'saved_food_publish_flow_MaterialPageRoute_0'),
       builder: (context) => PublishSavedFoodConfirmationScreen(
         controller: controller,
         food: food,
@@ -73,6 +74,7 @@ Future<void> confirmUnpublishSavedFood({
   required VoidCallback onSuccess,
 }) async {
   final confirmed = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'saved_food_publish_flow_showDialog_0'),
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('非公開にしますか？'),
@@ -111,6 +113,7 @@ Future<void> confirmUnpublishSavedFood({
 
 Future<void> _showMessage(BuildContext context, String message) {
   return showDialog<void>(
+      routeSettings: const RouteSettings(name: 'saved_food_publish_flow_showDialog_1'),
     context: context,
     builder: (context) => AlertDialog(
       content: Text(message),

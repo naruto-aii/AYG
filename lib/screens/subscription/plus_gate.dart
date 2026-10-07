@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../repositories/plus_funnel_repository.dart';
+import '../../services/analytics/analytics.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import 'calonavi_plus_flow.dart';
@@ -47,6 +48,15 @@ Future<bool> ensureCalonaviPlus(
         funnel: controller.plusFunnelRepository,
       );
     }
+  } else if (openPlus != true) {
+    Analytics.emit('gate_tap', {
+      'feature': feature == null
+          ? 'other'
+          : feature == PlusFunnelFeature.memo
+          ? 'food_memo'
+          : feature.storageValue,
+      'choice': 'close',
+    });
   }
   return controller.subscriptionRepository.isPlusActive;
 }

@@ -8,6 +8,7 @@ Future<SourceFoodUpdateChoice?> showSourceFoodUpdateDialog({
   required bool isOwnSavedFood,
 }) {
   return showDialog<SourceFoodUpdateChoice>(
+      routeSettings: const RouteSettings(name: 'source_food_update_dialog_showDialog_0'),
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('登録元の食品も変更しますか？'),

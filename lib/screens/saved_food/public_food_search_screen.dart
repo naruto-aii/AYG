@@ -164,6 +164,7 @@ class _PublicFoodSearchScreenState extends State<PublicFoodSearchScreen> {
           : (context, food) {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'public_food_search_screen_MaterialPageRoute_0'),
                   builder: (context) => FoodFormScreen(
                     controller: widget.controller,
                     openFoodFactsService: service,

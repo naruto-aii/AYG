@@ -411,6 +411,7 @@ Future<bool?> openFoodMealRegistrationFromTemplate({
 
   return Navigator.of(context).push<bool>(
     MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'food_meal_registration_screen_MaterialPageRoute_0'),
       builder: (context) => FoodMealRegistrationScreen(
         controller: controller,
         mealGroupName: template.name,
@@ -430,6 +431,7 @@ Future<bool?> openFoodMealRegistrationFromTemplatePicker({
 }) async {
   final template = await Navigator.of(context).push<MealTemplate>(
     MaterialPageRoute<MealTemplate>(
+      settings: const RouteSettings(name: 'food_meal_registration_screen_MaterialPageRoute_1'),
       builder: (context) => MealTemplatePickerScreen(controller: controller),
     ),
   );

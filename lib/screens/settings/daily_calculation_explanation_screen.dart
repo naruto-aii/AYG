@@ -249,6 +249,7 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'daily_calculation_explanation_screen_MaterialPageRoute_0'),
                   builder: (context) => const CalculationReferencesScreen(),
                 ),
               );

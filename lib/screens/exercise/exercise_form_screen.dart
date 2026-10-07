@@ -26,6 +26,7 @@ Future<bool?> showSaveCustomActivityTemplateDialog({
   required String activityName,
 }) {
   return showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'exercise_form_screen_showDialog_0'),
     context: context,
     builder: (context) {
       return Dialog(

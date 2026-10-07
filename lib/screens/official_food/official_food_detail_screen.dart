@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../constants/official_food_copy.dart';
 import '../../models/official_food.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/official_food_logger.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -18,8 +19,10 @@ void openOfficialFoodDetail(
   AppController controller,
   OfficialFoodMatch match,
 ) {
+  CatalogActions.officialFoodDetailView(match.foodCode);
   Navigator.of(context).push(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'official_food_detail_screen_MaterialPageRoute_0'),
       builder: (context) => OfficialFoodDetailScreen(
         match: match,
         controller: controller,

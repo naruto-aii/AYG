@@ -11,6 +11,7 @@ Future<bool> showPublicFoodReportDialog({
   required SavedFood food,
 }) async {
   final result = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'public_food_report_dialog_showDialog_0'),
     context: context,
     builder: (dialogContext) =>
         _PublicFoodReportDialog(controller: controller, food: food),

@@ -14,7 +14,8 @@ class SettingsReferenceScreen extends StatelessWidget {
   void _push(BuildContext context, Widget screen) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (context) => screen));
+    ).push(MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'settings_reference_screen_MaterialPageRoute_0'),builder: (context) => screen));
   }
 
   @override

@@ -418,7 +418,7 @@ struct RegisterMealWidgetIntent: AppIntent {
   }
 
   func perform() async throws -> some IntentResult {
-    LockScreenMealStore.register(surface: surface, slot: slot)
+    _ = try WidgetAnalytics.recordPress(surface: surface, slot: slot)
     LockScreenMealStore.reloadWidgets()
     return .result()
   }

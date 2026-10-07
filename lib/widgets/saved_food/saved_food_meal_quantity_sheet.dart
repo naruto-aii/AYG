@@ -222,6 +222,7 @@ Future<void> showSavedFoodDirectAddBlockedDialog({
   VoidCallback? onOpenManualForm,
 }) async {
   await showDialog<void>(
+      routeSettings: const RouteSettings(name: 'saved_food_meal_quantity_sheet_showDialog_0'),
     context: _rootSheetContext(context),
     useRootNavigator: true,
     builder: (dialogContext) {

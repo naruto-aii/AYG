@@ -64,20 +64,7 @@ class SupabasePlusFunnelRepository implements PlusFunnelRepository {
     PlusFunnelFeature? feature,
     String? productId,
   }) async {
-    try {
-      await _client
-          .from('plus_funnel_events')
-          .insert(
-            plusFunnelInsertRow(
-              event: event,
-              feature: feature,
-              productId: productId,
-            ),
-          );
-    } catch (error, stackTrace) {
-      debugPrint('[AYG] plus funnel record failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-    }
+    // plus_funnel_events への書き込みは app_events に置き換えた。表は残す。
   }
 }
 

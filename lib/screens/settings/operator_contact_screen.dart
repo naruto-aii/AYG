@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../services/analytics/catalog_actions.dart';
 import '../../constants/app_strings.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -15,6 +16,7 @@ class OperatorContactScreen extends StatelessWidget {
   final String email;
 
   Future<void> _sendMail(BuildContext context) async {
+    CatalogActions.contactTap('email');
     final uri = Uri(scheme: 'mailto', path: email);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!context.mounted) {

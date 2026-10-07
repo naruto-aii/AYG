@@ -8,6 +8,7 @@ Future<bool> confirmBlockFoodCreator({
   required String creatorUserId,
 }) async {
   final confirmed = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'block_food_creator_dialog_showDialog_0'),
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('作成者をブロック'),

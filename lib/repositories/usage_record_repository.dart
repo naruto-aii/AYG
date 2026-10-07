@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../config/subscription_catalog.dart';
 import '../services/subscription_entitlement.dart';
@@ -12,16 +13,21 @@ abstract class UsageRecordRepository {
   Future<void> recordFoodSearch({
     required String source,
     required String query,
+    String? eventId,
+    void Function(String query, String eventId)? onSettled,
   });
 
   Future<void> recordExerciseSearch({
     required String source,
     required String query,
+    String? eventId,
+    void Function(String query, String eventId)? onSettled,
   });
 
   Future<void> recordScreenAction({
     required String screen,
     required String action,
+    String? eventId,
   });
 
   Future<void> syncPlusEntitlements({
@@ -39,18 +45,23 @@ class NoOpUsageRecordRepository implements UsageRecordRepository {
   Future<void> recordFoodSearch({
     required String source,
     required String query,
+    String? eventId,
+    void Function(String query, String eventId)? onSettled,
   }) async {}
 
   @override
   Future<void> recordExerciseSearch({
     required String source,
     required String query,
+    String? eventId,
+    void Function(String query, String eventId)? onSettled,
   }) async {}
 
   @override
   Future<void> recordScreenAction({
     required String screen,
     required String action,
+    String? eventId,
   }) async {}
 
   @override
@@ -74,9 +85,9 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   final Duration settle;
   final DateTime Function() _clock;
   final Map<String, Timer> _foodTimers = {};
-  final Map<String, String> _foodPending = {};
+  final Map<String, _PendingSearch> _foodPending = {};
   final Map<String, Timer> _exerciseTimers = {};
-  final Map<String, String> _exercisePending = {};
+  final Map<String, _PendingSearch> _exercisePending = {};
 
   SupabaseClient get _supabase => _client ?? Supabase.instance.client;
 
@@ -84,14 +95,18 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   Future<void> recordFoodSearch({
     required String source,
     required String query,
+    String? eventId,
+    void Function(String query, String eventId)? onSettled,
   }) async {
     _schedule(
       source: source,
       query: query,
+      eventId: eventId,
+      onSettled: onSettled,
       allowed: foodSearchSourceAllowed,
       timers: _foodTimers,
       pending: _foodPending,
-      insert: (settled) => _insert('food_search_queries', source, settled),
+      insert: (settled, id) => _insert('food_search_queries', source, settled, id),
     );
   }
 
@@ -99,24 +114,31 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   Future<void> recordExerciseSearch({
     required String source,
     required String query,
+    String? eventId,
+    void Function(String query, String eventId)? onSettled,
   }) async {
     _schedule(
       source: source,
       query: query,
+      eventId: eventId,
+      onSettled: onSettled,
       allowed: exerciseSearchSourceAllowed,
       timers: _exerciseTimers,
       pending: _exercisePending,
-      insert: (settled) => _insert('exercise_search_queries', source, settled),
+      insert: (settled, id) =>
+          _insert('exercise_search_queries', source, settled, id),
     );
   }
 
   void _schedule({
     required String source,
     required String query,
+    required String? eventId,
+    required void Function(String query, String eventId)? onSettled,
     required bool Function(String source) allowed,
     required Map<String, Timer> timers,
-    required Map<String, String> pending,
-    required Future<void> Function(String query) insert,
+    required Map<String, _PendingSearch> pending,
+    required Future<void> Function(String query, String eventId) insert,
   }) {
     if (!allowed(source)) {
       return;
@@ -126,24 +148,35 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
       return;
     }
     timers[source]?.cancel();
-    pending[source] = capped;
+    pending[source] = _PendingSearch(
+      query: capped,
+      eventId: eventId ?? const Uuid().v4(),
+      onSettled: onSettled,
+    );
     timers[source] = Timer(settle, () {
       final settled = pending.remove(source);
       timers.remove(source);
-      if (settled == null || settled.isEmpty) {
+      if (settled == null || settled.query.isEmpty) {
         return;
       }
-      unawaited(insert(settled));
+      settled.onSettled?.call(settled.query, settled.eventId);
+      unawaited(insert(settled.query, settled.eventId));
     });
   }
 
-  Future<void> _insert(String table, String source, String query) async {
+  Future<void> _insert(
+    String table,
+    String source,
+    String query,
+    String eventId,
+  ) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
       return;
     }
     try {
       await _supabase.from(table).insert({
+        'id': eventId,
         'user_id': userId,
         'source': source,
         'query_text': query,
@@ -159,6 +192,7 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   Future<void> recordScreenAction({
     required String screen,
     required String action,
+    String? eventId,
   }) async {
     if (!screenActionAllowed(screen: screen, action: action)) {
       return;
@@ -169,6 +203,7 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
     }
     try {
       await _supabase.from('app_screen_actions').insert({
+        if (eventId != null) 'id': eventId,
         'user_id': userId,
         'screen': screen,
         'action': action,
@@ -287,4 +322,16 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
         .from('calonavi_plus_entitlements')
         .upsert(payload, onConflict: 'user_id,product_id');
   }
+}
+
+class _PendingSearch {
+  _PendingSearch({
+    required this.query,
+    required this.eventId,
+    required this.onSettled,
+  });
+
+  final String query;
+  final String eventId;
+  final void Function(String query, String eventId)? onSettled;
 }

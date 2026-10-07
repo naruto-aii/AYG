@@ -419,3 +419,17 @@ verify_jwt = true
 
 [functions.delete-account]
 verify_jwt = true
+
+# Apple のサーバー通知は JWT を付けてこない。関数の中で署名を検証する。
+[functions.app-store-notifications]
+verify_jwt = false
+
+# cron は x-store-import-secret で確認する。JWT は付けない。
+[functions.store-analytics-import]
+verify_jwt = false
+
+[functions.store-sales-import]
+verify_jwt = false
+
+[functions.store-analytics-setup]
+verify_jwt = false

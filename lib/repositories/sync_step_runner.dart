@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/sync_failure.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
+import '../services/analytics/analytics.dart';
 
 Future<T> runSyncStep<T>({
   required SyncStep step,
@@ -22,6 +23,12 @@ Future<T> runSyncStep<T>({
       tableName: tableName,
       operation: operation,
     )..logDebug();
+    Analytics.emit('sync_failure', {
+      'table': tableName,
+      'step': step.code,
+      'error_kind': failure.errorCode,
+      'pending_count': 0,
+    });
     throw SyncStepException(failure);
   }
 }

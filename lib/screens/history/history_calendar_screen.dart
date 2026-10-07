@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -62,8 +63,11 @@ class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
   }
 
   void _openDayHistory(DateTime day) {
+    final today = localDayStart(DateTime.now());
+    CatalogActions.historyDaySelected(today.difference(localDayStart(day)).inDays);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'history_calendar_screen_MaterialPageRoute_0'),
         builder: (context) => DayHistoryScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,

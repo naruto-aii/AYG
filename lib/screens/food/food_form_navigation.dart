@@ -29,6 +29,7 @@ void openFoodFormScreen(
   final builder = foodFormBuilder ?? defaultFoodFormScreenBuilder;
   Navigator.of(context).push(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'food_form_navigation_MaterialPageRoute_0'),
       builder: (context) => builder(
         controller: controller,
         openFoodFactsService: openFoodFactsService,

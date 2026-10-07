@@ -6,7 +6,9 @@ import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/health_repository.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/open_food_facts_service.dart';
+import 'analytics_settings_screen.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -71,6 +73,7 @@ class SettingsScreen extends StatelessWidget {
     }
     await Navigator.of(context).push<CoachSavedKind>(
       MaterialPageRoute<CoachSavedKind>(
+      settings: const RouteSettings(name: 'settings_screen_MaterialPageRoute_0'),
         builder: (context) => DailyCoachScreen(controller: controller),
       ),
     );
@@ -167,7 +170,8 @@ class SettingsScreen extends StatelessWidget {
   void _push(BuildContext context, Widget screen) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (context) => screen));
+    ).push(MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'settings_screen_MaterialPageRoute_1'),builder: (context) => screen));
   }
 
   @override
@@ -293,6 +297,14 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(
+            key: const Key('settings-analytics'),
+            icon: AppIcons.information,
+            title: '利用状況の記録',
+            subtitle: '協力のオンとオフ。協力しなくても使えます',
+            onTap: () => _push(context, const AnalyticsSettingsScreen()),
+          ),
+          const SizedBox(height: _rowGap),
+          SettingsRow(
             key: const Key('settings-policies'),
             icon: AppIcons.document,
             title: '規約とポリシー',
@@ -305,8 +317,10 @@ class SettingsScreen extends StatelessWidget {
               icon: AppIcons.mail,
               title: AppStrings.settingsContactOperator,
               subtitle: contactEmail,
-              onTap: () =>
-                  _push(context, OperatorContactScreen(email: contactEmail)),
+              onTap: () {
+                CatalogActions.contactTap('settings');
+                _push(context, OperatorContactScreen(email: contactEmail));
+              },
             ),
           ],
           const SizedBox(height: _rowGap),

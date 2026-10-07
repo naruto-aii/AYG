@@ -5,6 +5,7 @@ import '../../repositories/coach_intro_store.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/coach_nutrition_source.dart';
 import '../../repositories/coach_proposal_log.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
@@ -131,6 +132,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       return;
     }
     await showDialog<void>(
+      routeSettings: const RouteSettings(name: 'daily_coach_screen_showDialog_0'),
       context: context,
       builder: (context) => AlertDialog(
         content: const Text(AppStrings.coachFeatureBody),
@@ -173,6 +175,10 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
         result: result,
       );
       _recorded = _log.recordShown(_shown);
+      CatalogActions.coachProposalShown(
+        coachProposalLogId: 'local',
+        proposalsCount: _shown.length,
+      );
     }
     _bindAmounts(result);
     _mealShift = 0;
@@ -239,6 +245,10 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   }
 
   Future<void> _registerMeal(CoachMealProposal proposal, int index) async {
+    CatalogActions.coachProposalRegistered(
+      coachProposalLogId: 'local',
+      foodEntryIds: const [],
+    );
     final grams = _mealGrams(proposal, index);
     if (grams == null) {
       _snack('量は0より大きい数字にしてください');
@@ -444,6 +454,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
                   : () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'daily_coach_screen_MaterialPageRoute_0'),
                           builder: (context) => WeightRecordScreen(
                             controller: widget.controller!,
                           ),

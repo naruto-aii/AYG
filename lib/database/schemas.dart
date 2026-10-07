@@ -375,3 +375,19 @@ class HealthWorkoutEntity {
   late DateTime endTime;
   double? caloriesBurned;
 }
+
+/// 利用状況の送信待ち。ログアウトでは消さない。
+@collection
+class PendingAnalyticsEvent {
+  Id id = Isar.autoIncrement;
+
+  @Index(unique: true, replace: true)
+  late String eventId;
+
+  String? userId;
+  late String json;
+  late DateTime createdAt;
+  late int attempts;
+  late DateTime nextAttemptAt;
+  late bool quarantined;
+}

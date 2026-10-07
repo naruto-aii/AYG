@@ -43,4 +43,31 @@ Web と Android の Apple OAuth は認可コードをアプリに渡さないの
 
 ```sh
 deno test --allow-env=ALLOW_LOCALHOST_ORIGIN --config supabase/functions/deno.json supabase/functions/_shared/apple_account_test.ts
+deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts supabase/functions/store_live_test.ts
 ```
+
+## 操作の記録と App Store の取り込み
+
+`app-store-notifications`、`store-analytics-import`、`store-sales-import`、`store-analytics-setup` はリポジトリに置くだけです。この変更では配備しません。マイグレーションも本番へ適用しません。秘密の値は書きません。
+
+`verify_jwt = false` です。取り込みの 3 つはヘッダ `x-store-import-secret` を見ます。通知は Apple の署名を、本番とサンドボックスの両方で確かめます。
+
+秘密の名前:
+
+- `ASC_ISSUER_ID`
+- `ASC_ADMIN_KEY_ID` / `ASC_ADMIN_PRIVATE_KEY`（分析レポートの依頼が済んだら、鍵を無効化してこの 2 つを消す）
+- `ASC_REPORTS_KEY_ID` / `ASC_REPORTS_PRIVATE_KEY`
+- `ASC_VENDOR_NUMBER`
+- `ASC_APP_APPLE_ID`
+- `APP_BUNDLE_ID`（`com.narutoaii.ayg`）
+- `STORE_IMPORT_SECRET`（32 バイト以上。Vault の `store_import_secret` と同じ値）
+- `APPLE_ROOT_CA_BASE64`（通知の検証に使う Apple のルート証明書。DER を Base64 にしたもの）
+
+公開前の順番:
+
+1. `20261008090000_app_events.sql` を適用する。
+2. `app-store-notifications` を配備し、App Store Connect の通知先（本番とサンドボックス、バージョン 2）を `https://vdzzusqisymtejcjnikb.supabase.co/functions/v1/app-store-notifications` にする。
+3. 上の秘密を入れる。
+4. `store-analytics-setup` を 1 回だけ実行する。そのあと管理者鍵を無効化し、`ASC_ADMIN_KEY_ID` と `ASC_ADMIN_PRIVATE_KEY` を消す。
+5. pg_cron と pg_net を有効にする承認のあと、Vault に `project_url`（`https://vdzzusqisymtejcjnikb.supabase.co`）と `store_import_secret` を入れ、`20261008090100_store_import_schedule.sql` を適用する。
+6. `store-analytics-import` と `store-sales-import` を配備する。

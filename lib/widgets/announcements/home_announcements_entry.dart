@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/announcement.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../repositories/announcement_read_store.dart';
 import '../../repositories/announcement_repository.dart';
 import '../../screens/announcements/announcements_screen.dart';
@@ -48,8 +49,11 @@ class _HomeAnnouncementsEntryState extends State<HomeAnnouncementsEntry> {
   }
 
   Future<void> _open() async {
+    final id = _items.isEmpty ? 'list' : _items.first.id;
+    CatalogActions.announcementRead(id);
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_announcements_entry_MaterialPageRoute_0'),
         builder: (context) =>
             AnnouncementsScreen(repository: _repository, readStore: _readStore),
       ),

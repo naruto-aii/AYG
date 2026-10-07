@@ -39,6 +39,14 @@ import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
+import '../services/analytics/analytics.dart';
+import '../services/analytics/analytics_lifecycle.dart';
+import '../services/analytics/analytics_queue.dart';
+import '../services/analytics/analytics_route_observer.dart';
+import '../services/analytics/analytics_runtime.dart';
+import '../services/analytics/apple_ads_attribution.dart';
+import '../services/analytics/native_analytics_bridge.dart';
+import '../services/analytics/supabase_analytics_transport.dart';
 import '../services/open_food_facts_service.dart';
 import '../state/app_controller.dart';
 
@@ -124,6 +132,33 @@ Future<void> bootstrapApp() async {
   );
 
   final preferences = await SharedPreferences.getInstance();
+  final bridge = MethodChannelNativeAnalyticsBridge();
+  final analytics = AnalyticsService(
+    preferences: preferences,
+    queue: AnalyticsQueue(isar: isar),
+    transport: SupabaseAnalyticsTransport(),
+    bridge: bridge,
+    appVersion: '1.0.0',
+    appBuild: '1',
+    onUnauthorized: () async {
+      if (SupabaseConfig.isConfigured) {
+        await Supabase.instance.client.auth.refreshSession();
+      }
+    },
+    onConsentRow: uploadAnalyticsConsent,
+  );
+  analytics.deviceModel = await bridge.deviceModel();
+  Analytics.service = analytics;
+  AnalyticsRuntime.preferences = preferences;
+  AnalyticsRuntime.lifecycle = AnalyticsLifecycle(
+    service: analytics,
+    preferences: preferences,
+  );
+  AnalyticsRuntime.ads = AppleAdsAttribution(
+    service: analytics,
+    preferences: preferences,
+  );
+  AnalyticsRuntime.routes = AnalyticsRouteObserver(service: analytics);
   final subscriptionRepository = StoreKitSubscriptionRepository(
     preferences: preferences,
     developmentPlusPreview: developmentPlusPreview,

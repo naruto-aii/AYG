@@ -65,6 +65,7 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
   void _openRecord({WeightEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'weight_tab_screen_MaterialPageRoute_0'),
         builder: (context) => WeightRecordScreen(
           controller: widget.controller,
           entry: entry,

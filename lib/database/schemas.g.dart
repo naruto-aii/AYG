@@ -31972,3 +31972,189 @@ extension HealthWorkoutEntityQueryProperty
     });
   }
 }
+
+extension GetPendingAnalyticsEventCollection on Isar {
+  IsarCollection<PendingAnalyticsEvent> get pendingAnalyticsEvents =>
+      this.collection();
+}
+
+const PendingAnalyticsEventSchema = CollectionSchema(
+  name: r'PendingAnalyticsEvent',
+  id: 8165676755510524886,
+  properties: {
+    r'attempts': PropertySchema(
+      id: 0,
+      name: r'attempts',
+      type: IsarType.long,
+    ),
+    r'createdAt': PropertySchema(
+      id: 1,
+      name: r'createdAt',
+      type: IsarType.dateTime,
+    ),
+    r'eventId': PropertySchema(
+      id: 2,
+      name: r'eventId',
+      type: IsarType.string,
+    ),
+    r'json': PropertySchema(id: 3, name: r'json', type: IsarType.string),
+    r'nextAttemptAt': PropertySchema(
+      id: 4,
+      name: r'nextAttemptAt',
+      type: IsarType.dateTime,
+    ),
+    r'quarantined': PropertySchema(
+      id: 5,
+      name: r'quarantined',
+      type: IsarType.bool,
+    ),
+    r'userId': PropertySchema(id: 6, name: r'userId', type: IsarType.string),
+  },
+  estimateSize: _pendingAnalyticsEventEstimateSize,
+  serialize: _pendingAnalyticsEventSerialize,
+  deserialize: _pendingAnalyticsEventDeserialize,
+  deserializeProp: _pendingAnalyticsEventDeserializeProp,
+  idName: r'id',
+  indexes: {
+    r'eventId': IndexSchema(
+      id: -2707901133518603130,
+      name: r'eventId',
+      unique: true,
+      replace: true,
+      properties: [
+        IndexPropertySchema(
+          name: r'eventId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+  },
+  links: {},
+  embeddedSchemas: {},
+  getId: _pendingAnalyticsEventGetId,
+  getLinks: _pendingAnalyticsEventGetLinks,
+  attach: _pendingAnalyticsEventAttach,
+  version: '3.1.0+1',
+);
+
+int _pendingAnalyticsEventEstimateSize(
+  PendingAnalyticsEvent object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  bytesCount += 3 + object.eventId.length * 3;
+  bytesCount += 3 + object.json.length * 3;
+  {
+    final value = object.userId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  return bytesCount;
+}
+
+void _pendingAnalyticsEventSerialize(
+  PendingAnalyticsEvent object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeLong(offsets[0], object.attempts);
+  writer.writeDateTime(offsets[1], object.createdAt);
+  writer.writeString(offsets[2], object.eventId);
+  writer.writeString(offsets[3], object.json);
+  writer.writeDateTime(offsets[4], object.nextAttemptAt);
+  writer.writeBool(offsets[5], object.quarantined);
+  writer.writeString(offsets[6], object.userId);
+}
+
+PendingAnalyticsEvent _pendingAnalyticsEventDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = PendingAnalyticsEvent();
+  object.attempts = reader.readLong(offsets[0]);
+  object.createdAt = reader.readDateTime(offsets[1]);
+  object.eventId = reader.readString(offsets[2]);
+  object.id = id;
+  object.json = reader.readString(offsets[3]);
+  object.nextAttemptAt = reader.readDateTime(offsets[4]);
+  object.quarantined = reader.readBool(offsets[5]);
+  object.userId = reader.readStringOrNull(offsets[6]);
+  return object;
+}
+
+P _pendingAnalyticsEventDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readLong(offset)) as P;
+    case 1:
+      return (reader.readDateTime(offset)) as P;
+    case 2:
+      return (reader.readString(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readDateTime(offset)) as P;
+    case 5:
+      return (reader.readBool(offset)) as P;
+    case 6:
+      return (reader.readStringOrNull(offset)) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+Id _pendingAnalyticsEventGetId(PendingAnalyticsEvent object) {
+  return object.id;
+}
+
+List<IsarLinkBase<dynamic>> _pendingAnalyticsEventGetLinks(
+  PendingAnalyticsEvent object,
+) {
+  return [];
+}
+
+void _pendingAnalyticsEventAttach(
+  IsarCollection<dynamic> col,
+  Id id,
+  PendingAnalyticsEvent object,
+) {
+  object.id = id;
+}
+
+extension PendingAnalyticsEventByIndex
+    on IsarCollection<PendingAnalyticsEvent> {
+  Future<PendingAnalyticsEvent?> getByEventId(String eventId) {
+    return getByIndex(r'eventId', [eventId]);
+  }
+
+  PendingAnalyticsEvent? getByEventIdSync(String eventId) {
+    return getByIndexSync(r'eventId', [eventId]);
+  }
+
+  Future<bool> deleteByEventId(String eventId) {
+    return deleteByIndex(r'eventId', [eventId]);
+  }
+
+  bool deleteByEventIdSync(String eventId) {
+    return deleteByIndexSync(r'eventId', [eventId]);
+  }
+
+  Future<Id> putByEventId(PendingAnalyticsEvent object) {
+    return putByIndex(r'eventId', object);
+  }
+
+  Id putByEventIdSync(PendingAnalyticsEvent object, {bool saveLinks = true}) {
+    return putByIndexSync(r'eventId', object, saveLinks: saveLinks);
+  }
+}

@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'analytics/catalog_actions.dart';
 import 'share_card_content.dart';
 
 enum ShareResult { sent, cancelled, failed }
@@ -33,13 +34,21 @@ Future<Uint8List> pngBytesFromBoundary(
   }
 }
 
+String? lastShareActivityType;
+
 /// iOSの共有シート。画像と、画像が無くても読める文章を一緒に渡す。
 Future<bool> presentIosShareSheet(Uint8List png, String text) async {
-  final sent = await shareCardChannel.invokeMethod<bool>('present', {
+  final raw = await shareCardChannel.invokeMethod<Object?>('present', {
     'png': png,
     'text': text,
   });
-  return sent ?? false;
+  if (raw is Map) {
+    final activity = raw['activityType'];
+    lastShareActivityType = activity is String ? activity : null;
+    return raw['completed'] == true;
+  }
+  lastShareActivityType = null;
+  return raw == true;
 }
 
 /// 画面の外にカードを一度描いてから、共有シートを開く。
@@ -88,6 +97,13 @@ Future<ShareResult> sendShareCard({
   try {
     final png = await pngBytesFromBoundary(boundaryKey);
     final sent = await (present ?? presentIosShareSheet)(png, content.message);
+    final activity = lastShareActivityType;
+    lastShareActivityType = null;
+    CatalogActions.shareTap(
+      card: 'meal',
+      result: sent ? 'completed' : 'cancelled',
+      activityType: activity,
+    );
     if (!sent) {
       return ShareResult.cancelled;
     }

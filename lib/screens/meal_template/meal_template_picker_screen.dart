@@ -67,6 +67,7 @@ class _MealTemplatePickerScreenState extends State<MealTemplatePickerScreen> {
     }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'meal_template_picker_screen_MaterialPageRoute_0'),
         builder: (context) =>
             MealTemplateFormScreen(controller: widget.controller),
       ),

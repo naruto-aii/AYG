@@ -148,6 +148,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
 
     if (warnings.isNotEmpty) {
       final proceed = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'settings_goal_screen_showDialog_0'),
         context: context,
         builder: (context) => AlertDialog(
           title: const Text(AppStrings.goalWarningTitle),

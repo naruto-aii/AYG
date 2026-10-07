@@ -21,6 +21,7 @@ Future<void> openFoodTemplateCreate(
   }
   await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'food_form_template_actions_MaterialPageRoute_0'),
       builder: (context) => MealTemplateFormScreen(controller: controller),
     ),
   );
@@ -55,6 +56,7 @@ Future<void> saveCurrentFoodAsTemplate({
   }
   final nameController = TextEditingController();
   final saved = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'food_form_template_actions_showDialog_0'),
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('テンプレートとして保存'),

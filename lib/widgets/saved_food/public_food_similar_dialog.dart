@@ -12,6 +12,7 @@ Future<PublicFoodSimilarAction?> showPublicFoodSimilarDialog({
   required List<PublicFoodSimilarMatch> similarFoods,
 }) {
   return showDialog<PublicFoodSimilarAction>(
+      routeSettings: const RouteSettings(name: 'public_food_similar_dialog_showDialog_0'),
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('類似する公開食品があります'),

@@ -5,6 +5,7 @@ import 'package:ayg/services/analytics/analytics.dart';
 import 'package:ayg/services/analytics/analytics_event.dart';
 import 'package:ayg/services/analytics/analytics_queue.dart';
 import 'package:ayg/services/analytics/analytics_sender.dart';
+import 'package:ayg/services/analytics/app_event_retention.dart';
 import 'package:ayg/services/analytics/supabase_analytics_transport.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ayg/services/isar/local_user_data_clearer.dart';
@@ -19,6 +20,27 @@ void main() {
 
   test('default cap keeps the oldest 20000', () {
     expect(AnalyticsQueue.defaultCap, 20000);
+  });
+
+  test('aggregated month matches one day before and after the open month', () {
+    final now = DateTime.utc(2026, 10, 7, 12);
+    expect(
+      appEventMonthIsAggregated(DateTime.utc(2026, 6, 30, 23), now),
+      isTrue,
+    );
+    expect(appEventMonthIsAggregated(DateTime.utc(2026, 7, 1), now), isFalse);
+    expect(
+      appEventMonthIsAggregated(DateTime.utc(2026, 7, 2, 12), now),
+      isFalse,
+    );
+    expect(
+      rejectedEventIdsFromInsert({
+        'inserted': 1,
+        'rejected': 1,
+        'rejected_event_ids': ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'],
+      }),
+      ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'],
+    );
   });
 
   test(
@@ -253,6 +275,49 @@ void main() {
     clock.value = clock.value.add(const Duration(days: 30));
     await analytics.service.flush();
     expect(transport.calls, callsAfterCap);
+  });
+
+  test('events in an aggregated month are dropped and not sent', () async {
+    final isarHarness = await setUpIsarHarness();
+    final clock = _MutableClock(DateTime.utc(2027, 1, 1));
+    final analytics = await AnalyticsHarness.open(
+      isar: isarHarness.isar,
+      clock: () => clock.value,
+    );
+    await analytics.service.grantConsent(surface: 'first_launch');
+    await analytics.service.setCurrentUser(
+      '11111111-1111-4111-8111-111111111111',
+    );
+    const closedId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+    const openId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2';
+    await analytics.service.track(
+      'app_error',
+      {'error_type': 'StateError', 'where': 'old', 'fatal': false},
+      null,
+      closedId,
+      DateTime.utc(2026, 9, 30, 12),
+    );
+    await analytics.service.track(
+      'app_error',
+      {'error_type': 'StateError', 'where': 'late', 'fatal': false},
+      null,
+      openId,
+      DateTime.utc(2026, 10, 2, 12),
+    );
+    await analytics.service.settled;
+    await analytics.service.flush();
+
+    expect(
+      analytics.holding.delivered.any((row) => row['event_id'] == closedId),
+      isFalse,
+    );
+    expect(
+      analytics.holding.delivered.where((row) => row['event_id'] == openId),
+      hasLength(1),
+    );
+    final left = await analytics.queue.all();
+    expect(left.any((row) => row.eventId == closedId), isFalse);
+    expect(left.any((row) => row.eventId == openId), isFalse);
   });
 }
 

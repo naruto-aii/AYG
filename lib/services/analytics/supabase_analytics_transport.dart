@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../config/supabase_config.dart';
 import 'analytics_sender.dart';
+import 'app_event_retention.dart';
 
 /// `insert_app_events` でまとめて追加する。同じ event_id と occurred_at は無視する。
 class SupabaseAnalyticsTransport implements AnalyticsTransport {
@@ -27,8 +28,10 @@ class SupabaseAnalyticsTransport implements AnalyticsTransport {
       return const AnalyticsSendResult();
     }
     try {
-      await client.rpc('insert_app_events', params: {'events': rows});
-      return const AnalyticsSendResult.success();
+      final raw = await client.rpc('insert_app_events', params: {'events': rows});
+      return AnalyticsSendResult.success(
+        rejectedEventIds: rejectedEventIdsFromInsert(raw),
+      );
     } on AuthException catch (error, stackTrace) {
       debugPrint('[AYG] analytics unauthorized: $error');
       debugPrintStack(stackTrace: stackTrace);

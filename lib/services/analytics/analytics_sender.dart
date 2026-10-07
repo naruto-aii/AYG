@@ -6,12 +6,21 @@ const analyticsTableMissingHold = Duration(hours: 12);
 const analyticsTableMissingAttemptCap = 6;
 
 class AnalyticsSendResult {
-  const AnalyticsSendResult({this.statusCode, this.timedOut = false});
+  const AnalyticsSendResult({
+    this.statusCode,
+    this.timedOut = false,
+    this.rejectedEventIds = const [],
+  });
 
-  const AnalyticsSendResult.success() : statusCode = 200, timedOut = false;
+  const AnalyticsSendResult.success({this.rejectedEventIds = const []})
+    : statusCode = 200,
+      timedOut = false;
 
   final int? statusCode;
   final bool timedOut;
+
+  /// 集計済みの月としてサーバーが弾いた event_id。キューから捨てる。
+  final List<String> rejectedEventIds;
 
   bool get succeeded => statusCode != null && statusCode! >= 200 && statusCode! < 300;
 

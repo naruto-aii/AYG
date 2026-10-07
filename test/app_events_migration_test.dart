@@ -171,10 +171,10 @@ void main() {
 
   test('late events add to an existing month rollup', () {
     final sql = File(
-      'supabase/migrations/20261008090250_app_events_rollup_additive.sql',
+      'supabase/migrations/20261007095347_app_events_rollup_additive.sql',
     ).readAsStringSync();
     final down = File(
-      'supabase/rollback/20261008090250_app_events_rollup_additive_down.sql',
+      'supabase/rollback/20261007095347_app_events_rollup_additive_down.sql',
     ).readAsStringSync();
     final schedule = File(
       'supabase/migrations/20261008090300_app_events_retention_schedule.sql',
@@ -203,7 +203,33 @@ void main() {
     expect(down, contains("set search_path = ''"));
     expect(
       schedule,
-      contains('20261008090250_app_events_rollup_additive を先に適用してください'),
+      contains('20261008090260_app_events_closed_month を先に適用してください'),
     );
+  });
+
+  test('closed months are rejected with the same predicate as retention', () {
+    final sql = File(
+      'supabase/migrations/20261008090260_app_events_closed_month.sql',
+    ).readAsStringSync();
+    final down = File(
+      'supabase/rollback/20261008090260_app_events_closed_month_down.sql',
+    ).readAsStringSync();
+    final transport = File(
+      'lib/services/analytics/supabase_analytics_transport.dart',
+    ).readAsStringSync();
+    final service = File(
+      'lib/services/analytics/analytics_service.dart',
+    ).readAsStringSync();
+
+    expect(sql, contains('create or replace function public.app_event_month_is_aggregated(p_occurred_at timestamptz)'));
+    expect(sql, contains("set search_path = ''"));
+    expect(sql, contains('public.app_event_month_is_aggregated(range_start)'));
+    expect(sql, contains('public.app_event_month_is_aggregated(row_occurred_at)'));
+    expect(sql, contains("'rejected_event_ids'"));
+    expect(sql, isNot(contains("interval '100 days'")));
+    expect(down, contains('returns integer'));
+    expect(down, contains('drop function if exists public.app_event_month_is_aggregated(timestamptz)'));
+    expect(transport, contains('rejectedEventIdsFromInsert'));
+    expect(service, contains('appEventMonthIsAggregated'));
   });
 }

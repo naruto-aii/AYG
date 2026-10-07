@@ -9,6 +9,7 @@ import '../../database/schemas.dart';
 import 'analytics_event.dart';
 import 'analytics_queue.dart';
 import 'analytics_sender.dart';
+import 'app_event_retention.dart';
 import 'event_names.dart';
 import 'native_analytics_bridge.dart';
 
@@ -287,7 +288,23 @@ class AnalyticsService {
         if (batch.isEmpty) {
           break;
         }
-        final sentNow = await _sendBatch(batch);
+        final expired = <PendingAnalyticsEvent>[];
+        final fresh = <PendingAnalyticsEvent>[];
+        for (final row in batch) {
+          final occurredAt = AnalyticsEvent.decode(row.json).occurredAt;
+          if (appEventMonthIsAggregated(occurredAt, _clock())) {
+            expired.add(row);
+          } else {
+            fresh.add(row);
+          }
+        }
+        if (expired.isNotEmpty) {
+          await _queue.deleteIds(expired.map((row) => row.eventId));
+        }
+        if (fresh.isEmpty) {
+          continue;
+        }
+        final sentNow = await _sendBatch(fresh);
         if (sentNow < 0) {
           break;
         }
@@ -332,7 +349,10 @@ class AnalyticsService {
       result = const AnalyticsSendResult();
     }
     if (result.succeeded) {
-      await _queue.deleteIds(ready.map((row) => row.eventId));
+      await _queue.deleteIds([
+        ...ready.map((row) => row.eventId),
+        ...result.rejectedEventIds,
+      ]);
       await _preferences.setInt(_lastSuccessKey, _clock().toUtc().millisecondsSinceEpoch);
       return ready.length;
     }

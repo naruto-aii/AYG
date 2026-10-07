@@ -2,17 +2,23 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
-## 20261008090250 app events rollup additive
+## 20261008090260 app events closed month
 
-`maintain_app_events` を、本番の `20261007094142` の定義に戻す。表と行は残す。定期実行 `20261008090300` を戻したあとに流す。戻すと、遅れた操作でその月の集計が上書きされる動きに戻る。
+集計済みの月を再び受け付ける。`insert_app_events` は整数の戻り値に戻り、`maintain_app_events` は本番の `20261007095347` に戻る。表と行は残す。定期実行 `20261008090300` を戻したあとに流す。戻すと、同じ操作の再送で集計が二重になる。
 
-`supabase/rollback/20261008090250_app_events_rollup_additive_down.sql`
+`supabase/rollback/20261008090260_app_events_closed_month_down.sql`
+
+## 20261007095347 app events rollup additive
+
+本番には version `20261007095347` で適用済み。`maintain_app_events` を、その前の `20261007094142` の定義に戻す。表と行は残す。`20261008090260` を先に戻す。戻すと、遅れた操作でその月の集計が上書きされる動きに戻る。
+
+`supabase/rollback/20261007095347_app_events_rollup_additive_down.sql`
 
 ## 20261007094142 app events retention
 
-本番には version `20261007094142` で適用済み。`20261007094059_app_events` と **同じ作業で適用した**。片方だけでは戻さない。アプリは `public.insert_app_events` で追加する。戻す SQL は `supabase/rollback/20261007094142_app_events_retention_down.sql`。先にこちらを流し、続けて `20261007094059` の down を流す。`20261008090250` を先に戻しておく。
+本番には version `20261007094142` で適用済み。`20261007094059_app_events` と **同じ作業で適用した**。片方だけでは戻さない。アプリは `public.insert_app_events` で追加する。戻す SQL は `supabase/rollback/20261007094142_app_events_retention_down.sql`。先にこちらを流し、続けて `20261007094059` の down を流す。`20261008090260` と `20261007095347` を先に戻しておく。
 
-定期実行（90日より古い月の削除）は `20261008090300` で、加算の修正 `20261008090250` のあと、pg_cron の承認後に別途適用する。
+定期実行（90日より古い月の削除）は `20261008090300` で、`20261008090260` のあと、pg_cron の承認後に別途適用する。
 
 ## 20261007094059 app events
 

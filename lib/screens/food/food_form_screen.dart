@@ -933,7 +933,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'よく使う食品から選ぶ',
+                          '保存済み食品から選ぶ',
                           style: AppTypography.caption.copyWith(
                             color: AppColors.textBrand,
                           ),

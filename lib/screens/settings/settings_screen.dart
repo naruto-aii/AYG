@@ -216,8 +216,8 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.meal,
-            title: 'マイ食品',
-            subtitle: 'よく食べる食品の登録・管理',
+            title: '保存済み食品',
+            subtitle: '保存済み食品の登録・管理',
             onTap: () => _push(
               context,
               SettingsFoodMasterScreen(

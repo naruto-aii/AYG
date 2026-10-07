@@ -41,7 +41,7 @@ class AppStrings {
   static const settingsBasicInfo = '基本情報';
   static const settingsGoal = '目標設定';
   static const settingsHealthActivity = '活動・ヘルスケア';
-  static const settingsFoodMaster = 'マイ食品';
+  static const settingsFoodMaster = '保存済み食品';
   static const settingsAccount = 'アカウント';
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';
@@ -53,7 +53,7 @@ class AppStrings {
   static const accountDeletionLead = '削除するとログインできなくなります。公開食品は残ります。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
-      '食事・運動・体重の記録、非公開の保存食品、テンプレート、プロフィール、目標、Health のワークアウト、検索語、画面の操作、カロナビ+の購入状態';
+      '食事・運動・体重の記録、非公開の保存済み食品、テンプレート、プロフィール、目標、Health のワークアウト、検索語、画面の操作、カロナビ+の購入状態';
   static const accountDeletionKeeps = '残るもの';
   static const accountDeletionKeepsBody = '公開食品。氏名やメールアドレスは載せません。';
   static const accountDeletionBilling =

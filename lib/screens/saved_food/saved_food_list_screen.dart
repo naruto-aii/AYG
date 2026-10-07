@@ -198,9 +198,9 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DesignTitleBlock(
-            title: '保存食品',
+            title: '保存済み食品',
             subtitle:
-                'よく食べる食品を登録しておくと、次から選ぶだけです。公開すると、ほかの人の検索に出ます。氏名やメールは載りません。',
+                '保存済み食品を登録しておくと、次から選ぶだけです。公開すると、ほかの人の検索に出ます。氏名やメールは載りません。',
             trailing: IconButton(
               tooltip: '食品を探す',
               onPressed: _openFoodSearch,
@@ -243,7 +243,9 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Text(
                 _errorMessage ??
-                    (_foods.isEmpty ? 'マイ食品がありません' : '該当する食品がありません'),
+                    (_foods.isEmpty
+                        ? '保存済み食品はまだありません'
+                        : '該当する食品がありません'),
                 textAlign: TextAlign.center,
                 style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
               ),

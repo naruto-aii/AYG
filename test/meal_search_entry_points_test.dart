@@ -9,6 +9,7 @@ import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/official_food.dart';
 import 'package:ayg/models/public_food_search_match.dart';
 import 'package:ayg/models/saved_food.dart';
+import 'package:ayg/repositories/contracts/saved_food_repository_base.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/official_food_repository.dart';
 import 'package:ayg/screens/food/food_form_navigation.dart';
@@ -47,7 +48,7 @@ void main() {
 
   final now = DateTime(2026, 10, 7);
 
-  SavedFood saved(String name) {
+  SavedFood saved(String name, {int useCount = 0}) {
     return SavedFood(
       foodId: name,
       ownerUserId: 'user-1',
@@ -57,6 +58,7 @@ void main() {
       unitType: FoodUnitType.g,
       servingUnitLabel: 'g',
       kcalPerBase: 50,
+      useCount: useCount,
       createdAt: now,
       updatedAt: now,
     );
@@ -179,8 +181,8 @@ void main() {
     return OpenFoodFactsService(userAgent: 'AYG/test (test@example.com)');
   }
 
-  AppController controller() {
-    final created = AppController();
+  AppController controller({SavedFoodRepositoryBase? savedFoods}) {
+    final created = AppController(savedFoodRepository: savedFoods);
     addTearDown(created.dispose);
     return created;
   }
@@ -416,16 +418,15 @@ void main() {
   });
 
   testWidgets('saved food magnifier opens the combined search', (tester) async {
+    final listed = [
+      saved('自家製おにぎり', useCount: 2),
+      saved('のりおにぎり', useCount: 1),
+    ];
     final shot = await pumpPhone(
       tester,
       SavedFoodListScreen(
-        controller: controller(),
-        searchOverrides: overridesFor(
-          searchSaved: (_) async => [
-            saved('自家製おにぎり'),
-            saved('のりおにぎり'),
-          ],
-        ),
+        controller: controller(savedFoods: _ListedSavedFoods(listed)),
+        searchOverrides: overridesFor(searchSaved: (_) async => listed),
       ),
     );
     await tester.pumpAndSettle();
@@ -433,7 +434,11 @@ void main() {
     expect(find.byTooltip('食品を探す'), findsOneWidget);
     expect(find.byTooltip('公開食品検索'), findsNothing);
     expectNoLegacyPublicScreen();
-    expect(find.text('保存食品'), findsOneWidget);
+    expect(find.text('保存済み食品'), findsOneWidget);
+    expect(find.text('保存食品'), findsNothing);
+    expect(find.text('マイ食品がありません'), findsNothing);
+    expect(find.text('自家製おにぎり'), findsOneWidget);
+    expect(find.text('のりおにぎり'), findsOneWidget);
     await saveShot(tester, shot, 'saved-food-list-with-magnifier');
 
     await tester.tap(find.byTooltip('食品を探す'));
@@ -471,6 +476,23 @@ ThemeData _screenshotTheme() {
 }
 
 /// 戻る矢印などは Material Symbols。パッケージのフォントを名前で読み込む。
+class _ListedSavedFoods implements SavedFoodRepositoryBase {
+  _ListedSavedFoods(this.foods);
+
+  final List<SavedFood> foods;
+
+  @override
+  Future<List<SavedFood>> searchOwn({
+    required String ownerUserId,
+    required String query,
+  }) async {
+    return foods;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 Future<void> _loadMaterialSymbols() async {
   final config = File('.dart_tool/package_config.json');
   if (!config.existsSync()) {

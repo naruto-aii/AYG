@@ -2156,7 +2156,7 @@ class AppController extends ChangeNotifier {
     if (!_canRatePublicFood(food)) {
       return const PublicFoodRatingResult(
         success: false,
-        errorMessage: '自分の食品には評価できません',
+        errorMessage: '自分の保存済み食品には評価できません',
       );
     }
     if (_ratingOperationsInProgress.contains(key)) {
@@ -2216,7 +2216,7 @@ class AppController extends ChangeNotifier {
     if (food.ownerUserId == currentOwnerUserId) {
       return const PublicFoodReportResult(
         success: false,
-        errorMessage: '自分の食品は通報できません',
+        errorMessage: '自分の保存済み食品は通報できません',
       );
     }
     if (await hasReportedPublicFood(food)) {

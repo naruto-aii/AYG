@@ -71,8 +71,10 @@ void main() {
   setUpAll(_loadFonts);
 
   testWidgets('personal coach screens at 390 by 844', (tester) async {
-    final directory = Directory('/opt/cursor/artifacts/screenshots/coach');
-    expect(directory.parent.existsSync(), isTrue);
+    final preferred = Directory('/opt/cursor/artifacts/screenshots/coach');
+    final directory = preferred.parent.existsSync()
+        ? preferred
+        : Directory.systemTemp.createTempSync('coach-shots');
     directory.createSync(recursive: true);
 
     final night = _meals(remaining: 800, now: DateTime(2026, 10, 7, 22, 30));

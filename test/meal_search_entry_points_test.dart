@@ -13,6 +13,7 @@ import 'package:ayg/repositories/contracts/saved_food_repository_base.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/official_food_repository.dart';
 import 'package:ayg/screens/food/food_form_navigation.dart';
+import 'package:ayg/screens/food/meal_food_search_screen.dart';
 import 'package:ayg/screens/food/food_form_screen.dart';
 import 'package:ayg/screens/food/food_tab_screen.dart';
 import 'package:ayg/screens/history/day_history_screen.dart';
@@ -48,7 +49,7 @@ void main() {
 
   final now = DateTime(2026, 10, 7);
 
-  SavedFood saved(String name, {int useCount = 0}) {
+  SavedFood saved(String name, {int useCount = 0, DateTime? updatedAt}) {
     return SavedFood(
       foodId: name,
       ownerUserId: 'user-1',
@@ -59,8 +60,8 @@ void main() {
       servingUnitLabel: 'g',
       kcalPerBase: 50,
       useCount: useCount,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: updatedAt ?? now,
+      updatedAt: updatedAt ?? now,
     );
   }
 
@@ -92,12 +93,8 @@ void main() {
     );
   }
 
-  void expectThreeHeadings({bool formTabVisible = false}) {
-    // 食事追加画面のタブも「保存済み」なので、その画面では見出しと合わせて2件。
-    expect(
-      find.text(CombinedFoodSearch.savedHeading),
-      formTabVisible ? findsNWidgets(2) : findsOneWidget,
-    );
+  void expectThreeHeadings() {
+    expect(find.text(CombinedFoodSearch.savedHeading), findsOneWidget);
     expect(find.text(CombinedFoodSearch.officialHeading), findsOneWidget);
     expect(find.text(CombinedFoodSearch.publicHeading), findsOneWidget);
     expect(find.text('自家製おにぎり'), findsOneWidget);
@@ -231,8 +228,20 @@ void main() {
     await tester.tap(find.text('食事を追加'));
     await tester.pumpAndSettle();
     expect(find.text('食品を探す'), findsOneWidget);
+    expect(find.text('保存済み'), findsNothing);
+    expect(find.text('保存済み食品から選ぶ'), findsNothing);
+    expect(find.text('入力内容をテンプレートとして保存'), findsNothing);
+    expect(find.text('手入力'), findsOneWidget);
+    expect(find.text('バーコード'), findsOneWidget);
+    expect(find.text('テンプレート'), findsOneWidget);
     expectNoLegacyPublicScreen();
-    await saveShot(tester, shot, 'meal-add-food-search-button');
+    await saveShot(tester, shot, 'meal-add-tabs');
+
+    await tester.ensureVisible(find.text('食品として保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('入力内容をテンプレートとして保存'), findsNothing);
+    expect(find.text('食品として保存'), findsOneWidget);
+    await saveShot(tester, shot, 'food-form-no-template-save');
 
     await openCombinedSearch(tester);
     expectThreeHeadings();
@@ -314,7 +323,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expectThreeHeadings(formTabVisible: true);
+    expectThreeHeadings();
     expectNoLegacyPublicScreen();
     await Scrollable.ensureVisible(
       tester.element(find.byKey(const ValueKey('food_name_field'))),
@@ -392,7 +401,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expectThreeHeadings(formTabVisible: true);
+    expectThreeHeadings();
     expectNoLegacyPublicScreen();
   });
 
@@ -456,6 +465,54 @@ void main() {
     expectNoLegacyPublicScreen();
     await saveShot(tester, shot, 'saved-food-magnifier-search');
   });
+
+  testWidgets('empty food search lists saved foods newest first', (
+    tester,
+  ) async {
+    final newer = saved('のりおにぎり', updatedAt: DateTime(2026, 10, 6));
+    final older = saved('自家製おにぎり', updatedAt: DateTime(2026, 9, 1));
+    SavedFood? picked;
+    final shot = await pumpPhone(
+      tester,
+      Builder(
+        builder: (context) {
+          return TextButton(
+            onPressed: () async {
+              picked = await Navigator.of(context).push<SavedFood>(
+                MaterialPageRoute<SavedFood>(
+                  builder: (context) => MealFoodSearchScreen(
+                    controller: controller(),
+                    searchOverrides: overridesFor(
+                      searchSaved: (_) async => [older, newer],
+                    ),
+                  ),
+                ),
+              );
+            },
+            child: const Text('開く'),
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('開く'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(CombinedFoodSearch.savedBrowseEmpty), findsNothing);
+    expect(find.text(CombinedFoodSearch.officialHeading), findsNothing);
+    expect(find.text(CombinedFoodSearch.publicHeading), findsNothing);
+    expect(find.text('のりおにぎり'), findsOneWidget);
+    expect(find.text('自家製おにぎり'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('のりおにぎり')).dy,
+      lessThan(tester.getTopLeft(find.text('自家製おにぎり')).dy),
+    );
+    await saveShot(tester, shot, 'food-search-empty-saved');
+
+    await tester.tap(find.text('のりおにぎり'));
+    await tester.pumpAndSettle();
+    expect(picked?.name, 'のりおにぎり');
+  });
 }
 
 /// 保存トグルはフォント名を持たない。テストの既定フォントは Ahem なので、
@@ -470,6 +527,21 @@ ThemeData _screenshotTheme() {
       subtitleTextStyle: AppTypography.bodyS.copyWith(
         color: AppColors.textMuted,
         fontFamily: AppTypography.fontFamily,
+      ),
+    ),
+    chipTheme: theme.chipTheme.copyWith(
+      labelStyle: theme.chipTheme.labelStyle?.copyWith(
+        fontFamily: AppTypography.fontFamily,
+      ),
+      secondaryLabelStyle: theme.chipTheme.secondaryLabelStyle?.copyWith(
+        fontFamily: AppTypography.fontFamily,
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: theme.segmentedButtonTheme.style?.copyWith(
+        textStyle: WidgetStatePropertyAll(
+          AppTypography.titleS.copyWith(fontFamily: AppTypography.fontFamily),
+        ),
       ),
     ),
   );

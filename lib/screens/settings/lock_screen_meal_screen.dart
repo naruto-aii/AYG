@@ -29,9 +29,9 @@ const String widgetPlacementSteps =
     'ロック画面\n'
     'ロック画面を長押し →「カスタマイズ」→「ロック画面」→ 時刻の上下の枠をタップ →「カロナビ」→「完了」';
 
-/// ホームの大ウィジェット（食事3、運動2）とロック画面（同じ食事3）の中身。
+/// ホームの大ウィジェット5枠と、その1〜3枠目を使うロック画面。
 ///
-/// ここでのパターンは食事テンプレートの4件とは別です。
+/// 枠ごとに食事か運動を選ぶ。ここでのパターンは食事テンプレートの4件とは別です。
 class LockScreenMealScreen extends StatefulWidget {
   const LockScreenMealScreen({super.key, required this.controller});
 
@@ -70,9 +70,6 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
   late final _ButtonEditors _home = _ButtonEditors(
     LockScreenMealConfig.defaults().homeButtons,
   );
-  late final _ButtonEditors _lock = _ButtonEditors(
-    LockScreenMealConfig.defaults().lockButtons,
-  );
 
   bool _loading = true;
   bool _saving = false;
@@ -86,24 +83,12 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
   @override
   void dispose() {
     _home.dispose();
-    _lock.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     final config = await widget.controller.loadLockScreenMealConfig();
     _fill(_home, config.homeButtons);
-    _fill(_lock, config.lockButtons);
-    for (var slot = 0; slot < LockScreenMealConfig.lockSlotCount; slot++) {
-      final shared = _home.items[slot].isNotEmpty
-          ? _home.items[slot]
-          : _lock.items[slot];
-      final name = _home.names[slot] ?? _lock.names[slot];
-      _home.items[slot] = [...shared];
-      _lock.items[slot] = [...shared];
-      _home.names[slot] = name;
-      _lock.names[slot] = name;
-    }
     if (!mounted) {
       return;
     }
@@ -150,9 +135,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     ];
     setState(() {
       _home.items[slot] = items;
-      _lock.items[slot] = [...items];
       _home.names[slot] = selected.name;
-      _lock.names[slot] = selected.name;
     });
   }
 
@@ -173,9 +156,19 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
   void _clearMeal(int slot) {
     setState(() {
       _home.items[slot] = [];
-      _lock.items[slot] = [];
       _home.names[slot] = null;
-      _lock.names[slot] = null;
+    });
+  }
+
+  void _setKind(int slot, WidgetPatternKind kind) {
+    if (_home.kinds[slot] == kind) {
+      return;
+    }
+    setState(() {
+      _home.kinds[slot] = kind;
+      _home.items[slot] = [];
+      _home.exercises[slot] = [];
+      _home.names[slot] = null;
     });
   }
 
@@ -202,14 +195,16 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
   }
 
   List<LockScreenMealButtonConfig> _readLock() {
+    final home = _readHome();
     return [
-      for (var slot = 0; slot < _lock.labels.length; slot++)
+      for (var slot = 0; slot < LockScreenMealConfig.lockSlotCount; slot++)
         LockScreenMealButtonConfig(
           slot: slot,
-          label: _lock.labels[slot].text.trim(),
-          kind: WidgetPatternKind.meal,
-          contentName: _home.names[slot],
-          items: _home.items[slot],
+          label: home[slot].label,
+          kind: home[slot].kind,
+          contentName: home[slot].contentName,
+          items: home[slot].items,
+          exercises: home[slot].exercises,
         ),
     ];
   }
@@ -278,7 +273,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
                 const DesignTitleBlock(
                   title: 'ウィジェット',
                   subtitle:
-                      'ホーム画面の大きなウィジェットは、残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。ロック画面は同じ食事3つです。このパターンは食事テンプレートの4件とは別です。',
+                      'ホーム画面の大きなウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。ロック画面の3枠は、ホームの1〜3枠目を種類も含めてそのまま使います。このパターンは食事テンプレートの4件とは別です。',
                 ),
                 DesignCard(
                   child: Column(
@@ -302,14 +297,32 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
                 const SizedBox(height: AppSpacing.md),
                 for (var slot = 0; slot < _home.labels.length; slot++) ...[
                   if (slot > 0) const SizedBox(height: AppSpacing.md),
-                  _buttonCard(slot, prefix: 'home'),
+                  _buttonCard(slot),
                 ],
                 const SizedBox(height: AppSpacing.md),
                 Text('ロック画面', style: AppTypography.titleM),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'ロック画面の3枠は、ホームの1〜3枠目を種類も含めてそのまま使います。',
+                  style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+                ),
                 const SizedBox(height: AppSpacing.md),
-                for (var slot = 0; slot < _lock.labels.length; slot++) ...[
-                  if (slot > 0) const SizedBox(height: AppSpacing.md),
-                  _buttonCard(slot, prefix: 'lock'),
+                for (
+                  var slot = 0;
+                  slot < LockScreenMealConfig.lockSlotCount;
+                  slot++
+                ) ...[
+                  if (slot > 0) const SizedBox(height: AppSpacing.sm),
+                  ListenableBuilder(
+                    listenable: _home.labels[slot],
+                    builder: (context, _) {
+                      return Text(
+                        _lockPreviewLine(slot),
+                        key: Key('lock-screen-meal-preview-$slot'),
+                        style: AppTypography.bodyL,
+                      );
+                    },
+                  ),
                 ],
                 const SizedBox(height: AppSpacing.md),
               ],
@@ -317,33 +330,62 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     );
   }
 
-  Widget _buttonCard(int slot, {required String prefix}) {
-    final exercise =
-        prefix == 'home' && _home.kinds[slot] == WidgetPatternKind.exercise;
-    final label = exercise ? '運動パターン ${slot - 2}' : '食事パターン ${slot + 1}';
+  String _kindLabel(WidgetPatternKind kind) {
+    return kind == WidgetPatternKind.exercise ? '運動' : '食事';
+  }
+
+  String _slotTitle(int slot) {
+    return '枠${slot + 1}・${_kindLabel(_home.kinds[slot])}';
+  }
+
+  String _lockPreviewLine(int slot) {
+    final label = _home.labels[slot].text.trim();
+    final shown = label.isEmpty ? '文字なし' : label;
+    return '枠${slot + 1} · ${_kindLabel(_home.kinds[slot])} · $shown';
+  }
+
+  Widget _buttonCard(int slot) {
+    final exercise = _home.kinds[slot] == WidgetPatternKind.exercise;
     final summary = exercise
         ? _exerciseSummary(_home.exercises[slot])
         : _mealSummary(_home.items[slot]);
     final assigned = summary != null;
     return DesignFieldCard(
+      key: Key('widget-slot-card-$slot'),
       icon: _icon(exercise ? AppIcons.exercise : AppIcons.meal),
-      label: label,
+      label: _slotTitle(slot),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              ChoiceChip(
+                key: Key('widget-slot-kind-$slot-meal'),
+                label: const Text('食事'),
+                selected: !exercise,
+                onSelected: (_) => _setKind(slot, WidgetPatternKind.meal),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              ChoiceChip(
+                key: Key('widget-slot-kind-$slot-exercise'),
+                label: const Text('運動'),
+                selected: exercise,
+                onSelected: (_) => _setKind(slot, WidgetPatternKind.exercise),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
           DesignInputBox(
             child: DesignTextInput(
-              key: Key('lock-screen-meal-label-$prefix-$slot'),
-              controller: prefix == 'home'
-                  ? _home.labels[slot]
-                  : _lock.labels[slot],
+              key: Key('lock-screen-meal-label-home-$slot'),
+              controller: _home.labels[slot],
               hintText: '表示する文字',
               inputFormatters: [LengthLimitingTextInputFormatter(8)],
             ),
           ),
           const SizedBox(height: AppSpacing.md),
           DesignInputBox(
-            key: Key('lock-screen-meal-template-$prefix-$slot'),
+            key: Key('lock-screen-meal-template-home-$slot'),
             onTap: exercise ? () => _editExercise(slot) : () => _editMeal(slot),
             child: Text(
               summary ?? (exercise ? '運動の内容を入れる' : '食事の内容を入れる'),

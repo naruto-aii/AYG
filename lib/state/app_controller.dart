@@ -1884,6 +1884,15 @@ class AppController extends ChangeNotifier {
     return _savedFoodSearchService.rankOwnResults(foods: results, query: query);
   }
 
+  /// 食品を探すの空欄用。検索語の記録や利用回数での並べ替えはしない。
+  Future<List<SavedFood>> listOwnSavedFoods() async {
+    final repository = _savedFoodRepository;
+    if (repository == null) {
+      return const [];
+    }
+    return repository.searchOwn(ownerUserId: currentOwnerUserId, query: '');
+  }
+
   Future<List<SavedFood>> getOwnSavedFoodSuggestions() async {
     final repository = _savedFoodRepository;
     if (repository == null) {

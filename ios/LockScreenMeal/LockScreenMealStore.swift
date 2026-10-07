@@ -10,7 +10,9 @@ import WidgetKit
 /// 有料フラグ `lockScreenMealPaid` が true のときだけ追記する。
 /// レシート検証と販売画面は無い。フラグの既定は false。
 /// JSON の形は Dart の `LockScreenMealCodec`（version 3）と同じ。
-/// ホームは食事3件と運動2件、ロック画面は同じ食事3件。古い `buttons` はロック画面として読む。
+/// ホームは5枠で、枠ごとに食事か運動。ロック画面は保存された3枠を kind のまま読む。
+/// アプリは保存時にホームの1〜3枠目をロックへコピーする。古い `buttons` はロック画面として読む。
+/// kind が無い保存値は、ホームの4枠目以降を運動、それ以外を食事として読む。
 /// ボタンの中身はウィジェット専用で、食事テンプレートの id では引かない。
 enum LockScreenMealStore {
   static let appGroupId = "group.com.narutoaii.ayg"

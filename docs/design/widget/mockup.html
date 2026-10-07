@@ -149,7 +149,7 @@ function ring(progress){
   <circle cx="66" cy="66" r="${r}" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-progress)}" transform="translate(132 0) scale(-1 1) rotate(-90 66 66)"/>
   <circle cx="${66+r*Math.cos(a)}" cy="${66+r*Math.sin(a)}" r="6.5" fill="#F6892B"/></svg>`;
 }
-// ホームのボタンは食事3つ＋運動2つ（LockScreenMealStore.homeButtons の初期ラベル）
+// ホームのボタンは5枠。初期ラベル。枠ごとに食事か運動を選べる。
 const homeLabels=["朝ごはん","昼ごはん","夜ごはん","ウォーキング","ジョギング"];
 const homeWidget=`<div class="wl"><div class="glow"></div>
   <div class="brand"><i></i>カロナビ</div>

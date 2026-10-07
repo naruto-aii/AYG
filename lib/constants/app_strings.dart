@@ -81,7 +81,7 @@ class AppStrings {
   static const plusBenefitNoteBody = '無料ではメモは使えません。カロナビ+なら、食事にも運動にもメモを残せます。';
   static const plusBenefitWidgetTitle = 'ホーム画面とロック画面からワンタップ記録';
   static const plusBenefitWidgetBody =
-      '残りカロリーに加え、アプリを開かずに、食事テンプレート3種類と運動テンプレート2件を、いつでもウィジェットから登録できます。';
+      'アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
   static const plusBenefitSiriTitle = 'Siriに話しかけるだけで記録';
   static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
   static const plusCtaPrefix = 'で始める';

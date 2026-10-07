@@ -51,10 +51,12 @@ class CombinedFoodSearch extends StatefulWidget {
     this.onPublicFood,
     this.handle,
     this.debounce = const Duration(milliseconds: 250),
+    this.browseSavedWhenEmpty = false,
   });
 
   static const hint = '食品名を入れると、保存済み・定番の食品・公開食品から候補が出ます。';
   static const emptyMessage = '該当する食品が見つかりませんでした';
+  static const savedBrowseEmpty = '保存済み食品はまだありません';
   static const savedHeading = '保存済み';
   static const officialHeading = '定番の食品';
   static const publicHeading = '公開食品';
@@ -77,6 +79,9 @@ class CombinedFoodSearch extends StatefulWidget {
   /// 公開食品の作成者を結果から外す。
   final CombinedFoodSearchHandle? handle;
   final Duration debounce;
+
+  /// 文字が空のとき、保存済み食品を新しい順に出す。食事の「食品を探す」だけ使う。
+  final bool browseSavedWhenEmpty;
 
   @override
   State<CombinedFoodSearch> createState() => _CombinedFoodSearchState();
@@ -108,10 +113,15 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
     super.initState();
     widget.handle?._hideOwner = _hideOwner;
     widget.query.addListener(_schedule);
+    final query = widget.query.text.trim();
     // 食品名欄や Siri の検索語は、この部品ができる前から入っている。
-    if (widget.query.text.trim().isNotEmpty) {
+    if (query.isNotEmpty) {
       _loading = true;
       _schedule();
+    } else if (widget.browseSavedWhenEmpty) {
+      _loading = true;
+      final generation = ++_generation;
+      unawaited(_browseSaved(generation));
     }
   }
 
@@ -148,7 +158,18 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
     _timer?.cancel();
     final query = widget.query.text.trim();
     if (query.isEmpty) {
-      _generation++;
+      final generation = ++_generation;
+      if (widget.browseSavedWhenEmpty) {
+        setState(() {
+          _loading = true;
+          _official = const [];
+          _public = const [];
+          _officialError = null;
+          _publicError = null;
+        });
+        unawaited(_browseSaved(generation));
+        return;
+      }
       if (_loading ||
           _saved.isNotEmpty ||
           _official.isNotEmpty ||
@@ -169,6 +190,41 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
       return;
     }
     _timer = Timer(widget.debounce, () => unawaited(_search(query)));
+  }
+
+  Future<void> _browseSaved(int generation) async {
+    final saved = await _loadSaved('');
+    if (!mounted || generation != _generation) {
+      return;
+    }
+    if (widget.query.text.trim().isNotEmpty) {
+      return;
+    }
+    setState(() {
+      _loading = false;
+      _saved = _newestFirst(saved.rows);
+      _savedError = saved.error;
+      _official = const [];
+      _public = const [];
+      _officialError = null;
+      _publicError = null;
+    });
+  }
+
+  List<SavedFood> _newestFirst(List<SavedFood> foods) {
+    final copy = [...foods];
+    copy.sort((a, b) {
+      final updated = b.updatedAt.compareTo(a.updatedAt);
+      if (updated != 0) {
+        return updated;
+      }
+      final created = b.createdAt.compareTo(a.createdAt);
+      if (created != 0) {
+        return created;
+      }
+      return a.name.compareTo(b.name);
+    });
+    return copy;
   }
 
   Future<void> _search(String query) async {
@@ -215,6 +271,8 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
       final search = widget.searchSaved;
       final rows = search != null
           ? await search(query)
+          : query.isEmpty
+          ? await widget.controller.listOwnSavedFoods()
           : await widget.controller.searchOwnSavedFoods(query);
       return (rows: rows, error: null);
     } catch (_) {
@@ -276,6 +334,26 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
     return '$category${OfficialFoodListLabel.categoryKcalSeparator}$amount';
   }
 
+  List<Widget> _savedRows() {
+    return [
+      Text(CombinedFoodSearch.savedHeading, style: AppTypography.titleS),
+      const SizedBox(height: 8),
+      for (final food in _saved) ...[
+        SettingsRow(
+          icon: AppIcons.bookmark,
+          title: food.name,
+          subtitle:
+              '${widget.controller.formatSavedFoodBaseLabel(food)} ・ '
+              '${formatNullableNutrient(food.kcalPerBase)} kcal',
+          onTap: widget.onSavedFood == null
+              ? null
+              : () => widget.onSavedFood!(food),
+        ),
+        const SizedBox(height: 8),
+      ],
+    ];
+  }
+
   List<PublicFoodSearchMatch> get _visiblePublic {
     return [
       for (final match in _public)
@@ -293,7 +371,7 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
     final hasError =
         _savedError != null || _officialError != null || _publicError != null;
 
-    if (query.isEmpty) {
+    if (query.isEmpty && !widget.browseSavedWhenEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Text(
@@ -302,6 +380,40 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
           textAlign: TextAlign.center,
           style: muted,
         ),
+      );
+    }
+
+    if (query.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_loading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                CombinedFoodSearch.loadingLabel,
+                key: const Key('combined-food-search-loading'),
+                textAlign: TextAlign.center,
+                style: muted,
+              ),
+            ),
+          if (_savedError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(_savedError!, style: muted),
+            ),
+          if (_saved.isNotEmpty) ..._savedRows(),
+          if (!_loading && _savedError == null && _saved.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                CombinedFoodSearch.savedBrowseEmpty,
+                key: const Key('combined-food-search-saved-empty'),
+                textAlign: TextAlign.center,
+                style: muted,
+              ),
+            ),
+        ],
       );
     }
 
@@ -323,23 +435,7 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(_savedError!, style: muted),
           ),
-        if (_saved.isNotEmpty) ...[
-          Text(CombinedFoodSearch.savedHeading, style: AppTypography.titleS),
-          const SizedBox(height: 8),
-          for (final food in _saved) ...[
-            SettingsRow(
-              icon: AppIcons.bookmark,
-              title: food.name,
-              subtitle:
-                  '${widget.controller.formatSavedFoodBaseLabel(food)} ・ '
-                  '${formatNullableNutrient(food.kcalPerBase)} kcal',
-              onTap: widget.onSavedFood == null
-                  ? null
-                  : () => widget.onSavedFood!(food),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ],
+        if (_saved.isNotEmpty) ..._savedRows(),
         if (_officialError != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),

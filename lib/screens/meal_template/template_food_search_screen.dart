@@ -10,7 +10,7 @@ import '../../widgets/food/combined_food_search.dart';
 
 /// 食事テンプレートとウィジェットの食品選び。
 ///
-/// 食事登録の「食品を探す」と同じ検索結果を使い、選んだ食品は食事には足さない。
+/// 食事登録の「食品を探す」で文字を入れたときと同じ検索結果を使い、選んだ食品は食事には足さない。
 class TemplateFoodSearchScreen extends StatefulWidget {
   const TemplateFoodSearchScreen({
     super.key,

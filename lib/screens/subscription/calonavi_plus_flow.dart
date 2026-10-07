@@ -34,6 +34,29 @@ Future<void> showCalonaviPlus(
   );
 }
 
+/// `¥2,900` のような円表示だけを読む。ドルなどは読まない。
+int? yenAmount(String localized) {
+  final match = RegExp(
+    r'^[¥￥]\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)$',
+  ).firstMatch(localized.trim());
+  if (match == null) {
+    return null;
+  }
+  return int.tryParse(match.group(1)!.replaceAll(',', ''));
+}
+
+String _groupDigits(int value) {
+  final text = value.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < text.length; i++) {
+    if (i > 0 && (text.length - i) % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(text[i]);
+  }
+  return buffer.toString();
+}
+
 class CalonaviPlusEntryScreen extends StatefulWidget {
   const CalonaviPlusEntryScreen({super.key, required this.repository});
 
@@ -99,9 +122,16 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     });
   }
 
-  /// 決定価格だけを出す。古いストア金額と「月あたり」の注記を並べない。
-  /// 購入にはこの文字列を渡さない。
-  String _displayPrice(PlusPlan plan) {
+  bool _hasStorePrice(SubscriptionProductOffer? offer) {
+    final price = offer?.localizedPrice.trim() ?? '';
+    return offer != null && offer.canPurchase && price.isNotEmpty;
+  }
+
+  /// ストアの金額が無いときだけ、画面に出す予備。購入には渡さない。
+  String _displayPrice(PlusPlan plan, SubscriptionProductOffer? offer) {
+    if (_hasStorePrice(offer)) {
+      return offer!.localizedPrice.trim();
+    }
     return switch (plan) {
       PlusPlan.monthly => AppStrings.plusFallbackMonthlyPrice,
       PlusPlan.halfYear => AppStrings.plusFallbackHalfYearPrice,
@@ -109,26 +139,80 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     };
   }
 
-  String _note(PlusPlan plan) {
+  /// 半年と年額の注記は、いま画面に出している金額から割る。
+  String _note(PlusPlan plan, String price) {
+    if (plan == PlusPlan.monthly) {
+      return AppStrings.plusMonthlyNote;
+    }
+    final amount = yenAmount(price);
+    if (amount == null) {
+      return '';
+    }
+    final months = _months(plan);
+    final exact = amount % months == 0;
+    final perMonth = exact ? amount ~/ months : (amount / months).round();
+    final digits = _groupDigits(perMonth);
+    return exact ? '月あたり$digits円' : '月あたり約$digits円';
+  }
+
+  /// 月額より月あたりが安いときだけ。いちばん安いプランが「一番お得」。
+  String? _badge(PlusPlan plan, Map<PlusPlan, int?> yen) {
+    if (plan == PlusPlan.monthly) {
+      return null;
+    }
+    final monthly = yen[PlusPlan.monthly];
+    final amount = yen[plan];
+    if (monthly == null || amount == null || monthly <= 0) {
+      return null;
+    }
+    final months = _months(plan);
+    if (amount >= monthly * months) {
+      return null;
+    }
+    var best = true;
+    for (final other in PlusPlan.values) {
+      if (other == PlusPlan.monthly || other == plan) {
+        continue;
+      }
+      final otherAmount = yen[other];
+      if (otherAmount == null) {
+        continue;
+      }
+      final otherMonths = _months(other);
+      if (otherAmount >= monthly * otherMonths) {
+        continue;
+      }
+      if (amount * otherMonths > otherAmount * months) {
+        best = false;
+      }
+    }
+    return best ? AppStrings.plusBadgeBestValue : AppStrings.plusBadgeSave;
+  }
+
+  int _months(PlusPlan plan) {
     return switch (plan) {
-      PlusPlan.monthly => AppStrings.plusMonthlyNote,
-      PlusPlan.halfYear => AppStrings.plusHalfYearNote,
-      PlusPlan.yearly => AppStrings.plusYearlyNote,
+      PlusPlan.monthly => 1,
+      PlusPlan.halfYear => 6,
+      PlusPlan.yearly => 12,
     };
   }
 
   List<_PlanOption> get _plans {
+    final offerings = _offerings;
+    final prices = {
+      for (final plan in PlusPlan.values)
+        plan: _displayPrice(plan, offerings?.offerFor(plan)),
+    };
+    final yen = {
+      for (final entry in prices.entries) entry.key: yenAmount(entry.value),
+    };
     return [
       for (final plan in PlusPlan.values)
         _PlanOption(
           plan: plan,
-          price: _displayPrice(plan),
-          note: _note(plan),
-          badgeLabel: switch (plan) {
-            PlusPlan.monthly => null,
-            PlusPlan.halfYear => AppStrings.plusBadgeSave,
-            PlusPlan.yearly => AppStrings.plusBadgeBestValue,
-          },
+          price: prices[plan]!,
+          note: _note(plan, prices[plan]!),
+          badgeLabel: _badge(plan, yen),
         ),
     ];
   }
@@ -326,7 +410,9 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
               SelectCard(
                 key: Key('plus-plan-${plans[i].plan.name}'),
                 title: plusPlanLabel(plans[i].plan),
-                description: '${plans[i].price} ・ ${plans[i].note}',
+                description: plans[i].note.isEmpty
+                    ? plans[i].price
+                    : '${plans[i].price} ・ ${plans[i].note}',
                 selected: plans[i].plan == _selected,
                 minHeight: 84,
                 badge: plans[i].badgeLabel == null

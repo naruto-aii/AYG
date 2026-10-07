@@ -98,12 +98,9 @@ class AppStrings {
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';
 
-  /// 月額580円との比較。半年は 2,900÷6≒483 で「お得」、年額は 5,400÷12=450 で「一番お得」。
-  static const plusHalfYearNote = '月あたり約483円';
-  static const plusYearlyNote = '月あたり450円';
   static const plusMonthlyNote = 'いつでも解約できます';
 
-  /// 課金画面に出す決定価格。ストアが別の金額を返しても、この金額を出す。購入処理には渡さない。
+  /// ストアが金額を返せないときだけの表示。購入処理では使わない。
   static const plusFallbackMonthlyPrice = '¥580';
   static const plusFallbackHalfYearPrice = '¥2,900';
   static const plusFallbackYearlyPrice = '¥5,400';

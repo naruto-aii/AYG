@@ -83,7 +83,6 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('¥580'), findsWidgets);
-      expect(find.textContaining('¥480'), findsNothing);
       expect(find.text('半年'), findsOneWidget);
       expect(find.text('年額'), findsOneWidget);
       expect(find.text('¥5,400で始める'), findsOneWidget);
@@ -130,7 +129,7 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥480',
+        localizedPrice: '¥580',
       ),
       yearly: null,
       loadFailed: false,

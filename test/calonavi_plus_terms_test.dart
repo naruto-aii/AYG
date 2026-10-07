@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('paywall shows the decided price, renewal, and period', (
+  testWidgets('paywall shows the store price, renewal, and period', (
     tester,
   ) async {
     final repository = _PricedPlus();
@@ -26,9 +26,6 @@ void main() {
     expect(find.text('¥2,900 ・ 月あたり約483円'), findsOneWidget);
     expect(find.text('¥5,400 ・ 月あたり450円'), findsOneWidget);
     expect(find.text('¥5,400で始める'), findsOneWidget);
-    expect(find.textContaining('¥480'), findsNothing);
-    expect(find.textContaining('¥2,400'), findsNothing);
-    expect(find.textContaining('¥4,800'), findsNothing);
     expect(AppStrings.plusBenefitSiriBody.contains('β'), isFalse);
     expect(AppStrings.plusBenefitSiriBody.contains('カロナビ+'), isFalse);
     expect(find.text('お得'), findsOneWidget);
@@ -76,6 +73,27 @@ void main() {
 
     expect(find.text('現在の有効期限: 2099/01/02'), findsOneWidget);
   });
+
+  testWidgets('a different store price keeps its own monthly note', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: CalonaviPlusEntryScreen(repository: _DifferentStorePrices()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('¥580 ・ いつでも解約できます'), findsOneWidget);
+    expect(find.text('¥3,480 ・ 月あたり580円'), findsOneWidget);
+    expect(find.text('¥5,800 ・ 月あたり約483円'), findsOneWidget);
+    expect(find.text('¥5,800で始める'), findsOneWidget);
+    expect(find.text('一番お得'), findsOneWidget);
+    expect(find.text('お得'), findsNothing);
+    expect(find.textContaining('¥5,400'), findsNothing);
+    expect(find.textContaining('¥2,900'), findsNothing);
+  });
 }
 
 class _PricedPlus extends UnavailableSubscriptionRepository {
@@ -92,17 +110,41 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥480',
+        localizedPrice: '¥580',
       ),
       halfYear: SubscriptionProductOffer(
         productId: SubscriptionCatalog.halfYearProductId,
         period: PlusBillingPeriod.halfYear,
-        localizedPrice: '¥2,400',
+        localizedPrice: '¥2,900',
       ),
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,
         period: PlusBillingPeriod.year,
-        localizedPrice: '¥4,800',
+        localizedPrice: '¥5,400',
+      ),
+      loadFailed: false,
+    );
+  }
+}
+
+class _DifferentStorePrices extends UnavailableSubscriptionRepository {
+  @override
+  Future<SubscriptionOfferings> loadOfferings() async {
+    return const SubscriptionOfferings(
+      monthly: SubscriptionProductOffer(
+        productId: SubscriptionCatalog.monthlyProductId,
+        period: PlusBillingPeriod.month,
+        localizedPrice: '¥580',
+      ),
+      halfYear: SubscriptionProductOffer(
+        productId: SubscriptionCatalog.halfYearProductId,
+        period: PlusBillingPeriod.halfYear,
+        localizedPrice: '¥3,480',
+      ),
+      yearly: SubscriptionProductOffer(
+        productId: SubscriptionCatalog.yearlyProductId,
+        period: PlusBillingPeriod.year,
+        localizedPrice: '¥5,800',
       ),
       loadFailed: false,
     );

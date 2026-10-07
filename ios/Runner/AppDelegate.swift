@@ -53,7 +53,7 @@ import WidgetKit
         SiriVoiceStore.writeCatalog(args?["catalog"] as? String ?? "")
         if #available(iOS 17.0, *) {
           DispatchQueue.main.async {
-            CalonaviListedShortcuts.updateAppShortcutParameters()
+            CalonaviSiriShortcuts.updateAppShortcutParameters()
           }
         }
         result(nil)

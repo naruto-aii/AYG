@@ -1298,6 +1298,7 @@ enum SiriVoiceStore {
     return nil
   }
 
+  @available(iOS 16.0, *)
   private static func chooseInterpretation(
     _ interpretations: [String],
     kind: SiriSpokenKind?
@@ -1367,6 +1368,7 @@ enum SiriVoiceStore {
     )
   }
 
+  @available(iOS 16.0, *)
   private static func bestSpeechHit(
     _ name: String,
     kind: SiriSpokenKind?
@@ -3441,14 +3443,6 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
       shortTitle: "直前の登録を取り消す",
       systemImageName: "arrow.uturn.backward"
     )
-  }
-}
-
-/// 一覧にある名前だけの一言。候補が変わったら updateAppShortcutParameters で読み直す。
-/// 自由文の量（300グラムなど）はこの穴には入らない。
-@available(iOS 17.0, *)
-struct CalonaviListedShortcuts: AppShortcutsProvider {
-  static var appShortcuts: [AppShortcut] {
     AppShortcut(
       intent: LogSpokenFoodIntent(),
       phrases: [
@@ -3467,3 +3461,4 @@ struct CalonaviListedShortcuts: AppShortcutsProvider {
     )
   }
 }
+

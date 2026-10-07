@@ -1,0 +1,138 @@
+{
+  "sourceLanguage" : "ja",
+  "strings" : {
+    "${applicationName}で食事を記録" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で食事を記録"
+          }
+        }
+      }
+    },
+    "${applicationName}で食事を登録" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で食事を登録"
+          }
+        }
+      }
+    },
+    "${applicationName}で運動を記録" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で運動を記録"
+          }
+        }
+      }
+    },
+    "${applicationName}で運動を登録" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で運動を登録"
+          }
+        }
+      }
+    },
+    "${applicationName}に登録" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}に登録"
+          }
+        }
+      }
+    },
+    "${applicationName}登録" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}登録"
+          }
+        }
+      }
+    },
+    "${applicationName}で登録" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で登録"
+          }
+        }
+      }
+    },
+    "${applicationName}で記録" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で記録"
+          }
+        }
+      }
+    },
+    "${applicationName}で今登録したやつ消して" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で今登録したやつ消して"
+          }
+        }
+      }
+    },
+    "${applicationName}でさっきの登録を取り消して" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}でさっきの登録を取り消して"
+          }
+        }
+      }
+    },
+    "${applicationName}で食事に${food}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で食事に${food}"
+          }
+        }
+      }
+    },
+    "${applicationName}で運動に${activity}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName}で運動に${activity}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

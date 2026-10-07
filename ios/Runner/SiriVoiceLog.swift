@@ -3,11 +3,13 @@ import Foundation
 
 /// 食事と運動を登録し、何をどれだけ登録したかを読み上げる。
 ///
-/// ショートカットに登録するのは、アプリ名だけの言い方。
-/// 「Hey Siri、カロナビに登録」「カロナビで登録」「カロナビで記録」
+/// ショートカットはアプリ名を含む言い方だけ。日本語の Siri には ja のフレーズが要る。
+/// 「Hey Siri、カロナビに登録」「カロナビ登録」「カロナビで登録」「カロナビで記録」
 /// 「カロナビで食事を記録」「カロナビで食事を登録」
 /// 「カロナビで運動を記録」「カロナビで運動を登録」
-/// 食品名と種目は Siri の質問への答え。自由文はフレーズに置かない。
+/// 一覧にある名前だけ「カロナビで食事にささみ」「カロナビで運動にウォーキング」。
+/// 量や一覧に無い名前は質問への自由文。自由文そのものはフレーズに置かない。
+/// 取り消しは「カロナビで今登録したやつ消して」。アプリ名の無い言い方はショートカットにできない。
 /// 名寄せの自信が高いときは確認せず登録し、「ささみ100gを登録しました」と読む。
 /// 自信が低いときだけ「でいいですね」と確認してから登録する。
 /// 答えの「さっきの登録を取り消して」は直前の1件を取り消す。単独のショートカットではない。
@@ -2638,6 +2640,55 @@ enum SiriVoiceStore {
     catalog()["workoutTemplates"] as? [[String: Any]] ?? []
   }
 
+  /// 一言フレーズに載せる食品。自由文は載せられないので、閉じた短い一覧だけ。
+  /// よく言う名前を先に置き、そのあとテンプレートと保存した食品を足す。成分表の全件は入れない。
+  static func phraseFoodNames() -> [String] {
+    cappedPhraseNames(
+      builtIn: [
+        "ささみ", "鶏むね", "鶏もも", "ご飯", "白米", "食パン", "卵", "納豆",
+        "牛乳", "ヨーグルト", "バナナ", "りんご", "牛もも", "豚ばら",
+      ],
+      rows: mealTemplates() + foods(),
+      limit: 40
+    )
+  }
+
+  /// 一言フレーズに載せる運動。全種目は質問への答えで探す。
+  static func phraseExerciseNames() -> [String] {
+    cappedPhraseNames(
+      builtIn: [
+        "ウォーキング", "散歩", "ジョギング", "ランニング", "筋トレ", "ヨガ", "水泳", "自転車",
+      ],
+      rows: workoutTemplates(),
+      limit: 40
+    )
+  }
+
+  private static func cappedPhraseNames(
+    builtIn: [String],
+    rows: [[String: Any]],
+    limit: Int
+  ) -> [String] {
+    var seen = Set<String>()
+    var names: [String] = []
+    func add(_ raw: String) {
+      let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !name.isEmpty, name.count <= 16, names.count < limit, !seen.contains(name) else {
+        return
+      }
+      guard !name.contains(where: { $0.isNewline }) else { return }
+      seen.insert(name)
+      names.append(name)
+    }
+    for name in builtIn {
+      add(name)
+    }
+    for row in rows {
+      add(row["speakName"] as? String ?? "")
+    }
+    return names
+  }
+
   private static func foodAmountQuestion(_ unit: String) -> String {
     switch unit {
     case "ml": return "何mlですか？"
@@ -2780,6 +2831,10 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   )
   var foodName: SiriSpokenText
 
+  /// 一覧にある食品だけの一言フレーズ。任意なので、質問に答える言い方では聞かない。
+  @Parameter(title: "一覧の食品")
+  var food: SiriListedFood?
+
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
   var kind: SiriSpokenKind?
@@ -2890,6 +2945,10 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   /// 言い方に食品が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
   /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
   private func promptedFoodName() throws -> String {
+    if let spoken = food?.spoken.trimmingCharacters(in: .whitespacesAndNewlines),
+       !spoken.isEmpty {
+      return spoken
+    }
     let current = foodName.text.trimmingCharacters(in: .whitespacesAndNewlines)
     if !current.isEmpty {
       return current
@@ -2911,6 +2970,10 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     requestValueDialog: IntentDialog(stringLiteral: "何をしましたか？")
   )
   var activityName: SiriSpokenText
+
+  /// 一覧にある運動だけの一言フレーズ。任意なので、質問に答える言い方では聞かない。
+  @Parameter(title: "一覧の運動")
+  var activity: SiriListedExercise?
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
@@ -3022,6 +3085,10 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   /// 言い方に種目が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
   /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
   private func promptedActivityName() throws -> String {
+    if let spoken = activity?.spoken.trimmingCharacters(in: .whitespacesAndNewlines),
+       !spoken.isEmpty {
+      return spoken
+    }
     let current = activityName.text.trimmingCharacters(in: .whitespacesAndNewlines)
     if !current.isEmpty {
       return current
@@ -3253,6 +3320,86 @@ enum SiriSpokenKind: String, AppEnum {
   ]
 }
 
+/// フレーズの穴に入れる食品。候補は短く閉じている。自由文は受けない。
+@available(iOS 17.0, *)
+struct SiriListedFood: AppEntity {
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "食品")
+  static var defaultQuery = SiriListedFoodQuery()
+
+  var id: String
+  var spoken: String
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: LocalizedStringResource(stringLiteral: spoken))
+  }
+}
+
+@available(iOS 17.0, *)
+struct SiriListedFoodQuery: EnumerableEntityQuery {
+  func allEntities() async throws -> [SiriListedFood] {
+    Self.entities()
+  }
+
+  func entities(for identifiers: [SiriListedFood.ID]) async throws -> [SiriListedFood] {
+    identifiers.map { SiriListedFood(id: $0, spoken: $0) }
+  }
+
+  func suggestedEntities() async throws -> [SiriListedFood] {
+    Self.entities()
+  }
+
+  private static func entities() -> [SiriListedFood] {
+    SiriVoiceStore.phraseFoodNames().map { SiriListedFood(id: $0, spoken: $0) }
+  }
+}
+
+/// フレーズの穴に入れる運動。候補は短く閉じている。自由文は受けない。
+@available(iOS 17.0, *)
+struct SiriListedExercise: AppEntity {
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "運動")
+  static var defaultQuery = SiriListedExerciseQuery()
+
+  var id: String
+  var spoken: String
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: LocalizedStringResource(stringLiteral: spoken))
+  }
+}
+
+@available(iOS 17.0, *)
+struct SiriListedExerciseQuery: EnumerableEntityQuery {
+  func allEntities() async throws -> [SiriListedExercise] {
+    Self.entities()
+  }
+
+  func entities(for identifiers: [SiriListedExercise.ID]) async throws -> [SiriListedExercise] {
+    identifiers.map { SiriListedExercise(id: $0, spoken: $0) }
+  }
+
+  func suggestedEntities() async throws -> [SiriListedExercise] {
+    Self.entities()
+  }
+
+  private static func entities() -> [SiriListedExercise] {
+    SiriVoiceStore.phraseExerciseNames().map { SiriListedExercise(id: $0, spoken: $0) }
+  }
+}
+
+@available(iOS 17.0, *)
+struct UndoLastSpokenEntryIntent: AppIntent {
+  static var title: LocalizedStringResource = "直前の登録を取り消す"
+  static var description = IntentDescription("直前に登録した食事か運動を1件取り消します。")
+  static var openAppWhenRun = false
+
+  func perform() async throws -> some IntentResult & ProvidesDialog {
+    SiriAnalytics.started(intent: "undo", hasParameter: false)
+    let plan = await SiriVoiceStore.planUtterance(name: "今登録したやつ消して", quantity: "")
+    return .result(dialog: IntentDialog(stringLiteral: plan.spoken))
+  }
+}
+
+/// 質問に答える言い方。パラメータは置かない。アプリ全体でショートカットは10個まで。
 @available(iOS 17.0, *)
 struct CalonaviSiriShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
@@ -3278,11 +3425,45 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
       intent: LogSpokenEntryIntent(),
       phrases: [
         "\(.applicationName)に登録",
+        "\(.applicationName)登録",
         "\(.applicationName)で登録",
         "\(.applicationName)で記録",
       ],
       shortTitle: "食事か運動を登録",
       systemImageName: "mic"
+    )
+    AppShortcut(
+      intent: UndoLastSpokenEntryIntent(),
+      phrases: [
+        "\(.applicationName)で今登録したやつ消して",
+        "\(.applicationName)でさっきの登録を取り消して",
+      ],
+      shortTitle: "直前の登録を取り消す",
+      systemImageName: "arrow.uturn.backward"
+    )
+  }
+}
+
+/// 一覧にある名前だけの一言。候補が変わったら updateAppShortcutParameters で読み直す。
+/// 自由文の量（300グラムなど）はこの穴には入らない。
+@available(iOS 17.0, *)
+struct CalonaviListedShortcuts: AppShortcutsProvider {
+  static var appShortcuts: [AppShortcut] {
+    AppShortcut(
+      intent: LogSpokenFoodIntent(),
+      phrases: [
+        "\(.applicationName)で食事に\(\.$food)",
+      ],
+      shortTitle: "食事に食品名",
+      systemImageName: "fork.knife"
+    )
+    AppShortcut(
+      intent: LogSpokenExerciseIntent(),
+      phrases: [
+        "\(.applicationName)で運動に\(\.$activity)",
+      ],
+      shortTitle: "運動に種目名",
+      systemImageName: "figure.run"
     )
   }
 }

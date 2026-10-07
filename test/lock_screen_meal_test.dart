@@ -683,6 +683,13 @@ void main() {
     expect(meal, findsOneWidget);
     expect(registered, findsOneWidget);
     expect(find.textContaining('食事ですか、運動ですか？'), findsWidgets);
+    expect(find.textContaining('Hey Siri、カロナビ登録'), findsOneWidget);
+    expect(find.textContaining('Hey Siri、カロナビで食事にささみ'), findsOneWidget);
+    expect(find.textContaining('Hey Siri、カロナビで運動にウォーキング'), findsOneWidget);
+    expect(
+      find.textContaining('Hey Siri、カロナビで今登録したやつ消して'),
+      findsOneWidget,
+    );
     expect(
       find.textContaining('「○○を100g登録」のような言い方は、リマインダーに流れることがあるので非推奨。'),
       findsOneWidget,

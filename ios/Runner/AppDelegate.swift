@@ -1,4 +1,5 @@
 import AdServices
+import AppIntents
 import Flutter
 import StoreKit
 import UIKit
@@ -50,6 +51,11 @@ import WidgetKit
       switch call.method {
       case "writeCatalog":
         SiriVoiceStore.writeCatalog(args?["catalog"] as? String ?? "")
+        if #available(iOS 17.0, *) {
+          DispatchQueue.main.async {
+            CalonaviListedShortcuts.updateAppShortcutParameters()
+          }
+        }
         result(nil)
       case "readPending":
         result(SiriVoiceStore.readPendingJSON())

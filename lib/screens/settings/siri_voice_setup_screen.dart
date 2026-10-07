@@ -21,11 +21,19 @@ const String siriSetupSteps =
     'カロナビを開いて、ログインした状態にしておく。ログインしていないと、Siriは登録せず「ログインしてください」と返す。\n'
     '\n'
     'ショートカットの追加は不要\n'
-    '「食事を登録」「運動を登録」「食事か運動を登録」は、アプリを入れた時点で使える。言い方を変えるときだけ、ショートカットアプリで編集する。';
+    '「食事を登録」「運動を登録」「食事か運動を登録」「直前の登録を取り消す」「食事に食品名」「運動に種目名」は、アプリを入れた時点で使える。言い方を変えるときだけ、ショートカットアプリで編集する。';
 
 /// 既存の食事・運動の言い方と並べる。「カロナビに登録」の流れ。
 const String siriSetupRegisterExample =
-    '登録：Hey Siri、カロナビに登録。「食事ですか、運動ですか？」と聞かれたら食事か運動を答え、「何を食べましたか？」または「何をしましたか？」と聞かれたら「ささみ100g」のように答えます。登録した内容を読み上げます。「カロナビで登録」「カロナビで記録」でも同じです。';
+    '登録：Hey Siri、カロナビに登録。または「Hey Siri、カロナビ登録」。「食事ですか、運動ですか？」と聞かれたら食事か運動を答え、「何を食べましたか？」または「何をしましたか？」と聞かれたら「ささみ100g」のように答えます。登録した内容を読み上げます。「カロナビで登録」「カロナビで記録」でも同じです。';
+
+/// 一覧にある名前だけの一言。量は続かない。
+const String siriSetupListedExample =
+    '一覧の食品：Hey Siri、カロナビで食事にささみ。一覧の運動：Hey Siri、カロナビで運動にウォーキング。量は続く質問に答えます。保存した食品とテンプレート名は、アプリを開いたあとに同じ言い方へ加わります。一覧に無いものは「カロナビで食事を記録」か「カロナビで運動を記録」から話します。';
+
+/// 単独で取り消す言い方。アプリ名が要る。
+const String siriSetupUndoExample =
+    '直前の1件：Hey Siri、カロナビで今登録したやつ消して。「カロナビでさっきの登録を取り消して」でも同じです。';
 
 /// 「○○を100g登録」は他アプリに流れることがある。
 const String siriSetupFreeformCaution =
@@ -96,6 +104,16 @@ class SiriVoiceSetupScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
+                  siriSetupListedExample,
+                  style: AppTypography.bodyS,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  siriSetupUndoExample,
+                  style: AppTypography.bodyS,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
                   siriSetupFreeformCaution,
                   style: AppTypography.bodyS.copyWith(
                     color: AppColors.textMuted,
@@ -103,7 +121,7 @@ class SiriVoiceSetupScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'テンプレート名だけでも登録できます。牛ももの焼き200gのように詳しく答えると、その場で登録できます。牛肉のように種類が分かれると、部位を聞くことがあります。候補が分かれるときだけ、登録の前に確認します。食事か運動か決まらないときは、どちらに登録するかを確認します。食品成分表と、ブロックしていない人の公開食品も登録できます。成分表は100gあたりなので、量が無いときは何gかを聞き返します。',
+                  '牛ももの焼き200gのように詳しく答えると、その場で登録できます。牛肉のように種類が分かれると、部位を聞くことがあります。候補が分かれるときだけ、登録の前に確認します。食事か運動か決まらないときは、どちらに登録するかを確認します。食品成分表と、ブロックしていない人の公開食品も登録できます。成分表は100gあたりなので、量が無いときは何gかを聞き返します。',
                   style: AppTypography.bodyS.copyWith(
                     color: AppColors.textMuted,
                   ),
@@ -119,7 +137,7 @@ class SiriVoiceSetupScreen extends StatelessWidget {
                 Text('言い方を変えるとき', style: AppTypography.titleM),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '最初から入っています。言い方を変えるときだけ、ショートカットアプリのカロナビにある「食事を登録」「運動を登録」「食事か運動を登録」を編集します。',
+                  '最初から入っています。言い方を変えるときだけ、ショートカットアプリのカロナビにある「食事を登録」「運動を登録」「食事か運動を登録」「直前の登録を取り消す」「食事に食品名」「運動に種目名」を編集します。',
                   style: AppTypography.bodyS.copyWith(
                     color: AppColors.textMuted,
                   ),

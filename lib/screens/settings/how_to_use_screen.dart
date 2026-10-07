@@ -38,7 +38,7 @@ class HowToUseScreen extends StatelessWidget {
                 const _Section(
                   title: '目標を決める',
                   body:
-                      '設定の「目標設定」で、減量・維持・増量と、目標体重、目標日を保存します。1日のカロリーは自動で計算するか、自分でカロリーと、たんぱく質・脂質・炭水化物を入れます。',
+                      '設定の「プロフィールと目標」にある「目標設定」で、減量・維持・増量と、目標体重、目標日を保存します。1日のカロリーは自動で計算するか、自分でカロリーと、たんぱく質・脂質・炭水化物を入れます。',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 const _Section(

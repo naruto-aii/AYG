@@ -19,11 +19,10 @@ import 'lock_screen_meal_screen.dart';
 import 'operator_contact_screen.dart';
 import 'siri_voice_setup_screen.dart';
 import 'settings_account_screen.dart';
-import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
-import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
 import 'settings_policies_screen.dart';
+import 'settings_profile_screen.dart';
 import 'settings_reference_screen.dart';
 
 /// 設定。
@@ -175,25 +174,17 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(
-            icon: AppIcons.information,
-            title: AppStrings.settingsBasicInfo,
-            subtitle: '名前・年齢・性別・身長・体重',
+            key: const Key('settings-profile'),
+            icon: AppIcons.human,
+            title: 'プロフィールと目標',
+            subtitle: '名前・体格と、目標カロリー',
             onTap: () => _push(
               context,
-              SettingsBasicInfoScreen(
+              SettingsProfileScreen(
                 controller: controller,
-                suggestedDisplayName:
-                    authenticationRepository.currentUser?.suggestedDisplayName,
+                authenticationRepository: authenticationRepository,
               ),
             ),
-          ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            icon: AppIcons.goal,
-            title: AppStrings.settingsGoal,
-            subtitle: '目標体重・目標カロリーなど',
-            onTap: () =>
-                _push(context, SettingsGoalScreen(controller: controller)),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(

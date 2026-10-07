@@ -16,7 +16,10 @@ import 'package:ayg/screens/settings/data_source_screen.dart';
 import 'package:ayg/screens/settings/how_to_use_screen.dart';
 import 'package:ayg/screens/settings/settings_account_screen.dart';
 import 'package:ayg/screens/settings/settings_food_master_screen.dart';
+import 'package:ayg/screens/settings/settings_basic_info_screen.dart';
+import 'package:ayg/screens/settings/settings_goal_screen.dart';
 import 'package:ayg/screens/settings/settings_policies_screen.dart';
+import 'package:ayg/screens/settings/settings_profile_screen.dart';
 import 'package:ayg/screens/settings/settings_reference_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/state/app_controller.dart';
@@ -344,8 +347,7 @@ void main() {
 
     for (final subtitle in const [
       'はじめての操作と、無料との違い',
-      '名前・年齢・性別・身長・体重',
-      '目標体重・目標カロリーなど',
+      '名前・体格と、目標カロリー',
       '運動・歩数・ヘルスケア連携の設定',
       'よく食べる食品の登録・管理',
       'アプリを開かず食事・運動を登録',
@@ -367,6 +369,31 @@ void main() {
           .didExceedMaxLines,
       isFalse,
     );
+
+    await tester.scrollUntilVisible(find.byKey(const Key('settings-profile')), 200);
+    await tester.tap(find.byKey(const Key('settings-profile')));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsProfileScreen), findsOneWidget);
+    for (final text in const [
+      '基本情報',
+      '名前・年齢・性別・身長・体重',
+      '目標設定',
+      '目標体重・目標カロリーなど',
+    ]) {
+      expect(find.text(text), findsOneWidget);
+      expect(
+        tester.renderObject<RenderParagraph>(find.text(text)).didExceedMaxLines,
+        isFalse,
+      );
+    }
+    await tester.tap(find.text('基本情報'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsBasicInfoScreen), findsOneWidget);
+    Navigator.of(tester.element(find.byType(SettingsBasicInfoScreen))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('目標設定'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsGoalScreen), findsOneWidget);
 
     await authRepository.dispose();
   });

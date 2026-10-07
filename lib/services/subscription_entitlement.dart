@@ -33,11 +33,26 @@ class SubscriptionEntitlementState {
     expiryByProduct[record.productId] = expiry;
   }
 
+  /// 同じ商品は最も遅い期限だけを残す。履歴の並びで古い期限が後から来ても、
+  /// 新しい期限を消さない。期限の無い行は採用しない。入力に無い商品は消す。
   void replaceAll(Iterable<SubscriptionEntitlementRecord> records) {
-    expiryByProduct.clear();
+    final best = <String, DateTime>{};
     for (final record in records) {
-      apply(record);
+      if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+        continue;
+      }
+      final expiry = record.expiresAt;
+      if (expiry == null) {
+        continue;
+      }
+      final current = best[record.productId];
+      if (current == null || expiry.isAfter(current)) {
+        best[record.productId] = expiry;
+      }
     }
+    expiryByProduct
+      ..clear()
+      ..addAll(best);
   }
 
   DateTime? get latestExpiry {

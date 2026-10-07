@@ -137,7 +137,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(local),
     );
-    if (pickedTime == null) {
+    if (pickedTime == null || !mounted) {
       return;
     }
     setState(() {

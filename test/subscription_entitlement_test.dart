@@ -68,6 +68,31 @@ void main() {
     expect(state.latestExpiry, isNull);
   });
 
+  test('replaceAll keeps the latest expiry when an older one arrives last', () {
+    final state = SubscriptionEntitlementState();
+    final latest = now.add(const Duration(days: 30));
+    final older = now.add(const Duration(days: 1));
+    state.replaceAll([
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: latest,
+      ),
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: older,
+      ),
+      const SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: null,
+      ),
+    ]);
+    expect(
+      state.expiryByProduct[SubscriptionCatalog.monthlyProductId],
+      latest,
+    );
+    expect(state.isActive(now), isTrue);
+  });
+
   test('replaceAll drops products the store no longer returns', () {
     final state = SubscriptionEntitlementState({
       SubscriptionCatalog.monthlyProductId: now.add(const Duration(days: 10)),

@@ -153,7 +153,7 @@ class _FoodMealRegistrationScreenState
       context: context,
       initialTime: TimeOfDay.fromDateTime(_loggedAt),
     );
-    if (pickedTime == null) {
+    if (pickedTime == null || !mounted) {
       return;
     }
     setState(() {

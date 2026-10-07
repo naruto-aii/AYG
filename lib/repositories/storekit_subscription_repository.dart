@@ -13,6 +13,48 @@ import '../services/subscription_offer.dart';
 import 'subscription_exceptions.dart';
 import 'subscription_repository.dart';
 
+/// 購入API。本番は [InAppPurchase]、テストは偽の実装を渡す。
+abstract class StorePurchaseClient {
+  Future<bool> isAvailable();
+
+  Future<ProductDetailsResponse> queryProductDetails(Set<String> identifiers);
+
+  Future<bool> buyNonConsumable({required PurchaseParam purchaseParam});
+
+  Future<void> completePurchase(PurchaseDetails purchase);
+
+  Future<void> restorePurchases();
+}
+
+class _InAppPurchaseClient implements StorePurchaseClient {
+  _InAppPurchaseClient(this._store);
+
+  final InAppPurchase _store;
+
+  @override
+  Future<bool> isAvailable() => _store.isAvailable();
+
+  @override
+  Future<ProductDetailsResponse> queryProductDetails(
+    Set<String> identifiers,
+  ) {
+    return _store.queryProductDetails(identifiers);
+  }
+
+  @override
+  Future<bool> buyNonConsumable({required PurchaseParam purchaseParam}) {
+    return _store.buyNonConsumable(purchaseParam: purchaseParam);
+  }
+
+  @override
+  Future<void> completePurchase(PurchaseDetails purchase) {
+    return _store.completePurchase(purchase);
+  }
+
+  @override
+  Future<void> restorePurchases() => _store.restorePurchases();
+}
+
 class EntitlementLoad {
   const EntitlementLoad({required this.records, required this.authoritative});
 
@@ -26,6 +68,7 @@ class EntitlementLoad {
 class StoreKitSubscriptionRepository extends SubscriptionRepository {
   StoreKitSubscriptionRepository({
     InAppPurchase? store,
+    StorePurchaseClient? purchaseClient,
     SharedPreferences? preferences,
     Stream<List<PurchaseDetails>>? purchaseUpdates,
     Future<EntitlementLoad> Function()? loadEntitlements,
@@ -33,6 +76,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     this.developmentPlusPreview = false,
     this.testPurchaseEnabled = false,
   }) : _store = store,
+       _purchaseClient = purchaseClient,
        _preferences = preferences,
        _purchaseUpdates = purchaseUpdates,
        _loadEntitlements = loadEntitlements,
@@ -49,7 +93,10 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   static final testPurchaseExpiry = DateTime.utc(2099, 1, 1);
 
   final InAppPurchase? _store;
+  final StorePurchaseClient? _purchaseClient;
   final SharedPreferences? _preferences;
+
+  static const _purchaseResultTimeout = Duration(minutes: 2);
   final Stream<List<PurchaseDetails>>? _purchaseUpdates;
   final Future<EntitlementLoad> Function()? _loadEntitlements;
   final DateTime Function() _clock;
@@ -80,6 +127,8 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   bool _suppressAuthoritativeSweep = false;
   String? _applicationUserName;
   String? _originalTransactionId;
+  Completer<PurchaseStatus>? _purchaseWaiter;
+  String? _purchaseWaitProductId;
 
   @override
   bool get reportsEntitlementAnalytics => true;
@@ -201,14 +250,19 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     return (_store ?? InAppPurchase.instance).purchaseStream;
   }
 
-  InAppPurchase? get _purchases {
-    if (_store != null) {
-      return _store;
+  StorePurchaseClient? get _purchases {
+    final client = _purchaseClient;
+    if (client != null) {
+      return client;
+    }
+    final store = _store;
+    if (store != null) {
+      return _InAppPurchaseClient(store);
     }
     if (_purchaseUpdates != null) {
       return null;
     }
-    return InAppPurchase.instance;
+    return _InAppPurchaseClient(InAppPurchase.instance);
   }
 
   @override
@@ -216,7 +270,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     if (testPurchaseEnabled) {
       return SubscriptionOfferings.failed;
     }
-    final store = _purchases ?? InAppPurchase.instance;
+    final store = _purchases ?? _InAppPurchaseClient(InAppPurchase.instance);
     try {
       final available = await store.isAvailable();
       if (!available) {
@@ -250,7 +304,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   @override
   Future<void> restore() async {
-    final store = _purchases ?? InAppPurchase.instance;
+    final store = _purchases ?? _InAppPurchaseClient(InAppPurchase.instance);
     await store.restorePurchases();
     await _refreshEntitlement();
   }
@@ -316,7 +370,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   }
 
   Future<void> _buy(String productId) async {
-    final store = _purchases ?? InAppPurchase.instance;
+    final store = _purchases ?? _InAppPurchaseClient(InAppPurchase.instance);
     final available = await store.isAvailable();
     if (!available) {
       throw SubscriptionPurchaseUnavailableException();
@@ -337,14 +391,33 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         '購入商品が見つかりません。App Store Connect で商品を作成してください。',
       );
     }
-    final launched = await store.buyNonConsumable(
-      purchaseParam: Sk2PurchaseParam(
-        productDetails: product,
-        applicationUserName: _applicationUserName,
-      ),
-    );
-    if (!launched) {
-      throw SubscriptionPurchaseFailedException('購入画面を開けませんでした。');
+    _purchaseSubscription ??= _updates.listen(_onPurchases);
+    if (_purchaseWaiter != null) {
+      throw SubscriptionPurchaseFailedException('別の購入を処理しています。');
+    }
+    final waiter = Completer<PurchaseStatus>();
+    _purchaseWaiter = waiter;
+    _purchaseWaitProductId = productId;
+    try {
+      final launched = await store.buyNonConsumable(
+        purchaseParam: Sk2PurchaseParam(
+          productDetails: product,
+          applicationUserName: _applicationUserName,
+        ),
+      );
+      if (!launched) {
+        throw SubscriptionPurchaseFailedException('購入画面を開けませんでした。');
+      }
+      try {
+        await waiter.future.timeout(_purchaseResultTimeout);
+      } on TimeoutException {
+        throw SubscriptionPurchaseFailedException('購入結果を確認できませんでした。');
+      }
+    } finally {
+      if (identical(_purchaseWaiter, waiter)) {
+        _purchaseWaiter = null;
+        _purchaseWaitProductId = null;
+      }
     }
   }
 
@@ -395,7 +468,67 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         await store.completePurchase(purchase);
       }
     }
-    await _persist();
+    try {
+      await _persist();
+      _completePurchaseWait(purchases);
+    } catch (error, stackTrace) {
+      if (_failPurchaseWait(purchases, error, stackTrace)) {
+        return;
+      }
+      rethrow;
+    }
+  }
+
+  /// 購入シートが閉じたあと、同じ商品の purchased / restored / canceled / error
+  /// （Ask to Buy の pending も含む）が期限の保存まで終わってから [_buy] を返す。
+  void _completePurchaseWait(List<PurchaseDetails> purchases) {
+    final waiter = _purchaseWaiter;
+    if (waiter == null || waiter.isCompleted || !_purchaseMatches(purchases)) {
+      return;
+    }
+    PurchaseStatus? matched;
+    for (final purchase in purchases) {
+      if (purchase.productID != _purchaseWaitProductId) {
+        continue;
+      }
+      switch (purchase.status) {
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+        case PurchaseStatus.canceled:
+        case PurchaseStatus.error:
+        case PurchaseStatus.pending:
+          matched = purchase.status;
+      }
+    }
+    if (matched != null) {
+      waiter.complete(matched);
+    }
+  }
+
+  bool _failPurchaseWait(
+    List<PurchaseDetails> purchases,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    final waiter = _purchaseWaiter;
+    if (waiter == null || waiter.isCompleted || !_purchaseMatches(purchases)) {
+      return false;
+    }
+    waiter.completeError(error, stackTrace);
+    return true;
+  }
+
+  bool _purchaseMatches(List<PurchaseDetails> purchases) {
+    final waitingFor = _purchaseWaitProductId;
+    if (waitingFor == null) {
+      return false;
+    }
+    for (final purchase in purchases) {
+      if (purchase.productID == waitingFor) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _refreshEntitlement() async {
@@ -470,6 +603,13 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     _productsConfirmed = true;
   }
 
+  /// [SK2Transaction.transactions] は Transaction.all。並びは保証されないので
+  /// [SubscriptionEntitlementState.replaceAll] が商品ごとの最新期限を残す。
+  ///
+  /// Transaction.currentEntitlements は in_app_purchase_storekit 0.4.13 では
+  /// restorePurchases の中だけで使われ、結果は購入ストリームへ流れる。
+  /// 読み取り専用の API は無い。課金猶予（期限は過ぎているが currentEntitlements
+  /// に残る）は、ここで判定しない。
   Future<EntitlementLoad> _loadStoreEntitlements() async {
     if (kIsWeb ||
         (defaultTargetPlatform != TargetPlatform.iOS &&

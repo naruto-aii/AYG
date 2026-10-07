@@ -50,19 +50,21 @@ class AppStrings {
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
   static const settingsAccountDeletionSubtitle = '公開食品は残ります';
-  static const accountDeletionLead = '削除するとログインできなくなります。公開食品は残ります。';
+  static const accountDeletionLead =
+      '削除するとログインできなくなります。個人を特定できる情報は消します。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
-      '食事・運動・体重の記録、非公開の保存済み食品、テンプレート、プロフィール、目標、Health のワークアウト、検索語、画面の操作、カロナビ+の購入状態';
+      '氏名、メールアドレス、ログイン情報、生年月日、メモ、購入の取引番号との対応';
   static const accountDeletionKeeps = '残るもの';
-  static const accountDeletionKeepsBody = '公開食品。氏名やメールアドレスは載せません。';
+  static const accountDeletionKeepsBody =
+      '食事・運動・体重などの記録と操作の記録は、誰のものかわからない形に加工して残します。公開食品も残ります。氏名やメールアドレスは載せません。';
   static const accountDeletionBilling =
       'アカウントを削除しても、ストアの定期購入は止まりません。先に iPhone の「設定」> Apple ID >「サブスクリプション」で解約してください。';
   static const accountDeletionExecute = '削除する';
   static const accountDeletionReadPolicy = 'アカウント削除の説明';
   static const accountDeletionConfirmTitle = 'アカウントを削除しますか';
   static const accountDeletionConfirmBody =
-      '個人の記録を削除します。公開食品は残ります。この操作は取り消せません。';
+      '氏名・メールアドレス・ログイン情報など、個人を特定できる情報は削除します。食事・運動・体重などの記録は、誰のものかわからない形に加工して残します。公開食品も残ります。この操作は取り消せません。';
   static const accountDeletionFailed = 'アカウントを削除できませんでした';
   static const accountDeletionUnavailable =
       'いまアカウントを削除できません。時間をおくか、運営へメールしてください。';
@@ -79,7 +81,7 @@ class AppStrings {
   static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
   static const plusBetaAccessTitle = 'β版機能への先行アクセス';
   static const plusBetaAccessBody =
-      'パーソナルコーチ (β) など、β版として先行公開している機能を使えます。';
+      'パーソナルコーチ (β) と音声登録 (β) など、β版として先行公開している機能を使えます。';
   static const coachBetaNotice =
       '残りカロリーに合わせて、主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。';
   static const coachFeatureBody =
@@ -92,7 +94,7 @@ class AppStrings {
   static const plusBenefitWidgetTitle = 'ホーム画面とロック画面からワンタップ記録';
   static const plusBenefitWidgetBody =
       'アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
-  static const plusBenefitSiriTitle = 'Siriに話しかけるだけで記録';
+  static const plusBenefitSiriTitle = '音声登録 (β)';
   static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
@@ -104,9 +106,10 @@ class AppStrings {
   static const plusFallbackMonthlyPrice = '¥580';
   static const plusFallbackHalfYearPrice = '¥2,900';
   static const plusFallbackYearlyPrice = '¥5,400';
-  static const plusAutoRenew = '期限が来る前に解約しないと、同じ期間で自動更新されます。';
+  static const plusAutoRenew =
+      '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
   static const plusCancelHow =
-      '解約は iPhone の「設定」> Apple ID >「サブスクリプション」から行えます。アプリを消しても課金は止まりません。';
+      '管理と解約は、App Store のアカウント設定から行えます。アプリを消しても課金は止まりません。';
   static const plusCurrentExpiryPrefix = '現在の有効期限';
   static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
 

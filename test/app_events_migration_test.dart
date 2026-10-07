@@ -293,6 +293,8 @@ void main() {
       }
       if (body.contains('create or replace function public.delete_own_account')) {
         expect(body, contains('kpi.excluded_user_ids'), reason: file.path);
+        expect(body, contains('delete_own_account: auth deletion failed'), reason: file.path);
+        expect(body, isNot(contains('skipped auth.users update')), reason: file.path);
       }
     }
   });

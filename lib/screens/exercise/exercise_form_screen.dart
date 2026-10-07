@@ -507,7 +507,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(local),
     );
-    if (pickedTime == null) {
+    if (pickedTime == null || !mounted) {
       return;
     }
     setState(() {

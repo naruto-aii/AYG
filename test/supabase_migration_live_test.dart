@@ -66,6 +66,7 @@ void main() {
     test('workout_templates migration applies with RLS and grants', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available');
+        return;
       }
 
       await _applyMigration('20260728120000_add_workout_templates_v1.sql');
@@ -119,6 +120,7 @@ void main() {
       () async {
         if (!available) {
           markTestSkipped('Local Supabase not available');
+          return;
         }
 
         await _applyMigration(

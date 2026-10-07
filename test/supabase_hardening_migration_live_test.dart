@@ -105,6 +105,7 @@ void main() {
     test('grants and policies after full db reset', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available');
+        return;
       }
 
       // anon: no TRUNCATE/REFERENCES/TRIGGER on any public table
@@ -214,6 +215,7 @@ void main() {
     test('anon can read public saved_foods; authenticated CRUD own row', () async {
       if (!available) {
         markTestSkipped('Local Supabase not available');
+        return;
       }
 
       const ownerId = '11111111-1111-1111-1111-111111111111';
@@ -265,6 +267,7 @@ void main() {
       () async {
         if (!available) {
           markTestSkipped('Local Supabase not available');
+          return;
         }
 
         const ownerId = '22222222-2222-2222-2222-222222222222';

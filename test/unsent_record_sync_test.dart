@@ -297,10 +297,48 @@ void main() {
       {
         'event': 'purchase_success',
         'feature': 'coach',
-        'product_id': 'calonavi_plus_yearly',
+        'product_id': 'yearly',
         'advertising_use': false,
       },
     );
+    expect(
+      plusFunnelInsertRow(
+        event: PlusFunnelEvent.planSelect,
+        productId: SubscriptionCatalog.monthlyProductId,
+      )['product_id'],
+      'monthly',
+    );
+    expect(
+      plusFunnelInsertRow(
+        event: PlusFunnelEvent.purchaseTap,
+        productId: SubscriptionCatalog.halfYearProductId,
+      )['product_id'],
+      'half-year',
+    );
+    expect(
+      plusFunnelInsertRow(
+        event: PlusFunnelEvent.restoreTap,
+        productId: SubscriptionCatalog.yearlyProductId,
+      )['product_id'],
+      'yearly',
+    );
+    expect(
+      plusFunnelInsertRow(
+        event: PlusFunnelEvent.purchaseCancel,
+        productId: 'yearly',
+      )['product_id'],
+      'yearly',
+    );
+    expect(
+      plusFunnelInsertRow(
+        event: PlusFunnelEvent.purchaseFailed,
+        productId: 'monthly',
+      )['product_id'],
+      'monthly',
+    );
+    final planSelect = _sql('20261008100000_plus_funnel_plan_select.sql');
+    expect(planSelect, contains("'plan_select'"));
+    expect(planSelect, isNot(contains('delete_own_account')));
   });
 
   testWidgets('the paid gate records shown and tap', (tester) async {
@@ -378,6 +416,23 @@ void main() {
     expect(funnel.events.single.event, PlusFunnelEvent.paywallOpen);
     expect(funnel.events.single.feature, PlusFunnelFeature.memo);
 
+    await tester.ensureVisible(find.byKey(const Key('plus-plan-monthly')));
+    await tester.tap(find.byKey(const Key('plus-plan-monthly')));
+    await tester.pumpAndSettle();
+    expect(
+      funnel.events
+          .firstWhere((event) => event.event == PlusFunnelEvent.planSelect)
+          .productId,
+      'monthly',
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('plus-plan-halfYear')));
+    await tester.tap(find.byKey(const Key('plus-plan-halfYear')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('plus-plan-yearly')));
+    await tester.tap(find.byKey(const Key('plus-plan-yearly')));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('plus-purchase')));
     await tester.pumpAndSettle();
     expect(
@@ -391,7 +446,7 @@ void main() {
       funnel.events
           .firstWhere((event) => event.event == PlusFunnelEvent.purchaseTap)
           .productId,
-      'calonavi_plus_yearly',
+      'yearly',
     );
 
     await tester.pump(const Duration(seconds: 5));
@@ -406,6 +461,12 @@ void main() {
       funnel.events.map((event) => event.event),
       contains(PlusFunnelEvent.restoreTap),
     );
+    expect(
+      funnel.events
+          .lastWhere((event) => event.event == PlusFunnelEvent.restoreTap)
+          .productId,
+      'yearly',
+    );
 
     await tester.tap(find.byKey(const Key('calonavi-plus-close')));
     await tester.pumpAndSettle();
@@ -419,6 +480,12 @@ void main() {
     expect(
       funnel.events.map((event) => event.event),
       contains(PlusFunnelEvent.purchaseFailed),
+    );
+    expect(
+      funnel.events
+          .firstWhere((event) => event.event == PlusFunnelEvent.purchaseFailed)
+          .productId,
+      'yearly',
     );
     expect(find.text('購入できませんでした'), findsOneWidget);
   });
@@ -578,7 +645,10 @@ class _RecordingSync extends MockDataSyncRepository {
   }
 
   @override
-  Future<void> pullRemoteToLocal(String userId) async {
+  Future<void> pullRemoteToLocal(
+    String userId, {
+    Set<String> skipTables = const {},
+  }) async {
     order.add('pull');
     pullRemoteToLocalCalled = true;
     lastUserId = userId;
@@ -647,6 +717,9 @@ class _MemoryFunnel implements PlusFunnelRepository {
   }) async {
     events.add(_FunnelEvent(event, feature, productId));
   }
+
+  @override
+  Future<void> flushPending() async {}
 }
 
 class _ScriptedPlus extends SubscriptionRepository {

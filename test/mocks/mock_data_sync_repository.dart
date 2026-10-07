@@ -60,7 +60,10 @@ class MockDataSyncRepository implements DataSyncRepository {
   }
 
   @override
-  Future<void> pullRemoteToLocal(String userId) async {
+  Future<void> pullRemoteToLocal(
+    String userId, {
+    Set<String> skipTables = const {},
+  }) async {
     pullRemoteToLocalCalled = true;
     lastUserId = userId;
     if (failPull) {

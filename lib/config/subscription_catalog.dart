@@ -59,4 +59,35 @@ class SubscriptionCatalog {
       PlusPlan.yearly => yearlyProductId,
     };
   }
+
+  /// KPI を月額・半年・年額で分けるときの product_id。
+  static const planMonthly = 'monthly';
+  static const planHalfYear = 'half-year';
+  static const planYearly = 'yearly';
+
+  static String planKeyFor(PlusPlan plan) {
+    return switch (plan) {
+      PlusPlan.monthly => planMonthly,
+      PlusPlan.halfYear => planHalfYear,
+      PlusPlan.yearly => planYearly,
+    };
+  }
+
+  /// ストアの商品IDも、すでにプランキーなら、そのキーに揃える。
+  static String? planKeyForProduct(String? productId) {
+    switch (productId) {
+      case planMonthly:
+      case monthlyProductId:
+        return planMonthly;
+      case planHalfYear:
+      case 'half_year':
+      case halfYearProductId:
+        return planHalfYear;
+      case planYearly:
+      case yearlyProductId:
+        return planYearly;
+      default:
+        return null;
+    }
+  }
 }

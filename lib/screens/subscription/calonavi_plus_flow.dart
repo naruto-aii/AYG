@@ -122,7 +122,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   void dispose() {
     Analytics.emit('paywall_close', {
       'dwell_ms': DateTime.now().difference(_openedAt).inMilliseconds,
-      'last_selected_product_id': SubscriptionCatalog.productIdFor(_selected),
+      'last_selected_product_id': SubscriptionCatalog.planKeyFor(_selected),
       'purchased': _purchased,
     });
     super.dispose();
@@ -134,34 +134,26 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       null => 'other',
       _ => widget.feature!.storageValue,
     };
+    final planId = SubscriptionCatalog.planKeyForProduct(productId);
     switch (event) {
       case PlusFunnelEvent.paywallOpen:
         Analytics.emit('paywall_open', {
           'entry_point': widget.feature == null ? 'settings' : 'gate_$featureName',
           'products_loaded': !_loadingPrices && _offerings != null,
         });
+      case PlusFunnelEvent.planSelect:
+        Analytics.emit('plan_select', {'product_id': planId});
       case PlusFunnelEvent.purchaseTap:
         Analytics.emit('purchase_tap', {
-          'product_id': productId,
+          'product_id': planId,
           'entry_point': widget.feature == null ? 'settings' : 'gate_$featureName',
         });
       case PlusFunnelEvent.purchaseSuccess:
-        Analytics.emit('purchase_result', {
-          'product_id': productId,
-          'status': 'purchased',
-        });
       case PlusFunnelEvent.purchaseCancel:
-        Analytics.emit('purchase_result', {
-          'product_id': productId,
-          'status': 'cancelled',
-        });
       case PlusFunnelEvent.purchaseFailed:
-        Analytics.emit('purchase_result', {
-          'product_id': productId,
-          'status': 'failed',
-        });
+        break;
       case PlusFunnelEvent.restoreTap:
-        Analytics.emit('restore_tap');
+        Analytics.emit('restore_tap', {'product_id': planId});
       case PlusFunnelEvent.gateShown:
       case PlusFunnelEvent.gateTap:
         break;
@@ -175,7 +167,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         await funnel.record(
           event: event,
           feature: widget.feature,
-          productId: productId,
+          productId: planId ?? productId,
         );
       } catch (error, stackTrace) {
         debugPrint('[AYG] plus funnel record failed: $error');
@@ -312,7 +304,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
 
   Future<void> _confirm() async {
     final plan = _selected;
-    final productId = SubscriptionCatalog.productIdFor(plan);
+    final productId = SubscriptionCatalog.planKeyFor(plan);
     _record(PlusFunnelEvent.purchaseTap, productId: productId);
     await _purchase(
       () => widget.repository.purchasePlan(plan),
@@ -347,7 +339,10 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   }
 
   Future<void> _restore() async {
-    _record(PlusFunnelEvent.restoreTap);
+    _record(
+      PlusFunnelEvent.restoreTap,
+      productId: SubscriptionCatalog.planKeyFor(_selected),
+    );
     await _guarded(() async {
       await widget.repository.restore();
       if (!mounted) {
@@ -537,9 +532,10 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
                     ? null
                     : () {
                         setState(() => _selected = plans[i].plan);
-                        Analytics.emit('plan_select', {
-                          'product_id': SubscriptionCatalog.productIdFor(plans[i].plan),
-                        });
+                        _record(
+                          PlusFunnelEvent.planSelect,
+                          productId: SubscriptionCatalog.planKeyFor(plans[i].plan),
+                        );
                       },
               ),
             ],

@@ -44,7 +44,17 @@ class SettingsAccountScreen extends StatelessWidget {
             title: AppStrings.settingsLogout,
             subtitle: '別のアカウントで使うとき',
             danger: true,
-            onTap: () => controller.logout(),
+            onTap: () async {
+              final left = await controller.logout();
+              if (!left && context.mounted) {
+                final message = controller.sessionBlockMessage;
+                if (message != null) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(message)));
+                }
+              }
+            },
           ),
           const SizedBox(height: 8),
           SettingsRow(

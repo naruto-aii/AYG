@@ -65,4 +65,16 @@ class WeightRepository implements WeightRepositoryBase {
       await _isar.weightEntryEntitys.clear();
     });
   }
+
+  Future<void> replaceAll(List<WeightEntry> entries) async {
+    await _isar.writeTxn(() async {
+      await _isar.weightEntryEntitys.clear();
+      if (entries.isEmpty) {
+        return;
+      }
+      await _isar.weightEntryEntitys.putAll(
+        entries.map(EntityMapper.toWeightEntryEntity).toList(),
+      );
+    });
+  }
 }

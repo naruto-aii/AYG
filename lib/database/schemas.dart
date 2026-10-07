@@ -391,3 +391,19 @@ class PendingAnalyticsEvent {
   late DateTime nextAttemptAt;
   late bool quarantined;
 }
+
+/// 検索・画面操作・コーチ・加入・有料案内の送信待ち。
+/// ログアウトでは消さない。別ユーザーの行は送らない。
+@collection
+class PendingUsageRecord {
+  Id id = Isar.autoIncrement;
+
+  @Index(unique: true, replace: true)
+  late String recordId;
+
+  late String kind;
+  String? userId;
+  late String json;
+  late DateTime createdAt;
+  late int attempts;
+}

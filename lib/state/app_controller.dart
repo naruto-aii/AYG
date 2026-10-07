@@ -449,7 +449,20 @@ class AppController extends ChangeNotifier {
 
     try {
       final lastUserId = await _localSessionStore?.loadLastUserId();
-      if (lastUserId != null && lastUserId != authUser.id) {
+      final switching =
+          lastUserId != null &&
+          lastUserId.toLowerCase() != authUser.id.toLowerCase();
+      if (switching) {
+        final delivered = await _pushBeforeWipe(
+          dataSyncRepository,
+          lastUserId,
+        );
+        if (!delivered) {
+          _blockSession(
+            '前のアカウントの未送信の記録を送れなかったため、アカウントの切り替えを中止しました。通信できるときに再度開いてください。',
+          );
+          return;
+        }
         final pendingCount = await _pendingRecords.count();
         _usage('local_data_cleared', {
           'reason': 'user_switch',
@@ -464,10 +477,16 @@ class AppController extends ChangeNotifier {
         email: authUser.email,
       );
 
-      if (force || lastUserId != authUser.id || !_hasInitialSyncCompleted) {
+      if (force || switching || !_hasInitialSyncCompleted) {
         await _migrateLocalOwnerData(toUserId: authUser.id);
-        await _pushUnsentBeforePull(dataSyncRepository, authUser.id);
-        await dataSyncRepository.pullRemoteToLocal(authUser.id);
+        final failed = await _pushUnsentBeforePull(
+          dataSyncRepository,
+          authUser.id,
+        );
+        await dataSyncRepository.pullRemoteToLocal(
+          authUser.id,
+          skipTables: failed,
+        );
         _hasInitialSyncCompleted = true;
         await _localSessionStore?.saveLastUserId(authUser.id);
       }
@@ -512,11 +531,29 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> logout({bool force = false}) async {
+  /// 未送信を送れたとき true。送れないときは消さずに false。
+  Future<bool> logout({bool force = false}) async {
     _usage('logout', {'forced': force});
     if (_isSyncInProgress && !force) {
-      return;
+      sessionBlockMessage = '同期中です。しばらくしてから再度ログアウトしてください。';
+      notifyListeners();
+      return false;
     }
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    if (!force && userId != null && dataSyncRepository != null) {
+      final delivered = await _pushBeforeWipe(dataSyncRepository, userId);
+      if (!delivered) {
+        _blockSession(
+          '未送信の記録を送れなかったため、ログアウトを中止しました。通信できるときに再度お試しください。',
+        );
+        return false;
+      }
+    }
+    await Analytics.service?.flush();
+    await _usageRecordRepository?.flushPending();
+    await _plusFunnelRepository?.flushPending();
+    await _coachProposalLog.flushPending();
     _resetSyncState();
     _clearInMemoryState();
     final pendingCount = await _pendingRecords.count();
@@ -529,7 +566,49 @@ class AppController extends ChangeNotifier {
     await _localSessionStore?.clearLastUserId();
     await _authenticationRepository?.logout();
     await Analytics.service?.setCurrentUser(null);
+    sessionBlockMessage = null;
     notifyListeners();
+    return true;
+  }
+
+  String? sessionBlockMessage;
+
+  void _blockSession(String message) {
+    sessionBlockMessage = message;
+    _lastSyncFailed = true;
+    _hasUnsentRecords = true;
+    _syncFailure = SyncFailure(
+      step: SyncStep.applyRemoteData,
+      errorCode: 'UNSENT_PUSH_FAILED',
+      message: message,
+      userMessage: message,
+      repository: 'AppController',
+      tableName: 'local_cache',
+      operation: 'push',
+    );
+    notifyListeners();
+  }
+
+  /// 消す前に未送信を送る。一部でも失敗したら false。手元は残す。
+  Future<bool> _pushBeforeWipe(
+    DataSyncRepository dataSyncRepository,
+    String userId,
+  ) async {
+    try {
+      await dataSyncRepository.pushLocalToRemote(userId);
+      return true;
+    } on PartialPushException catch (error, stackTrace) {
+      debugPrint('[AYG] push before wipe incomplete: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      for (final failure in error.failures) {
+        await _pendingRecords.markTableDirty(failure.table);
+      }
+      return false;
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] push before wipe failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
   }
 
   void _resetSyncState() {
@@ -540,18 +619,25 @@ class AppController extends ChangeNotifier {
     _syncFailure = null;
   }
 
-  /// 取得で手元の未送信行を消さないよう、先に送る。1表の失敗では取得を止めない。
-  Future<void> _pushUnsentBeforePull(
+  /// 取得で手元の未送信行を消さないよう、先に送る。失敗した表は取得しない。
+  Future<Set<String>> _pushUnsentBeforePull(
     DataSyncRepository dataSyncRepository,
     String userId,
   ) async {
     try {
       await dataSyncRepository.pushLocalToRemote(userId);
-      _hasUnsentRecords = false;
+      _hasUnsentRecords = await _pendingRecords.count() > 0;
+      return const {};
     } on PartialPushException catch (error, stackTrace) {
       _hasUnsentRecords = true;
       debugPrint('[AYG] push before pull incomplete: $error');
       debugPrintStack(stackTrace: stackTrace);
+      final tables = <String>{};
+      for (final failure in error.failures) {
+        tables.add(failure.table);
+        await _pendingRecords.markTableDirty(failure.table);
+      }
+      return tables;
     }
   }
 
@@ -623,25 +709,22 @@ class AppController extends ChangeNotifier {
         Analytics.emit('paywall_open', {
           'entry_point': feature == null ? 'other' : 'gate_$featureName',
         });
+      case PlusFunnelEvent.planSelect:
+        Analytics.emit('plan_select', {
+          'product_id': SubscriptionCatalog.planKeyForProduct(productId),
+        });
       case PlusFunnelEvent.purchaseTap:
-        Analytics.emit('purchase_tap', {'product_id': productId});
+        Analytics.emit('purchase_tap', {
+          'product_id': SubscriptionCatalog.planKeyForProduct(productId),
+        });
       case PlusFunnelEvent.purchaseSuccess:
-        Analytics.emit('purchase_result', {
-          'product_id': productId,
-          'status': 'purchased',
-        });
       case PlusFunnelEvent.purchaseCancel:
-        Analytics.emit('purchase_result', {
-          'product_id': productId,
-          'status': 'cancelled',
-        });
       case PlusFunnelEvent.purchaseFailed:
-        Analytics.emit('purchase_result', {
-          'product_id': productId,
-          'status': 'failed',
-        });
+        break;
       case PlusFunnelEvent.restoreTap:
-        Analytics.emit('restore_tap');
+        Analytics.emit('restore_tap', {
+          'product_id': SubscriptionCatalog.planKeyForProduct(productId),
+        });
       case PlusFunnelEvent.gateShown:
         Analytics.emit('gate_shown', {'feature': featureName});
       case PlusFunnelEvent.gateTap:
@@ -896,7 +979,7 @@ class AppController extends ChangeNotifier {
       await delete();
       return true;
     } catch (_) {
-      await _pendingRecords.markUpsert(kind, id);
+      await _pendingRecords.markDelete(kind, id);
       rethrow;
     }
   }

@@ -91,6 +91,9 @@ abstract class CoachProposalLog {
   Future<void> recordShown(List<CoachProposalRecord> records);
 
   Future<void> markRegistered({required String id});
+
+  /// 送れなかった提案を、セッションがあるうちに再送する。
+  Future<void> flushPending() async {}
 }
 
 class NoOpCoachProposalLog implements CoachProposalLog {
@@ -101,6 +104,9 @@ class NoOpCoachProposalLog implements CoachProposalLog {
 
   @override
   Future<void> markRegistered({required String id}) async {}
+
+  @override
+  Future<void> flushPending() async {}
 }
 
 class MemoryCoachProposalLog implements CoachProposalLog {
@@ -110,6 +116,9 @@ class MemoryCoachProposalLog implements CoachProposalLog {
   Future<void> recordShown(List<CoachProposalRecord> records) async {
     this.records.addAll(records);
   }
+
+  @override
+  Future<void> flushPending() async {}
 
   @override
   Future<void> markRegistered({required String id}) async {
@@ -154,6 +163,9 @@ class SupabaseCoachProposalLog implements CoachProposalLog {
       debugPrintStack(stackTrace: stackTrace);
     }
   }
+
+  @override
+  Future<void> flushPending() async {}
 
   @override
   Future<void> markRegistered({required String id}) async {

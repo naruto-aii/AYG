@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/workout_template.dart';
+import '../postgrest_pages.dart';
 import 'supabase_error_mapper.dart';
 
 class SupabaseWorkoutTemplateRepository {
@@ -11,10 +12,12 @@ class SupabaseWorkoutTemplateRepository {
 
   Future<List<WorkoutTemplate>> pullAllOwn(String userId) async {
     try {
-      final rows = await _client
-          .from('workout_templates')
-          .select()
-          .eq('user_id', userId);
+      final rows = await fetchAllUserRows(
+        _client,
+        table: 'workout_templates',
+        userId: userId,
+        orderBy: const ['updated_at', 'template_id'],
+      );
       return rows.map(_templateFromRow).toList();
     } catch (error) {
       throw SupabaseErrorMapper.map(error, context: 'workout_templates pull');
@@ -25,11 +28,12 @@ class SupabaseWorkoutTemplateRepository {
     String userId,
   ) async {
     try {
-      final rows = await _client
-          .from('workout_template_items')
-          .select()
-          .eq('user_id', userId)
-          .order('sort_order');
+      final rows = await fetchAllUserRows(
+        _client,
+        table: 'workout_template_items',
+        userId: userId,
+        orderBy: const ['template_id', 'sort_order', 'item_id'],
+      );
       final grouped = <String, List<WorkoutTemplateItem>>{};
       for (final row in rows) {
         final item = _itemFromRow(row);

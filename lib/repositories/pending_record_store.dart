@@ -14,6 +14,7 @@ class PendingRecordStore {
   final SharedPreferences? _preferences;
   final Set<String> _upserts = {};
   final Set<String> _deletes = {};
+  final Set<String> _tables = {};
   bool _loaded = false;
 
   Future<void> _ensure() async {
@@ -31,6 +32,7 @@ class PendingRecordStore {
     }
     _upserts.addAll(_strings(decoded['upserts']));
     _deletes.addAll(_strings(decoded['deletes']));
+    _tables.addAll(_strings(decoded['tables']));
   }
 
   Iterable<String> _strings(Object? raw) {
@@ -97,15 +99,39 @@ class PendingRecordStore {
     };
   }
 
+  /// 送信に失敗した表。取り込みで上書きしない。
+  Future<void> markTableDirty(String table) async {
+    await _ensure();
+    _tables.add(table);
+    await _persist();
+  }
+
+  Future<void> acknowledgeTable(String table) async {
+    await _ensure();
+    _tables.remove(table);
+    await _persist();
+  }
+
+  Future<bool> isTableDirty(String table) async {
+    await _ensure();
+    return _tables.contains(table);
+  }
+
+  Future<Set<String>> dirtyTables() async {
+    await _ensure();
+    return Set<String>.from(_tables);
+  }
+
   Future<int> count() async {
     await _ensure();
-    return _upserts.length + _deletes.length;
+    return _upserts.length + _deletes.length + _tables.length;
   }
 
   Future<void> clear() async {
     await _ensure();
     _upserts.clear();
     _deletes.clear();
+    _tables.clear();
     await _persist();
   }
 
@@ -119,6 +145,7 @@ class PendingRecordStore {
       jsonEncode({
         'upserts': _upserts.toList()..sort(),
         'deletes': _deletes.toList()..sort(),
+        'tables': _tables.toList()..sort(),
       }),
     );
   }

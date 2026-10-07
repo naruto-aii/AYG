@@ -36,6 +36,9 @@ abstract class UsageRecordRepository {
     required bool authoritative,
     DateTime? now,
   });
+
+  /// 送れなかった検索・操作・加入を、セッションがあるうちに再送する。
+  Future<void> flushPending() async {}
 }
 
 class NoOpUsageRecordRepository implements UsageRecordRepository {
@@ -71,6 +74,9 @@ class NoOpUsageRecordRepository implements UsageRecordRepository {
     required bool authoritative,
     DateTime? now,
   }) async {}
+
+  @override
+  Future<void> flushPending() async {}
 }
 
 class SupabaseUsageRecordRepository implements UsageRecordRepository {
@@ -90,6 +96,9 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   final Map<String, _PendingSearch> _exercisePending = {};
 
   SupabaseClient get _supabase => _client ?? Supabase.instance.client;
+
+  @override
+  Future<void> flushPending() async {}
 
   @override
   Future<void> recordFoodSearch({

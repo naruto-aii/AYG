@@ -49,4 +49,16 @@ class ExerciseRepository implements ExerciseRepositoryBase {
       await _isar.exerciseEntryEntitys.clear();
     });
   }
+
+  Future<void> replaceAll(List<ExerciseEntry> entries) async {
+    await _isar.writeTxn(() async {
+      await _isar.exerciseEntryEntitys.clear();
+      if (entries.isEmpty) {
+        return;
+      }
+      await _isar.exerciseEntryEntitys.putAll(
+        entries.map(EntityMapper.toExerciseEntryEntity).toList(),
+      );
+    });
+  }
 }

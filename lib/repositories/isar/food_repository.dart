@@ -73,4 +73,27 @@ class FoodRepository implements FoodRepositoryBase {
       await _isar.foodEntryEntitys.clear();
     });
   }
+
+  Future<void> replaceAll(List<FoodEntry> entries) async {
+    await _isar.writeTxn(() async {
+      await _isar.foodEntryEntitys.clear();
+      if (entries.isEmpty) {
+        return;
+      }
+      await _isar.foodEntryEntitys.putAll(
+        entries.map(EntityMapper.toFoodEntryEntity).toList(),
+      );
+    });
+  }
+
+  Future<FoodEntry?> findById(String entryId) async {
+    final entity = await _isar.foodEntryEntitys
+        .filter()
+        .entryIdEqualTo(entryId)
+        .findFirst();
+    if (entity == null || !isReadableStoredFoodEntry(entity)) {
+      return null;
+    }
+    return EntityMapper.fromFoodEntryEntity(entity);
+  }
 }

@@ -187,7 +187,7 @@ abstract final class AnalyticsEventNames {
     'plan_select': {'product_id'},
     'purchase_tap': {'product_id', 'price_display', 'currency', 'entry_point'},
     'purchase_result': {'product_id', 'status', 'error_code', 'is_trial', 'offer_type'},
-    'restore_tap': {},
+    'restore_tap': {'product_id'},
     'restore_result': {'result'},
     'gate_shown': {'feature', 'free_count'},
     'gate_tap': {'feature', 'choice'},

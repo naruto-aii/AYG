@@ -334,6 +334,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     _applyLookup(data);
+    setState(() => _barcodeSectionExpanded = false);
     _showMessage('商品情報を取得しました。数量を確認して保存してください。');
   }
 
@@ -771,13 +772,15 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '手入力は名前と栄養素を自分で入れます。バーコード、食品を探す、テンプレートは、すでにある食品から選びます。食品を探すは、文字が空のとき保存済み食品の一覧です。',
+                '食べたものを記録します。保存済み食品や定番の食品は「食品を探す」から選べます。',
                 style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
               ),
             ],
-            const SizedBox(height: 10),
-            _inputCard(context, quantityLabel),
-            if (!widget.isEditing) ...[
+            if (!_barcodeSectionExpanded) ...[
+              const SizedBox(height: 10),
+              _inputCard(context, quantityLabel),
+            ],
+            if (!widget.isEditing && _barcodeSectionExpanded) ...[
               const SizedBox(height: 10),
               _barcodeCard(),
             ],
@@ -1129,7 +1132,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
           if (_manualInputHighlighted) ...[
             const SizedBox(height: 10),
             Text(
-              '取得できなかった項目があります。上の欄から入力してください。',
+              '取得できなかった項目があります。手入力のタブから入力してください。',
               style: AppTypography.caption.copyWith(color: AppColors.error),
             ),
           ],

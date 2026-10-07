@@ -13,6 +13,7 @@ import 'package:ayg/services/lock_screen_meal_gateway.dart';
 import 'package:ayg/services/share_sheet_client.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -101,6 +102,19 @@ void main() {
       snapshotSavedAt: loggedAt,
       savedFoodId: 'food-rice',
       sourceOwnerUserId: 'user-1',
+    );
+  }
+
+  MealTemplateItem dish(String id, String name) {
+    return MealTemplateItem(
+      itemId: id,
+      name: name,
+      baseAmount: 100,
+      unitType: FoodUnitType.g,
+      kcalPerBase: 100,
+      consumedAmount: 100,
+      sortOrder: 1,
+      snapshotSavedAt: loggedAt,
     );
   }
 
@@ -444,7 +458,7 @@ void main() {
       '{"slot":3,"label":"夜食","kind":"meal"},'
       '{"slot":4,"label":"ジョギング","kind":"exercise","exercises":[{"id":"jog","name":"ジョギング","activityId":"jogging","durationMin":20,"sortOrder":1}]}'
       '],"lock":['
-      '{"slot":0,"label":"朝ごはん","kind":"exercise","exercises":[{"id":"walk","name":"ウォーキング","activityId":"walking","durationMin":10,"sortOrder":1}]},'
+      '{"slot":0,"label":"朝ラン","kind":"exercise","exercises":[{"id":"walk","name":"ウォーキング","activityId":"walking","durationMin":10,"sortOrder":1}]},'
       '{"slot":1,"label":"昼","kind":"meal"},'
       '{"slot":2,"label":"夜","kind":"meal"}'
       ']}',
@@ -454,10 +468,38 @@ void main() {
     expect(decoded.homeAt(4).kind, WidgetPatternKind.exercise);
     expect(decoded.homeAt(4).exercises.single.activityId, 'jogging');
     expect(decoded.lockAt(0).kind, WidgetPatternKind.exercise);
-    expect(decoded.lockAt(0).label, '朝ごはん');
+    expect(decoded.lockAt(0).label, '朝ラン');
     expect(decoded.lockAt(0).exercises.single.activityId, 'walking');
     expect(decoded.lockAt(1).kind, WidgetPatternKind.meal);
     expect(decoded.lockAt(2).kind, WidgetPatternKind.meal);
+  });
+
+  test('a saved meal slot does not keep an exercise name', () {
+    final decoded = LockScreenMealCodec.decodeConfig(
+      '{"version":3,"home":['
+      '{"slot":0,"label":"夜食","kind":"meal"},'
+      '{"slot":1,"label":"昼ごはん","kind":"meal"},'
+      '{"slot":2,"label":"夜ごはん","kind":"meal"},'
+      '{"slot":3,"label":"ウォーキング","kind":"meal"},'
+      '{"slot":4,"label":"ジョギング","kind":"exercise"}'
+      '],"lock":['
+      '{"slot":0,"label":"朝ごはん","kind":"exercise"},'
+      '{"slot":1,"label":"昼","kind":"meal"},'
+      '{"slot":2,"label":"ジョギング","kind":"meal"}'
+      ']}',
+    );
+
+    expect(decoded.homeAt(0).label, '夜食');
+    expect(decoded.homeAt(1).label, '昼ごはん');
+    expect(decoded.homeAt(3).kind, WidgetPatternKind.meal);
+    expect(decoded.homeAt(3).label, isEmpty);
+    expect(decoded.homeAt(4).kind, WidgetPatternKind.exercise);
+    expect(decoded.homeAt(4).label, 'ジョギング');
+    expect(decoded.lockAt(0).kind, WidgetPatternKind.exercise);
+    expect(decoded.lockAt(0).label, isEmpty);
+    expect(decoded.lockAt(1).label, '昼');
+    expect(decoded.lockAt(2).kind, WidgetPatternKind.meal);
+    expect(decoded.lockAt(2).label, isEmpty);
   });
 
   testWidgets('creating a widget explains the paid flow', (tester) async {
@@ -896,7 +938,8 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(find.text('枠1・運動'), findsOneWidget);
-    expect(find.text('枠1 · 運動 · 朝ごはん'), findsOneWidget);
+    expect(find.text('枠1 · 運動 · 文字なし'), findsOneWidget);
+    expect(find.text('枠1 · 運動 · 朝ごはん'), findsNothing);
     await tester.tap(find.byKey(const Key('lock-screen-meal-save')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('閉じる'));
@@ -905,6 +948,9 @@ void main() {
     for (var slot = 0; slot < 5; slot++) {
       expect(gateway.saved?.homeAt(slot).kind, WidgetPatternKind.exercise);
       expect(gateway.saved?.homeAt(slot).items, isEmpty);
+      if (slot < 3) {
+        expect(gateway.saved?.homeAt(slot).label, isEmpty);
+      }
     }
     for (var slot = 0; slot < 3; slot++) {
       expect(gateway.saved?.lockAt(slot).kind, WidgetPatternKind.exercise);
@@ -957,6 +1003,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ご飯'), findsNothing);
     expect(find.text('運動の内容を入れる'), findsWidgets);
+    expect(find.text('枠1 · 運動 · 文字なし'), findsOneWidget);
+    expect(_homeLabel(tester, 0), isEmpty);
     await tester.tap(find.byKey(const Key('lock-screen-meal-save')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('閉じる'));
@@ -966,9 +1014,42 @@ void main() {
     expect(gateway.saved?.homeAt(0).items, isEmpty);
     expect(gateway.saved?.homeAt(0).exercises, isEmpty);
     expect(gateway.saved?.homeAt(0).contentName, isNull);
+    expect(gateway.saved?.homeAt(0).label, isEmpty);
     expect(gateway.saved?.lockAt(0).kind, WidgetPatternKind.exercise);
-    expect(gateway.saved?.lockAt(0).label, '朝ごはん');
+    expect(gateway.saved?.lockAt(0).label, isEmpty);
     expect(gateway.saved?.lockAt(0).items, isEmpty);
+    await auth.dispose();
+  });
+
+  testWidgets('opening settings clears an exercise name left on a meal slot', (
+    tester,
+  ) async {
+    final gateway = _MemoryGateway();
+    gateway.config = LockScreenMealConfig(
+      homeButtons: [
+        for (final button in LockScreenMealConfig.defaults().homeButtons)
+          button.slot == 3
+              ? const LockScreenMealButtonConfig(
+                  slot: 3,
+                  label: 'ウォーキング',
+                  kind: WidgetPatternKind.meal,
+                )
+              : button,
+      ],
+      lockButtons: LockScreenMealConfig.defaults().lockButtons,
+    );
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      lockScreenMealGateway: gateway,
+    );
+    await _openWidgetEditor(tester, controller);
+
+    expect(_homeLabel(tester, 3), isEmpty);
+    expect(find.text('枠4・食事'), findsOneWidget);
+    expect(find.text('ウォーキング'), findsNothing);
     await auth.dispose();
   });
 
@@ -977,6 +1058,46 @@ void main() {
   ) async {
     await _loadZenMaru();
     final gateway = _MemoryGateway();
+    gateway.config = LockScreenMealConfig(
+      homeButtons: [
+        LockScreenMealButtonConfig(
+          slot: 0,
+          label: '朝ごはん',
+          items: [dish('rice', 'ご飯'), dish('miso', 'みそ汁')],
+        ),
+        LockScreenMealButtonConfig(
+          slot: 1,
+          label: '昼ごはん',
+          items: [dish('bento', '弁当')],
+        ),
+        LockScreenMealButtonConfig(
+          slot: 2,
+          label: '夜ごはん',
+          items: [dish('salmon', '鮭'), dish('rice-night', 'ご飯')],
+        ),
+        LockScreenMealButtonConfig(
+          slot: 3,
+          label: '夜食',
+          kind: WidgetPatternKind.meal,
+          items: [dish('yogurt', 'ヨーグルト')],
+        ),
+        const LockScreenMealButtonConfig(
+          slot: 4,
+          label: 'ジョギング',
+          kind: WidgetPatternKind.exercise,
+          exercises: [
+            WidgetExercisePattern(
+              itemId: 'jog',
+              activityId: 'jogging',
+              name: 'ジョギング',
+              sortOrder: 1,
+              distanceKm: 3,
+            ),
+          ],
+        ),
+      ],
+      lockButtons: LockScreenMealConfig.defaults().lockButtons,
+    );
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
     );
@@ -999,27 +1120,29 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final mealOnFourth = find.byKey(const Key('widget-slot-kind-3-meal'));
-    await tester.ensureVisible(mealOnFourth);
-    await tester.tap(mealOnFourth);
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('widget-slot-card-3')));
-    await tester.pumpAndSettle();
     expect(find.text('枠4・食事'), findsOneWidget);
     expect(find.text('枠5・運動'), findsOneWidget);
-    expect(find.text('食事パターン 1'), findsNothing);
+    expect(_homeLabel(tester, 3), '夜食');
+    expect(_homeLabel(tester, 4), 'ジョギング');
+    expect(find.text('ヨーグルト'), findsOneWidget);
+    expect(find.text('ジョギング 3km'), findsOneWidget);
+    expect(find.text('ウォーキング'), findsNothing);
 
-    final directory = Platform.environment['MEAL_SEARCH_SHOTS'];
-    if (directory != null && directory.isNotEmpty) {
-      final bytes = await tester.runAsync(
-        () => pngBytesFromBoundary(key, pixelRatio: 1),
-      );
-      expect(bytes, isNotNull);
-      Directory(directory).createSync(recursive: true);
-      File(
-        '$directory/widget-four-meals-one-exercise.png',
-      ).writeAsBytesSync(bytes!);
-    }
+    await _alignSlotToTop(tester, 0);
+    await _keepLabelAboveFold(tester, 2);
+    expect(tester.getTopLeft(find.text('枠1・食事')).dy, greaterThan(0));
+    expect(find.text('ご飯、みそ汁'), findsOneWidget);
+    expect(find.text('弁当'), findsOneWidget);
+    expect(find.text('夜ごはん'), findsWidgets);
+    expect(find.text('鮭、ご飯'), findsOneWidget);
+    await _saveWidgetShot(tester, key, 'widget-slots-top');
+
+    await _alignSlotToTop(tester, 3);
+    expect(find.text('枠4・食事'), findsOneWidget);
+    expect(find.text('夜食'), findsWidgets);
+    expect(find.text('ヨーグルト'), findsOneWidget);
+    expect(find.text('枠5・運動'), findsOneWidget);
+    await _saveWidgetShot(tester, key, 'widget-slots-bottom');
     await auth.dispose();
   });
 
@@ -1147,6 +1270,62 @@ void main() {
   );
 }
 
+String _homeLabel(WidgetTester tester, int slot) {
+  final finder = find.descendant(
+    of: find.byKey(Key('lock-screen-meal-label-home-$slot')),
+    matching: find.byType(EditableText),
+  );
+  return tester.widget<EditableText>(finder).controller.text;
+}
+
+Future<void> _keepLabelAboveFold(WidgetTester tester, int slot) async {
+  final scrollable = find.descendant(
+    of: find.byType(LockScreenMealScreen),
+    matching: find.byType(SingleChildScrollView),
+  );
+  final label = find.byKey(Key('lock-screen-meal-label-home-$slot'));
+  final overflow =
+      tester.getBottomLeft(label).dy - tester.getBottomLeft(scrollable).dy;
+  if (overflow <= 8) {
+    return;
+  }
+  await tester.drag(scrollable, Offset(0, -(overflow + 8)));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _alignSlotToTop(WidgetTester tester, int slot) async {
+  final scrollable = find.descendant(
+    of: find.byType(LockScreenMealScreen),
+    matching: find.byType(SingleChildScrollView),
+  );
+  final target = find.byKey(Key('widget-slot-card-$slot'));
+  await tester.ensureVisible(target);
+  await tester.pumpAndSettle();
+  final delta = tester.getTopLeft(target).dy - tester.getTopLeft(scrollable).dy;
+  if (delta.abs() < 1) {
+    return;
+  }
+  await tester.drag(scrollable, Offset(0, -delta));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _saveWidgetShot(
+  WidgetTester tester,
+  GlobalKey key,
+  String name,
+) async {
+  final directory = Platform.environment['MEAL_SEARCH_SHOTS'];
+  if (directory == null || directory.isEmpty) {
+    return;
+  }
+  final bytes = await tester.runAsync(
+    () => pngBytesFromBoundary(key, pixelRatio: 1),
+  );
+  expect(bytes, isNotNull);
+  Directory(directory).createSync(recursive: true);
+  File('$directory/$name.png').writeAsBytesSync(bytes!);
+}
+
 Future<void> _openWidgetEditor(
   WidgetTester tester,
   AppController controller,
@@ -1177,6 +1356,7 @@ Future<void> _openWidgetEditor(
 
 ThemeData _widgetShotTheme() {
   final theme = AppTheme.light;
+  final zen = AppTypography.labelM.copyWith(fontFamily: 'ZenMaruGothic');
   return theme.copyWith(
     chipTheme: theme.chipTheme.copyWith(
       labelStyle: theme.chipTheme.labelStyle?.copyWith(
@@ -1184,6 +1364,11 @@ ThemeData _widgetShotTheme() {
       ),
       secondaryLabelStyle: theme.chipTheme.secondaryLabelStyle?.copyWith(
         fontFamily: 'ZenMaruGothic',
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: theme.textButtonTheme.style?.copyWith(
+        textStyle: WidgetStatePropertyAll(zen),
       ),
     ),
   );

@@ -26,6 +26,7 @@ import 'package:ayg/theme/app_colors.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/theme/app_typography.dart';
 import 'package:ayg/widgets/food/combined_food_search.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -234,14 +235,36 @@ void main() {
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('バーコード'), findsOneWidget);
     expect(find.text('テンプレート'), findsOneWidget);
+    expect(
+      find.text('食べたものを記録します。保存済み食品や定番の食品は「食品を探す」から選べます。'),
+      findsOneWidget,
+    );
+    expect(find.text('バーコードから追加'), findsNothing);
+    expect(find.text('カメラで読み取る'), findsNothing);
     expectNoLegacyPublicScreen();
-    await saveShot(tester, shot, 'meal-add-tabs');
+    await saveShot(tester, shot, 'meal-add-top');
 
     await tester.ensureVisible(find.text('食品として保存'));
     await tester.pumpAndSettle();
     expect(find.text('入力内容をテンプレートとして保存'), findsNothing);
     expect(find.text('食品として保存'), findsOneWidget);
-    await saveShot(tester, shot, 'food-form-no-template-save');
+    expect(find.text('バーコードから追加'), findsNothing);
+    await saveShot(tester, shot, 'meal-form-bottom');
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      await tester.ensureVisible(find.text('バーコード'));
+      await tester.tap(find.text('バーコード'));
+      await tester.pumpAndSettle();
+      expect(find.text('バーコードから追加'), findsOneWidget);
+      expect(find.text('カメラで読み取る'), findsOneWidget);
+      expect(find.text('または バーコードの番号を入力'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+    await tester.tap(find.text('手入力'));
+    await tester.pumpAndSettle();
+    expect(find.text('バーコードから追加'), findsNothing);
 
     await openCombinedSearch(tester);
     expectThreeHeadings();
@@ -498,6 +521,10 @@ void main() {
     await tester.tap(find.text('開く'));
     await tester.pumpAndSettle();
 
+    expect(
+      find.text('保存済み・定番の食品・公開食品から探せます。'),
+      findsOneWidget,
+    );
     expect(find.text(CombinedFoodSearch.savedBrowseEmpty), findsNothing);
     expect(find.text(CombinedFoodSearch.officialHeading), findsNothing);
     expect(find.text(CombinedFoodSearch.publicHeading), findsNothing);

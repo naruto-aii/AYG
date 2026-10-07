@@ -98,7 +98,10 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
   void _fill(_ButtonEditors editors, List<LockScreenMealButtonConfig> buttons) {
     for (var slot = 0; slot < buttons.length; slot++) {
       final button = buttons[slot];
-      editors.labels[slot].text = button.label;
+      editors.labels[slot].text = widgetButtonLabelForKind(
+        kind: button.kind,
+        label: button.label,
+      );
       editors.kinds[slot] = button.kind;
       editors.names[slot] = button.contentName;
       editors.items[slot] = [...button.items];
@@ -166,6 +169,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     }
     setState(() {
       _home.kinds[slot] = kind;
+      _home.labels[slot].text = '';
       _home.items[slot] = [];
       _home.exercises[slot] = [];
       _home.names[slot] = null;

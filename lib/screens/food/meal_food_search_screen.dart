@@ -74,8 +74,7 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
         children: [
           const DesignTitleBlock(
             title: '食品を探す',
-            subtitle:
-                '文字が空のときは、保存済み食品を新しい順に出します。文字を入れると、保存済み、定番の食品、公開食品から探します。',
+            subtitle: '保存済み・定番の食品・公開食品から探せます。',
           ),
           DesignSearchField(
             key: const Key('meal-food-search-field'),

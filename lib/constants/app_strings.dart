@@ -74,6 +74,13 @@ class AppStrings {
   static const plusBillingPeriod =
       '月額は1か月、半年は6か月、年額は1年の定期購入です。価格は選んだプランに出る、ストアの税込価格だけを使います。';
   static const plusHeroSubtitle = 'テンプレートの上限をなくし、ウィジェットとSiriで記録をもっと速く。';
+
+  /// 既存の見出しの下に足す。ウィジェットと Siri の文は置き換えない。
+  static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
+  static const plusBetaAccessTitle = 'β版機能への先行アクセス';
+  static const plusBetaAccessBody =
+      '今日のコーチ (β) など、精度を確かめている機能を先に使えます。今日のコーチ (β) は、検証中のいまは無料です。検証が終わると、カロナビ+の機能になります。';
+  static const siriBetaNotice = '音声登録はβ版です。精度を確かめています。カロナビ+で先に使えます。';
   static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
   static const plusBenefitTemplateBody =
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
@@ -82,8 +89,9 @@ class AppStrings {
   static const plusBenefitWidgetTitle = 'ホーム画面とロック画面からワンタップ記録';
   static const plusBenefitWidgetBody =
       '残りカロリーに加え、アプリを開かずに、食事テンプレート3種類と運動テンプレート2件を、いつでもウィジェットから登録できます。';
-  static const plusBenefitSiriTitle = 'Siriに話しかけるだけで記録';
-  static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
+  static const plusBenefitSiriTitle = 'Siri (β) に話しかけるだけで記録';
+  static const plusBenefitSiriBody =
+      '食事も運動も、声で登録できます。精度を確かめているβ版で、カロナビ+から先に使えます。';
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';

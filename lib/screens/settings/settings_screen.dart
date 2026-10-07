@@ -90,7 +90,8 @@ class SettingsScreen extends StatelessWidget {
       final openPlus = await showAppConfirmDialog(
         context: context,
         title: 'こちらは有料の機能です',
-        message: AppStrings.siriVoicePaidGuidance,
+        message:
+            '${AppStrings.siriBetaNotice}\n${AppStrings.siriVoicePaidGuidance}',
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );
@@ -237,8 +238,8 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: _rowGap),
             SettingsRow(
               icon: AppIcons.information,
-              title: '音声登録',
-              subtitle: 'カロナビ+の機能です',
+              title: '音声登録 (β)',
+              subtitle: 'カロナビ+で先に使えます',
               onTap: () => _openVoiceRegistration(context),
             ),
           ],

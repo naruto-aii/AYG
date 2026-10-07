@@ -427,7 +427,7 @@ enum SiriVoiceStore {
 
   private static func blocked() -> Plan? {
     if !LockScreenMealStore.isPaid() {
-      return stop("こちらはカロナビ+の機能です")
+      return stop("音声登録はβ版です。カロナビ+で先に使えます。")
     }
     if ownerUserId().isEmpty {
       return stop("ログインしてください")

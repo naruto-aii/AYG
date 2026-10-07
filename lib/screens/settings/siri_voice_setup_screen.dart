@@ -11,7 +11,7 @@ import '../../widgets/design/design_page.dart';
 
 /// 自分でショートカットは作らない。Siri とログインだけ先に済ます。
 const String siriSetupLead =
-    'ショートカットを自分で作る必要はありません。Siriをオンにして、カロナビにログインした状態で話しかけます。';
+    '音声登録はβ版です。精度を確かめています。ショートカットを自分で作る必要はありません。Siriをオンにして、カロナビにログインした状態で話しかけます。';
 
 const String siriSetupSteps =
     'Siriをオンにする\n'
@@ -65,7 +65,7 @@ class SiriVoiceSetupScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const DesignTitleBlock(title: '音声登録', subtitle: siriSetupLead),
+          const DesignTitleBlock(title: '音声登録 (β)', subtitle: siriSetupLead),
           DesignCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

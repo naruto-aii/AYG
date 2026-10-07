@@ -110,6 +110,7 @@ void main() {
     );
 
     expect(find.text(coachTrialNotice), findsOneWidget);
+    expect(find.text('今日のコーチ (β)'), findsOneWidget);
     final mealBottom = tester.getBottomLeft(find.text(headline)).dy;
     final noteTop = tester
         .getTopLeft(find.byKey(const Key('coach_verification_notice')))
@@ -440,11 +441,11 @@ void main() {
     expect(find.byTooltip('お知らせ'), findsOneWidget);
     expect(find.byKey(const Key('announcement_unread_dot')), findsNothing);
     final remainingTop = tester.getTopLeft(find.text('今日あと')).dy;
-    final coachTop = tester.getTopLeft(find.text('今日のコーチ')).dy;
+    final coachTop = tester.getTopLeft(find.text('今日のコーチ (β)')).dy;
     expect(coachTop, greaterThan(remainingTop));
     expect(tester.widget<DesignButton>(find.byType(DesignButton)).height, 52);
 
-    await tester.tap(find.text('今日のコーチ'));
+    await tester.tap(find.text('今日のコーチ (β)'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsOneWidget);
@@ -457,7 +458,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DailyCoachScreen), findsNothing);
 
-    await tester.tap(find.text('今日のコーチ'));
+    await tester.tap(find.text('今日のコーチ (β)'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();

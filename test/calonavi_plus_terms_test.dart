@@ -34,6 +34,15 @@ void main() {
           .onPressed,
       isNotNull,
     );
+    expect(find.text(AppStrings.plusHeroSubtitle), findsOneWidget);
+    expect(find.text(AppStrings.plusBetaAccessLead), findsOneWidget);
+    expect(find.text(AppStrings.plusBenefitWidgetTitle), findsOneWidget);
+    expect(find.text(AppStrings.plusBenefitWidgetBody), findsOneWidget);
+    expect(find.text(AppStrings.plusBenefitSiriTitle), findsOneWidget);
+    expect(find.text(AppStrings.plusBenefitSiriBody), findsOneWidget);
+    expect(find.text(AppStrings.plusBetaAccessTitle), findsOneWidget);
+    expect(find.text(AppStrings.plusBetaAccessBody), findsOneWidget);
+    expect(find.textContaining('(β)'), findsWidgets);
     expect(find.text(AppStrings.plusBillingPeriod), findsOneWidget);
     expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);
     expect(find.text(AppStrings.plusCancelHow), findsOneWidget);

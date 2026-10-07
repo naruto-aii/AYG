@@ -382,7 +382,7 @@ class HomeScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: DesignButton(
-        label: '今日のコーチ',
+        label: '今日のコーチ (β)',
         height: 52,
         style: DesignButtonStyle.secondary,
         showTrailingIcon: false,

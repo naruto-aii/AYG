@@ -206,8 +206,8 @@ void main() {
       quantity: '30分',
     );
 
-    expect(food.spoken, 'こちらはカロナビ+の機能です');
-    expect(exercise.spoken, 'こちらはカロナビ+の機能です');
+    expect(food.spoken, '音声登録はβ版です。カロナビ+で先に使えます。');
+    expect(exercise.spoken, '音声登録はβ版です。カロナビ+で先に使えます。');
     expect(finish(food, SiriAnswer.yes).registered, isFalse);
     expect(finish(exercise, SiriAnswer.yes).registered, isFalse);
   });

@@ -2439,7 +2439,7 @@ SiriVoicePlan _undoPlan(SiriVoiceContext context) {
 
 SiriVoicePlan? _blocked(SiriVoiceContext context) {
   if (!context.paid) {
-    return _stop(SiriVoiceStatus.unpaid, 'こちらはカロナビ+の機能です');
+    return _stop(SiriVoiceStatus.unpaid, '音声登録はβ版です。カロナビ+で先に使えます。');
   }
   if (context.ownerUserId.trim().isEmpty) {
     return _stop(SiriVoiceStatus.signedOut, 'ログインしてください');

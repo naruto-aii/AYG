@@ -306,7 +306,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
               ),
             ],
           ),
-          const DesignTitleBlock(title: '今日のコーチ', showBack: false),
+          const DesignTitleBlock(title: '今日のコーチ (β)', showBack: false),
           if (result == null)
             Text('提案を作っています', style: AppTypography.bodyS)
           else if (result.status == DailyCoachStatus.nutritionMissing)

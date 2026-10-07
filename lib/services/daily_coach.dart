@@ -8,7 +8,7 @@ import '../services/exercise_calorie_calculator.dart';
 import '../utils/local_date.dart';
 
 /// 初めて開いたときのポップアップと、コーチページの下に出す文。
-const coachTrialNotice = '精度を検証しています。今は無料で使えます。検証が終わると、有料プランの機能になります。';
+const coachTrialNotice = 'β版です。精度を検証しています。今は無料で使えます。検証が終わると、有料プランの機能になります。';
 
 const coachNutritionMissingMessage = '食品の数値が取れませんでした。';
 

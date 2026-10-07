@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -43,13 +44,26 @@ Future<void> _loadFonts() async {
   final icons = FontLoader(
     'packages/material_symbols_icons/MaterialSymbolsRounded',
   );
-  final iconFile = File(
-    '/home/ubuntu/.pub-cache/hosted/pub.dev/material_symbols_icons-4.2960.0/lib/fonts/MaterialSymbolsRounded.ttf',
-  );
+  final iconFile = File(_materialSymbolsFontPath());
   icons.addFont(
     Future<ByteData>.value(ByteData.sublistView(iconFile.readAsBytesSync())),
   );
   await icons.load();
+}
+
+String _materialSymbolsFontPath() {
+  final config = jsonDecode(
+    File('.dart_tool/package_config.json').readAsStringSync(),
+  );
+  final packages = config['packages'] as List<dynamic>;
+  final pkg = packages.cast<Map<String, dynamic>>().firstWhere(
+    (item) => item['name'] == 'material_symbols_icons',
+  );
+  var root = Uri.parse(pkg['rootUri'] as String);
+  if (!root.path.endsWith('/')) {
+    root = root.replace(path: '${root.path}/');
+  }
+  return root.resolve('lib/fonts/MaterialSymbolsRounded.ttf').toFilePath();
 }
 
 void main() {

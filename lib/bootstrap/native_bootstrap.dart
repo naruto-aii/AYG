@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -137,13 +138,27 @@ Future<void> bootstrapApp() async {
   );
 
   final bridge = MethodChannelNativeAnalyticsBridge();
+  var appVersion = '1.0.0';
+  var appBuild = '2';
+  try {
+    final info = await PackageInfo.fromPlatform();
+    if (info.version.isNotEmpty) {
+      appVersion = info.version;
+    }
+    if (info.buildNumber.isNotEmpty) {
+      appBuild = info.buildNumber;
+    }
+  } catch (error, stackTrace) {
+    debugPrint('[AYG] package info unavailable: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
   final analytics = AnalyticsService(
     preferences: preferences,
     queue: AnalyticsQueue(isar: isar),
     transport: SupabaseAnalyticsTransport(),
     bridge: bridge,
-    appVersion: '1.0.0',
-    appBuild: '1',
+    appVersion: appVersion,
+    appBuild: appBuild,
     onUnauthorized: () async {
       if (SupabaseConfig.isConfigured) {
         await Supabase.instance.client.auth.refreshSession();

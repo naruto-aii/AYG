@@ -497,10 +497,7 @@ void main() {
                 foodEntryIds: const ['food-1'],
               ),
           'share_tap': () async {
-            controller.recordScreenAction(
-              screen: UsageScreen.home,
-              action: UsageScreenAction.shareMeal,
-            );
+            CatalogActions.shareTap(card: 'meal', result: 'completed');
           },
           'announcement_read': () async =>
               CatalogActions.announcementRead('list'),

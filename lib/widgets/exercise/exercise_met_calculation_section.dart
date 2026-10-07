@@ -636,8 +636,13 @@ class _ExerciseMetCalculationSectionState
       source: ExerciseSearchSources.catalog,
       query: value,
     );
+    final results = MetActivityCatalog.search(value);
+    widget.controller.noteExerciseSearchResults(
+      source: ExerciseSearchSources.catalog,
+      count: results.length,
+    );
     setState(() {
-      _searchResults = MetActivityCatalog.search(value);
+      _searchResults = results;
     });
   }
 

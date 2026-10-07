@@ -318,7 +318,8 @@ class AnalyticsService {
 
   Future<int> _sendBatch(List<PendingAnalyticsEvent> batch) async {
     for (final row in batch) {
-      if ((row.userId == null || row.userId!.isEmpty) && currentUserId != null) {
+      if ((row.userId == null || row.userId!.isEmpty) &&
+          currentUserId != null) {
         await _queue.assignUser(row, currentUserId!);
       }
     }
@@ -353,7 +354,10 @@ class AnalyticsService {
         ...ready.map((row) => row.eventId),
         ...result.rejectedEventIds,
       ]);
-      await _preferences.setInt(_lastSuccessKey, _clock().toUtc().millisecondsSinceEpoch);
+      await _preferences.setInt(
+        _lastSuccessKey,
+        _clock().toUtc().millisecondsSinceEpoch,
+      );
       return ready.length;
     }
     if (result.unauthorized) {
@@ -375,25 +379,19 @@ class AnalyticsService {
       return 0;
     }
     if (result.tableMissing) {
-      final attempts = ready
-          .map((row) => row.attempts)
-          .fold<int>(0, (a, b) => a > b ? a : b);
-      if (attempts + 1 >= analyticsTableMissingAttemptCap) {
-        for (final row in ready) {
-          await _queue.quarantine(row);
-        }
-      } else {
-        await _queue.markRetry(
-          rows: ready,
-          wait: analyticsTableMissingHold,
-          countAttempt: true,
-          now: _clock(),
-        );
-      }
+      await _queue.markRetry(
+        rows: ready,
+        wait: analyticsTableMissingHold,
+        countAttempt: true,
+        now: _clock(),
+      );
       return -1;
     }
     if (result.dataError) {
       if (ready.length == 1) {
+        debugPrint(
+          '[AYG] analytics dropped invalid event ${ready.single.eventId}',
+        );
         await _queue.quarantine(ready.single);
         return 0;
       }
@@ -402,7 +400,9 @@ class AnalyticsService {
       final second = await _sendBatch(ready.sublist(mid));
       return first + second;
     }
-    final attempts = ready.map((row) => row.attempts).fold<int>(1, (a, b) => a > b ? a : b);
+    final attempts = ready
+        .map((row) => row.attempts)
+        .fold<int>(1, (a, b) => a > b ? a : b);
     await _queue.markRetry(
       rows: ready,
       wait: analyticsBackoff(attempts + 1),
@@ -423,7 +423,10 @@ class AnalyticsService {
         return false;
       }
       final owner = row.userId;
-      if (owner != null && owner.isNotEmpty && currentUserId != null && owner != currentUserId) {
+      if (owner != null &&
+          owner.isNotEmpty &&
+          currentUserId != null &&
+          owner != currentUserId) {
         return false;
       }
       if ((owner == null || owner.isEmpty) && currentUserId == null) {
@@ -452,9 +455,14 @@ class AnalyticsService {
     final pending = rows.where((row) => !row.quarantined).toList();
     final oldest = pending.isEmpty
         ? 0
-        : _clock().toUtc().difference(
-            pending.map((row) => row.createdAt).reduce((a, b) => a.isBefore(b) ? a : b),
-          ).inSeconds;
+        : _clock()
+              .toUtc()
+              .difference(
+                pending
+                    .map((row) => row.createdAt)
+                    .reduce((a, b) => a.isBefore(b) ? a : b),
+              )
+              .inSeconds;
     final lastSuccess = _preferences.getInt(_lastSuccessKey);
     final dropped =
         (_preferences.getInt(_droppedKey) ?? 0) + _queue.droppedOverflow;
@@ -470,7 +478,10 @@ class AnalyticsService {
       'native_dropped_overflow_count': await _bridge.nativeDroppedOverflow(),
       'last_success_at': lastSuccess == null
           ? null
-          : DateTime.fromMillisecondsSinceEpoch(lastSuccess, isUtc: true).toIso8601String(),
+          : DateTime.fromMillisecondsSinceEpoch(
+              lastSuccess,
+              isUtc: true,
+            ).toIso8601String(),
     });
     await _preferences.setString(_healthDayKey, today);
   }

@@ -42,6 +42,7 @@ abstract final class CatalogActions {
     required int resultCount,
     required int queryLength,
     required String itemKind,
+    String? searchQueryId,
   }) {
     Analytics.emit('food_search_result_select', {
       'source': source,
@@ -49,6 +50,7 @@ abstract final class CatalogActions {
       'result_count': resultCount,
       'query_length': queryLength,
       'item_kind': itemKind,
+      'search_query_id': searchQueryId,
     });
   }
 

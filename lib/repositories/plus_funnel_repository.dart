@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/subscription_catalog.dart';
+import 'persistent_event_outbox.dart';
 
 /// 有料案内と購入の記録。売上の集計に使う。広告には使わない。
 enum PlusFunnelEvent {
@@ -71,6 +72,8 @@ class SupabasePlusFunnelRepository implements PlusFunnelRepository {
     SharedPreferences? preferences,
     DateTime Function()? clock,
     String Function()? newId,
+    this.currentUserId,
+    this.insertRow,
   }) : _client = client,
        _preferences = preferences,
        _clock = clock ?? DateTime.now,
@@ -80,7 +83,21 @@ class SupabasePlusFunnelRepository implements PlusFunnelRepository {
   final SharedPreferences? _preferences;
   final DateTime Function() _clock;
   final String Function() _newId;
+  final String? Function()? currentUserId;
+  final Future<void> Function(Map<String, dynamic> row)? insertRow;
   static const _queueKey = 'plus_funnel_outbox';
+
+  String? _userId() {
+    final override = currentUserId;
+    if (override != null) {
+      return override();
+    }
+    try {
+      return _supabase.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
 
   SupabaseClient get _supabase => _client ?? Supabase.instance.client;
 
@@ -90,7 +107,7 @@ class SupabasePlusFunnelRepository implements PlusFunnelRepository {
     PlusFunnelFeature? feature,
     String? productId,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = _userId();
     final row = plusFunnelQueuedRow(
       id: _newId(),
       event: event,
@@ -111,7 +128,7 @@ class SupabasePlusFunnelRepository implements PlusFunnelRepository {
 
   @override
   Future<void> flushPending() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = _userId();
     if (userId == null) {
       return;
     }
@@ -143,21 +160,23 @@ class SupabasePlusFunnelRepository implements PlusFunnelRepository {
       'occurred_at': row['occurred_at'],
       'advertising_use': false,
     };
-    try {
-      await _supabase.from('plus_funnel_events').insert(payload);
-      return true;
-    } on PostgrestException catch (error, stackTrace) {
-      if (error.code == '23505') {
-        return true;
-      }
-      debugPrint('[AYG] plus funnel record failed: ${error.code}');
-      debugPrintStack(stackTrace: stackTrace);
-      return false;
-    } catch (error, stackTrace) {
-      debugPrint('[AYG] plus funnel record failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      return false;
+    final sent = await deliverPersistentRow(
+      table: 'plus_funnel_events',
+      payload: payload,
+      requiredColumns: const {'id', 'user_id', 'event', 'occurred_at'},
+      send: (next) async {
+        final hook = insertRow;
+        if (hook != null) {
+          await hook(next);
+          return;
+        }
+        await _supabase.from('plus_funnel_events').insert(next);
+      },
+    );
+    if (!sent) {
+      debugPrint('[AYG] plus funnel record failed');
     }
+    return sent;
   }
 
   Future<void> _enqueue(Map<String, dynamic> row) async {

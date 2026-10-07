@@ -28,7 +28,10 @@ class SupabaseAnalyticsTransport implements AnalyticsTransport {
       return const AnalyticsSendResult();
     }
     try {
-      final raw = await client.rpc('insert_app_events', params: {'events': rows});
+      final raw = await client.rpc(
+        'insert_app_events',
+        params: {'events': rows},
+      );
       return AnalyticsSendResult.success(
         rejectedEventIds: rejectedEventIdsFromInsert(raw),
       );
@@ -39,7 +42,9 @@ class SupabaseAnalyticsTransport implements AnalyticsTransport {
     } on PostgrestException catch (error, stackTrace) {
       debugPrint('[AYG] analytics rejected: ${error.code}');
       debugPrintStack(stackTrace: stackTrace);
-      return AnalyticsSendResult(statusCode: analyticsStatusForPostgrest(error));
+      return AnalyticsSendResult(
+        statusCode: analyticsStatusForPostgrest(error),
+      );
     } catch (error, stackTrace) {
       debugPrint('[AYG] analytics transport failed: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -63,9 +68,19 @@ int analyticsStatusForPostgrest(PostgrestException error) {
   if (code == 'PGRST204' || code.startsWith('22') || code.startsWith('23')) {
     return 400;
   }
+  if (code.startsWith('PGRST')) {
+    return 400;
+  }
   final http = int.tryParse(code);
   if (http != null) {
     return http;
+  }
+  final message = error.message.toLowerCase();
+  if (message.contains('invalid') ||
+      message.contains('malformed') ||
+      message.contains('check constraint') ||
+      message.contains('violates')) {
+    return 400;
   }
   return 500;
 }

@@ -2,7 +2,7 @@
 /// 表が無いときの再送間隔。同じ flush では繰り返さない。
 const analyticsTableMissingHold = Duration(hours: 12);
 
-/// 表が無い応答をこの回数まで保留し、それ以降は隔離する。
+/// 表が無い応答を数える。隔離はしない。再送は間隔を空けて続ける。
 const analyticsTableMissingAttemptCap = 6;
 
 class AnalyticsSendResult {
@@ -22,12 +22,13 @@ class AnalyticsSendResult {
   /// 集計済みの月としてサーバーが弾いた event_id。キューから捨てる。
   final List<String> rejectedEventIds;
 
-  bool get succeeded => statusCode != null && statusCode! >= 200 && statusCode! < 300;
+  bool get succeeded =>
+      statusCode != null && statusCode! >= 200 && statusCode! < 300;
 
   bool get unauthorized => statusCode == 401;
 
   /// app_events か insert_app_events がまだ無い
-  /// （PGRST202 / PGRST205 / 42P01 / 42883 / 404）。無限に再送しない。
+  /// （PGRST202 / PGRST205 / 42P01 / 42883 / 404）。隔離せず、間隔を空けて再送する。
   bool get tableMissing => statusCode == 404;
 
   /// 通信できない、時間切れ、500 番台、429、401 は残して後で送る。

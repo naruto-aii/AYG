@@ -270,11 +270,59 @@ void main() {
       await analytics.service.flush();
     }
     final done = await analytics.queue.all();
-    expect(done.every((row) => row.quarantined), isTrue);
+    expect(done.every((row) => row.quarantined), isFalse);
     final callsAfterCap = transport.calls;
-    clock.value = clock.value.add(const Duration(days: 30));
+    expect(callsAfterCap, greaterThan(1));
+    clock.value = clock.value.add(analyticsTableMissingHold);
     await analytics.service.flush();
-    expect(transport.calls, callsAfterCap);
+    expect(transport.calls, greaterThan(callsAfterCap));
+  });
+
+  test('a 4xx batch isolates the bad event and keeps the rest', () async {
+    expect(
+      analyticsStatusForPostgrest(
+        const PostgrestException(message: 'bad', code: 'PGRST000'),
+      ),
+      400,
+    );
+    expect(
+      analyticsStatusForPostgrest(
+        const PostgrestException(
+          message: 'new row violates check constraint',
+          code: null,
+        ),
+      ),
+      400,
+    );
+    expect(
+      analyticsStatusForPostgrest(
+        const PostgrestException(message: 'timeout', code: null),
+      ),
+      500,
+    );
+
+    final isarHarness = await setUpIsarHarness();
+    const badId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const goodId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    final transport = _BadRowTransport(badId);
+    final analytics = await AnalyticsHarness.open(
+      isar: isarHarness.isar,
+      transport: transport,
+    );
+    await analytics.service.grantConsent(surface: 'first_launch');
+    await analytics.service.setCurrentUser(
+      '11111111-1111-4111-8111-111111111111',
+    );
+    await analytics.service.track('logout', {'forced': false}, null, goodId);
+    await analytics.service.track('logout', {'forced': true}, null, badId);
+    await analytics.service.settled;
+    await analytics.service.flush();
+
+    expect(transport.delivered.any((row) => row['event_id'] == goodId), isTrue);
+    expect(transport.delivered.any((row) => row['event_id'] == badId), isFalse);
+    final left = await analytics.queue.all();
+    expect(left.map((row) => row.eventId), [badId]);
+    expect(left.single.quarantined, isTrue);
   });
 
   test('events in an aggregated month are dropped and not sent', () async {

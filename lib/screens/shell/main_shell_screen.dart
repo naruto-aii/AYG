@@ -114,7 +114,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
       if (search.kind == 'exercise') {
         Navigator.of(context).push(
           MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'main_shell_screen_MaterialPageRoute_0'),
+            settings: const RouteSettings(
+              name: 'main_shell_screen_MaterialPageRoute_0',
+            ),
             builder: (context) => ExerciseFormScreen(
               controller: widget.controller,
               initialName: search.query,
@@ -202,17 +204,21 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 
   void _selectTab(ShellTab tab) {
+    final previous = _selected.name;
     setState(() => _selected = tab);
     widget.controller.recordScreenAction(
       screen: tab.name,
       action: UsageScreenAction.select,
+      fromTab: previous,
     );
   }
 
   void _openHistoryCalendar() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'main_shell_screen_MaterialPageRoute_1'),
+        settings: const RouteSettings(
+          name: 'main_shell_screen_MaterialPageRoute_1',
+        ),
         builder: (context) => HistoryCalendarScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,

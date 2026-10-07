@@ -3,17 +3,17 @@ import Foundation
 
 /// 食事と運動を登録し、何をどれだけ登録したかを読み上げる。
 ///
-/// 決まった始まりは「Hey Siri、カロナビで」。食事か運動かは言葉から判別する。
+/// ショートカットに登録するのは、アプリ名だけの言い方。
+/// 「Hey Siri、カロナビに登録」「カロナビで登録」「カロナビで記録」
+/// 「カロナビで食事を記録」「カロナビで食事を登録」
+/// 「カロナビで運動を記録」「カロナビで運動を登録」
+/// 食品名と種目は Siri の質問への答え。自由文はフレーズに置かない。
 /// 名寄せの自信が高いときは確認せず登録し、「ささみ100gを登録しました」と読む。
 /// 自信が低いときだけ「でいいですね」と確認してから登録する。
-/// 「さっきの登録を取り消して」で、直前の1件を取り消す。
+/// 答えの「さっきの登録を取り消して」は直前の1件を取り消す。単独のショートカットではない。
 /// どちらとも取れない言葉は、食事か運動かを確認する。
-/// 「Hey Siri、カロナビに登録」では、先に食事か運動かを聞き、そのあと食品か種目を聞く。
+/// 「カロナビに登録」では、先に食事か運動かを聞き、そのあと食品か種目を聞く。
 /// 「カロナビで登録」「カロナビで記録」も同じ。答えた自由文は今までの名寄せへ渡す。
-/// 「Hey Siri、カロナビで、食事にささみを300グラム。」
-/// 「Hey Siri、カロナビで、運動にジョギングを30分。」
-/// 食事だけの言い方と運動だけの言い方も残す。フレーズのパラメータは1つだけ、型は AppEntity。
-/// 食品名と量は、その1つの言葉から今までどおり分ける。
 ///
 /// 確認が必要なときだけ「いいえ」や無言で書かない。自信が高いときは、その場で書く。
 /// 食事と運動のテンプレート名でも登録する。未課金は登録しない。公開食品は扱わない。
@@ -2772,7 +2772,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   static var description = IntentDescription("食品名と量を登録し、何を登録したかを読み上げます。直前の1件は取り消せます。")
   static var openAppWhenRun = false
 
-  /// フレーズに置けるパラメータはこれだけ。食品名と量はこの言葉から分ける。
+  /// フレーズには置かない。自由文は AppEnum でも動的な候補でもない。
   /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
   @Parameter(
     title: "食品",
@@ -2904,7 +2904,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   static var description = IntentDescription("種目と量を登録し、何を登録したかを読み上げます。直前の1件は取り消せます。")
   static var openAppWhenRun = false
 
-  /// フレーズに置けるパラメータはこれだけ。種目と量はこの言葉から分ける。
+  /// フレーズには置かない。自由文は AppEnum でも動的な候補でもない。
   /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
   @Parameter(
     title: "種目",
@@ -3036,7 +3036,7 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   static var description = IntentDescription("話した内容が食事か運動かを判別して登録し、何を登録したかを読み上げます。直前の1件は取り消せます。")
   static var openAppWhenRun = false
 
-  /// フレーズに置けるパラメータはこれだけ。
+  /// フレーズには置かない。自由文は AppEnum でも動的な候補でもない。
   /// 「カロナビに登録」など値の無い言い方では空のまま。種類を聞いてから自由文を聞く。
   @Parameter(title: "内容")
   var utterance: SiriSpokenText
@@ -3261,7 +3261,6 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
       phrases: [
         "\(.applicationName)で食事を記録",
         "\(.applicationName)で食事を登録",
-        "\(.applicationName)で、食事に\(\.$foodName)",
       ],
       shortTitle: "食事を登録",
       systemImageName: "fork.knife"
@@ -3271,7 +3270,6 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
       phrases: [
         "\(.applicationName)で運動を記録",
         "\(.applicationName)で運動を登録",
-        "\(.applicationName)で、運動に\(\.$activityName)",
       ],
       shortTitle: "運動を登録",
       systemImageName: "figure.run"
@@ -3282,7 +3280,6 @@ struct CalonaviSiriShortcuts: AppShortcutsProvider {
         "\(.applicationName)に登録",
         "\(.applicationName)で登録",
         "\(.applicationName)で記録",
-        "\(.applicationName)で \(\.$utterance)",
       ],
       shortTitle: "食事か運動を登録",
       systemImageName: "mic"

@@ -1577,10 +1577,10 @@ enum SiriVoiceStore {
         spoken: foodAmountQuestion(unit),
         asksConfirmation: false,
         asksAmount: true,
-        confident: confident,
         record: food,
         pendingName: speakName,
-        pendingQuantity: quantityText
+        pendingQuantity: quantityText,
+        confident: confident
       )
     }
     guard foodUnitFits(unit, spoken: amount.unit) else {
@@ -1591,11 +1591,11 @@ enum SiriVoiceStore {
     return Plan(
       spoken: confident ? registeredSpeech(label) : "\(label)の食事でいいですね",
       asksConfirmation: !confident,
-      confident: confident,
-      label: label,
       record: record,
       records: [record],
-      intakeKcal: LockScreenMealStore.foodKcal([record])
+      intakeKcal: LockScreenMealStore.foodKcal([record]),
+      confident: confident,
+      label: label
     )
   }
 
@@ -1639,11 +1639,11 @@ enum SiriVoiceStore {
     return Plan(
       spoken: registeredSpeech(label),
       asksConfirmation: false,
-      confident: true,
-      label: label,
       record: record,
       records: [record],
-      burnKcal: burn
+      burnKcal: burn,
+      confident: true,
+      label: label
     )
   }
 
@@ -1665,11 +1665,11 @@ enum SiriVoiceStore {
     return Plan(
       spoken: registeredSpeech(speakName),
       asksConfirmation: false,
-      confident: true,
-      label: speakName,
       record: records[0],
       records: records,
-      intakeKcal: LockScreenMealStore.foodKcal(records)
+      intakeKcal: LockScreenMealStore.foodKcal(records),
+      confident: true,
+      label: speakName
     )
   }
 
@@ -1708,11 +1708,11 @@ enum SiriVoiceStore {
     return Plan(
       spoken: registeredSpeech(speakName),
       asksConfirmation: false,
-      confident: true,
-      label: speakName,
       record: records[0],
       records: records,
-      burnKcal: burn
+      burnKcal: burn,
+      confident: true,
+      label: speakName
     )
   }
 
@@ -1950,15 +1950,15 @@ enum SiriVoiceStore {
       spoken: foodQuestion(axis ?? "kind", group),
       asksConfirmation: false,
       asksNarrow: true,
-      pendingName: name,
-      pendingQuantity: quantityText,
       narrowRound: rounds + 1,
       narrowAnimal: traits.animal,
       narrowCut: traits.cut,
       narrowCook: traits.cook,
       narrowKind: traits.kind,
       narrowQuery: query,
-      narrowFoods: pool
+      narrowFoods: pool,
+      pendingName: name,
+      pendingQuantity: quantityText
     )
   }
 

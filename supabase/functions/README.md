@@ -65,11 +65,11 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 公開前の順番:
 
-1. `20261008090000_app_events.sql` と `20261008090200_app_events_retention.sql` を、必ず同じ作業で適用する。アプリは `public.insert_app_events` で追加する。この関数は 90200 で、主キー `(event_id, occurred_at)` のあと作る。90000 だけだと関数が無く、主キーも `event_id` だけなので、片方だけでは送らない。90200 はこの時点ではまだ自動では消えない。表への直接 INSERT は渡さない。
+1. `20261007094059_app_events.sql` と `20261007094142_app_events_retention.sql` は本番に適用済み。アプリは `public.insert_app_events` で追加する。表への直接 INSERT は渡していない。
 2. `app-store-notifications` を配備し、App Store Connect の通知先（本番とサンドボックス、バージョン 2）を `https://vdzzusqisymtejcjnikb.supabase.co/functions/v1/app-store-notifications` にする。
 3. 上の秘密を入れる。
 4. `store-analytics-setup` を 1 回だけ実行する。そのあと管理者鍵を無効化し、`ASC_ADMIN_KEY_ID` と `ASC_ADMIN_PRIVATE_KEY` を消す。
 5. pg_cron と pg_net を有効にする承認のあと、Vault に `project_url`（`https://vdzzusqisymtejcjnikb.supabase.co`）と `store_import_secret` を入れ、`20261008090100_store_import_schedule.sql` を適用する。
 6. `store-analytics-import` と `store-sales-import` を配備する。
-7. 手順 1 で `20261008090200_app_events_retention.sql` を 90000 と一緒に適用済みなら、ここでは何もしない。まだなら、90000 と 90200 を同じ作業で適用する。片方だけでは出さない。
-8. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。
+7. `20261008090250_app_events_rollup_additive.sql` を適用する。集計済みの月へ遅れた操作が届いても、日次の集計を足し算で残す。これを飛ばして定期実行すると、その月の集計が遅れた分だけで上書きされる。
+8. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 7 のあとで出す。

@@ -1,5 +1,5 @@
--- 20261008090000 で足した行動の記録と App Store 取り込みの表を消す。
--- app_events の行は消える。先に 20261008090200_app_events_retention_down.sql を流す。
+-- 20261007094059 で足した行動の記録と App Store 取り込みの表を消す。
+-- app_events の行は消える。先に 20261007094142_app_events_retention_down.sql を流す。
 -- delete_own_account は、本番に当たっている 20261007090000 の定義に戻す。
 
 begin;
@@ -9,7 +9,7 @@ begin
   if to_regclass('public.store_original_transactions') is not null
      or to_regprocedure('public.insert_app_events(jsonb)') is not null
      or to_regprocedure('public.maintain_app_events()') is not null then
-    raise exception '20261008090200 を先に戻してください';
+    raise exception '20261007094142 を先に戻してください';
   end if;
 end
 $guard$;

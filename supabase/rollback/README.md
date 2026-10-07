@@ -2,15 +2,21 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
-## 20261008090200 app events retention
+## 20261008090250 app events rollup additive
 
-`20261008090000_app_events` と **同じ作業で適用する**。片方だけでは出さない。アプリは `public.insert_app_events` で追加する。関数は、月ごとの主キー `(event_id, occurred_at)` ができてから作る。90000 だけの主キーは `event_id` なので、このファイルの前に送ると失敗する。90200 は削除を始めない。戻すときも、90000 だけ残して 90200 だけ戻さない。戻す SQL は `supabase/rollback/20261008090200_app_events_retention_down.sql`。先にこちらを流し、続けて 90000 の down を流す。
+`maintain_app_events` を、本番の `20261007094142` の定義に戻す。表と行は残す。定期実行 `20261008090300` を戻したあとに流す。戻すと、遅れた操作でその月の集計が上書きされる動きに戻る。
 
-定期実行（90日より古い月の削除）は `20261008090300` で、pg_cron の承認後に別途適用する。
+`supabase/rollback/20261008090250_app_events_rollup_additive_down.sql`
 
-## 20261008090000 app events
+## 20261007094142 app events retention
 
-`20261008090200_app_events_retention` と **同じ作業で適用する**。追加は `insert_app_events` だけ。表への直接 INSERT は渡さない。直接の upsert は conflict 列の SELECT が要り、42501 になるか本人の行が読めてしまう。戻す SQL は `supabase/rollback/20261008090000_app_events_down.sql`。`app_events` の行は消える。`delete_own_account` は、本番に当たっている `20261007090000` の定義に戻す。
+本番には version `20261007094142` で適用済み。`20261007094059_app_events` と **同じ作業で適用した**。片方だけでは戻さない。アプリは `public.insert_app_events` で追加する。戻す SQL は `supabase/rollback/20261007094142_app_events_retention_down.sql`。先にこちらを流し、続けて `20261007094059` の down を流す。`20261008090250` を先に戻しておく。
+
+定期実行（90日より古い月の削除）は `20261008090300` で、加算の修正 `20261008090250` のあと、pg_cron の承認後に別途適用する。
+
+## 20261007094059 app events
+
+本番には version `20261007094059` で適用済み。`20261007094142_app_events_retention` と **同じ作業で適用した**。追加は `insert_app_events` だけ。表への直接 INSERT は渡さない。戻す SQL は `supabase/rollback/20261007094059_app_events_down.sql`。`app_events` の行は消える。`delete_own_account` は、本番に当たっている `20261007090000` の定義に戻す。
 
 ## 20261007074319 record origin
 

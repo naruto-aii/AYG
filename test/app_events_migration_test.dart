@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('app_events migration is append-only and locks the new tables', () {
     final sql = File(
-      'supabase/migrations/20261008090000_app_events.sql',
+      'supabase/migrations/20261007094059_app_events.sql',
     ).readAsStringSync();
     final schedule = File(
       'supabase/migrations/20261008090100_store_import_schedule.sql',
@@ -82,7 +82,7 @@ void main() {
 
   test('purchase links and raw-event retention are append-only', () {
     final sql = File(
-      'supabase/migrations/20261008090200_app_events_retention.sql',
+      'supabase/migrations/20261007094142_app_events_retention.sql',
     ).readAsStringSync();
     final schedule = File(
       'supabase/migrations/20261008090300_app_events_retention_schedule.sql',
@@ -151,21 +151,59 @@ void main() {
     expect(transport, contains("'42883'"));
 
     final retentionDown = File(
-      'supabase/rollback/20261008090200_app_events_retention_down.sql',
+      'supabase/rollback/20261007094142_app_events_retention_down.sql',
     ).readAsStringSync();
     final eventsDown = File(
-      'supabase/rollback/20261008090000_app_events_down.sql',
+      'supabase/rollback/20261007094059_app_events_down.sql',
     ).readAsStringSync();
     expect(retentionDown, contains('drop function if exists public.insert_app_events(jsonb)'));
     expect(retentionDown, contains('drop function if exists public.maintain_app_events()'));
     expect(retentionDown, isNot(contains('drop table if exists public.app_events;')));
     expect(retentionDown, isNot(contains('drop table if exists public.app_events cascade')));
     expect(eventsDown, contains('drop table if exists public.app_events cascade'));
-    expect(eventsDown, contains('20261008090200 を先に戻してください'));
+    expect(eventsDown, contains('20261007094142 を先に戻してください'));
     expect(
       eventsDown,
       contains('create or replace function public.delete_own_account(p_user_id uuid)'),
     );
     expect(eventsDown, isNot(contains('insert into public.account_deletion_stats')));
+  });
+
+  test('late events add to an existing month rollup', () {
+    final sql = File(
+      'supabase/migrations/20261008090250_app_events_rollup_additive.sql',
+    ).readAsStringSync();
+    final down = File(
+      'supabase/rollback/20261008090250_app_events_rollup_additive_down.sql',
+    ).readAsStringSync();
+    final schedule = File(
+      'supabase/migrations/20261008090300_app_events_retention_schedule.sql',
+    ).readAsStringSync();
+
+    expect(sql, contains("set search_path = ''"));
+    expect(
+      sql,
+      contains(
+        'public.app_event_daily_totals.event_count + excluded.event_count',
+      ),
+    );
+    expect(
+      sql,
+      contains(
+        'public.app_event_user_days.event_count + excluded.event_count',
+      ),
+    );
+    expect(
+      sql,
+      isNot(contains('delete from public.app_event_daily_totals\n  where day >=')),
+    );
+    expect(sql, contains('過去 100 日'));
+    expect(sql, contains('revoke all on function public.maintain_app_events()'));
+    expect(down, contains('delete from public.app_event_daily_totals'));
+    expect(down, contains("set search_path = ''"));
+    expect(
+      schedule,
+      contains('20261008090250_app_events_rollup_additive を先に適用してください'),
+    );
   });
 }

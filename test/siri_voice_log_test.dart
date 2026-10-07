@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/models/food_entry_source.dart';
 import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/services/siri_voice_log.dart';
@@ -207,8 +206,8 @@ void main() {
       quantity: '30分',
     );
 
-    expect(food.spoken, AppStrings.siriBetaNotice);
-    expect(exercise.spoken, AppStrings.siriBetaNotice);
+    expect(food.spoken, 'こちらはカロナビ+の機能です');
+    expect(exercise.spoken, 'こちらはカロナビ+の機能です');
     expect(finish(food, SiriAnswer.yes).registered, isFalse);
     expect(finish(exercise, SiriAnswer.yes).registered, isFalse);
   });

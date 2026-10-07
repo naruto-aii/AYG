@@ -41,7 +41,7 @@ class AppStrings {
   static const settingsBasicInfo = '基本情報';
   static const settingsGoal = '目標設定';
   static const settingsHealthActivity = '活動・ヘルスケア';
-  static const settingsFoodMaster = 'マイ食品';
+  static const settingsFoodMaster = '保存済み食品';
   static const settingsAccount = 'アカウント';
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';
@@ -53,7 +53,7 @@ class AppStrings {
   static const accountDeletionLead = '削除するとログインできなくなります。公開食品は残ります。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
-      '食事・運動・体重の記録、非公開の保存食品、テンプレート、プロフィール、目標、Health のワークアウト、検索語、画面の操作、カロナビ+の購入状態';
+      '食事・運動・体重の記録、非公開の保存済み食品、テンプレート、プロフィール、目標、Health のワークアウト、検索語、画面の操作、カロナビ+の購入状態';
   static const accountDeletionKeeps = '残るもの';
   static const accountDeletionKeepsBody = '公開食品。氏名やメールアドレスは載せません。';
   static const accountDeletionBilling =
@@ -80,8 +80,6 @@ class AppStrings {
   static const plusBetaAccessTitle = 'β版機能への先行アクセス';
   static const plusBetaAccessBody =
       'パーソナルコーチ (β) など、β版として先行公開している機能を使えます。';
-  static const siriBetaNotice =
-      '音声登録 (β) は、β版として先行公開している機能です。カロナビ+で使えます。';
   static const coachBetaNotice =
       '残りカロリーに合わせて、主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。';
   static const coachFeatureBody =
@@ -93,8 +91,8 @@ class AppStrings {
   static const plusBenefitNoteBody = '無料ではメモは使えません。カロナビ+なら、食事にも運動にもメモを残せます。';
   static const plusBenefitWidgetTitle = 'ホーム画面とロック画面からワンタップ記録';
   static const plusBenefitWidgetBody =
-      '残りカロリーに加え、アプリを開かずに、食事テンプレート3種類と運動テンプレート2件を、いつでもウィジェットから登録できます。';
-  static const plusBenefitSiriTitle = 'Siri (β) に話しかけるだけで記録';
+      'アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
+  static const plusBenefitSiriTitle = 'Siriに話しかけるだけで記録';
   static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';

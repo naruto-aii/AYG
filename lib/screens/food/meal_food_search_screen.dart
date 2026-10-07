@@ -11,11 +11,16 @@ import '../../widgets/food/combined_food_search.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../official_food/official_food_detail_screen.dart';
 
-/// 食事登録の「探す」。保存済み・食品成分表・公開食品をまとめて探す。
+/// 食事登録の「食品を探す」。保存済み・定番の食品・公開食品をまとめて探す。
 class MealFoodSearchScreen extends StatefulWidget {
-  const MealFoodSearchScreen({super.key, required this.controller});
+  const MealFoodSearchScreen({
+    super.key,
+    required this.controller,
+    this.searchOverrides,
+  });
 
   final AppController controller;
+  final CombinedFoodSearchOverrides? searchOverrides;
 
   @override
   State<MealFoodSearchScreen> createState() => _MealFoodSearchScreenState();
@@ -69,7 +74,7 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
         children: [
           const DesignTitleBlock(
             title: '食品を探す',
-            subtitle: '保存済み、定番の食品、公開食品をまとめて表示します。',
+            subtitle: '保存済み・定番の食品・公開食品から探せます。',
           ),
           DesignSearchField(
             key: const Key('meal-food-search-field'),
@@ -81,9 +86,17 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
             controller: widget.controller,
             query: _queryController,
             handle: _searchHandle,
+            officialFoods: widget.searchOverrides?.officialFoods,
+            searchSaved: widget.searchOverrides?.searchSaved,
+            searchOfficial: widget.searchOverrides?.searchOfficial,
+            searchPublic: widget.searchOverrides?.searchPublic,
+            debounce:
+                widget.searchOverrides?.debounce ??
+                const Duration(milliseconds: 250),
             onSavedFood: _pickSaved,
             onOfficialFood: _pickOfficial,
             onPublicFood: _pickPublic,
+            browseSavedWhenEmpty: true,
           ),
         ],
       ),

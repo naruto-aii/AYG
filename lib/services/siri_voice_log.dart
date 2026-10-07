@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import '../constants/app_strings.dart';
 import '../data/met_activity_catalog.dart';
 import '../models/exercise_calculation_source.dart';
 import '../models/exercise_entry.dart';
@@ -2440,7 +2439,7 @@ SiriVoicePlan _undoPlan(SiriVoiceContext context) {
 
 SiriVoicePlan? _blocked(SiriVoiceContext context) {
   if (!context.paid) {
-    return _stop(SiriVoiceStatus.unpaid, AppStrings.siriBetaNotice);
+    return _stop(SiriVoiceStatus.unpaid, 'こちらはカロナビ+の機能です');
   }
   if (context.ownerUserId.trim().isEmpty) {
     return _stop(SiriVoiceStatus.signedOut, 'ログインしてください');

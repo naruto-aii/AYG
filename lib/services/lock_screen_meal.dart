@@ -594,14 +594,18 @@ abstract final class LockScreenMealCodec {
         if (slot < 0 || slot >= count) {
           continue;
         }
+        final kind = _patternKind(
+          row['kind'],
+          slot: slot,
+          homeSized: count == LockScreenMealConfig.homeSlotCount,
+        );
         bySlot[slot] = LockScreenMealButtonConfig(
           slot: slot,
-          label: _asString(row['label']) ?? '',
-          kind: _patternKind(
-            row['kind'],
-            slot: slot,
-            homeSized: count == LockScreenMealConfig.homeSlotCount,
+          label: widgetButtonLabelForKind(
+            kind: kind,
+            label: _asString(row['label']) ?? '',
           ),
+          kind: kind,
           contentName: _asString(row['name']),
           items: _mealItems(row['items']),
           exercises: _exercisePatterns(row['exercises']),
@@ -825,6 +829,35 @@ abstract final class LockScreenMealCodec {
       loggedAt: loggedAt,
     );
   }
+}
+
+/// 食事の枠に運動の初期名が、運動の枠に食事の初期名が残っていたら空にする。
+///
+/// 自分で付けた名前（夜食など）はそのまま残す。
+String widgetButtonLabelForKind({
+  required WidgetPatternKind kind,
+  required String label,
+}) {
+  final trimmed = label.trim();
+  if (trimmed.isEmpty) {
+    return '';
+  }
+  final otherKind = kind == WidgetPatternKind.meal
+      ? WidgetPatternKind.exercise
+      : WidgetPatternKind.meal;
+  if (_defaultLabelsFor(otherKind).contains(trimmed)) {
+    return '';
+  }
+  return trimmed;
+}
+
+Set<String> _defaultLabelsFor(WidgetPatternKind kind) {
+  return {
+    for (var slot = 0; slot < LockScreenMealConfig.homeSlotCount; slot++)
+      if (LockScreenMealConfig.homeDefaultKinds[slot] == kind)
+        LockScreenMealConfig.homeDefaultLabels[slot],
+    if (kind == WidgetPatternKind.meal) ...LockScreenMealConfig.lockDefaultLabels,
+  };
 }
 
 WidgetPatternKind _patternKind(

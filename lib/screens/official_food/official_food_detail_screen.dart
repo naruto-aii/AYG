@@ -118,7 +118,7 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('マイ食品に保存しました')));
+      ).showSnackBar(const SnackBar(content: Text('保存済み食品に保存しました')));
     } catch (error) {
       _showError('保存に失敗しました: $error');
     } finally {
@@ -212,7 +212,7 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
           ),
           const SizedBox(height: 8),
           DesignButton(
-            label: 'マイ食品に保存',
+            label: '保存済み食品に保存',
             style: DesignButtonStyle.outline,
             showTrailingIcon: false,
             height: 52,

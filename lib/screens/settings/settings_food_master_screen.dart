@@ -37,13 +37,13 @@ class SettingsFoodMasterScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const DesignTitleBlock(
-            title: 'マイ食品',
+            title: '保存済み食品',
             subtitle: '登録した食品とテンプレートをまとめて管理できます。',
           ),
           SettingsRow(
             icon: AppIcons.bookmark,
-            title: '保存食品',
-            subtitle: '自分で登録した食品。公開すると、ほかの人の検索に出ます',
+            title: '保存済み食品',
+            subtitle: '公開すると、ほかの人の検索に出ます',
             onTap: () => _push(
               context,
               SavedFoodListScreen(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/met_activity_catalog.dart';
 import '../../models/exercise_calculation_source.dart';
-import '../../models/exercise_category.dart';
 import '../../models/workout_template.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../services/exercise_weight_resolver.dart';
@@ -64,75 +63,6 @@ Future<void> openWorkoutTemplateCreate(
       builder: (context) => WorkoutTemplateFormScreen(controller: controller),
     ),
   );
-}
-
-Future<void> saveCurrentExerciseAsTemplate({
-  required BuildContext context,
-  required AppController controller,
-  required WorkoutTemplateItem itemDraft,
-}) async {
-  if (!await allowWorkoutTemplateCreate(context, controller)) {
-    return;
-  }
-  if (!context.mounted) {
-    return;
-  }
-  final nameController = TextEditingController();
-  final saved = await showDialog<bool>(
-      routeSettings: const RouteSettings(name: 'exercise_form_template_actions_showDialog_0'),
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('テンプレートとして保存'),
-      content: TextField(
-        controller: nameController,
-        decoration: const InputDecoration(labelText: 'テンプレート名'),
-        autofocus: true,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('キャンセル'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('保存'),
-        ),
-      ],
-    ),
-  );
-
-  if (saved != true || !context.mounted) {
-    nameController.dispose();
-    return;
-  }
-
-  final name = nameController.text.trim();
-  nameController.dispose();
-  if (name.isEmpty) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('テンプレート名を入力してください')));
-    return;
-  }
-
-  try {
-    await controller.saveWorkoutTemplate(
-      draft: WorkoutTemplateDraft(name: name, items: [itemDraft]),
-    );
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('テンプレートを保存しました')));
-  } catch (error) {
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
-  }
 }
 
 class WorkoutTemplateApplyScreen extends StatefulWidget {

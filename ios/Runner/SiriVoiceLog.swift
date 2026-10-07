@@ -429,7 +429,7 @@ enum SiriVoiceStore {
   private static func blocked() -> Plan? {
     if !LockScreenMealStore.isPaid() {
       return stop(
-        "音声登録 (β) は、β版として先行公開している機能です。カロナビ+で使えます。",
+        "こちらはカロナビ+の機能です",
         status: "blocked",
         reason: "unpaid"
       )

@@ -38,6 +38,7 @@ void main() {
     Future<OfficialFoodSearchResult> Function(String query)? searchOfficial,
     Future<List<PublicFoodSearchMatch>> Function(String query)? searchPublic,
     Duration debounce = Duration.zero,
+    bool browseSavedWhenEmpty = false,
   }) async {
     final controller = AppController();
     addTearDown(controller.dispose);
@@ -59,6 +60,7 @@ void main() {
                       searchOfficial ??
                       (_) async => const OfficialFoodSearchResult(),
                   searchPublic: searchPublic ?? (_) async => const [],
+                  browseSavedWhenEmpty: browseSavedWhenEmpty,
                 ),
               ],
             ),
@@ -150,13 +152,42 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('探す'));
+    await tester.tap(find.text('食品を探す'));
     await tester.pumpAndSettle();
 
     expect(find.text('食品を探す'), findsOneWidget);
     expect(find.text('公開食品を選ぶ'), findsNothing);
-    expect(find.text(CombinedFoodSearch.hint), findsOneWidget);
+    expect(find.text('公開食品から追加'), findsNothing);
+    expect(find.text(CombinedFoodSearch.savedBrowseEmpty), findsOneWidget);
+    expect(find.text(CombinedFoodSearch.hint), findsNothing);
     expect(find.byType(DesignSearchField), findsOneWidget);
     expect(find.text('公開食品を検索'), findsNothing);
+  });
+
+  testWidgets('an empty query lists saved foods newest first', (tester) async {
+    final query = TextEditingController();
+    final older = saved('古いおにぎり').copyWith(
+      updatedAt: DateTime(2026, 9, 1),
+    );
+    final newer = saved('新しいおにぎり').copyWith(
+      updatedAt: DateTime(2026, 10, 6),
+    );
+    await pumpSearch(
+      tester,
+      query: query,
+      browseSavedWhenEmpty: true,
+      searchSaved: (_) async => [older, newer],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(CombinedFoodSearch.hint), findsNothing);
+    expect(find.text(CombinedFoodSearch.savedHeading), findsOneWidget);
+    expect(find.text(CombinedFoodSearch.officialHeading), findsNothing);
+    expect(find.text('新しいおにぎり'), findsOneWidget);
+    expect(find.text('古いおにぎり'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('新しいおにぎり')).dy,
+      lessThan(tester.getTopLeft(find.text('古いおにぎり')).dy),
+    );
   });
 }

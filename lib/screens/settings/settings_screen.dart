@@ -92,7 +92,8 @@ class SettingsScreen extends StatelessWidget {
       final openPlus = await showAppConfirmDialog(
         context: context,
         title: 'こちらは有料の機能です',
-        message: 'ウィジェットは、残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。カロナビ+です。',
+        message:
+            'ウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );
@@ -123,7 +124,7 @@ class SettingsScreen extends StatelessWidget {
         context: context,
         title: 'こちらは有料の機能です',
         message:
-            '${AppStrings.siriBetaNotice}\n${AppStrings.siriVoicePaidGuidance}',
+            AppStrings.siriVoicePaidGuidance,
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );
@@ -259,8 +260,8 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.meal,
-            title: 'マイ食品',
-            subtitle: 'よく食べる食品の登録・管理',
+            title: '保存済み食品',
+            subtitle: '保存済み食品の登録・管理',
             onTap: () => _push(
               context,
               SettingsFoodMasterScreen(

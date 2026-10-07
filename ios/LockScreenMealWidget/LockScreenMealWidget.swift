@@ -64,7 +64,7 @@ struct HomeMealWidget: Widget {
       HomeMealWidgetView(entry: entry)
     }
     .configurationDisplayName("カロナビ")
-    .description("残りカロリーに加え、食事3つと運動2つをワンタッチで登録します。")
+    .description("残りカロリーに加え、食事と運動をワンタッチで登録します。枠は食事と運動を自由に組み合わせられます。")
     .supportedFamilies([.systemLarge])
     .contentMarginsDisabled()
   }
@@ -91,7 +91,7 @@ struct LockScreenMealWidget: Widget {
       LockMealWidgetView(entry: entry)
     }
     .configurationDisplayName("カロナビ")
-    .description("残りカロリーに加え、食事3つをワンタッチで登録します。")
+    .description("残りカロリーに加え、ホームの1〜3枠目をワンタッチで登録します。")
     .supportedFamilies([.accessoryRectangular])
     .contentMarginsDisabled()
   }

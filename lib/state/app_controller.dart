@@ -1369,6 +1369,7 @@ class AppController extends ChangeNotifier {
     }
 
     final day = referenceDate ?? DateTime.now();
+    _summaryDay = day;
     summary = _nutritionEngine.calculateDailySummary(
       profile: currentProfile,
       goal: currentGoal,
@@ -4055,11 +4056,15 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  /// [summary] を計算した日。ウィジェットの数字にその日付を付ける。
+  DateTime? _summaryDay;
+
   MealWidgetFigures _mealWidgetFigures() {
     final current = summary;
     if (current == null) {
       return const MealWidgetFigures();
     }
+    final summaryDay = _summaryDay;
     final remaining = current.remainingKcal;
     return MealWidgetFigures(
       remainingKcal: remaining < 0 ? 0 : remaining.round(),
@@ -4069,6 +4074,7 @@ class AppController extends ChangeNotifier {
       overageKcal: current.isCalorieOverage
           ? current.calorieOverageKcal.round()
           : null,
+      day: summaryDay == null ? null : mealWidgetDayKey(summaryDay),
     );
   }
 

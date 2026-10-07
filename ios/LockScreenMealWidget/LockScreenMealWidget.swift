@@ -67,10 +67,11 @@ struct MealWidgetEntry: TimelineEntry {
 }
 
 enum MealWidgetTimeline {
-  static func entry(buttons: [LockScreenMealButton]) -> MealWidgetEntry {
-    let figures = LockScreenMealStore.figures()
+  /// [date] の時点で見せる数字。保存日が [date] の日と違えば今日の初期状態になる。
+  static func entry(buttons: [LockScreenMealButton], at date: Date = Date()) -> MealWidgetEntry {
+    let figures = LockScreenMealStore.figures(now: date)
     return MealWidgetEntry(
-      date: Date(),
+      date: date,
       figures: MealWidgetFigures(
         remaining: figures.remaining,
         intake: figures.intake,
@@ -79,6 +80,16 @@ enum MealWidgetTimeline {
         overage: figures.overage
       ),
       buttons: buttons
+    )
+  }
+
+  /// 今の表示と、次のローカル 0 時の表示。0 時を過ぎたら iOS が次のタイムラインを取りに来る（`.atEnd`）。
+  /// アプリを開かなくても、日付が変わると摂取 0・あと＝目標・リング空に切り替わる。
+  static func timeline(buttons: [LockScreenMealButton], now: Date = Date()) -> Timeline<MealWidgetEntry> {
+    let midnight = MealWidgetDay.nextMidnight(after: now)
+    return Timeline(
+      entries: [entry(buttons: buttons, at: now), entry(buttons: buttons, at: midnight)],
+      policy: .atEnd
     )
   }
 }
@@ -105,8 +116,7 @@ struct HomeMealProvider: TimelineProvider {
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<MealWidgetEntry>) -> Void) {
-    let entry = MealWidgetTimeline.entry(buttons: LockScreenMealStore.homeButtons())
-    completion(Timeline(entries: [entry], policy: .never))
+    completion(MealWidgetTimeline.timeline(buttons: LockScreenMealStore.homeButtons()))
   }
 }
 
@@ -132,8 +142,7 @@ struct LockMealProvider: TimelineProvider {
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<MealWidgetEntry>) -> Void) {
-    let entry = MealWidgetTimeline.entry(buttons: LockScreenMealStore.lockButtons())
-    completion(Timeline(entries: [entry], policy: .never))
+    completion(MealWidgetTimeline.timeline(buttons: LockScreenMealStore.lockButtons()))
   }
 }
 

@@ -2837,6 +2837,10 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "一覧の食品")
   var food: SiriListedFood?
 
+  /// 言い方に食品が無いときに聞く自由文。
+  @Parameter(title: "食べたもの")
+  var foodReply: String?
+
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
   var kind: SiriSpokenKind?
@@ -2869,7 +2873,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       SiriAnalytics.finished(status: "continued", stopReason: "open_app", continued: true)
       return .result(dialog: "アプリで検索します")
     }
-    let spoken = try promptedFoodName()
+    let spoken = try await promptedFoodName()
     var plan = await SiriVoiceStore.planFood(name: spoken, quantity: "")
     var retried = false
     while true {
@@ -2946,7 +2950,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
 
   /// 言い方に食品が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
   /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
-  private func promptedFoodName() throws -> String {
+  private func promptedFoodName() async throws -> String {
     if let spoken = food?.spoken.trimmingCharacters(in: .whitespacesAndNewlines),
        !spoken.isEmpty {
       return spoken
@@ -2955,7 +2959,12 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
     if !current.isEmpty {
       return current
     }
-    throw $foodName.needsValueError(IntentDialog(stringLiteral: "何を食べましたか？"))
+    if let given = foodReply?.trimmingCharacters(in: .whitespacesAndNewlines), !given.isEmpty {
+      return given
+    }
+    // 自由文は文字列のパラメータで受ける。独自の型だと答えが値にならず同じ質問が繰り返される。
+    SiriAnalytics.prompt(kind: "value")
+    return try await $foodReply.requestValue(IntentDialog(stringLiteral: "何を食べましたか？"))
   }
 }
 
@@ -2976,6 +2985,10 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   /// 一覧にある運動だけの一言フレーズ。任意なので、質問に答える言い方では聞かない。
   @Parameter(title: "一覧の運動")
   var activity: SiriListedExercise?
+
+  /// 言い方に種目が無いときに聞く自由文。
+  @Parameter(title: "した運動")
+  var activityReply: String?
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
@@ -3009,7 +3022,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
       SiriAnalytics.finished(status: "continued", stopReason: "open_app", continued: true)
       return .result(dialog: "アプリで検索します")
     }
-    let spoken = try promptedActivityName()
+    let spoken = try await promptedActivityName()
     var plan = await SiriVoiceStore.planExercise(name: spoken, quantity: "")
     var retried = false
     while true {
@@ -3086,7 +3099,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
 
   /// 言い方に種目が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
   /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
-  private func promptedActivityName() throws -> String {
+  private func promptedActivityName() async throws -> String {
     if let spoken = activity?.spoken.trimmingCharacters(in: .whitespacesAndNewlines),
        !spoken.isEmpty {
       return spoken
@@ -3095,7 +3108,12 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
     if !current.isEmpty {
       return current
     }
-    throw $activityName.needsValueError(IntentDialog(stringLiteral: "何をしましたか？"))
+    if let given = activityReply?.trimmingCharacters(in: .whitespacesAndNewlines), !given.isEmpty {
+      return given
+    }
+    // 自由文は文字列のパラメータで受ける。独自の型だと答えが値にならず同じ質問が繰り返される。
+    SiriAnalytics.prompt(kind: "value")
+    return try await $activityReply.requestValue(IntentDialog(stringLiteral: "何をしましたか？"))
   }
 }
 

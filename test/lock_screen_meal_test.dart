@@ -344,6 +344,13 @@ void main() {
       ),
     );
     expect(find.text('ウィジェット'), findsOneWidget);
+    expect(find.text('アプリを開かず食事・運動を登録'), findsOneWidget);
+    expect(
+      tester
+          .renderObject<RenderParagraph>(find.text('アプリを開かず食事・運動を登録'))
+          .didExceedMaxLines,
+      isFalse,
+    );
     expect(find.text('音声登録 (β)'), findsOneWidget);
     expect(find.text('声だけで食事・運動を登録'), findsOneWidget);
     expect(find.text('カロナビ+で使えます'), findsNothing);

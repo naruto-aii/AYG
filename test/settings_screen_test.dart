@@ -2,14 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ayg/config/official_foods_flag.dart';
 import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/screens/legal/legal_document_screen.dart';
+import 'package:ayg/screens/settings/account_deletion_screen.dart';
+import 'package:ayg/screens/settings/calculation_references_screen.dart';
+import 'package:ayg/screens/settings/data_source_screen.dart';
 import 'package:ayg/screens/settings/how_to_use_screen.dart';
+import 'package:ayg/screens/settings/settings_account_screen.dart';
 import 'package:ayg/screens/settings/settings_food_master_screen.dart';
+import 'package:ayg/screens/settings/settings_policies_screen.dart';
+import 'package:ayg/screens/settings/settings_reference_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
@@ -77,8 +85,10 @@ void main() {
     expect(find.text(AppStrings.settingsContactOperator), findsOneWidget);
     expect(find.text('support@ayg.life'), findsOneWidget);
     expect(find.text(AppStrings.settingsSupport), findsNothing);
-    expect(find.text(AppStrings.settingsTokushoho), findsOneWidget);
-    expect(find.text(AppStrings.settingsAccountDeletion), findsOneWidget);
+    expect(find.text('規約とポリシー'), findsOneWidget);
+    expect(find.text('アカウント'), findsOneWidget);
+    expect(find.text(AppStrings.settingsTokushoho), findsNothing);
+    expect(find.text(AppStrings.settingsAccountDeletion), findsNothing);
 
     await tester.scrollUntilVisible(
       find.text(AppStrings.settingsContactOperator),
@@ -218,6 +228,145 @@ void main() {
     }
     expect(find.textContaining('無料は4件まで'), findsNothing);
     expect(find.textContaining('カロナビ+'), findsNothing);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('grouped settings keep the original pages one tap inside', (
+    WidgetTester tester,
+  ) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    );
+    final controller = createController(authRepository: authRepository);
+    OfficialFoodsFlag.debugOverride = true;
+    addTearDown(() => OfficialFoodsFlag.debugOverride = null);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: authRepository,
+          hideHealthSettings: true,
+          showLockScreenMeal: true,
+          supportEmail: 'support@ayg.life',
+        ),
+      ),
+    );
+
+    Future<void> openRow(Key key) async {
+      await tester.scrollUntilVisible(find.byKey(key), 200);
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+    }
+
+    void expectOneLine(String text) {
+      expect(find.text(text), findsOneWidget);
+      expect(
+        tester.renderObject<RenderParagraph>(find.text(text)).didExceedMaxLines,
+        isFalse,
+      );
+    }
+
+    await openRow(const Key('settings-references'));
+    expect(find.byType(SettingsReferenceScreen), findsOneWidget);
+    expectOneLine('計算根拠');
+    expectOneLine('カロリー・栄養素の算出方法について');
+    expectOneLine('データの出典');
+    expectOneLine('100gあたりの数値と表示名');
+    await tester.tap(find.text('計算根拠'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CalculationReferencesScreen), findsOneWidget);
+    expect(find.textContaining('Mifflin'), findsWidgets);
+    Navigator.of(tester.element(find.byType(CalculationReferencesScreen))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('データの出典'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DataSourceScreen), findsOneWidget);
+    Navigator.of(tester.element(find.byType(DataSourceScreen))).pop();
+    await tester.pumpAndSettle();
+    Navigator.of(tester.element(find.byType(SettingsReferenceScreen))).pop();
+    await tester.pumpAndSettle();
+
+    await openRow(const Key('settings-policies'));
+    expect(find.byType(SettingsPoliciesScreen), findsOneWidget);
+    expectOneLine('利用規約');
+    expectOneLine('サービスのご利用条件');
+    expectOneLine('プライバシー');
+    expectOneLine('個人情報の取り扱いについて');
+    expectOneLine(AppStrings.settingsTokushoho);
+    expectOneLine('販売条件・事業者情報');
+    await tester.tap(find.text(AppStrings.settingsTokushoho));
+    await tester.pumpAndSettle();
+    expect(find.byType(LegalDocumentScreen), findsOneWidget);
+    Navigator.of(tester.element(find.byType(LegalDocumentScreen))).pop();
+    await tester.pumpAndSettle();
+    Navigator.of(tester.element(find.byType(SettingsPoliciesScreen))).pop();
+    await tester.pumpAndSettle();
+
+    await openRow(const Key('settings-account'));
+    expect(find.byType(SettingsAccountScreen), findsOneWidget);
+    expectOneLine(AppStrings.settingsLogout);
+    expectOneLine('別のアカウントで使うとき');
+    expectOneLine(AppStrings.settingsAccountDeletion);
+    expectOneLine(AppStrings.settingsAccountDeletionSubtitle);
+    expect(find.text('test@example.com'), findsWidgets);
+    await tester.tap(find.text(AppStrings.settingsAccountDeletion));
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountDeletionScreen), findsOneWidget);
+    expect(find.text(AppStrings.accountDeletionBilling), findsOneWidget);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('settings subtitles stay on one line', (WidgetTester tester) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    );
+    final controller = createController(authRepository: authRepository);
+    final health = MockHealthRepository(isAvailable: false);
+    OfficialFoodsFlag.debugOverride = true;
+    addTearDown(() => OfficialFoodsFlag.debugOverride = null);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: authRepository,
+          healthRepository: health,
+          showLockScreenMeal: true,
+          supportEmail: 'support@ayg.life',
+        ),
+      ),
+    );
+
+    for (final subtitle in const [
+      'はじめての操作と、無料との違い',
+      '名前・年齢・性別・身長・体重',
+      '目標体重・目標カロリーなど',
+      '運動・歩数・ヘルスケア連携の設定',
+      'よく食べる食品の登録・管理',
+      'アプリを開かず食事・運動を登録',
+      '声だけで食事・運動を登録',
+      '算出方法と食品データの出典',
+      '利用規約、プライバシー、特商法',
+      'ログアウトとアカウント削除',
+    ]) {
+      expect(find.text(subtitle), findsOneWidget);
+      expect(
+        tester.renderObject<RenderParagraph>(find.text(subtitle)).didExceedMaxLines,
+        isFalse,
+      );
+    }
+    expect(find.text('support@ayg.life'), findsOneWidget);
+    expect(
+      tester
+          .renderObject<RenderParagraph>(find.text('support@ayg.life'))
+          .didExceedMaxLines,
+      isFalse,
+    );
 
     await authRepository.dispose();
   });

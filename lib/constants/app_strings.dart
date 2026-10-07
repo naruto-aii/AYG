@@ -49,7 +49,7 @@ class AppStrings {
   static const settingsSupport = 'サポート';
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
-  static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で確認できます';
+  static const settingsAccountDeletionSubtitle = '公開食品は残ります';
   static const accountDeletionLead = '削除するとログインできなくなります。公開食品は残ります。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
@@ -133,7 +133,7 @@ class AppStrings {
   static const healthResync = 'Healthから再取得';
   static const healthUsingActiveEnergy = 'Healthのアクティブエネルギーを使用中';
   static const healthUnavailableOnDevice = 'この端末では Health 連携に対応していません。';
-  static const webHealthUnavailable = 'このプレビューでは Health 連携は利用できません。';
+  static const webHealthUnavailable = 'この画面ではヘルスケアは使えません';
 
   static const save = '保存';
   static const cancel = 'キャンセル';

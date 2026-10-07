@@ -13,27 +13,25 @@ import '../../theme/app_typography.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
-import '../legal/legal_document.dart';
-import '../legal/legal_document_screen.dart';
 import '../subscription/calonavi_plus_flow.dart';
-import 'account_deletion_screen.dart';
-import 'calculation_references_screen.dart';
-import 'data_source_screen.dart';
 import 'how_to_use_screen.dart';
 import 'lock_screen_meal_screen.dart';
 import 'operator_contact_screen.dart';
 import 'siri_voice_setup_screen.dart';
+import 'settings_account_screen.dart';
 import 'settings_basic_info_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
+import 'settings_policies_screen.dart';
+import 'settings_reference_screen.dart';
 
 /// 設定。
 ///
 /// Figma: SP / 10 設定（24:345）
 ///
-/// Figma にない「特定商取引法に基づく表記」も、ストア審査で
-/// 到達できる必要があるため同じ行で並べてある。
+/// 計算とデータの出典、規約3件、ログアウトとアカウント削除は
+/// それぞれ1行にまとめ、中の画面で従来どおり開ける。
 /// 問い合わせは「運営連絡」にまとめてある。
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -172,14 +170,14 @@ class SettingsScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.information,
             title: '使い方',
-            subtitle: 'はじめての操作と、無料とカロナビ+の違い',
+            subtitle: 'はじめての操作と、無料との違い',
             onTap: () => _push(context, const HowToUseScreen()),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.information,
             title: AppStrings.settingsBasicInfo,
-            subtitle: 'ユーザー名・年齢・性別・身長・体重など',
+            subtitle: '名前・年齢・性別・身長・体重',
             onTap: () => _push(
               context,
               SettingsBasicInfoScreen(
@@ -232,7 +230,7 @@ class SettingsScreen extends StatelessWidget {
             SettingsRow(
               icon: AppIcons.template,
               title: 'ウィジェット',
-              subtitle: 'ホームは5つ、ロック画面は朝・昼・夜',
+              subtitle: 'アプリを開かず食事・運動を登録',
               onTap: () => _openMealWidget(context),
             ),
             const SizedBox(height: _rowGap),
@@ -245,40 +243,21 @@ class SettingsScreen extends StatelessWidget {
           ],
           const SizedBox(height: _rowGap),
           SettingsRow(
+            key: const Key('settings-references'),
             icon: AppIcons.calculator,
-            title: '計算根拠',
-            subtitle: 'カロリー・栄養素の算出方法について',
-            onTap: () => _push(context, const CalculationReferencesScreen()),
+            title: '計算とデータについて',
+            subtitle: OfficialFoodsFlag.enabled
+                ? '算出方法と食品データの出典'
+                : 'カロリーと栄養素の算出方法',
+            onTap: () => _push(context, const SettingsReferenceScreen()),
           ),
-          if (OfficialFoodsFlag.enabled) ...[
-            const SizedBox(height: _rowGap),
-            SettingsRow(
-              icon: AppIcons.document,
-              title: 'データの出典',
-              subtitle: '100gあたりの数値と、表示名の説明',
-              onTap: () => _push(context, const DataSourceScreen()),
-            ),
-          ],
           const SizedBox(height: _rowGap),
           SettingsRow(
+            key: const Key('settings-policies'),
             icon: AppIcons.document,
-            title: '利用規約',
-            subtitle: 'サービスのご利用条件',
-            onTap: () => showLegalDocument(context, LegalDocument.terms),
-          ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            icon: AppIcons.shield,
-            title: 'プライバシー',
-            subtitle: '個人情報の取り扱いについて',
-            onTap: () => showLegalDocument(context, LegalDocument.privacy),
-          ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            icon: AppIcons.document,
-            title: AppStrings.settingsTokushoho,
-            subtitle: '販売条件・事業者情報',
-            onTap: () => showLegalDocument(context, LegalDocument.tokushoho),
+            title: '規約とポリシー',
+            subtitle: '利用規約、プライバシー、特商法',
+            onTap: () => _push(context, const SettingsPoliciesScreen()),
           ),
           if (contactEmail.isNotEmpty) ...[
             const SizedBox(height: _rowGap),
@@ -292,21 +271,13 @@ class SettingsScreen extends StatelessWidget {
           ],
           const SizedBox(height: _rowGap),
           SettingsRow(
-            icon: AppIcons.logout,
-            title: AppStrings.settingsLogout,
-            subtitle: '別のアカウントで利用する場合はこちら',
-            danger: true,
-            onTap: () => controller.logout(),
-          ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            icon: AppIcons.trash,
-            title: AppStrings.settingsAccountDeletion,
-            subtitle: AppStrings.settingsAccountDeletionSubtitle,
-            danger: true,
+            key: const Key('settings-account'),
+            icon: AppIcons.user,
+            title: 'アカウント',
+            subtitle: 'ログアウトとアカウント削除',
             onTap: () => _push(
               context,
-              AccountDeletionScreen(
+              SettingsAccountScreen(
                 controller: controller,
                 authenticationRepository: authenticationRepository,
                 supportEmail: supportEmail,

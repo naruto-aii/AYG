@@ -12,6 +12,7 @@ import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/official_food_repository.dart';
 import 'package:ayg/screens/official_food/official_food_detail_screen.dart';
 import 'package:ayg/screens/settings/data_source_screen.dart';
+import 'package:ayg/screens/settings/settings_reference_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/services/official_food_link.dart';
 import 'package:ayg/state/app_controller.dart';
@@ -269,10 +270,22 @@ void main() {
     OfficialFoodsFlag.debugOverride = false;
     await pump();
     expect(find.text('データの出典'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('settings-references')),
+      200,
+    );
+    await tester.tap(find.byKey(const Key('settings-references')));
+    await tester.pumpAndSettle();
+    expect(find.text('データの出典'), findsNothing);
+    expect(find.text('計算根拠'), findsOneWidget);
+    Navigator.of(tester.element(find.byType(SettingsReferenceScreen))).pop();
+    await tester.pumpAndSettle();
 
     OfficialFoodsFlag.debugOverride = true;
     await pump();
-    await tester.scrollUntilVisible(find.text('データの出典'), 200);
+    await tester.scrollUntilVisible(find.byKey(const Key('settings-references')), 200);
+    await tester.tap(find.byKey(const Key('settings-references')));
+    await tester.pumpAndSettle();
     expect(find.text('データの出典'), findsOneWidget);
   });
 

@@ -7,7 +7,7 @@
 -- 適用の前提（この順番）
 --   1. 20261007094142_app_events_retention.sql が適用済み。
 --   2. 20261007095347_app_events_rollup_additive.sql が適用済み。
---   3. 20261008090260_app_events_closed_month.sql が適用済み。
+--   3. 20261007103757_app_events_closed_month.sql が適用済み。
 --      これを飛ばすと、集計済みの月への再送が二重に足される。
 --   4. 社長が「拡張機能 pg_cron を有効にしてよい」と承認している。
 --
@@ -27,7 +27,7 @@ begin
        'app_event_daily_totals.event_count + excluded.event_count'
        in pg_get_functiondef('public.maintain_app_events()'::regprocedure)
      ) = 0 then
-    raise exception '20261008090260_app_events_closed_month を先に適用してください';
+    raise exception '20261007103757_app_events_closed_month を先に適用してください';
   end if;
 end
 $guard$;

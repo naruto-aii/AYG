@@ -72,5 +72,5 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 5. pg_cron と pg_net を有効にする承認のあと、Vault に `project_url`（`https://vdzzusqisymtejcjnikb.supabase.co`）と `store_import_secret` を入れ、`20261008090100_store_import_schedule.sql` を適用する。
 6. `store-analytics-import` と `store-sales-import` を配備する。
 7. `20261007095347_app_events_rollup_additive.sql` は本番に適用済み。集計は足し算。
-8. `20261008090260_app_events_closed_month.sql` を適用する。集計済みの月の操作は受け付けない。これを飛ばして定期実行すると、同じ操作の再送が二重に足される。
-9. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 8 のあとで出す。
+8. `20261007103757_app_events_closed_month.sql` は本番に適用済み。集計済みの月の操作は受け付けない。
+9. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 8 は適用済み。

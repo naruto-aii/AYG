@@ -203,16 +203,16 @@ void main() {
     expect(down, contains("set search_path = ''"));
     expect(
       schedule,
-      contains('20261008090260_app_events_closed_month を先に適用してください'),
+      contains('20261007103757_app_events_closed_month を先に適用してください'),
     );
   });
 
   test('closed months are rejected with the same predicate as retention', () {
     final sql = File(
-      'supabase/migrations/20261008090260_app_events_closed_month.sql',
+      'supabase/migrations/20261007103757_app_events_closed_month.sql',
     ).readAsStringSync();
     final down = File(
-      'supabase/rollback/20261008090260_app_events_closed_month_down.sql',
+      'supabase/rollback/20261007103757_app_events_closed_month_down.sql',
     ).readAsStringSync();
     final transport = File(
       'lib/services/analytics/supabase_analytics_transport.dart',

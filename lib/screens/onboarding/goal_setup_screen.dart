@@ -116,9 +116,10 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
       firstDate: now,
       lastDate: DateTime(now.year + 5),
     );
-    if (picked != null) {
-      setState(() => _targetDate = picked);
+    if (picked == null || !mounted) {
+      return;
     }
+    setState(() => _targetDate = picked);
   }
 
   int get _daysLeft {

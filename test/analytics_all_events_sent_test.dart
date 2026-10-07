@@ -61,7 +61,9 @@ void main() {
         await tester.binding.setSurfaceSize(const Size(900, 2200));
         final isarHarness = await setUpIsarHarness();
         final userId = '11111111-1111-4111-8111-111111111111';
-        final clock = _MutableClock(DateTime.utc(2026, 10, 7, 12));
+        // 送信待ちの nextAttemptAt は実時刻。flush の時計がそれより前だと
+        // 列に残ったまま送られない。
+        final clock = _MutableClock(DateTime.utc(2027, 1, 1, 12));
         final analytics = await AnalyticsHarness.open(
           isar: isarHarness.isar,
           clock: () => clock.value,

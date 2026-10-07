@@ -562,18 +562,45 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
             Text(expiryLabel, style: AppTypography.bodyS),
           ],
           const SizedBox(height: AppSpacing.md),
-          TextButton(
-            onPressed: () =>
-                showLegalDocument(context, LegalDocument.tokushoho),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              alignment: Alignment.centerLeft,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text('特定商取引法に基づく表記', style: AppTypography.labelM),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _LegalLink(label: '利用規約', document: LegalDocument.terms),
+              _LegalLink(
+                label: 'プライバシーポリシー',
+                document: LegalDocument.privacy,
+              ),
+              _LegalLink(
+                label: '特定商取引法に基づく表記',
+                document: LegalDocument.tokushoho,
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LegalLink extends StatelessWidget {
+  const _LegalLink({required this.label, required this.document});
+
+  final String label;
+  final LegalDocument document;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: () => showLegalDocument(context, document),
+      style: TextButton.styleFrom(
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        alignment: Alignment.centerLeft,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(label, style: AppTypography.labelM),
     );
   }
 }

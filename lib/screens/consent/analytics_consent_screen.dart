@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../services/analytics/analytics_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 
-/// 初回起動（ログインより前）の同意。初期選択は無い。社長確認用の文案。
+/// 初回起動（ログインより前）の同意。初期選択は無い。
 class AnalyticsConsentScreen extends StatelessWidget {
   const AnalyticsConsentScreen({
     super.key,
@@ -53,12 +52,6 @@ class AnalyticsConsentScreen extends StatelessWidget {
                   onPressed: () => onDecide(false),
                   child: const Text('協力しない'),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '文案の版 ${analyticsPolicyVersion}（社長確認前）',
-                style: AppTypography.caption,
-                textAlign: TextAlign.center,
               ),
             ],
           ),

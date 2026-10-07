@@ -226,7 +226,7 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(_consumedAt),
     );
-    if (pickedTime == null) {
+    if (pickedTime == null || !mounted) {
       return;
     }
 

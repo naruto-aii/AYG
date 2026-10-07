@@ -48,6 +48,15 @@ void main() {
     expect(find.text(AppStrings.plusBillingPeriod), findsOneWidget);
     expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);
     expect(find.text(AppStrings.plusCancelHow), findsOneWidget);
+    expect(find.text('利用規約'), findsOneWidget);
+    expect(find.text('プライバシーポリシー'), findsOneWidget);
+    expect(find.text('特定商取引法に基づく表記'), findsOneWidget);
+    expect(AppStrings.plusAutoRenew, contains('Apple ID'));
+    expect(AppStrings.plusAutoRenew, contains('24時間以上前'));
+    expect(AppStrings.plusAutoRenew, contains('24時間以内'));
+    expect(AppStrings.plusCancelHow, contains('App Store'));
+    expect(AppStrings.plusBenefitSiriTitle, '音声登録 (β)');
+    expect(AppStrings.plusBetaAccessBody, contains('音声登録 (β)'));
     expect(find.textContaining('現在の有効期限'), findsNothing);
     expect(find.textContaining('380'), findsNothing);
   });

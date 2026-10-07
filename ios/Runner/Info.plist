@@ -69,9 +69,9 @@
   <key>NSPhotoLibraryAddUsageDescription</key>
   <string>共有した記録の画像を、写真に保存するときに使います。写真は読み取りません。</string>
   <key>NSHealthShareUsageDescription</key>
-  <string>消費カロリーや体重を取得し、栄養目標を正確に計算するためにHealthデータを使用します。</string>
+  <string>生年月日、性別、身長、体重、アクティブエネルギー、ワークアウトを読み取り、1日の食事目標を計算するために使います。</string>
   <key>NSHealthUpdateUsageDescription</key>
-  <string>必要に応じてHealthデータを更新するために使用します。</string>
+  <string>このアプリはヘルスケアへ書き込みません。読み取りは食事目標の計算にだけ使います。</string>
   <key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

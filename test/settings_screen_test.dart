@@ -186,7 +186,7 @@ void main() {
       expect(find.textContaining('今日あと'), findsOneWidget);
       expect(find.text('無料とカロナビ+'), findsOneWidget);
       expect(find.textContaining('カロナビ+'), findsWidgets);
-      expect(find.text('ウィジェットと音声登録'), findsOneWidget);
+      expect(find.text('ウィジェットと、音声登録 (β)'), findsOneWidget);
       expect(
         find.textContaining('枠は食事と運動を自由に組み合わせられます'),
         findsOneWidget,

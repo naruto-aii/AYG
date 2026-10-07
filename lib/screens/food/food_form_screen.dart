@@ -982,7 +982,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(local),
     );
-    if (pickedTime == null) {
+    if (pickedTime == null || !mounted) {
       return;
     }
 

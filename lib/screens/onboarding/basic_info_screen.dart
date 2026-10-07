@@ -87,9 +87,10 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
       firstDate: DateTime(1900),
       lastDate: now,
     );
-    if (picked != null) {
-      setState(() => _birthDate = picked);
+    if (picked == null || !mounted) {
+      return;
     }
+    setState(() => _birthDate = picked);
   }
 
   void _warn(String message) {

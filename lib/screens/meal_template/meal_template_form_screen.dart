@@ -107,7 +107,10 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
 
   Future<void> _pickOwnSavedFood() async {
     final foods = await widget.controller.searchOwnSavedFoods('');
-    if (!mounted || foods.isEmpty) {
+    if (!mounted) {
+      return;
+    }
+    if (foods.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('保存済み食品がありません')));

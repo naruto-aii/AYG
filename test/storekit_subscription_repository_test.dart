@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ayg/config/subscription_catalog.dart';
 import 'package:ayg/repositories/storekit_subscription_repository.dart';
+import 'package:ayg/repositories/subscription_exceptions.dart';
 import 'package:ayg/services/subscription_entitlement.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -300,4 +301,156 @@ void main() {
       await repository.dispose();
     },
   );
+
+  test('purchasePlan waits until the stream persists the expiry', () async {
+    final prefs = await prefsWith({});
+    final updates = StreamController<List<PurchaseDetails>>();
+    final store = _ScriptedStore(updates)
+      ..delay = const Duration(milliseconds: 40);
+    final repository = StoreKitSubscriptionRepository(
+      purchaseClient: store,
+      preferences: prefs,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => now,
+    );
+    await repository.initialize();
+
+    final done = repository.purchasePlan(PlusPlan.monthly);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(store.buys, 1);
+    expect(repository.isPlusActive, isFalse);
+
+    await done.timeout(const Duration(seconds: 2));
+    expect(repository.isPlusActive, isTrue);
+    expect(
+      prefs.getInt(StoreKitSubscriptionRepository.expiryKey),
+      DateTime.utc(2026, 10, 27).millisecondsSinceEpoch,
+    );
+
+    await updates.close();
+    await repository.dispose();
+  });
+
+  test('a canceled or failed purchase returns without turning plus on', () async {
+    for (final status in [PurchaseStatus.canceled, PurchaseStatus.error]) {
+      final prefs = await prefsWith({});
+      final updates = StreamController<List<PurchaseDetails>>();
+      final store = _ScriptedStore(updates)..status = status;
+      final repository = StoreKitSubscriptionRepository(
+        purchaseClient: store,
+        preferences: prefs,
+        purchaseUpdates: updates.stream,
+        loadEntitlements: () async =>
+            const EntitlementLoad(records: [], authoritative: false),
+        clock: () => now,
+      );
+      await repository.initialize();
+
+      await repository.purchasePlan(PlusPlan.monthly);
+      expect(repository.isPlusActive, isFalse);
+      expect(prefs.getInt(StoreKitSubscriptionRepository.expiryKey), isNull);
+
+      await updates.close();
+      await repository.dispose();
+    }
+  });
+
+  test('a purchase sheet that does not open does not wait', () async {
+    final prefs = await prefsWith({});
+    final updates = StreamController<List<PurchaseDetails>>();
+    final store = _ScriptedStore(updates)..launch = false;
+    final repository = StoreKitSubscriptionRepository(
+      purchaseClient: store,
+      preferences: prefs,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => now,
+    );
+    await repository.initialize();
+
+    await expectLater(
+      repository.purchasePlan(PlusPlan.yearly),
+      throwsA(isA<SubscriptionPurchaseFailedException>()),
+    );
+    expect(repository.isPlusActive, isFalse);
+
+    await updates.close();
+    await repository.dispose();
+  });
+}
+
+class _ScriptedStore implements StorePurchaseClient {
+  _ScriptedStore(this.updates);
+
+  final StreamController<List<PurchaseDetails>> updates;
+  bool launch = true;
+  PurchaseStatus status = PurchaseStatus.purchased;
+  Duration delay = Duration.zero;
+  int buys = 0;
+
+  @override
+  Future<bool> isAvailable() async => true;
+
+  @override
+  Future<ProductDetailsResponse> queryProductDetails(
+    Set<String> identifiers,
+  ) async {
+    return ProductDetailsResponse(
+      productDetails: [
+        ProductDetails(
+          id: identifiers.single,
+          title: 'カロナビ+',
+          description: 'カロナビ+',
+          price: '¥580',
+          rawPrice: 580,
+          currencyCode: 'JPY',
+        ),
+      ],
+      notFoundIDs: const [],
+    );
+  }
+
+  @override
+  Future<bool> buyNonConsumable({required PurchaseParam purchaseParam}) async {
+    buys += 1;
+    if (!launch) {
+      return false;
+    }
+    final productId = purchaseParam.productDetails.id;
+    Future<void> emit() async {
+      updates.add([
+        SK2PurchaseDetails(
+          productID: productId,
+          purchaseID: 'tx',
+          verificationData: PurchaseVerificationData(
+            localVerificationData: '{}',
+            serverVerificationData: '',
+            source: 'app_store',
+          ),
+          transactionDate: '1',
+          status: status,
+          expirationDate:
+              status == PurchaseStatus.purchased ||
+                  status == PurchaseStatus.restored
+              ? '${DateTime.utc(2026, 10, 27).millisecondsSinceEpoch}'
+              : null,
+        ),
+      ]);
+    }
+    if (delay == Duration.zero) {
+      await emit();
+    } else {
+      unawaited(Future<void>.delayed(delay, emit));
+    }
+    return true;
+  }
+
+  @override
+  Future<void> completePurchase(PurchaseDetails purchase) async {}
+
+  @override
+  Future<void> restorePurchases() async {}
 }

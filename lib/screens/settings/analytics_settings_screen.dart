@@ -70,7 +70,7 @@ class _AnalyticsSettingsScreenState extends State<AnalyticsSettingsScreen> {
   }
 }
 
-/// 電気通信事業法の外部送信の規律に合わせた一覧。社長確認用。
+/// 電気通信事業法の外部送信の規律に合わせた一覧。
 class ExternalTransmissionScreen extends StatelessWidget {
   const ExternalTransmissionScreen({super.key});
 
@@ -87,9 +87,14 @@ class ExternalTransmissionScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: const [
+          Text(
+            '保存先はシンガポールです（Supabase, Inc. のデータベース。Amazon Web Services のシンガポール地域）。',
+            style: AppTypography.bodyM,
+          ),
+          SizedBox(height: AppSpacing.md),
           _SendRow(
             what: '操作の記録、端末の機種と版、ランダムな番号',
-            who: 'Supabase, Inc.（データの保管を委託）',
+            who: 'Supabase, Inc.（データの保管を委託。保存先はシンガポール）',
             why: '使いにくい所を見つけて直すため、有料機能の設計のため',
           ),
           _SendRow(

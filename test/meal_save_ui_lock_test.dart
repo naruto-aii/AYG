@@ -29,6 +29,7 @@ void main() {
     addTearDown(controller.dispose);
 
     await controller.handleAuthenticatedSession();
+    sync.pushLocalToRemoteCalled = false;
     expect(foods.loadAllCalls, 0);
 
     final older = _meal('older', DateTime(2026, 10, 1, 8));

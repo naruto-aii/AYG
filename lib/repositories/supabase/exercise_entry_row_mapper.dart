@@ -29,6 +29,7 @@ class ExerciseEntryRowMapper {
       calculationVersion: row['calculation_version'] as String?,
       sourceKey: row['source_key'] as String?,
       notes: row['notes'] as String?,
+      recordOrigin: row['record_origin'] as String?,
     );
   }
 
@@ -58,6 +59,7 @@ class ExerciseEntryRowMapper {
       'calculation_version': entry.calculationVersion,
       'source_key': entry.sourceKey,
       'notes': entry.notes,
+      'record_origin': entry.recordOrigin,
     };
   }
 }

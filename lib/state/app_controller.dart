@@ -77,6 +77,7 @@ import '../repositories/subscription_exceptions.dart';
 import '../repositories/subscription_repository.dart';
 import '../repositories/unavailable_subscription_repository.dart';
 import '../repositories/coach_proposal_log.dart';
+import '../repositories/plus_funnel_repository.dart';
 import '../repositories/usage_record_repository.dart';
 import '../services/usage_record.dart';
 import '../repositories/review_prompt_store.dart';
@@ -131,6 +132,7 @@ class AppController extends ChangeNotifier {
     SubscriptionRepository? subscriptionRepository,
     UsageRecordRepository? usageRecordRepository,
     CoachProposalLog? coachProposalLog,
+    PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
@@ -157,6 +159,7 @@ class AppController extends ChangeNotifier {
            subscriptionRepository ?? UnavailableSubscriptionRepository(),
        _usageRecordRepository = usageRecordRepository,
        _coachProposalLog = coachProposalLog ?? const NoOpCoachProposalLog(),
+       _plusFunnelRepository = plusFunnelRepository,
        _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
@@ -193,9 +196,12 @@ class AppController extends ChangeNotifier {
   final SubscriptionRepository _subscriptionRepository;
   final UsageRecordRepository? _usageRecordRepository;
   final CoachProposalLog _coachProposalLog;
+  final PlusFunnelRepository? _plusFunnelRepository;
   final ReviewPromptStore _reviewPromptStore;
 
   CoachProposalLog get coachProposalLog => _coachProposalLog;
+
+  PlusFunnelRepository? get plusFunnelRepository => _plusFunnelRepository;
 
   ReviewPromptStore get reviewPromptStore => _reviewPromptStore;
 
@@ -234,12 +240,16 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
   bool _lastSyncFailed = false;
+  bool _hasUnsentRecords = false;
   bool _isInitializing = false;
   SyncFailure? _syncFailure;
 
   bool get hasInitialSyncCompleted => _hasInitialSyncCompleted;
   bool get isSyncInProgress => _isSyncInProgress;
   bool get lastSyncFailed => _lastSyncFailed;
+
+  /// 手元にあるのに、まだ本番へ届いていない記録がある。
+  bool get hasUnsentRecords => _hasUnsentRecords;
   bool get isInitializing => _isInitializing;
   SyncFailure? get syncFailure => _syncFailure;
 
@@ -439,6 +449,7 @@ class AppController extends ChangeNotifier {
 
       if (force || lastUserId != authUser.id || !_hasInitialSyncCompleted) {
         await _migrateLocalOwnerData(toUserId: authUser.id);
+        await _pushUnsentBeforePull(dataSyncRepository, authUser.id);
         await dataSyncRepository.pullRemoteToLocal(authUser.id);
         _hasInitialSyncCompleted = true;
         await _localSessionStore?.saveLastUserId(authUser.id);
@@ -460,7 +471,7 @@ class AppController extends ChangeNotifier {
       _lastSyncFailed = true;
       _hasInitialSyncCompleted = false;
       _syncFailure = error.failure;
-      await _localUserDataClearer?.clearAll();
+      _hasUnsentRecords = true;
       _clearInMemoryState();
     } catch (error, stackTrace) {
       _lastSyncFailed = true;
@@ -472,7 +483,7 @@ class AppController extends ChangeNotifier {
         tableName: 'local_cache',
         operation: 'sync',
       )..logDebug();
-      await _localUserDataClearer?.clearAll();
+      _hasUnsentRecords = true;
       _clearInMemoryState();
       if (kDebugMode) {
         debugPrint('[AYG] handleAuthenticatedSession failed: $error');
@@ -499,8 +510,72 @@ class AppController extends ChangeNotifier {
   void _resetSyncState() {
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;
+    _hasUnsentRecords = false;
     _isSyncInProgress = false;
     _syncFailure = null;
+  }
+
+  /// 取得で手元の未送信行を消さないよう、先に送る。1表の失敗では取得を止めない。
+  Future<void> _pushUnsentBeforePull(
+    DataSyncRepository dataSyncRepository,
+    String userId,
+  ) async {
+    try {
+      await dataSyncRepository.pushLocalToRemote(userId);
+      _hasUnsentRecords = false;
+    } on PartialPushException catch (error, stackTrace) {
+      _hasUnsentRecords = true;
+      debugPrint('[AYG] push before pull incomplete: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  /// 起動のあと、前面に戻ったときに未送信を再送する。
+  Future<void> flushUnsentRecords() async {
+    if (_isSyncInProgress) {
+      return;
+    }
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    if (userId == null || dataSyncRepository == null) {
+      return;
+    }
+    if (!_hasInitialSyncCompleted || _lastSyncFailed) {
+      await handleAuthenticatedSession(force: true);
+      return;
+    }
+    if (!_hasUnsentRecords) {
+      return;
+    }
+    if (_remoteSyncInFlight) {
+      _remoteSyncQueued = true;
+      return;
+    }
+    _remoteSyncInFlight = true;
+    await _drainRemoteSync(dataSyncRepository, userId);
+  }
+
+  void recordPlusFunnel({
+    required PlusFunnelEvent event,
+    PlusFunnelFeature? feature,
+    String? productId,
+  }) {
+    final repository = _plusFunnelRepository;
+    if (repository == null) {
+      return;
+    }
+    unawaited(() async {
+      try {
+        await repository.record(
+          event: event,
+          feature: feature,
+          productId: productId,
+        );
+      } catch (error, stackTrace) {
+        debugPrint('[AYG] plus funnel record failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }());
   }
 
   void _clearInMemoryState() {
@@ -1195,16 +1270,17 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> addFood(FoodEntry entry) async {
+    final stored = _foodWithOrigin(entry, ReviewRecordOrigin.app);
     final daysBefore = _reviewLoggedDays();
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
-      await foodRepository.save(entry);
+      await foodRepository.save(stored);
       // 全件 loadAll は UI アイソレートを止める。保存した1件だけ足す。
-      _placeSavedFoodEntry(entry);
+      _placeSavedFoodEntry(stored);
     } else {
-      foodEntries.add(entry);
+      foodEntries.add(stored);
     }
-    _scheduleFoodEntrySync(entry);
+    _scheduleFoodEntrySync(stored);
     refreshDailySummary();
     _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
   }
@@ -1231,7 +1307,41 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    unawaited(dataSyncRepository.pushFoodEntry(userId: userId, entry: entry));
+    unawaited(_pushFoodEntryNow(dataSyncRepository, userId, entry));
+  }
+
+  Future<void> _pushFoodEntryNow(
+    DataSyncRepository dataSyncRepository,
+    String userId,
+    FoodEntry entry,
+  ) async {
+    try {
+      await dataSyncRepository.pushFoodEntry(userId: userId, entry: entry);
+    } catch (error, stackTrace) {
+      _hasUnsentRecords = true;
+      debugPrint('[AYG] food entry push failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      notifyListeners();
+    }
+  }
+
+  FoodEntry _foodWithOrigin(FoodEntry entry, ReviewRecordOrigin origin) {
+    final existing = entry.recordOrigin;
+    if (existing != null && existing.isNotEmpty) {
+      return entry;
+    }
+    return entry.copyWith(recordOrigin: origin.name);
+  }
+
+  ExerciseEntry _exerciseWithOrigin(
+    ExerciseEntry entry,
+    ReviewRecordOrigin origin,
+  ) {
+    final existing = entry.recordOrigin;
+    if (existing != null && existing.isNotEmpty) {
+      return entry;
+    }
+    return entry.copyWith(recordOrigin: origin.name);
   }
 
   Future<void> restoreFoodEntry(FoodEntry entry) async {
@@ -1256,19 +1366,54 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateFood(FoodEntry entry) async {
+    final kept = _keepFoodOrigin(entry);
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
-      await foodRepository.save(entry);
-      _placeSavedFoodEntry(entry);
+      await foodRepository.save(kept);
+      _placeSavedFoodEntry(kept);
     } else {
-      final index = foodEntries.indexWhere((item) => item.id == entry.id);
+      final index = foodEntries.indexWhere((item) => item.id == kept.id);
       if (index == -1) {
         return;
       }
-      foodEntries[index] = entry;
+      foodEntries[index] = kept;
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+  }
+
+  FoodEntry _keepFoodOrigin(FoodEntry entry) {
+    final current = entry.recordOrigin;
+    if (current != null && current.isNotEmpty) {
+      return entry;
+    }
+    for (final existing in foodEntries) {
+      if (existing.id != entry.id) {
+        continue;
+      }
+      final origin = existing.recordOrigin;
+      if (origin != null && origin.isNotEmpty) {
+        return entry.copyWith(recordOrigin: origin);
+      }
+    }
+    return entry;
+  }
+
+  ExerciseEntry _keepExerciseOrigin(ExerciseEntry entry) {
+    final current = entry.recordOrigin;
+    if (current != null && current.isNotEmpty) {
+      return entry;
+    }
+    for (final existing in exerciseEntries) {
+      if (existing.id != entry.id) {
+        continue;
+      }
+      final origin = existing.recordOrigin;
+      if (origin != null && origin.isNotEmpty) {
+        return entry.copyWith(recordOrigin: origin);
+      }
+    }
+    return entry;
   }
 
   Future<void> saveEditedFoodEntryWithSourceChoice({
@@ -1401,7 +1546,7 @@ class AppController extends ChangeNotifier {
     ExerciseEntry entry, {
     ReviewRecordOrigin origin = ReviewRecordOrigin.app,
   }) async {
-    final stored = _exerciseEntryForStorage(entry);
+    final stored = _exerciseWithOrigin(_exerciseEntryForStorage(entry), origin);
     final daysBefore = _reviewLoggedDays();
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
@@ -1437,7 +1582,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateExercise(ExerciseEntry entry) async {
-    final stored = _exerciseEntryForStorage(entry);
+    final stored = _exerciseEntryForStorage(_keepExerciseOrigin(entry));
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
       await exerciseRepository.save(stored);
@@ -2307,15 +2452,18 @@ class AppController extends ChangeNotifier {
     if (entries.isEmpty) {
       return;
     }
+    final stored = [
+      for (final entry in entries) _foodWithOrigin(entry, origin),
+    ];
     final daysBefore = _reviewLoggedDays();
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
-      await foodRepository.saveAll(entries);
-      for (final entry in entries) {
+      await foodRepository.saveAll(stored);
+      for (final entry in stored) {
         _placeSavedFoodEntry(entry);
       }
     } else {
-      foodEntries.addAll(entries);
+      foodEntries.addAll(stored);
     }
     _scheduleRemoteSync();
     refreshDailySummary();
@@ -3657,7 +3805,16 @@ class AppController extends ChangeNotifier {
       throw StateError('Cannot persist without authenticated remote sync.');
     }
 
-    await dataSyncRepository.pushLocalToRemote(userId);
+    try {
+      await dataSyncRepository.pushLocalToRemote(userId);
+      _hasUnsentRecords = false;
+    } on PartialPushException catch (error, stackTrace) {
+      _hasUnsentRecords = true;
+      debugPrint('[AYG] persist incomplete: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      notifyListeners();
+      rethrow;
+    }
     _hasInitialSyncCompleted = true;
     _lastSyncFailed = false;
   }
@@ -3734,12 +3891,24 @@ class AppController extends ChangeNotifier {
     try {
       do {
         _remoteSyncQueued = false;
-        await dataSyncRepository.pushLocalToRemote(userId);
+        try {
+          await dataSyncRepository.pushLocalToRemote(userId);
+          _hasUnsentRecords = false;
+        } on PartialPushException catch (error, stackTrace) {
+          _hasUnsentRecords = true;
+          debugPrint('[AYG] remote sync incomplete: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
       } while (_remoteSyncQueued &&
           _hasInitialSyncCompleted &&
           !_lastSyncFailed);
+    } catch (error, stackTrace) {
+      _hasUnsentRecords = true;
+      debugPrint('[AYG] remote sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
     } finally {
       _remoteSyncInFlight = false;
+      notifyListeners();
     }
   }
 

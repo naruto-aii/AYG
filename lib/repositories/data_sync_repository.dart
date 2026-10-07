@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -296,31 +297,24 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 
   @override
   Future<void> pushLocalToRemote(String userId) async {
-    await _pushProfile(userId);
-    await _yieldToUi();
-    await _pushGoal(userId);
-    await _yieldToUi();
-    await _pushNutritionSettings(userId);
-    await _yieldToUi();
-    await _pushHealthSnapshot(userId);
-    await _yieldToUi();
-    await _pushAppSettings(userId);
-    await _yieldToUi();
-    await _pushFoodEntries(userId);
-    await _yieldToUi();
-    await _pushExerciseEntries(userId);
-    await _yieldToUi();
-    await _pushAlcoholEntries(userId);
-    await _yieldToUi();
-    await _pushWeightEntries(userId);
-    await _yieldToUi();
-    await _pushSavedFoods(userId);
-    await _yieldToUi();
-    await _pushMealTemplates(userId);
-    await _yieldToUi();
-    await _pushWorkoutTemplates(userId);
-    await _yieldToUi();
-    await _pushHealthWorkouts(userId);
+    await runPushSteps([
+      (table: 'profiles', action: () => _pushProfile(userId)),
+      (table: 'goals', action: () => _pushGoal(userId)),
+      (
+        table: 'nutrition_settings',
+        action: () => _pushNutritionSettings(userId),
+      ),
+      (table: 'health_snapshots', action: () => _pushHealthSnapshot(userId)),
+      (table: 'app_settings', action: () => _pushAppSettings(userId)),
+      (table: 'food_entries', action: () => _pushFoodEntries(userId)),
+      (table: 'exercise_entries', action: () => _pushExerciseEntries(userId)),
+      (table: 'alcohol_entries', action: () => _pushAlcoholEntries(userId)),
+      (table: 'weight_entries', action: () => _pushWeightEntries(userId)),
+      (table: 'saved_foods', action: () => _pushSavedFoods(userId)),
+      (table: 'meal_templates', action: () => _pushMealTemplates(userId)),
+      (table: 'workout_templates', action: () => _pushWorkoutTemplates(userId)),
+      (table: 'health_workouts', action: () => _pushHealthWorkouts(userId)),
+    ], between: _yieldToUi);
   }
 
   Future<List<R>> _mapYielding<T, R>(
@@ -708,12 +702,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         .select()
         .eq('user_id', userId);
 
-    final entries = rows.map(FoodMasterRowMapper.foodEntryFromRow).toList();
-    await _foodRepository.clearAll();
-    if (entries.isEmpty) {
-      return;
-    }
-    await _foodRepository.saveAll(entries);
+    final remote = rows.map(FoodMasterRowMapper.foodEntryFromRow).toList();
+    await mergeRepositoryEntries(
+      loadLocal: _foodRepository.loadAll,
+      remote: remote,
+      idOf: (FoodEntry entry) => entry.id,
+      clearAll: _foodRepository.clearAll,
+      saveAll: _foodRepository.saveAll,
+    );
   }
 
   @override
@@ -742,22 +738,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       entries,
       (entry) => FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
     );
-    try {
-      await _client
+    await upsertDroppingUnknownColumns(
+      table: 'food_entries',
+      rows: rows,
+      requiredColumns: foodEntryRequiredColumns,
+      upsert: (current) => _client
           .from('food_entries')
-          .upsert(rows, onConflict: 'user_id,entry_id');
-    } on PostgrestException catch (error) {
-      if (!isMissingColumnError(error)) {
-        rethrow;
-      }
-      final fallback = [
-        for (final row in rows)
-          Map<String, dynamic>.from(row)..remove('source_saved_food_version'),
-      ];
-      await _client
-          .from('food_entries')
-          .upsert(fallback, onConflict: 'user_id,entry_id');
-    }
+          .upsert(current, onConflict: 'user_id,entry_id'),
+    );
   }
 
   Future<void> _pullSavedFoods(String userId) async {
@@ -901,13 +889,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         .select()
         .eq('user_id', userId);
 
-    final entries = rows.map(ExerciseEntryRowMapper.fromRow).toList();
-
-    await _exerciseRepository.clearAll();
-    if (entries.isEmpty) {
-      return;
-    }
-    await _exerciseRepository.saveAll(entries);
+    final remote = rows.map(ExerciseEntryRowMapper.fromRow).toList();
+    await mergeRepositoryEntries(
+      loadLocal: _exerciseRepository.loadAll,
+      remote: remote,
+      idOf: (ExerciseEntry entry) => entry.id,
+      clearAll: _exerciseRepository.clearAll,
+      saveAll: _exerciseRepository.saveAll,
+    );
   }
 
   Future<void> _pushExerciseEntries(String userId) async {
@@ -916,21 +905,24 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
+    final rows = entries
+        .map((entry) => ExerciseEntryRowMapper.toRow(entry, userId: userId))
+        .toList();
     try {
-      await _client
-          .from('exercise_entries')
-          .upsert(
-            entries
-                .map(
-                  (entry) =>
-                      ExerciseEntryRowMapper.toRow(entry, userId: userId),
-                )
-                .toList(),
-            onConflict: 'user_id,entry_id',
-          );
+      await upsertDroppingUnknownColumns(
+        table: 'exercise_entries',
+        rows: rows,
+        requiredColumns: exerciseEntryRequiredColumns,
+        upsert: (current) => _client
+            .from('exercise_entries')
+            .upsert(current, onConflict: 'user_id,entry_id'),
+      );
     } catch (error) {
       if (isOptionalTableMissingError(error)) {
         return;
+      }
+      if (error is PostgrestException && isMissingColumnError(error)) {
+        rethrow;
       }
       await _client
           .from('exercise_entries')
@@ -958,13 +950,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         .select()
         .eq('user_id', userId);
 
-    final entries = rows.map(FoodMasterRowMapper.alcoholEntryFromRow).toList();
-
-    await _alcoholRepository.clearAll();
-    if (entries.isEmpty) {
-      return;
-    }
-    await _alcoholRepository.saveAll(entries);
+    final remote = rows.map(FoodMasterRowMapper.alcoholEntryFromRow).toList();
+    await mergeRepositoryEntries(
+      loadLocal: _alcoholRepository.loadAll,
+      remote: remote,
+      idOf: (AlcoholEntry entry) => entry.id,
+      clearAll: _alcoholRepository.clearAll,
+      saveAll: _alcoholRepository.saveAll,
+    );
   }
 
   Future<void> _pushAlcoholEntries(String userId) async {
@@ -1012,14 +1005,17 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         )
         .toList();
 
-    await _weightRepository.clearAll();
-    if (entries.isEmpty) {
-      return;
-    }
-
-    for (final entry in entries) {
-      await _weightRepository.save(entry);
-    }
+    await mergeRepositoryEntries(
+      loadLocal: _weightRepository.loadAll,
+      remote: entries,
+      idOf: (WeightEntry entry) => entry.id,
+      clearAll: _weightRepository.clearAll,
+      saveAll: (merged) async {
+        for (final entry in merged) {
+          await _weightRepository.save(entry);
+        }
+      },
+    );
   }
 
   WeightSource _parseWeightSource(String? raw) {
@@ -1108,6 +1104,147 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       rethrow;
     }
   }
+}
+
+/// 1表が失敗しても、残りの表は送る。全部試したあと、失敗があればまとめて投げる。
+Future<void> runPushSteps(
+  List<({String table, Future<void> Function() action})> steps, {
+  Future<void> Function()? between,
+}) async {
+  final failures = <({String table, Object error})>[];
+  for (final step in steps) {
+    try {
+      await step.action();
+    } catch (error, stackTrace) {
+      failures.add((table: step.table, error: error));
+      debugPrint('[AYG] push ${step.table} failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    if (between != null) {
+      await between();
+    }
+  }
+  if (failures.isNotEmpty) {
+    throw PartialPushException(failures);
+  }
+}
+
+class PartialPushException implements Exception {
+  PartialPushException(this.failures);
+
+  final List<({String table, Object error})> failures;
+
+  @override
+  String toString() {
+    final tables = failures.map((failure) => failure.table).join(', ');
+    return 'PartialPushException($tables)';
+  }
+}
+
+/// 同じ entry_id は本番を残す。本番に無い手元の行は次の送信まで残す。
+List<T> mergeEntriesById<T>({
+  required List<T> local,
+  required List<T> remote,
+  required String Function(T entry) idOf,
+}) {
+  final remoteIds = remote.map(idOf).toSet();
+  return [
+    ...remote,
+    for (final entry in local)
+      if (!remoteIds.contains(idOf(entry))) entry,
+  ];
+}
+
+Future<void> mergeRepositoryEntries<T>({
+  required Future<List<T>> Function() loadLocal,
+  required List<T> remote,
+  required String Function(T entry) idOf,
+  required Future<void> Function() clearAll,
+  required Future<void> Function(List<T> entries) saveAll,
+}) async {
+  final local = await loadLocal();
+  final merged = mergeEntriesById(local: local, remote: remote, idOf: idOf);
+  await clearAll();
+  if (merged.isEmpty) {
+    return;
+  }
+  await saveAll(merged);
+}
+
+const foodEntryRequiredColumns = {
+  'user_id',
+  'entry_id',
+  'name',
+  'quantity',
+  'logged_at',
+};
+
+const exerciseEntryRequiredColumns = {
+  'user_id',
+  'entry_id',
+  'name',
+  'duration_min',
+  'burned_kcal',
+  'logged_at',
+};
+
+/// PGRST204 / 42703 に書かれた列を外して再送する。必須列は外さない。
+Future<void> upsertDroppingUnknownColumns({
+  required String table,
+  required List<Map<String, dynamic>> rows,
+  required Set<String> requiredColumns,
+  required Future<void> Function(List<Map<String, dynamic>> rows) upsert,
+}) async {
+  var current = rows;
+  final dropped = <String>{};
+  while (true) {
+    try {
+      await upsert(current);
+      return;
+    } on PostgrestException catch (error) {
+      if (!isMissingColumnError(error)) {
+        rethrow;
+      }
+      final column = unknownColumnName(error);
+      final present = current.any((row) => row.containsKey(column));
+      if (column == null ||
+          requiredColumns.contains(column) ||
+          !dropped.add(column) ||
+          !present) {
+        rethrow;
+      }
+      debugPrint('[AYG] $table upsert dropped column $column');
+      current = [
+        for (final row in current)
+          Map<String, dynamic>.from(row)..remove(column),
+      ];
+    }
+  }
+}
+
+String? unknownColumnName(Object error) {
+  if (error is! PostgrestException) {
+    return null;
+  }
+  final text = '${error.message} ${error.details ?? ''} ${error.hint ?? ''}';
+  final postgrest = RegExp(
+    "Could not find the '([^']+)' column",
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (postgrest != null) {
+    return postgrest.group(1);
+  }
+  final postgres = RegExp(
+    'column "([^"]+)"',
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (postgres != null) {
+    return postgres.group(1);
+  }
+  if (text.toLowerCase().contains('source_saved_food_version')) {
+    return 'source_saved_food_version';
+  }
+  return null;
 }
 
 bool isMissingColumnError(Object error) {

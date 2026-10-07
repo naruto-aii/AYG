@@ -22,6 +22,7 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../screens/settings/calculation_references_screen.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../screens/subscription/plus_gate.dart';
 
 /// 運動フォーム内の MET 自動計算（種目1回 + 分量 + 追加消費）。
@@ -816,6 +817,7 @@ class _ExerciseMetCalculationSectionState
               context,
               widget.controller,
               message: '運動のメモは、カロナビ+です。',
+              feature: PlusFunnelFeature.memo,
             );
             if (allowed && mounted) {
               setState(() {});

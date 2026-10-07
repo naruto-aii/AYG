@@ -6187,26 +6187,6 @@
       "limit": 5
     },
     {
-      "query": "味噌汁",
-      "accept": [
-        "17049",
-        "17050"
-      ],
-      "group": "17",
-      "kind": "colloquial",
-      "limit": 5
-    },
-    {
-      "query": "みそしる",
-      "accept": [
-        "17049",
-        "17050"
-      ],
-      "group": "17",
-      "kind": "hiragana",
-      "limit": 5
-    },
-    {
       "query": "顆粒だし",
       "accept": [
         "17028"

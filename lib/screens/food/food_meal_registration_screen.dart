@@ -7,6 +7,7 @@ import '../../state/app_controller.dart';
 import '../../utils/macro_display.dart';
 import '../meal_template/meal_template_list_screen.dart';
 import '../meal_template/meal_template_picker_screen.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../subscription/plus_gate.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -177,6 +178,7 @@ class _FoodMealRegistrationScreenState
               context,
               widget.controller,
               message: '食品のメモは、カロナビ+です。',
+              feature: PlusFunnelFeature.memo,
             );
             if (allowed && mounted) {
               setState(() {});

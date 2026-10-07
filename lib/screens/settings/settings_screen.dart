@@ -4,6 +4,7 @@ import '../../config/app_contact_config.dart';
 import '../../config/official_foods_flag.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
@@ -63,6 +64,7 @@ class SettingsScreen extends StatelessWidget {
       context,
       controller,
       message: AppStrings.coachBetaNotice,
+      feature: PlusFunnelFeature.coach,
     );
     if (!allowed || !context.mounted) {
       return;
@@ -80,6 +82,10 @@ class SettingsScreen extends StatelessWidget {
       return;
     }
     if (!paid) {
+      controller.recordPlusFunnel(
+        event: PlusFunnelEvent.gateShown,
+        feature: PlusFunnelFeature.widget,
+      );
       final openPlus = await showAppConfirmDialog(
         context: context,
         title: 'こちらは有料の機能です',
@@ -88,7 +94,11 @@ class SettingsScreen extends StatelessWidget {
         cancelLabel: '閉じる',
       );
       if (openPlus == true && context.mounted) {
-        await _openCalonaviPlus(context);
+        controller.recordPlusFunnel(
+          event: PlusFunnelEvent.gateTap,
+          feature: PlusFunnelFeature.widget,
+        );
+        await _openCalonaviPlus(context, feature: PlusFunnelFeature.widget);
       }
       return;
     }
@@ -102,6 +112,10 @@ class SettingsScreen extends StatelessWidget {
       return;
     }
     if (!paid) {
+      controller.recordPlusFunnel(
+        event: PlusFunnelEvent.gateShown,
+        feature: PlusFunnelFeature.siri,
+      );
       final openPlus = await showAppConfirmDialog(
         context: context,
         title: 'こちらは有料の機能です',
@@ -113,7 +127,11 @@ class SettingsScreen extends StatelessWidget {
       if (openPlus != true || !context.mounted) {
         return;
       }
-      await _openCalonaviPlus(context);
+      controller.recordPlusFunnel(
+        event: PlusFunnelEvent.gateTap,
+        feature: PlusFunnelFeature.siri,
+      );
+      await _openCalonaviPlus(context, feature: PlusFunnelFeature.siri);
       return;
     }
     _push(context, const SiriVoiceSetupScreen());
@@ -129,7 +147,10 @@ class SettingsScreen extends StatelessWidget {
     ).showSnackBar(const SnackBar(content: Text('無料に戻しました')));
   }
 
-  Future<void> _openCalonaviPlus(BuildContext context) async {
+  Future<void> _openCalonaviPlus(
+    BuildContext context, {
+    PlusFunnelFeature? feature,
+  }) async {
     final custom = controller.openCalonaviPlusFlow;
     if (custom != null) {
       await custom(context);
@@ -138,6 +159,8 @@ class SettingsScreen extends StatelessWidget {
     await showCalonaviPlus(
       context,
       repository: controller.subscriptionRepository,
+      feature: feature,
+      funnel: controller.plusFunnelRepository,
     );
   }
 

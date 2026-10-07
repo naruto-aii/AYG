@@ -23,6 +23,7 @@ class ExerciseEntry {
     this.calculationVersion,
     this.sourceKey,
     this.notes,
+    this.recordOrigin,
   });
 
   final String id;
@@ -50,6 +51,9 @@ class ExerciseEntry {
   final String? calculationVersion;
   final String? sourceKey;
   final String? notes;
+
+  /// 記録した場所。app / widget / siri など。未送信の古い行は null。
+  final String? recordOrigin;
 
   /// 残りカロリー計算および履歴・ホームの表示に使う net。
   /// 未設定の既存記録は burnedKcal を net 相当として扱う。
@@ -100,6 +104,7 @@ class ExerciseEntry {
     String? sourceKey,
     String? notes,
     bool clearNotes = false,
+    String? recordOrigin,
   }) {
     return ExerciseEntry(
       id: id ?? this.id,
@@ -122,6 +127,7 @@ class ExerciseEntry {
       calculationVersion: calculationVersion ?? this.calculationVersion,
       sourceKey: sourceKey ?? this.sourceKey,
       notes: clearNotes ? null : notes ?? this.notes,
+      recordOrigin: recordOrigin ?? this.recordOrigin,
     );
   }
 }

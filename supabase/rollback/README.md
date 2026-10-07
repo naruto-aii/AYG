@@ -2,6 +2,36 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261007164000 record origin
+
+食事と運動の `record_origin` だけを外す。行は残す。本番には未適用。
+
+`supabase/rollback/20261007164000_record_origin_down.sql`
+
+## 20261007163000 plus funnel events
+
+`plus_funnel_events` を消す。アカウント削除の関数は、表が無いときはその削除を飛ばす。本番には未適用。
+
+`supabase/rollback/20261007163000_plus_funnel_events_down.sql`
+
+## 20261007162000 blocked food creators update own
+
+ブロックし直すための update 方針だけを外す。行は残す。本番の方針は、このロールバックを流さない限り残る。
+
+`supabase/rollback/20261007162000_blocked_food_creators_update_own_down.sql`
+
+## 20261007161000 remove miso soup aliases from instant miso
+
+即席みそ 17049 / 17050 へ、味噌汁の口語別名6行を戻す。
+
+`supabase/rollback/20261007161000_remove_miso_soup_aliases_from_instant_miso_down.sql`
+
+## 20261007160000 food search spellings rls
+
+`food_search_spellings` の RLS と SELECT 方針を外す。行は残す。
+
+`supabase/rollback/20261007160000_food_search_spellings_rls_down.sql`
+
 ## 20261006150000 calonavi plus half year product
 
 半年プランの商品ID `calonavi_plus_half_year` だけを戻す。月額・年額・実機テストの加入行、表、RLS は残す。2回実行しても失敗しない。

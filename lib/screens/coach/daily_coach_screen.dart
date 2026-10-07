@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
 import '../../repositories/coach_intro_store.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/coach_nutrition_source.dart';
 import '../../repositories/coach_proposal_log.dart';
 import '../../services/daily_coach.dart';
@@ -337,6 +338,10 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
                 if (controller == null) {
                   return;
                 }
+                controller.recordPlusFunnel(
+                  event: PlusFunnelEvent.gateTap,
+                  feature: PlusFunnelFeature.coach,
+                );
                 final custom = controller.openCalonaviPlusFlow;
                 if (custom != null) {
                   custom(context);
@@ -345,6 +350,8 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
                 showCalonaviPlus(
                   context,
                   repository: controller.subscriptionRepository,
+                  feature: PlusFunnelFeature.coach,
+                  funnel: controller.plusFunnelRepository,
                 );
               },
             ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/daily_coach.dart';
@@ -148,7 +149,10 @@ class SupabaseCoachProposalLog implements CoachProposalLog {
             'recorded_at': record.recordedAt.toUtc().toIso8601String(),
           },
       ]);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] coach proposal log failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -163,6 +167,9 @@ class SupabaseCoachProposalLog implements CoachProposalLog {
           .update({'registered': true})
           .eq('id', id)
           .eq('user_id', userId);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] coach proposal update failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 }

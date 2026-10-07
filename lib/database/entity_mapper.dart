@@ -127,7 +127,8 @@ class EntityMapper {
       ..sortOrder = entry.sortOrder
       ..officialFoodCode = entry.officialFoodCode
       ..officialFoodName = entry.officialFoodName
-      ..memo = entry.memo;
+      ..memo = entry.memo
+      ..recordOrigin = entry.recordOrigin;
   }
 
   static FoodEntry fromFoodEntryEntity(FoodEntryEntity entity) {
@@ -159,6 +160,7 @@ class EntityMapper {
       officialFoodCode: entity.officialFoodCode,
       officialFoodName: entity.officialFoodName,
       memo: entity.memo,
+      recordOrigin: entity.recordOrigin,
       loggedAt: entity.loggedAt,
     );
   }
@@ -361,7 +363,8 @@ class EntityMapper {
       ..calculationSource = entry.calculationSource?.storageValue
       ..calculationVersion = entry.calculationVersion
       ..sourceKey = entry.sourceKey
-      ..notes = entry.notes;
+      ..notes = entry.notes
+      ..recordOrigin = entry.recordOrigin;
   }
 
   static ExerciseEntry fromExerciseEntryEntity(ExerciseEntryEntity entity) {
@@ -388,6 +391,7 @@ class EntityMapper {
       calculationVersion: entity.calculationVersion,
       sourceKey: entity.sourceKey,
       notes: entity.notes,
+      recordOrigin: entity.recordOrigin,
     );
   }
 

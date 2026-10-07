@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/subscription_catalog.dart';
@@ -148,7 +149,10 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
         'query_text': query,
         'advertising_use': false,
       });
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] usage search record failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -170,7 +174,10 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
         'action': action,
         'advertising_use': false,
       });
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] usage screen record failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -244,7 +251,10 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
             .eq('user_id', userId)
             .eq('product_id', productId);
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] plus entitlement sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Future<void> _upsertEntitlement({

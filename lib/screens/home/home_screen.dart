@@ -13,6 +13,7 @@ import '../../services/open_food_facts_service.dart';
 import '../../services/share_card_content.dart';
 import '../../services/share_sheet_client.dart';
 import '../../services/usage_record.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -102,6 +103,16 @@ class HomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(child: _ring(summary)),
+              if (controller.hasUnsentRecords) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '未送信の記録があります',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               _coachEntry(context),
               const SizedBox(height: 8),
@@ -402,6 +413,7 @@ class HomeScreen extends StatelessWidget {
       context,
       controller,
       message: AppStrings.coachBetaNotice,
+      feature: PlusFunnelFeature.coach,
     );
     if (!allowed || !context.mounted) {
       return;
@@ -537,6 +549,7 @@ class HomeScreen extends StatelessWidget {
       context,
       controller,
       message: '直近3日の食品からの追加は、カロナビ+です。',
+      feature: PlusFunnelFeature.recentFoods,
     );
     if (!allowed || !context.mounted) {
       return;
@@ -553,6 +566,7 @@ class HomeScreen extends StatelessWidget {
       context,
       controller,
       message: '食品のメモは、カロナビ+です。',
+      feature: PlusFunnelFeature.memo,
     );
     if (!allowed || !context.mounted) {
       return;

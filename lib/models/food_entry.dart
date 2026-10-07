@@ -28,6 +28,7 @@ class FoodEntry {
     this.officialFoodCode,
     this.officialFoodName,
     this.memo,
+    this.recordOrigin,
     required this.loggedAt,
   }) : kcalPerBase = kcalPerBase ?? kcalPerUnit,
        proteinPerBase = proteinPerBase ?? proteinPerUnit,
@@ -69,6 +70,9 @@ class FoodEntry {
 
   /// その食事へのメモ。空は保存しない。
   final String? memo;
+
+  /// 記録した場所。app / widget / siri など。未送信の古い行は null。
+  final String? recordOrigin;
 
   final DateTime loggedAt;
 
@@ -114,6 +118,7 @@ class FoodEntry {
     String? officialFoodName,
     String? memo,
     bool clearMemo = false,
+    String? recordOrigin,
     DateTime? loggedAt,
   }) {
     return FoodEntry(
@@ -138,6 +143,7 @@ class FoodEntry {
       officialFoodCode: officialFoodCode ?? this.officialFoodCode,
       officialFoodName: officialFoodName ?? this.officialFoodName,
       memo: clearMemo ? null : memo ?? this.memo,
+      recordOrigin: recordOrigin ?? this.recordOrigin,
       loggedAt: loggedAt ?? this.loggedAt,
     );
   }

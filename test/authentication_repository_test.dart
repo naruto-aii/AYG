@@ -271,6 +271,8 @@ void main() {
 
       expect(controller.lastSyncFailed, isTrue);
       expect(controller.hasInitialSyncCompleted, isFalse);
+      expect(dataSyncRepository.pushLocalToRemoteCalled, isTrue);
+      dataSyncRepository.pushLocalToRemoteCalled = false;
 
       controller.setProfile(
         UserProfile(

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../config/subscription_catalog.dart';
 import '../../constants/app_strings.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../repositories/subscription_repository.dart';
 import '../../services/subscription_offer.dart';
@@ -25,11 +28,17 @@ import '../legal/legal_document_screen.dart';
 Future<void> showCalonaviPlus(
   BuildContext context, {
   required SubscriptionRepository repository,
+  PlusFunnelFeature? feature,
+  PlusFunnelRepository? funnel,
 }) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
-      builder: (context) => CalonaviPlusEntryScreen(repository: repository),
+      builder: (context) => CalonaviPlusEntryScreen(
+        repository: repository,
+        feature: feature,
+        funnel: funnel,
+      ),
     ),
   );
 }
@@ -58,9 +67,16 @@ String _groupDigits(int value) {
 }
 
 class CalonaviPlusEntryScreen extends StatefulWidget {
-  const CalonaviPlusEntryScreen({super.key, required this.repository});
+  const CalonaviPlusEntryScreen({
+    super.key,
+    required this.repository,
+    this.feature,
+    this.funnel,
+  });
 
   final SubscriptionRepository repository;
+  final PlusFunnelFeature? feature;
+  final PlusFunnelRepository? funnel;
 
   @override
   State<CalonaviPlusEntryScreen> createState() =>
@@ -92,7 +108,27 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   @override
   void initState() {
     super.initState();
+    _record(PlusFunnelEvent.paywallOpen);
     _loadPrices();
+  }
+
+  void _record(PlusFunnelEvent event, {String? productId}) {
+    final funnel = widget.funnel;
+    if (funnel == null) {
+      return;
+    }
+    unawaited(() async {
+      try {
+        await funnel.record(
+          event: event,
+          feature: widget.feature,
+          productId: productId,
+        );
+      } catch (error, stackTrace) {
+        debugPrint('[AYG] plus funnel record failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }());
   }
 
   Future<void> _loadPrices() async {
@@ -223,16 +259,25 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
 
   Future<void> _confirm() async {
     final plan = _selected;
-    await _purchase(() => widget.repository.purchasePlan(plan));
+    final productId = SubscriptionCatalog.productIdFor(plan);
+    _record(PlusFunnelEvent.purchaseTap, productId: productId);
+    await _purchase(
+      () => widget.repository.purchasePlan(plan),
+      productId: productId,
+    );
   }
 
-  Future<void> _purchase(Future<void> Function() action) async {
+  Future<void> _purchase(
+    Future<void> Function() action, {
+    required String productId,
+  }) async {
     await _guarded(() async {
       await action();
       if (!mounted) {
         return;
       }
       if (widget.repository.isPlusActive) {
+        _record(PlusFunnelEvent.purchaseSuccess, productId: productId);
         _showMessage(
           widget.repository.testPurchaseToggleEnabled
               ? 'テスト用にカロナビ+にしました'
@@ -241,11 +286,14 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
+      } else {
+        _record(PlusFunnelEvent.purchaseCancel, productId: productId);
       }
-    });
+    }, productId: productId);
   }
 
   Future<void> _restore() async {
+    _record(PlusFunnelEvent.restoreTap);
     await _guarded(() async {
       await widget.repository.restore();
       if (!mounted) {
@@ -254,19 +302,29 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       _showMessage(
         widget.repository.isPlusActive ? '購入を復元しました' : '有効な購入は見つかりませんでした',
       );
-    });
+    }, recordPurchaseFailure: false);
   }
 
-  Future<void> _guarded(Future<void> Function() action) async {
+  Future<void> _guarded(
+    Future<void> Function() action, {
+    String? productId,
+    bool recordPurchaseFailure = true,
+  }) async {
     setState(() => _busy = true);
     try {
       await action();
     } on SubscriptionPurchaseUnavailableException {
+      if (recordPurchaseFailure) {
+        _record(PlusFunnelEvent.purchaseFailed, productId: productId);
+      }
       if (!mounted) {
         return;
       }
       _showMessage('この環境ではアプリ内課金を使えません');
     } catch (_) {
+      if (recordPurchaseFailure) {
+        _record(PlusFunnelEvent.purchaseFailed, productId: productId);
+      }
       if (!mounted) {
         return;
       }

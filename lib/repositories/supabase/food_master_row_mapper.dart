@@ -228,6 +228,7 @@ class FoodMasterRowMapper {
       sourceSavedFoodVersion: (row['source_saved_food_version'] as num?)
           ?.toInt(),
       memo: _blankToNull(row['memo'] as String?),
+      recordOrigin: _blankToNull(row['record_origin'] as String?),
       loggedAt: DateTime.parse(row['logged_at'] as String),
     );
   }
@@ -258,6 +259,7 @@ class FoodMasterRowMapper {
       'sort_order': entry.sortOrder,
       'source_saved_food_version': entry.sourceSavedFoodVersion,
       'memo': _blankToNull(entry.memo),
+      'record_origin': _blankToNull(entry.recordOrigin),
       'logged_at': entry.loggedAt.toIso8601String(),
     };
   }

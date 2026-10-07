@@ -27,10 +27,15 @@ enum AnalyticsEventWriter {
       props: [
         "surface": surface,
         "slot": slot,
-        "kind": kind,
+        "kind": widgetPatternKind(kind),
         "result": result,
       ]
     )
+  }
+
+  /// 枠の種類は meal か exercise だけ。それ以外は meal にする。
+  static func widgetPatternKind(_ raw: String?) -> String {
+    raw == "exercise" ? "exercise" : "meal"
   }
 
   static func recordSiri(
@@ -136,17 +141,32 @@ enum AnalyticsEventWriter {
 
 enum WidgetAnalytics {
   /// `RegisterMealWidgetIntent.perform` と同じ記録。テストはこちらの関数を呼ぶ。
+  /// `kind` を渡したときはその枠の種類を書く。省略したときは保存済みの枠を読む。
   static func recordPress(
     surface: String,
     slot: Int,
+    kind: String? = nil,
     outcome: (() throws -> String)? = nil
   ) rethrows -> String {
+    let pattern = AnalyticsEventWriter.widgetPatternKind(
+      kind ?? LockScreenMealStore.patternKind(surface: surface, slot: slot)
+    )
     do {
       let result = try outcome?() ?? LockScreenMealStore.register(surface: surface, slot: slot)
-      AnalyticsEventWriter.recordWidgetTap(surface: surface, slot: slot, result: result)
+      AnalyticsEventWriter.recordWidgetTap(
+        surface: surface,
+        slot: slot,
+        result: result,
+        kind: pattern
+      )
       return result
     } catch {
-      AnalyticsEventWriter.recordWidgetTap(surface: surface, slot: slot, result: "error")
+      AnalyticsEventWriter.recordWidgetTap(
+        surface: surface,
+        slot: slot,
+        result: "error",
+        kind: pattern
+      )
       throw error
     }
   }

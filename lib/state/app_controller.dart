@@ -3208,7 +3208,12 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveLockScreenMealConfig(LockScreenMealConfig config) async {
-    _usage('widget_config_saved', {'surface': 'home'});
+    final counts = config.homeSlotCounts;
+    _usage('widget_config_saved', {
+      'surface': 'home',
+      'assigned_meal_slots': counts.meal,
+      'assigned_exercise_slots': counts.exercise,
+    });
     final gateway = _lockScreenMealGateway;
     if (gateway == null) {
       return;

@@ -219,6 +219,21 @@ class LockScreenMealConfig {
   LockScreenMealButtonConfig lockAt(int slot) =>
       _at(lockButtons, slot, lockDefaultLabels);
 
+  /// ホームの5枠のうち、食事と運動がそれぞれ何枠か。
+  ({int meal, int exercise}) get homeSlotCounts {
+    var meal = 0;
+    var exercise = 0;
+    for (final button in homeButtons) {
+      switch (button.kind) {
+        case WidgetPatternKind.meal:
+          meal += 1;
+        case WidgetPatternKind.exercise:
+          exercise += 1;
+      }
+    }
+    return (meal: meal, exercise: exercise);
+  }
+
   static LockScreenMealButtonConfig _at(
     List<LockScreenMealButtonConfig> buttons,
     int slot,

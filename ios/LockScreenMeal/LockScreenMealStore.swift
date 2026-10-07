@@ -104,6 +104,13 @@ enum LockScreenMealStore {
     lockButtons()
   }
 
+  /// 保存済みの枠の種類。meal か exercise。無い枠は meal。
+  static func patternKind(surface: String, slot: Int) -> String {
+    let buttons = surface == "home" ? homeButtons() : lockButtons()
+    let raw = buttons.first(where: { $0.slot == slot })?.kind
+    return raw == "exercise" ? "exercise" : "meal"
+  }
+
   static func ownerUserId() -> String {
     guard
       let raw = defaults?.string(forKey: snapshotKey),

@@ -605,6 +605,13 @@ void main() {
           (row) => row['event_name'] == 'widget_tap',
         );
         expect(widget['origin'], 'home_widget');
+        final savedConfig = analytics.holding.delivered.lastWhere(
+          (row) => row['event_name'] == 'widget_config_saved',
+        );
+        final savedProps = savedConfig['props'] as Map;
+        expect(savedProps['surface'], 'home');
+        expect(savedProps['assigned_meal_slots'], 3);
+        expect(savedProps['assigned_exercise_slots'], 2);
         expect(widget['occurred_at'], contains('2026-10-07'));
         final siriRow = analytics.holding.delivered.lastWhere(
           (row) => row['event_name'] == 'siri_request_finished',

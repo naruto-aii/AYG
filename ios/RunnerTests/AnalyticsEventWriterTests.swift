@@ -50,6 +50,34 @@ final class AnalyticsEventWriterTests: XCTestCase {
     XCTAssertTrue(results.contains("error"))
   }
 
+  func testWidgetPressKeepsSlotAndKind() throws {
+    _ = try WidgetAnalytics.recordPress(surface: "home", slot: 4, kind: "exercise") {
+      "registered"
+    }
+    XCTAssertThrowsError(
+      try WidgetAnalytics.recordPress(surface: "home", slot: 3, kind: "exercise") {
+        throw NSError(domain: "test", code: 1)
+      }
+    )
+    _ = try WidgetAnalytics.recordPress(surface: "lock", slot: 0, kind: "not-a-kind") {
+      "unpaid"
+    }
+    let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+    XCTAssertEqual(files.count, 3)
+    let rows = try files.map { url -> (Int, String, String) in
+      let data = try Data(contentsOf: url)
+      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+      let props = json?["props"] as? [String: Any]
+      let slot = (props?["slot"] as? NSNumber)?.intValue ?? -1
+      let kind = props?["kind"] as? String ?? ""
+      let result = props?["result"] as? String ?? ""
+      return (slot, kind, result)
+    }
+    XCTAssertTrue(rows.contains { $0 == (4, "exercise", "registered") })
+    XCTAssertTrue(rows.contains { $0 == (3, "exercise", "error") })
+    XCTAssertTrue(rows.contains { $0 == (0, "meal", "unpaid") })
+  }
+
   func testConsentFalseWritesNothing() throws {
     defaults.set(false, forKey: AnalyticsEventWriter.consentKey)
     _ = try WidgetAnalytics.recordPress(surface: "lock", slot: 0) { "unpaid" }

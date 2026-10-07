@@ -396,6 +396,18 @@ void main() {
     expect(config.lockAt(0).label, '朝');
     expect(config.lockAt(0).kind, WidgetPatternKind.meal);
     expect(config.lockAt(2).label, '夜');
+    expect(config.homeSlotCounts.meal, 3);
+    expect(config.homeSlotCounts.exercise, 2);
+
+    final allExercise = LockScreenMealConfig(
+      homeButtons: [
+        for (final button in config.homeButtons)
+          button.copyWith(kind: WidgetPatternKind.exercise),
+      ],
+      lockButtons: config.lockButtons,
+    );
+    expect(allExercise.homeSlotCounts.meal, 0);
+    expect(allExercise.homeSlotCounts.exercise, 5);
 
     final decoded = LockScreenMealCodec.decodeConfig(
       LockScreenMealCodec.encodeConfig(

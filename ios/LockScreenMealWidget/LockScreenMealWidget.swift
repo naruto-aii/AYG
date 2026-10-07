@@ -175,7 +175,7 @@ struct HomeMealWidgetView: View {
         .padding(.bottom, 8)
       HStack(spacing: 6) {
         ForEach(entry.buttons.prefix(5)) { button in
-          Button(intent: RegisterMealWidgetIntent(surface: "home", slot: button.slot)) {
+          Button(intent: RegisterMealWidgetIntent(surface: "home", slot: button.slot, kind: button.kind)) {
             HomeTile(label: button.displayLabel)
           }
           .buttonStyle(.plain)
@@ -346,7 +346,7 @@ struct LockMealWidgetView: View {
       let longest = buttons.map { $0.displayLabel.count }.max() ?? 0
       HStack(spacing: 5) {
         ForEach(buttons) { button in
-          Button(intent: RegisterMealWidgetIntent(surface: "lock", slot: button.slot)) {
+          Button(intent: RegisterMealWidgetIntent(surface: "lock", slot: button.slot, kind: button.kind)) {
             LockCapsule(label: button.displayLabel, longest: longest)
           }
           .buttonStyle(.plain)
@@ -407,18 +407,24 @@ struct RegisterMealWidgetIntent: AppIntent {
   @Parameter(title: "ボタン")
   var slot: Int
 
+  @Parameter(title: "種類")
+  var kind: String
+
   init() {
     self.surface = "lock"
     self.slot = 0
+    self.kind = ""
   }
 
-  init(surface: String, slot: Int) {
+  init(surface: String, slot: Int, kind: String = "") {
     self.surface = surface
     self.slot = slot
+    self.kind = kind
   }
 
   func perform() async throws -> some IntentResult {
-    _ = try WidgetAnalytics.recordPress(surface: surface, slot: slot)
+    let pattern = kind == "meal" || kind == "exercise" ? kind : nil
+    _ = try WidgetAnalytics.recordPress(surface: surface, slot: slot, kind: pattern)
     LockScreenMealStore.reloadWidgets()
     return .result()
   }

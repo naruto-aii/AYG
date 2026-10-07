@@ -17,7 +17,8 @@ class AnalyticsSendResult {
 
   bool get unauthorized => statusCode == 401;
 
-  /// app_events がまだ無い（PGRST205 / 404 / 42P01）。無限に再送しない。
+  /// app_events か insert_app_events がまだ無い
+  /// （PGRST202 / PGRST205 / 42P01 / 42883 / 404）。無限に再送しない。
   bool get tableMissing => statusCode == 404;
 
   /// 通信できない、時間切れ、500 番台、429、401 は残して後で送る。

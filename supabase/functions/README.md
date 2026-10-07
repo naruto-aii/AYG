@@ -65,7 +65,7 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 公開前の順番:
 
-1. `20261008090000_app_events.sql` と `20261008090200_app_events_retention.sql` を、必ず同じ作業で適用する。アプリは `onConflict: 'event_id,occurred_at'` で upsert する。90000 だけの主キーは `event_id` なので、90200 で月ごとの表と主キー `(event_id, occurred_at)` にする前に送ると失敗する。90200 はこの時点ではまだ自動では消えない。
+1. `20261008090000_app_events.sql` と `20261008090200_app_events_retention.sql` を、必ず同じ作業で適用する。アプリは `public.insert_app_events` で追加する。この関数は 90200 で、主キー `(event_id, occurred_at)` のあと作る。90000 だけだと関数が無く、主キーも `event_id` だけなので、片方だけでは送らない。90200 はこの時点ではまだ自動では消えない。表への直接 INSERT は渡さない。
 2. `app-store-notifications` を配備し、App Store Connect の通知先（本番とサンドボックス、バージョン 2）を `https://vdzzusqisymtejcjnikb.supabase.co/functions/v1/app-store-notifications` にする。
 3. 上の秘密を入れる。
 4. `store-analytics-setup` を 1 回だけ実行する。そのあと管理者鍵を無効化し、`ASC_ADMIN_KEY_ID` と `ASC_ADMIN_PRIVATE_KEY` を消す。

@@ -6,7 +6,9 @@
 --   * 既存の表・列・データは一切消さない、変えない（追加だけ）。
 --     例外は delete_own_account(uuid) の中身の差し替えのみ。既存の削除処理は
 --     一字一句そのまま残し、新しい表の削除を足している。
---   * アプリ利用者に許すのは「本人の行の insert」だけ。select/update/delete は与えない。
+--   * アプリ利用者に、app_events への直接の insert は渡さない。
+--     重複を無視する追加は、090200 の public.insert_app_events だけが行う。
+--     直接の upsert は conflict 列の SELECT が要り、本人の行を読めてしまう。
 --   * イベント名の一覧はアプリ側（lib/services/analytics/event_names.dart）で持つ。
 --     データベース側はイベント名の「形式」と「大きさ」しか検査しないので、
 --     新しいイベントを足してもこのファイルの変更は不要。
@@ -14,8 +16,8 @@
 --   * 本番には pg_cron / pg_net が入っていないため、定期実行は別ファイル
 --     20261008090100_store_import_schedule.sql に分けた（社長の承認後に適用）。
 --   * 20261008090200_app_events_retention.sql と必ず同じ作業で適用する。
---     アプリは onConflict 'event_id,occurred_at' で upsert する。このファイルだけの
---     主キーは event_id なので、月ごとの表へ移す前に送ると失敗する。
+--     追加関数は、月ごとの主キー (event_id, occurred_at) ができてから作る。
+--     このファイルだけの主キーは event_id なので、関数を先に使うと失敗する。
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -80,15 +82,9 @@ create index if not exists app_events_received_idx
   on public.app_events (received_at);
 
 alter table public.app_events enable row level security;
-revoke all on table public.app_events from anon, authenticated;
-grant insert on table public.app_events to authenticated;
-
-drop policy if exists app_events_insert_own on public.app_events;
-create policy app_events_insert_own
-  on public.app_events
-  for insert
-  to authenticated
-  with check (user_id = (select auth.uid()) and advertising_use = false);
+revoke all on table public.app_events from public, anon, authenticated;
+-- 直接の INSERT は渡さない。ON CONFLICT には SELECT が要り、本人の行が読めてしまう。
+-- 追加は 20261008090200 の public.insert_app_events だけ。
 
 -- ---------------------------------------------------------------------
 -- 2. 利用状況の記録への同意（審査ガイドライン 5.1.1(ii) 対応）

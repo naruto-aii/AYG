@@ -4,13 +4,13 @@
 
 ## 20261008090200 app events retention
 
-`20261008090000_app_events` と **同じ作業で適用する**。片方だけでは出さない。アプリは `onConflict: 'event_id,occurred_at'` で upsert する。90000 だけの主キーは `event_id` なので、このファイルで月ごとの表と主キー `(event_id, occurred_at)` にする前に送ると失敗する。90200 は削除を始めない。戻すときも、90000 だけ残して 90200 だけ戻さない。
+`20261008090000_app_events` と **同じ作業で適用する**。片方だけでは出さない。アプリは `public.insert_app_events` で追加する。関数は、月ごとの主キー `(event_id, occurred_at)` ができてから作る。90000 だけの主キーは `event_id` なので、このファイルの前に送ると失敗する。90200 は削除を始めない。戻すときも、90000 だけ残して 90200 だけ戻さない。戻す SQL は `supabase/rollback/20261008090200_app_events_retention_down.sql`。先にこちらを流し、続けて 90000 の down を流す。
 
 定期実行（90日より古い月の削除）は `20261008090300` で、pg_cron の承認後に別途適用する。
 
 ## 20261008090000 app events
 
-`20261008090200_app_events_retention` と **同じ作業で適用する**。理由は上と同じ。`onConflict 'event_id,occurred_at'` は、分割後の主キーがないと PostgREST が受け付けない。
+`20261008090200_app_events_retention` と **同じ作業で適用する**。追加は `insert_app_events` だけ。表への直接 INSERT は渡さない。直接の upsert は conflict 列の SELECT が要り、42501 になるか本人の行が読めてしまう。戻す SQL は `supabase/rollback/20261008090000_app_events_down.sql`。`app_events` の行は消える。`delete_own_account` は、本番に当たっている `20261007090000` の定義に戻す。
 
 ## 20261007074319 record origin
 
@@ -18,11 +18,11 @@
 
 `supabase/rollback/20261007074319_record_origin_down.sql`
 
-## 20261007163000 plus funnel events
+## 20261007090000 plus funnel events
 
-`plus_funnel_events` を消す。アカウント削除の関数は、表が無いときはその削除を飛ばす。本番には未適用。
+`plus_funnel_events` を消す。アカウント削除の関数は、表が無いときはその削除を飛ばす。本番には version `20261007090000` で適用済み。リポジトリのファイル名もその version に合わせた。
 
-`supabase/rollback/20261007163000_plus_funnel_events_down.sql`
+`supabase/rollback/20261007090000_plus_funnel_events_down.sql`
 
 ## 20261007162000 blocked food creators update own
 

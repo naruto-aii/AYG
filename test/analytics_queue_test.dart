@@ -203,6 +203,18 @@ void main() {
       ),
       404,
     );
+    expect(
+      analyticsStatusForPostgrest(
+        const PostgrestException(message: 'missing', code: 'PGRST202'),
+      ),
+      404,
+    );
+    expect(
+      analyticsStatusForPostgrest(
+        const PostgrestException(message: 'missing', code: '42883'),
+      ),
+      404,
+    );
 
     final isarHarness = await setUpIsarHarness();
     final clock = _MutableClock(DateTime.utc(2027, 1, 1));

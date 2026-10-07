@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/supabase_config.dart';
 import 'analytics_sender.dart';
 
-/// `app_events` へまとめて upsert する。結果の行は受け取らない。
+/// `insert_app_events` でまとめて追加する。同じ event_id と occurred_at は無視する。
 class SupabaseAnalyticsTransport implements AnalyticsTransport {
   SupabaseAnalyticsTransport({SupabaseClient? client}) : _client = client;
 
@@ -27,11 +27,7 @@ class SupabaseAnalyticsTransport implements AnalyticsTransport {
       return const AnalyticsSendResult();
     }
     try {
-      await client.from('app_events').upsert(
-        rows,
-        onConflict: 'event_id,occurred_at',
-        ignoreDuplicates: true,
-      );
+      await client.rpc('insert_app_events', params: {'events': rows});
       return const AnalyticsSendResult.success();
     } on AuthException catch (error, stackTrace) {
       debugPrint('[AYG] analytics unauthorized: $error');
@@ -54,7 +50,11 @@ int analyticsStatusForPostgrest(PostgrestException error) {
   if (code == 'PGRST301' || code == '401') {
     return 401;
   }
-  if (code == 'PGRST205' || code == '42P01' || code == '404') {
+  if (code == 'PGRST202' ||
+      code == 'PGRST205' ||
+      code == '42P01' ||
+      code == '42883' ||
+      code == '404') {
     return 404;
   }
   if (code == 'PGRST204' || code.startsWith('22') || code.startsWith('23')) {

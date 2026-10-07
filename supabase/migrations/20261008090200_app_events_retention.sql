@@ -3,7 +3,7 @@
 -- 置き場所: supabase/migrations/20261008090200_app_events_retention.sql
 --
 -- 本番には適用しない。社長の承認後に、20261008090000 と必ず同じ作業で適用する。
--- アプリは onConflict 'event_id,occurred_at' で upsert する。90000 だけだと主キーは
+-- アプリは public.insert_app_events で追加する。90000 だけだと主キーは
 -- event_id だけで、このファイルが (event_id, occurred_at) に変えるまで送信は失敗する。
 -- このファイルは削除を始めない。定期実行は 20261008090300 に分けた。
 -- このファイルは pg_cron を有効にしない。
@@ -155,9 +155,9 @@ revoke all on table public.app_event_partitions from anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- 3. 月の表を作る
---    新しい表は、作った瞬間に authenticated へ select/insert/update/delete が
---    付く（既定の権限）。親の RLS は子の表を直接開いたときには効かないので、
---    子の表でも RLS を有効にし、挿入以外の権限を外す。
+--    新しい表は、作った瞬間に authenticated へ権限が付く（既定の権限）。
+--    親の RLS は子の表を直接開いたときには効かないので、子でも RLS を有効にし、
+--    権限はすべて外す。追加は親への insert_app_events だけ。
 -- ---------------------------------------------------------------------
 create or replace function public.lock_app_events_partition(p_partition_name text)
 returns void
@@ -174,12 +174,7 @@ begin
     'revoke all on table public.%I from public, anon, authenticated',
     p_partition_name
   );
-  execute format('grant insert on table public.%I to authenticated', p_partition_name);
   execute format('drop policy if exists app_events_insert_own on public.%I', p_partition_name);
-  execute format(
-    'create policy app_events_insert_own on public.%I for insert to authenticated with check (user_id = (select auth.uid()) and advertising_use = false)',
-    p_partition_name
-  );
 end;
 $function$;
 
@@ -357,15 +352,7 @@ begin
   perform public.lock_app_events_partition('app_events_default');
 
   alter table public.app_events enable row level security;
-  revoke all on table public.app_events from anon, authenticated;
-  grant insert on table public.app_events to authenticated;
-
-  drop policy if exists app_events_insert_own on public.app_events;
-  create policy app_events_insert_own
-    on public.app_events
-    for insert
-    to authenticated
-    with check (user_id = (select auth.uid()) and advertising_use = false);
+  revoke all on table public.app_events from public, anon, authenticated;
 
   create index app_events_user_occurred_idx
     on public.app_events (user_id, occurred_at desc);
@@ -442,6 +429,148 @@ create trigger app_events_before_insert
   before insert on public.app_events
   for each row
   execute function public.app_events_before_insert();
+
+-- ---------------------------------------------------------------------
+-- 4b. 重複を無視して追加する。利用者は表を読めない。
+--     直接の upsert は conflict 列の SELECT と本人行の SELECT 方針が要り、
+--     42501 になるか、行が読めてしまう。関数は所有者として挿入する。
+--     user_id は auth.uid() で上書きする。月の表が無いときは先に作る。
+--     トリガーは行を振り分けたあとで動き、ここでは月の表を作らない。
+-- ---------------------------------------------------------------------
+create or replace function public.insert_app_events(events jsonb)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  uid uuid := auth.uid();
+  inserted_count integer := 0;
+  item jsonb;
+  n integer;
+  row_event_id uuid;
+  row_occurred_at timestamptz;
+  month_start date;
+  months date[] := array[]::date[];
+begin
+  if uid is null then
+    raise exception 'not authenticated' using errcode = '42501';
+  end if;
+  if events is null or jsonb_typeof(events) is distinct from 'array' then
+    raise exception 'events must be a json array' using errcode = '22023';
+  end if;
+  n := jsonb_array_length(events);
+  if n = 0 then
+    return 0;
+  end if;
+  if n > 100 then
+    raise exception 'too many events' using errcode = '22023';
+  end if;
+
+  for item in select value from jsonb_array_elements(events) loop
+    row_event_id := (item->>'event_id')::uuid;
+    row_occurred_at := (item->>'occurred_at')::timestamptz;
+    if row_event_id is null or row_occurred_at is null then
+      raise exception 'event_id and occurred_at are required' using errcode = '22023';
+    end if;
+    if row_occurred_at < timezone('utc', now()) - interval '100 days'
+       or row_occurred_at > timezone('utc', now()) + interval '36 hours' then
+      raise exception 'occurred_at out of range' using errcode = '22023';
+    end if;
+    month_start := (date_trunc('month', row_occurred_at at time zone 'utc'))::date;
+    if not month_start = any (months) then
+      months := array_append(months, month_start);
+    end if;
+  end loop;
+
+  foreach month_start in array months loop
+    perform public.ensure_app_events_partition(month_start);
+  end loop;
+
+  with incoming as (
+    select
+      (payload->>'event_id')::uuid as event_id,
+      uid as user_id,
+      payload->>'event_name' as event_name,
+      (payload->>'occurred_at')::timestamptz as occurred_at,
+      nullif(payload->>'client_sent_at', '')::timestamptz as client_sent_at,
+      payload->>'origin' as origin,
+      (payload->>'install_id')::uuid as install_id,
+      nullif(payload->>'session_id', '')::uuid as session_id,
+      payload->>'stream' as stream,
+      (payload->>'sequence_number')::bigint as sequence_number,
+      payload->>'app_version' as app_version,
+      payload->>'app_build' as app_build,
+      nullif(payload->>'os_version', '') as os_version,
+      nullif(payload->>'device_model', '') as device_model,
+      nullif(payload->>'locale', '') as locale,
+      nullif(payload->>'time_zone', '') as time_zone,
+      coalesce(nullif(payload->>'schema_version', '')::smallint, 1) as schema_version,
+      case
+        when payload->'props' is null or jsonb_typeof(payload->'props') = 'null'
+          then '{}'::jsonb
+        else payload->'props'
+      end as props,
+      false as advertising_use
+    from jsonb_array_elements(events) as payload
+  ),
+  written as (
+    insert into public.app_events (
+      event_id,
+      user_id,
+      event_name,
+      occurred_at,
+      client_sent_at,
+      origin,
+      install_id,
+      session_id,
+      stream,
+      sequence_number,
+      app_version,
+      app_build,
+      os_version,
+      device_model,
+      locale,
+      time_zone,
+      schema_version,
+      props,
+      advertising_use
+    )
+    select
+      incoming.event_id,
+      incoming.user_id,
+      incoming.event_name,
+      incoming.occurred_at,
+      incoming.client_sent_at,
+      incoming.origin,
+      incoming.install_id,
+      incoming.session_id,
+      incoming.stream,
+      incoming.sequence_number,
+      incoming.app_version,
+      incoming.app_build,
+      incoming.os_version,
+      incoming.device_model,
+      incoming.locale,
+      incoming.time_zone,
+      incoming.schema_version,
+      incoming.props,
+      incoming.advertising_use
+    from incoming
+    on conflict (event_id, occurred_at) do nothing
+    returning 1
+  )
+  select count(*)::integer into inserted_count from written;
+
+  return inserted_count;
+end;
+$function$;
+
+revoke all on function public.insert_app_events(jsonb) from public, anon, authenticated;
+grant execute on function public.insert_app_events(jsonb) to authenticated;
+
+comment on function public.insert_app_events(jsonb) is
+  '本人の操作を追加する。user_id は auth.uid() で上書きし、同じ event_id と occurred_at は無視する。表の直接挿入は渡さない。1回100件まで。occurred_at は過去100日以内、未来36時間以内。';
 
 -- ビューは移したあとの app_events を見る。中身は 20261008090000 と同じ。
 create or replace view public.app_events_including_legacy

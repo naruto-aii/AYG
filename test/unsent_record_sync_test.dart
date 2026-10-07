@@ -454,7 +454,7 @@ void main() {
       ),
     );
 
-    final funnel = _sql('20261007163000_plus_funnel_events.sql');
+    final funnel = _sql('20261007090000_plus_funnel_events.sql');
     expect(
       funnel,
       contains('create table if not exists public.plus_funnel_events'),

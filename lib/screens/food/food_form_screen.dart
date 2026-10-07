@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart' show Symbols;
 
 import '../../models/food_visibility.dart';
 import '../../models/duplicate_saved_food_resolution.dart';
@@ -12,12 +13,12 @@ import '../../models/food_unit_type.dart';
 import '../../models/macro_field.dart';
 import '../../models/food_form_suggestion.dart';
 import '../../models/meal_template.dart';
-import '../../models/meal_template_draft.dart';
 import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
+import '../../models/public_food_search_match.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
-import '../../services/usage_record.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/public_food_meal_add_flow.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -32,20 +33,19 @@ import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
-import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/food_parts.dart';
 import '../../widgets/food/macro_nutrition_fields.dart';
 import '../../widgets/food/macro_nutrition_input_controller.dart';
+import '../../widgets/food/combined_food_search.dart';
 import '../../widgets/food/food_form_suggestion_list.dart';
-import '../../widgets/official_food/official_food_search_section.dart';
+import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../official_food/official_food_detail_screen.dart';
 import '../../services/source_food_edit_policy.dart';
 import '../../widgets/food/source_food_update_dialog.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
 import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../../widgets/saved_food/serving_amount_fields.dart';
-import '../saved_food/saved_food_list_screen.dart';
 import 'meal_food_search_screen.dart';
 import 'barcode_scanner_screen.dart';
 import 'food_form_template_actions.dart';
@@ -63,6 +63,7 @@ class FoodFormScreen extends StatefulWidget {
     this.initialLoggedAt,
     this.guideFirstMeal = false,
     this.initialQuery,
+    this.searchOverrides,
   });
 
   final AppController controller;
@@ -74,8 +75,11 @@ class FoodFormScreen extends StatefulWidget {
   /// 目標設定の直後だけ、この食事登録画面の上に1件分の案内を載せる。
   final bool guideFirstMeal;
 
-  /// Siri で見つからなかった検索語。名前欄に入れて成分表を探す。
+  /// Siri で見つからなかった検索語。名前欄に入れて、保存済み・定番の食品・公開食品を探す。
   final String? initialQuery;
+
+  /// テストが食品名欄と「食品を探す」の検索先を差し替える。
+  final CombinedFoodSearchOverrides? searchOverrides;
 
   bool get isEditing => entry != null;
 
@@ -106,6 +110,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   double _baseAmount = 1;
   FoodUnitType _unitType = FoodUnitType.serving;
   List<FoodFormSuggestion> _formSuggestions = const [];
+  final _nameSearchHandle = CombinedFoodSearchHandle();
   Timer? _suggestionTimer;
   int _suggestionGeneration = 0;
   String? _suggestionQuery;
@@ -159,7 +164,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         ? entry.consumedAmount.toString()
         : '1';
     _nameController.addListener(_onNameChanged);
-    if (!widget.isEditing) {
+    if (!widget.isEditing && _nameController.text.trim().isEmpty) {
       unawaited(_loadInitialSuggestions());
     }
     final initialPublicFood = widget.initialPublicFood;
@@ -206,6 +211,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
     _suggestionQuery = query;
     _suggestionTimer?.cancel();
+    // 文字が入っている間は CombinedFoodSearch が保存済み・定番・公開を出す。
+    if (query.isNotEmpty) {
+      _suggestionGeneration++;
+      if (_formSuggestions.isNotEmpty) {
+        setState(() => _formSuggestions = const []);
+      }
+      return;
+    }
     _suggestionTimer = Timer(const Duration(milliseconds: 250), () {
       unawaited(_refreshSuggestions(query));
     });
@@ -321,14 +334,17 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     _applyLookup(data);
+    setState(() => _barcodeSectionExpanded = false);
     _showMessage('商品情報を取得しました。数量を確認して保存してください。');
   }
 
   Future<void> _openFoodSearch() async {
     final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute<Object?>(
-        builder: (context) =>
-            MealFoodSearchScreen(controller: widget.controller),
+        builder: (context) => MealFoodSearchScreen(
+          controller: widget.controller,
+          searchOverrides: widget.searchOverrides,
+        ),
       ),
     );
     if (!mounted) {
@@ -438,29 +454,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
-  MealTemplateItemDraft? _buildTemplateItemDraft() {
-    if (!_macroInput.prepareForSave()) {
-      return null;
-    }
-
-    final consumedAmount = _parseQuantity(_quantityController.text);
-    final baseAmount = _usesSavedFoodBaseModel ? _baseAmount : 1.0;
-    final unitType = _usesSavedFoodBaseModel ? _unitType : FoodUnitType.serving;
-
-    return buildMealTemplateItemDraftFromFoodForm(
-      name: _nameController.text,
-      consumedAmount: consumedAmount,
-      baseAmount: baseAmount,
-      unitType: unitType,
-      kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
-      proteinPerBase: _macroInput.parseOptional(MacroField.protein),
-      fatPerBase: _macroInput.parseOptional(MacroField.fat),
-      carbPerBase: _macroInput.parseOptional(MacroField.carb),
-      savedFoodId: _selectedSavedFoodId,
-      sourceOwnerUserId: _sourceFoodOwnerUserId,
-    );
-  }
-
   Future<void> _openTemplatePicker() async {
     await openFoodTemplatePicker(
       context: context,
@@ -471,20 +464,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
           Navigator.of(context).pop();
         }
       },
-    );
-  }
-
-  Future<void> _saveAsTemplate() async {
-    final draft = _buildTemplateItemDraft();
-    if (draft == null) {
-      _showMessage('テンプレートに保存する内容を入力してください');
-      return;
-    }
-
-    await saveCurrentFoodAsTemplate(
-      context: context,
-      controller: widget.controller,
-      itemDraft: draft,
     );
   }
 
@@ -516,15 +495,31 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
-  Future<void> _openMyFoods() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => SavedFoodListScreen(
-          controller: widget.controller,
-          openFoodFactsService: widget.openFoodFactsService,
-        ),
-      ),
+  Future<void> _pickPublicFood(PublicFoodSearchMatch match) async {
+    final foodForMeal = await showPublicFoodDetailSheet(
+      context: context,
+      controller: widget.controller,
+      match: match,
+      selectForMealEntry: true,
+      onBlocked: () => _nameSearchHandle.hideOwner(match.food.ownerUserId),
     );
+    if (foodForMeal == null || !mounted) {
+      return;
+    }
+    final added = await PublicFoodMealAddFlow.start(
+      context: context,
+      controller: widget.controller,
+      food: foodForMeal,
+      onOpenManualForm: (context, food) {
+        if (!mounted) {
+          return;
+        }
+        _applySavedFoodSelection(food);
+      },
+    );
+    if (added && mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<DuplicateSavedFoodResolution?> _resolveDuplicateIfNeeded(
@@ -728,11 +723,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               widget.isEditing ? '食事を編集' : '食事を追加',
               style: AppTypography.headingL,
             ),
-            const SizedBox(height: 2),
-            Text(
-              '食べたものを記録して、健康な毎日をつくりましょう',
-              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-            ),
             if (_showFirstMealGuide) ...[
               const SizedBox(height: AppSpacing.md),
               DesignCard(
@@ -769,8 +759,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                     icon: Symbols.barcode_scanner_rounded,
                     label: 'バーコード',
                   ),
-                  FormTabItem(icon: Symbols.bookmark_rounded, label: '保存済み'),
-                  FormTabItem(icon: Symbols.search_rounded, label: '探す'),
+                  FormTabItem(icon: Symbols.search_rounded, label: '食品を探す'),
                   FormTabItem(icon: Symbols.list_alt_rounded, label: 'テンプレート'),
                 ],
                 selectedIndex: _barcodeSectionExpanded ? 1 : 0,
@@ -778,13 +767,15 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '手入力は名前と栄養素を自分で入れます。バーコード、保存済み、探す、テンプレートは、すでにある食品から選びます。',
+                '食べたものを記録します。保存済み食品や定番の食品は「食品を探す」から選べます。',
                 style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
               ),
             ],
-            const SizedBox(height: 10),
-            _inputCard(context, quantityLabel),
-            if (!widget.isEditing) ...[
+            if (!_barcodeSectionExpanded) ...[
+              const SizedBox(height: 10),
+              _inputCard(context, quantityLabel),
+            ],
+            if (!widget.isEditing && _barcodeSectionExpanded) ...[
               const SizedBox(height: 10),
               _barcodeCard(),
             ],
@@ -811,12 +802,42 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       case 1:
         setState(() => _barcodeSectionExpanded = true);
       case 2:
-        _openMyFoods();
-      case 3:
         _openFoodSearch();
-      case 4:
+      case 3:
         _openTemplatePicker();
     }
+  }
+
+  /// 空欄はテンプレートと保存済みの候補。文字があるときは3種類を見出し付きで出す。
+  Widget _nameLookup() {
+    final overrides = widget.searchOverrides;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _nameController,
+      builder: (context, value, _) {
+        if (value.text.trim().isEmpty) {
+          return FoodFormSuggestionList(
+            controller: widget.controller,
+            suggestions: _formSuggestions,
+            onSavedFoodSelected: _applySavedFoodSelection,
+            onMealTemplateSelected: _applyMealTemplateSuggestion,
+          );
+        }
+        return CombinedFoodSearch(
+          controller: widget.controller,
+          query: _nameController,
+          handle: _nameSearchHandle,
+          officialFoods: overrides?.officialFoods,
+          searchSaved: overrides?.searchSaved,
+          searchOfficial: overrides?.searchOfficial,
+          searchPublic: overrides?.searchPublic,
+          debounce: overrides?.debounce ?? const Duration(milliseconds: 250),
+          onSavedFood: _applySavedFoodSelection,
+          onOfficialFood: (match) =>
+              openOfficialFoodDetail(context, widget.controller, match),
+          onPublicFood: _pickPublicFood,
+        );
+      },
+    );
   }
 
   /// Figma: 入力カード。
@@ -826,43 +847,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(child: Text('食品の情報を入力', style: AppTypography.titleM)),
-              if (!widget.isEditing)
-                InkWell(
-                  onTap: _openMyFoods,
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgSurfaceGreenSoft,
-                      borderRadius: BorderRadius.circular(AppRadius.full),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'よく使う食品から選ぶ',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textBrand,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const DesignIcon(
-                          Symbols.arrow_forward_rounded,
-                          size: 12,
-                          color: AppColors.iconPrimary,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          Text('食品の情報を入力', style: AppTypography.titleM),
           const SizedBox(height: 12),
           Text(
             '食品名',
@@ -880,23 +865,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               hintText: '例）オートミール、鶏むね肉（皮なし）など',
             ),
           ),
-          if (!widget.isEditing && !_fromSavedFoodSelection) ...[
-            FoodFormSuggestionList(
-              controller: widget.controller,
-              suggestions: _formSuggestions,
-              onSavedFoodSelected: _applySavedFoodSelection,
-              onMealTemplateSelected: _applyMealTemplateSuggestion,
-            ),
-            OfficialFoodSearchSection(
-              query: _nameController,
-              onSearched: (query) => widget.controller.recordFoodSearch(
-                source: FoodSearchSources.officialFood,
-                query: query,
-              ),
-              onSelected: (match) =>
-                  openOfficialFoodDetail(context, widget.controller, match),
-            ),
-          ],
+          if (!widget.isEditing && !_fromSavedFoodSelection) _nameLookup(),
           if (_usesSavedFoodBaseModel) ...[
             const SizedBox(height: 8),
             Text(
@@ -965,22 +934,12 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             builder: (_, _, _) =>
                 _buildTotalPreview() ?? const SizedBox.shrink(),
           ),
-          if (!widget.isEditing) ...[
-            const SizedBox(height: 10),
-            DesignButton(
-              label: '入力内容をテンプレートとして保存',
-              style: DesignButtonStyle.outline,
-              showTrailingIcon: false,
-              height: 48,
-              onPressed: _saveAsTemplate,
-            ),
-          ],
           if (_showSaveAsFoodCheckbox) ...[
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('食品として保存'),
-              subtitle: const Text('次回以降、保存済み食品から再利用できます'),
+              subtitle: const Text('次回から「食品を探す」で選べます'),
               value: _saveAsFood,
               onChanged: (value) => setState(() => _saveAsFood = value),
             ),
@@ -1168,7 +1127,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
           if (_manualInputHighlighted) ...[
             const SizedBox(height: 10),
             Text(
-              '取得できなかった項目があります。上の欄から入力してください。',
+              '取得できなかった項目があります。手入力のタブから入力してください。',
               style: AppTypography.caption.copyWith(color: AppColors.error),
             ),
           ],

@@ -8,7 +8,8 @@ import '../../utils/saved_food_display_labels.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/usage_record.dart';
-import 'public_food_search_screen.dart';
+import '../../widgets/food/combined_food_search.dart';
+import '../food/meal_food_search_screen.dart';
 import 'saved_food_form_screen.dart';
 import 'saved_food_publish_flow.dart';
 import '../../theme/app_colors.dart';
@@ -30,10 +31,14 @@ class SavedFoodListScreen extends StatefulWidget {
     super.key,
     required this.controller,
     this.openFoodFactsService,
+    this.searchOverrides,
   });
 
   final AppController controller;
   final OpenFoodFactsService? openFoodFactsService;
+
+  /// テストが右上の「食品を探す」の検索先を差し替える。
+  final CombinedFoodSearchOverrides? searchOverrides;
 
   @override
   State<SavedFoodListScreen> createState() => _SavedFoodListScreenState();
@@ -88,15 +93,19 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
     }
   }
 
-  Future<void> _openPublicSearch() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => PublicFoodSearchScreen(
+  Future<void> _openFoodSearch() async {
+    final result = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
+        builder: (context) => MealFoodSearchScreen(
           controller: widget.controller,
-          openFoodFactsService: widget.openFoodFactsService,
+          searchOverrides: widget.searchOverrides,
         ),
       ),
     );
+    if (!mounted || result == null) {
+      return;
+    }
+    Navigator.of(context).pop(result);
   }
 
   Future<void> _openCreate() async {
@@ -189,12 +198,12 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DesignTitleBlock(
-            title: '保存食品',
+            title: '保存済み食品',
             subtitle:
-                'よく食べる食品を登録しておくと、次から選ぶだけです。公開すると、ほかの人の検索に出ます。氏名やメールは載りません。',
+                '登録しておくと、次から「食品を探す」で選べます。公開すると、ほかの人の検索に出ます。氏名やメールは載りません。',
             trailing: IconButton(
-              tooltip: '公開食品検索',
-              onPressed: _openPublicSearch,
+              tooltip: '食品を探す',
+              onPressed: _openFoodSearch,
               icon: const AppIcon(
                 AppIcons.search,
                 size: 24,
@@ -234,7 +243,9 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Text(
                 _errorMessage ??
-                    (_foods.isEmpty ? 'マイ食品がありません' : '該当する食品がありません'),
+                    (_foods.isEmpty
+                        ? '保存済み食品はまだありません'
+                        : '該当する食品がありません'),
                 textAlign: TextAlign.center,
                 style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
               ),

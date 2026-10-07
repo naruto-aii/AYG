@@ -17,7 +17,7 @@ Future<SourceFoodUpdateChoice?> showSourceFoodUpdateDialog({
                   '今回の記録だけ更新するか、保存済み食品（登録元）も一緒に更新できます。'
             : '他ユーザーの公開食品を元にしています。'
                   '登録元を直接変更できないため、今回の記録だけ更新するか、'
-                  '自分の保存食品としてコピーして更新できます。',
+                  '自分の保存済み食品としてコピーして更新できます。',
       ),
       actions: [
         TextButton(
@@ -41,7 +41,7 @@ Future<SourceFoodUpdateChoice?> showSourceFoodUpdateDialog({
             onPressed: () => Navigator.of(
               context,
             ).pop(SourceFoodUpdateChoice.copyAndUpdateSource),
-            child: const Text('自分の食品としてコピーして更新'),
+            child: const Text('保存済み食品としてコピーして更新'),
           ),
       ],
     ),

@@ -19,7 +19,7 @@ class SavedFoodPublishValidator {
     final errors = <String>[];
 
     if (food.ownerUserId != ownerUserId) {
-      errors.add('自分の食品のみ公開できます');
+      errors.add('自分の保存済み食品のみ公開できます');
     }
     if (food.visibility.name == 'public') {
       errors.add('すでに公開されています');

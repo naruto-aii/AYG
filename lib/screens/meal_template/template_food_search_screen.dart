@@ -10,7 +10,7 @@ import '../../widgets/food/combined_food_search.dart';
 
 /// 食事テンプレートとウィジェットの食品選び。
 ///
-/// 食事登録の「食品を探す」と同じ検索結果を使い、選んだ食品は食事には足さない。
+/// 食事登録の「食品を探す」で文字を入れたときと同じ検索結果を使い、選んだ食品は食事には足さない。
 class TemplateFoodSearchScreen extends StatefulWidget {
   const TemplateFoodSearchScreen({
     super.key,
@@ -51,7 +51,7 @@ class _TemplateFoodSearchScreenState extends State<TemplateFoodSearchScreen> {
         children: [
           const DesignTitleBlock(
             title: '食品を検索',
-            subtitle: '保存済み、定番の食品、公開食品をまとめて表示します。',
+            subtitle: '保存済み・定番の食品・公開食品から探せます。',
           ),
           DesignSearchField(
             key: const Key('template-food-search-field'),

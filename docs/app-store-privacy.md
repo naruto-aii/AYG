@@ -14,7 +14,7 @@ UserDefaults は2通りです。アプリ自身の保存は `CA92.1` です。�
 | 健康 | はい | いいえ | アプリの機能、分析 | HealthKit または Health Connect から生年月日、性別、身長、体重を読み、`profiles` に保存します。体重のスナップショットは `health_snapshots` と `weight_entries` にも保存します。書き戻す処理はありません。広告には使いません。 |
 | 機微な情報 | はい | いいえ | アプリの機能、分析 | 性別です。保存先は健康と同じ `profiles.gender` の1列です。健康にも申告します。広告には使いません。 |
 | フィットネス | はい | いいえ | アプリの機能、分析 | HealthKit のアクティブエネルギーは `health_snapshots` に保存します。自分で記録した運動は `exercise_entries` に保存します。Health のワークアウトは種目、開始、終了、消費カロリーを `health_workouts` に保存します。消費カロリーが無いときは空のままです。広告には使いません。 |
-| 購入履歴 | はい | いいえ | アプリの機能、分析 | カロナビ+の商品ID、期限、状態を `calonavi_plus_entitlements` に保存します。レシート本文、検証データ、購入トークンは保存しません。購入の元になった取引の番号（original transaction id）は、`app_events` の `entitlement_observed` と、サーバーが受ける `store_server_notifications` に保存します。 |
+| 購入履歴 | はい | いいえ | アプリの機能、分析 | カロナビ+の商品ID、期限、状態を `calonavi_plus_entitlements` に保存します。レシート本文、検証データ、購入トークンは保存しません。購入の元になった取引の番号（original transaction id）は、`store_original_transactions` で利用者と結び、サーバーが受ける `store_server_notifications` にも保存します。生の `app_events` は 90 日で消すため、照合には使いません。 |
 | 検索履歴 | はい | いいえ | アプリの機能、分析 | 食品の検索語は `food_search_queries`、運動種目の検索語は `exercise_search_queries` です。空の一覧表示は書きません。結果の栄養値や消費カロリーは入れません。 |
 | 製品の操作 | はい | いいえ | アプリの機能、分析 | 画面名と操作を `app_screen_actions` に保存します。タブの表示と選択、初回の食事案内、ホームウィジェットとロック画面のボタン、共有（今日の食事）です。体重やカロリーの数値は入れません。 |
 | その他のユーザーコンテンツ | はい | いいえ | アプリの機能、分析 | 食事、アルコール、保存食品、食事テンプレート、運動テンプレート、公開食品、評価、通報を、そのユーザーの行として保存します。食事が保存食品から作られたときは、その版番号を `food_entries.source_saved_food_version` に残します。保存食品にはバーコードを入れられます。 |

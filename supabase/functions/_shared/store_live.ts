@@ -158,34 +158,79 @@ export async function notificationExists(notificationUuid: string): Promise<bool
   return Array.isArray(rows) && rows.length > 0;
 }
 
+/// 生の app_events は 90 日で消える。照合は対応表だけを見る。
+export function storeOriginalTransactionPath(originalTransactionId: string): string {
+  return `store_original_transactions?original_transaction_id=eq.${encodeURIComponent(originalTransactionId)}&select=user_id&limit=1`;
+}
+
+/// 退会すると public.users.deleted_at が入る。その利用者へ対応を作り直さない。
+export function accountIsClosed(deletedAt: unknown): boolean {
+  return deletedAt != null;
+}
+
+export async function rememberOriginalTransaction(
+  originalTransactionId: string,
+  userId: string,
+  productId?: string | null,
+): Promise<void> {
+  const tx = originalTransactionId.trim();
+  if (!tx || !isUuid(userId)) {
+    return;
+  }
+  const response = await rest("rpc/remember_store_original_transaction", {
+    method: "POST",
+    body: JSON.stringify({
+      p_original_transaction_id: tx,
+      p_user_id: userId.toLowerCase(),
+      p_product_id: productId ?? null,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`remember transaction ${response.status}`);
+  }
+}
+
+async function accountClosed(userId: string): Promise<boolean> {
+  const response = await rest(
+    `users?id=eq.${encodeURIComponent(userId)}&select=deleted_at&limit=1`,
+  );
+  if (!response.ok) {
+    throw new Error(`user lookup ${response.status}`);
+  }
+  const rows = await response.json();
+  const row = Array.isArray(rows) ? rows[0] : null;
+  return accountIsClosed(row?.deleted_at);
+}
+
 export async function matchStoreUser(input: {
   appAccountToken?: string | null;
   originalTransactionId?: string | null;
+  productId?: string | null;
 }): Promise<{ userId: string | null; deleted: boolean }> {
   const token = input.appAccountToken ?? null;
+  const original = input.originalTransactionId?.trim() ?? "";
   if (isUuid(token)) {
-    if (await userExists(token)) {
-      return { userId: token.toLowerCase(), deleted: false };
+    if (await userExists(token) && !(await accountClosed(token))) {
+      const userId = token.toLowerCase();
+      await rememberOriginalTransaction(original, userId, input.productId);
+      return { userId, deleted: false };
     }
     return { userId: null, deleted: true };
   }
-  const original = input.originalTransactionId?.trim() ?? "";
   if (!original) {
     return { userId: null, deleted: false };
   }
-  const filter = encodeURIComponent("props->>original_transaction_id");
-  const response = await rest(
-    `app_events?event_name=eq.entitlement_observed&${filter}=eq.${encodeURIComponent(original)}&select=user_id&limit=1`,
-  );
+  const response = await rest(storeOriginalTransactionPath(original));
   if (!response.ok) {
-    throw new Error(`entitlement lookup ${response.status}`);
+    throw new Error(`transaction lookup ${response.status}`);
   }
   const rows = await response.json();
   const userId = Array.isArray(rows) ? rows[0]?.user_id : null;
   if (!isUuid(userId)) {
     return { userId: null, deleted: false };
   }
-  if (await userExists(userId)) {
+  if (await userExists(userId) && !(await accountClosed(userId))) {
+    await rememberOriginalTransaction(original, userId, input.productId);
     return { userId: userId.toLowerCase(), deleted: false };
   }
   return { userId: null, deleted: true };

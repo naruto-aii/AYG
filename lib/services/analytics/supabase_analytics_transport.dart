@@ -29,7 +29,7 @@ class SupabaseAnalyticsTransport implements AnalyticsTransport {
     try {
       await client.from('app_events').upsert(
         rows,
-        onConflict: 'event_id',
+        onConflict: 'event_id,occurred_at',
         ignoreDuplicates: true,
       );
       return const AnalyticsSendResult.success();

@@ -60,7 +60,11 @@ Deno.serve((request) =>
       } satisfies DecodedStoreNotification;
     },
     exists: (notificationUuid) => notificationExists(notificationUuid),
-    matchUser: (decoded) => matchStoreUser(decoded),
+    matchUser: (decoded) => matchStoreUser({
+      appAccountToken: decoded.appAccountToken,
+      originalTransactionId: decoded.originalTransactionId,
+      productId: decoded.productId,
+    }),
     insert: (row) => insertNotification(row),
     insertFailed: (signedPayload) => insertFailedNotification(signedPayload),
   })

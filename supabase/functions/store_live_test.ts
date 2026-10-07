@@ -1,8 +1,10 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  accountIsClosed,
   analyticsRequestBody,
   recentReportDates,
   signAppleJwt,
+  storeOriginalTransactionPath,
 } from "./_shared/store_live.ts";
 
 Deno.test("apple jwt expires in under 20 minutes and names the audience", async () => {
@@ -45,6 +47,16 @@ Deno.test("ongoing analytics request names the app and does not repeat an existi
   };
   assertEquals(data.attributes.accessType, "ONGOING");
   assertEquals(data.relationships.app.data.id, "123");
+});
+
+Deno.test("notification users are matched from the transaction table", () => {
+  const path = storeOriginalTransactionPath("1000000123456789");
+  assertEquals(path.startsWith("store_original_transactions?"), true);
+  assertEquals(path.includes("app_events"), false);
+  assertEquals(path.includes("entitlement_observed"), false);
+  assertEquals(accountIsClosed(null), false);
+  assertEquals(accountIsClosed(undefined), false);
+  assertEquals(accountIsClosed("2026-10-07T00:00:00Z"), true);
 });
 
 Deno.test("sales dates cover the previous 14 days", () => {

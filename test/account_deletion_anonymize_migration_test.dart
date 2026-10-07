@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const path =
-      'supabase/migrations/20261008120000_delete_own_account_auth_must_succeed.sql';
+      'supabase/migrations/20261007123300_delete_own_account_auth_must_succeed.sql';
 
   test('anonymized archive drops identity columns and flags developers', () {
     final sql = File(path).readAsStringSync();

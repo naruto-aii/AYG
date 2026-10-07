@@ -336,7 +336,7 @@ void main() {
       )['product_id'],
       'monthly',
     );
-    final planSelect = _sql('20261008100000_plus_funnel_plan_select.sql');
+    final planSelect = _sql('20261007122159_plus_funnel_plan_select.sql');
     expect(planSelect, contains("'plan_select'"));
     expect(planSelect, isNot(contains('delete_own_account')));
   });

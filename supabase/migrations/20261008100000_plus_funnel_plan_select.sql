@@ -1,30 +1,10 @@
 -- plus_funnel_events にプラン選択を足す。列は増やさない。
+-- 本番の制約定義は CHECK ((event = ANY (ARRAY[...]))) なので、
+-- 定義文の `event in` では見つからない。名前で外す。
 -- 購入系の product_id は monthly / half-year / yearly。
--- このエージェントからは本番に適用しない。
+-- 本番には適用済み。このファイルは同じ手順の記録。
 
-begin;
-
-do $$
-declare
-  cons name;
-begin
-  for cons in
-    select con.conname
-    from pg_constraint con
-    join pg_class rel on rel.oid = con.conrelid
-    join pg_namespace nsp on nsp.oid = rel.relnamespace
-    where nsp.nspname = 'public'
-      and rel.relname = 'plus_funnel_events'
-      and con.contype = 'c'
-      and pg_get_constraintdef(con.oid) ilike '%event in%'
-  loop
-    execute format(
-      'alter table public.plus_funnel_events drop constraint %I',
-      cons
-    );
-  end loop;
-end
-$$;
+alter table public.plus_funnel_events drop constraint if exists plus_funnel_events_event_check;
 
 alter table public.plus_funnel_events
   add constraint plus_funnel_events_event_check
@@ -39,5 +19,3 @@ alter table public.plus_funnel_events
     'gate_shown',
     'gate_tap'
   ));
-
-commit;

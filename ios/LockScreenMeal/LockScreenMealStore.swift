@@ -63,15 +63,10 @@ enum LockScreenMealStore {
   }
 
   /// `target` と `overage` は後から足したキー。古いアプリが書いた JSON では nil になる。
-  static func figures() -> (remaining: Int?, intake: Int?, burn: Int?, target: Int?, overage: Int?) {
-    let json = snapshotObject()
-    return (
-      (json?["remaining"] as? NSNumber)?.intValue,
-      (json?["intake"] as? NSNumber)?.intValue,
-      (json?["burn"] as? NSNumber)?.intValue,
-      (json?["target"] as? NSNumber)?.intValue,
-      (json?["overage"] as? NSNumber)?.intValue
-    )
+  /// `day` は書いた日のローカル日付（yyyy-MM-dd）。今日でなければ今日の初期状態を返す。
+  /// `day` が無い古いデータは、アプリが新しく書くまで今までどおりそのまま返す。
+  static func figures(now: Date = Date()) -> StoredMealFigures {
+    StoredMealFigures(json: snapshotObject()).forToday(MealWidgetDay.key(now))
   }
 
   static func snapshotObject() -> [String: Any]? {
@@ -184,24 +179,18 @@ enum LockScreenMealStore {
 
   /// 押した直後に、残り・摂取・消費・超過の整数を動かす。Dart の `applyMealWidgetFigures` と同じ。
   /// 残りが 0 未満になった分は超過にする。目標（`target`）はそのまま残す。
-  static func applyFigures(intakeDelta: Double, burnDelta: Double) {
+  /// 保存日（`day`）が今日でなければ、昨日の合計に足さず今日の 0 から始める。
+  static func applyFigures(intakeDelta: Double, burnDelta: Double, now: Date = Date()) {
     guard var json = snapshotObject() else {
       reloadWidgets()
       return
     }
-    let intakeAdd = Int(intakeDelta.rounded())
-    let burnAdd = Int(burnDelta.rounded())
-    let intake = (json["intake"] as? NSNumber)?.intValue ?? 0
-    let burn = (json["burn"] as? NSNumber)?.intValue ?? 0
-    json["intake"] = intake + intakeAdd
-    json["burn"] = burn + burnAdd
-    if let remaining = (json["remaining"] as? NSNumber)?.intValue {
-      let overage = (json["overage"] as? NSNumber)?.intValue ?? 0
-      let balance = overage > 0 ? -overage : remaining
-      let next = balance - intakeAdd + burnAdd
-      json["remaining"] = next < 0 ? 0 : next
-      json["overage"] = next < 0 ? -next : NSNull()
-    }
+    let next = StoredMealFigures(json: json).applying(
+      intakeAdd: Int(intakeDelta.rounded()),
+      burnAdd: Int(burnDelta.rounded()),
+      today: MealWidgetDay.key(now)
+    )
+    next.write(into: &json)
     guard JSONSerialization.isValidJSONObject(json),
           let data = try? JSONSerialization.data(withJSONObject: json),
           let raw = String(data: data, encoding: .utf8)
@@ -286,6 +275,111 @@ enum LockScreenMealStore {
       return
     }
     defaults?.set(raw, forKey: pendingKey)
+  }
+}
+
+/// ウィジェットの日付。アプリ（Dart の `mealWidgetDayKey`）と同じく端末のローカル日付。
+enum MealWidgetDay {
+  static func key(_ date: Date, calendar: Calendar = .current) -> String {
+    let parts = calendar.dateComponents([.year, .month, .day], from: date)
+    return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+  }
+
+  /// 次のローカル 0 時。ウィジェットはこの時刻に今日の初期状態へ切り替える。
+  static func nextMidnight(after date: Date, calendar: Calendar = .current) -> Date {
+    let start = calendar.startOfDay(for: date)
+    return calendar.date(byAdding: .day, value: 1, to: start) ?? date.addingTimeInterval(86_400)
+  }
+}
+
+/// App Group に保存したウィジェットの数字。Dart の `MealWidgetFigures` と同じ。
+struct StoredMealFigures: Equatable {
+  var remaining: Int?
+  var intake: Int?
+  var burn: Int?
+  var target: Int?
+  var overage: Int?
+  var day: String?
+
+  init(
+    remaining: Int? = nil,
+    intake: Int? = nil,
+    burn: Int? = nil,
+    target: Int? = nil,
+    overage: Int? = nil,
+    day: String? = nil
+  ) {
+    self.remaining = remaining
+    self.intake = intake
+    self.burn = burn
+    self.target = target
+    self.overage = overage
+    self.day = day
+  }
+
+  init(json: [String: Any]?) {
+    self.init(
+      remaining: (json?["remaining"] as? NSNumber)?.intValue,
+      intake: (json?["intake"] as? NSNumber)?.intValue,
+      burn: (json?["burn"] as? NSNumber)?.intValue,
+      target: (json?["target"] as? NSNumber)?.intValue,
+      overage: (json?["overage"] as? NSNumber)?.intValue,
+      day: (json?["day"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    )
+  }
+
+  /// 保存日が今日と違えば今日の初期状態（摂取0・消費0・あと=目標・超過なし）。
+  /// 日付が無い古いデータは、そのまま返す。Dart の `mealWidgetFiguresForToday` と同じ。
+  func forToday(_ today: String) -> StoredMealFigures {
+    guard let day, day != today else {
+      return self
+    }
+    return StoredMealFigures(
+      remaining: target.map { max($0, 0) },
+      intake: 0,
+      burn: 0,
+      target: target,
+      overage: nil,
+      day: today
+    )
+  }
+
+  /// 今日の数字に、押した分を足す。前の日の数字なら今日の 0 から始める。
+  /// 前の日の記録の取り消し（どちらも 0 以下）は、今日の数字を動かさない。
+  func applying(intakeAdd: Int, burnAdd: Int, today: String) -> StoredMealFigures {
+    let base = forToday(today)
+    let rolledOver = base.day != day
+    if rolledOver && intakeAdd <= 0 && burnAdd <= 0 {
+      return base
+    }
+    var next = base
+    next.intake = (base.intake ?? 0) + intakeAdd
+    next.burn = (base.burn ?? 0) + burnAdd
+    if let remaining = base.remaining {
+      let overage = base.overage ?? 0
+      let balance = overage > 0 ? -overage : remaining
+      let moved = balance - intakeAdd + burnAdd
+      next.remaining = moved < 0 ? 0 : moved
+      next.overage = moved < 0 ? -moved : nil
+    }
+    return next
+  }
+
+  /// 保存用の JSON に書き戻す。`day` が無い古いデータには足さない。
+  func write(into json: inout [String: Any]) {
+    json["intake"] = intake ?? 0
+    json["burn"] = burn ?? 0
+    if let remaining {
+      json["remaining"] = remaining
+      json["overage"] = overage.map { $0 as Any } ?? NSNull()
+    } else if day != nil {
+      // 日付が変わって目標も無いときは、昨日の残りを残さない
+      json["remaining"] = NSNull()
+      json["overage"] = NSNull()
+    }
+    if let day {
+      json["day"] = day
+    }
   }
 }
 

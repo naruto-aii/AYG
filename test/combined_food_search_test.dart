@@ -150,11 +150,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('探す'));
+    await tester.tap(find.text('食品を探す'));
     await tester.pumpAndSettle();
 
     expect(find.text('食品を探す'), findsOneWidget);
     expect(find.text('公開食品を選ぶ'), findsNothing);
+    expect(find.text('公開食品から追加'), findsNothing);
     expect(find.text(CombinedFoodSearch.hint), findsOneWidget);
     expect(find.byType(DesignSearchField), findsOneWidget);
     expect(find.text('公開食品を検索'), findsNothing);

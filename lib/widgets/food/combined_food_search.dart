@@ -16,9 +16,27 @@ import '../../utils/nutrition_format.dart';
 import '../design/settings_row.dart';
 import '../official_food/official_food_attribution_line.dart';
 
-/// 食事登録の「探す」とテンプレートの「食品検索」が共有する検索結果。
+/// テストが検索先だけ差し替える。未指定の項目は本番の検索を使う。
+class CombinedFoodSearchOverrides {
+  const CombinedFoodSearchOverrides({
+    this.searchSaved,
+    this.searchOfficial,
+    this.searchPublic,
+    this.officialFoods,
+    this.debounce,
+  });
+
+  final Future<List<SavedFood>> Function(String query)? searchSaved;
+  final Future<OfficialFoodSearchResult> Function(String query)? searchOfficial;
+  final Future<List<PublicFoodSearchMatch>> Function(String query)?
+  searchPublic;
+  final OfficialFoodRepository? officialFoods;
+  final Duration? debounce;
+}
+
+/// 食事登録の「食品を探す」とテンプレートの「食品検索」が共有する検索結果。
 ///
-/// 入力に応じて、保存済み・食品成分表・公開食品を見出し付きでまとめて出す。
+/// 入力に応じて、保存済み・定番の食品・公開食品を見出し付きでまとめて出す。
 class CombinedFoodSearch extends StatefulWidget {
   const CombinedFoodSearch({
     super.key,
@@ -90,6 +108,11 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
     super.initState();
     widget.handle?._hideOwner = _hideOwner;
     widget.query.addListener(_schedule);
+    // 食品名欄や Siri の検索語は、この部品ができる前から入っている。
+    if (widget.query.text.trim().isNotEmpty) {
+      _loading = true;
+      _schedule();
+    }
   }
 
   @override

@@ -21,9 +21,34 @@ struct MealWidgetFigures {
 
   var isOver: Bool { (overage ?? 0) > 0 }
 
-  /// アプリの `CalorieRing` と同じく、摂取 ÷ 目標。目標が分からないときは 0。
+  /// リングの塗り（0.0〜1.0）。中央の「今日あと」と同じ数字から作る。
+  ///
+  /// 割合 = 摂取 ÷（摂取 + 残り）。摂取 + 残り は「目標 + 運動などの消費」で、
+  /// 一周ちょうど塗られたとき＝あと 0kcal＝今日の目標に届いた、になる。丸めない。
+  /// 超過は一周。目標が 0 以下なら 0。残りが無い古いデータだけ摂取 ÷ 目標。
+  /// Dart の `MealWidgetFigures.ringProgress`（`calorieRingProgress`）と同じ。
   var progress: Double {
-    guard let target, target > 0, let intake else {
+    MealWidgetFigures.ringFraction(intake: intake, remaining: remaining, target: target, overage: overage)
+  }
+
+  static func ringFraction(intake: Int?, remaining: Int?, target: Int?, overage: Int?) -> Double {
+    if let target, target <= 0 {
+      return 0
+    }
+    if (overage ?? 0) > 0 {
+      return 1
+    }
+    guard let intake, intake > 0 else {
+      return 0
+    }
+    if let remaining {
+      let budget = Double(intake) + Double(max(remaining, 0))
+      guard budget > 0 else {
+        return 0
+      }
+      return min(max(Double(intake) / budget, 0), 1)
+    }
+    guard let target, target > 0 else {
       return 0
     }
     return min(max(Double(intake) / Double(target), 0), 1)
@@ -242,6 +267,33 @@ private struct HomeWidgetBackground: View {
   }
 }
 
+/// 丸い端の線で、見た目の塗りが 0〜progress ちょうどになる trim の範囲。
+/// 丸い端は両側に線幅の半分ずつはみ出すので、その分だけ両端を内側に寄せる。
+/// 寄せないと約97%で輪が閉じて見える。Dart の `ringTrimRange` と同じ。
+enum MealWidgetRingTrim {
+  static func capFraction(radius: Double, lineWidth: Double) -> Double {
+    guard radius > 0, lineWidth > 0 else {
+      return 0
+    }
+    return lineWidth / (2 * Double.pi * radius)
+  }
+
+  /// 0 以下は nil（描かない）。1 以上は一周。丸い端より短いときは 0〜progress のまま。
+  static func range(progress: Double, capFraction: Double) -> (from: Double, to: Double)? {
+    guard progress.isFinite, progress > 0 else {
+      return nil
+    }
+    if progress >= 1 {
+      return (0, 1)
+    }
+    if progress <= capFraction {
+      return (0, progress)
+    }
+    let half = capFraction / 2
+    return (half, progress - half)
+  }
+}
+
 /// アプリの `CalorieRing` と同じ形。12時から反時計回りに伸び、オレンジの点は右上（-38°）に固定する。
 /// 超過の日は、アプリと同じくリングをオレンジにする。
 private struct HomeCalorieRing: View {
@@ -252,11 +304,15 @@ private struct HomeCalorieRing: View {
 
   var body: some View {
     let angle = 38 * Double.pi / 180
+    let trim = MealWidgetRingTrim.range(
+      progress: figures.progress,
+      capFraction: MealWidgetRingTrim.capFraction(radius: Double(radius), lineWidth: Double(lineWidth))
+    )
     ZStack {
       Circle()
         .stroke(Color.white.opacity(0.16), lineWidth: lineWidth)
       Circle()
-        .trim(from: 0, to: figures.isOver ? 1 : figures.progress)
+        .trim(from: CGFloat(trim?.from ?? 0), to: CGFloat(trim?.to ?? 0))
         .stroke(
           figures.isOver ? MealWidgetPalette.orange500 : Color.white,
           style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)

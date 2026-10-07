@@ -19,6 +19,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/calorie_ring_progress.dart';
 import '../../utils/local_date.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/announcements/home_announcements_entry.dart';
@@ -168,7 +169,11 @@ class HomeScreen extends StatelessWidget {
                   ? summary.calorieOverageKcal
                   : summary.remainingKcal.clamp(0, double.infinity))
               .toStringAsFixed(0),
-      progress: target > 0 ? summary.intakeKcal / target : 0,
+      progress: calorieRingProgress(
+        intakeKcal: summary.intakeKcal,
+        remainingKcal: summary.remainingKcal,
+        targetKcal: target,
+      ),
       progressColor: summary.isCalorieOverage ? AppColors.orange500 : null,
     );
   }

@@ -7,6 +7,7 @@ import '../models/food_entry.dart';
 import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../models/meal_template.dart';
+import '../utils/calorie_ring_progress.dart';
 import 'exercise_calorie_calculator.dart';
 
 /// ホームとロック画面のウィジェットが共有する JSON（version 3）。
@@ -272,6 +273,41 @@ class MealWidgetFigures {
   final int? burnKcal;
   final int? targetKcal;
   final int? overageKcal;
+
+  /// ウィジェットのカロリーリングの塗り（0.0〜1.0）。Swift の `MealWidgetFigures.progress` と同じ。
+  ///
+  /// リング中央の「今日あと」と同じ数字から [calorieRingProgress] で求める。
+  /// 一周ちょうど＝あと 0kcal。超過は一周。目標が 0 以下なら 0。
+  /// 残りが無い古いデータだけ「摂取 ÷ 目標」にする。
+  double get ringProgress {
+    final target = targetKcal;
+    final intake = intakeKcal;
+    final remaining = remainingKcal;
+    if (target != null && target <= 0) {
+      return 0;
+    }
+    if ((overageKcal ?? 0) > 0) {
+      return 1;
+    }
+    if (intake == null || intake <= 0) {
+      return 0;
+    }
+    if (remaining != null) {
+      return calorieRingProgress(
+        intakeKcal: intake.toDouble(),
+        remainingKcal: remaining < 0 ? 0 : remaining.toDouble(),
+        targetKcal: (target ?? intake + remaining).toDouble(),
+      );
+    }
+    if (target != null) {
+      return calorieRingProgress(
+        intakeKcal: intake.toDouble(),
+        remainingKcal: (target - intake).toDouble(),
+        targetKcal: target.toDouble(),
+      );
+    }
+    return 0;
+  }
 }
 
 class LockScreenMealButtonSnapshot {

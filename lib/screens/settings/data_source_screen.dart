@@ -46,6 +46,55 @@ class DataSourceScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('パーソナルコーチ (β) の量と区分', style: AppTypography.titleS),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '主食・主菜・副菜・乳製品・果物の組み合わせと、1品の量は次の資料の数値を使っています。',
+                  style: body,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '農林水産省「食事バランスガイド」\n'
+                  'https://www.maff.go.jp/j/syokuiku/kenzensyokuseikatsu/about_b_guide.html',
+                  style: body,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '農林水産省「SV早見表」\n'
+                  'https://www.maff.go.jp/j/syokuiku/zissen_navi/balance/chart.html',
+                  style: body,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '厚生労働省「生活習慣病予防その他の健康増進を目的として提供する食事について（目安）」\n'
+                  'https://www.mhlw.go.jp/file/04-Houdouhappyou-10904750-Kenkoukyoku-Gantaisakukenkouzoushinka/0000096859.pdf',
+                  style: body,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'スマートミール基準\nhttps://smartmeal.jp/smartmealkijun.html',
+                  style: body,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '厚生労働省 健健発0804第1号 別表「緑黄色野菜」\n'
+                  'https://www.mhlw.go.jp/web/t_doc?dataId=00tc6109&dataType=1&pageNo=1',
+                  style: body,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '文部科学省「日本食品標準成分表（八訂）増補2023年」\n'
+                  'https://www.mext.go.jp/a_menu/syokuhinseibun/mext_00001.html',
+                  style: body,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

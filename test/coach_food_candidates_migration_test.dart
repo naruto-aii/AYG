@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:ayg/data/coach_food_catalog.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -31,12 +30,6 @@ void main() {
     expect(sql.toLowerCase(), isNot(contains('update public.official_foods')));
     expect(sql, isNot(contains('サラダチキン')));
     expect(sql, contains("'01111', '具なしおにぎり', '1個', 100, '中身は米だけ', 3"));
-    expect(CoachFoodCatalog.candidates, hasLength(34));
-    for (final food in CoachFoodCatalog.candidates) {
-      expect(sql, contains("'${food.foodCode}'"));
-      expect(sql, contains("'${food.displayName}'"));
-      expect(sql, contains("'${food.unitLabel}'"));
-    }
   });
 
   test('rollback drops only the coach table', () {

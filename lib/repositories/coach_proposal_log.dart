@@ -41,7 +41,7 @@ List<CoachProposalRecord> coachProposalRecords({
   }
   final records = <CoachProposalRecord>[];
   if (result.offersMeals) {
-    for (final meal in result.meals.take(3)) {
+    for (final meal in result.meals) {
       final text = coachMealProposalText(meal);
       if (text.isEmpty) {
         continue;

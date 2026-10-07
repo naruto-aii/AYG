@@ -79,13 +79,13 @@ class AppStrings {
   static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
   static const plusBetaAccessTitle = 'β版機能への先行アクセス';
   static const plusBetaAccessBody =
-      '今日のコーチ (β) など、β版として先行公開している機能を使えます。';
+      'パーソナルコーチ (β) など、β版として先行公開している機能を使えます。';
   static const siriBetaNotice =
       '音声登録 (β) は、β版として先行公開している機能です。カロナビ+で使えます。';
   static const coachBetaNotice =
-      '今日のコーチ (β) は、β版として先行公開している機能です。カロナビ+で使えます。';
+      '残りカロリーに合わせて、主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。';
   static const coachFeatureBody =
-      '残りのカロリーから、今日の食事か運動を一つ提案します。登録するまでは記録されません。';
+      '残りカロリーに合わせて、主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。登録するまでは記録されません。';
   static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
   static const plusBenefitTemplateBody =
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';

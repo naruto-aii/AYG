@@ -141,6 +141,7 @@ abstract final class AppTypography {
 
   /// Button/L — Bold 17 / 120%
   static const TextStyle buttonL = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 17,
     fontWeight: _bold,
     height: 1.2,
@@ -148,6 +149,7 @@ abstract final class AppTypography {
 
   /// Button/M — Bold 15 / 120%
   static const TextStyle buttonM = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 15,
     fontWeight: _bold,
     height: 1.2,
@@ -181,6 +183,7 @@ abstract final class AppTypography {
 
   /// Link — Medium 14 / 150%
   static const TextStyle link = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 14,
     fontWeight: _medium,
     height: 1.5,

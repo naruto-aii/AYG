@@ -13,7 +13,9 @@ import '../../theme/app_typography.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
+import '../coach/daily_coach_screen.dart';
 import '../subscription/calonavi_plus_flow.dart';
+import '../subscription/plus_gate.dart';
 import 'how_to_use_screen.dart';
 import 'lock_screen_meal_screen.dart';
 import 'operator_contact_screen.dart';
@@ -55,6 +57,22 @@ class SettingsScreen extends StatelessWidget {
   final String? supportEmail;
 
   static const double _rowGap = 8;
+
+  Future<void> _openPersonalCoach(BuildContext context) async {
+    final allowed = await ensureCalonaviPlus(
+      context,
+      controller,
+      message: AppStrings.coachBetaNotice,
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
+    await Navigator.of(context).push<CoachSavedKind>(
+      MaterialPageRoute<CoachSavedKind>(
+        builder: (context) => DailyCoachScreen(controller: controller),
+      ),
+    );
+  }
 
   Future<void> _openMealWidget(BuildContext context) async {
     final paid = await controller.ensurePaidShortcutsReady();
@@ -171,6 +189,14 @@ class SettingsScreen extends StatelessWidget {
             title: '使い方',
             subtitle: 'はじめての操作と、無料との違い',
             onTap: () => _push(context, const HowToUseScreen()),
+          ),
+          const SizedBox(height: _rowGap),
+          SettingsRow(
+            key: const Key('settings-personal-coach'),
+            icon: AppIcons.meal,
+            title: 'パーソナルコーチ (β)',
+            subtitle: '残りカロリーに合わせて食事を提案',
+            onTap: () => _openPersonalCoach(context),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(

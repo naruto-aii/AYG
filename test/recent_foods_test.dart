@@ -303,7 +303,7 @@ AppController _homeController() {
       baseAmount: 100,
       unitType: FoodUnitType.g,
       consumedAmount: 200,
-      loggedAt: DateTime(2026, 10, 4, 8),
+      loggedAt: DateTime.now(),
     ),
   );
   return controller;

@@ -28,7 +28,7 @@ import 'mocks/mock_health_repository.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const headline = '卵かけご飯（白米150gと卵1個）';
+  const headline = 'ごはん（精白米） 150g、ゆで卵 1個';
 
   CoachMealProposal sampleMeal() {
     return const CoachMealProposal(
@@ -114,7 +114,7 @@ void main() {
 
     expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
     expect(find.text(AppStrings.coachBetaNotice), findsNothing);
-    expect(find.text('今日のコーチ (β)'), findsOneWidget);
+    expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
     final mealBottom = tester.getBottomLeft(find.text(headline)).dy;
     final noteTop = tester
         .getTopLeft(find.byKey(const Key('coach_beta_notice')))
@@ -152,7 +152,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('今日のコーチ (β)'));
+    await tester.tap(find.text('パーソナルコーチ (β)'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsNothing);
@@ -308,7 +308,7 @@ void main() {
     final proposal = buildCoachExerciseProposal(
       overageKcal: 744,
       weightKg: 60,
-      now: DateTime(2026, 10, 4),
+      now: DateTime(2026, 10, 4, 12),
       exercises: [
         ExerciseEntry(
           id: 'run',
@@ -335,23 +335,23 @@ void main() {
     );
 
     expect(find.text(headline), findsNothing);
-    expect(find.textContaining('3kmまでにします'), findsOneWidget);
+    expect(find.textContaining('30分までにします'), findsOneWidget);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('coach_exercise_amount')))
           .controller
           ?.text,
-      '3',
+      '30',
     );
 
     await tester.enterText(
       find.byKey(const Key('coach_exercise_amount')),
-      '2.5',
+      '25',
     );
     await tester.tap(find.byKey(const Key('coach_register_exercise')));
     await tester.pumpAndSettle();
 
-    expect(saved, 2.5);
+    expect(saved, 25);
     expect(find.text('open'), findsOneWidget);
   });
 
@@ -375,12 +375,13 @@ void main() {
   testWidgets('remaining days load meals and overage days load exercise', (
     tester,
   ) async {
+    final noon = DateTime(2026, 10, 7, 12);
     final controller = _profiledController();
     final session = DailyCoachSession(
       controller: controller,
-      nutritionSource: _FixedNutrition([_riceStock()]),
+      nutritionSource: _FixedNutrition(CoachFoodCatalog.stocks),
     );
-    final meals = await session.load(DateTime.now());
+    final meals = await session.load(noon);
     expect(controller.summary!.remainingKcal, greaterThan(0));
     expect(meals.focus, DailyCoachFocus.meals);
     expect(meals.meals, isNotEmpty);
@@ -390,7 +391,7 @@ void main() {
     final missing = await DailyCoachSession(
       controller: controller,
       nutritionSource: _FixedNutrition(const [], fail: true),
-    ).load(DateTime.now());
+    ).load(noon);
     expect(missing.status, DailyCoachStatus.nutritionMissing);
 
     controller.foodEntries.add(
@@ -407,7 +408,7 @@ void main() {
     final exerciseDay = await DailyCoachSession(
       controller: controller,
       nutritionSource: _FixedNutrition(const [], fail: true),
-    ).load(DateTime.now());
+    ).load(noon);
     expect(exerciseDay.focus, DailyCoachFocus.exercise);
     expect(exerciseDay.meals, isEmpty);
     expect(exerciseDay.offersMeals, isFalse);
@@ -439,7 +440,7 @@ void main() {
     expect(controller.foodEntries.last.totalKcal, closeTo(234 * 100 / 150, 0.01));
   });
 
-  testWidgets('home shows 今日のコーチ', (tester) async {
+  testWidgets('home shows パーソナルコーチ', (tester) async {
     final controller = _profiledController(subscription: _Plus(true));
 
     await tester.pumpWidget(
@@ -456,11 +457,11 @@ void main() {
     expect(find.byTooltip('お知らせ'), findsOneWidget);
     expect(find.byKey(const Key('announcement_unread_dot')), findsNothing);
     final remainingTop = tester.getTopLeft(find.text('今日あと')).dy;
-    final coachTop = tester.getTopLeft(find.text('今日のコーチ (β)')).dy;
+    final coachTop = tester.getTopLeft(find.text('パーソナルコーチ (β)')).dy;
     expect(coachTop, greaterThan(remainingTop));
     expect(tester.widget<DesignButton>(find.byType(DesignButton)).height, 52);
 
-    await tester.tap(find.text('今日のコーチ (β)'));
+    await tester.tap(find.text('パーソナルコーチ (β)'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsOneWidget);
@@ -473,7 +474,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DailyCoachScreen), findsNothing);
 
-    await tester.tap(find.text('今日のコーチ (β)'));
+    await tester.tap(find.text('パーソナルコーチ (β)'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();
@@ -524,20 +525,6 @@ AppController _profiledController({SubscriptionRepository? subscription}) {
     ),
   );
   return controller;
-}
-
-CoachFoodStock _riceStock() {
-  return CoachFoodStock(
-    candidate: CoachFoodCatalog.find('01088')!,
-    nutrition: const CoachFoodNutrition(
-      foodCode: '01088',
-      kcal: 156,
-      proteinG: 2.5,
-      fatG: 0.3,
-      carbG: 37.1,
-      officialName: '精白米',
-    ),
-  );
 }
 
 class _Plus extends UnavailableSubscriptionRepository {

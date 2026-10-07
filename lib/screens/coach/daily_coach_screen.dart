@@ -9,6 +9,7 @@ import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../subscription/calonavi_plus_flow.dart';
+import '../weight/weight_record_screen.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
@@ -54,6 +55,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   List<CoachProposalRecord> _shown = const [];
   Future<void> _recorded = Future<void>.value();
   final Map<String, TextEditingController> _amounts = {};
+  int _mealShift = 0;
 
   CoachProposalLog get _log {
     return widget.proposalLog ??
@@ -172,6 +174,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       _recorded = _log.recordShown(_shown);
     }
     _bindAmounts(result);
+    _mealShift = 0;
     setState(() => _result = result);
   }
 
@@ -319,7 +322,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
               ),
             ],
           ),
-          const DesignTitleBlock(title: '今日のコーチ (β)', showBack: false),
+          const DesignTitleBlock(title: 'パーソナルコーチ (β)', showBack: false),
           if (_plusBlocked) ...[
             const DesignCard(
               key: Key('coach_beta_notice'),
@@ -350,11 +353,12 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
           else if (result.status == DailyCoachStatus.nutritionMissing)
             Text(coachNutritionMissingMessage, style: AppTypography.bodyS)
           else ...[
+            if (result.message != null)
+              Text(result.message!, style: AppTypography.bodyS),
             if (result.offersExercise) _exerciseCard(result),
             if (result.offersMeals) ...[
               Text('食事の案', style: AppTypography.titleM),
-              for (final indexed in result.meals.indexed)
-                _mealCard(indexed.$2, indexed.$1),
+              _visibleMeal(result),
             ],
           ],
           const SizedBox(height: 16),
@@ -371,6 +375,48 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     );
   }
 
+  Widget _visibleMeal(DailyCoachLoadResult result) {
+    final count = result.meals.length;
+    final now = widget.now ?? DateTime.now();
+    final day = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).difference(DateTime(now.year)).inDays;
+    final index = count == 0 ? 0 : (day + _mealShift) % count;
+    final meal = result.meals[index];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (meal.bandLabel != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              meal.bandLabel!,
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+          ),
+        _mealCard(meal, index),
+        if (meal.note != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(meal.note!, style: AppTypography.bodyS),
+          ),
+        if (count > 1) ...[
+          const SizedBox(height: 8),
+          DesignButton(
+            key: const Key('coach_other_proposal'),
+            label: 'ほかの案',
+            height: 48,
+            style: DesignButtonStyle.secondary,
+            showTrailingIcon: false,
+            onPressed: () => setState(() => _mealShift++),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _exerciseCard(DailyCoachLoadResult result) {
     final proposal = result.exercise;
     final message = proposal?.message ?? result.exerciseMessage ?? '';
@@ -379,6 +425,26 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(message, style: AppTypography.bodyS),
+          if (proposal != null && proposal.needsWeight) ...[
+            const SizedBox(height: 12),
+            DesignButton(
+              key: const Key('coach_register_weight'),
+              label: '体重を登録',
+              height: 48,
+              showTrailingIcon: false,
+              onPressed: widget.controller == null
+                  ? null
+                  : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => WeightRecordScreen(
+                            controller: widget.controller!,
+                          ),
+                        ),
+                      );
+                    },
+            ),
+          ],
           if (proposal != null && proposal.canRegister) ...[
             const SizedBox(height: 12),
             Text('登録する量', style: AppTypography.labelM),

@@ -18,6 +18,7 @@ class DailyCoachLoadResult {
     this.exerciseMessage,
     this.exercise,
     this.focus,
+    this.message,
   });
 
   final DailyCoachStatus status;
@@ -27,6 +28,9 @@ class DailyCoachLoadResult {
 
   /// 未指定のときは、入っている方だけを出す。両方入っているときは出さない。
   final DailyCoachFocus? focus;
+
+  /// 食事も運動も出さないときの一文。
+  final String? message;
 
   bool get offersMeals {
     if (status != DailyCoachStatus.ready || meals.isEmpty) {
@@ -78,10 +82,9 @@ class DailyCoachSession {
     }
 
     final remaining = summary.remainingKcal;
-    if (!remaining.isFinite || remaining == 0) {
+    if (!remaining.isFinite) {
       return const DailyCoachLoadResult(
-        status: DailyCoachStatus.ready,
-        focus: DailyCoachFocus.none,
+        status: DailyCoachStatus.nutritionMissing,
       );
     }
     if (remaining < 0) {
@@ -100,6 +103,13 @@ class DailyCoachSession {
         focus: DailyCoachFocus.exercise,
         exercise: exercise,
         exerciseMessage: exercise?.message,
+      );
+    }
+    if (remaining < 50) {
+      return const DailyCoachLoadResult(
+        status: DailyCoachStatus.ready,
+        focus: DailyCoachFocus.none,
+        message: '今日はちょうどいいところです',
       );
     }
 
@@ -133,6 +143,7 @@ class DailyCoachSession {
         remainingProteinG: summary.targetProteinG - summary.intakeProteinG,
         remainingFatG: summary.targetFatG - summary.intakeFatG,
         remainingCarbG: summary.targetCarbG - summary.intakeCarbG,
+        now: now,
       ),
     );
   }

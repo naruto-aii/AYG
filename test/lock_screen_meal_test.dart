@@ -1,3 +1,4 @@
+import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/meal_template.dart';
 import 'package:ayg/models/user_profile.dart';
@@ -343,7 +344,7 @@ void main() {
     );
     expect(find.text('ウィジェット'), findsOneWidget);
     expect(find.text('音声登録 (β)'), findsOneWidget);
-    expect(find.text('カロナビ+で先に使えます'), findsOneWidget);
+    expect(find.text('カロナビ+で使えます'), findsOneWidget);
     expect(find.text('ウィジェットの置き方'), findsNothing);
     expect(find.textContaining('自動では付きません'), findsNothing);
     expect(find.textContaining('左上「編集」'), findsNothing);
@@ -505,7 +506,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('こちらは有料の機能です'), findsOneWidget);
-    expect(find.textContaining('音声登録はβ版です'), findsOneWidget);
+    expect(find.textContaining(AppStrings.siriBetaNotice), findsOneWidget);
     expect(
       find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。'),
       findsOneWidget,

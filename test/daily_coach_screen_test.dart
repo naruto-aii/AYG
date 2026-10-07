@@ -1,3 +1,4 @@
+import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/data/coach_food_catalog.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/exercise_entry.dart';
@@ -6,6 +7,8 @@ import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/coach_intro_store.dart';
+import 'package:ayg/repositories/subscription_repository.dart';
+import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/repositories/coach_nutrition_source.dart';
 import 'package:ayg/repositories/coach_proposal_log.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
@@ -109,11 +112,11 @@ void main() {
       },
     );
 
-    expect(find.text(coachTrialNotice), findsOneWidget);
+    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
     expect(find.text('今日のコーチ (β)'), findsOneWidget);
     final mealBottom = tester.getBottomLeft(find.text(headline)).dy;
     final noteTop = tester
-        .getTopLeft(find.byKey(const Key('coach_verification_notice')))
+        .getTopLeft(find.byKey(const Key('coach_beta_notice')))
         .dy;
     expect(noteTop, greaterThan(mealBottom));
     expect(find.text(headline), findsOneWidget);
@@ -135,19 +138,50 @@ void main() {
     expect(find.text('open'), findsOneWidget);
   });
 
-  testWidgets('the coach stays open without a paid gate', (tester) async {
-    await openCoach(
-      tester,
-      load: () async => DailyCoachLoadResult(
-        status: DailyCoachStatus.ready,
-        meals: [sampleMeal()],
+  testWidgets('an unpaid account cannot open the coach', (tester) async {
+    final controller = _profiledController();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: HomeScreen(
+          controller: controller,
+          openFoodFactsService: OpenFoodFactsService(userAgent: 'test'),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text(coachTrialNotice), findsOneWidget);
+    await tester.tap(find.text('今日のコーチ (β)'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DailyCoachScreen), findsNothing);
+    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text('カロナビ+を見る'), findsOneWidget);
     expect(find.text('2回目以降はカロナビ+です。'), findsNothing);
-    expect(find.text('カロナビ+を見る'), findsNothing);
-    expect(find.text(headline), findsOneWidget);
+    expect(controller.foodEntries, isEmpty);
+    expect(controller.exerciseEntries, isEmpty);
+  });
+
+  testWidgets('the coach screen does not propose when unpaid', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: DailyCoachScreen(
+          controller: _profiledController(),
+          load: () async => DailyCoachLoadResult(
+            status: DailyCoachStatus.ready,
+            meals: [sampleMeal()],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text(headline), findsNothing);
+    expect(find.text('この量で登録'), findsNothing);
+    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text('カロナビ+を見る'), findsOneWidget);
   });
 
   testWidgets(
@@ -164,14 +198,14 @@ void main() {
       );
 
       expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.text(coachTrialNotice), findsNWidgets(2));
+      expect(find.text(AppStrings.coachBetaNotice), findsNWidgets(2));
 
       await tester.tap(find.widgetWithText(TextButton, '閉じる'));
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
       expect(intros.seen, isTrue);
-      expect(find.text(coachTrialNotice), findsOneWidget);
+      expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
       expect(find.byType(DailyCoachScreen), findsOneWidget);
 
       await tester.tap(find.text('戻る'));
@@ -180,7 +214,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
-      expect(find.text(coachTrialNotice), findsOneWidget);
+      expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
     },
   );
 
@@ -330,7 +364,7 @@ void main() {
     expect(find.text(headline), findsNothing);
     expect(find.textContaining('3km'), findsNothing);
     expect(find.text('この量で登録'), findsNothing);
-    expect(find.text(coachTrialNotice), findsOneWidget);
+    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
   });
 
   testWidgets('remaining days load meals and overage days load exercise', (
@@ -401,31 +435,7 @@ void main() {
   });
 
   testWidgets('home shows 今日のコーチ', (tester) async {
-    final controller = AppController(
-      nutritionEngine: NutritionEngine(),
-      healthRepository: MockHealthRepository(isAvailable: false),
-    );
-    controller.setProfile(
-      UserProfile(
-        birthDate: DateTime(1990, 1, 1),
-        gender: Gender.male,
-        heightCm: 170,
-        weightKg: 60,
-      ),
-    );
-    controller.setNutritionSettings(
-      const NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: ActivityLevel.moderate,
-      ),
-    );
-    controller.setGoal(
-      Goal(
-        type: GoalType.maintain,
-        targetWeightKg: 60,
-        targetDate: DateTime(2026, 12, 1),
-      ),
-    );
+    final controller = _profiledController(subscription: _Plus(true));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -481,10 +491,11 @@ class _MemoryIntro implements CoachIntroStore {
   }
 }
 
-AppController _profiledController() {
+AppController _profiledController({SubscriptionRepository? subscription}) {
   final controller = AppController(
     nutritionEngine: NutritionEngine(),
     healthRepository: MockHealthRepository(isAvailable: false),
+    subscriptionRepository: subscription,
   );
   controller.setProfile(
     UserProfile(
@@ -522,6 +533,15 @@ CoachFoodStock _riceStock() {
       officialName: '精白米',
     ),
   );
+}
+
+class _Plus extends UnavailableSubscriptionRepository {
+  _Plus(this.active);
+
+  final bool active;
+
+  @override
+  bool get isPlusActive => active;
 }
 
 class _FixedNutrition implements CoachNutritionSource {

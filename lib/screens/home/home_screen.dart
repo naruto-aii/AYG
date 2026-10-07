@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../constants/app_strings.dart';
 import '../../models/calculation/landing_guidance.dart';
 import '../../models/alcohol_entry.dart';
 import '../../models/daily_summary.dart';
@@ -397,6 +398,14 @@ class HomeScreen extends StatelessWidget {
   }
 
   Future<void> _openCoach(BuildContext context) async {
+    final allowed = await ensureCalonaviPlus(
+      context,
+      controller,
+      message: AppStrings.coachBetaNotice,
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
     final added = await Navigator.of(context).push<CoachSavedKind>(
       MaterialPageRoute<CoachSavedKind>(
         builder: (context) => DailyCoachScreen(controller: controller),

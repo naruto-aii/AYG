@@ -239,7 +239,7 @@ class SettingsScreen extends StatelessWidget {
             SettingsRow(
               icon: AppIcons.information,
               title: '音声登録 (β)',
-              subtitle: 'カロナビ+で先に使えます',
+              subtitle: 'カロナビ+で使えます',
               onTap: () => _openVoiceRegistration(context),
             ),
           ],

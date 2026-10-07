@@ -79,8 +79,11 @@ class AppStrings {
   static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
   static const plusBetaAccessTitle = 'β版機能への先行アクセス';
   static const plusBetaAccessBody =
-      '今日のコーチ (β) など、精度を確かめている機能を先に使えます。今日のコーチ (β) は、検証中のいまは無料です。検証が終わると、カロナビ+の機能になります。';
-  static const siriBetaNotice = '音声登録はβ版です。精度を確かめています。カロナビ+で先に使えます。';
+      '今日のコーチ (β) など、β版として先行公開している機能を使えます。';
+  static const siriBetaNotice =
+      '音声登録 (β) は、β版として先行公開している機能です。カロナビ+で使えます。';
+  static const coachBetaNotice =
+      '今日のコーチ (β) は、β版として先行公開している機能です。カロナビ+で使えます。';
   static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
   static const plusBenefitTemplateBody =
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
@@ -91,7 +94,7 @@ class AppStrings {
       '残りカロリーに加え、アプリを開かずに、食事テンプレート3種類と運動テンプレート2件を、いつでもウィジェットから登録できます。';
   static const plusBenefitSiriTitle = 'Siri (β) に話しかけるだけで記録';
   static const plusBenefitSiriBody =
-      '食事も運動も、声で登録できます。精度を確かめているβ版で、カロナビ+から先に使えます。';
+      '食事も運動も、声で登録できます。β版として先行公開している機能です。';
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';

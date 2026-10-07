@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../repositories/coach_intro_store.dart';
 import '../../repositories/coach_nutrition_source.dart';
 import '../../repositories/coach_proposal_log.dart';
@@ -7,6 +8,7 @@ import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
+import '../subscription/calonavi_plus_flow.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
@@ -59,9 +61,20 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
         const NoOpCoachProposalLog();
   }
 
+  bool get _plusBlocked {
+    final controller = widget.controller;
+    if (controller == null) {
+      return false;
+    }
+    return !controller.subscriptionRepository.isPlusActive;
+  }
+
   @override
   void initState() {
     super.initState();
+    if (_plusBlocked) {
+      return;
+    }
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowIntro();
@@ -117,7 +130,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        content: const Text(coachTrialNotice),
+        content: const Text(AppStrings.coachBetaNotice),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -307,7 +320,32 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             ],
           ),
           const DesignTitleBlock(title: '今日のコーチ (β)', showBack: false),
-          if (result == null)
+          if (_plusBlocked) ...[
+            const DesignCard(
+              key: Key('coach_beta_notice'),
+              child: Text(AppStrings.coachBetaNotice, style: AppTypography.bodyS),
+            ),
+            const SizedBox(height: 16),
+            DesignButton(
+              label: 'カロナビ+を見る',
+              showTrailingIcon: false,
+              onPressed: () {
+                final controller = widget.controller;
+                if (controller == null) {
+                  return;
+                }
+                final custom = controller.openCalonaviPlusFlow;
+                if (custom != null) {
+                  custom(context);
+                  return;
+                }
+                showCalonaviPlus(
+                  context,
+                  repository: controller.subscriptionRepository,
+                );
+              },
+            ),
+          ] else if (result == null)
             Text('提案を作っています', style: AppTypography.bodyS)
           else if (result.status == DailyCoachStatus.nutritionMissing)
             Text(coachNutritionMissingMessage, style: AppTypography.bodyS)
@@ -320,20 +358,21 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             ],
           ],
           const SizedBox(height: 16),
-          const DesignCard(
-            key: Key('coach_verification_notice'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '残りのカロリーから、今日の食事か運動を一つ提案します。登録するまでは記録されません。',
-                  style: AppTypography.bodyS,
-                ),
-                SizedBox(height: 8),
-                Text(coachTrialNotice, style: AppTypography.bodyS),
-              ],
+          if (!_plusBlocked)
+            const DesignCard(
+              key: Key('coach_beta_notice'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '残りのカロリーから、今日の食事か運動を一つ提案します。登録するまでは記録されません。',
+                    style: AppTypography.bodyS,
+                  ),
+                  SizedBox(height: 8),
+                  Text(AppStrings.coachBetaNotice, style: AppTypography.bodyS),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

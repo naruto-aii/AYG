@@ -231,6 +231,9 @@ void main() {
     expect(find.text('食品を探す'), findsOneWidget);
     expect(find.text('保存済み'), findsNothing);
     expect(find.text('保存済み食品から選ぶ'), findsNothing);
+    expect(find.text('食べたものを記録して、健康な毎日をつくりましょう'), findsNothing);
+    expect(find.text('次回以降、保存済み食品から再利用できます'), findsNothing);
+    expect(find.text('次回から「食品を探す」で選べます'), findsOneWidget);
     expect(find.text('入力内容をテンプレートとして保存'), findsNothing);
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('バーコード'), findsOneWidget);

@@ -723,11 +723,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               widget.isEditing ? '食事を編集' : '食事を追加',
               style: AppTypography.headingL,
             ),
-            const SizedBox(height: 2),
-            Text(
-              '食べたものを記録して、健康な毎日をつくりましょう',
-              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-            ),
             if (_showFirstMealGuide) ...[
               const SizedBox(height: AppSpacing.md),
               DesignCard(
@@ -944,7 +939,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('食品として保存'),
-              subtitle: const Text('次回以降、保存済み食品から再利用できます'),
+              subtitle: const Text('次回から「食品を探す」で選べます'),
               value: _saveAsFood,
               onChanged: (value) => setState(() => _saveAsFood = value),
             ),

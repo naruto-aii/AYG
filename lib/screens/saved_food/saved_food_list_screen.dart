@@ -200,7 +200,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
           DesignTitleBlock(
             title: '保存済み食品',
             subtitle:
-                '保存済み食品を登録しておくと、次から選ぶだけです。公開すると、ほかの人の検索に出ます。氏名やメールは載りません。',
+                '登録しておくと、次から「食品を探す」で選べます。公開すると、ほかの人の検索に出ます。氏名やメールは載りません。',
             trailing: IconButton(
               tooltip: '食品を探す',
               onPressed: _openFoodSearch,

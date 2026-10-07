@@ -32,6 +32,12 @@
 
 `supabase/rollback/20261007160000_food_search_spellings_rls_down.sql`
 
+## 20261007050424 harden function security
+
+10関数の `search_path` 固定と、`saved_foods_fill_voice` の直接実行の取り消しを戻す。表とデータは変えない。本番には適用済みの修正なので、戻すときはこのファイルを手動で流す。
+
+`supabase/rollback/20261007050424_harden_function_security_down.sql`
+
 ## 20261006150000 calonavi plus half year product
 
 半年プランの商品ID `calonavi_plus_half_year` だけを戻す。月額・年額・実機テストの加入行、表、RLS は残す。2回実行しても失敗しない。

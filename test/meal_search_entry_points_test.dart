@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:ayg/models/activity_level.dart';
@@ -19,7 +20,9 @@ import 'package:ayg/screens/saved_food/saved_food_list_screen.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/services/share_sheet_client.dart';
 import 'package:ayg/state/app_controller.dart';
+import 'package:ayg/theme/app_colors.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/theme/app_typography.dart';
 import 'package:ayg/widgets/food/combined_food_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,6 +42,7 @@ void main() {
       loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
     }
     await loader.load();
+    await _loadMaterialSymbols();
   });
 
   final now = DateTime(2026, 10, 7);
@@ -113,7 +117,7 @@ void main() {
         key: key,
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
+          theme: _screenshotTheme(),
           home: home,
         ),
       ),
@@ -416,7 +420,12 @@ void main() {
       tester,
       SavedFoodListScreen(
         controller: controller(),
-        searchOverrides: overridesFor(),
+        searchOverrides: overridesFor(
+          searchSaved: (_) async => [
+            saved('自家製おにぎり'),
+            saved('のりおにぎり'),
+          ],
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -424,6 +433,8 @@ void main() {
     expect(find.byTooltip('食品を探す'), findsOneWidget);
     expect(find.byTooltip('公開食品検索'), findsNothing);
     expectNoLegacyPublicScreen();
+    expect(find.text('保存食品'), findsOneWidget);
+    await saveShot(tester, shot, 'saved-food-list-with-magnifier');
 
     await tester.tap(find.byTooltip('食品を探す'));
     await tester.pumpAndSettle();
@@ -436,7 +447,56 @@ void main() {
     );
     await tester.pumpAndSettle();
     expectThreeHeadings();
+    expect(find.text('のりおにぎり'), findsOneWidget);
     expectNoLegacyPublicScreen();
     await saveShot(tester, shot, 'saved-food-magnifier-search');
   });
+}
+
+/// 保存トグルはフォント名を持たない。テストの既定フォントは Ahem なので、
+/// そのまま撮ると日本語が四角になる。画面の他の文字と同じ Zen Maru Gothic を当てる。
+ThemeData _screenshotTheme() {
+  final theme = AppTheme.light;
+  return theme.copyWith(
+    listTileTheme: theme.listTileTheme.copyWith(
+      titleTextStyle: AppTypography.titleM.copyWith(
+        fontFamily: AppTypography.fontFamily,
+      ),
+      subtitleTextStyle: AppTypography.bodyS.copyWith(
+        color: AppColors.textMuted,
+        fontFamily: AppTypography.fontFamily,
+      ),
+    ),
+  );
+}
+
+/// 戻る矢印などは Material Symbols。パッケージのフォントを名前で読み込む。
+Future<void> _loadMaterialSymbols() async {
+  final config = File('.dart_tool/package_config.json');
+  if (!config.existsSync()) {
+    return;
+  }
+  final decoded = jsonDecode(config.readAsStringSync()) as Map<String, dynamic>;
+  final packages = decoded['packages'] as List<dynamic>;
+  for (final package in packages) {
+    final map = package as Map<String, dynamic>;
+    if (map['name'] != 'material_symbols_icons') {
+      continue;
+    }
+    final rootUri = map['rootUri'] as String;
+    final root = rootUri.contains(':')
+        ? Uri.parse(rootUri).toFilePath()
+        : Directory('.dart_tool').uri.resolve(rootUri).toFilePath();
+    final file = File('$root/lib/fonts/MaterialSymbolsRounded.ttf');
+    if (!file.existsSync()) {
+      return;
+    }
+    final loader = FontLoader(
+      'packages/material_symbols_icons/MaterialSymbolsRounded',
+    );
+    loader.addFont(
+      Future<ByteData>.value(ByteData.sublistView(file.readAsBytesSync())),
+    );
+    await loader.load();
+  }
 }

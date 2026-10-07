@@ -12,7 +12,7 @@ void main() {
   final notice = Announcement(
     id: 'a1',
     title: '検証中の機能について',
-    body: '今日のコーチは検証中です。',
+    body: '新しい機能のお知らせです。',
     publishedAt: DateTime(2026, 10, 4),
   );
 
@@ -48,7 +48,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('検証中の機能について'), findsOneWidget);
-    expect(find.text('今日のコーチは検証中です。'), findsOneWidget);
+    expect(find.text('新しい機能のお知らせです。'), findsOneWidget);
     expect(reads.ids, {'a1'});
 
     await tester.tap(find.text('戻る'));

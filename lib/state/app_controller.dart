@@ -3,9 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
+import 'package:uuid/uuid.dart';
 
 import '../config/subscription_catalog.dart';
 import '../constants/app_strings.dart';
+import '../services/analytics/analytics.dart';
+import '../services/analytics/catalog_actions.dart';
+import '../repositories/storekit_subscription_repository.dart';
 import '../models/alcohol_entry.dart';
 import '../models/app_settings.dart';
 import '../models/activity_level.dart';
@@ -64,6 +68,7 @@ import '../repositories/contracts/user_repository_base.dart';
 import '../repositories/contracts/workout_template_repository_base.dart';
 import '../repositories/contracts/weight_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
+import '../repositories/pending_record_store.dart';
 import '../repositories/first_meal_guide_store.dart';
 import '../repositories/sync_step_runner.dart';
 import '../repositories/health_repository.dart';
@@ -71,12 +76,12 @@ import '../repositories/health_repository_support.dart';
 import '../repositories/local_session_store.dart';
 import '../services/local_user_data_clearer_base.dart';
 import '../config/official_foods_flag.dart';
-import '../config/subscription_catalog.dart';
 import '../config/supabase_config.dart';
 import '../repositories/subscription_exceptions.dart';
 import '../repositories/subscription_repository.dart';
 import '../repositories/unavailable_subscription_repository.dart';
 import '../repositories/coach_proposal_log.dart';
+import '../repositories/plus_funnel_repository.dart';
 import '../repositories/usage_record_repository.dart';
 import '../services/usage_record.dart';
 import '../repositories/review_prompt_store.dart';
@@ -99,7 +104,6 @@ import '../services/saved_food_publish_validator.dart';
 import '../services/saved_food_search_service.dart';
 import '../services/saved_food_version_policy.dart';
 import '../services/search_suggestion_service.dart';
-import '../models/food_visibility.dart';
 import '../services/source_food_edit_policy.dart';
 import '../utils/food_name_normalizer.dart';
 import '../utils/food_search_normalizer.dart';
@@ -131,7 +135,9 @@ class AppController extends ChangeNotifier {
     SubscriptionRepository? subscriptionRepository,
     UsageRecordRepository? usageRecordRepository,
     CoachProposalLog? coachProposalLog,
+    PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
+    PendingRecordStore? pendingRecords,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -157,7 +163,9 @@ class AppController extends ChangeNotifier {
            subscriptionRepository ?? UnavailableSubscriptionRepository(),
        _usageRecordRepository = usageRecordRepository,
        _coachProposalLog = coachProposalLog ?? const NoOpCoachProposalLog(),
+       _plusFunnelRepository = plusFunnelRepository,
        _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
+       _pendingRecords = pendingRecords ?? PendingRecordStore(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -193,9 +201,15 @@ class AppController extends ChangeNotifier {
   final SubscriptionRepository _subscriptionRepository;
   final UsageRecordRepository? _usageRecordRepository;
   final CoachProposalLog _coachProposalLog;
+  final PlusFunnelRepository? _plusFunnelRepository;
   final ReviewPromptStore _reviewPromptStore;
+  final PendingRecordStore _pendingRecords;
+
+  PendingRecordStore get pendingRecords => _pendingRecords;
 
   CoachProposalLog get coachProposalLog => _coachProposalLog;
+
+  PlusFunnelRepository? get plusFunnelRepository => _plusFunnelRepository;
 
   ReviewPromptStore get reviewPromptStore => _reviewPromptStore;
 
@@ -234,12 +248,16 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
   bool _lastSyncFailed = false;
+  bool _hasUnsentRecords = false;
   bool _isInitializing = false;
   SyncFailure? _syncFailure;
 
   bool get hasInitialSyncCompleted => _hasInitialSyncCompleted;
   bool get isSyncInProgress => _isSyncInProgress;
   bool get lastSyncFailed => _lastSyncFailed;
+
+  /// 手元にあるのに、まだ本番へ届いていない記録がある。
+  bool get hasUnsentRecords => _hasUnsentRecords;
   bool get isInitializing => _isInitializing;
   SyncFailure? get syncFailure => _syncFailure;
 
@@ -416,6 +434,9 @@ class AppController extends ChangeNotifier {
     if (authUser == null || dataSyncRepository == null) {
       return;
     }
+    final userId = authUser.id.toLowerCase();
+    await Analytics.service?.setCurrentUser(userId);
+    _subscriptionRepository.bindStoreAccountToken(userId);
 
     if (_isSyncInProgress) {
       return;
@@ -429,6 +450,12 @@ class AppController extends ChangeNotifier {
     try {
       final lastUserId = await _localSessionStore?.loadLastUserId();
       if (lastUserId != null && lastUserId != authUser.id) {
+        final pendingCount = await _pendingRecords.count();
+        _usage('local_data_cleared', {
+          'reason': 'user_switch',
+          'pending_records_count': pendingCount,
+        });
+        await _pendingRecords.clear();
         await _localUserDataClearer?.clearAll();
       }
 
@@ -439,6 +466,7 @@ class AppController extends ChangeNotifier {
 
       if (force || lastUserId != authUser.id || !_hasInitialSyncCompleted) {
         await _migrateLocalOwnerData(toUserId: authUser.id);
+        await _pushUnsentBeforePull(dataSyncRepository, authUser.id);
         await dataSyncRepository.pullRemoteToLocal(authUser.id);
         _hasInitialSyncCompleted = true;
         await _localSessionStore?.saveLastUserId(authUser.id);
@@ -460,7 +488,7 @@ class AppController extends ChangeNotifier {
       _lastSyncFailed = true;
       _hasInitialSyncCompleted = false;
       _syncFailure = error.failure;
-      await _localUserDataClearer?.clearAll();
+      _hasUnsentRecords = true;
       _clearInMemoryState();
     } catch (error, stackTrace) {
       _lastSyncFailed = true;
@@ -472,7 +500,7 @@ class AppController extends ChangeNotifier {
         tableName: 'local_cache',
         operation: 'sync',
       )..logDebug();
-      await _localUserDataClearer?.clearAll();
+      _hasUnsentRecords = true;
       _clearInMemoryState();
       if (kDebugMode) {
         debugPrint('[AYG] handleAuthenticatedSession failed: $error');
@@ -485,22 +513,143 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> logout({bool force = false}) async {
+    _usage('logout', {'forced': force});
     if (_isSyncInProgress && !force) {
       return;
     }
     _resetSyncState();
     _clearInMemoryState();
+    final pendingCount = await _pendingRecords.count();
+    _usage('local_data_cleared', {
+      'reason': 'logout',
+      'pending_records_count': pendingCount,
+    });
+    await _pendingRecords.clear();
     await _localUserDataClearer?.clearAll();
     await _localSessionStore?.clearLastUserId();
     await _authenticationRepository?.logout();
+    await Analytics.service?.setCurrentUser(null);
     notifyListeners();
   }
 
   void _resetSyncState() {
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;
+    _hasUnsentRecords = false;
     _isSyncInProgress = false;
     _syncFailure = null;
+  }
+
+  /// 取得で手元の未送信行を消さないよう、先に送る。1表の失敗では取得を止めない。
+  Future<void> _pushUnsentBeforePull(
+    DataSyncRepository dataSyncRepository,
+    String userId,
+  ) async {
+    try {
+      await dataSyncRepository.pushLocalToRemote(userId);
+      _hasUnsentRecords = false;
+    } on PartialPushException catch (error, stackTrace) {
+      _hasUnsentRecords = true;
+      debugPrint('[AYG] push before pull incomplete: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  /// 起動のあと、前面に戻ったときに未送信を再送する。
+  Future<void> flushUnsentRecords() async {
+    if (_isSyncInProgress) {
+      return;
+    }
+    final userId = _authenticationRepository?.currentUser?.id;
+    final dataSyncRepository = _dataSyncRepository;
+    if (userId == null || dataSyncRepository == null) {
+      return;
+    }
+    if (!_hasInitialSyncCompleted || _lastSyncFailed) {
+      await handleAuthenticatedSession(force: true);
+      return;
+    }
+    if (!_hasUnsentRecords) {
+      return;
+    }
+    if (_remoteSyncInFlight) {
+      _remoteSyncQueued = true;
+      return;
+    }
+    _remoteSyncInFlight = true;
+    await _drainRemoteSync(dataSyncRepository, userId);
+  }
+
+  void recordPlusFunnel({
+    required PlusFunnelEvent event,
+    PlusFunnelFeature? feature,
+    String? productId,
+  }) {
+    _emitFunnel(event, feature: feature, productId: productId);
+    final repository = _plusFunnelRepository;
+    if (repository == null) {
+      return;
+    }
+    unawaited(() async {
+      try {
+        await repository.record(
+          event: event,
+          feature: feature,
+          productId: productId,
+        );
+      } catch (error, stackTrace) {
+        debugPrint('[AYG] plus funnel record failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }());
+  }
+
+  void _usage(String name, [Map<String, Object?> props = const {}, String? origin]) {
+    Analytics.emit(name, props, origin);
+  }
+
+  void _emitFunnel(
+    PlusFunnelEvent event, {
+    PlusFunnelFeature? feature,
+    String? productId,
+  }) {
+    final featureName = switch (feature) {
+      PlusFunnelFeature.memo => 'food_memo',
+      null => 'other',
+      _ => feature.storageValue,
+    };
+    switch (event) {
+      case PlusFunnelEvent.paywallOpen:
+        Analytics.emit('paywall_open', {
+          'entry_point': feature == null ? 'other' : 'gate_$featureName',
+        });
+      case PlusFunnelEvent.purchaseTap:
+        Analytics.emit('purchase_tap', {'product_id': productId});
+      case PlusFunnelEvent.purchaseSuccess:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'purchased',
+        });
+      case PlusFunnelEvent.purchaseCancel:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'cancelled',
+        });
+      case PlusFunnelEvent.purchaseFailed:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'failed',
+        });
+      case PlusFunnelEvent.restoreTap:
+        Analytics.emit('restore_tap');
+      case PlusFunnelEvent.gateShown:
+        Analytics.emit('gate_shown', {'feature': featureName});
+      case PlusFunnelEvent.gateTap:
+        Analytics.emit('gate_tap', {
+          'feature': featureName,
+          'choice': 'view_plus',
+        });
+    }
   }
 
   void _clearInMemoryState() {
@@ -558,6 +707,12 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> completeOnboarding() async {
+    CatalogActions.onboardingStepComplete(
+      step: 'goal',
+      durationMs: 0,
+      skipped: false,
+    );
+    _usage('onboarding_complete', {'goal_type': 'maintain', 'health_enabled': useHealthIntegration, 'duration_ms': 0});
     appSettings = appSettings.copyWith(onboardingComplete: true);
     await _settingsRepository?.saveAppSettings(appSettings);
     await _persistToRemoteNow();
@@ -567,6 +722,7 @@ class AppController extends ChangeNotifier {
 
   /// 目標設定を終えたこのセッションだけ、食事1件の案内を出す。
   void offerFirstMealGuide() {
+    _usage('first_meal_guide_shown');
     if (_firstMealGuideSeen) {
       return;
     }
@@ -588,6 +744,7 @@ class AppController extends ChangeNotifier {
       screen: UsageScreen.firstMealGuide,
       action: UsageScreenAction.open,
     );
+    _usage('first_meal_guide_finished', {'action': 'started'});
   }
 
   void setProfile(UserProfile value) {
@@ -600,6 +757,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> applyHealthProfileData(HealthProfileData data) async {
+    _usage('profile_updated', {'changed_fields': 'health', 'source': 'health'});
     healthPrefill = data;
     healthSnapshot = HealthSnapshot(
       activeEnergyBurnedKcal: data.activeEnergyBurnedKcal,
@@ -640,6 +798,11 @@ class AppController extends ChangeNotifier {
       recordedAt: recordedAt ?? DateTime.now(),
       source: WeightSource.manual,
     );
+    await _pendingRecords.markUpsert(PendingRecordKind.weight, entry.id);
+    _usage('weight_entry_added', {
+      'weight_entry_id': entry.id,
+      'source': 'manual',
+    });
     final weightRepository = _weightRepository;
     await weightRepository?.save(entry);
     if (weightRepository != null) {
@@ -649,6 +812,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateWeightEntry(WeightEntry entry) async {
+    _usage('weight_entry_updated', {'weight_entry_id': entry.id, 'action': 'update'});
+    await _pendingRecords.markUpsert(PendingRecordKind.weight, entry.id);
     final weightRepository = _weightRepository;
     await weightRepository?.save(entry);
     if (weightRepository != null) {
@@ -658,6 +823,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> restoreWeightEntry(WeightEntry entry) async {
+    _usage('weight_entry_updated', {'weight_entry_id': entry.id, 'action': 'restore'});
+    await _pendingRecords.markUpsert(PendingRecordKind.weight, entry.id);
     final weightRepository = _weightRepository;
     await weightRepository?.save(entry);
     if (weightRepository != null) {
@@ -684,25 +851,66 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteWeightEntry(String entryId) async {
+    _usage('weight_entry_updated', {'weight_entry_id': entryId, 'action': 'delete'});
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final weightRepository = _weightRepository;
-
-    if (dataSyncRepository?.supportsRemoteWeightEntryDelete ?? false) {
-      if (userId == null) {
-        throw StateError('Authentication required to delete weight entry.');
-      }
-      await dataSyncRepository!.deleteWeightEntry(
-        userId: userId,
+    final confirmed = await _confirmRemoteDelete(
+      kind: PendingRecordKind.weight,
+      id: entryId,
+      enabled: dataSyncRepository?.supportsRemoteWeightEntryDelete ?? false,
+      missingUser: 'Authentication required to delete weight entry.',
+      delete: () => dataSyncRepository!.deleteWeightEntry(
+        userId: userId!,
         entryId: entryId,
-      );
-    }
+      ),
+    );
 
     if (weightRepository != null) {
       await weightRepository.delete(entryId);
       weightEntries.removeWhere((item) => item.id == entryId);
+      await _finishLocalDelete(
+        kind: PendingRecordKind.weight,
+        id: entryId,
+        confirmed: confirmed,
+      );
       await _refreshProfileWeightFromEntries();
     }
+  }
+
+  /// 本番の削除が確認できたら true。失敗したときは手元を残したまま例外を戻す。
+  Future<bool> _confirmRemoteDelete({
+    required PendingRecordKind kind,
+    required String id,
+    required bool enabled,
+    required String missingUser,
+    required Future<void> Function() delete,
+  }) async {
+    if (!enabled) {
+      return false;
+    }
+    if (_authenticationRepository?.currentUser?.id == null) {
+      throw StateError(missingUser);
+    }
+    try {
+      await delete();
+      return true;
+    } catch (_) {
+      await _pendingRecords.markUpsert(kind, id);
+      rethrow;
+    }
+  }
+
+  Future<void> _finishLocalDelete({
+    required PendingRecordKind kind,
+    required String id,
+    required bool confirmed,
+  }) async {
+    if (confirmed) {
+      await _pendingRecords.forget(kind, id);
+      return;
+    }
+    await _pendingRecords.markDelete(kind, id);
   }
 
   Future<void> _reloadWeightEntries() async {
@@ -771,6 +979,7 @@ class AppController extends ChangeNotifier {
     required String displayName,
     double? manualWeightKg,
   }) async {
+    _usage('profile_updated', {'changed_fields': 'basic', 'source': 'settings'});
     final currentProfile = profile;
     if (currentProfile == null) {
       return;
@@ -798,6 +1007,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveGoalSettings(Goal value) async {
+    _usage('goal_updated', {'source': 'settings', 'target_mode': 'auto'});
     goal = value;
     await _userRepository?.saveGoal(value);
     _scheduleRemoteSync();
@@ -805,6 +1015,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveNutritionSettingsSettings(NutritionSettings value) async {
+    _usage('goal_updated', {'source': 'settings', 'target_mode': 'manual'});
     final next = _settingsPreservingAutoSwitch(value);
     nutritionSettings = next;
     await _settingsRepository?.saveNutritionSettings(next);
@@ -813,6 +1024,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateActivityLevel(ActivityLevel activityLevel) async {
+    _usage('profile_updated', {'changed_fields': 'activity_level', 'source': 'settings'});
     final current = nutritionSettings;
     await saveNutritionSettingsSettings(
       (current ??
@@ -825,6 +1037,10 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> enableHealthIntegration() async {
+    CatalogActions.settingsChanged(settingKey: 'health', newValue: 'on');
+    CatalogActions.onboardingStepView('health');
+    _usage('health_permission_result', {'context': 'settings', 'granted': true});
+    _usage('health_integration_changed', {'enabled': true, 'context': 'settings'});
     final healthRepository = _healthRepository;
     if (healthRepository == null || !healthRepository.isAvailable) {
       return false;
@@ -846,6 +1062,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> disableHealthIntegration({ActivityLevel? activityLevel}) async {
+    _usage('health_integration_changed', {'enabled': false, 'context': 'settings'});
     final fallbackLevel =
         activityLevel ??
         nutritionSettings?.activityLevel ??
@@ -862,6 +1079,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> applyLandingSuggestion(LandingGuidanceAction action) async {
+    CatalogActions.landingGuidanceShown(action.name);
+    _usage('landing_guidance_tap', {'action': action.name});
     final currentGoal = goal;
     final guidance = summary?.energyBreakdown?.guidance;
     if (currentGoal == null || guidance == null) {
@@ -887,6 +1106,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> resyncHealthData() async {
+    _usage('health_sync_result', {'trigger': 'manual', 'result': 'success', 'workouts_imported': 0, 'weight_samples_imported': 0, 'duration_ms': 0});
     final healthRepository = _healthRepository;
     if (healthRepository == null || !useHealthIntegration) {
       return false;
@@ -1148,6 +1368,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> updateFoodMemo(FoodEntry entry, String? memo) async {
+    _usage('food_memo_saved', {'food_entry_id': entry.id, 'has_memo': memo != null && memo.isNotEmpty, 'memo_length': memo?.length ?? 0});
     if (!_subscriptionRepository.isPlusActive) {
       return false;
     }
@@ -1195,18 +1416,25 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> addFood(FoodEntry entry) async {
+    final stored = _foodWithOrigin(entry, ReviewRecordOrigin.app);
     final daysBefore = _reviewLoggedDays();
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
-      await foodRepository.save(entry);
+      await foodRepository.save(stored);
       // 全件 loadAll は UI アイソレートを止める。保存した1件だけ足す。
-      _placeSavedFoodEntry(entry);
+      _placeSavedFoodEntry(stored);
     } else {
-      foodEntries.add(entry);
+      foodEntries.add(stored);
     }
-    _scheduleFoodEntrySync(entry);
+    _scheduleFoodEntrySync(stored);
     refreshDailySummary();
+    _usage('food_entry_added', {
+      'food_entry_ids': [stored.id],
+      'method': 'manual',
+      'items_count': 1,
+    });
     _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
+    await _pendingRecords.markUpsert(PendingRecordKind.food, stored.id);
   }
 
   /// 新しい順（loggedAt 降順）。loadAll と同じ並び。
@@ -1231,10 +1459,46 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    unawaited(dataSyncRepository.pushFoodEntry(userId: userId, entry: entry));
+    unawaited(_pushFoodEntryNow(dataSyncRepository, userId, entry));
+  }
+
+  Future<void> _pushFoodEntryNow(
+    DataSyncRepository dataSyncRepository,
+    String userId,
+    FoodEntry entry,
+  ) async {
+    try {
+      await dataSyncRepository.pushFoodEntry(userId: userId, entry: entry);
+    } catch (error, stackTrace) {
+      _hasUnsentRecords = true;
+      debugPrint('[AYG] food entry push failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      notifyListeners();
+    }
+  }
+
+  FoodEntry _foodWithOrigin(FoodEntry entry, ReviewRecordOrigin origin) {
+    final existing = entry.recordOrigin;
+    if (existing != null && existing.isNotEmpty) {
+      return entry;
+    }
+    return entry.copyWith(recordOrigin: origin.name);
+  }
+
+  ExerciseEntry _exerciseWithOrigin(
+    ExerciseEntry entry,
+    ReviewRecordOrigin origin,
+  ) {
+    final existing = entry.recordOrigin;
+    if (existing != null && existing.isNotEmpty) {
+      return entry;
+    }
+    return entry.copyWith(recordOrigin: origin.name);
   }
 
   Future<void> restoreFoodEntry(FoodEntry entry) async {
+    _usage('food_entry_restored', {'food_entry_id': entry.id});
+    await _pendingRecords.markUpsert(PendingRecordKind.food, entry.id);
     await _saveFoodEntryLocally(entry);
     refreshDailySummary();
     await _persistToRemoteNow();
@@ -1256,19 +1520,56 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateFood(FoodEntry entry) async {
+    _usage('food_entry_updated', {'food_entry_id': entry.id, 'changed_fields': 'quantity'});
+    await _pendingRecords.markUpsert(PendingRecordKind.food, entry.id);
+    final kept = _keepFoodOrigin(entry);
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
-      await foodRepository.save(entry);
-      _placeSavedFoodEntry(entry);
+      await foodRepository.save(kept);
+      _placeSavedFoodEntry(kept);
     } else {
-      final index = foodEntries.indexWhere((item) => item.id == entry.id);
+      final index = foodEntries.indexWhere((item) => item.id == kept.id);
       if (index == -1) {
         return;
       }
-      foodEntries[index] = entry;
+      foodEntries[index] = kept;
     }
     _scheduleRemoteSync();
     refreshDailySummary();
+  }
+
+  FoodEntry _keepFoodOrigin(FoodEntry entry) {
+    final current = entry.recordOrigin;
+    if (current != null && current.isNotEmpty) {
+      return entry;
+    }
+    for (final existing in foodEntries) {
+      if (existing.id != entry.id) {
+        continue;
+      }
+      final origin = existing.recordOrigin;
+      if (origin != null && origin.isNotEmpty) {
+        return entry.copyWith(recordOrigin: origin);
+      }
+    }
+    return entry;
+  }
+
+  ExerciseEntry _keepExerciseOrigin(ExerciseEntry entry) {
+    final current = entry.recordOrigin;
+    if (current != null && current.isNotEmpty) {
+      return entry;
+    }
+    for (final existing in exerciseEntries) {
+      if (existing.id != entry.id) {
+        continue;
+      }
+      final origin = existing.recordOrigin;
+      if (origin != null && origin.isNotEmpty) {
+        return entry.copyWith(recordOrigin: origin);
+      }
+    }
+    return entry;
   }
 
   Future<void> saveEditedFoodEntryWithSourceChoice({
@@ -1377,16 +1678,17 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteFood(String id) async {
+    _usage('food_entry_deleted', {'food_entry_id': id, 'undo_offered': true});
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final foodRepository = _foodRepository;
-
-    if (dataSyncRepository?.supportsRemoteFoodEntryDelete ?? false) {
-      if (userId == null) {
-        throw StateError('Authentication required to delete food entry.');
-      }
-      await dataSyncRepository!.deleteFoodEntry(userId: userId, entryId: id);
-    }
+    final confirmed = await _confirmRemoteDelete(
+      kind: PendingRecordKind.food,
+      id: id,
+      enabled: dataSyncRepository?.supportsRemoteFoodEntryDelete ?? false,
+      missingUser: 'Authentication required to delete food entry.',
+      delete: () => dataSyncRepository!.deleteFoodEntry(userId: userId!, entryId: id),
+    );
 
     if (foodRepository != null) {
       await foodRepository.delete(id);
@@ -1394,6 +1696,11 @@ class AppController extends ChangeNotifier {
     } else {
       foodEntries.removeWhere((item) => item.id == id);
     }
+    await _finishLocalDelete(
+      kind: PendingRecordKind.food,
+      id: id,
+      confirmed: confirmed,
+    );
     refreshDailySummary();
   }
 
@@ -1401,7 +1708,24 @@ class AppController extends ChangeNotifier {
     ExerciseEntry entry, {
     ReviewRecordOrigin origin = ReviewRecordOrigin.app,
   }) async {
-    final stored = _exerciseEntryForStorage(entry);
+    _usage(
+      'exercise_entry_added',
+      {
+        'exercise_entry_ids': [entry.id],
+        'method': origin == ReviewRecordOrigin.siri
+            ? 'siri'
+            : origin == ReviewRecordOrigin.widget
+            ? 'widget'
+            : 'catalog',
+        'items_count': 1,
+      },
+      origin == ReviewRecordOrigin.siri
+          ? 'siri'
+          : origin == ReviewRecordOrigin.widget
+          ? 'home_widget'
+          : 'app',
+    );
+    final stored = _exerciseWithOrigin(_exerciseEntryForStorage(entry), origin);
     final daysBefore = _reviewLoggedDays();
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
@@ -1410,12 +1734,15 @@ class AppController extends ChangeNotifier {
     } else {
       exerciseEntries.add(stored);
     }
+    _noteReviewRecords(daysBefore: daysBefore, origin: origin);
+    await _pendingRecords.markUpsert(PendingRecordKind.exercise, stored.id);
     _scheduleRemoteSync();
     refreshDailySummary();
-    _noteReviewRecords(daysBefore: daysBefore, origin: origin);
   }
 
   Future<void> restoreExerciseEntry(ExerciseEntry entry) async {
+    _usage('exercise_entry_restored', {'exercise_entry_id': entry.id});
+    await _pendingRecords.markUpsert(PendingRecordKind.exercise, entry.id);
     await _saveExerciseEntryLocally(entry);
     refreshDailySummary();
     await _persistToRemoteNow();
@@ -1437,7 +1764,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateExercise(ExerciseEntry entry) async {
-    final stored = _exerciseEntryForStorage(entry);
+    _usage('exercise_entry_updated', {'exercise_entry_id': entry.id, 'changed_fields': 'duration'});
+    await _pendingRecords.markUpsert(PendingRecordKind.exercise, entry.id);
+    final stored = _exerciseEntryForStorage(_keepExerciseOrigin(entry));
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
       await exerciseRepository.save(stored);
@@ -1454,19 +1783,20 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteExercise(String id) async {
+    _usage('exercise_entry_deleted', {'exercise_entry_id': id, 'undo_offered': true});
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final exerciseRepository = _exerciseRepository;
-
-    if (dataSyncRepository?.supportsRemoteExerciseEntryDelete ?? false) {
-      if (userId == null) {
-        throw StateError('Authentication required to delete exercise entry.');
-      }
-      await dataSyncRepository!.deleteExerciseEntry(
-        userId: userId,
+    final confirmed = await _confirmRemoteDelete(
+      kind: PendingRecordKind.exercise,
+      id: id,
+      enabled: dataSyncRepository?.supportsRemoteExerciseEntryDelete ?? false,
+      missingUser: 'Authentication required to delete exercise entry.',
+      delete: () => dataSyncRepository!.deleteExerciseEntry(
+        userId: userId!,
         entryId: id,
-      );
-    }
+      ),
+    );
 
     if (exerciseRepository != null) {
       await exerciseRepository.delete(id);
@@ -1474,10 +1804,16 @@ class AppController extends ChangeNotifier {
     } else {
       exerciseEntries.removeWhere((item) => item.id == id);
     }
+    await _finishLocalDelete(
+      kind: PendingRecordKind.exercise,
+      id: id,
+      confirmed: confirmed,
+    );
     refreshDailySummary();
   }
 
   Future<void> addAlcohol(AlcoholEntry entry) async {
+    _usage('alcohol_entry_added', {'alcohol_entry_id': entry.id});
     final daysBefore = _reviewLoggedDays();
     final alcoholRepository = _alcoholRepository;
     if (alcoholRepository != null) {
@@ -1486,12 +1822,15 @@ class AppController extends ChangeNotifier {
     } else {
       alcoholEntries.add(entry);
     }
+    _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
+    await _pendingRecords.markUpsert(PendingRecordKind.alcohol, entry.id);
     _scheduleRemoteSync();
     refreshDailySummary();
-    _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
   }
 
   Future<void> restoreAlcoholEntry(AlcoholEntry entry) async {
+    _usage('alcohol_entry_changed', {'alcohol_entry_id': entry.id, 'action': 'restore'});
+    await _pendingRecords.markUpsert(PendingRecordKind.alcohol, entry.id);
     await _saveAlcoholEntryLocally(entry);
     refreshDailySummary();
     await _persistToRemoteNow();
@@ -1513,6 +1852,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateAlcohol(AlcoholEntry entry) async {
+    _usage('alcohol_entry_changed', {'alcohol_entry_id': entry.id, 'action': 'update'});
+    await _pendingRecords.markUpsert(PendingRecordKind.alcohol, entry.id);
     final alcoholRepository = _alcoholRepository;
     if (alcoholRepository != null) {
       await alcoholRepository.save(entry);
@@ -1529,16 +1870,18 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteAlcohol(String id) async {
+    _usage('alcohol_entry_changed', {'alcohol_entry_id': id, 'action': 'delete'});
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final alcoholRepository = _alcoholRepository;
-
-    if (dataSyncRepository?.supportsRemoteAlcoholEntryDelete ?? false) {
-      if (userId == null) {
-        throw StateError('Authentication required to delete alcohol entry.');
-      }
-      await dataSyncRepository!.deleteAlcoholEntry(userId: userId, entryId: id);
-    }
+    final confirmed = await _confirmRemoteDelete(
+      kind: PendingRecordKind.alcohol,
+      id: id,
+      enabled: dataSyncRepository?.supportsRemoteAlcoholEntryDelete ?? false,
+      missingUser: 'Authentication required to delete alcohol entry.',
+      delete: () =>
+          dataSyncRepository!.deleteAlcoholEntry(userId: userId!, entryId: id),
+    );
 
     if (alcoholRepository != null) {
       await alcoholRepository.delete(id);
@@ -1546,12 +1889,18 @@ class AppController extends ChangeNotifier {
     } else {
       alcoholEntries.removeWhere((item) => item.id == id);
     }
+    await _finishLocalDelete(
+      kind: PendingRecordKind.alcohol,
+      id: id,
+      confirmed: confirmed,
+    );
     refreshDailySummary();
   }
 
   // --- Saved food (Phase 6A–6C) ---
 
   Future<SavedFood> createSavedFood(SavedFoodDraft draft) async {
+    _usage('saved_food_created', {'visibility': 'private', 'from': 'form'});
     final repository = _savedFoodRepository;
     if (repository == null) {
       throw StateError('SavedFoodRepository is not configured');
@@ -1631,6 +1980,7 @@ class AppController extends ChangeNotifier {
 
       final duplicate = await checkPublicDuplicate(saved);
       if (duplicate != null) {
+        CatalogActions.publicFoodDuplicateWarning(kind: 'exact', choice: 'blocked');
         throw SavedFoodPersistenceException(
           errorCode: SavedFoodErrorCode.conflict,
           message: 'Duplicate public food exists.',
@@ -1654,6 +2004,11 @@ class AppController extends ChangeNotifier {
   }
 
   Future<SavedFood> updateSavedFood(SavedFood food) async {
+    CatalogActions.savedFoodUpdated(
+      savedFoodId: food.foodId,
+      visibility: food.visibility.name,
+      changedFields: 'form',
+    );
     if (food.visibility == FoodVisibility.public) {
       throw StateError('Use updatePublishedSavedFood for public foods');
     }
@@ -1779,6 +2134,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<SavedFood> publishSavedFood(String foodId) async {
+    _usage('public_food_published', {'saved_food_id': foodId, 'action': 'publish'});
     if (_publishOperationInProgress) {
       throw StateError('Publish operation already in progress');
     }
@@ -1815,6 +2171,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<SavedFood> unpublishSavedFood(String foodId) async {
+    _usage('public_food_published', {'saved_food_id': foodId, 'action': 'unpublish'});
     if (_publishOperationInProgress) {
       throw StateError('Publish operation already in progress');
     }
@@ -1856,6 +2213,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteSavedFood(String foodId) async {
+    _usage('saved_food_deleted', {'saved_food_id': foodId});
     final repository = _savedFoodRepository;
     if (repository == null) {
       throw StateError('SavedFoodRepository is not configured');
@@ -2005,6 +2363,11 @@ class AppController extends ChangeNotifier {
     String query, {
     bool surfaceErrors = false,
   }) async {
+    _usage('public_food_search_quota', {
+      'remaining': 0,
+      'limit': 0,
+      'is_plus': _subscriptionRepository.isPlusActive,
+    });
     final repository = _savedFoodRepository;
     if (repository == null) {
       return const [];
@@ -2106,8 +2469,12 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<PublicFoodRatingResult> setPublicFoodGood(SavedFood food) =>
-      _mutatePublicFoodRating(
+  Future<PublicFoodRatingResult> setPublicFoodGood(SavedFood food) {
+    CatalogActions.publicFoodRated(
+      savedFoodId: food.foodId,
+      rating: 'good',
+    );
+    return _mutatePublicFoodRating(
         food: food,
         mutate: (ratingId) => _foodRatingRepository!.setGood(
           foodOwnerUserId: food.ownerUserId,
@@ -2116,6 +2483,7 @@ class AppController extends ChangeNotifier {
           ratingId: ratingId,
         ),
       );
+  }
 
   Future<PublicFoodRatingResult> setPublicFoodBad(SavedFood food) =>
       _mutatePublicFoodRating(
@@ -2215,6 +2583,10 @@ class AppController extends ChangeNotifier {
     required FoodReportReasonCode reasonCode,
     String? detailText,
   }) async {
+    CatalogActions.publicFoodReported(
+      savedFoodId: food.foodId,
+      reason: reasonCode.name,
+    );
     final repository = _foodReportRepository;
     if (repository == null || !isAuthenticated) {
       return const PublicFoodReportResult(
@@ -2262,6 +2634,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> blockFoodCreator(String creatorUserId) async {
+    _usage('food_creator_blocked', {'action': 'block'});
     final repository = _blockedCreatorRepository;
     if (repository == null || !isAuthenticated) {
       throw StateError('Blocked creator repository is not configured');
@@ -2276,6 +2649,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> unblockFoodCreator(String creatorUserId) async {
+    _usage('food_creator_blocked', {'action': 'unblock'});
     final repository = _blockedCreatorRepository;
     if (repository == null || !isAuthenticated) {
       throw StateError('Blocked creator repository is not configured');
@@ -2316,19 +2690,25 @@ class AppController extends ChangeNotifier {
     if (entries.isEmpty) {
       return;
     }
+    final stored = [
+      for (final entry in entries) _foodWithOrigin(entry, origin),
+    ];
     final daysBefore = _reviewLoggedDays();
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
-      await foodRepository.saveAll(entries);
-      for (final entry in entries) {
+      await foodRepository.saveAll(stored);
+      for (final entry in stored) {
         _placeSavedFoodEntry(entry);
       }
     } else {
-      foodEntries.addAll(entries);
+      foodEntries.addAll(stored);
     }
     _scheduleRemoteSync();
     refreshDailySummary();
     _noteReviewRecords(daysBefore: daysBefore, origin: origin);
+    for (final entry in stored) {
+      await _pendingRecords.markUpsert(PendingRecordKind.food, entry.id);
+    }
   }
 
   Future<void> registerFoodMealFromDrafts({
@@ -2444,6 +2824,7 @@ class AppController extends ChangeNotifier {
   /// 手入力の種目をテンプレートへ足す。同じ名前があればそのテンプレートを更新する。
   /// 戻すときはそのテンプレートを削除する。新しい列は無い。
   Future<void> saveCustomActivityTemplate(ExerciseEntry entry) async {
+    _usage('custom_activity_saved');
     final name = entry.name.trim();
     final normalized = FoodSearchNormalizer.normalize(name);
     final existing = await listCustomActivityTemplates();
@@ -2520,6 +2901,11 @@ class AppController extends ChangeNotifier {
     required WorkoutTemplateDraft draft,
     String? templateId,
   }) async {
+    _usage('workout_template_saved', {
+      'template_id': templateId,
+      'action': templateId == null ? 'create' : 'update',
+      'items_count': draft.items.length,
+    });
     final repository = _workoutTemplateRepository;
     if (repository == null) {
       throw StateError('WorkoutTemplateRepository is not configured');
@@ -2568,6 +2954,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteWorkoutTemplate(String templateId) async {
+    _usage('workout_template_deleted', {'template_id': templateId});
     final repository = _workoutTemplateRepository;
     if (repository == null) {
       throw StateError('WorkoutTemplateRepository is not configured');
@@ -2665,6 +3052,11 @@ class AppController extends ChangeNotifier {
     required MealTemplateDraft draft,
     String? templateId,
   }) async {
+    _usage('meal_template_saved', {
+      'template_id': templateId,
+      'action': templateId == null ? 'create' : 'update',
+      'items_count': draft.items.length,
+    });
     final repository = _mealTemplateRepository;
     if (repository == null) {
       throw StateError('MealTemplateRepository is not configured');
@@ -2723,6 +3115,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteMealTemplate(String templateId) async {
+    _usage('meal_template_deleted', {'template_id': templateId});
     final repository = _mealTemplateRepository;
     if (repository == null) {
       throw StateError('MealTemplateRepository is not configured');
@@ -2824,6 +3217,12 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveLockScreenMealConfig(LockScreenMealConfig config) async {
+    final counts = config.homeSlotCounts;
+    _usage('widget_config_saved', {
+      'surface': 'home',
+      'assigned_meal_slots': counts.meal,
+      'assigned_exercise_slots': counts.exercise,
+    });
     final gateway = _lockScreenMealGateway;
     if (gateway == null) {
       return;
@@ -2859,9 +3258,24 @@ class AppController extends ChangeNotifier {
   ///
   /// Health の数値は送らない。書くのは有料かどうかだけ。
   Future<void> refreshPaidEntitlement() async {
+    final before = _subscriptionRepository.isPlusActive;
     try {
       await _subscriptionRepository.refreshEntitlement();
     } catch (_) {}
+    if (!_subscriptionRepository.reportsEntitlementAnalytics) {
+      final active = _subscriptionRepository.isPlusActive;
+      final records = _subscriptionRepository.confirmedEntitlements;
+      _usage('entitlement_observed', {
+        'status': active ? 'active' : 'inactive',
+        'product_id': records.isEmpty ? null : records.first.productId,
+        'expires_at': records.isEmpty || records.first.expiresAt == null
+            ? null
+            : records.first.expiresAt!.toUtc().toIso8601String(),
+        'original_transaction_id':
+            _subscriptionRepository.storeOriginalTransactionId,
+        'changed': before != active,
+      });
+    }
     await _applyPaidEntitlement();
   }
 
@@ -2897,38 +3311,91 @@ class AppController extends ChangeNotifier {
   }
 
   void recordScreenAction({required String screen, required String action}) {
-    final usage = _usageRecordRepository;
-    if (usage == null) {
-      return;
-    }
     if (!screenActionAllowed(screen: screen, action: action)) {
       return;
     }
-    unawaited(usage.recordScreenAction(screen: screen, action: action));
+    final eventId = const Uuid().v4();
+    if (action == UsageScreenAction.select) {
+      Analytics.emit('tab_select', {'tab': screen, 'from_tab': screen}, null, eventId);
+    } else if (action == UsageScreenAction.shareMeal) {
+      Analytics.emit('share_tap', {
+        'card': 'meal',
+        'result': 'completed',
+      }, null, eventId);
+    } else if (action != UsageScreenAction.mealButton) {
+      Analytics.emit('screen_view', {'screen': screen, 'via': 'push'}, null, eventId);
+    }
+    final usage = _usageRecordRepository;
+    if (usage == null || usage is NoOpUsageRecordRepository) {
+      return;
+    }
+    unawaited(
+      usage.recordScreenAction(screen: screen, action: action, eventId: eventId),
+    );
   }
 
   void _recordFoodSearch(String source, String query) {
     final usage = _usageRecordRepository;
     final trimmed = query.trim();
-    if (usage == null || trimmed.isEmpty) {
+    if (trimmed.isEmpty) {
       return;
     }
     if (!foodSearchSourceAllowed(source)) {
       return;
     }
-    unawaited(usage.recordFoodSearch(source: source, query: trimmed));
+    final eventId = const Uuid().v4();
+    void emitSearch(String settled, String id) {
+      final clipped = settled.length > 256 ? settled.substring(0, 256) : settled;
+      Analytics.emit('food_search', {
+        'source': source,
+        'query': clipped,
+        'query_length': settled.length,
+        'result_count': 0,
+        'latency_ms': 0,
+      }, null, id);
+    }
+    if (usage == null || usage is NoOpUsageRecordRepository) {
+      emitSearch(trimmed, eventId);
+      return;
+    }
+    unawaited(
+      usage.recordFoodSearch(
+        source: source,
+        query: trimmed,
+        eventId: eventId,
+        onSettled: emitSearch,
+      ),
+    );
   }
 
   void _recordExerciseSearch(String source, String query) {
     final usage = _usageRecordRepository;
     final trimmed = query.trim();
-    if (usage == null || trimmed.isEmpty) {
+    if (trimmed.isEmpty || !exerciseSearchSourceAllowed(source)) {
       return;
     }
-    if (!exerciseSearchSourceAllowed(source)) {
+    final eventId = const Uuid().v4();
+    void emitSearch(String settled, String id) {
+      final clipped = settled.length > 256 ? settled.substring(0, 256) : settled;
+      Analytics.emit('exercise_search', {
+        'source': source,
+        'query': clipped,
+        'query_length': settled.length,
+        'result_count': 0,
+      }, null, id);
+    }
+    if (usage == null || usage is NoOpUsageRecordRepository) {
+      emitSearch(trimmed, eventId);
       return;
     }
-    unawaited(usage.recordExerciseSearch(source: source, query: trimmed));
+    unawaited(
+      usage.recordExerciseSearch(
+        source: source,
+        query: trimmed,
+        eventId: eventId,
+        onSettled: emitSearch,
+      ),
+    );
   }
 
   Future<void> _applyPaidEntitlement() async {
@@ -2982,6 +3449,7 @@ class AppController extends ChangeNotifier {
       final openSearch = SiriOpenSearch.decode(await gateway.readOpenSearch());
       if (openSearch != null) {
         _pendingSiriSearch = openSearch;
+        _usage('siri_open_search', {'reason': openSearch.kind});
         await gateway.clearOpenSearch();
         notifyListeners();
       }
@@ -3181,6 +3649,10 @@ class AppController extends ChangeNotifier {
     for (final exercise in plan.exercises) {
       await addExercise(exercise, origin: ReviewRecordOrigin.siri);
     }
+    _usage('siri_registration_imported', {
+      'undo': plan.undoIds.isNotEmpty,
+      'delay_seconds': 0,
+    });
     await gateway.acknowledge(plan.acknowledgeIds);
   }
 
@@ -3318,7 +3790,10 @@ class AppController extends ChangeNotifier {
       if (action == null) {
         continue;
       }
-      recordScreenAction(screen: action.screen, action: action.action);
+      _usage('widget_registration_imported', {
+        'registration_id': meal.registrationId,
+        'delay_seconds': 0,
+      });
     }
     await gateway.acknowledge(acknowledged.toList());
   }
@@ -3352,6 +3827,10 @@ class AppController extends ChangeNotifier {
     List<MealTemplateItemResolution> resolutions = const [],
     String? memo,
   }) async {
+    _usage('meal_template_applied', {
+      'template_id': templateId,
+      'items_count': resolutions.length,
+    });
     final repository = _mealTemplateRepository;
     if (repository == null) {
       return const MealTemplateApplyResult(
@@ -3666,7 +4145,16 @@ class AppController extends ChangeNotifier {
       throw StateError('Cannot persist without authenticated remote sync.');
     }
 
-    await dataSyncRepository.pushLocalToRemote(userId);
+    try {
+      await dataSyncRepository.pushLocalToRemote(userId);
+      _hasUnsentRecords = false;
+    } on PartialPushException catch (error, stackTrace) {
+      _hasUnsentRecords = true;
+      debugPrint('[AYG] persist incomplete: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      notifyListeners();
+      rethrow;
+    }
     _hasInitialSyncCompleted = true;
     _lastSyncFailed = false;
   }
@@ -3743,12 +4231,24 @@ class AppController extends ChangeNotifier {
     try {
       do {
         _remoteSyncQueued = false;
-        await dataSyncRepository.pushLocalToRemote(userId);
+        try {
+          await dataSyncRepository.pushLocalToRemote(userId);
+          _hasUnsentRecords = false;
+        } on PartialPushException catch (error, stackTrace) {
+          _hasUnsentRecords = true;
+          debugPrint('[AYG] remote sync incomplete: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
       } while (_remoteSyncQueued &&
           _hasInitialSyncCompleted &&
           !_lastSyncFailed);
+    } catch (error, stackTrace) {
+      _hasUnsentRecords = true;
+      debugPrint('[AYG] remote sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
     } finally {
       _remoteSyncInFlight = false;
+      notifyListeners();
     }
   }
 

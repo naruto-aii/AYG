@@ -12,6 +12,7 @@ Future<PublicFoodDuplicateAction?> showPublicFoodDuplicateDialog({
   required PublicFoodPublishMatch duplicate,
 }) {
   return showDialog<PublicFoodDuplicateAction>(
+      routeSettings: const RouteSettings(name: 'public_food_duplicate_dialog_showDialog_0'),
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('同じ公開食品があります'),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/analytics/catalog_actions.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_icon.dart';
@@ -11,8 +12,10 @@ Future<void> showLegalDocument(
   BuildContext context,
   LegalDocument document,
 ) {
+  CatalogActions.legalDocumentView(document.name);
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'legal_document_screen_MaterialPageRoute_0'),
       fullscreenDialog: true,
       builder: (_) => LegalDocumentScreen(document: document),
     ),
@@ -65,6 +68,7 @@ class LegalDocumentScreen extends StatelessWidget {
               onOpenDocument: (next) {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'legal_document_screen_MaterialPageRoute_1'),
                     fullscreenDialog: true,
                     builder: (_) => LegalDocumentScreen(document: next),
                   ),

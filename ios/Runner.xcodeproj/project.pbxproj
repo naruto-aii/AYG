@@ -23,6 +23,10 @@
 		A1B702222222222222222001 /* LockScreenMealStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111001 /* LockScreenMealStore.swift */; };
 		A1B702222222222222222002 /* LockScreenMealWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111002 /* LockScreenMealWidget.swift */; };
 		A1B702222222222222222003 /* LockScreenMealStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111001 /* LockScreenMealStore.swift */; };
+		A1B702222222222222222050 /* AnalyticsEventWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111050 /* AnalyticsEventWriter.swift */; };
+		A1B702222222222222222051 /* AnalyticsEventWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111050 /* AnalyticsEventWriter.swift */; };
+		A1B702222222222222222052 /* AnalyticsEventWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111052 /* AnalyticsEventWriterTests.swift */; };
+		A1B702222222222222222053 /* AnalyticsEventWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111050 /* AnalyticsEventWriter.swift */; };
 		A1B702222222222222222004 /* LockScreenMealWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111006 /* LockScreenMealWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1B702222222222222222010 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
 		A1B702222222222222222011 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
@@ -103,6 +107,8 @@
 		EE62258C1FE526485D52C487 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		F30051AA938BE3EF274F3852 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		A1B702111111111111111001 /* LockScreenMealStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenMealStore.swift; sourceTree = "<group>"; };
+		A1B702111111111111111050 /* AnalyticsEventWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsEventWriter.swift; sourceTree = "<group>"; };
+		A1B702111111111111111052 /* AnalyticsEventWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsEventWriterTests.swift; sourceTree = "<group>"; };
 		A1B702111111111111111002 /* LockScreenMealWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenMealWidget.swift; sourceTree = "<group>"; };
 		A1B702111111111111111003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B702111111111111111004 /* LockScreenMealWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LockScreenMealWidget.entitlements; sourceTree = "<group>"; };
@@ -154,6 +160,7 @@
 			isa = PBXGroup;
 			children = (
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
+				A1B702111111111111111052 /* AnalyticsEventWriterTests.swift */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -174,6 +181,7 @@
 			isa = PBXGroup;
 			children = (
 				A1B702111111111111111001 /* LockScreenMealStore.swift */,
+				A1B702111111111111111050 /* AnalyticsEventWriter.swift */,
 			);
 			path = LockScreenMeal;
 			sourceTree = "<group>";
@@ -505,6 +513,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
+				A1B702222222222222222052 /* AnalyticsEventWriterTests.swift in Sources */,
+				A1B702222222222222222053 /* AnalyticsEventWriter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -517,6 +527,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				A1B702222222222222222003 /* LockScreenMealStore.swift in Sources */,
+				A1B702222222222222222051 /* AnalyticsEventWriter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -525,6 +536,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B702222222222222222001 /* LockScreenMealStore.swift in Sources */,
+				A1B702222222222222222050 /* AnalyticsEventWriter.swift in Sources */,
 				A1B702222222222222222002 /* LockScreenMealWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

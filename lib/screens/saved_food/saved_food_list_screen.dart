@@ -96,6 +96,9 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
   Future<void> _openFoodSearch() async {
     final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute<Object?>(
+        settings: const RouteSettings(
+          name: 'saved_food_list_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => MealFoodSearchScreen(
           controller: widget.controller,
           searchOverrides: widget.searchOverrides,
@@ -111,6 +114,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
   Future<void> _openCreate() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'saved_food_list_screen_MaterialPageRoute_1'),
         builder: (context) =>
             SavedFoodFormScreen(controller: widget.controller),
       ),
@@ -123,6 +127,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
   Future<void> _openEdit(SavedFood food) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'saved_food_list_screen_MaterialPageRoute_2'),
         builder: (context) =>
             SavedFoodFormScreen(controller: widget.controller, food: food),
       ),

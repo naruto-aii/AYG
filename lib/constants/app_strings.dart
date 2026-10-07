@@ -49,7 +49,7 @@ class AppStrings {
   static const settingsSupport = 'サポート';
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
-  static const settingsAccountDeletionSubtitle = '公開食品は残ります。アプリ内で確認できます';
+  static const settingsAccountDeletionSubtitle = '公開食品は残ります';
   static const accountDeletionLead = '削除するとログインできなくなります。公開食品は残ります。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
@@ -74,6 +74,16 @@ class AppStrings {
   static const plusBillingPeriod =
       '月額は1か月、半年は6か月、年額は1年の定期購入です。価格は選んだプランに出る、ストアの税込価格だけを使います。';
   static const plusHeroSubtitle = 'テンプレートの上限をなくし、ウィジェットとSiriで記録をもっと速く。';
+
+  /// 既存の見出しの下に足す。ウィジェットと Siri の文は置き換えない。
+  static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
+  static const plusBetaAccessTitle = 'β版機能への先行アクセス';
+  static const plusBetaAccessBody =
+      'パーソナルコーチ (β) など、β版として先行公開している機能を使えます。';
+  static const coachBetaNotice =
+      '残りカロリーに合わせて、主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。';
+  static const coachFeatureBody =
+      '残りカロリーに合わせて、主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。登録するまでは記録されません。';
   static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
   static const plusBenefitTemplateBody =
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
@@ -88,9 +98,6 @@ class AppStrings {
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';
 
-  /// 月額580円との比較。半年は 2,900÷6≒483 で「お得」、年額は 5,400÷12=450 で「一番お得」。
-  static const plusHalfYearNote = '月あたり約483円';
-  static const plusYearlyNote = '月あたり450円';
   static const plusMonthlyNote = 'いつでも解約できます';
 
   /// ストアが金額を返せないときだけの表示。購入処理では使わない。
@@ -124,7 +131,7 @@ class AppStrings {
   static const healthResync = 'Healthから再取得';
   static const healthUsingActiveEnergy = 'Healthのアクティブエネルギーを使用中';
   static const healthUnavailableOnDevice = 'この端末では Health 連携に対応していません。';
-  static const webHealthUnavailable = 'このプレビューでは Health 連携は利用できません。';
+  static const webHealthUnavailable = 'この画面ではヘルスケアは使えません';
 
   static const save = '保存';
   static const cancel = 'キャンセル';

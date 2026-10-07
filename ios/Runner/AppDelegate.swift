@@ -1,6 +1,8 @@
+import AdServices
 import Flutter
 import StoreKit
 import UIKit
+import WidgetKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -89,6 +91,136 @@ import UIKit
         result(FlutterMethodNotImplemented)
       }
     }
+    let analytics = FlutterMethodChannel(
+      name: "com.narutoaii.ayg/analytics_native",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    analytics.setMethodCallHandler { call, result in
+      handleAnalytics(call: call, result: result)
+    }
+  }
+}
+
+private func handleAnalytics(call: FlutterMethodCall, result: @escaping FlutterResult) {
+  let args = call.arguments as? [String: Any]
+  let defaults = LockScreenMealStore.defaults
+  switch call.method {
+  case "drainPending":
+    result(readAnalyticsFiles())
+  case "ackPending":
+    deleteAnalyticsFiles(names: args?["names"] as? [String] ?? [])
+    result(nil)
+  case "setConsent":
+    defaults?.set(args?["granted"] as? Bool ?? false, forKey: AnalyticsEventWriter.consentKey)
+    result(nil)
+  case "setOwnerUserId":
+    if let userId = args?["userId"] as? String, !userId.isEmpty {
+      defaults?.set(userId, forKey: AnalyticsEventWriter.ownerKey)
+    } else {
+      defaults?.removeObject(forKey: AnalyticsEventWriter.ownerKey)
+    }
+    result(nil)
+  case "setInstallId":
+    defaults?.set(args?["installId"] as? String ?? "", forKey: AnalyticsEventWriter.installKey)
+    result(nil)
+  case "nativeDroppedOverflow":
+    let widget = defaults?.integer(forKey: "analyticsDroppedOverflow.widget") ?? 0
+    let siri = defaults?.integer(forKey: "analyticsDroppedOverflow.siri") ?? 0
+    result(widget + siri)
+  case "deviceModel":
+    var system = utsname()
+    uname(&system)
+    let machine = withUnsafePointer(to: &system.machine) {
+      $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+        String(cString: $0)
+      }
+    }
+    result(machine)
+  case "widgetConfigurations":
+    if #available(iOS 14.0, *) {
+      WidgetCenter.shared.getCurrentConfigurations { configs in
+        switch configs {
+        case .success(let info):
+          var home = 0
+          var lock = 0
+          for item in info {
+            if item.kind == LockScreenMealStore.homeWidgetKind {
+              home += 1
+            } else if item.kind == LockScreenMealStore.lockWidgetKind {
+              lock += 1
+            }
+          }
+          result(["home": home, "lock": lock, "HomeMealWidget": home, "LockScreenMealWidget": lock])
+        case .failure:
+          result([String: Int]())
+        }
+      }
+    } else {
+      result([String: Int]())
+    }
+  case "adServicesToken":
+    if #available(iOS 14.3, *) {
+      result(try? AAAttribution.attributionToken())
+    } else {
+      result(nil)
+    }
+  case "appTransactionInfo":
+    if #available(iOS 16.0, *) {
+      Task {
+        do {
+          let shared = try await AppTransaction.shared
+          switch shared {
+          case .verified(let transaction):
+            let formatter = ISO8601DateFormatter()
+            result([
+              "originalPurchaseDate": formatter.string(from: transaction.originalPurchaseDate),
+              "originalAppVersion": transaction.originalAppVersion,
+              "environment": String(describing: transaction.environment),
+            ])
+          case .unverified:
+            result(["environment": "unverified"])
+          }
+        } catch {
+          result(["environment": "unverified"])
+        }
+      }
+    } else {
+      result(["environment": "unverified"])
+    }
+  default:
+    result(FlutterMethodNotImplemented)
+  }
+}
+
+private func analyticsDirectory() -> URL? {
+  AnalyticsEventWriter.pendingDirectory()
+}
+
+private func readAnalyticsFiles() -> [[String: String]] {
+  guard let directory = analyticsDirectory() else {
+    return []
+  }
+  let urls = (try? FileManager.default.contentsOfDirectory(
+    at: directory,
+    includingPropertiesForKeys: nil
+  )) ?? []
+  var files: [[String: String]] = []
+  for url in urls where url.pathExtension == "json" {
+    guard let json = try? String(contentsOf: url, encoding: .utf8) else {
+      continue
+    }
+    files.append(["name": url.lastPathComponent, "json": json])
+  }
+  return files
+}
+
+private func deleteAnalyticsFiles(names: [String]) {
+  guard let directory = analyticsDirectory() else {
+    return
+  }
+  for name in names {
+    let url = directory.appendingPathComponent(name)
+    try? FileManager.default.removeItem(at: url)
   }
 }
 
@@ -129,12 +261,15 @@ private func presentShareCard(call: FlutterMethodCall, result: @escaping Flutter
       applicationActivities: nil
     )
     var finished = false
-    controller.completionWithItemsHandler = { _, completed, _, _ in
+    controller.completionWithItemsHandler = { activityType, completed, _, _ in
       if finished {
         return
       }
       finished = true
-      result(completed)
+      result([
+        "completed": completed,
+        "activityType": activityType ?? "",
+      ])
     }
     if let popover = controller.popoverPresentationController {
       popover.sourceView = presenter.view

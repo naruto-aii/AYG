@@ -26,7 +26,8 @@ class SettingsFoodMasterScreen extends StatelessWidget {
   void _push(BuildContext context, Widget screen) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (context) => screen));
+    ).push(MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'settings_food_master_screen_MaterialPageRoute_0'),builder: (context) => screen));
   }
 
   @override
@@ -55,7 +56,7 @@ class SettingsFoodMasterScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.template,
             title: '食事テンプレート',
-            subtitle: 'よく食べる組み合わせ。無料は4件まで',
+            subtitle: 'よく食べる組み合わせをまとめて登録',
             onTap: () =>
                 _push(context, MealTemplateListScreen(controller: controller)),
           ),
@@ -63,7 +64,7 @@ class SettingsFoodMasterScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.dumbbell,
             title: '運動テンプレート',
-            subtitle: 'よくする運動の組み合わせ。無料は4件まで',
+            subtitle: 'よくする運動をまとめて登録',
             onTap: () => _push(
               context,
               WorkoutTemplateListScreen(controller: controller),

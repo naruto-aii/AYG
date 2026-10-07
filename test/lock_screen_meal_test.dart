@@ -15,6 +15,7 @@ import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -360,8 +361,22 @@ void main() {
       ),
     );
     expect(find.text('ウィジェット'), findsOneWidget);
-    expect(find.text('音声登録'), findsOneWidget);
-    expect(find.text('カロナビ+の機能です'), findsOneWidget);
+    expect(find.text('アプリを開かず食事・運動を登録'), findsOneWidget);
+    expect(
+      tester
+          .renderObject<RenderParagraph>(find.text('アプリを開かず食事・運動を登録'))
+          .didExceedMaxLines,
+      isFalse,
+    );
+    expect(find.text('音声登録 (β)'), findsOneWidget);
+    expect(find.text('声だけで食事・運動を登録'), findsOneWidget);
+    expect(find.text('カロナビ+で使えます'), findsNothing);
+    expect(
+      tester
+          .renderObject<RenderParagraph>(find.text('声だけで食事・運動を登録'))
+          .didExceedMaxLines,
+      isFalse,
+    );
     expect(find.text('ウィジェットの置き方'), findsNothing);
     expect(find.textContaining('自動では付きません'), findsNothing);
     expect(find.textContaining('左上「編集」'), findsNothing);
@@ -379,7 +394,7 @@ void main() {
       ),
     );
     expect(find.text('ウィジェット'), findsNothing);
-    expect(find.text('音声登録'), findsNothing);
+    expect(find.text('音声登録 (β)'), findsNothing);
     expect(find.textContaining('自動では付きません'), findsNothing);
     await auth.dispose();
   });
@@ -398,6 +413,18 @@ void main() {
     expect(config.lockAt(0).label, '朝');
     expect(config.lockAt(0).kind, WidgetPatternKind.meal);
     expect(config.lockAt(2).label, '夜');
+    expect(config.homeSlotCounts.meal, 3);
+    expect(config.homeSlotCounts.exercise, 2);
+
+    final allExercise = LockScreenMealConfig(
+      homeButtons: [
+        for (final button in config.homeButtons)
+          button.copyWith(kind: WidgetPatternKind.exercise),
+      ],
+      lockButtons: config.lockButtons,
+    );
+    expect(allExercise.homeSlotCounts.meal, 0);
+    expect(allExercise.homeSlotCounts.exercise, 5);
 
     final decoded = LockScreenMealCodec.decodeConfig(
       LockScreenMealCodec.encodeConfig(
@@ -573,11 +600,12 @@ void main() {
         ),
       ),
     );
-    await tester.scrollUntilVisible(find.text('音声登録'), 200);
-    await tester.tap(find.text('音声登録'));
+    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
+    await tester.tap(find.text('音声登録 (β)'));
     await tester.pumpAndSettle();
 
     expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.textContaining('カロナビ+で使えます'), findsNothing);
     expect(
       find.textContaining('食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。'),
       findsOneWidget,
@@ -635,15 +663,18 @@ void main() {
         ),
       ),
     );
-    await tester.scrollUntilVisible(find.text('音声登録'), 200);
-    await tester.tap(find.text('音声登録'));
+    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
+    await tester.tap(find.text('音声登録 (β)'));
     await tester.pumpAndSettle();
 
     expect(find.text('こちらは有料の機能です'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
     expect(find.text('使い始める前'), findsOneWidget);
+    expect(find.text('音声登録 (β)'), findsWidgets);
     expect(find.textContaining('ショートカットを自分で作る必要はありません'), findsWidgets);
+    expect(find.textContaining('カロナビ+で使えます'), findsNothing);
+    expect(find.textContaining('β版として先行公開'), findsNothing);
     expect(find.textContaining('Siriと検索'), findsOneWidget);
     final meal = find.textContaining(
       '食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。',
@@ -696,8 +727,8 @@ void main() {
       ),
     );
 
-    await tester.scrollUntilVisible(find.text('音声登録'), 200);
-    await tester.tap(find.text('音声登録'));
+    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
+    await tester.tap(find.text('音声登録 (β)'));
     await tester.pumpAndSettle();
 
     expect(gateway.paid, isTrue);

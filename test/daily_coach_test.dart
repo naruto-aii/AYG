@@ -51,59 +51,82 @@ void main() {
     );
   }
 
-  test('catalog is the 34 coach foods and does not say salad chicken', () {
-    expect(CoachFoodCatalog.candidates, hasLength(34));
-    expect(CoachFoodCatalog.codes.toSet(), hasLength(34));
-    expect(CoachFoodCatalog.find('01111')?.displayName, '具なしおにぎり');
+  test('catalog is the 66 coach foods and does not say salad chicken', () {
+    expect(CoachFoodCatalog.candidates, hasLength(66));
+    expect(CoachFoodCatalog.codes.toSet(), hasLength(66));
+    expect(CoachFoodCatalog.find('01111')?.displayName, 'おにぎり（具なし）');
     expect(CoachFoodCatalog.find('01111')?.contentsNote, '中身は米だけ');
-    expect(CoachFoodCatalog.find('11229')?.displayName, '鶏ささみ（ゆで）');
+    expect(CoachFoodCatalog.find('01039')?.unitGrams, 300);
+    expect(CoachFoodCatalog.find('01128')?.unitGrams, 300);
     final names = CoachFoodCatalog.candidates.map((food) => food.displayName);
     expect(names, isNot(contains('サラダチキン')));
   });
 
-  test('egg rice is one named meal and protein drift is said in one line', () {
-    final proposals = meals();
-    expect(proposals, hasLength(3));
-    expect(proposals.first.headline, '卵かけご飯（白米150gと卵1個）');
-    expect(proposals.first.foodCodes, {'01088', '12005'});
-    expect(proposals.first.kcal, closeTo(301, 0.01));
-    expect(proposals.first.macroNote, 'これだとたんぱく質が約10g多くなります。今提案できる範囲で最善です。');
-    final sets = proposals.map((meal) => meal.foodCodes.join(',')).toSet();
-    expect(sets, hasLength(3));
-    final text = proposals.map((meal) => meal.headline).join('\n');
-    expect(text, isNot(contains('今日は提案できません')));
-    expect(text, isNot(contains('サラダチキン')));
+  test('a meal lists foods and amounts without a dish title', () {
+    final proposals = meals(
+      foods: [
+        for (final code in ['01111', '12005', '06268'])
+          CoachFoodCatalog.stockFor(CoachFoodCatalog.find(code)!),
+      ],
+      remainingKcal: 400,
+    );
+    expect(proposals, isNotEmpty);
+    expect(proposals.first.headline, contains('中身は米だけ'));
+    expect(proposals.first.headline, isNot(contains('卵かけご飯')));
+    expect(proposals.first.bandLabel, '軽食');
+    for (final meal in proposals) {
+      for (final item in meal.components) {
+        expect(item.units, 1);
+        expect(item.grams, isNot(300));
+      }
+    }
   });
 
-  test('foods eaten in the last 3 days are left out', () {
-    final proposals = meals(excluded: {'01088'});
+  test('recent mains are left out and staples are not', () {
+    final withoutChicken = meals(
+      foods: CoachFoodCatalog.stocks,
+      excluded: {'11288'},
+      remainingKcal: 450,
+    );
+    expect(withoutChicken, isNotEmpty);
     expect(
-      proposals.every((meal) => !meal.foodCodes.contains('01088')),
+      withoutChicken.every((meal) => !meal.foodCodes.contains('11288')),
       isTrue,
     );
-    expect(proposals.first.headline, isNot(contains('卵かけご飯')));
-  });
-
-  test('the same food is not listed three times at different grams', () {
-    final proposals = meals(foods: [rice], remainingKcal: 500);
-    expect(proposals, hasLength(1));
-    expect(proposals.single.headline, '白米（めし）（300g）');
-    expect(proposals.single.components.single.units, 2);
-  });
-
-  test('plain onigiri says the filling is only rice', () {
-    final proposals = meals(foods: [onigiri], remainingKcal: 170);
-    expect(proposals.single.headline, '具なしおにぎり（1個100g、中身は米だけ）');
-  });
-
-  test('unnamed pairs use food names', () {
-    final proposals = meals(
-      foods: [rice, chicken],
-      remainingKcal: 234 + 177,
-      remainingProteinG: 100,
+    final riceStillThere = meals(
+      foods: CoachFoodCatalog.stocks,
+      excluded: {'01088'},
+      remainingKcal: 450,
     );
-    expect(proposals.first.headline, '白米と鶏むね（白米150gと鶏むね100g）');
-    expect(proposals.first.macroNote, contains('少なくなります'));
+    expect(
+      riceStillThere.any((meal) => meal.foodCodes.contains('01088')),
+      isTrue,
+    );
+  });
+
+  test('portions stay inside the published choices', () {
+    final proposals = meals(
+      foods: CoachFoodCatalog.stocks,
+      remainingKcal: 700,
+    );
+    expect(proposals, isNotEmpty);
+    expect(proposals.length, lessThanOrEqualTo(10));
+    for (final meal in proposals) {
+      expect(meal.bandLabel, '一食（しっかり）');
+      expect(meal.headline, isNot(contains('卵かけご飯')));
+      for (final item in meal.components) {
+        final food = CoachFoodCatalog.find(item.foodCode)!;
+        expect(
+          food.portions.any(
+            (portion) =>
+                portion.grams == item.grams &&
+                (portion.tier == CoachPortionTier.hearty ||
+                    portion.tier == CoachPortionTier.any),
+          ),
+          isTrue,
+        );
+      }
+    }
   });
 
   test('last 3 days include today and exclude the 4th day', () {
@@ -136,7 +159,7 @@ void main() {
       );
       expect(
         message,
-        '今日の超過を戻すには、ランニング12.4kmが必要です。今日やるなら3kmまでにします。残りは明日以降の食事で調整しましょう。',
+        '戻すにはランニングで約124分です。今日やるなら30分までにします。30分で約180kcal戻ります。残りの約564kcalは明日以降の食事で。',
       );
     },
   );
@@ -158,7 +181,9 @@ void main() {
         ),
       ],
     );
-    expect(message, contains('今日やるなら3kmまでにします'));
+    expect(message, contains('ランニング'));
+    expect(message, contains('分'));
+    expect(message, isNot(contains('km')));
   });
 
   test(
@@ -170,10 +195,9 @@ void main() {
         now: now,
         exercises: const [],
       );
-      expect(
-        large,
-        '今日の超過を戻すには、ランニング12.4kmが必要です。今日やるなら、歩くか軽い自重で20分までにします。残りは明日以降の食事で調整しましょう。',
-      );
+      expect(large, contains('速歩き'));
+      expect(large, contains('20分で約48kcal戻ります'));
+      expect(large, isNot(contains('ランニング')));
 
       final small = buildCoachExerciseMessage(
         overageKcal: 30,
@@ -181,7 +205,7 @@ void main() {
         now: now,
         exercises: const [],
       );
-      expect(small, '今日やるなら、歩くか軽い自重で12分にします。');
+      expect(small, '今日はほぼちょうどです。');
     },
   );
 
@@ -193,8 +217,8 @@ void main() {
       exercises: const [],
     );
     expect(message, isNot(contains('km')));
-    expect(message, contains('体重がないため、距離は出していません'));
-    expect(message, contains('歩くか軽い自重で20分'));
+    expect(message, '体重が未登録のため、戻るカロリーを計算できません。');
+    expect(message, isNot(contains('歩くか軽い自重')));
   });
 
   test(
@@ -215,10 +239,10 @@ void main() {
           ),
         ],
       );
-      expect(
-        message,
-        '今日の超過を戻すには、ランニング3.3kmが必要です。今日やるなら自重トレーニング30分までにします。残りは明日以降の食事で調整しましょう。',
-      );
+      expect(message, contains('自重トレーニング'));
+      expect(message, contains('30分'));
+      expect(message, contains('kcal戻ります'));
+      expect(message, isNot(contains('ランニング')));
     },
   );
 
@@ -239,7 +263,7 @@ void main() {
         ),
       ],
     );
-    expect(message, contains('歩くか軽い自重'));
+    expect(message, '今日はほぼちょうどです。');
   });
 
   test(
@@ -261,7 +285,7 @@ void main() {
           ),
         ],
       );
-      expect(message, '今日やるならランニング0.5kmにします。');
+      expect(message, '今日はほぼちょうどです。');
     },
   );
 
@@ -286,16 +310,16 @@ void main() {
       );
       expect(
         proposal!.message,
-        '今日の超過を戻すには、ランニング12.4kmが必要です。今日やるなら3kmまでにします。残りは明日以降の食事で調整しましょう。',
+        '戻すにはランニングで約124分です。今日やるなら30分までにします。30分で約180kcal戻ります。残りの約564kcalは明日以降の食事で。',
       );
       expect(proposal.activityId, 'running');
-      expect(proposal.unit, CoachExerciseUnit.kilometers);
-      expect(proposal.amount, 3);
+      expect(proposal.unit, CoachExerciseUnit.minutes);
+      expect(proposal.amount, 30);
       expect(proposal.canRegister, isTrue);
 
       final asProposed = coachExerciseEntry(
         proposal: proposal,
-        amount: 3,
+        amount: 30,
         weightKg: 60,
         id: 'run-3',
         loggedAt: now,
@@ -306,12 +330,12 @@ void main() {
 
       final edited = coachExerciseEntry(
         proposal: proposal,
-        amount: 4.2,
+        amount: 42,
         weightKg: 60,
         id: 'run-4',
         loggedAt: now,
       );
-      expect(edited!.distanceKm, 4.2);
+      expect(edited!.distanceKm, closeTo(4.2, 0.001));
       expect(edited.netKcal, closeTo(252, 0.001));
     },
   );
@@ -333,8 +357,9 @@ void main() {
         ),
       ],
     );
-    expect(proposal!.amount, 0.5);
-    expect(proposal.unit, CoachExerciseUnit.kilometers);
+    expect(proposal!.canRegister, isFalse);
+    expect(proposal.amount, isNull);
+    expect(proposal.unit, isNull);
   });
 
   test('novice walking registers the shown minutes as distance', () {
@@ -364,8 +389,9 @@ void main() {
       now: now,
       exercises: const [],
     );
-    expect(small!.amount, 12);
-    expect(small.unit, CoachExerciseUnit.minutes);
+    expect(small!.amount, isNull);
+    expect(small.unit, isNull);
+    expect(small.message, '今日はほぼちょうどです。');
   });
 
   test('a day without weight does not offer exercise registration', () {
@@ -376,6 +402,7 @@ void main() {
       exercises: const [],
     );
     expect(proposal!.canRegister, isFalse);
+    expect(proposal.needsWeight, isTrue);
     expect(proposal.amount, isNull);
     expect(
       coachExerciseEntry(

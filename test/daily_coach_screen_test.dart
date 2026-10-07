@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/data/coach_food_catalog.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/exercise_entry.dart';
@@ -6,6 +9,8 @@ import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/coach_intro_store.dart';
+import 'package:ayg/repositories/subscription_repository.dart';
+import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/repositories/coach_nutrition_source.dart';
 import 'package:ayg/repositories/coach_proposal_log.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
@@ -25,7 +30,7 @@ import 'mocks/mock_health_repository.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const headline = '卵かけご飯（白米150gと卵1個）';
+  const headline = 'ごはん（精白米） 150g、ゆで卵 1個';
 
   CoachMealProposal sampleMeal() {
     return const CoachMealProposal(
@@ -54,7 +59,7 @@ void main() {
   Future<void> openCoach(
     WidgetTester tester, {
     required Future<DailyCoachLoadResult> Function() load,
-    Future<void> Function(CoachMealProposal proposal, List<double> grams)?
+    Future<List<String>> Function(CoachMealProposal proposal, List<double> grams)?
     onSelectMeal,
     Future<void> Function(CoachExerciseProposal proposal, double amount)?
     onSelectExercise,
@@ -93,7 +98,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('the coach screen always shows the trial notice and a meal', (
+  testWidgets('the coach screen explains the proposal and shows a meal', (
     tester,
   ) async {
     var selected = false;
@@ -106,13 +111,16 @@ void main() {
       ),
       onSelectMeal: (_, grams) async {
         selected = grams.single == 150;
+        return const ['meal-1'];
       },
     );
 
-    expect(find.text(coachTrialNotice), findsOneWidget);
+    expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
+    expect(find.text(AppStrings.coachBetaNotice), findsNothing);
+    expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
     final mealBottom = tester.getBottomLeft(find.text(headline)).dy;
     final noteTop = tester
-        .getTopLeft(find.byKey(const Key('coach_verification_notice')))
+        .getTopLeft(find.byKey(const Key('coach_beta_notice')))
         .dy;
     expect(noteTop, greaterThan(mealBottom));
     expect(find.text(headline), findsOneWidget);
@@ -134,19 +142,50 @@ void main() {
     expect(find.text('open'), findsOneWidget);
   });
 
-  testWidgets('the coach stays open without a paid gate', (tester) async {
-    await openCoach(
-      tester,
-      load: () async => DailyCoachLoadResult(
-        status: DailyCoachStatus.ready,
-        meals: [sampleMeal()],
+  testWidgets('an unpaid account cannot open the coach', (tester) async {
+    final controller = _profiledController();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: HomeScreen(
+          controller: controller,
+          openFoodFactsService: OpenFoodFactsService(userAgent: 'test'),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text(coachTrialNotice), findsOneWidget);
+    await tester.tap(find.text('パーソナルコーチ (β)'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DailyCoachScreen), findsNothing);
+    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text('カロナビ+を見る'), findsOneWidget);
     expect(find.text('2回目以降はカロナビ+です。'), findsNothing);
-    expect(find.text('カロナビ+を見る'), findsNothing);
-    expect(find.text(headline), findsOneWidget);
+    expect(controller.foodEntries, isEmpty);
+    expect(controller.exerciseEntries, isEmpty);
+  });
+
+  testWidgets('the coach screen does not propose when unpaid', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: DailyCoachScreen(
+          controller: _profiledController(),
+          load: () async => DailyCoachLoadResult(
+            status: DailyCoachStatus.ready,
+            meals: [sampleMeal()],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text(headline), findsNothing);
+    expect(find.text('この量で登録'), findsNothing);
+    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text('カロナビ+を見る'), findsOneWidget);
   });
 
   testWidgets(
@@ -163,14 +202,16 @@ void main() {
       );
 
       expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.text(coachTrialNotice), findsNWidgets(2));
+      expect(find.text(AppStrings.coachFeatureBody), findsNWidgets(2));
+      expect(find.text(AppStrings.coachBetaNotice), findsNothing);
 
       await tester.tap(find.widgetWithText(TextButton, '閉じる'));
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
       expect(intros.seen, isTrue);
-      expect(find.text(coachTrialNotice), findsOneWidget);
+      expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
+      expect(find.text(AppStrings.coachBetaNotice), findsNothing);
       expect(find.byType(DailyCoachScreen), findsOneWidget);
 
       await tester.tap(find.text('戻る'));
@@ -179,7 +220,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
-      expect(find.text(coachTrialNotice), findsOneWidget);
+      expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
+      expect(find.text(AppStrings.coachBetaNotice), findsNothing);
     },
   );
 
@@ -196,7 +238,7 @@ void main() {
         focus: DailyCoachFocus.meals,
         meals: [sampleMeal()],
       ),
-      onSelectMeal: (_, _) async {},
+      onSelectMeal: (_, _) async => const [],
     );
 
     expect(log.records, hasLength(1));
@@ -225,6 +267,7 @@ void main() {
       ),
       onSelectMeal: (_, grams) async {
         saved = grams;
+        return const ['meal-1'];
       },
     );
 
@@ -250,6 +293,7 @@ void main() {
       ),
       onSelectMeal: (_, _) async {
         saved = true;
+        return const ['meal-1'];
       },
     );
 
@@ -269,7 +313,7 @@ void main() {
     final proposal = buildCoachExerciseProposal(
       overageKcal: 744,
       weightKg: 60,
-      now: DateTime(2026, 10, 4),
+      now: DateTime(2026, 10, 4, 12),
       exercises: [
         ExerciseEntry(
           id: 'run',
@@ -296,23 +340,23 @@ void main() {
     );
 
     expect(find.text(headline), findsNothing);
-    expect(find.textContaining('3kmまでにします'), findsOneWidget);
+    expect(find.textContaining('30分までにします'), findsOneWidget);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('coach_exercise_amount')))
           .controller
           ?.text,
-      '3',
+      '30',
     );
 
     await tester.enterText(
       find.byKey(const Key('coach_exercise_amount')),
-      '2.5',
+      '25',
     );
     await tester.tap(find.byKey(const Key('coach_register_exercise')));
     await tester.pumpAndSettle();
 
-    expect(saved, 2.5);
+    expect(saved, 25);
     expect(find.text('open'), findsOneWidget);
   });
 
@@ -329,18 +373,20 @@ void main() {
     expect(find.text(headline), findsNothing);
     expect(find.textContaining('3km'), findsNothing);
     expect(find.text('この量で登録'), findsNothing);
-    expect(find.text(coachTrialNotice), findsOneWidget);
+    expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
+    expect(find.text(AppStrings.coachBetaNotice), findsNothing);
   });
 
   testWidgets('remaining days load meals and overage days load exercise', (
     tester,
   ) async {
+    final noon = DateTime(2026, 10, 7, 12);
     final controller = _profiledController();
     final session = DailyCoachSession(
       controller: controller,
-      nutritionSource: _FixedNutrition([_riceStock()]),
+      nutritionSource: _FixedNutrition(CoachFoodCatalog.stocks),
     );
-    final meals = await session.load(DateTime.now());
+    final meals = await session.load(noon);
     expect(controller.summary!.remainingKcal, greaterThan(0));
     expect(meals.focus, DailyCoachFocus.meals);
     expect(meals.meals, isNotEmpty);
@@ -350,7 +396,7 @@ void main() {
     final missing = await DailyCoachSession(
       controller: controller,
       nutritionSource: _FixedNutrition(const [], fail: true),
-    ).load(DateTime.now());
+    ).load(noon);
     expect(missing.status, DailyCoachStatus.nutritionMissing);
 
     controller.foodEntries.add(
@@ -367,7 +413,7 @@ void main() {
     final exerciseDay = await DailyCoachSession(
       controller: controller,
       nutritionSource: _FixedNutrition(const [], fail: true),
-    ).load(DateTime.now());
+    ).load(noon);
     expect(exerciseDay.focus, DailyCoachFocus.exercise);
     expect(exerciseDay.meals, isEmpty);
     expect(exerciseDay.offersMeals, isFalse);
@@ -390,7 +436,14 @@ void main() {
       isNot(closeTo(controller.exerciseEntries.first.effectiveNetKcal, 0.001)),
     );
 
-    await DailyCoachSession(controller: controller).saveMeal(sampleMeal());
+    final savedIds = await DailyCoachSession(
+      controller: controller,
+    ).saveMeal(sampleMeal());
+    expect(savedIds, isNotEmpty);
+    expect(
+      controller.foodEntries.map((entry) => entry.id),
+      containsAll(savedIds),
+    );
     expect(controller.foodEntries.last.consumedAmount, 1);
     await DailyCoachSession(
       controller: controller,
@@ -399,32 +452,55 @@ void main() {
     expect(controller.foodEntries.last.totalKcal, closeTo(234 * 100 / 150, 0.01));
   });
 
-  testWidgets('home shows 今日のコーチ', (tester) async {
-    final controller = AppController(
-      nutritionEngine: NutritionEngine(),
-      healthRepository: MockHealthRepository(isAvailable: false),
-    );
-    controller.setProfile(
-      UserProfile(
-        birthDate: DateTime(1990, 1, 1),
-        gender: Gender.male,
-        heightCm: 170,
-        weightKg: 60,
+  testWidgets('a purchase on the coach screen loads the proposal', (
+    tester,
+  ) async {
+    final plus = _FlipPlus();
+    addTearDown(plus.close);
+    final controller = _profiledController(subscription: plus);
+    final gate = Completer<void>();
+    var loads = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: DailyCoachScreen(
+          controller: controller,
+          introStore: _MemoryIntro(seen: true),
+          load: () async {
+            loads += 1;
+            await gate.future;
+            return DailyCoachLoadResult(
+              status: DailyCoachStatus.ready,
+              focus: DailyCoachFocus.meals,
+              meals: [sampleMeal()],
+            );
+          },
+        ),
       ),
     );
-    controller.setNutritionSettings(
-      const NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: ActivityLevel.moderate,
-      ),
-    );
-    controller.setGoal(
-      Goal(
-        type: GoalType.maintain,
-        targetWeightKg: 60,
-        targetDate: DateTime(2026, 12, 1),
-      ),
-    );
+    await tester.pumpAndSettle();
+
+    expect(loads, 0);
+    expect(find.text('提案を作っています'), findsNothing);
+    expect(find.text('カロナビ+を見る'), findsOneWidget);
+
+    plus.activate();
+    await tester.pump();
+    await tester.pump();
+    expect(loads, 1);
+    expect(find.text('提案を作っています'), findsOneWidget);
+    expect(find.text('カロナビ+を見る'), findsNothing);
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(loads, 1);
+    expect(find.text('提案を作っています'), findsNothing);
+    expect(find.text(headline), findsOneWidget);
+    expect(find.text('カロナビ+を見る'), findsNothing);
+  });
+
+  testWidgets('home shows パーソナルコーチ', (tester) async {
+    final controller = _profiledController(subscription: _Plus(true));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -440,11 +516,11 @@ void main() {
     expect(find.byTooltip('お知らせ'), findsOneWidget);
     expect(find.byKey(const Key('announcement_unread_dot')), findsNothing);
     final remainingTop = tester.getTopLeft(find.text('今日あと')).dy;
-    final coachTop = tester.getTopLeft(find.text('今日のコーチ')).dy;
+    final coachTop = tester.getTopLeft(find.text('パーソナルコーチ (β)')).dy;
     expect(coachTop, greaterThan(remainingTop));
     expect(tester.widget<DesignButton>(find.byType(DesignButton)).height, 52);
 
-    await tester.tap(find.text('今日のコーチ'));
+    await tester.tap(find.text('パーソナルコーチ (β)'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsOneWidget);
@@ -457,7 +533,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DailyCoachScreen), findsNothing);
 
-    await tester.tap(find.text('今日のコーチ'));
+    await tester.tap(find.text('パーソナルコーチ (β)'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();
@@ -480,10 +556,11 @@ class _MemoryIntro implements CoachIntroStore {
   }
 }
 
-AppController _profiledController() {
+AppController _profiledController({SubscriptionRepository? subscription}) {
   final controller = AppController(
     nutritionEngine: NutritionEngine(),
     healthRepository: MockHealthRepository(isAvailable: false),
+    subscriptionRepository: subscription,
   );
   controller.setProfile(
     UserProfile(
@@ -509,18 +586,31 @@ AppController _profiledController() {
   return controller;
 }
 
-CoachFoodStock _riceStock() {
-  return CoachFoodStock(
-    candidate: CoachFoodCatalog.find('01088')!,
-    nutrition: const CoachFoodNutrition(
-      foodCode: '01088',
-      kcal: 156,
-      proteinG: 2.5,
-      fatG: 0.3,
-      carbG: 37.1,
-      officialName: '精白米',
-    ),
-  );
+class _Plus extends UnavailableSubscriptionRepository {
+  _Plus(this.active);
+
+  final bool active;
+
+  @override
+  bool get isPlusActive => active;
+}
+
+class _FlipPlus extends UnavailableSubscriptionRepository {
+  final _changes = StreamController<bool>.broadcast();
+  bool _active = false;
+
+  @override
+  bool get isPlusActive => _active;
+
+  @override
+  Stream<bool> get plusChanges => _changes.stream;
+
+  void activate() {
+    _active = true;
+    _changes.add(true);
+  }
+
+  Future<void> close() => _changes.close();
 }
 
 class _FixedNutrition implements CoachNutritionSource {

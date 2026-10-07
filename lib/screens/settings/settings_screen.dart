@@ -4,8 +4,11 @@ import '../../config/app_contact_config.dart';
 import '../../config/official_foods_flag.dart';
 import '../../constants/app_strings.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/health_repository.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/open_food_facts_service.dart';
+import 'analytics_settings_screen.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -13,27 +16,26 @@ import '../../theme/app_typography.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
-import '../legal/legal_document.dart';
-import '../legal/legal_document_screen.dart';
+import '../coach/daily_coach_screen.dart';
 import '../subscription/calonavi_plus_flow.dart';
-import 'account_deletion_screen.dart';
-import 'calculation_references_screen.dart';
-import 'data_source_screen.dart';
+import '../subscription/plus_gate.dart';
 import 'how_to_use_screen.dart';
 import 'lock_screen_meal_screen.dart';
 import 'operator_contact_screen.dart';
 import 'siri_voice_setup_screen.dart';
-import 'settings_basic_info_screen.dart';
+import 'settings_account_screen.dart';
 import 'settings_food_master_screen.dart';
-import 'settings_goal_screen.dart';
 import 'settings_health_activity_screen.dart';
+import 'settings_policies_screen.dart';
+import 'settings_profile_screen.dart';
+import 'settings_reference_screen.dart';
 
 /// 設定。
 ///
 /// Figma: SP / 10 設定（24:345）
 ///
-/// Figma にない「特定商取引法に基づく表記」も、ストア審査で
-/// 到達できる必要があるため同じ行で並べてある。
+/// 計算とデータの出典、規約3件、ログアウトとアカウント削除は
+/// それぞれ1行にまとめ、中の画面で従来どおり開ける。
 /// 問い合わせは「運営連絡」にまとめてある。
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -59,12 +61,34 @@ class SettingsScreen extends StatelessWidget {
 
   static const double _rowGap = 8;
 
+  Future<void> _openPersonalCoach(BuildContext context) async {
+    final allowed = await ensureCalonaviPlus(
+      context,
+      controller,
+      message: AppStrings.coachBetaNotice,
+      feature: PlusFunnelFeature.coach,
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
+    await Navigator.of(context).push<CoachSavedKind>(
+      MaterialPageRoute<CoachSavedKind>(
+      settings: const RouteSettings(name: 'settings_screen_MaterialPageRoute_0'),
+        builder: (context) => DailyCoachScreen(controller: controller),
+      ),
+    );
+  }
+
   Future<void> _openMealWidget(BuildContext context) async {
     final paid = await controller.ensurePaidShortcutsReady();
     if (!context.mounted) {
       return;
     }
     if (!paid) {
+      controller.recordPlusFunnel(
+        event: PlusFunnelEvent.gateShown,
+        feature: PlusFunnelFeature.widget,
+      );
       final openPlus = await showAppConfirmDialog(
         context: context,
         title: 'こちらは有料の機能です',
@@ -74,7 +98,11 @@ class SettingsScreen extends StatelessWidget {
         cancelLabel: '閉じる',
       );
       if (openPlus == true && context.mounted) {
-        await _openCalonaviPlus(context);
+        controller.recordPlusFunnel(
+          event: PlusFunnelEvent.gateTap,
+          feature: PlusFunnelFeature.widget,
+        );
+        await _openCalonaviPlus(context, feature: PlusFunnelFeature.widget);
       }
       return;
     }
@@ -88,17 +116,26 @@ class SettingsScreen extends StatelessWidget {
       return;
     }
     if (!paid) {
+      controller.recordPlusFunnel(
+        event: PlusFunnelEvent.gateShown,
+        feature: PlusFunnelFeature.siri,
+      );
       final openPlus = await showAppConfirmDialog(
         context: context,
         title: 'こちらは有料の機能です',
-        message: AppStrings.siriVoicePaidGuidance,
+        message:
+            AppStrings.siriVoicePaidGuidance,
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );
       if (openPlus != true || !context.mounted) {
         return;
       }
-      await _openCalonaviPlus(context);
+      controller.recordPlusFunnel(
+        event: PlusFunnelEvent.gateTap,
+        feature: PlusFunnelFeature.siri,
+      );
+      await _openCalonaviPlus(context, feature: PlusFunnelFeature.siri);
       return;
     }
     _push(context, const SiriVoiceSetupScreen());
@@ -114,7 +151,10 @@ class SettingsScreen extends StatelessWidget {
     ).showSnackBar(const SnackBar(content: Text('無料に戻しました')));
   }
 
-  Future<void> _openCalonaviPlus(BuildContext context) async {
+  Future<void> _openCalonaviPlus(
+    BuildContext context, {
+    PlusFunnelFeature? feature,
+  }) async {
     final custom = controller.openCalonaviPlusFlow;
     if (custom != null) {
       await custom(context);
@@ -123,13 +163,16 @@ class SettingsScreen extends StatelessWidget {
     await showCalonaviPlus(
       context,
       repository: controller.subscriptionRepository,
+      feature: feature,
+      funnel: controller.plusFunnelRepository,
     );
   }
 
   void _push(BuildContext context, Widget screen) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (context) => screen));
+    ).push(MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'settings_screen_MaterialPageRoute_1'),builder: (context) => screen));
   }
 
   @override
@@ -172,30 +215,30 @@ class SettingsScreen extends StatelessWidget {
           SettingsRow(
             icon: AppIcons.information,
             title: '使い方',
-            subtitle: 'はじめての操作と、無料とカロナビ+の違い',
+            subtitle: 'はじめての操作と、無料との違い',
             onTap: () => _push(context, const HowToUseScreen()),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(
-            icon: AppIcons.information,
-            title: AppStrings.settingsBasicInfo,
-            subtitle: 'ユーザー名・年齢・性別・身長・体重など',
-            onTap: () => _push(
-              context,
-              SettingsBasicInfoScreen(
-                controller: controller,
-                suggestedDisplayName:
-                    authenticationRepository.currentUser?.suggestedDisplayName,
-              ),
-            ),
+            key: const Key('settings-personal-coach'),
+            icon: AppIcons.meal,
+            title: 'パーソナルコーチ (β)',
+            subtitle: '残りカロリーに合わせて食事を提案',
+            onTap: () => _openPersonalCoach(context),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(
-            icon: AppIcons.goal,
-            title: AppStrings.settingsGoal,
-            subtitle: '目標体重・目標カロリーなど',
-            onTap: () =>
-                _push(context, SettingsGoalScreen(controller: controller)),
+            key: const Key('settings-profile'),
+            icon: AppIcons.human,
+            title: 'プロフィールと目標',
+            subtitle: '名前・体格と、目標カロリー',
+            onTap: () => _push(
+              context,
+              SettingsProfileScreen(
+                controller: controller,
+                authenticationRepository: authenticationRepository,
+              ),
+            ),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(
@@ -232,53 +275,42 @@ class SettingsScreen extends StatelessWidget {
             SettingsRow(
               icon: AppIcons.template,
               title: 'ウィジェット',
-              subtitle: 'ホームは5つ、ロック画面は朝・昼・夜',
+              subtitle: 'アプリを開かず食事・運動を登録',
               onTap: () => _openMealWidget(context),
             ),
             const SizedBox(height: _rowGap),
             SettingsRow(
               icon: AppIcons.information,
-              title: '音声登録',
-              subtitle: 'カロナビ+の機能です',
+              title: '音声登録 (β)',
+              subtitle: '声だけで食事・運動を登録',
               onTap: () => _openVoiceRegistration(context),
             ),
           ],
           const SizedBox(height: _rowGap),
           SettingsRow(
+            key: const Key('settings-references'),
             icon: AppIcons.calculator,
-            title: '計算根拠',
-            subtitle: 'カロリー・栄養素の算出方法について',
-            onTap: () => _push(context, const CalculationReferencesScreen()),
+            title: '計算とデータについて',
+            subtitle: OfficialFoodsFlag.enabled
+                ? '算出方法と食品データの出典'
+                : 'カロリーと栄養素の算出方法',
+            onTap: () => _push(context, const SettingsReferenceScreen()),
           ),
-          if (OfficialFoodsFlag.enabled) ...[
-            const SizedBox(height: _rowGap),
-            SettingsRow(
-              icon: AppIcons.document,
-              title: 'データの出典',
-              subtitle: '100gあたりの数値と、表示名の説明',
-              onTap: () => _push(context, const DataSourceScreen()),
-            ),
-          ],
           const SizedBox(height: _rowGap),
           SettingsRow(
+            key: const Key('settings-analytics'),
+            icon: AppIcons.information,
+            title: '利用状況の記録',
+            subtitle: '協力のオンとオフ。協力しなくても使えます',
+            onTap: () => _push(context, const AnalyticsSettingsScreen()),
+          ),
+          const SizedBox(height: _rowGap),
+          SettingsRow(
+            key: const Key('settings-policies'),
             icon: AppIcons.document,
-            title: '利用規約',
-            subtitle: 'サービスのご利用条件',
-            onTap: () => showLegalDocument(context, LegalDocument.terms),
-          ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            icon: AppIcons.shield,
-            title: 'プライバシー',
-            subtitle: '個人情報の取り扱いについて',
-            onTap: () => showLegalDocument(context, LegalDocument.privacy),
-          ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            icon: AppIcons.document,
-            title: AppStrings.settingsTokushoho,
-            subtitle: '販売条件・事業者情報',
-            onTap: () => showLegalDocument(context, LegalDocument.tokushoho),
+            title: '規約とポリシー',
+            subtitle: '利用規約、プライバシー、特商法',
+            onTap: () => _push(context, const SettingsPoliciesScreen()),
           ),
           if (contactEmail.isNotEmpty) ...[
             const SizedBox(height: _rowGap),
@@ -286,27 +318,21 @@ class SettingsScreen extends StatelessWidget {
               icon: AppIcons.mail,
               title: AppStrings.settingsContactOperator,
               subtitle: contactEmail,
-              onTap: () =>
-                  _push(context, OperatorContactScreen(email: contactEmail)),
+              onTap: () {
+                CatalogActions.contactTap('settings');
+                _push(context, OperatorContactScreen(email: contactEmail));
+              },
             ),
           ],
           const SizedBox(height: _rowGap),
           SettingsRow(
-            icon: AppIcons.logout,
-            title: AppStrings.settingsLogout,
-            subtitle: '別のアカウントで利用する場合はこちら',
-            danger: true,
-            onTap: () => controller.logout(),
-          ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            icon: AppIcons.trash,
-            title: AppStrings.settingsAccountDeletion,
-            subtitle: AppStrings.settingsAccountDeletionSubtitle,
-            danger: true,
+            key: const Key('settings-account'),
+            icon: AppIcons.user,
+            title: 'アカウント',
+            subtitle: 'ログアウトとアカウント削除',
             onTap: () => _push(
               context,
-              AccountDeletionScreen(
+              SettingsAccountScreen(
                 controller: controller,
                 authenticationRepository: authenticationRepository,
                 supportEmail: supportEmail,

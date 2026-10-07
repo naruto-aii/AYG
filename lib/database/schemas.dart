@@ -79,6 +79,9 @@ class FoodEntryEntity {
   /// `schemas.g.dart` の id をその順からずらすと、保存時に文字列長を誤読して
   /// isarworker が落ちる。列を足すときは id を名前順に差し込む。
   String? memo;
+
+  /// 記録した場所。app / widget / siri など。名前順では quantity と savedFoodId のあいだ。
+  String? recordOrigin;
 }
 
 /// 1件の読み取りが失敗しても、食事コレクション全体は落とさない。
@@ -256,6 +259,9 @@ class ExerciseEntryEntity {
   String? calculationVersion;
   String? sourceKey;
   String? notes;
+
+  /// 記録した場所。app / widget / siri など。名前順では notes と reps のあいだ。
+  String? recordOrigin;
 }
 
 @collection
@@ -368,4 +374,20 @@ class HealthWorkoutEntity {
   late DateTime startTime;
   late DateTime endTime;
   double? caloriesBurned;
+}
+
+/// 利用状況の送信待ち。ログアウトでは消さない。
+@collection
+class PendingAnalyticsEvent {
+  Id id = Isar.autoIncrement;
+
+  @Index(unique: true, replace: true)
+  late String eventId;
+
+  String? userId;
+  late String json;
+  late DateTime createdAt;
+  late int attempts;
+  late DateTime nextAttemptAt;
+  late bool quarantined;
 }

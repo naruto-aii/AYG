@@ -80,6 +80,7 @@ class _WorkoutTabScreenState extends State<WorkoutTabScreen> {
     final initialLoggedAt = entry == null ? _initialLoggedAtForNewEntry : null;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'workout_tab_screen_MaterialPageRoute_0'),
         builder: (context) => ExerciseFormScreen(
           controller: widget.controller,
           entry: entry,
@@ -100,6 +101,7 @@ class _WorkoutTabScreenState extends State<WorkoutTabScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'workout_tab_screen_MaterialPageRoute_1'),
         builder: (context) => HistoryCalendarScreen(
           controller: widget.controller,
           openFoodFactsService: openFoodFactsService,
@@ -112,6 +114,7 @@ class _WorkoutTabScreenState extends State<WorkoutTabScreen> {
   void _openTemplates() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'workout_tab_screen_MaterialPageRoute_2'),
         builder: (context) =>
             WorkoutTemplateListScreen(controller: widget.controller),
       ),

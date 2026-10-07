@@ -10,6 +10,7 @@ Future<DuplicateSavedFoodDialogResult?> showDuplicateSavedFoodDialog({
   required String enteredName,
 }) async {
   return showDialog<DuplicateSavedFoodDialogResult>(
+      routeSettings: const RouteSettings(name: 'duplicate_saved_food_dialog_showDialog_0'),
     context: context,
     builder: (context) => _DuplicateSavedFoodDialog(
       existingFood: existingFood,

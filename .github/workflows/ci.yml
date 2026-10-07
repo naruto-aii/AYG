@@ -1,0 +1,19 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      # 既存の warning / info はリポジトリに残っている。このジョブは error だけを失敗にする。
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      # integration は手元の Supabase / Docker が要る。無い環境では失敗するので外す。
+      - run: flutter test --concurrency=1 --exclude-tags integration

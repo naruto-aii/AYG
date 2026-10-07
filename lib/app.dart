@@ -1,13 +1,19 @@
 import 'dart:async';
+import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'constants/app_strings.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/health_repository.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/consent/analytics_consent_screen.dart';
 import 'screens/onboarding/health_setup_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
+import 'services/analytics/analytics.dart';
+import 'services/analytics/analytics_runtime.dart';
+import 'services/analytics/catalog_actions.dart';
 import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'screens/splash/splash_screen.dart';
@@ -43,21 +49,47 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
   bool _wasAuthenticated = false;
 
+  FlutterExceptionHandler? _previousFlutterError;
+  bool Function(Object, StackTrace)? _previousPlatformError;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _wasAuthenticated = widget.controller.isAuthenticated;
     widget.controller.addListener(_popRoutesAfterSignOut);
+    _previousFlutterError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      CatalogActions.appError(
+        errorType: details.exception.runtimeType.toString(),
+        where: 'flutter',
+        fatal: false,
+      );
+      _previousFlutterError?.call(details);
+    };
+    _previousPlatformError = PlatformDispatcher.instance.onError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      CatalogActions.appError(
+        errorType: error.runtimeType.toString(),
+        where: 'platform',
+        fatal: true,
+      );
+      return _previousPlatformError?.call(error, stack) ?? false;
+    };
     // 起動直後は Method Channel がまだ無いことがある。画面が出てから
     // 有料フラグとウィジェットの中身を App Group へもう一度書く。
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_resumePaidFeatures());
+      unawaited(_coldStart());
     });
   }
 
   @override
   void dispose() {
+    FlutterError.onError = _previousFlutterError;
+    final previous = _previousPlatformError;
+    if (previous != null) {
+      PlatformDispatcher.instance.onError = previous;
+    }
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_popRoutesAfterSignOut);
     super.dispose();
@@ -66,14 +98,34 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(_resumePaidFeatures());
+      unawaited(_onResume());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(AnalyticsRuntime.lifecycle?.onBackground());
     }
   }
 
+  Future<void> _coldStart() async {
+    final service = Analytics.service;
+    if (service != null && service.consented) {
+      await AnalyticsRuntime.lifecycle?.onColdStart();
+      await AnalyticsRuntime.ads?.captureOnce();
+    }
+    await _resumePaidFeatures();
+  }
+
+  Future<void> _onResume() async {
+    await AnalyticsRuntime.lifecycle?.onForeground();
+    await _resumePaidFeatures();
+  }
+
   Future<void> _resumePaidFeatures() async {
+    await Analytics.service?.importNativePending();
     await widget.controller.refreshPaidEntitlement();
     await widget.controller.syncLockScreenMeals();
     await widget.controller.syncSiriVoiceLogs();
+    await widget.controller.flushUnsentRecords();
+    await Analytics.service?.flush();
   }
 
   void _popRoutesAfterSignOut() {
@@ -98,6 +150,9 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
       navigatorKey: _navigatorKey,
       title: AppStrings.appTitle,
       theme: AppTheme.light,
+      navigatorObservers: [
+        if (AnalyticsRuntime.routes != null) AnalyticsRuntime.routes!,
+      ],
       builder: (context, child) {
         return Stack(
           children: [
@@ -118,6 +173,24 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
         if (controller.isInitializing ||
             (controller.isAuthenticated && controller.isSyncInProgress)) {
           return const AppStartupLoadingScreen();
+        }
+
+        final analytics = Analytics.service;
+        if (analytics != null && !analytics.consentDecided) {
+          return AnalyticsConsentScreen(
+            onDecide: (cooperate) async {
+              if (cooperate) {
+                await analytics.grantConsent(surface: 'first_launch');
+                await AnalyticsRuntime.lifecycle?.onColdStart();
+                await AnalyticsRuntime.ads?.captureOnce();
+              } else {
+                await analytics.declineConsent(surface: 'first_launch');
+              }
+              if (mounted) {
+                setState(() {});
+              }
+            },
+          );
         }
 
         if (!controller.isAuthenticated) {

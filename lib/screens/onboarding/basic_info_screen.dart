@@ -142,6 +142,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'basic_info_screen_MaterialPageRoute_0'),
         builder: (context) => GoalSetupScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,

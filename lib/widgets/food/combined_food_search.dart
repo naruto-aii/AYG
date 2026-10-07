@@ -7,6 +7,7 @@ import '../../models/official_food_list_label.dart';
 import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
 import '../../repositories/official_food_repository.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/usage_record.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -347,7 +348,16 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
               '${formatNullableNutrient(food.kcalPerBase)} kcal',
           onTap: widget.onSavedFood == null
               ? null
-              : () => widget.onSavedFood!(food),
+              : () {
+                  CatalogActions.foodSearchResultSelect(
+                    source: 'saved',
+                    position: _saved.indexOf(food),
+                    resultCount: _saved.length,
+                    queryLength: widget.query.text.trim().length,
+                    itemKind: 'saved_food',
+                  );
+                  widget.onSavedFood!(food);
+                },
         ),
         const SizedBox(height: 8),
       ],

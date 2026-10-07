@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../config/subscription_catalog.dart';
 import '../../constants/app_strings.dart';
+import '../../repositories/plus_funnel_repository.dart';
+import '../../services/analytics/analytics.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../repositories/subscription_repository.dart';
 import '../../services/subscription_offer.dart';
@@ -25,19 +29,56 @@ import '../legal/legal_document_screen.dart';
 Future<void> showCalonaviPlus(
   BuildContext context, {
   required SubscriptionRepository repository,
+  PlusFunnelFeature? feature,
+  PlusFunnelRepository? funnel,
 }) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'calonavi_plus_flow_MaterialPageRoute_0'),
       fullscreenDialog: true,
-      builder: (context) => CalonaviPlusEntryScreen(repository: repository),
+      builder: (context) => CalonaviPlusEntryScreen(
+        repository: repository,
+        feature: feature,
+        funnel: funnel,
+      ),
     ),
   );
 }
 
+/// `¥2,900` のような円表示だけを読む。ドルなどは読まない。
+int? yenAmount(String localized) {
+  final match = RegExp(
+    r'^[¥￥]\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)$',
+  ).firstMatch(localized.trim());
+  if (match == null) {
+    return null;
+  }
+  return int.tryParse(match.group(1)!.replaceAll(',', ''));
+}
+
+String _groupDigits(int value) {
+  final text = value.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < text.length; i++) {
+    if (i > 0 && (text.length - i) % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(text[i]);
+  }
+  return buffer.toString();
+}
+
 class CalonaviPlusEntryScreen extends StatefulWidget {
-  const CalonaviPlusEntryScreen({super.key, required this.repository});
+  const CalonaviPlusEntryScreen({
+    super.key,
+    required this.repository,
+    this.feature,
+    this.funnel,
+  });
 
   final SubscriptionRepository repository;
+  final PlusFunnelFeature? feature;
+  final PlusFunnelRepository? funnel;
 
   @override
   State<CalonaviPlusEntryScreen> createState() =>
@@ -69,7 +110,78 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   @override
   void initState() {
     super.initState();
+    _openedAt = DateTime.now();
+    _record(PlusFunnelEvent.paywallOpen);
     _loadPrices();
+  }
+
+  DateTime _openedAt = DateTime.now();
+  bool _purchased = false;
+
+  @override
+  void dispose() {
+    Analytics.emit('paywall_close', {
+      'dwell_ms': DateTime.now().difference(_openedAt).inMilliseconds,
+      'last_selected_product_id': SubscriptionCatalog.productIdFor(_selected),
+      'purchased': _purchased,
+    });
+    super.dispose();
+  }
+
+  void _record(PlusFunnelEvent event, {String? productId}) {
+    final featureName = switch (widget.feature) {
+      PlusFunnelFeature.memo => 'food_memo',
+      null => 'other',
+      _ => widget.feature!.storageValue,
+    };
+    switch (event) {
+      case PlusFunnelEvent.paywallOpen:
+        Analytics.emit('paywall_open', {
+          'entry_point': widget.feature == null ? 'settings' : 'gate_$featureName',
+          'products_loaded': !_loadingPrices && _offerings != null,
+        });
+      case PlusFunnelEvent.purchaseTap:
+        Analytics.emit('purchase_tap', {
+          'product_id': productId,
+          'entry_point': widget.feature == null ? 'settings' : 'gate_$featureName',
+        });
+      case PlusFunnelEvent.purchaseSuccess:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'purchased',
+        });
+      case PlusFunnelEvent.purchaseCancel:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'cancelled',
+        });
+      case PlusFunnelEvent.purchaseFailed:
+        Analytics.emit('purchase_result', {
+          'product_id': productId,
+          'status': 'failed',
+        });
+      case PlusFunnelEvent.restoreTap:
+        Analytics.emit('restore_tap');
+      case PlusFunnelEvent.gateShown:
+      case PlusFunnelEvent.gateTap:
+        break;
+    }
+    final funnel = widget.funnel;
+    if (funnel == null) {
+      return;
+    }
+    unawaited(() async {
+      try {
+        await funnel.record(
+          event: event,
+          feature: widget.feature,
+          productId: productId,
+        );
+      } catch (error, stackTrace) {
+        debugPrint('[AYG] plus funnel record failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }());
   }
 
   Future<void> _loadPrices() async {
@@ -116,27 +228,80 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     };
   }
 
-  String _note(PlusPlan plan) {
+  /// 半年と年額の注記は、いま画面に出している金額から割る。
+  String _note(PlusPlan plan, String price) {
+    if (plan == PlusPlan.monthly) {
+      return AppStrings.plusMonthlyNote;
+    }
+    final amount = yenAmount(price);
+    if (amount == null) {
+      return '';
+    }
+    final months = _months(plan);
+    final exact = amount % months == 0;
+    final perMonth = exact ? amount ~/ months : (amount / months).round();
+    final digits = _groupDigits(perMonth);
+    return exact ? '月あたり$digits円' : '月あたり約$digits円';
+  }
+
+  /// 月額より月あたりが安いときだけ。いちばん安いプランが「一番お得」。
+  String? _badge(PlusPlan plan, Map<PlusPlan, int?> yen) {
+    if (plan == PlusPlan.monthly) {
+      return null;
+    }
+    final monthly = yen[PlusPlan.monthly];
+    final amount = yen[plan];
+    if (monthly == null || amount == null || monthly <= 0) {
+      return null;
+    }
+    final months = _months(plan);
+    if (amount >= monthly * months) {
+      return null;
+    }
+    var best = true;
+    for (final other in PlusPlan.values) {
+      if (other == PlusPlan.monthly || other == plan) {
+        continue;
+      }
+      final otherAmount = yen[other];
+      if (otherAmount == null) {
+        continue;
+      }
+      final otherMonths = _months(other);
+      if (otherAmount >= monthly * otherMonths) {
+        continue;
+      }
+      if (amount * otherMonths > otherAmount * months) {
+        best = false;
+      }
+    }
+    return best ? AppStrings.plusBadgeBestValue : AppStrings.plusBadgeSave;
+  }
+
+  int _months(PlusPlan plan) {
     return switch (plan) {
-      PlusPlan.monthly => AppStrings.plusMonthlyNote,
-      PlusPlan.halfYear => AppStrings.plusHalfYearNote,
-      PlusPlan.yearly => AppStrings.plusYearlyNote,
+      PlusPlan.monthly => 1,
+      PlusPlan.halfYear => 6,
+      PlusPlan.yearly => 12,
     };
   }
 
   List<_PlanOption> get _plans {
     final offerings = _offerings;
+    final prices = {
+      for (final plan in PlusPlan.values)
+        plan: _displayPrice(plan, offerings?.offerFor(plan)),
+    };
+    final yen = {
+      for (final entry in prices.entries) entry.key: yenAmount(entry.value),
+    };
     return [
       for (final plan in PlusPlan.values)
         _PlanOption(
           plan: plan,
-          price: _displayPrice(plan, offerings?.offerFor(plan)),
-          note: _note(plan),
-          badgeLabel: switch (plan) {
-            PlusPlan.monthly => null,
-            PlusPlan.halfYear => AppStrings.plusBadgeSave,
-            PlusPlan.yearly => AppStrings.plusBadgeBestValue,
-          },
+          price: prices[plan]!,
+          note: _note(plan, prices[plan]!),
+          badgeLabel: _badge(plan, yen),
         ),
     ];
   }
@@ -147,16 +312,26 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
 
   Future<void> _confirm() async {
     final plan = _selected;
-    await _purchase(() => widget.repository.purchasePlan(plan));
+    final productId = SubscriptionCatalog.productIdFor(plan);
+    _record(PlusFunnelEvent.purchaseTap, productId: productId);
+    await _purchase(
+      () => widget.repository.purchasePlan(plan),
+      productId: productId,
+    );
   }
 
-  Future<void> _purchase(Future<void> Function() action) async {
+  Future<void> _purchase(
+    Future<void> Function() action, {
+    required String productId,
+  }) async {
     await _guarded(() async {
       await action();
       if (!mounted) {
         return;
       }
       if (widget.repository.isPlusActive) {
+        _purchased = true;
+        _record(PlusFunnelEvent.purchaseSuccess, productId: productId);
         _showMessage(
           widget.repository.testPurchaseToggleEnabled
               ? 'テスト用にカロナビ+にしました'
@@ -165,32 +340,48 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
+      } else {
+        _record(PlusFunnelEvent.purchaseCancel, productId: productId);
       }
-    });
+    }, productId: productId);
   }
 
   Future<void> _restore() async {
+    _record(PlusFunnelEvent.restoreTap);
     await _guarded(() async {
       await widget.repository.restore();
       if (!mounted) {
         return;
       }
+      Analytics.emit('restore_result', {
+        'result': widget.repository.isPlusActive ? 'restored' : 'none_found',
+      });
       _showMessage(
         widget.repository.isPlusActive ? '購入を復元しました' : '有効な購入は見つかりませんでした',
       );
-    });
+    }, recordPurchaseFailure: false);
   }
 
-  Future<void> _guarded(Future<void> Function() action) async {
+  Future<void> _guarded(
+    Future<void> Function() action, {
+    String? productId,
+    bool recordPurchaseFailure = true,
+  }) async {
     setState(() => _busy = true);
     try {
       await action();
     } on SubscriptionPurchaseUnavailableException {
+      if (recordPurchaseFailure) {
+        _record(PlusFunnelEvent.purchaseFailed, productId: productId);
+      }
       if (!mounted) {
         return;
       }
       _showMessage('この環境ではアプリ内課金を使えません');
     } catch (_) {
+      if (recordPurchaseFailure) {
+        _record(PlusFunnelEvent.purchaseFailed, productId: productId);
+      }
       if (!mounted) {
         return;
       }
@@ -283,6 +474,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
             textAlign: TextAlign.center,
             style: AppTypography.bodyM,
           ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            AppStrings.plusBetaAccessLead,
+            textAlign: TextAlign.center,
+            style: AppTypography.bodyM,
+          ),
           const SizedBox(height: AppSpacing.lg),
           _Benefit(
             icon: Symbols.bookmark_rounded,
@@ -308,6 +505,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
             body: AppStrings.plusBenefitSiriBody,
             detail: AppStrings.siriVoicePaidGuidance,
           ),
+          const SizedBox(height: AppSpacing.md),
+          _Benefit(
+            icon: Symbols.eco_rounded,
+            title: AppStrings.plusBetaAccessTitle,
+            body: AppStrings.plusBetaAccessBody,
+          ),
           const SizedBox(height: AppSpacing.lg),
           if (_loadingPrices)
             const Padding(
@@ -322,7 +525,9 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
               SelectCard(
                 key: Key('plus-plan-${plans[i].plan.name}'),
                 title: plusPlanLabel(plans[i].plan),
-                description: '${plans[i].price} ・ ${plans[i].note}',
+                description: plans[i].note.isEmpty
+                    ? plans[i].price
+                    : '${plans[i].price} ・ ${plans[i].note}',
                 selected: plans[i].plan == _selected,
                 minHeight: 84,
                 badge: plans[i].badgeLabel == null
@@ -330,7 +535,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
                     : _PlanBadge(label: plans[i].badgeLabel!),
                 onTap: _busy
                     ? null
-                    : () => setState(() => _selected = plans[i].plan),
+                    : () {
+                        setState(() => _selected = plans[i].plan);
+                        Analytics.emit('plan_select', {
+                          'product_id': SubscriptionCatalog.productIdFor(plans[i].plan),
+                        });
+                      },
               ),
             ],
           ],

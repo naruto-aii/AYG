@@ -3003,33 +3003,38 @@ const FoodEntryEntitySchema = CollectionSchema(
       name: r'quantity',
       type: IsarType.double,
     ),
-    r'savedFoodId': PropertySchema(
+    r'recordOrigin': PropertySchema(
       id: 15,
+      name: r'recordOrigin',
+      type: IsarType.string,
+    ),
+    r'savedFoodId': PropertySchema(
+      id: 16,
       name: r'savedFoodId',
       type: IsarType.string,
     ),
     r'sortOrder': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'sortOrder',
       type: IsarType.long,
     ),
     r'sourceFoodOwnerUserId': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'sourceFoodOwnerUserId',
       type: IsarType.string,
     ),
     r'sourceSavedFoodVersion': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'sourceSavedFoodVersion',
       type: IsarType.long,
     ),
     r'sourceTypeIndex': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'sourceTypeIndex',
       type: IsarType.long,
     ),
     r'unitTypeIndex': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'unitTypeIndex',
       type: IsarType.long,
     ),
@@ -3112,6 +3117,12 @@ int _foodEntryEntityEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.recordOrigin;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -3136,12 +3147,13 @@ void _foodEntryEntitySerialize(
   writer.writeString(offsets[12], object.officialFoodName);
   writer.writeDouble(offsets[13], object.proteinPerUnit);
   writer.writeDouble(offsets[14], object.quantity);
-  writer.writeString(offsets[15], object.savedFoodId);
-  writer.writeLong(offsets[16], object.sortOrder);
-  writer.writeString(offsets[17], object.sourceFoodOwnerUserId);
-  writer.writeLong(offsets[18], object.sourceSavedFoodVersion);
-  writer.writeLong(offsets[19], object.sourceTypeIndex);
-  writer.writeLong(offsets[20], object.unitTypeIndex);
+  writer.writeString(offsets[15], object.recordOrigin);
+  writer.writeString(offsets[16], object.savedFoodId);
+  writer.writeLong(offsets[17], object.sortOrder);
+  writer.writeString(offsets[18], object.sourceFoodOwnerUserId);
+  writer.writeLong(offsets[19], object.sourceSavedFoodVersion);
+  writer.writeLong(offsets[20], object.sourceTypeIndex);
+  writer.writeLong(offsets[21], object.unitTypeIndex);
 }
 
 FoodEntryEntity _foodEntryEntityDeserialize(
@@ -3168,12 +3180,13 @@ FoodEntryEntity _foodEntryEntityDeserialize(
     object.officialFoodName = reader.readStringOrNull(offsets[12]);
     object.proteinPerUnit = reader.readDoubleOrNull(offsets[13]);
     object.quantity = reader.readDouble(offsets[14]);
-    object.savedFoodId = reader.readStringOrNull(offsets[15]);
-    object.sortOrder = reader.readLongOrNull(offsets[16]);
-    object.sourceFoodOwnerUserId = reader.readStringOrNull(offsets[17]);
-    object.sourceSavedFoodVersion = reader.readLongOrNull(offsets[18]);
-    object.sourceTypeIndex = reader.readLongOrNull(offsets[19]);
-    object.unitTypeIndex = reader.readLongOrNull(offsets[20]);
+    object.recordOrigin = reader.readStringOrNull(offsets[15]);
+    object.savedFoodId = reader.readStringOrNull(offsets[16]);
+    object.sortOrder = reader.readLongOrNull(offsets[17]);
+    object.sourceFoodOwnerUserId = reader.readStringOrNull(offsets[18]);
+    object.sourceSavedFoodVersion = reader.readLongOrNull(offsets[19]);
+    object.sourceTypeIndex = reader.readLongOrNull(offsets[20]);
+    object.unitTypeIndex = reader.readLongOrNull(offsets[21]);
     return object;
   });
 }
@@ -3218,14 +3231,16 @@ P _foodEntryEntityDeserializeProp<P>(
     case 15:
       return (reader.readStringOrNull(offset)) as P;
     case 16:
-      return (reader.readLongOrNull(offset)) as P;
-    case 17:
       return (reader.readStringOrNull(offset)) as P;
-    case 18:
+    case 17:
       return (reader.readLongOrNull(offset)) as P;
+    case 18:
+      return (reader.readStringOrNull(offset)) as P;
     case 19:
       return (reader.readLongOrNull(offset)) as P;
     case 20:
+      return (reader.readLongOrNull(offset)) as P;
+    case 21:
       return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -17254,15 +17269,20 @@ const ExerciseEntryEntitySchema = CollectionSchema(
     r'name': PropertySchema(id: 13, name: r'name', type: IsarType.string),
     r'netKcal': PropertySchema(id: 14, name: r'netKcal', type: IsarType.double),
     r'notes': PropertySchema(id: 15, name: r'notes', type: IsarType.string),
-    r'reps': PropertySchema(id: 16, name: r'reps', type: IsarType.long),
-    r'sets': PropertySchema(id: 17, name: r'sets', type: IsarType.long),
+    r'recordOrigin': PropertySchema(
+      id: 16,
+      name: r'recordOrigin',
+      type: IsarType.string,
+    ),
+    r'reps': PropertySchema(id: 17, name: r'reps', type: IsarType.long),
+    r'sets': PropertySchema(id: 18, name: r'sets', type: IsarType.long),
     r'sourceKey': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'sourceKey',
       type: IsarType.string,
     ),
     r'weightKgSnapshot': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'weightKgSnapshot',
       type: IsarType.double,
     ),
@@ -17346,6 +17366,12 @@ int _exerciseEntryEntityEstimateSize(
     }
   }
   {
+    final value = object.recordOrigin;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.sourceKey;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -17376,10 +17402,11 @@ void _exerciseEntryEntitySerialize(
   writer.writeString(offsets[13], object.name);
   writer.writeDouble(offsets[14], object.netKcal);
   writer.writeString(offsets[15], object.notes);
-  writer.writeLong(offsets[16], object.reps);
-  writer.writeLong(offsets[17], object.sets);
-  writer.writeString(offsets[18], object.sourceKey);
-  writer.writeDouble(offsets[19], object.weightKgSnapshot);
+  writer.writeString(offsets[16], object.recordOrigin);
+  writer.writeLong(offsets[17], object.reps);
+  writer.writeLong(offsets[18], object.sets);
+  writer.writeString(offsets[19], object.sourceKey);
+  writer.writeDouble(offsets[20], object.weightKgSnapshot);
 }
 
 ExerciseEntryEntity _exerciseEntryEntityDeserialize(
@@ -17406,10 +17433,11 @@ ExerciseEntryEntity _exerciseEntryEntityDeserialize(
   object.name = reader.readString(offsets[13]);
   object.netKcal = reader.readDoubleOrNull(offsets[14]);
   object.notes = reader.readStringOrNull(offsets[15]);
-  object.reps = reader.readLongOrNull(offsets[16]);
-  object.sets = reader.readLongOrNull(offsets[17]);
-  object.sourceKey = reader.readStringOrNull(offsets[18]);
-  object.weightKgSnapshot = reader.readDoubleOrNull(offsets[19]);
+  object.recordOrigin = reader.readStringOrNull(offsets[16]);
+  object.reps = reader.readLongOrNull(offsets[17]);
+  object.sets = reader.readLongOrNull(offsets[18]);
+  object.sourceKey = reader.readStringOrNull(offsets[19]);
+  object.weightKgSnapshot = reader.readDoubleOrNull(offsets[20]);
   return object;
 }
 
@@ -17453,12 +17481,14 @@ P _exerciseEntryEntityDeserializeProp<P>(
     case 15:
       return (reader.readStringOrNull(offset)) as P;
     case 16:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 17:
       return (reader.readLongOrNull(offset)) as P;
     case 18:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 19:
+      return (reader.readStringOrNull(offset)) as P;
+    case 20:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -31940,5 +31970,191 @@ extension HealthWorkoutEntityQueryProperty
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'workoutId');
     });
+  }
+}
+
+extension GetPendingAnalyticsEventCollection on Isar {
+  IsarCollection<PendingAnalyticsEvent> get pendingAnalyticsEvents =>
+      this.collection();
+}
+
+const PendingAnalyticsEventSchema = CollectionSchema(
+  name: r'PendingAnalyticsEvent',
+  id: 8165676755510524886,
+  properties: {
+    r'attempts': PropertySchema(
+      id: 0,
+      name: r'attempts',
+      type: IsarType.long,
+    ),
+    r'createdAt': PropertySchema(
+      id: 1,
+      name: r'createdAt',
+      type: IsarType.dateTime,
+    ),
+    r'eventId': PropertySchema(
+      id: 2,
+      name: r'eventId',
+      type: IsarType.string,
+    ),
+    r'json': PropertySchema(id: 3, name: r'json', type: IsarType.string),
+    r'nextAttemptAt': PropertySchema(
+      id: 4,
+      name: r'nextAttemptAt',
+      type: IsarType.dateTime,
+    ),
+    r'quarantined': PropertySchema(
+      id: 5,
+      name: r'quarantined',
+      type: IsarType.bool,
+    ),
+    r'userId': PropertySchema(id: 6, name: r'userId', type: IsarType.string),
+  },
+  estimateSize: _pendingAnalyticsEventEstimateSize,
+  serialize: _pendingAnalyticsEventSerialize,
+  deserialize: _pendingAnalyticsEventDeserialize,
+  deserializeProp: _pendingAnalyticsEventDeserializeProp,
+  idName: r'id',
+  indexes: {
+    r'eventId': IndexSchema(
+      id: -2707901133518603130,
+      name: r'eventId',
+      unique: true,
+      replace: true,
+      properties: [
+        IndexPropertySchema(
+          name: r'eventId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+      ],
+    ),
+  },
+  links: {},
+  embeddedSchemas: {},
+  getId: _pendingAnalyticsEventGetId,
+  getLinks: _pendingAnalyticsEventGetLinks,
+  attach: _pendingAnalyticsEventAttach,
+  version: '3.1.0+1',
+);
+
+int _pendingAnalyticsEventEstimateSize(
+  PendingAnalyticsEvent object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  bytesCount += 3 + object.eventId.length * 3;
+  bytesCount += 3 + object.json.length * 3;
+  {
+    final value = object.userId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  return bytesCount;
+}
+
+void _pendingAnalyticsEventSerialize(
+  PendingAnalyticsEvent object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeLong(offsets[0], object.attempts);
+  writer.writeDateTime(offsets[1], object.createdAt);
+  writer.writeString(offsets[2], object.eventId);
+  writer.writeString(offsets[3], object.json);
+  writer.writeDateTime(offsets[4], object.nextAttemptAt);
+  writer.writeBool(offsets[5], object.quarantined);
+  writer.writeString(offsets[6], object.userId);
+}
+
+PendingAnalyticsEvent _pendingAnalyticsEventDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = PendingAnalyticsEvent();
+  object.attempts = reader.readLong(offsets[0]);
+  object.createdAt = reader.readDateTime(offsets[1]);
+  object.eventId = reader.readString(offsets[2]);
+  object.id = id;
+  object.json = reader.readString(offsets[3]);
+  object.nextAttemptAt = reader.readDateTime(offsets[4]);
+  object.quarantined = reader.readBool(offsets[5]);
+  object.userId = reader.readStringOrNull(offsets[6]);
+  return object;
+}
+
+P _pendingAnalyticsEventDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readLong(offset)) as P;
+    case 1:
+      return (reader.readDateTime(offset)) as P;
+    case 2:
+      return (reader.readString(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readDateTime(offset)) as P;
+    case 5:
+      return (reader.readBool(offset)) as P;
+    case 6:
+      return (reader.readStringOrNull(offset)) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+Id _pendingAnalyticsEventGetId(PendingAnalyticsEvent object) {
+  return object.id;
+}
+
+List<IsarLinkBase<dynamic>> _pendingAnalyticsEventGetLinks(
+  PendingAnalyticsEvent object,
+) {
+  return [];
+}
+
+void _pendingAnalyticsEventAttach(
+  IsarCollection<dynamic> col,
+  Id id,
+  PendingAnalyticsEvent object,
+) {
+  object.id = id;
+}
+
+extension PendingAnalyticsEventByIndex
+    on IsarCollection<PendingAnalyticsEvent> {
+  Future<PendingAnalyticsEvent?> getByEventId(String eventId) {
+    return getByIndex(r'eventId', [eventId]);
+  }
+
+  PendingAnalyticsEvent? getByEventIdSync(String eventId) {
+    return getByIndexSync(r'eventId', [eventId]);
+  }
+
+  Future<bool> deleteByEventId(String eventId) {
+    return deleteByIndex(r'eventId', [eventId]);
+  }
+
+  bool deleteByEventIdSync(String eventId) {
+    return deleteByIndexSync(r'eventId', [eventId]);
+  }
+
+  Future<Id> putByEventId(PendingAnalyticsEvent object) {
+    return putByIndex(r'eventId', object);
+  }
+
+  Id putByEventIdSync(PendingAnalyticsEvent object, {bool saveLinks = true}) {
+    return putByIndexSync(r'eventId', object, saveLinks: saveLinks);
   }
 }

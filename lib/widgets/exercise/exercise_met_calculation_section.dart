@@ -5,6 +5,7 @@ import '../../models/exercise_entry.dart';
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_quantity_unit.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../services/usage_record.dart';
 import '../../services/exercise_weight_resolver.dart';
@@ -22,6 +23,7 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../screens/settings/calculation_references_screen.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../screens/subscription/plus_gate.dart';
 
 /// 運動フォーム内の MET 自動計算（種目1回 + 分量 + 追加消費）。
@@ -378,6 +380,11 @@ class _ExerciseMetCalculationSectionState
   }
 
   void _selectChoice(_ActivityChoice choice) {
+    CatalogActions.exerciseSearchResultSelect(
+      source: 'exercise_catalog',
+      position: 0,
+      resultCount: _activityChoices().length,
+    );
     final activity = choice.activity;
     if (activity != null) {
       setState(() {
@@ -816,6 +823,7 @@ class _ExerciseMetCalculationSectionState
               context,
               widget.controller,
               message: '運動のメモは、カロナビ+です。',
+              feature: PlusFunnelFeature.memo,
             );
             if (allowed && mounted) {
               setState(() {});
@@ -1199,6 +1207,10 @@ class _ExerciseMetCalculationSectionState
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
+                    settings: const RouteSettings(
+                      name:
+                          'exercise_met_calculation_section_MaterialPageRoute_0',
+                    ),
                     builder: (context) => const CalculationReferencesScreen(),
                   ),
                 );

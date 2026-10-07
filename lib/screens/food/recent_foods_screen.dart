@@ -75,6 +75,7 @@ class RecentFoodsScreen extends StatelessWidget {
 
   Future<void> _choose(BuildContext context, FoodEntry source) async {
     final same = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'recent_foods_screen_showDialog_0'),
       context: context,
       builder: (context) => AlertDialog(
         title: Text(source.name),
@@ -109,6 +110,7 @@ class RecentFoodsScreen extends StatelessWidget {
     }
     final added = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'recent_foods_screen_MaterialPageRoute_0'),
         builder: (context) => RecentFoodQuantityScreen(
           controller: controller,
           source: source,

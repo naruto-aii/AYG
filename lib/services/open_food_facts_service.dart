@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/open_food_facts_config.dart';
+import 'analytics/catalog_actions.dart';
 
 enum OffLookupFailure {
   configurationError,
@@ -45,6 +46,18 @@ class OpenFoodFactsService {
   static const _fields = 'code,product_name,nutriments,quantity,serving_size';
 
   Future<({FoodLookupResult? data, OffLookupFailure? failure})> fetchByBarcode(
+    String barcode,
+  ) async {
+    final started = DateTime.now();
+    final result = await _fetchByBarcode(barcode);
+    CatalogActions.barcodeLookupResult(
+      result: result.failure == null ? 'found' : result.failure!.name,
+      latencyMs: DateTime.now().difference(started).inMilliseconds,
+    );
+    return result;
+  }
+
+  Future<({FoodLookupResult? data, OffLookupFailure? failure})> _fetchByBarcode(
     String barcode,
   ) async {
     final trimmed = barcode.trim();

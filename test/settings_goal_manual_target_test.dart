@@ -48,7 +48,13 @@ void main() {
   }
 
   Future<void> openGoalSettings(WidgetTester tester) async {
-    await tester.tap(find.text(AppStrings.settingsGoal));
+    final hub = find.byKey(const Key('settings-profile'));
+    if (hub.hitTestable().evaluate().isNotEmpty) {
+      await tester.ensureVisible(hub);
+      await tester.tap(hub);
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text(AppStrings.settingsGoal).hitTestable());
     await tester.pumpAndSettle();
   }
 

@@ -68,6 +68,7 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'activity_level_screen_MaterialPageRoute_0'),
         builder: (context) => MainShellScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,

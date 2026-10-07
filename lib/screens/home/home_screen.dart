@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../constants/app_strings.dart';
 import '../../models/calculation/landing_guidance.dart';
 import '../../models/alcohol_entry.dart';
 import '../../models/daily_summary.dart';
@@ -8,10 +9,12 @@ import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
 import '../../repositories/announcement_read_store.dart';
 import '../../repositories/announcement_repository.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/share_card_content.dart';
 import '../../services/share_sheet_client.dart';
 import '../../services/usage_record.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -101,6 +104,16 @@ class HomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(child: _ring(summary)),
+              if (controller.hasUnsentRecords) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '未送信の記録があります',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               _coachEntry(context),
               const SizedBox(height: 8),
@@ -257,6 +270,7 @@ class HomeScreen extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_0'),
             builder: (context) =>
                 DailyCalculationExplanationScreen(summary: summary),
           ),
@@ -382,7 +396,7 @@ class HomeScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: DesignButton(
-        label: '今日のコーチ',
+        label: 'パーソナルコーチ (β)',
         height: 52,
         style: DesignButtonStyle.secondary,
         showTrailingIcon: false,
@@ -397,8 +411,18 @@ class HomeScreen extends StatelessWidget {
   }
 
   Future<void> _openCoach(BuildContext context) async {
+    final allowed = await ensureCalonaviPlus(
+      context,
+      controller,
+      message: AppStrings.coachBetaNotice,
+      feature: PlusFunnelFeature.coach,
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
     final added = await Navigator.of(context).push<CoachSavedKind>(
       MaterialPageRoute<CoachSavedKind>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_1'),
         builder: (context) => DailyCoachScreen(controller: controller),
       ),
     );
@@ -528,12 +552,17 @@ class HomeScreen extends StatelessWidget {
       context,
       controller,
       message: '直近3日の食品からの追加は、カロナビ+です。',
+      feature: PlusFunnelFeature.recentFoods,
     );
     if (!allowed || !context.mounted) {
       return;
     }
+    CatalogActions.recentFoodsOpen(
+      isPlus: controller.subscriptionRepository.isPlusActive,
+    );
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_2'),
         builder: (context) => RecentFoodsScreen(controller: controller),
       ),
     );
@@ -544,6 +573,7 @@ class HomeScreen extends StatelessWidget {
       context,
       controller,
       message: '食品のメモは、カロナビ+です。',
+      feature: PlusFunnelFeature.memo,
     );
     if (!allowed || !context.mounted) {
       return;
@@ -637,6 +667,7 @@ class HomeScreen extends StatelessWidget {
   void _openAlcoholForm(BuildContext context, {AlcoholEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_3'),
         builder: (context) =>
             AlcoholFormScreen(controller: controller, entry: entry),
       ),
@@ -646,6 +677,7 @@ class HomeScreen extends StatelessWidget {
   void _openExerciseForm(BuildContext context, {ExerciseEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_4'),
         builder: (context) =>
             ExerciseFormScreen(controller: controller, entry: entry),
       ),
@@ -655,6 +687,7 @@ class HomeScreen extends StatelessWidget {
   void _openWeightRecord(BuildContext context, double currentWeightKg) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_5'),
         builder: (context) => WeightRecordScreen(
           controller: controller,
           initialWeightKg: currentWeightKg,

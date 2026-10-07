@@ -75,6 +75,7 @@ class _WorkoutTemplateFormScreenState extends State<WorkoutTemplateFormScreen> {
   Future<void> _addItem() async {
     final item = await Navigator.of(context).push<WorkoutTemplateItem>(
       MaterialPageRoute<WorkoutTemplateItem>(
+      settings: const RouteSettings(name: 'workout_template_screens_MaterialPageRoute_0'),
         builder: (context) => WorkoutTemplateItemEditor(
           controller: widget.controller,
           sortOrder: _items.length + 1,
@@ -219,6 +220,7 @@ class _WorkoutTemplateListScreenState extends State<WorkoutTemplateListScreen> {
     }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'workout_template_screens_MaterialPageRoute_1'),
         builder: (context) =>
             WorkoutTemplateFormScreen(controller: widget.controller),
       ),
@@ -231,6 +233,7 @@ class _WorkoutTemplateListScreenState extends State<WorkoutTemplateListScreen> {
   Future<void> _openEdit(WorkoutTemplate template) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'workout_template_screens_MaterialPageRoute_2'),
         builder: (context) => WorkoutTemplateFormScreen(
           controller: widget.controller,
           templateId: template.templateId,
@@ -382,6 +385,7 @@ class _WorkoutTemplatePickerScreenState
     }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'workout_template_screens_MaterialPageRoute_3'),
         builder: (context) =>
             WorkoutTemplateFormScreen(controller: widget.controller),
       ),

@@ -82,10 +82,9 @@ void main() {
         ),
       ),
     );
-    await tester.scrollUntilVisible(
-      find.text(AppStrings.settingsAccountDeletion),
-      200,
-    );
+    await tester.scrollUntilVisible(find.byKey(const Key('settings-account')), 200);
+    await tester.tap(find.byKey(const Key('settings-account')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(AppStrings.settingsAccountDeletion));
     await tester.pumpAndSettle();
 

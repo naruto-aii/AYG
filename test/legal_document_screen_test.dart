@@ -9,6 +9,7 @@ import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/screens/legal/legal_document.dart';
 import 'package:ayg/screens/legal/legal_document_screen.dart';
+import 'package:ayg/screens/settings/settings_policies_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
@@ -73,7 +74,9 @@ void main() {
       ),
     );
 
-    await tester.ensureVisible(find.text('利用規約'));
+    await tester.ensureVisible(find.byKey(const Key('settings-policies')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-policies')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('利用規約'));
     await tester.pumpAndSettle();
@@ -88,6 +91,9 @@ void main() {
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();
     expect(find.byType(LegalDocumentScreen), findsNothing);
+    expect(find.byType(SettingsPoliciesScreen), findsOneWidget);
+    Navigator.of(tester.element(find.byType(SettingsPoliciesScreen))).pop();
+    await tester.pumpAndSettle();
     expect(find.text(AppStrings.settingsContactOperator), findsOneWidget);
 
     await authRepository.dispose();

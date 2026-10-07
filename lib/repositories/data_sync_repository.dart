@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -31,6 +32,7 @@ import 'health_repository.dart';
 import 'supabase/exercise_entry_row_mapper.dart';
 import 'supabase/food_master_row_mapper.dart';
 import 'supabase/supabase_workout_template_repository.dart';
+import 'pending_record_store.dart';
 import 'sync_step_runner.dart';
 
 /// Supabase users テーブルの行。
@@ -117,6 +119,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     FoodMasterRepositories? foodMaster,
     HealthRepository? healthWorkouts,
     SupabaseClient? client,
+    PendingRecordStore? pendingRecords,
   }) : _userRepository = userRepository,
        _settingsRepository = settingsRepository,
        _foodRepository = foodRepository,
@@ -125,6 +128,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
        _weightRepository = weightRepository,
        _foodMaster = foodMaster,
        _healthWorkouts = healthWorkouts,
+       _pendingRecords = pendingRecords,
        _client = client ?? Supabase.instance.client;
 
   final UserRepositoryBase _userRepository;
@@ -135,6 +139,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   final WeightRepositoryBase _weightRepository;
   final FoodMasterRepositories? _foodMaster;
   final HealthRepository? _healthWorkouts;
+  final PendingRecordStore? _pendingRecords;
   final SupabaseClient _client;
 
   @override
@@ -296,31 +301,24 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 
   @override
   Future<void> pushLocalToRemote(String userId) async {
-    await _pushProfile(userId);
-    await _yieldToUi();
-    await _pushGoal(userId);
-    await _yieldToUi();
-    await _pushNutritionSettings(userId);
-    await _yieldToUi();
-    await _pushHealthSnapshot(userId);
-    await _yieldToUi();
-    await _pushAppSettings(userId);
-    await _yieldToUi();
-    await _pushFoodEntries(userId);
-    await _yieldToUi();
-    await _pushExerciseEntries(userId);
-    await _yieldToUi();
-    await _pushAlcoholEntries(userId);
-    await _yieldToUi();
-    await _pushWeightEntries(userId);
-    await _yieldToUi();
-    await _pushSavedFoods(userId);
-    await _yieldToUi();
-    await _pushMealTemplates(userId);
-    await _yieldToUi();
-    await _pushWorkoutTemplates(userId);
-    await _yieldToUi();
-    await _pushHealthWorkouts(userId);
+    await runPushSteps([
+      (table: 'profiles', action: () => _pushProfile(userId)),
+      (table: 'goals', action: () => _pushGoal(userId)),
+      (
+        table: 'nutrition_settings',
+        action: () => _pushNutritionSettings(userId),
+      ),
+      (table: 'health_snapshots', action: () => _pushHealthSnapshot(userId)),
+      (table: 'app_settings', action: () => _pushAppSettings(userId)),
+      (table: 'food_entries', action: () => _pushFoodEntries(userId)),
+      (table: 'exercise_entries', action: () => _pushExerciseEntries(userId)),
+      (table: 'alcohol_entries', action: () => _pushAlcoholEntries(userId)),
+      (table: 'weight_entries', action: () => _pushWeightEntries(userId)),
+      (table: 'saved_foods', action: () => _pushSavedFoods(userId)),
+      (table: 'meal_templates', action: () => _pushMealTemplates(userId)),
+      (table: 'workout_templates', action: () => _pushWorkoutTemplates(userId)),
+      (table: 'health_workouts', action: () => _pushHealthWorkouts(userId)),
+    ], between: _yieldToUi);
   }
 
   Future<List<R>> _mapYielding<T, R>(
@@ -708,12 +706,16 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         .select()
         .eq('user_id', userId);
 
-    final entries = rows.map(FoodMasterRowMapper.foodEntryFromRow).toList();
-    await _foodRepository.clearAll();
-    if (entries.isEmpty) {
-      return;
-    }
-    await _foodRepository.saveAll(entries);
+    final remote = rows.map(FoodMasterRowMapper.foodEntryFromRow).toList();
+    await mergeRepositoryEntries(
+      loadLocal: _foodRepository.loadAll,
+      remote: remote,
+      idOf: (FoodEntry entry) => entry.id,
+      clearAll: _foodRepository.clearAll,
+      saveAll: _foodRepository.saveAll,
+      preferLocalIds: await _preferLocal(PendingRecordKind.food),
+      pendingDeleteIds: await _pendingDeletes(PendingRecordKind.food),
+    );
   }
 
   @override
@@ -727,7 +729,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   Future<void> _pushFoodEntries(String userId) async {
     final entries = await _foodRepository.loadAll();
     await _yieldToUi();
-    await _upsertFoodEntries(userId, entries);
+    if (entries.isNotEmpty) {
+      await _upsertFoodEntries(userId, entries);
+    }
+    await _sendPendingDeletes(
+      userId: userId,
+      table: 'food_entries',
+      kind: PendingRecordKind.food,
+    );
   }
 
   Future<void> _upsertFoodEntries(
@@ -742,22 +751,18 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       entries,
       (entry) => FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
     );
-    try {
-      await _client
+    await upsertDroppingUnknownColumns(
+      table: 'food_entries',
+      rows: rows,
+      requiredColumns: foodEntryRequiredColumns,
+      upsert: (current) => _client
           .from('food_entries')
-          .upsert(rows, onConflict: 'user_id,entry_id');
-    } on PostgrestException catch (error) {
-      if (!isMissingColumnError(error)) {
-        rethrow;
-      }
-      final fallback = [
-        for (final row in rows)
-          Map<String, dynamic>.from(row)..remove('source_saved_food_version'),
-      ];
-      await _client
-          .from('food_entries')
-          .upsert(fallback, onConflict: 'user_id,entry_id');
-    }
+          .upsert(current, onConflict: 'user_id,entry_id'),
+    );
+    await _pendingRecords?.acknowledgeUpserts(
+      PendingRecordKind.food,
+      entries.map((entry) => entry.id),
+    );
   }
 
   Future<void> _pullSavedFoods(String userId) async {
@@ -901,36 +906,47 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         .select()
         .eq('user_id', userId);
 
-    final entries = rows.map(ExerciseEntryRowMapper.fromRow).toList();
-
-    await _exerciseRepository.clearAll();
-    if (entries.isEmpty) {
-      return;
-    }
-    await _exerciseRepository.saveAll(entries);
+    final remote = rows.map(ExerciseEntryRowMapper.fromRow).toList();
+    await mergeRepositoryEntries(
+      loadLocal: _exerciseRepository.loadAll,
+      remote: remote,
+      idOf: (ExerciseEntry entry) => entry.id,
+      clearAll: _exerciseRepository.clearAll,
+      saveAll: _exerciseRepository.saveAll,
+      preferLocalIds: await _preferLocal(PendingRecordKind.exercise),
+      pendingDeleteIds: await _pendingDeletes(PendingRecordKind.exercise),
+    );
   }
 
   Future<void> _pushExerciseEntries(String userId) async {
     final entries = await _exerciseRepository.loadAll();
     if (entries.isEmpty) {
+      await _sendPendingDeletes(
+        userId: userId,
+        table: 'exercise_entries',
+        kind: PendingRecordKind.exercise,
+      );
       return;
     }
 
+    final rows = entries
+        .map((entry) => ExerciseEntryRowMapper.toRow(entry, userId: userId))
+        .toList();
     try {
-      await _client
-          .from('exercise_entries')
-          .upsert(
-            entries
-                .map(
-                  (entry) =>
-                      ExerciseEntryRowMapper.toRow(entry, userId: userId),
-                )
-                .toList(),
-            onConflict: 'user_id,entry_id',
-          );
+      await upsertDroppingUnknownColumns(
+        table: 'exercise_entries',
+        rows: rows,
+        requiredColumns: exerciseEntryRequiredColumns,
+        upsert: (current) => _client
+            .from('exercise_entries')
+            .upsert(current, onConflict: 'user_id,entry_id'),
+      );
     } catch (error) {
       if (isOptionalTableMissingError(error)) {
         return;
+      }
+      if (error is PostgrestException && isMissingColumnError(error)) {
+        rethrow;
       }
       await _client
           .from('exercise_entries')
@@ -950,6 +966,15 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
             onConflict: 'user_id,entry_id',
           );
     }
+    await _pendingRecords?.acknowledgeUpserts(
+      PendingRecordKind.exercise,
+      entries.map((entry) => entry.id),
+    );
+    await _sendPendingDeletes(
+      userId: userId,
+      table: 'exercise_entries',
+      kind: PendingRecordKind.exercise,
+    );
   }
 
   Future<void> _pullAlcoholEntries(String userId) async {
@@ -958,18 +983,26 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         .select()
         .eq('user_id', userId);
 
-    final entries = rows.map(FoodMasterRowMapper.alcoholEntryFromRow).toList();
-
-    await _alcoholRepository.clearAll();
-    if (entries.isEmpty) {
-      return;
-    }
-    await _alcoholRepository.saveAll(entries);
+    final remote = rows.map(FoodMasterRowMapper.alcoholEntryFromRow).toList();
+    await mergeRepositoryEntries(
+      loadLocal: _alcoholRepository.loadAll,
+      remote: remote,
+      idOf: (AlcoholEntry entry) => entry.id,
+      clearAll: _alcoholRepository.clearAll,
+      saveAll: _alcoholRepository.saveAll,
+      preferLocalIds: await _preferLocal(PendingRecordKind.alcohol),
+      pendingDeleteIds: await _pendingDeletes(PendingRecordKind.alcohol),
+    );
   }
 
   Future<void> _pushAlcoholEntries(String userId) async {
     final entries = await _alcoholRepository.loadAll();
     if (entries.isEmpty) {
+      await _sendPendingDeletes(
+        userId: userId,
+        table: 'alcohol_entries',
+        kind: PendingRecordKind.alcohol,
+      );
       return;
     }
 
@@ -993,6 +1026,15 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       }
       rethrow;
     }
+    await _pendingRecords?.acknowledgeUpserts(
+      PendingRecordKind.alcohol,
+      entries.map((entry) => entry.id),
+    );
+    await _sendPendingDeletes(
+      userId: userId,
+      table: 'alcohol_entries',
+      kind: PendingRecordKind.alcohol,
+    );
   }
 
   Future<void> _pullWeightEntries(String userId) async {
@@ -1012,14 +1054,19 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         )
         .toList();
 
-    await _weightRepository.clearAll();
-    if (entries.isEmpty) {
-      return;
-    }
-
-    for (final entry in entries) {
-      await _weightRepository.save(entry);
-    }
+    await mergeRepositoryEntries(
+      loadLocal: _weightRepository.loadAll,
+      remote: entries,
+      idOf: (WeightEntry entry) => entry.id,
+      clearAll: _weightRepository.clearAll,
+      saveAll: (merged) async {
+        for (final entry in merged) {
+          await _weightRepository.save(entry);
+        }
+      },
+      preferLocalIds: await _preferLocal(PendingRecordKind.weight),
+      pendingDeleteIds: await _pendingDeletes(PendingRecordKind.weight),
+    );
   }
 
   WeightSource _parseWeightSource(String? raw) {
@@ -1037,6 +1084,11 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   Future<void> _pushWeightEntries(String userId) async {
     final entries = await _weightRepository.loadAll();
     if (entries.isEmpty) {
+      await _sendPendingDeletes(
+        userId: userId,
+        table: 'weight_entries',
+        kind: PendingRecordKind.weight,
+      );
       return;
     }
 
@@ -1056,6 +1108,56 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
               .toList(),
           onConflict: 'user_id,entry_id',
         );
+    await _pendingRecords?.acknowledgeUpserts(
+      PendingRecordKind.weight,
+      entries.map((entry) => entry.id),
+    );
+    await _sendPendingDeletes(
+      userId: userId,
+      table: 'weight_entries',
+      kind: PendingRecordKind.weight,
+    );
+  }
+
+  Future<Set<String>> _preferLocal(PendingRecordKind kind) async {
+    return await _pendingRecords?.preferLocalIds(kind) ?? const {};
+  }
+
+  Future<Set<String>> _pendingDeletes(PendingRecordKind kind) async {
+    return await _pendingRecords?.pendingDeleteIds(kind) ?? const {};
+  }
+
+  /// 手元から消したが本番に残っている行を、もう一度消す。
+  Future<void> _sendPendingDeletes({
+    required String userId,
+    required String table,
+    required PendingRecordKind kind,
+  }) async {
+    final store = _pendingRecords;
+    if (store == null) {
+      return;
+    }
+    final ids = await store.pendingDeleteIds(kind);
+    if (ids.isEmpty) {
+      return;
+    }
+    Object? failure;
+    for (final id in ids) {
+      try {
+        await _client
+            .from(table)
+            .delete()
+            .eq('user_id', userId)
+            .eq('entry_id', id)
+            .select('entry_id');
+        await store.forget(kind, id);
+      } catch (error) {
+        failure = error;
+      }
+    }
+    if (failure != null) {
+      throw failure;
+    }
   }
 
   Future<void> _pullHealthWorkouts(String userId) async {
@@ -1108,6 +1210,179 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       rethrow;
     }
   }
+}
+
+/// 1表が失敗しても、残りの表は送る。全部試したあと、失敗があればまとめて投げる。
+Future<void> runPushSteps(
+  List<({String table, Future<void> Function() action})> steps, {
+  Future<void> Function()? between,
+}) async {
+  final failures = <({String table, Object error})>[];
+  for (final step in steps) {
+    try {
+      await step.action();
+    } catch (error, stackTrace) {
+      failures.add((table: step.table, error: error));
+      debugPrint('[AYG] push ${step.table} failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    if (between != null) {
+      await between();
+    }
+  }
+  if (failures.isNotEmpty) {
+    throw PartialPushException(failures);
+  }
+}
+
+class PartialPushException implements Exception {
+  PartialPushException(this.failures);
+
+  final List<({String table, Object error})> failures;
+
+  @override
+  String toString() {
+    final tables = failures.map((failure) => failure.table).join(', ');
+    return 'PartialPushException($tables)';
+  }
+}
+
+/// 同じ entry_id は、未送信の印が無ければ本番を残す。
+/// 未送信の上書きは手元を残す。未送信の削除で手元に無い行は、本番から戻さない。
+List<T> mergeEntriesById<T>({
+  required List<T> local,
+  required List<T> remote,
+  required String Function(T entry) idOf,
+  Set<String> preferLocalIds = const {},
+  Set<String> pendingDeleteIds = const {},
+}) {
+  final localById = <String, T>{for (final entry in local) idOf(entry): entry};
+  final merged = <T>[];
+  final seen = <String>{};
+  for (final entry in remote) {
+    final id = idOf(entry);
+    if (!seen.add(id)) {
+      continue;
+    }
+    final keptLocal = localById[id];
+    if (pendingDeleteIds.contains(id) && keptLocal == null) {
+      continue;
+    }
+    if (keptLocal != null &&
+        (preferLocalIds.contains(id) || pendingDeleteIds.contains(id))) {
+      merged.add(keptLocal);
+      continue;
+    }
+    merged.add(entry);
+  }
+  for (final entry in local) {
+    final id = idOf(entry);
+    if (seen.contains(id) || pendingDeleteIds.contains(id)) {
+      continue;
+    }
+    merged.add(entry);
+  }
+  return merged;
+}
+
+Future<void> mergeRepositoryEntries<T>({
+  required Future<List<T>> Function() loadLocal,
+  required List<T> remote,
+  required String Function(T entry) idOf,
+  required Future<void> Function() clearAll,
+  required Future<void> Function(List<T> entries) saveAll,
+  Set<String> preferLocalIds = const {},
+  Set<String> pendingDeleteIds = const {},
+}) async {
+  final local = await loadLocal();
+  final merged = mergeEntriesById(
+    local: local,
+    remote: remote,
+    idOf: idOf,
+    preferLocalIds: preferLocalIds,
+    pendingDeleteIds: pendingDeleteIds,
+  );
+  await clearAll();
+  if (merged.isEmpty) {
+    return;
+  }
+  await saveAll(merged);
+}
+
+const foodEntryRequiredColumns = {
+  'user_id',
+  'entry_id',
+  'name',
+  'quantity',
+  'logged_at',
+};
+
+const exerciseEntryRequiredColumns = {
+  'user_id',
+  'entry_id',
+  'name',
+  'duration_min',
+  'burned_kcal',
+  'logged_at',
+};
+
+/// PGRST204 / 42703 に書かれた列を外して再送する。必須列は外さない。
+Future<void> upsertDroppingUnknownColumns({
+  required String table,
+  required List<Map<String, dynamic>> rows,
+  required Set<String> requiredColumns,
+  required Future<void> Function(List<Map<String, dynamic>> rows) upsert,
+}) async {
+  var current = rows;
+  final dropped = <String>{};
+  while (true) {
+    try {
+      await upsert(current);
+      return;
+    } on PostgrestException catch (error) {
+      if (!isMissingColumnError(error)) {
+        rethrow;
+      }
+      final column = unknownColumnName(error);
+      final present = current.any((row) => row.containsKey(column));
+      if (column == null ||
+          requiredColumns.contains(column) ||
+          !dropped.add(column) ||
+          !present) {
+        rethrow;
+      }
+      debugPrint('[AYG] $table upsert dropped column $column');
+      current = [
+        for (final row in current)
+          Map<String, dynamic>.from(row)..remove(column),
+      ];
+    }
+  }
+}
+
+String? unknownColumnName(Object error) {
+  if (error is! PostgrestException) {
+    return null;
+  }
+  final text = '${error.message} ${error.details ?? ''} ${error.hint ?? ''}';
+  final postgrest = RegExp(
+    "Could not find the '([^']+)' column",
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (postgrest != null) {
+    return postgrest.group(1);
+  }
+  final postgres = RegExp(
+    'column "([^"]+)"',
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (postgres != null) {
+    return postgres.group(1);
+  }
+  if (text.toLowerCase().contains('source_saved_food_version')) {
+    return 'source_saved_food_version';
+  }
+  return null;
 }
 
 bool isMissingColumnError(Object error) {

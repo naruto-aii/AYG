@@ -113,6 +113,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     final currentName = _home.names[slot]?.trim();
     final selected = await Navigator.of(context).push<MealTemplateDraft>(
       MaterialPageRoute<MealTemplateDraft>(
+      settings: const RouteSettings(name: 'lock_screen_meal_screen_MaterialPageRoute_0'),
         builder: (context) => MealTemplateFormScreen(
           controller: widget.controller,
           captureOnly: true,
@@ -146,6 +147,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     final selected = await Navigator.of(context)
         .push<List<WidgetExercisePattern>>(
           MaterialPageRoute<List<WidgetExercisePattern>>(
+      settings: const RouteSettings(name: 'lock_screen_meal_screen_MaterialPageRoute_1'),
             builder: (context) =>
                 WidgetExercisePatternScreen(initial: _home.exercises[slot]),
           ),
@@ -223,6 +225,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
     }
     setState(() => _saving = false);
     await showDialog<void>(
+      routeSettings: const RouteSettings(name: 'lock_screen_meal_screen_showDialog_0'),
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('内容を保存しました'),

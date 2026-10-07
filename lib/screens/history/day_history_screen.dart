@@ -125,6 +125,7 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_0'),
         builder: (context) => AlcoholFormScreen(
           controller: controller,
           entry: entry,
@@ -141,6 +142,7 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_1'),
         builder: (context) => ExerciseFormScreen(
           controller: controller,
           entry: entry,
@@ -157,6 +159,7 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_2'),
         builder: (context) => WeightRecordScreen(
           controller: controller,
           entry: entry,

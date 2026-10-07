@@ -159,7 +159,8 @@ void main() {
     final down = _readRepo('supabase/rollback/20261006180000_food_search_readings_down.sql');
     expect(sql, contains('search_official_foods_strict'));
     expect(sql, contains('search_public_foods'));
-    expect(sql, contains('味噌汁'));
+    expect(sql, isNot(contains("('17049', '味噌汁'")));
+    expect(sql, isNot(contains("('17050', '味噌汁'")));
     expect(sql, contains('さささみ'));
     expect(sql, contains('order by 31'));
     expect(sql, contains('grant execute on function public.search_official_foods(text, integer) to anon'));
@@ -355,7 +356,6 @@ _SpeechScore _scoreUtterances(
     ('食パン', '01026', null),
     ('鶏むね100g', '11220', '100'),
     ('サラダチキン100g', '11220', '100'),
-    ('味噌汁', '17049', null),
     ('ラーメン', '01048', null),
     ('カレー', '18001', null),
     ('えーと、あの、ご飯', '01088', null),

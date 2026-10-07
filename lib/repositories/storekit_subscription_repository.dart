@@ -7,6 +7,7 @@ import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/subscription_catalog.dart';
+import '../services/analytics/analytics.dart';
 import '../services/subscription_entitlement.dart';
 import '../services/subscription_offer.dart';
 import 'subscription_exceptions.dart';
@@ -77,6 +78,20 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   bool _productsConfirmed = false;
   bool _authoritative = false;
   bool _suppressAuthoritativeSweep = false;
+  String? _applicationUserName;
+  String? _originalTransactionId;
+
+  @override
+  bool get reportsEntitlementAnalytics => true;
+
+  @override
+  String? get storeOriginalTransactionId => _originalTransactionId;
+
+  @override
+  void bindStoreAccountToken(String? userId) {
+    final trimmed = userId?.trim().toLowerCase();
+    _applicationUserName = trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
 
   @override
   List<SubscriptionEntitlementRecord> get confirmedEntitlements => [
@@ -323,7 +338,10 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       );
     }
     final launched = await store.buyNonConsumable(
-      purchaseParam: PurchaseParam(productDetails: product),
+      purchaseParam: Sk2PurchaseParam(
+        productDetails: product,
+        applicationUserName: _applicationUserName,
+      ),
     );
     if (!launched) {
       throw SubscriptionPurchaseFailedException('購入画面を開けませんでした。');
@@ -333,6 +351,12 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   Future<void> _onPurchases(List<PurchaseDetails> purchases) async {
     final store = _purchases;
     for (final purchase in purchases) {
+      final original = parseOriginalTransactionId(
+        purchase.verificationData.localVerificationData,
+      );
+      if (original != null) {
+        _originalTransactionId = original;
+      }
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
         final revoked =
@@ -346,6 +370,26 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
             expiresAt: revoked ? null : _expiryOf(purchase),
           ),
         );
+        Analytics.emit('purchase_result', {
+          'product_id': purchase.productID,
+          'status': 'purchased',
+        });
+      } else if (purchase.status == PurchaseStatus.canceled) {
+        Analytics.emit('purchase_result', {
+          'product_id': purchase.productID,
+          'status': 'cancelled',
+        });
+      } else if (purchase.status == PurchaseStatus.error) {
+        Analytics.emit('purchase_result', {
+          'product_id': purchase.productID,
+          'status': 'failed',
+          'error_code': purchase.error?.code,
+        });
+      } else if (purchase.status == PurchaseStatus.pending) {
+        Analytics.emit('purchase_result', {
+          'product_id': purchase.productID,
+          'status': 'pending',
+        });
       }
       if (purchase.pendingCompletePurchase && store != null) {
         await store.completePurchase(purchase);
@@ -386,6 +430,24 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     }
     _productsConfirmed = true;
     await _persist();
+    _emitEntitlementObserved(changed: previous.length != _confirmedIds.length);
+  }
+
+  void _emitEntitlementObserved({required bool changed}) {
+    final active = isPlusActive;
+    final expiry = _entitlement.latestExpiry;
+    String? productId;
+    for (final id in _confirmedIds) {
+      productId = id;
+      break;
+    }
+    Analytics.emit('entitlement_observed', {
+      'status': active ? 'active' : 'inactive',
+      'product_id': productId,
+      'expires_at': expiry?.toUtc().toIso8601String(),
+      'original_transaction_id': _originalTransactionId,
+      'changed': changed,
+    });
   }
 
   void _applyRecord(SubscriptionEntitlementRecord record) {

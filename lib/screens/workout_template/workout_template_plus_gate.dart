@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
@@ -16,6 +17,10 @@ Future<bool> allowWorkoutTemplateCreate(
   if (!context.mounted) {
     return false;
   }
+  controller.recordPlusFunnel(
+    event: PlusFunnelEvent.gateShown,
+    feature: PlusFunnelFeature.workoutTemplateLimit,
+  );
   final openPlus = await showAppConfirmDialog(
     context: context,
     title: 'こちらは有料の機能です',
@@ -26,6 +31,10 @@ Future<bool> allowWorkoutTemplateCreate(
     cancelLabel: '閉じる',
   );
   if (openPlus == true && context.mounted) {
+    controller.recordPlusFunnel(
+      event: PlusFunnelEvent.gateTap,
+      feature: PlusFunnelFeature.workoutTemplateLimit,
+    );
     final custom = controller.openCalonaviPlusFlow;
     if (custom != null) {
       await custom(context);
@@ -33,6 +42,8 @@ Future<bool> allowWorkoutTemplateCreate(
       await showCalonaviPlus(
         context,
         repository: controller.subscriptionRepository,
+        feature: PlusFunnelFeature.workoutTemplateLimit,
+        funnel: controller.plusFunnelRepository,
       );
     }
   }

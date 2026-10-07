@@ -6,6 +6,7 @@ import '../../platform/web/in_app_browser_detector.dart';
 import '../../platform/web/web_browser_utils.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -71,17 +72,26 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_isLoading) {
       return;
     }
+    final provider = label == 'Apple' ? 'apple' : 'google';
+    CatalogActions.loginTap(provider);
     setState(() => _isLoading = true);
     try {
       await login();
+      CatalogActions.loginResult(provider: provider, result: 'success');
       if (kIsWeb) {
         // Web は外部ブラウザへ遷移するので、戻ってきたときに復帰する。
         return;
       }
       await widget.controller.handleAuthenticatedSession();
     } on SignInCancelledException {
+      CatalogActions.loginResult(provider: provider, result: 'cancelled');
       return;
     } catch (error) {
+      CatalogActions.loginResult(
+        provider: provider,
+        result: 'failed',
+        errorKind: error.runtimeType.toString(),
+      );
       if (!mounted) {
         return;
       }

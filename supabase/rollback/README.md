@@ -2,6 +2,70 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261007112725 kpi excluded users
+
+本番には version `20261007112725` で適用済み。開発者アカウントを日次集計と退会集計から外す。戻すときは、先に `maintain_app_events` と `delete_own_account` を `20261007103757` 時点の本文へ戻す。本文は `db-backup-20261007/maintain_app_events_prod_before_kpi_excluded_users.sql` と `db-backup-20261007/delete_own_account_prod_before_kpi_excluded_users.sql`。そのあとこの down を流す。`kpi` スキーマと `public.kpi_excluded_users` が消える。定期実行 `20261008090300` を先に戻す。
+
+`supabase/rollback/20261007112725_kpi_excluded_users_down.sql`
+
+## 20261007103757 app events closed month
+
+本番には version `20261007103757` で適用済み。集計済みの月を再び受け付ける。`insert_app_events` は整数の戻り値に戻り、`maintain_app_events` は本番の `20261007095347` に戻る。表と行は残す。定期実行 `20261008090300` を戻したあとに流す。戻すと、同じ操作の再送で集計が二重になる。
+
+`supabase/rollback/20261007103757_app_events_closed_month_down.sql`
+
+## 20261007095347 app events rollup additive
+
+本番には version `20261007095347` で適用済み。`maintain_app_events` を、その前の `20261007094142` の定義に戻す。表と行は残す。`20261007103757` を先に戻す。戻すと、遅れた操作でその月の集計が上書きされる動きに戻る。
+
+`supabase/rollback/20261007095347_app_events_rollup_additive_down.sql`
+
+## 20261007094142 app events retention
+
+本番には version `20261007094142` で適用済み。`20261007094059_app_events` と **同じ作業で適用した**。片方だけでは戻さない。アプリは `public.insert_app_events` で追加する。戻す SQL は `supabase/rollback/20261007094142_app_events_retention_down.sql`。先にこちらを流し、続けて `20261007094059` の down を流す。`20261007103757` と `20261007095347` を先に戻しておく。
+
+定期実行（90日より古い月の削除）は `20261008090300` で、適用済みの `20261007103757` と `20261007112725` のあと、pg_cron の承認後に別途適用する。
+
+## 20261007094059 app events
+
+本番には version `20261007094059` で適用済み。`20261007094142_app_events_retention` と **同じ作業で適用した**。追加は `insert_app_events` だけ。表への直接 INSERT は渡さない。戻す SQL は `supabase/rollback/20261007094059_app_events_down.sql`。`app_events` の行は消える。`delete_own_account` は、本番に当たっている `20261007090000` の定義に戻す。
+
+## 20261007074319 record origin
+
+食事と運動の `record_origin` だけを外す。行は残す。本番には version `20261007074319` で適用済み。戻すときはこのファイルを手動で流す。
+
+`supabase/rollback/20261007074319_record_origin_down.sql`
+
+## 20261007090000 plus funnel events
+
+`plus_funnel_events` を消す。アカウント削除の関数は、表が無いときはその削除を飛ばす。本番には version `20261007090000` で適用済み。リポジトリのファイル名もその version に合わせた。
+
+`supabase/rollback/20261007090000_plus_funnel_events_down.sql`
+
+## 20261007162000 blocked food creators update own
+
+ブロックし直すための update 方針だけを外す。行は残す。本番の方針は、このロールバックを流さない限り残る。
+
+`supabase/rollback/20261007162000_blocked_food_creators_update_own_down.sql`
+
+## 20261007161000 remove miso soup aliases from instant miso
+
+即席みそ 17049 / 17050 へ、味噌汁の口語別名6行を戻す。
+
+`supabase/rollback/20261007161000_remove_miso_soup_aliases_from_instant_miso_down.sql`
+
+## 20261007160000 food search spellings rls
+
+`food_search_spellings` の RLS と SELECT 方針を外す。行は残す。
+
+`supabase/rollback/20261007160000_food_search_spellings_rls_down.sql`
+
+## 20261007050424 harden function security
+
+10関数の `search_path` 固定と、`saved_foods_fill_voice` の直接実行の取り消しを戻す。表とデータは変えない。本番には適用済みの修正なので、戻すときはこのファイルを手動で流す。
+
+`supabase/rollback/20261007050424_harden_function_security_down.sql`
+
 ## 20261006150000 calonavi plus half year product
 
 半年プランの商品ID `calonavi_plus_half_year` だけを戻す。月額・年額・実機テストの加入行、表、RLS は残す。2回実行しても失敗しない。
@@ -34,7 +98,7 @@
 
 ## 20261004150000 coach proposal logs
 
-今日のコーチが出した提案の記録だけを戻す。食事、運動、公式食品、お知らせ、候補食品は消さない。2回実行しても失敗しない。
+パーソナルコーチ (β) が出した提案の記録だけを戻す。食事、運動、公式食品、お知らせ、候補食品は消さない。2回実行しても失敗しない。
 
 `supabase/rollback/20261004150000_coach_proposal_logs_down.sql`
 
@@ -64,7 +128,7 @@
 
 ## 20261004120000 coach food candidates
 
-今日のコーチの候補表だけを戻す。official_foods の数値、食事、運動、体重は消さない。2回実行しても失敗しない。
+パーソナルコーチ (β) の候補表だけを戻す。official_foods の数値、食事、運動、体重は消さない。2回実行しても失敗しない。
 
 `supabase/rollback/20261004120000_coach_food_candidates_down.sql`
 

@@ -42,6 +42,7 @@ class IsarService {
         HealthSnapshotEntitySchema,
         AppSettingsEntitySchema,
         HealthWorkoutEntitySchema,
+        PendingAnalyticsEventSchema,
       ],
       directory: dir,
       name: 'ayg',

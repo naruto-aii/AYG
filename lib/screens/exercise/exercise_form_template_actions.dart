@@ -20,6 +20,7 @@ Future<void> openWorkoutTemplatePicker({
 }) async {
   final template = await Navigator.of(context).push<WorkoutTemplate>(
     MaterialPageRoute<WorkoutTemplate>(
+      settings: const RouteSettings(name: 'exercise_form_template_actions_MaterialPageRoute_0'),
       builder: (context) => WorkoutTemplatePickerScreen(controller: controller),
     ),
   );
@@ -36,6 +37,7 @@ Future<void> openWorkoutTemplatePicker({
 
   await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'exercise_form_template_actions_MaterialPageRoute_1'),
       builder: (context) => WorkoutTemplateApplyScreen(
         controller: controller,
         template: bundle.template,
@@ -57,6 +59,7 @@ Future<void> openWorkoutTemplateCreate(
   }
   await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'exercise_form_template_actions_MaterialPageRoute_2'),
       builder: (context) => WorkoutTemplateFormScreen(controller: controller),
     ),
   );

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 /// 公開食品を更新する前に表示する確認 Popup。
 Future<bool> showConfirmPublicFoodUpdateDialog(BuildContext context) async {
   final result = await showDialog<bool>(
+      routeSettings: const RouteSettings(name: 'confirm_public_food_update_dialog_showDialog_0'),
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('公開食品を更新'),

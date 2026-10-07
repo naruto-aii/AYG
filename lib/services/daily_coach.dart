@@ -2,13 +2,11 @@ import 'dart:math' as math;
 
 import '../data/coach_food_catalog.dart';
 import '../data/met_activity_catalog.dart';
+import 'personal_coach_planner.dart';
 import '../models/exercise_entry.dart';
 import '../models/exercise_quantity_unit.dart';
 import '../services/exercise_calorie_calculator.dart';
 import '../utils/local_date.dart';
-
-/// 初めて開いたときのポップアップと、コーチページの下に出す文。
-const coachTrialNotice = '精度を検証しています。今は無料で使えます。検証が終わると、有料プランの機能になります。';
 
 const coachNutritionMissingMessage = '食品の数値が取れませんでした。';
 
@@ -57,6 +55,8 @@ class CoachMealProposal {
     required this.fatG,
     required this.carbG,
     this.macroNote,
+    this.note,
+    this.bandLabel,
   });
 
   final String headline;
@@ -66,6 +66,12 @@ class CoachMealProposal {
   final double fatG;
   final double carbG;
   final String? macroNote;
+
+  /// 「残りは次の食事で」など、案の補足。
+  final String? note;
+
+  /// 間食、軽食、一食（ちゃんと）、一食（しっかり）。
+  final String? bandLabel;
 
   Set<String> get foodCodes => {for (final item in components) item.foodCode};
 }
@@ -120,50 +126,7 @@ int? coachWholeMinutes(double amount) {
   return minutes;
 }
 
-class _Portion {
-  const _Portion({required this.stock, required this.count});
-
-  final CoachFoodStock stock;
-  final int count;
-
-  CoachFoodCandidate get food => stock.candidate;
-}
-
-class _Draft {
-  const _Draft({required this.portions});
-
-  final List<_Portion> portions;
-
-  String get key {
-    final codes = [for (final portion in portions) portion.food.foodCode]
-      ..sort();
-    return codes.join(',');
-  }
-
-  double get kcal => portions.fold(0.0, (sum, portion) {
-    return sum + portion.stock.unitKcal * portion.count;
-  });
-
-  double get proteinG => portions.fold(0.0, (sum, portion) {
-    return sum + portion.stock.unitProteinG * portion.count;
-  });
-
-  double get fatG => portions.fold(0.0, (sum, portion) {
-    return sum + portion.stock.unitFatG * portion.count;
-  });
-
-  double get carbG => portions.fold(0.0, (sum, portion) {
-    return sum + portion.stock.unitCarbG * portion.count;
-  });
-
-  int get grams => portions.fold(0, (sum, portion) {
-    return sum + portion.food.unitGrams * portion.count;
-  });
-}
-
-/// 残りkcalに近い案を3つ。同じ食品のグラム違いだけは並べない。
-///
-/// PFCがずれても出す。「今日は提案できません」は返さない。
+/// 上位10案。量は食品ごとの選択肢だけ。unit_grams では増やさない。
 List<CoachMealProposal> planCoachMeals({
   required List<CoachFoodStock> foods,
   required Set<String> excludedFoodCodes,
@@ -171,210 +134,52 @@ List<CoachMealProposal> planCoachMeals({
   required double remainingProteinG,
   required double remainingFatG,
   required double remainingCarbG,
+  DateTime? now,
+  int limit = 10,
 }) {
-  final available = [
-    for (final food in foods)
-      if (!excludedFoodCodes.contains(food.candidate.foodCode) &&
-          food.unitKcal.isFinite &&
-          food.unitKcal > 0)
-        food,
-  ]..sort((a, b) => a.candidate.sortOrder.compareTo(b.candidate.sortOrder));
-  if (available.isEmpty) {
-    return const [];
-  }
-
-  final target = remainingKcal.isFinite ? math.max(0.0, remainingKcal) : 0.0;
-  final bestByFoods = <String, _Draft>{};
-
-  void consider(_Draft draft) {
-    final current = bestByFoods[draft.key];
-    if (current == null || _preferDraft(draft, current, target)) {
-      bestByFoods[draft.key] = draft;
-    }
-  }
-
-  for (final food in available) {
-    final limit = _maxUnits(food.unitKcal, target);
-    for (var count = 1; count <= limit; count++) {
-      consider(
-        _Draft(
-          portions: [_Portion(stock: food, count: count)],
-        ),
-      );
-    }
-  }
-
-  for (var i = 0; i < available.length; i++) {
-    for (var j = i + 1; j < available.length; j++) {
-      final first = available[i];
-      final second = available[j];
-      final firstLimit = _maxUnits(first.unitKcal, target);
-      final secondLimit = _maxUnits(second.unitKcal, target);
-      for (var a = 1; a <= firstLimit; a++) {
-        for (var b = 1; b <= secondLimit; b++) {
-          consider(
-            _Draft(
-              portions: [
-                _Portion(stock: first, count: a),
-                _Portion(stock: second, count: b),
-              ],
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  final ranked = bestByFoods.values.toList()
-    ..sort((a, b) {
-      final gap = (a.kcal - target).abs().compareTo((b.kcal - target).abs());
-      if (gap != 0) {
-        return gap;
-      }
-      final size = a.portions.length.compareTo(b.portions.length);
-      if (size != 0) {
-        return size;
-      }
-      final grams = a.grams.compareTo(b.grams);
-      if (grams != 0) {
-        return grams;
-      }
-      return a.key.compareTo(b.key);
-    });
-
-  return [
-    for (final draft in ranked.take(3))
-      _proposal(
-        draft,
-        remainingProteinG: remainingProteinG,
-        remainingFatG: remainingFatG,
-        remainingCarbG: remainingCarbG,
-      ),
-  ];
-}
-
-int _maxUnits(double unitKcal, double target) {
-  if (target <= 0 || unitKcal <= 0) {
-    return 1;
-  }
-  return ((target / unitKcal).ceil() + 1).clamp(1, 8);
-}
-
-bool _preferDraft(_Draft next, _Draft current, double target) {
-  final nextGap = (next.kcal - target).abs();
-  final currentGap = (current.kcal - target).abs();
-  if ((nextGap - currentGap).abs() > 0.01) {
-    return nextGap < currentGap;
-  }
-  if (next.portions.length != current.portions.length) {
-    return next.portions.length < current.portions.length;
-  }
-  return next.grams < current.grams;
-}
-
-CoachMealProposal _proposal(
-  _Draft draft, {
-  required double remainingProteinG,
-  required double remainingFatG,
-  required double remainingCarbG,
-}) {
-  final portions = [...draft.portions]
-    ..sort((a, b) => a.food.sortOrder.compareTo(b.food.sortOrder));
-  final components = [
-    for (final portion in portions)
-      CoachMealComponent(
-        foodCode: portion.food.foodCode,
-        displayName: portion.food.displayName,
-        officialName: portion.stock.nutrition.officialName,
-        units: portion.count,
-        grams: portion.food.unitGrams * portion.count,
-        kcalPerUnit: portion.stock.unitKcal,
-        proteinPerUnit: portion.stock.unitProteinG,
-        fatPerUnit: portion.stock.unitFatG,
-        carbPerUnit: portion.stock.unitCarbG,
-      ),
-  ];
-  return CoachMealProposal(
-    headline: _headline(portions),
-    components: components,
-    kcal: draft.kcal,
-    proteinG: draft.proteinG,
-    fatG: draft.fatG,
-    carbG: draft.carbG,
-    macroNote: _macroNote(
-      proteinG: draft.proteinG,
-      fatG: draft.fatG,
-      carbG: draft.carbG,
-      remainingProteinG: remainingProteinG,
-      remainingFatG: remainingFatG,
-      remainingCarbG: remainingCarbG,
-    ),
+  final planned = planPersonalCoachMeals(
+    foods: foods,
+    excludedFoodCodes: excludedFoodCodes,
+    remainingKcal: remainingKcal,
+    now: now,
+    limit: limit,
   );
-}
-
-String _headline(List<_Portion> portions) {
-  if (portions.length == 1) {
-    final portion = portions.single;
-    final food = portion.food;
-    final grams = food.unitGrams * portion.count;
-    if (food.foodCode == '01111') {
-      return '${food.displayName}（${portion.count}個${grams}g、中身は米だけ）';
-    }
-    final counter = food.counter;
-    if (counter != null) {
-      return '${food.displayName}（${portion.count}$counter）';
-    }
-    return '${food.displayName}（${grams}g）';
-  }
-
-  final codes = {for (final portion in portions) portion.food.foodCode};
-  final title =
-      codes.length == 2 && codes.contains('01088') && codes.contains('12005')
-      ? '卵かけご飯'
-      : portions.map((portion) => portion.food.titleName).join('と');
-  final detail = portions.map(_amountPhrase).join('と');
-  return '$title（$detail）';
-}
-
-String _amountPhrase(_Portion portion) {
-  final food = portion.food;
-  final grams = food.unitGrams * portion.count;
-  if (food.foodCode == '01111') {
-    return '${food.amountName}${portion.count}${food.counter}${grams}g（中身は米だけ）';
-  }
-  final counter = food.counter;
-  if (counter != null) {
-    return '${food.amountName}${portion.count}$counter';
-  }
-  return '${food.amountName}${grams}g';
-}
-
-String? _macroNote({
-  required double proteinG,
-  required double fatG,
-  required double carbG,
-  required double remainingProteinG,
-  required double remainingFatG,
-  required double remainingCarbG,
-}) {
-  var name = 'たんぱく質';
-  var gap = proteinG - remainingProteinG;
-  final others = <(String, double)>[
-    ('脂質', fatG - remainingFatG),
-    ('炭水化物', carbG - remainingCarbG),
+  final note = remainingKcal > 850 ? '残りは次の食事で' : null;
+  return [
+    for (final meal in planned)
+      CoachMealProposal(
+        headline: meal.headline,
+        bandLabel: personalCoachBandLabel(meal.band),
+        note: note,
+        components: [
+          for (final item in meal.items)
+            CoachMealComponent(
+              foodCode: item.foodCode,
+              displayName: item.displayName,
+              officialName: item.displayName,
+              units: 1,
+              grams: item.grams,
+              kcalPerUnit: _componentKcal(foods, item),
+              proteinPerUnit: item.proteinG,
+              fatPerUnit: item.fatG,
+              carbPerUnit: item.carbG,
+            ),
+        ],
+        kcal: meal.kcal.toDouble(),
+        proteinG: meal.proteinG,
+        fatG: meal.fatG,
+        carbG: meal.carbG,
+      ),
   ];
-  for (final other in others) {
-    if (other.$2.abs() > gap.abs()) {
-      name = other.$1;
-      gap = other.$2;
+}
+
+double _componentKcal(List<CoachFoodStock> foods, PlannedCoachItem item) {
+  for (final food in foods) {
+    if (food.candidate.foodCode == item.foodCode) {
+      return food.kcalFor(item.grams);
     }
   }
-  final rounded = gap.round();
-  if (rounded == 0) {
-    return null;
-  }
-  final direction = rounded > 0 ? '多く' : '少なく';
-  return 'これだと$nameが約${rounded.abs()}g$directionなります。今提案できる範囲で最善です。';
+  return item.kcal.toDouble();
 }
 
 class _Practice {
@@ -405,6 +210,8 @@ class CoachExerciseProposal {
     this.amount,
     this.unit,
     this.met,
+    this.paceKmh,
+    this.needsWeight = false,
   });
 
   final String message;
@@ -416,6 +223,12 @@ class CoachExerciseProposal {
 
   /// 分で計算したときの MET。距離の種目では使わない。
   final double? met;
+
+  /// 距離の種目を分で登録するとき、その人の速さ。無ければ種目の基準速度。
+  final double? paceKmh;
+
+  /// 体重が無く、登録の前に体重の記録が要る。
+  final bool needsWeight;
 
   bool get canRegister {
     return activityId != null &&
@@ -436,6 +249,8 @@ class _ExercisePlan {
     this.amount,
     this.unit,
     this.met,
+    this.paceKmh,
+    this.needsWeight = false,
   });
 
   final String message;
@@ -443,6 +258,8 @@ class _ExercisePlan {
   final double? amount;
   final CoachExerciseUnit? unit;
   final double? met;
+  final double? paceKmh;
+  final bool needsWeight;
 
   CoachExerciseProposal get proposal {
     return CoachExerciseProposal(
@@ -451,6 +268,8 @@ class _ExercisePlan {
       amount: amount,
       unit: unit,
       met: met,
+      paceKmh: paceKmh,
+      needsWeight: needsWeight,
     );
   }
 }
@@ -497,10 +316,19 @@ _ExercisePlan? _exercisePlan({
   if (!overageKcal.isFinite || overageKcal <= 0) {
     return null;
   }
+  if (overageKcal < 50) {
+    return const _ExercisePlan('今日はほぼちょうどです。');
+  }
+  if (personalCoachIsNight(now)) {
+    return const _ExercisePlan('明日の歩数で取り戻しましょう。');
+  }
   final practice = _bestPractice(exercises, now);
   final weight = weightKg != null && weightKg > 0 ? weightKg : null;
   if (weight == null) {
-    return _withoutWeight(practice);
+    return const _ExercisePlan(
+      '体重が未登録のため、戻るカロリーを計算できません。',
+      needsWeight: true,
+    );
   }
   final requiredRunKm = overageKcal / weight;
   if (practice == null) {
@@ -566,7 +394,7 @@ ExerciseEntry? coachExerciseEntry({
   switch (proposal.unit!) {
     case CoachExerciseUnit.minutes:
       if (activity.quantityUnit == ExerciseQuantityUnit.distanceKm) {
-        final speed = activity.referenceSpeedKmh;
+        final speed = proposal.paceKmh ?? activity.referenceSpeedKmh;
         if (speed == null || speed <= 0) {
           return null;
         }
@@ -763,18 +591,6 @@ double? _paceKmh(ExerciseEntry entry) {
   return kmh;
 }
 
-_ExercisePlan _withoutWeight(_Practice? practice) {
-  const head = '体重がないため、距離は出していません。';
-  if (practice == null || practice.longestMinutes <= 0) {
-    return const _ExercisePlan('$head今日やるなら、歩くか軽い自重で20分までにします。');
-  }
-  final cap = math.min(45.0, practice.longestMinutes * 1.5);
-  final minutes = math.max(1, cap.round());
-  return _ExercisePlan(
-    '$head今日やるなら${practice.activity.displayName}$minutes分までにします。',
-  );
-}
-
 _ExercisePlan _noviceMessage({
   required double overageKcal,
   required double weightKg,
@@ -784,23 +600,16 @@ _ExercisePlan _noviceMessage({
   final speed = walk?.referenceSpeedKmh;
   final factor = walk?.netKcalPerKgKm;
   if (walk == null || speed == null || speed <= 0 || factor == null) {
-    return const _ExercisePlan('今日やるなら、歩くか軽い自重で20分までにします。');
+    return const _ExercisePlan('今日やるなら、速歩きで20分までにします。');
   }
-  final neededKm = overageKcal / (factor * weightKg);
-  final neededMin = neededKm / speed * 60;
-  final today = math.min(20.0, neededMin);
-  final shown = math.max(1, today.round());
-  final message = neededMin > 45
-      ? _partialReturn(
-          requiredRunKm: requiredRunKm,
-          today: '、歩くか軽い自重で20分までにします',
-        )
-      : '今日やるなら、歩くか軽い自重で$shown分${today + 0.05 < neededMin ? 'までにします' : 'にします'}。';
-  return _ExercisePlan(
-    message,
-    activityId: walk.id,
-    amount: shown.toDouble(),
-    unit: CoachExerciseUnit.minutes,
+  final perMinute = factor * weightKg * speed / 60;
+  return _timedPlan(
+    activity: walk,
+    activityName: '速歩き',
+    overageKcal: overageKcal,
+    perMinute: perMinute,
+    capMinutes: 20,
+    paceKmh: speed,
   );
 }
 
@@ -811,40 +620,31 @@ _ExercisePlan? _distanceMessage({
   required double requiredRunKm,
   required double factor,
 }) {
-  final neededKm = overageKcal / (factor * weightKg);
-  final caps = <double>[practice.longestKm * 1.5];
   final pace = practice.paceKmh ?? practice.activity.referenceSpeedKmh;
-  double? neededMin;
-  if (pace != null && pace > 0) {
-    caps.add(pace * 45 / 60);
-    neededMin = neededKm / pace * 60;
-  }
-  var todayKm = neededKm;
-  for (final cap in caps) {
-    if (cap < todayKm) {
-      todayKm = cap;
-    }
-  }
-  if (todayKm <= 0) {
+  if (pace == null || pace <= 0) {
     return null;
   }
-  final exceeds = neededMin != null
-      ? neededMin > 45
-      : todayKm + 0.05 < neededKm;
-  final kmText = _formatKm(todayKm);
-  final message = exceeds
-      ? _partialReturn(
-          requiredRunKm: requiredRunKm,
-          today: practice.activity.id == 'running'
-              ? '${kmText}kmまでにします'
-              : '${practice.activity.displayName}${kmText}kmまでにします',
-        )
-      : '今日やるなら${practice.activity.displayName}${kmText}km${todayKm + 0.05 < neededKm ? 'までにします' : 'にします'}。';
-  return _ExercisePlan(
-    message,
-    activityId: practice.activity.id,
-    amount: double.parse(kmText),
-    unit: CoachExerciseUnit.kilometers,
+  final perMinute = factor * weightKg * pace / 60;
+  if (perMinute <= 0) {
+    return null;
+  }
+  var cap = 45.0;
+  if (practice.longestMinutes > 0) {
+    cap = math.min(cap, practice.longestMinutes * 1.5);
+  }
+  if (practice.longestKm > 0) {
+    cap = math.min(cap, practice.longestKm * 1.5 / pace * 60);
+  }
+  return _timedPlan(
+    activity: practice.activity,
+    activityName: practice.activity.displayName,
+    overageKcal: overageKcal,
+    perMinute: perMinute,
+    capMinutes: cap,
+    paceKmh: pace,
+    met: practice.activity.quantityUnit == ExerciseQuantityUnit.durationMin
+        ? practice.met
+        : null,
   );
 }
 
@@ -865,7 +665,6 @@ _ExercisePlan? _durationMessage({
   if (perMinute == null || perMinute <= 0) {
     return null;
   }
-  final neededMin = overageKcal / perMinute;
   var cap = 45.0;
   if (practice.longestMinutes > 0) {
     cap = math.min(cap, practice.longestMinutes * 1.5);
@@ -874,36 +673,94 @@ _ExercisePlan? _durationMessage({
   if (practice.longestKm > 0 && speed != null && speed > 0) {
     cap = math.min(cap, practice.longestKm * 1.5 / speed * 60);
   }
-  final today = math.min(neededMin, cap);
-  final shown = math.max(1, today.round());
-  final message = neededMin > 45
-      ? _partialReturn(
-          requiredRunKm: requiredRunKm,
-          today: '${practice.activity.displayName}$shown分までにします',
-        )
-      : '今日やるなら${practice.activity.displayName}$shown分${today + 0.05 < neededMin ? 'までにします' : 'にします'}。';
-  final distanceWithoutSpeed =
-      practice.activity.quantityUnit == ExerciseQuantityUnit.distanceKm &&
-      (practice.activity.referenceSpeedKmh == null ||
-          practice.activity.referenceSpeedKmh! <= 0);
-  if (distanceWithoutSpeed || practice.met <= 1) {
-    return _ExercisePlan(message);
+  if (practice.met <= 1) {
+    return _ExercisePlan(
+      _timeMessage(
+        activityName: practice.activity.displayName,
+        neededMinutes: (overageKcal / perMinute).round(),
+        todayMinutes: math.max(1, math.min(overageKcal / perMinute, cap).round()),
+        recoveredKcal: 0,
+        overageKcal: overageKcal,
+      ),
+    );
   }
-  return _ExercisePlan(
-    message,
-    activityId: practice.activity.id,
-    amount: shown.toDouble(),
-    unit: CoachExerciseUnit.minutes,
+  return _timedPlan(
+    activity: practice.activity,
+    activityName: practice.activity.displayName,
+    overageKcal: overageKcal,
+    perMinute: perMinute,
+    capMinutes: cap,
     met: practice.activity.quantityUnit == ExerciseQuantityUnit.durationMin
         ? practice.met
+        : null,
+    paceKmh: practice.activity.quantityUnit == ExerciseQuantityUnit.distanceKm
+        ? speed
         : null,
   );
 }
 
-String _partialReturn({required double requiredRunKm, required String today}) {
-  return '今日の超過を戻すには、ランニング${_formatKm(requiredRunKm)}kmが必要です。'
-      '今日やるなら$today。'
-      '残りは明日以降の食事で調整しましょう。';
+_ExercisePlan _timedPlan({
+  required MetActivityDefinition activity,
+  required String activityName,
+  required double overageKcal,
+  required double perMinute,
+  required double capMinutes,
+  double? paceKmh,
+  double? met,
+}) {
+  final needed = overageKcal / perMinute;
+  final today = math.min(needed, math.max(1, capMinutes));
+  final shown = math.max(1, today.round());
+  final recovered = (perMinute * shown).round();
+  final distanceWithoutSpeed =
+      activity.quantityUnit == ExerciseQuantityUnit.distanceKm &&
+      (paceKmh == null || paceKmh <= 0) &&
+      (activity.referenceSpeedKmh == null || activity.referenceSpeedKmh! <= 0);
+  if (distanceWithoutSpeed) {
+    return _ExercisePlan(
+      _timeMessage(
+        activityName: activityName,
+        neededMinutes: needed.round(),
+        todayMinutes: shown,
+        recoveredKcal: recovered,
+        overageKcal: overageKcal,
+      ),
+    );
+  }
+  return _ExercisePlan(
+    _timeMessage(
+      activityName: activityName,
+      neededMinutes: needed.round(),
+      todayMinutes: shown,
+      recoveredKcal: recovered,
+      overageKcal: overageKcal,
+    ),
+    activityId: activity.id,
+    amount: shown.toDouble(),
+    unit: CoachExerciseUnit.minutes,
+    met: met,
+    paceKmh: paceKmh,
+  );
+}
+
+String _timeMessage({
+  required String activityName,
+  required int neededMinutes,
+  required int todayMinutes,
+  required int recoveredKcal,
+  required double overageKcal,
+}) {
+  final needed = math.max(1, neededMinutes);
+  final today = math.max(1, todayMinutes);
+  final recovered = math.max(0, recoveredKcal);
+  final rest = math.max(0, overageKcal.round() - recovered);
+  final todayLine = '$today分で約${recovered}kcal戻ります。';
+  if (needed <= today && rest <= 0) {
+    return '今日やるなら$activityNameで$today分にします。$todayLine';
+  }
+  final limit = today < needed ? 'までにします' : 'にします';
+  final tail = rest > 0 ? '残りの約${rest}kcalは明日以降の食事で。' : '';
+  return '戻すには$activityNameで約$needed分です。今日やるなら$today分$limit。$todayLine$tail';
 }
 
 String formatCoachAmount(double value) {

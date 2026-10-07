@@ -245,6 +245,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
       }
       Navigator.of(context).push(
         MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'goal_setup_screen_MaterialPageRoute_0'),
           builder: (context) => ActivityLevelScreen(
             controller: widget.controller,
             openFoodFactsService: widget.openFoodFactsService,
@@ -271,6 +272,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'goal_setup_screen_MaterialPageRoute_1'),
         builder: (context) => MainShellScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,

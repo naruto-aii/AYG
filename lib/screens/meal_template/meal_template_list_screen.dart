@@ -70,6 +70,7 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
     }
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'meal_template_list_screen_MaterialPageRoute_0'),
         builder: (context) =>
             MealTemplateFormScreen(controller: widget.controller),
       ),
@@ -82,6 +83,7 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
   Future<void> _openEdit(MealTemplate template) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+      settings: const RouteSettings(name: 'meal_template_list_screen_MaterialPageRoute_1'),
         builder: (context) => MealTemplateFormScreen(
           controller: widget.controller,
           templateId: template.templateId,
@@ -199,7 +201,7 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
         children: [
           const DesignTitleBlock(
             title: '食事テンプレート',
-            subtitle: 'よく食べる組み合わせを、まとめて登録できます。無料は4件まで。カロナビ+は何件でも。',
+            subtitle: 'よく食べる組み合わせを、まとめて登録できます。',
           ),
           DesignSearchField(
             controller: _searchController,
@@ -269,6 +271,7 @@ Future<List<MealTemplateItemResolution>?> showMealTemplateDependencyDialog({
   required List<MealTemplateDependencyIssue> issues,
 }) {
   return showDialog<List<MealTemplateItemResolution>>(
+      routeSettings: const RouteSettings(name: 'meal_template_list_screen_showDialog_0'),
     context: context,
     builder: (context) =>
         _MealTemplateDependencyDialog(controller: controller, issues: issues),

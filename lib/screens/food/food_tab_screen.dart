@@ -56,6 +56,7 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openHistoryCalendar() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_0'),
         builder: (context) => HistoryCalendarScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
@@ -100,6 +101,7 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_1'),
         builder: (context) => AlcoholFormScreen(
           controller: widget.controller,
           initialConsumedAt: _initialConsumedAtForNewEntry,
@@ -111,6 +113,7 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openAlcoholEdit(BuildContext context, AlcoholEntry entry) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_2'),
         builder: (context) =>
             AlcoholFormScreen(controller: widget.controller, entry: entry),
       ),
@@ -134,6 +137,7 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openTemplates() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_3'),
         builder: (context) =>
             MealTemplateListScreen(controller: widget.controller),
       ),

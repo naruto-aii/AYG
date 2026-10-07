@@ -1,12 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../repositories/coach_intro_store.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/coach_nutrition_source.dart';
 import '../../repositories/coach_proposal_log.dart';
+import '../../services/analytics/catalog_actions.dart';
 import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
+import '../subscription/calonavi_plus_flow.dart';
+import '../weight/weight_record_screen.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
@@ -33,7 +40,10 @@ class DailyCoachScreen extends StatefulWidget {
 
   final AppController? controller;
   final Future<DailyCoachLoadResult> Function()? load;
-  final Future<void> Function(CoachMealProposal proposal, List<double> grams)?
+  final Future<List<String>> Function(
+    CoachMealProposal proposal,
+    List<double> grams,
+  )?
   onSelectMeal;
   final Future<void> Function(CoachExerciseProposal proposal, double amount)?
   onSelectExercise;
@@ -52,6 +62,9 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   List<CoachProposalRecord> _shown = const [];
   Future<void> _recorded = Future<void>.value();
   final Map<String, TextEditingController> _amounts = {};
+  int _mealShift = 0;
+  bool _wasPlusBlocked = false;
+  StreamSubscription<bool>? _plusSubscription;
 
   CoachProposalLog get _log {
     return widget.proposalLog ??
@@ -59,17 +72,54 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
         const NoOpCoachProposalLog();
   }
 
+  bool get _plusBlocked {
+    final controller = widget.controller;
+    if (controller == null) {
+      return false;
+    }
+    return !controller.subscriptionRepository.isPlusActive;
+  }
+
   @override
   void initState() {
     super.initState();
+    _wasPlusBlocked = _plusBlocked;
+    _plusSubscription = widget.controller?.subscriptionRepository.plusChanges
+        .listen(_onPlusChanged);
+    if (_plusBlocked) {
+      return;
+    }
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowIntro();
     });
   }
 
+  void _onPlusChanged(bool active) {
+    if (!mounted) {
+      return;
+    }
+    final blocked = !active;
+    final opened = _wasPlusBlocked && !blocked;
+    _wasPlusBlocked = blocked;
+    if (!opened) {
+      if (blocked) {
+        setState(() {});
+      }
+      return;
+    }
+    setState(() => _result = null);
+    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _maybeShowIntro();
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _plusSubscription?.cancel();
     _disposeAmounts();
     super.dispose();
   }
@@ -115,9 +165,10 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       return;
     }
     await showDialog<void>(
+      routeSettings: const RouteSettings(name: 'daily_coach_screen_showDialog_0'),
       context: context,
       builder: (context) => AlertDialog(
-        content: const Text(coachTrialNotice),
+        content: const Text(AppStrings.coachFeatureBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -157,8 +208,13 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
         result: result,
       );
       _recorded = _log.recordShown(_shown);
+      CatalogActions.coachProposalShown(
+        coachProposalLogId: 'local',
+        proposalsCount: _shown.length,
+      );
     }
     _bindAmounts(result);
+    _mealShift = 0;
     setState(() => _result = result);
   }
 
@@ -232,18 +288,26 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       index: index,
       failure: '食事に追加できませんでした',
       action: () async {
+        final List<String> ids;
         final select = widget.onSelectMeal;
         if (select != null) {
-          await select(proposal, grams);
-          return;
+          ids = await select(proposal, grams);
+        } else {
+          final controller = widget.controller;
+          if (controller == null) {
+            throw StateError('coach');
+          }
+          ids = await DailyCoachSession(
+            controller: controller,
+          ).saveMeal(proposal, grams: grams);
         }
-        final controller = widget.controller;
-        if (controller == null) {
-          throw StateError('coach');
-        }
-        await DailyCoachSession(
-          controller: controller,
-        ).saveMeal(proposal, grams: grams);
+        final logId = index >= 0 && index < _shown.length
+            ? _shown[index].id
+            : 'local';
+        CatalogActions.coachProposalRegistered(
+          coachProposalLogId: logId,
+          foodEntryIds: ids,
+        );
       },
     );
   }
@@ -306,36 +370,104 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
               ),
             ],
           ),
-          const DesignTitleBlock(title: '今日のコーチ', showBack: false),
-          if (result == null)
+          const DesignTitleBlock(title: 'パーソナルコーチ (β)', showBack: false),
+          if (_plusBlocked) ...[
+            const DesignCard(
+              key: Key('coach_beta_notice'),
+              child: Text(AppStrings.coachBetaNotice, style: AppTypography.bodyS),
+            ),
+            const SizedBox(height: 16),
+            DesignButton(
+              label: 'カロナビ+を見る',
+              showTrailingIcon: false,
+              onPressed: () {
+                final controller = widget.controller;
+                if (controller == null) {
+                  return;
+                }
+                controller.recordPlusFunnel(
+                  event: PlusFunnelEvent.gateTap,
+                  feature: PlusFunnelFeature.coach,
+                );
+                final custom = controller.openCalonaviPlusFlow;
+                if (custom != null) {
+                  custom(context);
+                  return;
+                }
+                showCalonaviPlus(
+                  context,
+                  repository: controller.subscriptionRepository,
+                  feature: PlusFunnelFeature.coach,
+                  funnel: controller.plusFunnelRepository,
+                );
+              },
+            ),
+          ] else if (result == null)
             Text('提案を作っています', style: AppTypography.bodyS)
           else if (result.status == DailyCoachStatus.nutritionMissing)
             Text(coachNutritionMissingMessage, style: AppTypography.bodyS)
           else ...[
+            if (result.message != null)
+              Text(result.message!, style: AppTypography.bodyS),
             if (result.offersExercise) _exerciseCard(result),
             if (result.offersMeals) ...[
               Text('食事の案', style: AppTypography.titleM),
-              for (final indexed in result.meals.indexed)
-                _mealCard(indexed.$2, indexed.$1),
+              _visibleMeal(result),
             ],
           ],
           const SizedBox(height: 16),
-          const DesignCard(
-            key: Key('coach_verification_notice'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '残りのカロリーから、今日の食事か運動を一つ提案します。登録するまでは記録されません。',
-                  style: AppTypography.bodyS,
-                ),
-                SizedBox(height: 8),
-                Text(coachTrialNotice, style: AppTypography.bodyS),
-              ],
+          if (!_plusBlocked)
+            const DesignCard(
+              key: Key('coach_beta_notice'),
+              child: Text(
+                AppStrings.coachFeatureBody,
+                style: AppTypography.bodyS,
+              ),
             ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _visibleMeal(DailyCoachLoadResult result) {
+    final count = result.meals.length;
+    final now = widget.now ?? DateTime.now();
+    final day = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).difference(DateTime(now.year)).inDays;
+    final index = count == 0 ? 0 : (day + _mealShift) % count;
+    final meal = result.meals[index];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (meal.bandLabel != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              meal.bandLabel!,
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+          ),
+        _mealCard(meal, index),
+        if (meal.note != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(meal.note!, style: AppTypography.bodyS),
+          ),
+        if (count > 1) ...[
+          const SizedBox(height: 8),
+          DesignButton(
+            key: const Key('coach_other_proposal'),
+            label: 'ほかの案',
+            height: 48,
+            style: DesignButtonStyle.secondary,
+            showTrailingIcon: false,
+            onPressed: () => setState(() => _mealShift++),
+          ),
+        ],
+      ],
     );
   }
 
@@ -347,6 +479,27 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(message, style: AppTypography.bodyS),
+          if (proposal != null && proposal.needsWeight) ...[
+            const SizedBox(height: 12),
+            DesignButton(
+              key: const Key('coach_register_weight'),
+              label: '体重を登録',
+              height: 48,
+              showTrailingIcon: false,
+              onPressed: widget.controller == null
+                  ? null
+                  : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'daily_coach_screen_MaterialPageRoute_0'),
+                          builder: (context) => WeightRecordScreen(
+                            controller: widget.controller!,
+                          ),
+                        ),
+                      );
+                    },
+            ),
+          ],
           if (proposal != null && proposal.canRegister) ...[
             const SizedBox(height: 12),
             Text('登録する量', style: AppTypography.labelM),

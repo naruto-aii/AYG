@@ -81,6 +81,7 @@ void main() {
     );
     addTearDown(controller.dispose);
     await controller.handleAuthenticatedSession();
+    sync.pushes = 0;
 
     final gate = Completer<void>();
     sync.gate = gate;

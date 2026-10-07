@@ -11,6 +11,7 @@ import '../database/isar_service.dart';
 import '../repositories/alcohol_repository.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/data_sync_repository.dart';
+import '../repositories/pending_record_store.dart';
 import '../repositories/exercise_repository.dart';
 import '../repositories/food_master_repositories.dart';
 import '../repositories/food_repository.dart';
@@ -32,12 +33,22 @@ import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../repositories/storekit_subscription_repository.dart';
 import '../repositories/coach_proposal_log.dart';
+import '../repositories/plus_funnel_repository.dart';
 import '../repositories/review_prompt_store.dart';
 import '../repositories/usage_record_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
+import '../services/analytics/analytics.dart';
+import '../services/analytics/analytics_service.dart';
+import '../services/analytics/analytics_lifecycle.dart';
+import '../services/analytics/analytics_queue.dart';
+import '../services/analytics/analytics_route_observer.dart';
+import '../services/analytics/analytics_runtime.dart';
+import '../services/analytics/apple_ads_attribution.dart';
+import '../services/analytics/native_analytics_bridge.dart';
+import '../services/analytics/supabase_analytics_transport.dart';
 import '../services/open_food_facts_service.dart';
 import '../state/app_controller.dart';
 
@@ -95,6 +106,8 @@ Future<void> bootstrapApp() async {
       ? SupabaseAuthenticationRepository()
       : UnconfiguredAuthenticationRepository();
 
+  final preferences = await SharedPreferences.getInstance();
+  final pendingRecords = PendingRecordStore(preferences: preferences);
   final DataSyncRepository dataSyncRepository = SupabaseConfig.isConfigured
       ? SupabaseDataSyncRepository(
           userRepository: userRepository,
@@ -105,6 +118,7 @@ Future<void> bootstrapApp() async {
           weightRepository: weightRepository,
           foodMaster: foodMasterRepositories,
           healthWorkouts: healthRepository,
+          pendingRecords: pendingRecords,
         )
       : NoOpDataSyncRepository();
 
@@ -122,7 +136,33 @@ Future<void> bootstrapApp() async {
     workoutTemplateRepository: workoutTemplateRepository,
   );
 
-  final preferences = await SharedPreferences.getInstance();
+  final bridge = MethodChannelNativeAnalyticsBridge();
+  final analytics = AnalyticsService(
+    preferences: preferences,
+    queue: AnalyticsQueue(isar: isar),
+    transport: SupabaseAnalyticsTransport(),
+    bridge: bridge,
+    appVersion: '1.0.0',
+    appBuild: '1',
+    onUnauthorized: () async {
+      if (SupabaseConfig.isConfigured) {
+        await Supabase.instance.client.auth.refreshSession();
+      }
+    },
+    onConsentRow: uploadAnalyticsConsent,
+  );
+  analytics.deviceModel = await bridge.deviceModel();
+  Analytics.service = analytics;
+  AnalyticsRuntime.preferences = preferences;
+  AnalyticsRuntime.lifecycle = AnalyticsLifecycle(
+    service: analytics,
+    preferences: preferences,
+  );
+  AnalyticsRuntime.ads = AppleAdsAttribution(
+    service: analytics,
+    preferences: preferences,
+  );
+  AnalyticsRuntime.routes = AnalyticsRouteObserver(service: analytics);
   final subscriptionRepository = StoreKitSubscriptionRepository(
     preferences: preferences,
     developmentPlusPreview: developmentPlusPreview,
@@ -151,6 +191,7 @@ Future<void> bootstrapApp() async {
     firstMealGuideStore: const FirstMealGuideStore(),
     lockScreenMealGateway: LockScreenMealGatewayImpl(),
     siriVoiceGateway: SiriVoiceGatewayImpl(),
+    pendingRecords: pendingRecords,
     subscriptionRepository: subscriptionRepository,
     usageRecordRepository: SupabaseConfig.isConfigured
         ? SupabaseUsageRecordRepository()
@@ -158,6 +199,9 @@ Future<void> bootstrapApp() async {
     coachProposalLog: SupabaseConfig.isConfigured
         ? SupabaseCoachProposalLog()
         : const NoOpCoachProposalLog(),
+    plusFunnelRepository: SupabaseConfig.isConfigured
+        ? SupabasePlusFunnelRepository()
+        : const NoOpPlusFunnelRepository(),
     reviewPromptStore: PreferencesReviewPromptStore(preferences: preferences),
   );
   await controller.initialize();

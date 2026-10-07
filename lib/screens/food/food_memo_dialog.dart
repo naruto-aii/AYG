@@ -10,6 +10,7 @@ Future<String?> askFoodMemo(
 }) {
   final editor = TextEditingController(text: initial ?? '');
   return showDialog<String>(
+      routeSettings: const RouteSettings(name: 'food_memo_dialog_showDialog_0'),
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),

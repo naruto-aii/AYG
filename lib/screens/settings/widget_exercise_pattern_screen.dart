@@ -41,6 +41,7 @@ class _WidgetExercisePatternScreenState
 
   Future<void> _add(MetActivityDefinition activity) async {
     final amount = await showDialog<double>(
+      routeSettings: const RouteSettings(name: 'widget_exercise_pattern_screen_showDialog_0'),
       context: context,
       builder: (context) => _AmountDialog(activity: activity),
     );

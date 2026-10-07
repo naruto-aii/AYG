@@ -283,6 +283,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
     final barcode = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
+      settings: const RouteSettings(name: 'food_form_screen_MaterialPageRoute_0'),
         builder: (context) => const BarcodeScannerScreen(),
       ),
     );
@@ -341,6 +342,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   Future<void> _openFoodSearch() async {
     final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute<Object?>(
+        settings: const RouteSettings(
+          name: 'food_form_screen_MaterialPageRoute_1',
+        ),
         builder: (context) => MealFoodSearchScreen(
           controller: widget.controller,
           searchOverrides: widget.searchOverrides,

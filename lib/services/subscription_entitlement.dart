@@ -99,6 +99,27 @@ DateTime? parseStoreRevocationDate(String? jsonRepresentation) {
   return null;
 }
 
+/// 購入通知の利用者照合に使う。レシート本文は残さない。
+String? parseOriginalTransactionId(String? jsonRepresentation) {
+  if (jsonRepresentation == null || jsonRepresentation.isEmpty) {
+    return null;
+  }
+  Object? decoded;
+  try {
+    decoded = jsonDecode(jsonRepresentation);
+  } catch (_) {
+    return null;
+  }
+  if (decoded is! Map) {
+    return null;
+  }
+  final raw = decoded['originalTransactionId'] ?? decoded['original_transaction_id'];
+  if (raw is String && raw.isNotEmpty) {
+    return raw;
+  }
+  return null;
+}
+
 DateTime _dateFromEpoch(num value) {
   final millis = value.abs() >= 1000000000000 ? value : value * 1000;
   return DateTime.fromMillisecondsSinceEpoch(millis.round(), isUtc: true);

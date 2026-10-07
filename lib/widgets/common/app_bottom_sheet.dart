@@ -13,6 +13,7 @@ Future<T?> showAppBottomSheet<T>({
     return showDialog<T>(
       context: context,
       useRootNavigator: true,
+      routeSettings: const RouteSettings(name: 'app_bottom_sheet'),
       builder: (dialogContext) {
         return Dialog(
           child: ConstrainedBox(
@@ -35,6 +36,7 @@ Future<T?> showAppBottomSheet<T>({
     isScrollControlled: isScrollControlled,
     showDragHandle: true,
     useRootNavigator: true,
+    routeSettings: const RouteSettings(name: 'app_bottom_sheet'),
     builder: builder,
   );
 }

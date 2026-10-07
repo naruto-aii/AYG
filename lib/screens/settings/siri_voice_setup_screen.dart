@@ -65,7 +65,7 @@ class SiriVoiceSetupScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const DesignTitleBlock(title: '音声登録', subtitle: siriSetupLead),
+          const DesignTitleBlock(title: '音声登録 (β)', subtitle: siriSetupLead),
           DesignCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

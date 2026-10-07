@@ -81,8 +81,8 @@ void main() {
         }
       }
       expect(day.kcal, lessThanOrEqualTo(remaining));
-      expect(day.kcal, greaterThanOrEqualTo(remaining * 0.85),
-          reason: 'meals + snack must get close to the remaining kcal');
+      expect(day.kcal, greaterThanOrEqualTo(remaining * 0.95),
+          reason: 'meals + snack must reach 95% of the remaining kcal');
     }
   }
 
@@ -111,7 +111,7 @@ void main() {
       expectFullMeal(day.meals[0].meal, '昼食');
       expectSnack(day.meals[1], '間食');
       expectFullMeal(day.meals[2].meal, '夕食');
-      expect(day.kcal, inInclusiveRange(1500 * 0.85, 1500));
+      expect(day.kcal, inInclusiveRange(1500 * 0.95, 1500));
     }
   });
 
@@ -194,6 +194,24 @@ void main() {
     expect(personalCoachRemainingSlots(DateTime(2026, 10, 8, 23, 59)),
         [MealSlot.snack]);
   });
+
+  test('0-14時 plans reach 95% of what the caps allow, never over 100%', () {
+    for (final hour in [1, 12]) {
+      final meals = hour < 11 ? 3 : 2;
+      for (var remaining = 500.0; remaining <= 3000; remaining += 100) {
+        // 1食 850kcal、間食は乳製品・果物で最大およそ150kcal（ヨーグルト＋果物）。
+        final reachable = min(remaining, meals * personalCoachMealCapKcal + 150);
+        final days = plan(remaining, DateTime(2026, 10, 8, hour));
+        expect(days, isNotEmpty, reason: '$hour時 $remaining');
+        for (final day in days) {
+          expect(day.kcal, lessThanOrEqualTo(remaining));
+          expect(day.kcal, greaterThanOrEqualTo(reachable * 0.95),
+              reason: '$hour時 $remaining '
+                  '${day.meals.map((e) => '${e.label}${e.meal.kcal}').join('/')}');
+        }
+      }
+    }
+  }, timeout: const Timeout(Duration(minutes: 3)));
 
   test('15-21時 never adds snacks, even with a big remainder', () {
     for (final hour in [15, 18, 21]) {

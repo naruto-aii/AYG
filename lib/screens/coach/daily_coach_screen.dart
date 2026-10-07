@@ -130,7 +130,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        content: const Text(AppStrings.coachBetaNotice),
+        content: const Text(AppStrings.coachFeatureBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -361,16 +361,9 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
           if (!_plusBlocked)
             const DesignCard(
               key: Key('coach_beta_notice'),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '残りのカロリーから、今日の食事か運動を一つ提案します。登録するまでは記録されません。',
-                    style: AppTypography.bodyS,
-                  ),
-                  SizedBox(height: 8),
-                  Text(AppStrings.coachBetaNotice, style: AppTypography.bodyS),
-                ],
+              child: Text(
+                AppStrings.coachFeatureBody,
+                style: AppTypography.bodyS,
               ),
             ),
         ],

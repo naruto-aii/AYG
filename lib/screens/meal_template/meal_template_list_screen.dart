@@ -199,7 +199,7 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
         children: [
           const DesignTitleBlock(
             title: '食事テンプレート',
-            subtitle: 'よく食べる組み合わせを、まとめて登録できます。無料は4件まで。カロナビ+は何件でも。',
+            subtitle: 'よく食べる組み合わせを、まとめて登録できます。',
           ),
           DesignSearchField(
             controller: _searchController,

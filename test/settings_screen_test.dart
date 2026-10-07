@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ayg/constants/app_strings.dart';
@@ -8,6 +9,7 @@ import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/screens/settings/how_to_use_screen.dart';
+import 'package:ayg/screens/settings/settings_food_master_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
@@ -171,6 +173,15 @@ void main() {
       expect(find.textContaining('今日あと'), findsOneWidget);
       expect(find.text('無料とカロナビ+'), findsOneWidget);
       expect(find.textContaining('カロナビ+'), findsWidgets);
+      expect(find.textContaining('声で食事と運動を登録します'), findsOneWidget);
+      expect(
+        find.textContaining('音声登録 (β) は、β版として先行公開'),
+        findsNothing,
+      );
+      expect(
+        find.textContaining('β版として先行公開している機能で、カロナビ+で使えます'),
+        findsNothing,
+      );
       expect(find.textContaining('写真'), findsNothing);
       Navigator.of(tester.element(find.byType(HowToUseScreen))).pop();
       await tester.pumpAndSettle();
@@ -178,6 +189,35 @@ void main() {
 
     await openHowTo(webShell: true);
     await openHowTo(webShell: false);
+
+    await authRepository.dispose();
+  });
+
+  testWidgets('food master rows describe the feature on one line', (
+    WidgetTester tester,
+  ) async {
+    final authRepository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
+    );
+    final controller = createController(authRepository: authRepository);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsFoodMasterScreen(controller: controller),
+      ),
+    );
+
+    for (final subtitle in const [
+      'よく食べる組み合わせをまとめて登録',
+      'よくする運動をまとめて登録',
+    ]) {
+      expect(find.text(subtitle), findsOneWidget);
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(subtitle));
+      expect(paragraph.didExceedMaxLines, isFalse);
+    }
+    expect(find.textContaining('無料は4件まで'), findsNothing);
+    expect(find.textContaining('カロナビ+'), findsNothing);
 
     await authRepository.dispose();
   });

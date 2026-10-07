@@ -84,6 +84,8 @@ class AppStrings {
       '音声登録 (β) は、β版として先行公開している機能です。カロナビ+で使えます。';
   static const coachBetaNotice =
       '今日のコーチ (β) は、β版として先行公開している機能です。カロナビ+で使えます。';
+  static const coachFeatureBody =
+      '残りのカロリーから、今日の食事か運動を一つ提案します。登録するまでは記録されません。';
   static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
   static const plusBenefitTemplateBody =
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';

@@ -11,6 +11,7 @@ import 'package:ayg/services/lock_screen_meal_gateway.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -344,7 +345,14 @@ void main() {
     );
     expect(find.text('ウィジェット'), findsOneWidget);
     expect(find.text('音声登録 (β)'), findsOneWidget);
-    expect(find.text('カロナビ+で使えます'), findsOneWidget);
+    expect(find.text('声だけで食事・運動を登録'), findsOneWidget);
+    expect(find.text('カロナビ+で使えます'), findsNothing);
+    expect(
+      tester
+          .renderObject<RenderParagraph>(find.text('声だけで食事・運動を登録'))
+          .didExceedMaxLines,
+      isFalse,
+    );
     expect(find.text('ウィジェットの置き方'), findsNothing);
     expect(find.textContaining('自動では付きません'), findsNothing);
     expect(find.textContaining('左上「編集」'), findsNothing);
@@ -574,6 +582,8 @@ void main() {
     expect(find.text('使い始める前'), findsOneWidget);
     expect(find.text('音声登録 (β)'), findsWidgets);
     expect(find.textContaining('ショートカットを自分で作る必要はありません'), findsWidgets);
+    expect(find.textContaining('カロナビ+で使えます'), findsNothing);
+    expect(find.textContaining('β版として先行公開'), findsNothing);
     expect(find.textContaining('Siriと検索'), findsOneWidget);
     final meal = find.textContaining(
       '食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。',

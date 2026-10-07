@@ -11,7 +11,7 @@ import '../../widgets/design/design_page.dart';
 
 /// 自分でショートカットは作らない。Siri とログインだけ先に済ます。
 const String siriSetupLead =
-    '${AppStrings.siriBetaNotice}ショートカットを自分で作る必要はありません。Siriをオンにして、カロナビにログインした状態で話しかけます。';
+    'ショートカットを自分で作る必要はありません。Siriをオンにして、カロナビにログインした状態で話しかけます。';
 
 const String siriSetupSteps =
     'Siriをオンにする\n'

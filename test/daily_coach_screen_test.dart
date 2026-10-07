@@ -96,7 +96,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('the coach screen always shows the trial notice and a meal', (
+  testWidgets('the coach screen explains the proposal and shows a meal', (
     tester,
   ) async {
     var selected = false;
@@ -112,7 +112,8 @@ void main() {
       },
     );
 
-    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
+    expect(find.text(AppStrings.coachBetaNotice), findsNothing);
     expect(find.text('今日のコーチ (β)'), findsOneWidget);
     final mealBottom = tester.getBottomLeft(find.text(headline)).dy;
     final noteTop = tester
@@ -198,14 +199,16 @@ void main() {
       );
 
       expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.text(AppStrings.coachBetaNotice), findsNWidgets(2));
+      expect(find.text(AppStrings.coachFeatureBody), findsNWidgets(2));
+      expect(find.text(AppStrings.coachBetaNotice), findsNothing);
 
       await tester.tap(find.widgetWithText(TextButton, '閉じる'));
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
       expect(intros.seen, isTrue);
-      expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+      expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
+      expect(find.text(AppStrings.coachBetaNotice), findsNothing);
       expect(find.byType(DailyCoachScreen), findsOneWidget);
 
       await tester.tap(find.text('戻る'));
@@ -214,7 +217,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
-      expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+      expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
+      expect(find.text(AppStrings.coachBetaNotice), findsNothing);
     },
   );
 
@@ -364,7 +368,8 @@ void main() {
     expect(find.text(headline), findsNothing);
     expect(find.textContaining('3km'), findsNothing);
     expect(find.text('この量で登録'), findsNothing);
-    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
+    expect(find.text(AppStrings.coachBetaNotice), findsNothing);
   });
 
   testWidgets('remaining days load meals and overage days load exercise', (

@@ -7,6 +7,7 @@ import '../models/exercise_entry.dart';
 import '../models/exercise_quantity_unit.dart';
 import '../services/exercise_calorie_calculator.dart';
 import '../utils/local_date.dart';
+import '../utils/meal_slot.dart';
 
 const coachNutritionMissingMessage = '食品の数値が取れませんでした。';
 
@@ -31,11 +32,15 @@ class CoachMealComponent {
     required this.proteinPerUnit,
     required this.fatPerUnit,
     required this.carbPerUnit,
+    this.portionNote,
   });
 
   final String foodCode;
   final String displayName;
   final String? officialName;
+
+  /// グラム以外の目安（「2個」「1丁の半分」、中身の説明）。無ければ null。
+  final String? portionNote;
 
   /// 提案単位の数。食事記録の数量はこの数で、あとから変えられる。
   final int units;
@@ -58,6 +63,7 @@ class CoachMealProposal {
     this.note,
     this.bandLabel,
     this.slotLabel,
+    this.slot,
   });
 
   final String headline;
@@ -76,6 +82,9 @@ class CoachMealProposal {
 
   /// 1日の案での枠（朝食・昼食・間食・夕食）。
   final String? slotLabel;
+
+  /// 1日の案での枠。登録した枠を、開き直したときの案から外すのに使う。
+  final MealSlot? slot;
 
   Set<String> get foodCodes => {for (final item in components) item.foodCode};
 }
@@ -156,6 +165,7 @@ List<CoachDayPlan> planCoachDay({
   required double remainingKcal,
   required DateTime now,
   int limit = 5,
+  Set<MealSlot> skipSlots = const {},
 }) {
   final days = planPersonalCoachDay(
     foods: foods,
@@ -163,6 +173,7 @@ List<CoachDayPlan> planCoachDay({
     remainingKcal: remainingKcal,
     now: now,
     limit: limit,
+    skipSlots: skipSlots,
   );
   return [
     for (final day in days)
@@ -171,7 +182,12 @@ List<CoachDayPlan> planCoachDay({
         note: coachDayPlanNote(day, now),
         meals: [
           for (final entry in day.meals)
-            _proposal(foods, entry.meal, slotLabel: entry.label),
+            _proposal(
+              foods,
+              entry.meal,
+              slotLabel: entry.label,
+              slot: entry.slot,
+            ),
         ],
       ),
   ];
@@ -198,12 +214,14 @@ CoachMealProposal _proposal(
   List<CoachFoodStock> foods,
   PlannedCoachMeal meal, {
   String? slotLabel,
+  MealSlot? slot,
   String? note,
 }) {
   return CoachMealProposal(
     headline: meal.headline,
     bandLabel: personalCoachBandLabel(meal.band),
     slotLabel: slotLabel,
+    slot: slot,
     note: note,
     components: [
       for (final item in meal.items)
@@ -217,6 +235,7 @@ CoachMealProposal _proposal(
           proteinPerUnit: item.proteinG,
           fatPerUnit: item.fatG,
           carbPerUnit: item.carbG,
+          portionNote: coachPortionNote(item),
         ),
     ],
     kcal: meal.kcal.toDouble(),
@@ -224,6 +243,20 @@ CoachMealProposal _proposal(
     fatG: meal.fatG,
     carbG: meal.carbG,
   );
+}
+
+/// 食品の横に出す、グラム以外の目安。「200g」のようにグラムだけなら出さない。
+String? coachPortionNote(PlannedCoachItem item) {
+  final parts = <String>[
+    if (item.label.trim().isNotEmpty && item.label.trim() != '${item.grams}g')
+      item.label.trim(),
+    if (item.contentsNote != null && item.contentsNote!.trim().isNotEmpty)
+      item.contentsNote!.trim(),
+  ];
+  if (parts.isEmpty) {
+    return null;
+  }
+  return parts.join('・');
 }
 
 /// 上位10案。量は食品ごとの選択肢だけ。unit_grams では増やさない。
@@ -839,6 +872,20 @@ String _timeMessage({
   final limit = today < needed ? 'までにします' : 'にします';
   final tail = rest > 0 ? '残りの約${rest}kcalは明日以降の食事で。' : '';
   return '戻すには$activityNameで約$needed分です。今日やるなら$today分$limit。$todayLine$tail';
+}
+
+/// kcal の表示。3桁ごとにカンマ（2,438）。
+String formatCoachKcal(int kcal) {
+  final negative = kcal < 0;
+  final digits = kcal.abs().toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(digits[i]);
+  }
+  return negative ? '-$buffer' : buffer.toString();
 }
 
 String formatCoachAmount(double value) {

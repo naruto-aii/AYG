@@ -213,6 +213,47 @@ void main() {
     }
   }, timeout: const Timeout(Duration(minutes: 3)));
 
+  test('registered slots are left out and the rest is planned again', () {
+    final morning = planPersonalCoachDay(
+      foods: foods,
+      excludedFoodCodes: const {},
+      remainingKcal: 1726,
+      now: DateTime(2026, 10, 8, 6, 10),
+      skipSlots: {MealSlot.breakfast},
+    );
+    expect(morning, isNotEmpty);
+    for (final day in morning) {
+      expect(day.meals.map((entry) => entry.slot).toList(),
+          [MealSlot.lunch, MealSlot.snack, MealSlot.dinner]);
+      expect(day.kcal, inInclusiveRange(1726 * 0.95, 1726));
+    }
+    final noon = planPersonalCoachDay(
+      foods: foods,
+      excludedFoodCodes: const {},
+      remainingKcal: 900,
+      now: DateTime(2026, 10, 8, 12),
+      skipSlots: {MealSlot.lunch, MealSlot.snack},
+    );
+    for (final day in noon) {
+      expect(day.meals.map((entry) => entry.slot).toList(), [MealSlot.dinner]);
+    }
+    expect(
+      planPersonalCoachDay(
+        foods: foods,
+        excludedFoodCodes: const {},
+        remainingKcal: 900,
+        now: DateTime(2026, 10, 8, 16),
+        skipSlots: {MealSlot.dinner},
+      ),
+      isEmpty,
+    );
+    // 22時以降の間食は、昼間に間食を登録していても出す。
+    expect(
+      personalCoachPlannedSlots(DateTime(2026, 10, 8, 22, 30), {MealSlot.snack}),
+      [MealSlot.snack],
+    );
+  });
+
   test('15-21時 never adds snacks, even with a big remainder', () {
     for (final hour in [15, 18, 21]) {
       for (final remaining in [500.0, 900.0, 1500.0, 2438.0]) {

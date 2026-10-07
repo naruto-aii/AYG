@@ -11,6 +11,7 @@ import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/announcement_read_store.dart';
 import 'package:ayg/repositories/announcement_repository.dart';
 import 'package:ayg/repositories/coach_intro_store.dart';
+import 'package:ayg/repositories/coach_slot_store.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
 import 'package:ayg/screens/home/home_screen.dart';
@@ -23,6 +24,7 @@ import 'package:ayg/services/share_sheet_client.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/theme/app_typography.dart';
+import 'package:ayg/utils/meal_slot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -121,30 +123,12 @@ void main() {
       _coach(low, now: DateTime(2026, 10, 7, 18)),
       File('${directory.path}/low_remaining.png'),
     );
-    final dayPlans = planCoachDay(
-      foods: CoachFoodCatalog.stocks,
-      excludedFoodCodes: const {},
-      remainingKcal: 2438,
-      now: DateTime(2026, 10, 8, 1, 10),
-    );
-    expect(dayPlans, isNotEmpty);
-    saved['day_plan'] = await _capture(
-      tester,
-      DailyCoachScreen(
-        introStore: _SeenIntro(),
-        now: DateTime(2026, 10, 8, 1, 10),
-        load: () async => DailyCoachLoadResult(
-          status: DailyCoachStatus.ready,
-          focus: DailyCoachFocus.meals,
-          plans: dayPlans,
-        ),
-      ),
-      File('${directory.path}/day_plan.png'),
-    );
-    for (final (name, now, remaining) in [
-      ('day_plan_noon', DateTime(2026, 10, 8, 12), 1500.0),
-      ('day_plan_dinner_only', DateTime(2026, 10, 8, 16), 1200.0),
-      ('day_plan_late_snack', DateTime(2026, 10, 8, 22, 30), 800.0),
+    // 1日の案: 上の「今日の残りの食べ方」と、枠ごとの食品・量・kcal。
+    for (final (name, now, remaining, fullHeight) in [
+      ('day_plan_0600', DateTime(2026, 10, 8, 6), 2438.0, 3300.0),
+      ('day_plan_noon', DateTime(2026, 10, 8, 12), 1500.0, 2700.0),
+      ('day_plan_dinner_only', DateTime(2026, 10, 8, 16), 1200.0, 1500.0),
+      ('day_plan_late_snack', DateTime(2026, 10, 8, 22, 30), 800.0, 1500.0),
     ]) {
       final plans = planCoachDay(
         foods: CoachFoodCatalog.stocks,
@@ -153,20 +137,61 @@ void main() {
         now: now,
       );
       expect(plans, isNotEmpty, reason: name);
+      Widget screen() => DailyCoachScreen(
+        introStore: _SeenIntro(),
+        now: now,
+        load: () async => DailyCoachLoadResult(
+          status: DailyCoachStatus.ready,
+          focus: DailyCoachFocus.meals,
+          plans: plans,
+        ),
+      );
       saved[name] = await _capture(
         tester,
-        DailyCoachScreen(
-          introStore: _SeenIntro(),
-          now: now,
-          load: () async => DailyCoachLoadResult(
-            status: DailyCoachStatus.ready,
-            focus: DailyCoachFocus.meals,
-            plans: plans,
-          ),
-        ),
+        screen(),
         File('${directory.path}/$name.png'),
       );
+      expect(find.byKey(const Key('coach_day_summary')), findsOneWidget);
+      expect(
+        find.text('今日の残り ${formatCoachKcal(remaining.round())}kcal の食べ方'),
+        findsOneWidget,
+      );
+      saved['${name}_full'] = await _capture(
+        tester,
+        screen(),
+        File('${directory.path}/${name}_full.png'),
+        height: fullHeight,
+      );
     }
+    // 朝食を登録したあと（6:10、残り 2,438 − 712 = 1,726kcal）。
+    final afterBreakfast = planCoachDay(
+      foods: CoachFoodCatalog.stocks,
+      excludedFoodCodes: const {},
+      remainingKcal: 1726,
+      now: DateTime(2026, 10, 8, 6, 10),
+      skipSlots: {MealSlot.breakfast},
+    );
+    expect(afterBreakfast, isNotEmpty);
+    saved['day_plan_after_breakfast'] = await _capture(
+      tester,
+      DailyCoachScreen(
+        introStore: _SeenIntro(),
+        now: DateTime(2026, 10, 8, 6, 10),
+        load: () async => DailyCoachLoadResult(
+          status: DailyCoachStatus.ready,
+          focus: DailyCoachFocus.meals,
+          plans: afterBreakfast,
+          registered: const [
+            CoachRegisteredSlot(
+              slot: MealSlot.breakfast,
+              kcal: 712,
+              entryIds: ['a'],
+            ),
+          ],
+        ),
+      ),
+      File('${directory.path}/day_plan_after_breakfast.png'),
+    );
     saved['free'] = await _capture(
       tester,
       DailyCoachScreen(
@@ -227,9 +252,10 @@ Future<List<int>> _capture(
   Widget screen,
   File file, {
   bool checkTitleSize = true,
+  double height = 844,
 }) async {
   final key = GlobalKey();
-  await tester.binding.setSurfaceSize(const Size(390, 844));
+  await tester.binding.setSurfaceSize(Size(390, height));
   tester.view.devicePixelRatio = 1;
   await tester.pumpWidget(
     MaterialApp(
@@ -257,7 +283,7 @@ Future<List<int>> _capture(
     return frame.image;
   });
   expect(image!.width, 390);
-  expect(image.height, 844);
+  expect(image.height, height.round());
   return bytes;
 }
 

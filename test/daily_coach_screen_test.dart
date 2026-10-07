@@ -13,6 +13,7 @@ import 'package:ayg/repositories/subscription_repository.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/repositories/coach_nutrition_source.dart';
 import 'package:ayg/repositories/coach_proposal_log.dart';
+import 'package:ayg/repositories/coach_slot_store.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
 import 'package:ayg/screens/home/home_screen.dart';
 import 'package:ayg/widgets/design/design_button.dart';
@@ -22,6 +23,7 @@ import 'package:ayg/services/nutrition_engine.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/utils/meal_slot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -135,6 +137,10 @@ void main() {
           ?.text,
       '150',
     );
+
+    await tester.ensureVisible(find.widgetWithText(DesignButton, 'この量で登録'));
+
+    await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(DesignButton, 'この量で登録'));
     await tester.pumpAndSettle();
@@ -250,6 +256,10 @@ void main() {
     expect(find.text('悪い'), findsNothing);
     expect(find.textContaining('km'), findsNothing);
 
+    await tester.ensureVisible(find.widgetWithText(DesignButton, 'この量で登録'));
+
+    await tester.pumpAndSettle();
+
     await tester.tap(find.widgetWithText(DesignButton, 'この量で登録'));
     await tester.pumpAndSettle();
 
@@ -275,6 +285,8 @@ void main() {
       find.byKey(const Key('coach_meal_grams_0_0')),
       '80',
     );
+    await tester.ensureVisible(find.widgetWithText(DesignButton, 'この量で登録'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(DesignButton, 'この量で登録'));
     await tester.pumpAndSettle();
 
@@ -298,6 +310,8 @@ void main() {
     );
 
     await tester.enterText(find.byKey(const Key('coach_meal_grams_0_0')), '0');
+    await tester.ensureVisible(find.widgetWithText(DesignButton, 'この量で登録'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(DesignButton, 'この量で登録'));
     await tester.pumpAndSettle();
 
@@ -377,6 +391,64 @@ void main() {
     expect(find.text(AppStrings.coachBetaNotice), findsNothing);
   });
 
+  testWidgets('a registered slot is skipped when the coach opens again', (
+    tester,
+  ) async {
+    final controller = _profiledController();
+    final store = MemoryCoachSlotStore();
+    final noon = DateTime(2026, 10, 7, 12);
+    DailyCoachSession session() => DailyCoachSession(
+      controller: controller,
+      slotStore: store,
+      nutritionSource: _FixedNutrition(CoachFoodCatalog.stocks),
+    );
+
+    // 記録が残っていない登録（食事を消した）は、登録済みとして扱わない。
+    await store.markRegistered(
+      day: noon,
+      slot: MealSlot.lunch,
+      kcal: 700,
+      entryIds: const ['gone'],
+    );
+    final before = await session().load(noon);
+    expect(before.registered, isEmpty);
+    expect(before.plans.first.meals.first.slot, MealSlot.lunch);
+
+    controller.foodEntries.add(
+      FoodEntry(
+        id: 'lunch-1',
+        name: 'ごはん',
+        kcalPerBase: 300,
+        loggedAt: noon,
+      ),
+    );
+    controller.refreshDailySummary();
+    await store.markRegistered(
+      day: noon,
+      slot: MealSlot.lunch,
+      kcal: 300,
+      entryIds: const ['lunch-1'],
+    );
+    final after = await session().load(noon);
+    expect(after.registered.map((item) => item.slot), [MealSlot.lunch]);
+    for (final plan in after.plans) {
+      expect(plan.meals.map((meal) => meal.slot), isNot(contains(MealSlot.lunch)));
+      expect(plan.remainingKcal, controller.summary!.remainingKcal);
+    }
+
+    // 15〜21時に夕食を登録したら、今日これからの食事は登録済み。
+    final evening = DateTime(2026, 10, 7, 18);
+    await store.markRegistered(
+      day: evening,
+      slot: MealSlot.dinner,
+      kcal: 300,
+      entryIds: const ['lunch-1'],
+    );
+    final done = await session().load(evening);
+    expect(done.offersMeals, isFalse);
+    expect(done.message, '今日これからの食事は、登録済みです。');
+  });
+
   testWidgets('remaining days load meals and overage days load exercise', (
     tester,
   ) async {
@@ -384,6 +456,7 @@ void main() {
     final controller = _profiledController();
     final session = DailyCoachSession(
       controller: controller,
+      slotStore: MemoryCoachSlotStore(),
       nutritionSource: _FixedNutrition(CoachFoodCatalog.stocks),
     );
     final meals = await session.load(noon);
@@ -401,6 +474,7 @@ void main() {
 
     final missing = await DailyCoachSession(
       controller: controller,
+      slotStore: MemoryCoachSlotStore(),
       nutritionSource: _FixedNutrition(const [], fail: true),
     ).load(noon);
     expect(missing.status, DailyCoachStatus.nutritionMissing);
@@ -418,6 +492,7 @@ void main() {
 
     final exerciseDay = await DailyCoachSession(
       controller: controller,
+      slotStore: MemoryCoachSlotStore(),
       nutritionSource: _FixedNutrition(const [], fail: true),
     ).load(noon);
     expect(exerciseDay.focus, DailyCoachFocus.exercise);
@@ -430,12 +505,14 @@ void main() {
     final proposal = exerciseDay.exercise!;
     final registered = await DailyCoachSession(
       controller: controller,
+      slotStore: MemoryCoachSlotStore(),
     ).saveExercise(proposal, amount: proposal.amount!);
     expect(registered, isTrue);
     expect(controller.exerciseEntries.single.activityId, proposal.activityId);
 
     final edited = await DailyCoachSession(
       controller: controller,
+      slotStore: MemoryCoachSlotStore(),
     ).saveExercise(proposal, amount: proposal.amount! + 1);
     expect(edited, isTrue);
     expect(
@@ -445,6 +522,7 @@ void main() {
 
     final savedIds = await DailyCoachSession(
       controller: controller,
+      slotStore: MemoryCoachSlotStore(),
     ).saveMeal(sampleMeal());
     expect(savedIds, isNotEmpty);
     expect(
@@ -454,6 +532,7 @@ void main() {
     expect(controller.foodEntries.last.consumedAmount, 1);
     await DailyCoachSession(
       controller: controller,
+      slotStore: MemoryCoachSlotStore(),
     ).saveMeal(sampleMeal(), grams: const [100]);
     expect(controller.foodEntries.last.consumedAmount, closeTo(100 / 150, 0.0001));
     expect(controller.foodEntries.last.totalKcal, closeTo(234 * 100 / 150, 0.01));

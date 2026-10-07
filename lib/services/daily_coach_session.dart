@@ -3,8 +3,11 @@ import '../models/food_entry.dart';
 import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../repositories/coach_nutrition_source.dart';
+import '../repositories/coach_slot_store.dart';
 import '../state/app_controller.dart';
+import '../utils/meal_slot.dart';
 import 'daily_coach.dart';
+import 'personal_coach_planner.dart';
 
 enum DailyCoachStatus { ready, nutritionMissing }
 
@@ -20,9 +23,13 @@ class DailyCoachLoadResult {
     this.exercise,
     this.focus,
     this.message,
+    this.registered = const [],
   });
 
   final DailyCoachStatus status;
+
+  /// 今日これからの枠のうち、もう登録した枠（時間の順）。案には入れず「登録済み」と出す。
+  final List<CoachRegisteredSlot> registered;
   /// 1回分の案（ほかの案で切り替える）。[plans] があるときは使わない。
   final List<CoachMealProposal> meals;
 
@@ -84,10 +91,30 @@ class DailyCoachSession {
   DailyCoachSession({
     required this.controller,
     CoachNutritionSource? nutritionSource,
-  }) : nutritionSource = nutritionSource ?? SupabaseCoachNutritionSource();
+    CoachSlotStore? slotStore,
+  }) : nutritionSource = nutritionSource ?? SupabaseCoachNutritionSource(),
+       slotStore = slotStore ?? PreferencesCoachSlotStore();
 
   final AppController controller;
   final CoachNutritionSource nutritionSource;
+  final CoachSlotStore slotStore;
+
+  /// 今日これからの枠のうち、登録済みの枠。食事記録を消した枠は入れない。
+  Future<List<CoachRegisteredSlot>> registeredSlots(DateTime now) async {
+    if (personalCoachIsLateEvening(now)) {
+      return const [];
+    }
+    final window = personalCoachRemainingSlots(now).toSet();
+    final ids = {for (final entry in controller.foodEntries) entry.id};
+    final saved = await slotStore.registeredOn(now);
+    return [
+      for (final slot in MealSlot.displayOrder.where(window.contains))
+        for (final item in saved)
+          if (item.slot == slot &&
+              (item.entryIds.isEmpty || item.entryIds.any(ids.contains)))
+            item,
+    ];
+  }
 
   Future<DailyCoachLoadResult> load(DateTime now) async {
     final summary = controller.summary;
@@ -149,15 +176,28 @@ class DailyCoachSession {
             coachLoggedWithinDays(entry.loggedAt, now, 3))
           entry.officialFoodCode!,
     };
+    // 登録した枠は外し、新しい残りで、まだの枠だけを組み直す。
+    final registered = await registeredSlots(now);
+    final plans = planCoachDay(
+      foods: stocks,
+      excludedFoodCodes: excluded,
+      remainingKcal: remaining,
+      now: now,
+      skipSlots: {for (final item in registered) item.slot},
+    );
+    if (plans.isEmpty && registered.isNotEmpty) {
+      return DailyCoachLoadResult(
+        status: DailyCoachStatus.ready,
+        focus: DailyCoachFocus.none,
+        message: '今日これからの食事は、登録済みです。',
+        registered: registered,
+      );
+    }
     return DailyCoachLoadResult(
       status: DailyCoachStatus.ready,
       focus: DailyCoachFocus.meals,
-      plans: planCoachDay(
-        foods: stocks,
-        excludedFoodCodes: excluded,
-        remainingKcal: remaining,
-        now: now,
-      ),
+      plans: plans,
+      registered: registered,
     );
   }
 

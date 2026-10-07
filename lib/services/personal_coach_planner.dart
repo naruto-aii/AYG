@@ -995,6 +995,23 @@ List<MealSlot> personalCoachRemainingSlots(DateTime now) {
   return const [MealSlot.snack];
 }
 
+/// 今日これからの枠から、今日もう登録した枠 [skipSlots] を外したもの。
+///
+/// 22時以降の間食は寝る前の分なので、昼間に間食を登録していても外さない。
+List<MealSlot> personalCoachPlannedSlots(
+  DateTime now,
+  Set<MealSlot> skipSlots,
+) {
+  final slots = personalCoachRemainingSlots(now);
+  if (personalCoachIsLateEvening(now) || skipSlots.isEmpty) {
+    return slots;
+  }
+  return [
+    for (final slot in slots)
+      if (!skipSlots.contains(slot)) slot,
+  ];
+}
+
 /// 1日の案の中の1回分。[budgetKcal] はこの回に割り当てた kcal。
 class PlannedCoachDayMeal {
   const PlannedCoachDayMeal({
@@ -1050,6 +1067,7 @@ List<PlannedCoachDay> planPersonalCoachDay({
   required double remainingKcal,
   required DateTime now,
   int limit = 5,
+  Set<MealSlot> skipSlots = const {},
 }) {
   if (!remainingKcal.isFinite || remainingKcal < 50 || foods.isEmpty) {
     return const [];
@@ -1057,7 +1075,10 @@ List<PlannedCoachDay> planPersonalCoachDay({
   if (limit <= 0) {
     return const [];
   }
-  final slots = personalCoachRemainingSlots(now);
+  final slots = personalCoachPlannedSlots(now, skipSlots);
+  if (slots.isEmpty) {
+    return const [];
+  }
   final mealSlots = [
     for (final slot in slots)
       if (slot != MealSlot.snack) slot,
@@ -1068,6 +1089,7 @@ List<PlannedCoachDay> planPersonalCoachDay({
       excludedFoodCodes: excludedFoodCodes,
       remainingKcal: remainingKcal,
       limit: limit,
+      maxSnacks: personalCoachIsLateEvening(now) ? personalCoachSnackLimit : 1,
     );
   }
   if (remainingKcal < personalCoachMealFloorKcal) {
@@ -1228,6 +1250,7 @@ List<PlannedCoachDay> _snackOnlyDays({
   required Set<String> excludedFoodCodes,
   required double remainingKcal,
   required int limit,
+  int maxSnacks = personalCoachSnackLimit,
 }) {
   final days = <PlannedCoachDay>[];
   final seen = <String>{};
@@ -1235,7 +1258,7 @@ List<PlannedCoachDay> _snackOnlyDays({
     final used = <String>{...excludedFoodCodes};
     final meals = <PlannedCoachDayMeal>[];
     var planned = 0;
-    for (var snack = 0; snack < personalCoachSnackLimit; snack++) {
+    for (var snack = 0; snack < maxSnacks; snack++) {
       final left = remainingKcal - planned;
       if (left < (snack == 0 ? 50 : 100)) {
         break;

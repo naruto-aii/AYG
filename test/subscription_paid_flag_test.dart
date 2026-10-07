@@ -82,7 +82,8 @@ void main() {
         find.textContaining(AppStrings.siriVoiceFoodPhrase),
         findsOneWidget,
       );
-      expect(find.textContaining('¥480'), findsOneWidget);
+      expect(find.textContaining('¥580'), findsWidgets);
+      expect(find.textContaining('¥480'), findsNothing);
       expect(find.text('半年'), findsOneWidget);
       expect(find.text('年額'), findsOneWidget);
       expect(find.text('¥5,400で始める'), findsOneWidget);
@@ -94,7 +95,7 @@ void main() {
       await tester.tap(find.byKey(const Key('plus-plan-monthly')));
       await tester.pumpAndSettle();
       expect(plus.monthlyPurchases, 0);
-      expect(find.text('¥480で始める'), findsOneWidget);
+      expect(find.text('¥580で始める'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('plus-purchase')));
       await tester.pumpAndSettle();

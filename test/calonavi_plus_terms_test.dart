@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('paywall shows the store price, renewal, and period', (
+  testWidgets('paywall shows the decided price, renewal, and period', (
     tester,
   ) async {
     final repository = _PricedPlus();
@@ -22,10 +22,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('¥480 ・ いつでも解約できます'), findsOneWidget);
-    expect(find.text('¥2,400 ・ 月あたり約483円'), findsOneWidget);
-    expect(find.text('¥4,800 ・ 月あたり450円'), findsOneWidget);
-    expect(find.text('¥4,800で始める'), findsOneWidget);
+    expect(find.text('¥580 ・ いつでも解約できます'), findsOneWidget);
+    expect(find.text('¥2,900 ・ 月あたり約483円'), findsOneWidget);
+    expect(find.text('¥5,400 ・ 月あたり450円'), findsOneWidget);
+    expect(find.text('¥5,400で始める'), findsOneWidget);
+    expect(find.textContaining('¥480'), findsNothing);
+    expect(find.textContaining('¥2,400'), findsNothing);
+    expect(find.textContaining('¥4,800'), findsNothing);
+    expect(AppStrings.plusBenefitSiriBody.contains('β'), isFalse);
+    expect(AppStrings.plusBenefitSiriBody.contains('カロナビ+'), isFalse);
     expect(find.text('お得'), findsOneWidget);
     expect(find.text('一番お得'), findsOneWidget);
     expect(

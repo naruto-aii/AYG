@@ -93,8 +93,7 @@ class AppStrings {
   static const plusBenefitWidgetBody =
       '残りカロリーに加え、アプリを開かずに、食事テンプレート3種類と運動テンプレート2件を、いつでもウィジェットから登録できます。';
   static const plusBenefitSiriTitle = 'Siri (β) に話しかけるだけで記録';
-  static const plusBenefitSiriBody =
-      '食事も運動も、声で登録できます。β版として先行公開している機能です。';
+  static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';
@@ -104,7 +103,7 @@ class AppStrings {
   static const plusYearlyNote = '月あたり450円';
   static const plusMonthlyNote = 'いつでも解約できます';
 
-  /// ストアが金額を返せないときだけの表示。購入処理では使わない。
+  /// 課金画面に出す決定価格。ストアが別の金額を返しても、この金額を出す。購入処理には渡さない。
   static const plusFallbackMonthlyPrice = '¥580';
   static const plusFallbackHalfYearPrice = '¥2,900';
   static const plusFallbackYearlyPrice = '¥5,400';

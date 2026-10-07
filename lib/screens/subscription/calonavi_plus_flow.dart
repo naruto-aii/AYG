@@ -99,16 +99,9 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     });
   }
 
-  bool _hasStorePrice(SubscriptionProductOffer? offer) {
-    final price = offer?.localizedPrice.trim() ?? '';
-    return offer != null && offer.canPurchase && price.isNotEmpty;
-  }
-
-  /// ストアの金額が無いときだけ、画面に出す予備。購入には渡さない。
-  String _displayPrice(PlusPlan plan, SubscriptionProductOffer? offer) {
-    if (_hasStorePrice(offer)) {
-      return offer!.localizedPrice.trim();
-    }
+  /// 決定価格だけを出す。古いストア金額と「月あたり」の注記を並べない。
+  /// 購入にはこの文字列を渡さない。
+  String _displayPrice(PlusPlan plan) {
     return switch (plan) {
       PlusPlan.monthly => AppStrings.plusFallbackMonthlyPrice,
       PlusPlan.halfYear => AppStrings.plusFallbackHalfYearPrice,
@@ -125,12 +118,11 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   }
 
   List<_PlanOption> get _plans {
-    final offerings = _offerings;
     return [
       for (final plan in PlusPlan.values)
         _PlanOption(
           plan: plan,
-          price: _displayPrice(plan, offerings?.offerFor(plan)),
+          price: _displayPrice(plan),
           note: _note(plan),
           badgeLabel: switch (plan) {
             PlusPlan.monthly => null,

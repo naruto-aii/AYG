@@ -6,6 +6,7 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
+import 'analytics_settings_screen.dart';
 
 /// 利用規約、プライバシー、特定商取引法。本文は各書類のまま。
 class SettingsPoliciesScreen extends StatelessWidget {
@@ -40,6 +41,19 @@ class SettingsPoliciesScreen extends StatelessWidget {
             title: AppStrings.settingsTokushoho,
             subtitle: '販売条件・事業者情報',
             onTap: () => showLegalDocument(context, LegalDocument.tokushoho),
+          ),
+          const SizedBox(height: 8),
+          SettingsRow(
+            key: const Key('settings-analytics'),
+            icon: AppIcons.information,
+            title: '利用状況の記録',
+            subtitle: 'サービス改善のための分析',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: 'analytics_settings'),
+                builder: (context) => const AnalyticsSettingsScreen(),
+              ),
+            ),
           ),
           const SizedBox(height: 24),
         ],

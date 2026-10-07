@@ -82,7 +82,7 @@ void main() {
     final standard = _meals(remaining: 550, now: DateTime(2026, 10, 7, 12));
     final hearty = _meals(remaining: 900, now: DateTime(2026, 10, 7, 12));
     final low = _meals(remaining: 120, now: DateTime(2026, 10, 7, 18));
-    expect(night.first.bandLabel, personalCoachBandLabel(PersonalCoachBand.snack));
+    expect(night.first.bandLabel, personalCoachBandLabel(PersonalCoachBand.light));
     expect(light.first.bandLabel, personalCoachBandLabel(PersonalCoachBand.light));
     expect(
       standard.first.bandLabel,
@@ -119,6 +119,26 @@ void main() {
       tester,
       _coach(low, now: DateTime(2026, 10, 7, 18)),
       File('${directory.path}/low_remaining.png'),
+    );
+    final dayPlans = planCoachDay(
+      foods: CoachFoodCatalog.stocks,
+      excludedFoodCodes: const {},
+      remainingKcal: 2438,
+      now: DateTime(2026, 10, 8, 1, 10),
+    );
+    expect(dayPlans, isNotEmpty);
+    saved['day_plan'] = await _capture(
+      tester,
+      DailyCoachScreen(
+        introStore: _SeenIntro(),
+        now: DateTime(2026, 10, 8, 1, 10),
+        load: () async => DailyCoachLoadResult(
+          status: DailyCoachStatus.ready,
+          focus: DailyCoachFocus.meals,
+          plans: dayPlans,
+        ),
+      ),
+      File('${directory.path}/day_plan.png'),
     );
     saved['free'] = await _capture(
       tester,

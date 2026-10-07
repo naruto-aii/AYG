@@ -15,6 +15,7 @@ class DailyCoachLoadResult {
   const DailyCoachLoadResult({
     required this.status,
     this.meals = const [],
+    this.plans = const [],
     this.exerciseMessage,
     this.exercise,
     this.focus,
@@ -22,7 +23,11 @@ class DailyCoachLoadResult {
   });
 
   final DailyCoachStatus status;
+  /// 1回分の案（ほかの案で切り替える）。[plans] があるときは使わない。
   final List<CoachMealProposal> meals;
+
+  /// 今日これからの食事に分けた案（ほかの案で切り替える）。
+  final List<CoachDayPlan> plans;
   final String? exerciseMessage;
   final CoachExerciseProposal? exercise;
 
@@ -32,8 +37,19 @@ class DailyCoachLoadResult {
   /// 食事も運動も出さないときの一文。
   final String? message;
 
+  /// 画面に出す案。[plans] が無ければ [meals] を1回分の案として包む。
+  List<CoachDayPlan> get dayPlans {
+    if (plans.isNotEmpty) {
+      return plans;
+    }
+    return [
+      for (final meal in meals)
+        CoachDayPlan(meals: [meal], remainingKcal: meal.kcal, note: meal.note),
+    ];
+  }
+
   bool get offersMeals {
-    if (status != DailyCoachStatus.ready || meals.isEmpty) {
+    if (status != DailyCoachStatus.ready || (meals.isEmpty && plans.isEmpty)) {
       return false;
     }
     if (focus == DailyCoachFocus.exercise || focus == DailyCoachFocus.none) {
@@ -56,7 +72,7 @@ class DailyCoachLoadResult {
     if (focus == DailyCoachFocus.exercise) {
       return true;
     }
-    return meals.isEmpty;
+    return meals.isEmpty && plans.isEmpty;
   }
 
   String get _exerciseText {
@@ -136,13 +152,10 @@ class DailyCoachSession {
     return DailyCoachLoadResult(
       status: DailyCoachStatus.ready,
       focus: DailyCoachFocus.meals,
-      meals: planCoachMeals(
+      plans: planCoachDay(
         foods: stocks,
         excludedFoodCodes: excluded,
         remainingKcal: remaining,
-        remainingProteinG: summary.targetProteinG - summary.intakeProteinG,
-        remainingFatG: summary.targetFatG - summary.intakeFatG,
-        remainingCarbG: summary.targetCarbG - summary.intakeCarbG,
         now: now,
       ),
     );

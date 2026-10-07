@@ -164,7 +164,11 @@ class PersonalCoachRules {
     if (items.isEmpty) {
       return ['空の案'];
     }
-    final band = _band(remainingKcal, night);
+    // 22時以降は軽食（450kcal未満）まで。
+    if (night && remainingKcal.isFinite) {
+      remainingKcal = math.min(remainingKcal, 449);
+    }
+    final band = _band(remainingKcal);
     if (band == null) {
       return ['食事を出さない区分なのに案がある'];
     }
@@ -343,12 +347,9 @@ class PersonalCoachRules {
     return problems;
   }
 
-  static String? _band(double remaining, bool night) {
+  static String? _band(double remaining) {
     if (!remaining.isFinite || remaining < 50) {
       return null;
-    }
-    if (night) {
-      return 'snack';
     }
     if (remaining < 250) {
       return 'snack';

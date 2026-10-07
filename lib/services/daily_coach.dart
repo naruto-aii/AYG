@@ -57,6 +57,7 @@ class CoachMealProposal {
     this.macroNote,
     this.note,
     this.bandLabel,
+    this.slotLabel,
   });
 
   final String headline;
@@ -72,6 +73,9 @@ class CoachMealProposal {
 
   /// 間食、軽食、一食（ちゃんと）、一食（しっかり）。
   final String? bandLabel;
+
+  /// 1日の案での枠（朝食・昼食・夕食・間食、22時以降は軽食）。
+  final String? slotLabel;
 
   Set<String> get foodCodes => {for (final item in components) item.foodCode};
 }
@@ -126,6 +130,99 @@ int? coachWholeMinutes(double amount) {
   return minutes;
 }
 
+/// 1日の残りを、これからの食事と間食に分けた案。
+class CoachDayPlan {
+  const CoachDayPlan({
+    required this.meals,
+    required this.remainingKcal,
+    this.note,
+  });
+
+  /// 朝食・昼食・夕食・間食の順。1件ずつ登録する。
+  final List<CoachMealProposal> meals;
+  final double remainingKcal;
+  final String? note;
+
+  double get kcal => meals.fold(0.0, (sum, meal) => sum + meal.kcal);
+}
+
+/// 残りを今日これからの食事に分ける。上位 [limit] 通り。
+///
+/// 残りが1食分（450kcal）未満、または22時以降は1回分だけ。
+List<CoachDayPlan> planCoachDay({
+  required List<CoachFoodStock> foods,
+  required Set<String> excludedFoodCodes,
+  required double remainingKcal,
+  required DateTime now,
+  int limit = 5,
+}) {
+  final days = planPersonalCoachDay(
+    foods: foods,
+    excludedFoodCodes: excludedFoodCodes,
+    remainingKcal: remainingKcal,
+    now: now,
+    limit: limit,
+  );
+  return [
+    for (final day in days)
+      CoachDayPlan(
+        remainingKcal: remainingKcal,
+        note: coachDayPlanNote(day, now),
+        meals: [
+          for (final entry in day.meals)
+            _proposal(foods, entry.meal, slotLabel: entry.label),
+        ],
+      ),
+  ];
+}
+
+/// 案の下に出す一文。食べきれない残りがあるときと、22時以降だけ。
+String? coachDayPlanNote(PlannedCoachDay day, DateTime now) {
+  final leftover = day.leftoverKcal.round();
+  if (personalCoachIsLateEvening(now)) {
+    if (leftover >= 100) {
+      return '夜遅い時間なので、軽めの1回にしています。';
+    }
+    return null;
+  }
+  if (leftover < 100) {
+    return null;
+  }
+  return '1食は850kcalまでにしています。この案を全部食べると、残りは約${leftover}kcalです。';
+}
+
+CoachMealProposal _proposal(
+  List<CoachFoodStock> foods,
+  PlannedCoachMeal meal, {
+  String? slotLabel,
+  String? note,
+}) {
+  return CoachMealProposal(
+    headline: meal.headline,
+    bandLabel: personalCoachBandLabel(meal.band),
+    slotLabel: slotLabel,
+    note: note,
+    components: [
+      for (final item in meal.items)
+        CoachMealComponent(
+          foodCode: item.foodCode,
+          displayName: item.displayName,
+          officialName: item.displayName,
+          units: 1,
+          grams: item.grams,
+          kcalPerUnit: _componentKcal(foods, item),
+          proteinPerUnit: item.proteinG,
+          fatPerUnit: item.fatG,
+          carbPerUnit: item.carbG,
+        ),
+    ],
+    kcal: meal.kcal.toDouble(),
+    proteinG: meal.proteinG,
+    fatG: meal.fatG,
+    carbG: meal.carbG,
+  );
+}
+
 /// 上位10案。量は食品ごとの選択肢だけ。unit_grams では増やさない。
 List<CoachMealProposal> planCoachMeals({
   required List<CoachFoodStock> foods,
@@ -146,30 +243,7 @@ List<CoachMealProposal> planCoachMeals({
   );
   final note = remainingKcal > 850 ? '残りは次の食事で' : null;
   return [
-    for (final meal in planned)
-      CoachMealProposal(
-        headline: meal.headline,
-        bandLabel: personalCoachBandLabel(meal.band),
-        note: note,
-        components: [
-          for (final item in meal.items)
-            CoachMealComponent(
-              foodCode: item.foodCode,
-              displayName: item.displayName,
-              officialName: item.displayName,
-              units: 1,
-              grams: item.grams,
-              kcalPerUnit: _componentKcal(foods, item),
-              proteinPerUnit: item.proteinG,
-              fatPerUnit: item.fatG,
-              carbPerUnit: item.carbG,
-            ),
-        ],
-        kcal: meal.kcal.toDouble(),
-        proteinG: meal.proteinG,
-        fatG: meal.fatG,
-        carbG: meal.carbG,
-      ),
+    for (final meal in planned) _proposal(foods, meal, note: note),
   ];
 }
 

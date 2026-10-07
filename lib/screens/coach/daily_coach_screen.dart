@@ -134,7 +134,8 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   void _bindAmounts(DailyCoachLoadResult result) {
     _disposeAmounts();
     if (result.offersMeals) {
-      for (final indexed in result.meals.indexed) {
+      final flat = [for (final plan in result.dayPlans) ...plan.meals];
+      for (final indexed in flat.indexed) {
         for (
           var component = 0;
           component < indexed.$2.components.length;
@@ -430,31 +431,53 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   }
 
   Widget _visibleMeal(DailyCoachLoadResult result) {
-    final count = result.meals.length;
+    final plans = result.dayPlans;
+    final count = plans.length;
     final now = widget.now ?? DateTime.now();
     final day = DateTime(
       now.year,
       now.month,
       now.day,
     ).difference(DateTime(now.year)).inDays;
-    final index = count == 0 ? 0 : (day + _mealShift) % count;
-    final meal = result.meals[index];
+    final shown = count == 0 ? 0 : (day + _mealShift) % count;
+    final plan = plans[shown];
+    // 画面と記録で共通の通し番号。前の案の回数を足す。
+    var offset = 0;
+    for (var i = 0; i < shown; i++) {
+      offset += plans[i].meals.length;
+    }
+    final multiple = plan.meals.length > 1;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (meal.bandLabel != null)
+        if (multiple)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              meal.bandLabel!,
-              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              '今日これからの${plan.meals.length}回で合計約${plan.kcal.round()}kcal'
+              '（残り${plan.remainingKcal.round()}kcal）。食べた回ごとに登録します。',
+              key: const Key('coach_day_plan_summary'),
+              style: AppTypography.bodyS,
             ),
           ),
-        _mealCard(meal, index),
-        if (meal.note != null)
+        for (var m = 0; m < plan.meals.length; m++) ...[
+          if (_mealLabel(plan.meals[m], multiple) != null)
+            Padding(
+              padding: EdgeInsets.only(top: m == 0 ? 4 : 16),
+              child: Text(
+                _mealLabel(plan.meals[m], multiple)!,
+                key: Key('coach_meal_label_${offset + m}'),
+                style: multiple
+                    ? AppTypography.titleS
+                    : AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              ),
+            ),
+          _mealCard(plan.meals[m], offset + m),
+        ],
+        if (plan.note != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(meal.note!, style: AppTypography.bodyS),
+            child: Text(plan.note!, style: AppTypography.bodyS),
           ),
         if (count > 1) ...[
           const SizedBox(height: 8),
@@ -469,6 +492,14 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
         ],
       ],
     );
+  }
+
+  /// 1日の案では枠（朝食・昼食・夕食・間食）、1回だけなら量の区分。
+  String? _mealLabel(CoachMealProposal meal, bool multiple) {
+    if (multiple) {
+      return meal.slotLabel ?? meal.bandLabel;
+    }
+    return meal.bandLabel ?? meal.slotLabel;
   }
 
   Widget _exerciseCard(DailyCoachLoadResult result) {

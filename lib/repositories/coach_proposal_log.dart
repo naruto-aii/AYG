@@ -44,7 +44,10 @@ List<CoachProposalRecord> coachProposalRecords({
   }
   final records = <CoachProposalRecord>[];
   if (result.offersMeals) {
-    for (final meal in result.meals) {
+    // 画面の通し番号（案ごと・回ごと）と同じ順で残す。
+    for (final meal in [
+      for (final plan in result.dayPlans) ...plan.meals,
+    ]) {
       final text = coachMealProposalText(meal);
       if (text.isEmpty) {
         continue;
@@ -76,6 +79,8 @@ List<CoachProposalRecord> coachProposalRecords({
 
 String coachMealProposalText(CoachMealProposal meal) {
   final lines = <String>[
+    if (meal.slotLabel != null && meal.slotLabel!.trim().isNotEmpty)
+      meal.slotLabel!.trim(),
     meal.headline.trim(),
     '約${meal.kcal.round()}kcal',
     for (final item in meal.components) '${item.displayName} ${item.grams}g',

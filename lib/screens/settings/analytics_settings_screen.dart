@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../services/analytics/analytics.dart';
-import '../../services/analytics/analytics_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 
-/// 設定の「利用状況の記録」。切ると送信待ちを消す。
+/// 設定の「規約とポリシー」→「利用状況の記録」。切ると送信待ちを消す。
 class AnalyticsSettingsScreen extends StatefulWidget {
   const AnalyticsSettingsScreen({super.key});
 
@@ -29,14 +28,14 @@ class _AnalyticsSettingsScreenState extends State<AnalyticsSettingsScreen> {
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           Text(
-            '協力しなくても、すべての機能を使えます。やめると、この端末の送信待ちを消して、以後は送りません。',
+            'アプリの利用状況などのデータは、サービス改善のための分析に使う場合があります（プライバシーポリシー 3-2）。オフにすると、この端末の送信待ちを消して、以後は送りません。',
             style: AppTypography.bodyM,
           ),
           const SizedBox(height: AppSpacing.md),
           SwitchListTile(
             key: const Key('analytics-consent-switch'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('利用状況の記録に協力する'),
+            title: const Text('利用状況を記録する'),
             value: granted,
             onChanged: service == null || _busy
                 ? null

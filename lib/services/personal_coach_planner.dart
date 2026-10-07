@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../data/coach_food_catalog.dart';
+import '../utils/meal_slot.dart';
 
 /// 残りkcalで決まる食事の区分。運動と「今日はここまで」は呼び出し側。
 enum PersonalCoachBand { snack, light, standard, hearty }
@@ -60,18 +61,36 @@ class PlannedCoachMeal {
   final String headline;
 }
 
-/// 22:00〜翌4:59。
+/// 22:00〜翌4:59。運動の提案だけが使う（夜は運動を勧めない）。
 bool personalCoachIsNight(DateTime now) {
   return now.hour >= 22 || now.hour < 5;
+}
+
+/// 22:00〜23:59。その日の残りは寝る前の1回だけなので、軽食までにする。
+///
+/// 0:00〜4:59 は日付が変わった直後で、今日の食事はまだ全部これから。
+/// ここを夜として間食だけにすると、目標がほぼ丸ごと残っていても
+/// 牛乳や果物1品しか出なかった（2,438kcal 残りで間食だけ、の原因）。
+bool personalCoachIsLateEvening(DateTime now) {
+  return now.hour >= 22;
+}
+
+/// 22時以降の1回は軽食（450kcal未満）まで。残りが多くても夜遅くに一食分は出さない。
+const double personalCoachLateEveningCapKcal = 449;
+
+/// 1回の提案で埋める上限。22時以降は軽食まで。
+double personalCoachEffectiveRemaining(double remainingKcal, DateTime? now) {
+  if (now != null && personalCoachIsLateEvening(now)) {
+    return math.min(remainingKcal, personalCoachLateEveningCapKcal);
+  }
+  return remainingKcal;
 }
 
 PersonalCoachBand? personalCoachMealBand(double remainingKcal, DateTime? now) {
   if (!remainingKcal.isFinite || remainingKcal < 50) {
     return null;
   }
-  if (now != null && personalCoachIsNight(now)) {
-    return PersonalCoachBand.snack;
-  }
+  remainingKcal = personalCoachEffectiveRemaining(remainingKcal, now);
   if (remainingKcal < 250) {
     return PersonalCoachBand.snack;
   }
@@ -96,6 +115,7 @@ List<PlannedCoachMeal> planPersonalCoachMeals({
   if (band == null || foods.isEmpty || limit <= 0) {
     return const [];
   }
+  remainingKcal = personalCoachEffectiveRemaining(remainingKcal, now);
   final first = _search(
     foods: foods,
     excludedFoodCodes: excludedFoodCodes,
@@ -901,4 +921,336 @@ String personalCoachBandLabel(PersonalCoachBand band) {
     PersonalCoachBand.standard => '一食（ちゃんと）',
     PersonalCoachBand.hearty => '一食（しっかり）',
   };
+}
+
+// ---------------------------------------------------------------------------
+// 1日の残りを、これからの食事に分ける。
+//
+// 根拠:
+// - 1食は「主食＋主菜＋副菜」で 450〜850kcal（スマートミール基準、厚生労働省
+//   「生活習慣病予防その他の健康増進を目的として提供する食事の目安」2015）。
+//   650kcal 未満が「ちゃんと」、650〜850kcal が「しっかり」。1食の上限は 850kcal。
+// - 主食・主菜・副菜をそろえた食事を1日2回以上（第4次食育推進基本計画）。
+// - 牛乳・乳製品と果物は1日それぞれ2つ（SV）が目安（食事バランスガイド、
+//   厚生労働省・農林水産省）。間食はこの範囲で、食事のあとの端数だけを埋める。
+// ---------------------------------------------------------------------------
+
+/// 1食の下限（スマートミール「ちゃんと」の下限）。
+const double personalCoachMealFloorKcal = 450;
+
+/// 1食の上限（スマートミール「しっかり」の上限）。
+const double personalCoachMealCapKcal = 850;
+
+/// 食事のあとに足す間食の数の上限（乳製品と果物、各2つ/日の範囲）。
+const int personalCoachSnackLimit = 2;
+
+/// 間食1回の上限。
+const double personalCoachSnackCapKcal = 200;
+
+/// 今の時刻から、今日これからの食事の枠。
+///
+/// 0:00〜10:59 は朝・昼・夕。日付が変わった直後（0〜4時）は、今日の3食の予定として出す。
+/// 11:00〜14:59 は昼・夕。15:00〜21:59 は夕。22時以降は枠なし（軽食1回だけ）。
+List<MealSlot> personalCoachRemainingSlots(DateTime now) {
+  final hour = now.hour;
+  if (hour < 11) {
+    return const [MealSlot.breakfast, MealSlot.lunch, MealSlot.dinner];
+  }
+  if (hour < 15) {
+    return const [MealSlot.lunch, MealSlot.dinner];
+  }
+  if (hour < 22) {
+    return const [MealSlot.dinner];
+  }
+  return const [];
+}
+
+/// 1日の案の中の1回分。[budgetKcal] はこの回に割り当てた kcal。
+class PlannedCoachDayMeal {
+  const PlannedCoachDayMeal({
+    required this.slot,
+    required this.label,
+    required this.budgetKcal,
+    required this.meal,
+  });
+
+  final MealSlot slot;
+
+  /// 「朝食」「昼食」「夕食」「間食」、22時以降は「軽食」。
+  final String label;
+  final double budgetKcal;
+  final PlannedCoachMeal meal;
+}
+
+class PlannedCoachDay {
+  const PlannedCoachDay({
+    required this.meals,
+    required this.kcal,
+    required this.remainingKcal,
+  });
+
+  final List<PlannedCoachDayMeal> meals;
+  final int kcal;
+  final double remainingKcal;
+
+  /// 案を全部食べても残る kcal。
+  double get leftoverKcal => math.max(0, remainingKcal - kcal);
+}
+
+/// 残り [remainingKcal] を、今日これからの食事（主食＋主菜＋副菜）に分けた案を
+/// 最大 [limit] 通り返す。食事のあとの端数だけを間食で埋める。
+///
+/// - 食事の回数は、これからの枠の数と「1食 450kcal 以上」で決める。
+/// - 1食は 850kcal まで。残りを回数で割り、その回の上限にする。
+/// - 同じ日の案の中では、主菜・副菜・果物を食事ごとに変える。
+List<PlannedCoachDay> planPersonalCoachDay({
+  required List<CoachFoodStock> foods,
+  required Set<String> excludedFoodCodes,
+  required double remainingKcal,
+  required DateTime now,
+  int limit = 5,
+}) {
+  if (!remainingKcal.isFinite || remainingKcal < 50 || foods.isEmpty) {
+    return const [];
+  }
+  if (limit <= 0) {
+    return const [];
+  }
+  final slots = personalCoachRemainingSlots(now);
+  if (slots.isEmpty || remainingKcal < personalCoachMealFloorKcal) {
+    return _singleMealDays(
+      foods: foods,
+      excludedFoodCodes: excludedFoodCodes,
+      remainingKcal: remainingKcal,
+      now: now,
+      limit: limit,
+      slot: slots.isEmpty ? MealSlot.snack : slots.first,
+    );
+  }
+  final count = math.max(
+    1,
+    math.min(slots.length, (remainingKcal / personalCoachMealFloorKcal).floor()),
+  );
+  final chosen = _pickSlots(slots, count);
+  // どの回も同じ上限にする。残りを回数で割り、1食 850kcal で止める。
+  final budget = math.min(remainingKcal / chosen.length, personalCoachMealCapKcal);
+  final band = personalCoachMealBand(budget, null);
+  if (band == null) {
+    return const [];
+  }
+  final pool = limit * chosen.length * 4;
+  var ranked = _search(
+    foods: foods,
+    excludedFoodCodes: excludedFoodCodes,
+    remainingKcal: budget,
+    band: band,
+    limit: pool,
+  );
+  if (ranked.isEmpty && excludedFoodCodes.isNotEmpty) {
+    ranked = _search(
+      foods: foods,
+      excludedFoodCodes: const {},
+      remainingKcal: budget,
+      band: band,
+      limit: pool,
+    );
+  }
+  if (ranked.isEmpty) {
+    return const [];
+  }
+  final days = <PlannedCoachDay>[];
+  final seen = <String>{};
+  for (var variant = 0; variant < limit; variant++) {
+    final day = _buildDay(
+      foods: foods,
+      excludedFoodCodes: excludedFoodCodes,
+      remainingKcal: remainingKcal,
+      slots: chosen,
+      budget: budget,
+      ranked: ranked,
+      variant: variant,
+    );
+    final key = day.meals
+        .map(
+          (meal) => meal.meal.items
+              .map((item) => '${item.foodCode}:${item.grams}')
+              .join(','),
+        )
+        .join('|');
+    if (seen.add(key)) {
+      days.add(day);
+    }
+  }
+  return days;
+}
+
+/// 先頭（今これから）と最後（夕食）を残す。
+List<MealSlot> _pickSlots(List<MealSlot> slots, int count) {
+  if (count >= slots.length) {
+    return slots;
+  }
+  if (count == 1) {
+    return [slots.first];
+  }
+  return [slots.first, slots.last];
+}
+
+List<PlannedCoachDay> _singleMealDays({
+  required List<CoachFoodStock> foods,
+  required Set<String> excludedFoodCodes,
+  required double remainingKcal,
+  required DateTime now,
+  required int limit,
+  required MealSlot slot,
+}) {
+  final meals = planPersonalCoachMeals(
+    foods: foods,
+    excludedFoodCodes: excludedFoodCodes,
+    remainingKcal: remainingKcal,
+    now: now,
+    limit: limit,
+  );
+  final budget = personalCoachEffectiveRemaining(remainingKcal, now);
+  return [
+    for (final meal in meals)
+      PlannedCoachDay(
+        meals: [
+          PlannedCoachDayMeal(
+            slot: slot,
+            label: _labelFor(slot, meal.band),
+            budgetKcal: budget,
+            meal: meal,
+          ),
+        ],
+        kcal: meal.kcal,
+        remainingKcal: remainingKcal,
+      ),
+  ];
+}
+
+String _labelFor(MealSlot slot, PersonalCoachBand band) {
+  if (band == PersonalCoachBand.snack) {
+    return MealSlot.snack.label;
+  }
+  if (slot == MealSlot.snack) {
+    return personalCoachBandLabel(band);
+  }
+  return slot.label;
+}
+
+/// 同じ日の中で主菜・副菜・果物が重ならないものを、[variant] ずらして選ぶ。
+PlannedCoachDay _buildDay({
+  required List<CoachFoodStock> foods,
+  required Set<String> excludedFoodCodes,
+  required double remainingKcal,
+  required List<MealSlot> slots,
+  required double budget,
+  required List<PlannedCoachMeal> ranked,
+  required int variant,
+}) {
+  final used = <String>{...excludedFoodCodes};
+  final meals = <PlannedCoachDayMeal>[];
+  var planned = 0;
+  for (var index = 0; index < slots.length; index++) {
+    final start = (variant * slots.length + index) % ranked.length;
+    var meal = ranked[start];
+    for (var step = 0; step < ranked.length; step++) {
+      final candidate = ranked[(start + step) % ranked.length];
+      final clash = candidate.items.any(
+        (item) => _variedRole(item.role) && used.contains(item.foodCode),
+      );
+      if (!clash) {
+        meal = candidate;
+        break;
+      }
+    }
+    meals.add(
+      PlannedCoachDayMeal(
+        slot: slots[index],
+        label: slots[index].label,
+        budgetKcal: budget,
+        meal: meal,
+      ),
+    );
+    planned += meal.kcal;
+    for (final item in meal.items) {
+      if (_variedRole(item.role)) {
+        used.add(item.foodCode);
+      }
+    }
+  }
+  for (var snack = 0; snack < personalCoachSnackLimit; snack++) {
+    final left = remainingKcal - planned;
+    if (left < 100) {
+      break;
+    }
+    final snackBudget = math.min(left, personalCoachSnackCapKcal);
+    final picked = _pickVariant(
+      foods: foods,
+      excludedFoodCodes: used,
+      remainingKcal: snackBudget,
+      variant: variant + snack,
+      band: PersonalCoachBand.snack,
+    );
+    if (picked == null) {
+      break;
+    }
+    meals.add(
+      PlannedCoachDayMeal(
+        slot: MealSlot.snack,
+        label: MealSlot.snack.label,
+        budgetKcal: snackBudget,
+        meal: picked,
+      ),
+    );
+    planned += picked.kcal;
+    for (final item in picked.items) {
+      used.add(item.foodCode);
+    }
+  }
+  return PlannedCoachDay(
+    meals: meals,
+    kcal: planned,
+    remainingKcal: remainingKcal,
+  );
+}
+
+bool _variedRole(CoachFoodRole role) {
+  return role == CoachFoodRole.main ||
+      role == CoachFoodRole.side ||
+      role == CoachFoodRole.fruit;
+}
+
+PlannedCoachMeal? _pickVariant({
+  required List<CoachFoodStock> foods,
+  required Set<String> excludedFoodCodes,
+  required double remainingKcal,
+  required int variant,
+  PersonalCoachBand? band,
+}) {
+  final resolved = band ?? personalCoachMealBand(remainingKcal, null);
+  if (resolved == null) {
+    return null;
+  }
+  final want = variant + 1;
+  var ranked = _search(
+    foods: foods,
+    excludedFoodCodes: excludedFoodCodes,
+    remainingKcal: remainingKcal,
+    band: resolved,
+    limit: want,
+  );
+  if (ranked.isEmpty) {
+    ranked = _search(
+      foods: foods,
+      excludedFoodCodes: const {},
+      remainingKcal: remainingKcal,
+      band: resolved,
+      limit: want,
+    );
+  }
+  if (ranked.isEmpty) {
+    return null;
+  }
+  return ranked[variant % ranked.length];
 }

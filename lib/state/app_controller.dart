@@ -3309,6 +3309,40 @@ class AppController extends ChangeNotifier {
     return MealTemplateWithItems(template: template, items: items);
   }
 
+  /// ウィジェットの枠に流し込む食事テンプレートの一覧。検索の計測は残さない。
+  Future<List<MealTemplate>> mealTemplatesForWidget() async {
+    final repository = _mealTemplateRepository;
+    final owner = currentOwnerUserId.trim();
+    if (repository == null || owner.isEmpty) {
+      return const [];
+    }
+    final all = await repository.getAll(owner);
+    final active = [
+      for (final template in all)
+        if (template.status == TemplateStatus.active &&
+            template.deletedAt == null)
+          template,
+    ]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return active;
+  }
+
+  /// ウィジェットの枠に流し込む運動テンプレートの一覧。検索の計測は残さない。
+  Future<List<WorkoutTemplate>> workoutTemplatesForWidget() async {
+    final repository = _workoutTemplateRepository;
+    final owner = currentOwnerUserId.trim();
+    if (repository == null || owner.isEmpty) {
+      return const [];
+    }
+    final all = await repository.getAll(owner);
+    final active = [
+      for (final template in all)
+        if (template.status == WorkoutTemplateStatus.active &&
+            template.deletedAt == null)
+          template,
+    ]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return active;
+  }
+
   /// 無料は4件まで。カロナビ+は件数の上限なし。編集と復元は止めない。
   Future<bool> canCreateWorkoutTemplate() async {
     final repository = _workoutTemplateRepository;

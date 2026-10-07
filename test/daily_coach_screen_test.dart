@@ -389,7 +389,13 @@ void main() {
     final meals = await session.load(noon);
     expect(controller.summary!.remainingKcal, greaterThan(0));
     expect(meals.focus, DailyCoachFocus.meals);
-    expect(meals.meals, isNotEmpty);
+    expect(meals.plans, isNotEmpty);
+    expect(meals.offersMeals, isTrue);
+    expect(
+      meals.plans.first.meals.first.slotLabel,
+      isNotNull,
+      reason: 'day plans carry 朝食/昼食/夕食/間食',
+    );
     expect(meals.exercise, isNull);
     expect(meals.offersExercise, isFalse);
 
@@ -416,6 +422,7 @@ void main() {
     ).load(noon);
     expect(exerciseDay.focus, DailyCoachFocus.exercise);
     expect(exerciseDay.meals, isEmpty);
+    expect(exerciseDay.plans, isEmpty);
     expect(exerciseDay.offersMeals, isFalse);
     expect(exerciseDay.exercise, isNotNull);
     expect(exerciseDay.exercise!.canRegister, isTrue);

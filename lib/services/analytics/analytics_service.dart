@@ -13,7 +13,10 @@ import 'app_event_retention.dart';
 import 'event_names.dart';
 import 'native_analytics_bridge.dart';
 
-const analyticsPolicyVersion = '2026-10-07';
+const analyticsPolicyVersion = '2026-10-08';
+
+/// 利用規約とプライバシーポリシーへの同意（ログイン）で記録を始めたときの surface。
+const analyticsAgreementSurface = 'terms_agreement';
 const _consentKey = 'analytics_consent';
 const _installKey = 'analytics_install_id';
 const _sequenceKey = 'analytics_sequence_app';

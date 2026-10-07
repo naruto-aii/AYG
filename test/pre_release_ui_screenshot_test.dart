@@ -7,7 +7,6 @@ import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
-import 'package:ayg/screens/consent/analytics_consent_screen.dart';
 import 'package:ayg/screens/settings/how_to_use_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
@@ -57,12 +56,6 @@ void main() {
     expect(find.textContaining('24時間以上前'), findsOneWidget);
     expect(find.text('音声登録 (β)'), findsOneWidget);
 
-    await _capture(
-      tester,
-      const AnalyticsConsentScreen(onDecide: _noop),
-      File('${directory.path}/analytics_consent.png'),
-      find.text('利用状況の記録に協力する'),
-    );
     expect(find.textContaining('社長確認'), findsNothing);
     expect(find.textContaining('文案'), findsNothing);
 
@@ -122,7 +115,6 @@ void main() {
   });
 }
 
-Future<void> _noop(bool cooperate) async {}
 
 Future<void> _capture(
   WidgetTester tester,

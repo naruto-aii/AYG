@@ -8,11 +8,11 @@ import 'constants/app_strings.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/health_repository.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/consent/analytics_consent_screen.dart';
 import 'screens/onboarding/health_setup_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
 import 'services/analytics/analytics.dart';
 import 'services/analytics/analytics_runtime.dart';
+import 'services/analytics/analytics_service.dart';
 import 'services/analytics/catalog_actions.dart';
 import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
@@ -105,6 +105,29 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     }
   }
 
+  bool _analyticsStarting = false;
+
+  /// 規約とプライバシーポリシーに同意してログインした人は、利用状況の記録を始める。
+  ///
+  /// 専用の同意画面は出さない。プライバシーポリシー 3-2 に書いた範囲で記録する。
+  /// 設定の「規約とポリシー」→「利用状況の記録」で止めた人には何もしない。
+  void _startAnalyticsAfterAgreement() {
+    final analytics = Analytics.service;
+    if (analytics == null || analytics.consentDecided || _analyticsStarting) {
+      return;
+    }
+    _analyticsStarting = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await analytics.grantConsent(surface: analyticsAgreementSurface);
+        await AnalyticsRuntime.lifecycle?.onColdStart();
+        await AnalyticsRuntime.ads?.captureOnce();
+      } finally {
+        _analyticsStarting = false;
+      }
+    });
+  }
+
   Future<void> _coldStart() async {
     final service = Analytics.service;
     if (service != null && service.consented) {
@@ -175,24 +198,6 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
           return const AppStartupLoadingScreen();
         }
 
-        final analytics = Analytics.service;
-        if (analytics != null && !analytics.consentDecided) {
-          return AnalyticsConsentScreen(
-            onDecide: (cooperate) async {
-              if (cooperate) {
-                await analytics.grantConsent(surface: 'first_launch');
-                await AnalyticsRuntime.lifecycle?.onColdStart();
-                await AnalyticsRuntime.ads?.captureOnce();
-              } else {
-                await analytics.declineConsent(surface: 'first_launch');
-              }
-              if (mounted) {
-                setState(() {});
-              }
-            },
-          );
-        }
-
         if (!controller.isAuthenticated) {
           return LoginScreen(
             controller: controller,
@@ -200,6 +205,10 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
             authStorageAvailable: widget.authStorageAvailable,
           );
         }
+
+        // ログイン（利用規約とプライバシーポリシーへの同意）のあとに記録を始める。
+        // 以前に設定で止めた人（denied）はそのまま。
+        _startAnalyticsAfterAgreement();
 
         if (controller.requiresSyncRetry) {
           return AppSyncRetryScreen(

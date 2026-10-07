@@ -13,6 +13,9 @@
 --   * App Store から取り込む表（store_*）はサーバー（service_role）専用。
 --   * 本番には pg_cron / pg_net が入っていないため、定期実行は別ファイル
 --     20261008090100_store_import_schedule.sql に分けた（社長の承認後に適用）。
+--   * 20261008090200_app_events_retention.sql と必ず同じ作業で適用する。
+--     アプリは onConflict 'event_id,occurred_at' で upsert する。このファイルだけの
+--     主キーは event_id なので、月ごとの表へ移す前に送ると失敗する。
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -397,7 +400,7 @@ create or replace function public.delete_own_account(p_user_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path = ''
 as $function$
 declare
   uid uuid;

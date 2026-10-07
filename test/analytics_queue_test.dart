@@ -5,6 +5,8 @@ import 'package:ayg/services/analytics/analytics.dart';
 import 'package:ayg/services/analytics/analytics_event.dart';
 import 'package:ayg/services/analytics/analytics_queue.dart';
 import 'package:ayg/services/analytics/analytics_sender.dart';
+import 'package:ayg/services/analytics/supabase_analytics_transport.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ayg/services/isar/local_user_data_clearer.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
@@ -187,6 +189,72 @@ void main() {
     expect(left.map((row) => row.eventId), isNot(contains('id-0')));
     expect(queue.droppedOverflow, 1);
   });
+
+  test('PGRST205 holds the queue instead of retrying immediately', () async {
+    expect(
+      analyticsStatusForPostgrest(
+        const PostgrestException(message: 'missing', code: 'PGRST205'),
+      ),
+      404,
+    );
+    expect(
+      analyticsStatusForPostgrest(
+        const PostgrestException(message: 'missing', code: '404'),
+      ),
+      404,
+    );
+
+    final isarHarness = await setUpIsarHarness();
+    final clock = _MutableClock(DateTime.utc(2027, 1, 1));
+    final transport = _FixedTransport(
+      const AnalyticsSendResult(statusCode: 404),
+    );
+    final analytics = await AnalyticsHarness.open(
+      isar: isarHarness.isar,
+      clock: () => clock.value,
+      transport: transport,
+    );
+    await analytics.service.grantConsent(surface: 'first_launch');
+    await analytics.service.setCurrentUser(
+      '11111111-1111-4111-8111-111111111111',
+    );
+    await analytics.service.track('logout', {'forced': false});
+    await analytics.service.track('logout', {'forced': true});
+    await analytics.service.settled;
+
+    await analytics.service.flush();
+    expect(transport.calls, 1);
+    await analytics.service.flush();
+    expect(transport.calls, 1);
+    final held = await analytics.queue.all();
+    expect(held.length, greaterThanOrEqualTo(2));
+    expect(held.every((row) => row.quarantined), isFalse);
+    expect(held.map((row) => row.attempts).reduce((a, b) => a > b ? a : b), 1);
+
+    for (var i = 0; i < analyticsTableMissingAttemptCap; i++) {
+      clock.value = clock.value.add(analyticsTableMissingHold);
+      await analytics.service.flush();
+    }
+    final done = await analytics.queue.all();
+    expect(done.every((row) => row.quarantined), isTrue);
+    final callsAfterCap = transport.calls;
+    clock.value = clock.value.add(const Duration(days: 30));
+    await analytics.service.flush();
+    expect(transport.calls, callsAfterCap);
+  });
+}
+
+class _FixedTransport implements AnalyticsTransport {
+  _FixedTransport(this.result);
+
+  final AnalyticsSendResult result;
+  var calls = 0;
+
+  @override
+  Future<AnalyticsSendResult> send(List<Map<String, dynamic>> rows) async {
+    calls += 1;
+    return result;
+  }
 }
 
 AnalyticsEvent _event(String id) {

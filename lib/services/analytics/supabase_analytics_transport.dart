@@ -40,7 +40,7 @@ class SupabaseAnalyticsTransport implements AnalyticsTransport {
     } on PostgrestException catch (error, stackTrace) {
       debugPrint('[AYG] analytics rejected: ${error.code}');
       debugPrintStack(stackTrace: stackTrace);
-      return AnalyticsSendResult(statusCode: _statusForPostgrest(error));
+      return AnalyticsSendResult(statusCode: analyticsStatusForPostgrest(error));
     } catch (error, stackTrace) {
       debugPrint('[AYG] analytics transport failed: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -49,10 +49,13 @@ class SupabaseAnalyticsTransport implements AnalyticsTransport {
   }
 }
 
-int _statusForPostgrest(PostgrestException error) {
+int analyticsStatusForPostgrest(PostgrestException error) {
   final code = error.code ?? '';
   if (code == 'PGRST301' || code == '401') {
     return 401;
+  }
+  if (code == 'PGRST205' || code == '42P01' || code == '404') {
+    return 404;
   }
   if (code == 'PGRST204' || code.startsWith('22') || code.startsWith('23')) {
     return 400;

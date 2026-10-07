@@ -115,7 +115,7 @@ class PersonalCoachRules {
 
   static Map<String, _Food> _load() {
     final sql = File(
-      'supabase/migrations/20261007150000_personal_coach_food_roles.sql',
+      'supabase/migrations/20261007074302_personal_coach_food_roles.sql',
     ).readAsStringSync();
     final pattern = RegExp(
       r"\('(\d{5})', '[^']*', '[^']*', \d+, (?:null|'[^']*'), \d+, '(staple|main|side|dairy|fruit)', '([a-z]+)', (true|false), (true|false), (true|false),\s+'(\[.*?\])'::jsonb",

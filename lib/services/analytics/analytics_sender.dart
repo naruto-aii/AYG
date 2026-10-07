@@ -1,4 +1,10 @@
 /// まとめて送った結果。成功したときだけキューから消す。
+/// 表が無いときの再送間隔。同じ flush では繰り返さない。
+const analyticsTableMissingHold = Duration(hours: 12);
+
+/// 表が無い応答をこの回数まで保留し、それ以降は隔離する。
+const analyticsTableMissingAttemptCap = 6;
+
 class AnalyticsSendResult {
   const AnalyticsSendResult({this.statusCode, this.timedOut = false});
 
@@ -11,21 +17,26 @@ class AnalyticsSendResult {
 
   bool get unauthorized => statusCode == 401;
 
+  /// app_events がまだ無い（PGRST205 / 404 / 42P01）。無限に再送しない。
+  bool get tableMissing => statusCode == 404;
+
   /// 通信できない、時間切れ、500 番台、429、401 は残して後で送る。
   bool get retryLater =>
       !succeeded &&
+      !tableMissing &&
       (timedOut ||
           statusCode == null ||
           statusCode! >= 500 ||
           statusCode == 429 ||
           statusCode == 401);
 
-  /// 400 番台のデータの誤り。401 と 429 は除く。
+  /// 400 番台のデータの誤り。401、404、429 は除く。
   bool get dataError =>
       statusCode != null &&
       statusCode! >= 400 &&
       statusCode! < 500 &&
       statusCode != 401 &&
+      statusCode != 404 &&
       statusCode != 429;
 }
 

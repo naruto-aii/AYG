@@ -118,10 +118,9 @@ class AnalyticsService {
   }
 
   Future<void> revokeConsent() async {
-    final pending = await _queue.count();
     await track('local_data_cleared', {
       'reason': 'other',
-      'pending_records_count': pending,
+      'pending_records_count': 0,
     });
     await flush(budget: const Duration(seconds: 2));
     await _preferences.setString(_consentKey, 'denied');
@@ -288,7 +287,11 @@ class AnalyticsService {
         if (batch.isEmpty) {
           break;
         }
-        sent += await _sendBatch(batch);
+        final sentNow = await _sendBatch(batch);
+        if (sentNow < 0) {
+          break;
+        }
+        sent += sentNow;
       }
     } finally {
       _flushing = false;
@@ -350,6 +353,24 @@ class AnalyticsService {
         now: _clock(),
       );
       return 0;
+    }
+    if (result.tableMissing) {
+      final attempts = ready
+          .map((row) => row.attempts)
+          .fold<int>(0, (a, b) => a > b ? a : b);
+      if (attempts + 1 >= analyticsTableMissingAttemptCap) {
+        for (final row in ready) {
+          await _queue.quarantine(row);
+        }
+      } else {
+        await _queue.markRetry(
+          rows: ready,
+          wait: analyticsTableMissingHold,
+          countAttempt: true,
+          now: _clock(),
+        );
+      }
+      return -1;
     }
     if (result.dataError) {
       if (ready.length == 1) {

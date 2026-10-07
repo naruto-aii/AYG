@@ -64,6 +64,36 @@ void main() {
         'food-both',
         'food-local',
       ]);
+      expect(
+        merged.firstWhere((entry) => entry.id == 'food-both').name,
+        'food-both',
+      );
+
+      final localEdit = _food('food-both', name: '手元の編集');
+      final remoteCopy = _food('food-both', name: '本番');
+      final preferred = mergeEntriesById(
+        local: [localEdit, _food('food-local')],
+        remote: [remoteCopy, _food('food-remote')],
+        idOf: (FoodEntry entry) => entry.id,
+        preferLocalIds: {'food-both'},
+      );
+      expect(
+        preferred.firstWhere((entry) => entry.id == 'food-both').name,
+        '手元の編集',
+      );
+      expect(preferred.map((entry) => entry.id), [
+        'food-both',
+        'food-remote',
+        'food-local',
+      ]);
+
+      final deleted = mergeEntriesById(
+        local: [_food('food-local')],
+        remote: [_food('food-gone'), _food('food-remote')],
+        idOf: (FoodEntry entry) => entry.id,
+        pendingDeleteIds: {'food-gone'},
+      );
+      expect(deleted.map((entry) => entry.id), ['food-remote', 'food-local']);
     },
   );
 
@@ -438,7 +468,7 @@ void main() {
       contains('delete from public.plus_funnel_events where user_id = \$1'),
     );
 
-    final origin = _sql('20261007164000_record_origin.sql');
+    final origin = _sql('20261007074319_record_origin.sql');
     expect(origin, contains('alter table public.food_entries'));
     expect(origin, contains('alter table public.exercise_entries'));
     expect(origin, contains('add column if not exists record_origin text'));
@@ -460,10 +490,10 @@ Future<List<T>> _pullEmpty<T>(
   return stored;
 }
 
-FoodEntry _food(String id, {String? origin}) {
+FoodEntry _food(String id, {String? origin, String? name}) {
   return FoodEntry(
     id: id,
-    name: id,
+    name: name ?? id,
     quantity: 1,
     recordOrigin: origin,
     loggedAt: DateTime(2026, 10, 7, 12),

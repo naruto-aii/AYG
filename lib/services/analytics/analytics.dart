@@ -6,12 +6,16 @@ import 'analytics_service.dart';
 abstract final class Analytics {
   static AnalyticsService? service;
 
+  /// テストが送信内容を見るための入口。本番は null。
+  static void Function(String name, Map<String, Object?> props)? onEmitForTest;
+
   static void emit(
     String name, [
     Map<String, Object?> props = const {},
     String? origin,
     String? eventId,
   ]) {
+    onEmitForTest?.call(name, props);
     final current = service;
     if (current == null) {
       return;

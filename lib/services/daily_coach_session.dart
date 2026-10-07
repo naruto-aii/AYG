@@ -149,12 +149,13 @@ class DailyCoachSession {
   }
 
   /// [grams] は食品ごとの登録グラム。省略した欄は提案のグラム。
-  Future<void> saveMeal(
+  /// 保存した食事の entry id を、登録した順で返す。
+  Future<List<String>> saveMeal(
     CoachMealProposal proposal, {
     List<double>? grams,
   }) async {
     if (proposal.components.isEmpty) {
-      return;
+      return const [];
     }
     final loggedAt = DateTime.now();
     final mealGroupId = controller.generateId();
@@ -194,6 +195,7 @@ class DailyCoachSession {
       );
     }
     await controller.addFoodEntriesBatch(entries);
+    return [for (final entry in entries) entry.id];
   }
 
   /// 変えた [amount] で運動を記録する。記録できなければ false。

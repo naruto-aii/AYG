@@ -2,11 +2,21 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
-## 20261007164000 record origin
+## 20261008090200 app events retention
 
-食事と運動の `record_origin` だけを外す。行は残す。本番には未適用。
+`20261008090000_app_events` と **同じ作業で適用する**。片方だけでは出さない。アプリは `onConflict: 'event_id,occurred_at'` で upsert する。90000 だけの主キーは `event_id` なので、このファイルで月ごとの表と主キー `(event_id, occurred_at)` にする前に送ると失敗する。90200 は削除を始めない。戻すときも、90000 だけ残して 90200 だけ戻さない。
 
-`supabase/rollback/20261007164000_record_origin_down.sql`
+定期実行（90日より古い月の削除）は `20261008090300` で、pg_cron の承認後に別途適用する。
+
+## 20261008090000 app events
+
+`20261008090200_app_events_retention` と **同じ作業で適用する**。理由は上と同じ。`onConflict 'event_id,occurred_at'` は、分割後の主キーがないと PostgREST が受け付けない。
+
+## 20261007074319 record origin
+
+食事と運動の `record_origin` だけを外す。行は残す。本番には version `20261007074319` で適用済み。戻すときはこのファイルを手動で流す。
+
+`supabase/rollback/20261007074319_record_origin_down.sql`
 
 ## 20261007163000 plus funnel events
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/data/coach_food_catalog.dart';
 import 'package:ayg/models/activity_level.dart';
@@ -57,7 +59,7 @@ void main() {
   Future<void> openCoach(
     WidgetTester tester, {
     required Future<DailyCoachLoadResult> Function() load,
-    Future<void> Function(CoachMealProposal proposal, List<double> grams)?
+    Future<List<String>> Function(CoachMealProposal proposal, List<double> grams)?
     onSelectMeal,
     Future<void> Function(CoachExerciseProposal proposal, double amount)?
     onSelectExercise,
@@ -109,6 +111,7 @@ void main() {
       ),
       onSelectMeal: (_, grams) async {
         selected = grams.single == 150;
+        return const ['meal-1'];
       },
     );
 
@@ -235,7 +238,7 @@ void main() {
         focus: DailyCoachFocus.meals,
         meals: [sampleMeal()],
       ),
-      onSelectMeal: (_, _) async {},
+      onSelectMeal: (_, _) async => const [],
     );
 
     expect(log.records, hasLength(1));
@@ -264,6 +267,7 @@ void main() {
       ),
       onSelectMeal: (_, grams) async {
         saved = grams;
+        return const ['meal-1'];
       },
     );
 
@@ -289,6 +293,7 @@ void main() {
       ),
       onSelectMeal: (_, _) async {
         saved = true;
+        return const ['meal-1'];
       },
     );
 
@@ -431,13 +436,67 @@ void main() {
       isNot(closeTo(controller.exerciseEntries.first.effectiveNetKcal, 0.001)),
     );
 
-    await DailyCoachSession(controller: controller).saveMeal(sampleMeal());
+    final savedIds = await DailyCoachSession(
+      controller: controller,
+    ).saveMeal(sampleMeal());
+    expect(savedIds, isNotEmpty);
+    expect(
+      controller.foodEntries.map((entry) => entry.id),
+      containsAll(savedIds),
+    );
     expect(controller.foodEntries.last.consumedAmount, 1);
     await DailyCoachSession(
       controller: controller,
     ).saveMeal(sampleMeal(), grams: const [100]);
     expect(controller.foodEntries.last.consumedAmount, closeTo(100 / 150, 0.0001));
     expect(controller.foodEntries.last.totalKcal, closeTo(234 * 100 / 150, 0.01));
+  });
+
+  testWidgets('a purchase on the coach screen loads the proposal', (
+    tester,
+  ) async {
+    final plus = _FlipPlus();
+    addTearDown(plus.close);
+    final controller = _profiledController(subscription: plus);
+    final gate = Completer<void>();
+    var loads = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: DailyCoachScreen(
+          controller: controller,
+          introStore: _MemoryIntro(seen: true),
+          load: () async {
+            loads += 1;
+            await gate.future;
+            return DailyCoachLoadResult(
+              status: DailyCoachStatus.ready,
+              focus: DailyCoachFocus.meals,
+              meals: [sampleMeal()],
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(loads, 0);
+    expect(find.text('提案を作っています'), findsNothing);
+    expect(find.text('カロナビ+を見る'), findsOneWidget);
+
+    plus.activate();
+    await tester.pump();
+    await tester.pump();
+    expect(loads, 1);
+    expect(find.text('提案を作っています'), findsOneWidget);
+    expect(find.text('カロナビ+を見る'), findsNothing);
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(loads, 1);
+    expect(find.text('提案を作っています'), findsNothing);
+    expect(find.text(headline), findsOneWidget);
+    expect(find.text('カロナビ+を見る'), findsNothing);
   });
 
   testWidgets('home shows パーソナルコーチ', (tester) async {
@@ -534,6 +593,24 @@ class _Plus extends UnavailableSubscriptionRepository {
 
   @override
   bool get isPlusActive => active;
+}
+
+class _FlipPlus extends UnavailableSubscriptionRepository {
+  final _changes = StreamController<bool>.broadcast();
+  bool _active = false;
+
+  @override
+  bool get isPlusActive => _active;
+
+  @override
+  Stream<bool> get plusChanges => _changes.stream;
+
+  void activate() {
+    _active = true;
+    _changes.add(true);
+  }
+
+  Future<void> close() => _changes.close();
 }
 
 class _FixedNutrition implements CoachNutritionSource {

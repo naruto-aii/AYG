@@ -5,10 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final sql = File(
-    'supabase/migrations/20261007150000_personal_coach_food_roles.sql',
+    'supabase/migrations/20261007074302_personal_coach_food_roles.sql',
   ).readAsStringSync();
   final rollback = File(
-    'supabase/rollback/20261007150000_personal_coach_food_roles_down.sql',
+    'supabase/rollback/20261007074302_personal_coach_food_roles_down.sql',
   ).readAsStringSync();
 
   test('personal coach migration only adds columns and the 66 foods', () {

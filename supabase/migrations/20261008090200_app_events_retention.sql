@@ -2,8 +2,10 @@
 -- 操作の記録の保存期間と、購入と利用者の対応表（追加だけ）
 -- 置き場所: supabase/migrations/20261008090200_app_events_retention.sql
 --
--- 本番には適用しない。社長の承認後に、20261008090000 のあとに適用する。
--- 定期実行そのものは 20261008090300_app_events_retention_schedule.sql に分けた。
+-- 本番には適用しない。社長の承認後に、20261008090000 と必ず同じ作業で適用する。
+-- アプリは onConflict 'event_id,occurred_at' で upsert する。90000 だけだと主キーは
+-- event_id だけで、このファイルが (event_id, occurred_at) に変えるまで送信は失敗する。
+-- このファイルは削除を始めない。定期実行は 20261008090300 に分けた。
 -- このファイルは pg_cron を有効にしない。
 --
 -- 方針
@@ -59,7 +61,7 @@ create or replace function public.remember_store_original_transaction(
 returns void
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path = ''
 as $function$
 declare
   tx text := nullif(btrim(p_original_transaction_id), '');
@@ -161,7 +163,7 @@ create or replace function public.lock_app_events_partition(p_partition_name tex
 returns void
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path = ''
 as $function$
 begin
   if p_partition_name is null or p_partition_name !~ '^app_events(_default|_y[0-9]{4}m[0-9]{2})$' then
@@ -189,7 +191,7 @@ create or replace function public.ensure_app_events_partition(p_month date)
 returns void
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path = ''
 as $function$
 declare
   child_name text;
@@ -229,7 +231,7 @@ create or replace function public.app_events_before_insert()
 returns trigger
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path = ''
 as $function$
 declare
   tx text;
@@ -266,7 +268,7 @@ create or replace function public.convert_app_events_to_monthly()
 returns void
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path = ''
 as $convert$
 declare
   month_start date;
@@ -550,7 +552,7 @@ create or replace function public.maintain_app_events()
 returns void
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path = ''
 as $function$
 declare
   i integer;
@@ -667,7 +669,7 @@ create or replace function public.delete_own_account(p_user_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path = ''
 as $function$
 declare
   uid uuid;

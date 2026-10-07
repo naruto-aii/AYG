@@ -70,7 +70,7 @@ create or replace function public.delete_own_account(p_user_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   uid uuid;

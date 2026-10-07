@@ -68,6 +68,7 @@ import '../repositories/contracts/user_repository_base.dart';
 import '../repositories/contracts/workout_template_repository_base.dart';
 import '../repositories/contracts/weight_repository_base.dart';
 import '../repositories/data_sync_repository.dart';
+import '../repositories/pending_record_store.dart';
 import '../repositories/first_meal_guide_store.dart';
 import '../repositories/sync_step_runner.dart';
 import '../repositories/health_repository.dart';
@@ -136,6 +137,7 @@ class AppController extends ChangeNotifier {
     CoachProposalLog? coachProposalLog,
     PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
+    PendingRecordStore? pendingRecords,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -163,6 +165,7 @@ class AppController extends ChangeNotifier {
        _coachProposalLog = coachProposalLog ?? const NoOpCoachProposalLog(),
        _plusFunnelRepository = plusFunnelRepository,
        _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
+       _pendingRecords = pendingRecords ?? PendingRecordStore(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -200,6 +203,9 @@ class AppController extends ChangeNotifier {
   final CoachProposalLog _coachProposalLog;
   final PlusFunnelRepository? _plusFunnelRepository;
   final ReviewPromptStore _reviewPromptStore;
+  final PendingRecordStore _pendingRecords;
+
+  PendingRecordStore get pendingRecords => _pendingRecords;
 
   CoachProposalLog get coachProposalLog => _coachProposalLog;
 
@@ -444,10 +450,12 @@ class AppController extends ChangeNotifier {
     try {
       final lastUserId = await _localSessionStore?.loadLastUserId();
       if (lastUserId != null && lastUserId != authUser.id) {
+        final pendingCount = await _pendingRecords.count();
         _usage('local_data_cleared', {
-          'reason': 'auth_error',
-          'pending_records_count': 0,
+          'reason': 'user_switch',
+          'pending_records_count': pendingCount,
         });
+        await _pendingRecords.clear();
         await _localUserDataClearer?.clearAll();
       }
 
@@ -511,10 +519,12 @@ class AppController extends ChangeNotifier {
     }
     _resetSyncState();
     _clearInMemoryState();
+    final pendingCount = await _pendingRecords.count();
     _usage('local_data_cleared', {
       'reason': 'logout',
-      'pending_records_count': 0,
+      'pending_records_count': pendingCount,
     });
+    await _pendingRecords.clear();
     await _localUserDataClearer?.clearAll();
     await _localSessionStore?.clearLastUserId();
     await _authenticationRepository?.logout();
@@ -788,6 +798,7 @@ class AppController extends ChangeNotifier {
       recordedAt: recordedAt ?? DateTime.now(),
       source: WeightSource.manual,
     );
+    await _pendingRecords.markUpsert(PendingRecordKind.weight, entry.id);
     _usage('weight_entry_added', {
       'weight_entry_id': entry.id,
       'source': 'manual',
@@ -802,6 +813,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> updateWeightEntry(WeightEntry entry) async {
     _usage('weight_entry_updated', {'weight_entry_id': entry.id, 'action': 'update'});
+    await _pendingRecords.markUpsert(PendingRecordKind.weight, entry.id);
     final weightRepository = _weightRepository;
     await weightRepository?.save(entry);
     if (weightRepository != null) {
@@ -812,6 +824,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> restoreWeightEntry(WeightEntry entry) async {
     _usage('weight_entry_updated', {'weight_entry_id': entry.id, 'action': 'restore'});
+    await _pendingRecords.markUpsert(PendingRecordKind.weight, entry.id);
     final weightRepository = _weightRepository;
     await weightRepository?.save(entry);
     if (weightRepository != null) {
@@ -842,22 +855,62 @@ class AppController extends ChangeNotifier {
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final weightRepository = _weightRepository;
-
-    if (dataSyncRepository?.supportsRemoteWeightEntryDelete ?? false) {
-      if (userId == null) {
-        throw StateError('Authentication required to delete weight entry.');
-      }
-      await dataSyncRepository!.deleteWeightEntry(
-        userId: userId,
+    final confirmed = await _confirmRemoteDelete(
+      kind: PendingRecordKind.weight,
+      id: entryId,
+      enabled: dataSyncRepository?.supportsRemoteWeightEntryDelete ?? false,
+      missingUser: 'Authentication required to delete weight entry.',
+      delete: () => dataSyncRepository!.deleteWeightEntry(
+        userId: userId!,
         entryId: entryId,
-      );
-    }
+      ),
+    );
 
     if (weightRepository != null) {
       await weightRepository.delete(entryId);
       weightEntries.removeWhere((item) => item.id == entryId);
+      await _finishLocalDelete(
+        kind: PendingRecordKind.weight,
+        id: entryId,
+        confirmed: confirmed,
+      );
       await _refreshProfileWeightFromEntries();
     }
+  }
+
+  /// 本番の削除が確認できたら true。失敗したときは手元を残したまま例外を戻す。
+  Future<bool> _confirmRemoteDelete({
+    required PendingRecordKind kind,
+    required String id,
+    required bool enabled,
+    required String missingUser,
+    required Future<void> Function() delete,
+  }) async {
+    if (!enabled) {
+      return false;
+    }
+    if (_authenticationRepository?.currentUser?.id == null) {
+      throw StateError(missingUser);
+    }
+    try {
+      await delete();
+      return true;
+    } catch (_) {
+      await _pendingRecords.markUpsert(kind, id);
+      rethrow;
+    }
+  }
+
+  Future<void> _finishLocalDelete({
+    required PendingRecordKind kind,
+    required String id,
+    required bool confirmed,
+  }) async {
+    if (confirmed) {
+      await _pendingRecords.forget(kind, id);
+      return;
+    }
+    await _pendingRecords.markDelete(kind, id);
   }
 
   Future<void> _reloadWeightEntries() async {
@@ -1381,6 +1434,7 @@ class AppController extends ChangeNotifier {
       'items_count': 1,
     });
     _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
+    await _pendingRecords.markUpsert(PendingRecordKind.food, stored.id);
   }
 
   /// 新しい順（loggedAt 降順）。loadAll と同じ並び。
@@ -1444,6 +1498,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> restoreFoodEntry(FoodEntry entry) async {
     _usage('food_entry_restored', {'food_entry_id': entry.id});
+    await _pendingRecords.markUpsert(PendingRecordKind.food, entry.id);
     await _saveFoodEntryLocally(entry);
     refreshDailySummary();
     await _persistToRemoteNow();
@@ -1466,6 +1521,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> updateFood(FoodEntry entry) async {
     _usage('food_entry_updated', {'food_entry_id': entry.id, 'changed_fields': 'quantity'});
+    await _pendingRecords.markUpsert(PendingRecordKind.food, entry.id);
     final kept = _keepFoodOrigin(entry);
     final foodRepository = _foodRepository;
     if (foodRepository != null) {
@@ -1626,13 +1682,13 @@ class AppController extends ChangeNotifier {
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final foodRepository = _foodRepository;
-
-    if (dataSyncRepository?.supportsRemoteFoodEntryDelete ?? false) {
-      if (userId == null) {
-        throw StateError('Authentication required to delete food entry.');
-      }
-      await dataSyncRepository!.deleteFoodEntry(userId: userId, entryId: id);
-    }
+    final confirmed = await _confirmRemoteDelete(
+      kind: PendingRecordKind.food,
+      id: id,
+      enabled: dataSyncRepository?.supportsRemoteFoodEntryDelete ?? false,
+      missingUser: 'Authentication required to delete food entry.',
+      delete: () => dataSyncRepository!.deleteFoodEntry(userId: userId!, entryId: id),
+    );
 
     if (foodRepository != null) {
       await foodRepository.delete(id);
@@ -1640,6 +1696,11 @@ class AppController extends ChangeNotifier {
     } else {
       foodEntries.removeWhere((item) => item.id == id);
     }
+    await _finishLocalDelete(
+      kind: PendingRecordKind.food,
+      id: id,
+      confirmed: confirmed,
+    );
     refreshDailySummary();
   }
 
@@ -1673,13 +1734,15 @@ class AppController extends ChangeNotifier {
     } else {
       exerciseEntries.add(stored);
     }
+    _noteReviewRecords(daysBefore: daysBefore, origin: origin);
+    await _pendingRecords.markUpsert(PendingRecordKind.exercise, stored.id);
     _scheduleRemoteSync();
     refreshDailySummary();
-    _noteReviewRecords(daysBefore: daysBefore, origin: origin);
   }
 
   Future<void> restoreExerciseEntry(ExerciseEntry entry) async {
     _usage('exercise_entry_restored', {'exercise_entry_id': entry.id});
+    await _pendingRecords.markUpsert(PendingRecordKind.exercise, entry.id);
     await _saveExerciseEntryLocally(entry);
     refreshDailySummary();
     await _persistToRemoteNow();
@@ -1702,6 +1765,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> updateExercise(ExerciseEntry entry) async {
     _usage('exercise_entry_updated', {'exercise_entry_id': entry.id, 'changed_fields': 'duration'});
+    await _pendingRecords.markUpsert(PendingRecordKind.exercise, entry.id);
     final stored = _exerciseEntryForStorage(_keepExerciseOrigin(entry));
     final exerciseRepository = _exerciseRepository;
     if (exerciseRepository != null) {
@@ -1723,16 +1787,16 @@ class AppController extends ChangeNotifier {
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final exerciseRepository = _exerciseRepository;
-
-    if (dataSyncRepository?.supportsRemoteExerciseEntryDelete ?? false) {
-      if (userId == null) {
-        throw StateError('Authentication required to delete exercise entry.');
-      }
-      await dataSyncRepository!.deleteExerciseEntry(
-        userId: userId,
+    final confirmed = await _confirmRemoteDelete(
+      kind: PendingRecordKind.exercise,
+      id: id,
+      enabled: dataSyncRepository?.supportsRemoteExerciseEntryDelete ?? false,
+      missingUser: 'Authentication required to delete exercise entry.',
+      delete: () => dataSyncRepository!.deleteExerciseEntry(
+        userId: userId!,
         entryId: id,
-      );
-    }
+      ),
+    );
 
     if (exerciseRepository != null) {
       await exerciseRepository.delete(id);
@@ -1740,6 +1804,11 @@ class AppController extends ChangeNotifier {
     } else {
       exerciseEntries.removeWhere((item) => item.id == id);
     }
+    await _finishLocalDelete(
+      kind: PendingRecordKind.exercise,
+      id: id,
+      confirmed: confirmed,
+    );
     refreshDailySummary();
   }
 
@@ -1753,13 +1822,15 @@ class AppController extends ChangeNotifier {
     } else {
       alcoholEntries.add(entry);
     }
+    _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
+    await _pendingRecords.markUpsert(PendingRecordKind.alcohol, entry.id);
     _scheduleRemoteSync();
     refreshDailySummary();
-    _noteReviewRecords(daysBefore: daysBefore, origin: ReviewRecordOrigin.app);
   }
 
   Future<void> restoreAlcoholEntry(AlcoholEntry entry) async {
     _usage('alcohol_entry_changed', {'alcohol_entry_id': entry.id, 'action': 'restore'});
+    await _pendingRecords.markUpsert(PendingRecordKind.alcohol, entry.id);
     await _saveAlcoholEntryLocally(entry);
     refreshDailySummary();
     await _persistToRemoteNow();
@@ -1782,6 +1853,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> updateAlcohol(AlcoholEntry entry) async {
     _usage('alcohol_entry_changed', {'alcohol_entry_id': entry.id, 'action': 'update'});
+    await _pendingRecords.markUpsert(PendingRecordKind.alcohol, entry.id);
     final alcoholRepository = _alcoholRepository;
     if (alcoholRepository != null) {
       await alcoholRepository.save(entry);
@@ -1802,13 +1874,14 @@ class AppController extends ChangeNotifier {
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final alcoholRepository = _alcoholRepository;
-
-    if (dataSyncRepository?.supportsRemoteAlcoholEntryDelete ?? false) {
-      if (userId == null) {
-        throw StateError('Authentication required to delete alcohol entry.');
-      }
-      await dataSyncRepository!.deleteAlcoholEntry(userId: userId, entryId: id);
-    }
+    final confirmed = await _confirmRemoteDelete(
+      kind: PendingRecordKind.alcohol,
+      id: id,
+      enabled: dataSyncRepository?.supportsRemoteAlcoholEntryDelete ?? false,
+      missingUser: 'Authentication required to delete alcohol entry.',
+      delete: () =>
+          dataSyncRepository!.deleteAlcoholEntry(userId: userId!, entryId: id),
+    );
 
     if (alcoholRepository != null) {
       await alcoholRepository.delete(id);
@@ -1816,6 +1889,11 @@ class AppController extends ChangeNotifier {
     } else {
       alcoholEntries.removeWhere((item) => item.id == id);
     }
+    await _finishLocalDelete(
+      kind: PendingRecordKind.alcohol,
+      id: id,
+      confirmed: confirmed,
+    );
     refreshDailySummary();
   }
 
@@ -2619,6 +2697,9 @@ class AppController extends ChangeNotifier {
     _scheduleRemoteSync();
     refreshDailySummary();
     _noteReviewRecords(daysBefore: daysBefore, origin: origin);
+    for (final entry in stored) {
+      await _pendingRecords.markUpsert(PendingRecordKind.food, entry.id);
+    }
   }
 
   Future<void> registerFoodMealFromDrafts({

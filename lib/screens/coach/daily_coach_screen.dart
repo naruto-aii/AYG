@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
@@ -38,7 +40,10 @@ class DailyCoachScreen extends StatefulWidget {
 
   final AppController? controller;
   final Future<DailyCoachLoadResult> Function()? load;
-  final Future<void> Function(CoachMealProposal proposal, List<double> grams)?
+  final Future<List<String>> Function(
+    CoachMealProposal proposal,
+    List<double> grams,
+  )?
   onSelectMeal;
   final Future<void> Function(CoachExerciseProposal proposal, double amount)?
   onSelectExercise;
@@ -58,6 +63,8 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   Future<void> _recorded = Future<void>.value();
   final Map<String, TextEditingController> _amounts = {};
   int _mealShift = 0;
+  bool _wasPlusBlocked = false;
+  StreamSubscription<bool>? _plusSubscription;
 
   CoachProposalLog get _log {
     return widget.proposalLog ??
@@ -76,6 +83,9 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   @override
   void initState() {
     super.initState();
+    _wasPlusBlocked = _plusBlocked;
+    _plusSubscription = widget.controller?.subscriptionRepository.plusChanges
+        .listen(_onPlusChanged);
     if (_plusBlocked) {
       return;
     }
@@ -85,8 +95,31 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     });
   }
 
+  void _onPlusChanged(bool active) {
+    if (!mounted) {
+      return;
+    }
+    final blocked = !active;
+    final opened = _wasPlusBlocked && !blocked;
+    _wasPlusBlocked = blocked;
+    if (!opened) {
+      if (blocked) {
+        setState(() {});
+      }
+      return;
+    }
+    setState(() => _result = null);
+    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _maybeShowIntro();
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _plusSubscription?.cancel();
     _disposeAmounts();
     super.dispose();
   }
@@ -245,10 +278,6 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   }
 
   Future<void> _registerMeal(CoachMealProposal proposal, int index) async {
-    CatalogActions.coachProposalRegistered(
-      coachProposalLogId: 'local',
-      foodEntryIds: const [],
-    );
     final grams = _mealGrams(proposal, index);
     if (grams == null) {
       _snack('量は0より大きい数字にしてください');
@@ -259,18 +288,26 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       index: index,
       failure: '食事に追加できませんでした',
       action: () async {
+        final List<String> ids;
         final select = widget.onSelectMeal;
         if (select != null) {
-          await select(proposal, grams);
-          return;
+          ids = await select(proposal, grams);
+        } else {
+          final controller = widget.controller;
+          if (controller == null) {
+            throw StateError('coach');
+          }
+          ids = await DailyCoachSession(
+            controller: controller,
+          ).saveMeal(proposal, grams: grams);
         }
-        final controller = widget.controller;
-        if (controller == null) {
-          throw StateError('coach');
-        }
-        await DailyCoachSession(
-          controller: controller,
-        ).saveMeal(proposal, grams: grams);
+        final logId = index >= 0 && index < _shown.length
+            ? _shown[index].id
+            : 'local';
+        CatalogActions.coachProposalRegistered(
+          coachProposalLogId: logId,
+          foodEntryIds: ids,
+        );
       },
     );
   }

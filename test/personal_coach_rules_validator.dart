@@ -164,9 +164,9 @@ class PersonalCoachRules {
     if (items.isEmpty) {
       return ['空の案'];
     }
-    // 22時以降は軽食（450kcal未満）まで。
+    // 22時以降は間食（200kcal）まで。
     if (night && remainingKcal.isFinite) {
-      remainingKcal = math.min(remainingKcal, 449);
+      remainingKcal = math.min(remainingKcal, 200);
     }
     final band = _band(remainingKcal);
     if (band == null) {

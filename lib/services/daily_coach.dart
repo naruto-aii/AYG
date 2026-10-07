@@ -74,7 +74,7 @@ class CoachMealProposal {
   /// 間食、軽食、一食（ちゃんと）、一食（しっかり）。
   final String? bandLabel;
 
-  /// 1日の案での枠（朝食・昼食・夕食・間食、22時以降は軽食）。
+  /// 1日の案での枠（朝食・昼食・間食・夕食）。
   final String? slotLabel;
 
   Set<String> get foodCodes => {for (final item in components) item.foodCode};
@@ -138,7 +138,7 @@ class CoachDayPlan {
     this.note,
   });
 
-  /// 朝食・昼食・夕食・間食の順。1件ずつ登録する。
+  /// 朝食・昼食・間食・夕食の順。1件ずつ登録する。
   final List<CoachMealProposal> meals;
   final double remainingKcal;
   final String? note;
@@ -146,9 +146,10 @@ class CoachDayPlan {
   double get kcal => meals.fold(0.0, (sum, meal) => sum + meal.kcal);
 }
 
-/// 残りを今日これからの食事に分ける。上位 [limit] 通り。
+/// 残りを今の時刻からとれる食事に分ける。上位 [limit] 通り。
 ///
-/// 残りが1食分（450kcal）未満、または22時以降は1回分だけ。
+/// 0〜10時台は朝食・昼食・間食・夕食、11〜14時台は昼食・間食・夕食、
+/// 15〜21時台は夕食だけ、22時以降は間食だけ。残りが1食分（450kcal）未満なら1回分だけ。
 List<CoachDayPlan> planCoachDay({
   required List<CoachFoodStock> foods,
   required Set<String> excludedFoodCodes,
@@ -176,16 +177,18 @@ List<CoachDayPlan> planCoachDay({
   ];
 }
 
-/// 案の下に出す一文。食べきれない残りがあるときと、22時以降だけ。
+/// 案の下に出す一文。この時間帯の案で埋めきれない残りがあるときだけ。
+///
+/// 1食の上限に届かない端数（調味料の分の余白）には出さない。
 String? coachDayPlanNote(PlannedCoachDay day, DateTime now) {
   final leftover = day.leftoverKcal.round();
-  if (personalCoachIsLateEvening(now)) {
-    if (leftover >= 100) {
-      return '夜遅い時間なので、軽めの1回にしています。';
-    }
+  if (leftover < 100) {
     return null;
   }
-  if (leftover < 100) {
+  if (personalCoachIsLateEvening(now)) {
+    return '夜遅い時間なので、間食までにしています。残りは無理に食べなくて大丈夫です。';
+  }
+  if (!day.hitsMealCap) {
     return null;
   }
   return '1食は850kcalまでにしています。この案を全部食べると、残りは約${leftover}kcalです。';
@@ -241,7 +244,8 @@ List<CoachMealProposal> planCoachMeals({
     now: now,
     limit: limit,
   );
-  final note = remainingKcal > 850 ? '残りは次の食事で' : null;
+  final late = now != null && personalCoachIsLateEvening(now);
+  final note = remainingKcal > 850 && !late ? '残りは次の食事で' : null;
   return [
     for (final meal in planned) _proposal(foods, meal, note: note),
   ];

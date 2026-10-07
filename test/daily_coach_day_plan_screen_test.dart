@@ -8,7 +8,7 @@ import 'package:ayg/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 2,438kcal 残り（1:10）で、朝食・昼食・夕食の案が並び、食べた回だけ登録できる。
+/// 2,438kcal 残り（1:10）で、朝食・昼食・間食・夕食の案が並び、食べた回だけ登録できる。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -69,13 +69,14 @@ void main() {
     expect(find.text('朝食'), findsOneWidget);
     expect(find.text('昼食'), findsOneWidget);
     expect(find.text('夕食'), findsOneWidget);
-    // 間食は食事のあとの端数だけ。出るときは夕食より下。
-    final snack = find.text('間食');
-    if (snack.evaluate().isNotEmpty) {
-      expect(
-        tester.getTopLeft(snack.first).dy,
-        greaterThan(tester.getTopLeft(find.text('夕食')).dy),
-      );
+    expect(find.text('間食'), findsOneWidget);
+    // 並びは朝食・昼食・間食・夕食（間食は昼食と夕食のあいだ）。
+    final tops = [
+      for (final label in ['朝食', '昼食', '間食', '夕食'])
+        tester.getTopLeft(find.text(label)).dy,
+    ];
+    for (var i = 1; i < tops.length; i++) {
+      expect(tops[i], greaterThan(tops[i - 1]));
     }
 
     final shown = coachProposalRecords(now: now, result: result);

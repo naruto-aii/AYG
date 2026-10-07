@@ -494,12 +494,10 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     );
   }
 
-  /// 1日の案では枠（朝食・昼食・夕食・間食）、1回だけなら量の区分。
+  /// 1日の案では枠（朝食・昼食・間食・夕食）。15〜21時の夕食1回も「夕食」と出す。
+  /// 枠の無い1回分の案（旧形式）だけ量の区分。
   String? _mealLabel(CoachMealProposal meal, bool multiple) {
-    if (multiple) {
-      return meal.slotLabel ?? meal.bandLabel;
-    }
-    return meal.bandLabel ?? meal.slotLabel;
+    return meal.slotLabel ?? meal.bandLabel;
   }
 
   Widget _exerciseCard(DailyCoachLoadResult result) {

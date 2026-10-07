@@ -82,7 +82,8 @@ void main() {
     final standard = _meals(remaining: 550, now: DateTime(2026, 10, 7, 12));
     final hearty = _meals(remaining: 900, now: DateTime(2026, 10, 7, 12));
     final low = _meals(remaining: 120, now: DateTime(2026, 10, 7, 18));
-    expect(night.first.bandLabel, personalCoachBandLabel(PersonalCoachBand.light));
+    // 22時以降は間食だけ。
+    expect(night.first.bandLabel, personalCoachBandLabel(PersonalCoachBand.snack));
     expect(light.first.bandLabel, personalCoachBandLabel(PersonalCoachBand.light));
     expect(
       standard.first.bandLabel,
@@ -140,6 +141,32 @@ void main() {
       ),
       File('${directory.path}/day_plan.png'),
     );
+    for (final (name, now, remaining) in [
+      ('day_plan_noon', DateTime(2026, 10, 8, 12), 1500.0),
+      ('day_plan_dinner_only', DateTime(2026, 10, 8, 16), 1200.0),
+      ('day_plan_late_snack', DateTime(2026, 10, 8, 22, 30), 800.0),
+    ]) {
+      final plans = planCoachDay(
+        foods: CoachFoodCatalog.stocks,
+        excludedFoodCodes: const {},
+        remainingKcal: remaining,
+        now: now,
+      );
+      expect(plans, isNotEmpty, reason: name);
+      saved[name] = await _capture(
+        tester,
+        DailyCoachScreen(
+          introStore: _SeenIntro(),
+          now: now,
+          load: () async => DailyCoachLoadResult(
+            status: DailyCoachStatus.ready,
+            focus: DailyCoachFocus.meals,
+            plans: plans,
+          ),
+        ),
+        File('${directory.path}/$name.png'),
+      );
+    }
     saved['free'] = await _capture(
       tester,
       DailyCoachScreen(

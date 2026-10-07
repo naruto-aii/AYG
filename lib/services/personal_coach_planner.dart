@@ -66,19 +66,19 @@ bool personalCoachIsNight(DateTime now) {
   return now.hour >= 22 || now.hour < 5;
 }
 
-/// 22:00〜23:59。その日の残りは寝る前の1回だけなので、軽食までにする。
+/// 22:00〜23:59。今日の食事は終わっている時間なので、間食（乳製品・果物）だけにする。
 ///
-/// 0:00〜4:59 は日付が変わった直後で、今日の食事はまだ全部これから。
+/// 0:00〜4:59 は日付が変わった直後で、今日の食事はまだ全部これから（朝の扱い）。
 /// ここを夜として間食だけにすると、目標がほぼ丸ごと残っていても
 /// 牛乳や果物1品しか出なかった（2,438kcal 残りで間食だけ、の原因）。
 bool personalCoachIsLateEvening(DateTime now) {
   return now.hour >= 22;
 }
 
-/// 22時以降の1回は軽食（450kcal未満）まで。残りが多くても夜遅くに一食分は出さない。
-const double personalCoachLateEveningCapKcal = 449;
+/// 22時以降の1回は間食（200kcal）まで。残りが多くても夜遅くに食事は出さない。
+const double personalCoachLateEveningCapKcal = personalCoachSnackCapKcal;
 
-/// 1回の提案で埋める上限。22時以降は軽食まで。
+/// 1回の提案で埋める上限。22時以降は間食まで。
 double personalCoachEffectiveRemaining(double remainingKcal, DateTime? now) {
   if (now != null && personalCoachIsLateEvening(now)) {
     return math.min(remainingKcal, personalCoachLateEveningCapKcal);
@@ -924,7 +924,14 @@ String personalCoachBandLabel(PersonalCoachBand band) {
 }
 
 // ---------------------------------------------------------------------------
-// 1日の残りを、これからの食事に分ける。
+// 1日の残りを、今の時刻からとれる食事に分ける。
+//
+// 時間帯（端末の時刻）:
+// - 0:00〜10:59  朝食・昼食・間食・夕食。0〜4時は日付が変わった直後で、
+//                今日の目標がまるごと残っているので「夜」ではなく朝の扱い。
+// - 11:00〜14:59 昼食・間食・夕食。
+// - 15:00〜21:59 夕食だけ。1食で埋めきれない分は間食で足さず、一文で伝える。
+// - 22:00〜23:59 間食だけ（2つまで）。埋めきれない分は無理に食べなくてよいと伝える。
 //
 // 根拠:
 // - 1食は「主食＋主菜＋副菜」で 450〜850kcal（スマートミール基準、厚生労働省
@@ -932,7 +939,8 @@ String personalCoachBandLabel(PersonalCoachBand band) {
 //   650kcal 未満が「ちゃんと」、650〜850kcal が「しっかり」。1食の上限は 850kcal。
 // - 主食・主菜・副菜をそろえた食事を1日2回以上（第4次食育推進基本計画）。
 // - 牛乳・乳製品と果物は1日それぞれ2つ（SV）が目安（食事バランスガイド、
-//   厚生労働省・農林水産省）。間食はこの範囲で、食事のあとの端数だけを埋める。
+//   厚生労働省・農林水産省）。間食はこの範囲の乳製品・果物で、1回200kcalまで。
+// - 時間帯の区切りは【社内案】（食事の枠の表示 MealSlot と同じ 11時・15時・22時）。
 // ---------------------------------------------------------------------------
 
 /// 1食の下限（スマートミール「ちゃんと」の下限）。
@@ -941,28 +949,34 @@ const double personalCoachMealFloorKcal = 450;
 /// 1食の上限（スマートミール「しっかり」の上限）。
 const double personalCoachMealCapKcal = 850;
 
-/// 食事のあとに足す間食の数の上限（乳製品と果物、各2つ/日の範囲）。
+/// 22時以降に出す間食の数の上限（乳製品と果物、各2つ/日の範囲）。
+/// 朝・昼の時間帯の案では、間食は昼食と夕食のあいだの1回。
 const int personalCoachSnackLimit = 2;
 
 /// 間食1回の上限。
 const double personalCoachSnackCapKcal = 200;
 
-/// 今の時刻から、今日これからの食事の枠。
+/// 今の時刻から、今日これからの枠（画面に出す順）。
 ///
-/// 0:00〜10:59 は朝・昼・夕。日付が変わった直後（0〜4時）は、今日の3食の予定として出す。
-/// 11:00〜14:59 は昼・夕。15:00〜21:59 は夕。22時以降は枠なし（軽食1回だけ）。
+/// 0:00〜10:59 は朝食・昼食・間食・夕食（0〜4時も朝の扱い）。
+/// 11:00〜14:59 は昼食・間食・夕食。15:00〜21:59 は夕食だけ。22時以降は間食だけ。
 List<MealSlot> personalCoachRemainingSlots(DateTime now) {
   final hour = now.hour;
   if (hour < 11) {
-    return const [MealSlot.breakfast, MealSlot.lunch, MealSlot.dinner];
+    return const [
+      MealSlot.breakfast,
+      MealSlot.lunch,
+      MealSlot.snack,
+      MealSlot.dinner,
+    ];
   }
   if (hour < 15) {
-    return const [MealSlot.lunch, MealSlot.dinner];
+    return const [MealSlot.lunch, MealSlot.snack, MealSlot.dinner];
   }
   if (hour < 22) {
     return const [MealSlot.dinner];
   }
-  return const [];
+  return const [MealSlot.snack];
 }
 
 /// 1日の案の中の1回分。[budgetKcal] はこの回に割り当てた kcal。
@@ -976,7 +990,7 @@ class PlannedCoachDayMeal {
 
   final MealSlot slot;
 
-  /// 「朝食」「昼食」「夕食」「間食」、22時以降は「軽食」。
+  /// 「朝食」「昼食」「間食」「夕食」。
   final String label;
   final double budgetKcal;
   final PlannedCoachMeal meal;
@@ -989,19 +1003,28 @@ class PlannedCoachDay {
     required this.remainingKcal,
   });
 
+  /// 画面に出す順（朝食・昼食・間食・夕食）。
   final List<PlannedCoachDayMeal> meals;
   final int kcal;
   final double remainingKcal;
 
   /// 案を全部食べても残る kcal。
   double get leftoverKcal => math.max(0, remainingKcal - kcal);
+
+  /// 1食の上限（850kcal）で止めた回があるか。
+  bool get hitsMealCap => meals.any(
+    (entry) =>
+        entry.slot != MealSlot.snack &&
+        entry.budgetKcal >= personalCoachMealCapKcal,
+  );
 }
 
-/// 残り [remainingKcal] を、今日これからの食事（主食＋主菜＋副菜）に分けた案を
-/// 最大 [limit] 通り返す。食事のあとの端数だけを間食で埋める。
+/// 残り [remainingKcal] を、今の時刻からとれる食事に分けた案を最大 [limit] 通り返す。
 ///
-/// - 食事の回数は、これからの枠の数と「1食 450kcal 以上」で決める。
-/// - 1食は 850kcal まで。残りを回数で割り、その回の上限にする。
+/// - 朝・昼の時間帯: 食事（主食＋主菜＋副菜）と、昼食と夕食のあいだの間食1回。
+///   間食の分（200kcalまで）を先に取り分け、残りを食事の回数で割って1食の上限にする。
+/// - 15〜21時: 夕食1回だけ（850kcalまで）。
+/// - 22時以降: 間食だけ（2つまで、各200kcalまで）。
 /// - 同じ日の案の中では、主菜・副菜・果物を食事ごとに変える。
 List<PlannedCoachDay> planPersonalCoachDay({
   required List<CoachFoodStock> foods,
@@ -1017,23 +1040,48 @@ List<PlannedCoachDay> planPersonalCoachDay({
     return const [];
   }
   final slots = personalCoachRemainingSlots(now);
-  if (slots.isEmpty || remainingKcal < personalCoachMealFloorKcal) {
+  final mealSlots = [
+    for (final slot in slots)
+      if (slot != MealSlot.snack) slot,
+  ];
+  if (mealSlots.isEmpty) {
+    return _snackOnlyDays(
+      foods: foods,
+      excludedFoodCodes: excludedFoodCodes,
+      remainingKcal: remainingKcal,
+      limit: limit,
+    );
+  }
+  if (remainingKcal < personalCoachMealFloorKcal) {
     return _singleMealDays(
       foods: foods,
       excludedFoodCodes: excludedFoodCodes,
       remainingKcal: remainingKcal,
       now: now,
       limit: limit,
-      slot: slots.isEmpty ? MealSlot.snack : slots.first,
+      slot: mealSlots.first,
     );
   }
+  final hasSnackSlot = slots.contains(MealSlot.snack);
   final count = math.max(
     1,
-    math.min(slots.length, (remainingKcal / personalCoachMealFloorKcal).floor()),
+    math.min(
+      mealSlots.length,
+      (remainingKcal / personalCoachMealFloorKcal).floor(),
+    ),
   );
-  final chosen = _pickSlots(slots, count);
+  final chosen = _pickSlots(mealSlots, count);
+  // 間食の分を先に取り分ける（1食 450kcal を割らない範囲で、200kcal まで）。
+  final reserve = hasSnackSlot
+      ? (remainingKcal - chosen.length * personalCoachMealFloorKcal)
+            .clamp(0.0, personalCoachSnackCapKcal)
+            .toDouble()
+      : 0.0;
   // どの回も同じ上限にする。残りを回数で割り、1食 850kcal で止める。
-  final budget = math.min(remainingKcal / chosen.length, personalCoachMealCapKcal);
+  final budget = math.min(
+    (remainingKcal - reserve) / chosen.length,
+    personalCoachMealCapKcal,
+  );
   final band = personalCoachMealBand(budget, null);
   if (band == null) {
     return const [];
@@ -1065,23 +1113,28 @@ List<PlannedCoachDay> planPersonalCoachDay({
       foods: foods,
       excludedFoodCodes: excludedFoodCodes,
       remainingKcal: remainingKcal,
-      slots: chosen,
+      order: slots,
+      mealSlots: chosen,
+      withSnack: hasSnackSlot,
       budget: budget,
       ranked: ranked,
       variant: variant,
     );
-    final key = day.meals
-        .map(
-          (meal) => meal.meal.items
-              .map((item) => '${item.foodCode}:${item.grams}')
-              .join(','),
-        )
-        .join('|');
-    if (seen.add(key)) {
+    if (seen.add(_dayKey(day))) {
       days.add(day);
     }
   }
   return days;
+}
+
+String _dayKey(PlannedCoachDay day) {
+  return day.meals
+      .map(
+        (meal) => meal.meal.items
+            .map((item) => '${item.foodCode}:${item.grams}')
+            .join(','),
+      )
+      .join('|');
 }
 
 /// 先頭（今これから）と最後（夕食）を残す。
@@ -1116,7 +1169,7 @@ List<PlannedCoachDay> _singleMealDays({
       PlannedCoachDay(
         meals: [
           PlannedCoachDayMeal(
-            slot: slot,
+            slot: meal.band == PersonalCoachBand.snack ? MealSlot.snack : slot,
             label: _labelFor(slot, meal.band),
             budgetKcal: budget,
             meal: meal,
@@ -1132,27 +1185,119 @@ String _labelFor(MealSlot slot, PersonalCoachBand band) {
   if (band == PersonalCoachBand.snack) {
     return MealSlot.snack.label;
   }
-  if (slot == MealSlot.snack) {
-    return personalCoachBandLabel(band);
-  }
   return slot.label;
 }
 
+/// 22時以降。乳製品・果物の間食を2つまで（各200kcalまで、同じ食品は重ねない）。
+List<PlannedCoachDay> _snackOnlyDays({
+  required List<CoachFoodStock> foods,
+  required Set<String> excludedFoodCodes,
+  required double remainingKcal,
+  required int limit,
+}) {
+  final days = <PlannedCoachDay>[];
+  final seen = <String>{};
+  for (var variant = 0; variant < limit; variant++) {
+    final used = <String>{...excludedFoodCodes};
+    final meals = <PlannedCoachDayMeal>[];
+    var planned = 0;
+    for (var snack = 0; snack < personalCoachSnackLimit; snack++) {
+      final left = remainingKcal - planned;
+      if (left < (snack == 0 ? 50 : 100)) {
+        break;
+      }
+      final found = _pickSnack(
+        foods: foods,
+        used: used,
+        budget: math.min(left, personalCoachSnackCapKcal),
+        variant: variant + snack,
+      );
+      if (found == null) {
+        break;
+      }
+      final picked = found.$1;
+      meals.add(
+        PlannedCoachDayMeal(
+          slot: MealSlot.snack,
+          label: MealSlot.snack.label,
+          budgetKcal: found.$2,
+          meal: picked,
+        ),
+      );
+      planned += picked.kcal;
+      for (final item in picked.items) {
+        used.add(item.foodCode);
+      }
+    }
+    if (meals.isEmpty) {
+      continue;
+    }
+    final day = PlannedCoachDay(
+      meals: meals,
+      kcal: planned,
+      remainingKcal: remainingKcal,
+    );
+    if (seen.add(_dayKey(day))) {
+      days.add(day);
+    }
+  }
+  return days;
+}
+
+/// 間食1回と、その回に割り当てた kcal。同じ日の案で使った食品（乳製品も含む）は重ねない。
+///
+/// 間食は1〜2品で、合計が割り当ての70〜100%に入るものだけ。使える食品が減って
+/// 200kcal の枠に届く組み合わせが無いときは、枠を小さくして選び直す（上限は変えない）。
+(PlannedCoachMeal, double)? _pickSnack({
+  required List<CoachFoodStock> foods,
+  required Set<String> used,
+  required double budget,
+  required int variant,
+}) {
+  final available = [
+    for (final food in foods)
+      if (!used.contains(food.candidate.foodCode)) food,
+  ];
+  if (available.isEmpty) {
+    return null;
+  }
+  for (final scale in const [1.0, 0.75, 0.6]) {
+    final tried = (budget * scale).floorToDouble();
+    if (tried < 50) {
+      break;
+    }
+    final picked = _pickVariant(
+      foods: available,
+      excludedFoodCodes: used,
+      remainingKcal: tried,
+      variant: variant,
+      band: PersonalCoachBand.snack,
+    );
+    if (picked != null) {
+      return (picked, tried);
+    }
+  }
+  return null;
+}
+
 /// 同じ日の中で主菜・副菜・果物が重ならないものを、[variant] ずらして選ぶ。
+/// 朝・昼の時間帯は、食事のあとに間食1回を足し、[order] の順（昼食と夕食のあいだ）に並べる。
 PlannedCoachDay _buildDay({
   required List<CoachFoodStock> foods,
   required Set<String> excludedFoodCodes,
   required double remainingKcal,
-  required List<MealSlot> slots,
+  required List<MealSlot> order,
+  required List<MealSlot> mealSlots,
+  required bool withSnack,
   required double budget,
   required List<PlannedCoachMeal> ranked,
   required int variant,
 }) {
   final used = <String>{...excludedFoodCodes};
-  final meals = <PlannedCoachDayMeal>[];
+  final bySlot = <MealSlot, PlannedCoachDayMeal>{};
   var planned = 0;
-  for (var index = 0; index < slots.length; index++) {
-    final start = (variant * slots.length + index) % ranked.length;
+  for (var index = 0; index < mealSlots.length; index++) {
+    final start = (variant * mealSlots.length + index) % ranked.length;
     var meal = ranked[start];
     for (var step = 0; step < ranked.length; step++) {
       final candidate = ranked[(start + step) % ranked.length];
@@ -1164,13 +1309,11 @@ PlannedCoachDay _buildDay({
         break;
       }
     }
-    meals.add(
-      PlannedCoachDayMeal(
-        slot: slots[index],
-        label: slots[index].label,
-        budgetKcal: budget,
-        meal: meal,
-      ),
+    bySlot[mealSlots[index]] = PlannedCoachDayMeal(
+      slot: mealSlots[index],
+      label: mealSlots[index].label,
+      budgetKcal: budget,
+      meal: meal,
     );
     planned += meal.kcal;
     for (final item in meal.items) {
@@ -1179,37 +1322,34 @@ PlannedCoachDay _buildDay({
       }
     }
   }
-  for (var snack = 0; snack < personalCoachSnackLimit; snack++) {
-    final left = remainingKcal - planned;
-    if (left < 100) {
-      break;
-    }
+  final left = remainingKcal - planned;
+  if (withSnack && left >= 100) {
     final snackBudget = math.min(left, personalCoachSnackCapKcal);
-    final picked = _pickVariant(
+    final found = _pickSnack(
       foods: foods,
-      excludedFoodCodes: used,
-      remainingKcal: snackBudget,
-      variant: variant + snack,
-      band: PersonalCoachBand.snack,
+      used: {
+        ...used,
+        for (final entry in bySlot.values)
+          for (final item in entry.meal.items) item.foodCode,
+      },
+      budget: snackBudget,
+      variant: variant,
     );
-    if (picked == null) {
-      break;
-    }
-    meals.add(
-      PlannedCoachDayMeal(
+    if (found != null) {
+      bySlot[MealSlot.snack] = PlannedCoachDayMeal(
         slot: MealSlot.snack,
         label: MealSlot.snack.label,
-        budgetKcal: snackBudget,
-        meal: picked,
-      ),
-    );
-    planned += picked.kcal;
-    for (final item in picked.items) {
-      used.add(item.foodCode);
+        budgetKcal: found.$2,
+        meal: found.$1,
+      );
+      planned += found.$1.kcal;
     }
   }
   return PlannedCoachDay(
-    meals: meals,
+    meals: [
+      for (final slot in order)
+        if (bySlot[slot] != null) bySlot[slot]!,
+    ],
     kcal: planned,
     remainingKcal: remainingKcal,
   );
@@ -1233,22 +1373,13 @@ PlannedCoachMeal? _pickVariant({
     return null;
   }
   final want = variant + 1;
-  var ranked = _search(
+  final ranked = _search(
     foods: foods,
     excludedFoodCodes: excludedFoodCodes,
     remainingKcal: remainingKcal,
     band: resolved,
     limit: want,
   );
-  if (ranked.isEmpty) {
-    ranked = _search(
-      foods: foods,
-      excludedFoodCodes: const {},
-      remainingKcal: remainingKcal,
-      band: resolved,
-      limit: want,
-    );
-  }
   if (ranked.isEmpty) {
     return null;
   }

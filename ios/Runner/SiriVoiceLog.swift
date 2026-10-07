@@ -145,6 +145,10 @@ enum SiriVoiceStore {
     var burnKcal: Double = 0
     var confident: Bool = false
     var label: String = ""
+    /// 種目のきつさを聞く。選択肢は `choices`、種目は `record` に入れておく。
+    var asksIntensity: Bool = false
+    /// きつさの聞き直し回数。聞き直しは1回まで。
+    var intensityRound: Int = 0
   }
 
   enum CommitStep {
@@ -529,7 +533,8 @@ enum SiriVoiceStore {
 
   private static func exerciseRecord(
     _ activity: [String: Any],
-    parsed: ParsedQuantity
+    parsed: ParsedQuantity,
+    intensityId: String? = nil
   ) -> [String: Any] {
     var record: [String: Any] = [
       "kind": "exercise",
@@ -543,11 +548,21 @@ enum SiriVoiceStore {
     if let weight = weightKg() {
       record["weightKg"] = weight
     }
-    record["netKcal"] = exerciseNetKcal(activity, parsed: parsed)
+    let intensity = intensityOption(activity, id: intensityId)
+    if let id = intensity?["id"] as? String, !id.isEmpty {
+      // アプリの取り込みはこの id のきつさで計算する。
+      record["intensityId"] = id
+    }
+    record["netKcal"] = exerciseNetKcal(activity, parsed: parsed, intensity: intensity)
     return record
   }
 
-  private static func exerciseNetKcal(_ activity: [String: Any], parsed: ParsedQuantity) -> Double {
+  /// 選んだきつさの MET と速度で計算する。きつさが無ければ種目の標準。
+  private static func exerciseNetKcal(
+    _ activity: [String: Any],
+    parsed: ParsedQuantity,
+    intensity: [String: Any]?
+  ) -> Double {
     if (activity["lifestyleIncluded"] as? Bool) == true {
       return 0
     }
@@ -555,8 +570,9 @@ enum SiriVoiceStore {
     if weight <= 0 {
       return 0
     }
+    let met = intensity.map { LockScreenMealStore.number($0["met"]) }
+      ?? LockScreenMealStore.number(activity["met"])
     if parsed.unit == "minutes" {
-      let met = LockScreenMealStore.number(activity["met"])
       if met <= 1 {
         return 0
       }
@@ -564,12 +580,57 @@ enum SiriVoiceStore {
     }
     if parsed.unit == "kilometers" {
       let factor = LockScreenMealStore.number(activity["netKcalPerKgKm"])
-      if factor <= 0 {
+      if factor > 0 {
+        return factor * weight * parsed.amount
+      }
+      var speed = intensity.map { LockScreenMealStore.number($0["speedKmh"]) } ?? 0
+      if speed <= 0 {
+        speed = LockScreenMealStore.number(activity["referenceSpeedKmh"])
+      }
+      if speed <= 0 || met <= 1 {
         return 0
       }
-      return factor * weight * parsed.amount
+      let minutes = parsed.amount / speed * 60
+      return (met - 1) * 3.5 * weight / 200 * minutes
     }
     return 0
+  }
+
+  /// 種目のきつさ。MET の低い順。カタログが古く無いときは空。
+  private static func intensityOptions(_ activity: [String: Any]) -> [[String: Any]] {
+    let rows = activity["intensities"] as? [[String: Any]] ?? []
+    let valid = rows.filter { !($0["id"] as? String ?? "").isEmpty }
+    return valid.enumerated().sorted { a, b in
+      let metA = LockScreenMealStore.number(a.element["met"])
+      let metB = LockScreenMealStore.number(b.element["met"])
+      if metA != metB { return metA < metB }
+      return a.offset < b.offset
+    }.map { $0.element }
+  }
+
+  /// id のきつさ。無い id や nil は種目の標準のきつさ。
+  private static func intensityOption(_ activity: [String: Any], id: String?) -> [String: Any]? {
+    let options = intensityOptions(activity)
+    if let id, let hit = options.first(where: { $0["id"] as? String == id }) {
+      return hit
+    }
+    let standard = activity["defaultIntensityId"] as? String
+    return options.first(where: { $0["id"] as? String == standard })
+  }
+
+  /// アプリの手入力でもきつさを選ぶ種目。生活活動（追加消費0）と、距離の式でだけ計算する距離の入力は聞かない。
+  private static func needsIntensity(_ activity: [String: Any], parsed: ParsedQuantity?) -> Bool {
+    if (activity["lifestyleIncluded"] as? Bool) == true {
+      return false
+    }
+    if intensityOptions(activity).count <= 1 {
+      return false
+    }
+    if parsed?.unit == "kilometers"
+      && LockScreenMealStore.number(activity["netKcalPerKgKm"]) > 0 {
+      return false
+    }
+    return true
   }
 
   private static func copy(_ source: [String: Any], _ key: String, into record: inout [String: Any]) {
@@ -1607,14 +1668,33 @@ enum SiriVoiceStore {
     parsed: ParsedQuantity?,
     assumeMinutes: Bool
   ) -> Plan {
+    var activity = activity
     let speakName = activity["speakName"] as? String ?? ""
     if (activity["requiresManualKcal"] as? Bool) == true || activity["unit"] as? String == "reps" {
       return stop("\(speakName)は手入力の種目です")
     }
-    let amount = parsed ?? (assumeMinutes ? amountFromReply(quantityText, suffix: "分") : nil)
+    let isDistance = activity["unit"] as? String == "distanceKm"
+    let amount = parsed ?? (assumeMinutes ? amountFromReply(quantityText, suffix: isDistance ? "km" : "分") : nil)
+    // 聞く順は 種目 → きつさ → 時間か距離。最初に言ったきつさは聞き直さない。
+    if activity[chosenIntensityKey] == nil && needsIntensity(activity, parsed: amount) {
+      let hint = activity[spokenIntensityKey] as? String ?? ""
+      let options = intensityOptions(activity)
+      let matched = hint.isEmpty ? [] : matchIntensity(hint, among: options)
+      if matched.count == 1, let id = matched[0]["id"] as? String {
+        activity[chosenIntensityKey] = id
+      } else {
+        return intensityPlan(
+          activity,
+          options: matched.count > 1 ? matched : options,
+          quantityText: quantityText,
+          parsed: amount,
+          round: 0
+        )
+      }
+    }
     guard let amount else {
       return Plan(
-        spoken: "何分ですか？",
+        spoken: isDistance ? "何キロですか？" : "何分ですか？",
         asksConfirmation: false,
         asksAmount: true,
         record: activity,
@@ -1635,7 +1715,11 @@ enum SiriVoiceStore {
     if !lifestyle && (weightKg() == nil || (weightKg() ?? 0) <= 0) {
       return stop("体重が無いので登録できません")
     }
-    let record = exerciseRecord(activity, parsed: amount)
+    let record = exerciseRecord(
+      activity,
+      parsed: amount,
+      intensityId: activity[chosenIntensityKey] as? String
+    )
     let burn = LockScreenMealStore.number(record["netKcal"])
     let label = "\(speakName)\(formatQuantity(amount))"
     return Plan(
@@ -1700,7 +1784,12 @@ enum SiriVoiceStore {
       if !lifestyle && (weightKg() == nil || (weightKg() ?? 0) <= 0) {
         return stop("体重が無いので登録できません")
       }
-      let record = exerciseRecord(activity, parsed: parsed)
+      // テンプレートに保存したきつさを使う。聞き直さない。
+      let record = exerciseRecord(
+        activity,
+        parsed: parsed,
+        intensityId: item["intensityId"] as? String
+      )
       burn += LockScreenMealStore.number(record["netKcal"])
       records.append(record)
     }
@@ -1739,7 +1828,10 @@ enum SiriVoiceStore {
       }
     }
     if kind == "exercise" {
-      if let activity = activities().first(where: { $0["id"] as? String == id }) {
+      if var activity = activities().first(where: { $0["id"] as? String == id }) {
+        if let hint = splitIntensityHint(plan.pendingName ?? "")?.hint {
+          activity[spokenIntensityKey] = hint
+        }
         return confirmExercise(activity, quantityText: quantity, parsed: parsed, assumeMinutes: false)
       }
     }
@@ -1766,7 +1858,34 @@ enum SiriVoiceStore {
   /// 単位付きならそのまま読み、数字だけなら聞いた単位を足す。
   private static func amountFromReply(_ text: String, suffix: String) -> ParsedQuantity? {
     let normalized = normalizeNumerals(text)
+    if suffix == "分" || suffix == "km", let minutes = hoursAsMinutes(normalized) {
+      return ParsedQuantity(amount: minutes, unit: "minutes")
+    }
     return parseQuantity(normalized) ?? parseQuantity(normalized + suffix)
+  }
+
+  /// 運動の時間の答え「1時間」「1時間半」「1時間30分」を分にする。
+  private static func hoursAsMinutes(_ text: String) -> Double? {
+    let compact = text
+      .replacingOccurrences(of: "[\\s。、,]", with: "", options: .regularExpression)
+      .replacingOccurrences(of: "(です|くらい|ぐらい|ほど)$", with: "", options: .regularExpression)
+    guard let regex = try? NSRegularExpression(
+      pattern: #"^(\d+(?:\.\d+)?)時間(?:(半)|(\d+)分間?)?$"#
+    ),
+      let found = regex.firstMatch(in: compact, range: NSRange(compact.startIndex..., in: compact)),
+      let hoursRange = Range(found.range(at: 1), in: compact),
+      let hours = Double(compact[hoursRange])
+    else {
+      return nil
+    }
+    var minutes = hours * 60
+    if Range(found.range(at: 2), in: compact) != nil {
+      minutes += 30
+    }
+    if let extraRange = Range(found.range(at: 3), in: compact), let extra = Double(compact[extraRange]) {
+      minutes += extra
+    }
+    return minutes > 0 ? minutes : nil
   }
 
   /// 全角数字と漢数字（〇〜九、十、百、千）を半角の数字にする。
@@ -1831,6 +1950,176 @@ enum SiriVoiceStore {
       assumeUnit: true,
       confident: plan.confident
     )
+  }
+
+  static let chosenIntensityKey = "chosenIntensityId"
+  static let spokenIntensityKey = "spokenIntensity"
+
+  /// きつさを聞く。6段階までは全部読む。多いときは端と段階数を読み、画面の一覧か声で選ばせる。
+  private static func intensityPlan(
+    _ activity: [String: Any],
+    options: [[String: Any]],
+    quantityText: String,
+    parsed: ParsedQuantity?,
+    round: Int
+  ) -> Plan {
+    let labels = options.compactMap { $0["label"] as? String }
+    let question: String
+    if labels.count <= 6 {
+      question = "きつさはどれですか？\(labels.joined(separator: "、"))"
+    } else {
+      question = "きつさはどれですか？\(labels.first ?? "")から\(labels.last ?? "")まで、\(labels.count)段階です"
+    }
+    var plan = Plan(
+      spoken: round == 0 ? question : "もう一度お願いします。\(question)",
+      asksConfirmation: false,
+      record: activity,
+      choices: options.map { option in
+        [
+          "id": option["id"] as? String ?? "",
+          "title": option["label"] as? String ?? "",
+          "kind": "intensity",
+        ]
+      },
+      pendingName: activity["speakName"] as? String ?? "",
+      pendingAmount: parsed?.amount,
+      pendingUnit: parsed?.unit,
+      pendingQuantity: quantityText
+    )
+    plan.asksIntensity = true
+    plan.intensityRound = round
+    return plan
+  }
+
+  /// きつさの答え。一覧から選んだ id でも、声の答え（「きつめ」「普通で」）でも受ける。
+  /// 決まらなければ候補を絞って1回だけ聞き直し、それでも決まらなければ登録しない。
+  static func resolveIntensity(_ plan: Plan, id: String) -> Plan {
+    guard plan.asksIntensity, var activity = plan.record else {
+      return plan
+    }
+    let all = intensityOptions(activity)
+    let offered = plan.choices.compactMap { $0["id"] as? String }
+    let candidates = all.filter { offered.contains($0["id"] as? String ?? "") }
+    let pool = candidates.isEmpty ? all : candidates
+    var chosen: String?
+    if let hit = pool.first(where: { $0["id"] as? String == id }) {
+      chosen = hit["id"] as? String
+    } else {
+      let matched = matchIntensity(id, among: pool)
+      if matched.count == 1 {
+        chosen = matched[0]["id"] as? String
+      } else if plan.intensityRound < 1 {
+        let parsed = plan.pendingAmount.flatMap { amount in
+          plan.pendingUnit.map { ParsedQuantity(amount: amount, unit: $0) }
+        }
+        return intensityPlan(
+          activity,
+          options: matched.count > 1 ? matched : pool,
+          quantityText: plan.pendingQuantity ?? "",
+          parsed: parsed,
+          round: plan.intensityRound + 1
+        )
+      }
+    }
+    guard let chosen else {
+      return stop("きつさを聞き取れませんでした。もう一度、最初から言ってください")
+    }
+    activity[chosenIntensityKey] = chosen
+    let parsed: ParsedQuantity?
+    if let amount = plan.pendingAmount, let unit = plan.pendingUnit {
+      parsed = ParsedQuantity(amount: amount, unit: unit)
+    } else {
+      parsed = nil
+    }
+    return confirmExercise(
+      activity,
+      quantityText: plan.pendingQuantity ?? "",
+      parsed: parsed,
+      assumeMinutes: false
+    )
+  }
+
+  /// 声のきつさを選択肢に当てる。完全一致、答えに含まれる一番長い言葉、言葉を含む選択肢の順。
+  private static func matchIntensity(_ raw: String, among options: [[String: Any]]) -> [[String: Any]] {
+    let reply = intensityReplyKey(raw)
+    if reply.isEmpty {
+      return []
+    }
+    let keyed = options.map { (option: $0, key: normalize($0["label"] as? String)) }
+      .filter { !$0.key.isEmpty }
+    let exact = keyed.filter { $0.key == reply }
+    if !exact.isEmpty {
+      return exact.map { $0.option }
+    }
+    let contained = keyed.filter { reply.contains($0.key) }
+    if let longest = contained.map({ $0.key.count }).max() {
+      return contained.filter { $0.key.count == longest }.map { $0.option }
+    }
+    return keyed.filter { $0.key.contains(reply) }.map { $0.option }
+  }
+
+  /// 答えの言い回しをそろえる。「ふつうで」「きつめです」「ゆっくりペース」など。
+  private static func intensityReplyKey(_ raw: String) -> String {
+    var text = normalize(raw)
+      .replacingOccurrences(of: "[。．.！!？?、,]", with: "", options: .regularExpression)
+    let tails = ["でした", "です", "ぐらい", "くらい", "程度", "ぺすで", "ぺす", "で", "の"]
+    var trimmed = true
+    while trimmed {
+      trimmed = false
+      for tail in tails where text.hasSuffix(tail) && text.count > tail.count {
+        text = String(text.dropLast(tail.count))
+        trimmed = true
+      }
+    }
+    let synonyms: [String: String] = [
+      "ふつう": "普通",
+      "標準": "普通",
+      "ふつうより楽": "普通より楽",
+      "ふつうより少し": "普通より少し",
+    ]
+    for (from, to) in synonyms {
+      text = text.replacingOccurrences(of: from, with: to)
+    }
+    return text
+  }
+
+  /// 「きつめのランニング」「水泳をゆっくり」から、きつさの言葉と種目名を分ける。
+  /// 種目名だけで一覧に当たるときだけ使う。
+  private static func splitIntensityHint(_ raw: String) -> (core: String, hint: String)? {
+    let text = normalize(raw)
+    if text.isEmpty {
+      return nil
+    }
+    var words = Set<String>()
+    for activity in activities() {
+      for option in intensityOptions(activity) {
+        let key = normalize(option["label"] as? String)
+        if !key.isEmpty { words.insert(key) }
+      }
+    }
+    words.insert("ふつう")
+    let ordered = words.sorted { $0.count > $1.count }
+    let leads = ["ぺすで", "ぺすの", "の", "で", "な", "に"]
+    let trails = ["ぺすで", "ぺす", "を", "で", "は", "に"]
+    for word in ordered {
+      if text.hasPrefix(word) && text.count > word.count {
+        var core = String(text.dropFirst(word.count))
+        for lead in leads where core.hasPrefix(lead) && core.count > lead.count {
+          core = String(core.dropFirst(lead.count))
+          break
+        }
+        return (core, word)
+      }
+      if text.hasSuffix(word) && text.count > word.count {
+        var core = String(text.dropLast(word.count))
+        for trail in trails where core.hasSuffix(trail) && core.count > trail.count {
+          core = String(core.dropLast(trail.count))
+          break
+        }
+        return (core, word)
+      }
+    }
+    return nil
   }
 
   private static func choicePlan(
@@ -2547,6 +2836,22 @@ enum SiriVoiceStore {
   }
 
   private static func rankExercises(_ name: String) -> [[String: Any]] {
+    let direct = rankExercisesBody(name)
+    if !direct.isEmpty {
+      return direct
+    }
+    // 「きつめのランニング」など、きつさを先に言った言い方。きつさは種目に付けて渡す。
+    guard let split = splitIntensityHint(name), !split.core.isEmpty else {
+      return direct
+    }
+    return rankExercisesBody(split.core).map { hit in
+      var tagged = hit
+      tagged[spokenIntensityKey] = split.hint
+      return tagged
+    }
+  }
+
+  private static func rankExercisesBody(_ name: String) -> [[String: Any]] {
     let direct = rankExercisesExact(name)
     if !direct.isEmpty {
       return direct
@@ -2907,6 +3212,13 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "候補")
   var choice: SiriChoiceEntity?
 
+  /// 運動のきつさ。種目に2つ以上あるときだけ聞く。聞き直し用に2つ持つ。
+  @Parameter(title: "きつさ")
+  var intensity: SiriChoiceEntity?
+
+  @Parameter(title: "きつさ2")
+  var intensity2: SiriChoiceEntity?
+
   @Parameter(title: "量")
   var amountReply: String?
 
@@ -2960,6 +3272,12 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
         )
         plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
       }
+      if plan.asksIntensity {
+        plan = SiriVoiceStore.resolveIntensity(plan, id: try await nextIntensity(plan))
+        if plan.asksIntensity {
+          continue
+        }
+      }
       if plan.asksAmount {
         SiriAnalytics.prompt(kind: "value")
         let text = try await $amountReply.requestValue(SiriSpeech.dialog(plan.spoken))
@@ -2990,6 +3308,17 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       SiriVoiceStore.commitConfirmed(plan)
       return .result(dialog: SiriSpeech.dialog(report))
     }
+  }
+
+  /// きつさを一覧から選ばせる。声の答えが一覧に無いときは、その言葉が id として返る。
+  private func nextIntensity(_ plan: SiriVoiceStore.Plan) async throws -> String {
+    let options = SiriChoiceEntity.list(plan.choices)
+    let dialog = SiriSpeech.dialog(plan.spoken)
+    SiriAnalytics.prompt(kind: "disambiguation")
+    if plan.intensityRound >= 1 {
+      return try await $intensity2.requestDisambiguation(among: options, dialog: dialog).id
+    }
+    return try await $intensity.requestDisambiguation(among: options, dialog: dialog).id
   }
 
   private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {
@@ -3056,6 +3385,13 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "候補")
   var choice: SiriChoiceEntity?
 
+  /// 運動のきつさ。種目に2つ以上あるときだけ聞く。聞き直し用に2つ持つ。
+  @Parameter(title: "きつさ")
+  var intensity: SiriChoiceEntity?
+
+  @Parameter(title: "きつさ2")
+  var intensity2: SiriChoiceEntity?
+
   @Parameter(title: "量")
   var amountReply: String?
 
@@ -3106,6 +3442,12 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
       )
       plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
     }
+    if plan.asksIntensity {
+      plan = SiriVoiceStore.resolveIntensity(plan, id: try await nextIntensity(plan))
+      if plan.asksIntensity {
+        continue
+      }
+    }
     if plan.asksAmount {
       SiriAnalytics.prompt(kind: "value")
       let text = try await $amountReply.requestValue(SiriSpeech.dialog(plan.spoken))
@@ -3139,6 +3481,17 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
       SiriVoiceStore.commitConfirmed(plan)
       return .result(dialog: SiriSpeech.dialog(report))
     }
+  }
+
+  /// きつさを一覧から選ばせる。声の答えが一覧に無いときは、その言葉が id として返る。
+  private func nextIntensity(_ plan: SiriVoiceStore.Plan) async throws -> String {
+    let options = SiriChoiceEntity.list(plan.choices)
+    let dialog = SiriSpeech.dialog(plan.spoken)
+    SiriAnalytics.prompt(kind: "disambiguation")
+    if plan.intensityRound >= 1 {
+      return try await $intensity2.requestDisambiguation(among: options, dialog: dialog).id
+    }
+    return try await $intensity.requestDisambiguation(among: options, dialog: dialog).id
   }
 
   private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {
@@ -3193,6 +3546,13 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
 
   @Parameter(title: "候補")
   var choice: SiriChoiceEntity?
+
+  /// 運動のきつさ。種目に2つ以上あるときだけ聞く。聞き直し用に2つ持つ。
+  @Parameter(title: "きつさ")
+  var intensity: SiriChoiceEntity?
+
+  @Parameter(title: "きつさ2")
+  var intensity2: SiriChoiceEntity?
 
   @Parameter(title: "量")
   var amountReply: String?
@@ -3253,6 +3613,12 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
         )
         plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
       }
+      if plan.asksIntensity {
+        plan = SiriVoiceStore.resolveIntensity(plan, id: try await nextIntensity(plan))
+        if plan.asksIntensity {
+          continue
+        }
+      }
       if plan.asksAmount {
         SiriAnalytics.prompt(kind: "value")
         let text = try await $amountReply.requestValue(SiriSpeech.dialog(plan.spoken))
@@ -3292,6 +3658,17 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
       SiriVoiceStore.commitConfirmed(plan)
       return .result(dialog: SiriSpeech.dialog(report))
     }
+  }
+
+  /// きつさを一覧から選ばせる。声の答えが一覧に無いときは、その言葉が id として返る。
+  private func nextIntensity(_ plan: SiriVoiceStore.Plan) async throws -> String {
+    let options = SiriChoiceEntity.list(plan.choices)
+    let dialog = SiriSpeech.dialog(plan.spoken)
+    SiriAnalytics.prompt(kind: "disambiguation")
+    if plan.intensityRound >= 1 {
+      return try await $intensity2.requestDisambiguation(among: options, dialog: dialog).id
+    }
+    return try await $intensity.requestDisambiguation(among: options, dialog: dialog).id
   }
 
   private func nextNarrow(_ plan: SiriVoiceStore.Plan) async throws -> String {

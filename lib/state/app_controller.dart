@@ -3970,6 +3970,7 @@ class AppController extends ChangeNotifier {
             SiriWorkoutTemplateExercise(
               activityId: activityId,
               minutes: item.durationMin.toDouble(),
+              intensityId: item.intensity,
             ),
           );
         }

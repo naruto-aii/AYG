@@ -214,11 +214,15 @@ class SiriWorkoutTemplateExercise {
     required this.activityId,
     this.minutes,
     this.kilometers,
+    this.intensityId,
   });
 
   final String activityId;
   final double? minutes;
   final double? kilometers;
+
+  /// テンプレートに保存したきつさ。Siri はこれを使い、聞き直さない。
+  final String? intensityId;
 }
 
 class SiriWorkoutTemplate {
@@ -1933,6 +1937,7 @@ SiriVoiceResult commitSiriVoice({
         unit: unit,
         weightKg: weightKg,
         loggedAt: loggedAt,
+        intensityId: item.intensityId,
       );
       if (exercise != null) {
         exercises.add(exercise);
@@ -1974,7 +1979,9 @@ SiriVoiceResult commitSiriVoice({
     );
     return SiriVoiceResult(
       status: SiriVoiceStatus.registered,
-      spoken: siriRegisteredSpeech('${food.speakName}${formatSiriQuantity(quantity)}'),
+      spoken: siriRegisteredSpeech(
+        '${food.speakName}${formatSiriQuantity(quantity)}',
+      ),
       food: entry,
       foods: [entry],
     );
@@ -1999,7 +2006,9 @@ SiriVoiceResult commitSiriVoice({
     final activityName = activity?.displayName ?? plan.spokenName ?? '';
     return SiriVoiceResult(
       status: SiriVoiceStatus.registered,
-      spoken: siriRegisteredSpeech('$activityName${formatSiriQuantity(quantity)}'),
+      spoken: siriRegisteredSpeech(
+        '$activityName${formatSiriQuantity(quantity)}',
+      ),
       exercise: exercise,
       exercises: [exercise],
     );
@@ -2010,6 +2019,8 @@ SiriVoiceResult commitSiriVoice({
   );
 }
 
+/// Siri の運動を記録にする。[intensityId] は会話で選んだきつさ（またはテンプレートのきつさ）。
+/// 種目に無い id や、きつさを持たない古い記録は種目の標準のきつさで計算する。
 ExerciseEntry? buildSiriExerciseEntry({
   required String id,
   required String activityId,
@@ -2017,6 +2028,7 @@ ExerciseEntry? buildSiriExerciseEntry({
   required SiriQuantityUnit unit,
   required double? weightKg,
   required DateTime loggedAt,
+  String? intensityId,
 }) {
   final activity = MetActivityCatalog.findById(activityId);
   if (activity == null ||
@@ -2025,6 +2037,11 @@ ExerciseEntry? buildSiriExerciseEntry({
       activity.quantityUnit == ExerciseQuantityUnit.reps) {
     return null;
   }
+  final intensity =
+      activity.intensityById(intensityId) ?? activity.defaultIntensity;
+  final met = intensity.met;
+  final metSourceKey = intensity.sourceKey;
+  final speedKmh = activity.speedFor(intensity.id);
   if (activity.lifestyleIncluded) {
     if (unit != SiriQuantityUnit.minutes) {
       return null;
@@ -2060,10 +2077,10 @@ ExerciseEntry? buildSiriExerciseEntry({
       }
       final minutes = amount.round();
       final estimate = calculator.estimate(
-        met: activity.defaultMet,
+        met: met,
         weightKg: weight,
         durationMinutes: minutes,
-        sourceKey: activity.sourceKey,
+        sourceKey: metSourceKey,
       );
       if (estimate == null) {
         return null;
@@ -2076,23 +2093,23 @@ ExerciseEntry? buildSiriExerciseEntry({
         loggedAt: loggedAt,
         category: activity.category,
         activityId: activity.id,
-        intensity: activity.defaultIntensityId,
-        metValue: activity.defaultMet,
+        intensity: intensity.id,
+        metValue: met,
         grossKcal: estimate.grossKcal,
         netKcal: estimate.netKcal,
         weightKgSnapshot: weight,
         calculationSource: estimate.calculationSource,
         calculationVersion: estimate.calculationVersion,
-        sourceKey: activity.sourceKey,
+        sourceKey: metSourceKey,
       );
     case ExerciseQuantityUnit.distanceKm:
       if (unit == SiriQuantityUnit.minutes) {
         final minutes = amount.round();
         final estimate = calculator.estimate(
-          met: activity.defaultMet,
+          met: met,
           weightKg: weight,
           durationMinutes: minutes,
-          sourceKey: activity.sourceKey,
+          sourceKey: metSourceKey,
         );
         if (estimate == null) {
           return null;
@@ -2105,8 +2122,8 @@ ExerciseEntry? buildSiriExerciseEntry({
           loggedAt: loggedAt,
           category: activity.category,
           activityId: activity.id,
-          intensity: activity.defaultIntensityId,
-          metValue: activity.defaultMet,
+          intensity: intensity.id,
+          metValue: met,
           grossKcal: estimate.grossKcal,
           netKcal: estimate.netKcal,
           weightKgSnapshot: weight,
@@ -2126,14 +2143,14 @@ ExerciseEntry? buildSiriExerciseEntry({
               netKcalPerKgKm: factor,
               sourceKey: activity.sourceKey,
             )
-          : activity.referenceSpeedKmh == null
+          : speedKmh == null
           ? null
           : calculator.estimateByDistanceSpeed(
-              met: activity.defaultMet,
+              met: met,
               weightKg: weight,
               distanceKm: amount,
-              speedKmh: activity.referenceSpeedKmh!,
-              sourceKey: activity.sourceKey,
+              speedKmh: speedKmh,
+              sourceKey: metSourceKey,
             );
       if (estimate == null) {
         return null;
@@ -2143,15 +2160,15 @@ ExerciseEntry? buildSiriExerciseEntry({
         name: activity.displayName,
         durationMin: ExerciseCalorieCalculator.companionDurationMin(
           distanceKm: amount,
-          referenceSpeedKmh: activity.referenceSpeedKmh,
+          referenceSpeedKmh: speedKmh,
         ),
         burnedKcal: estimate.grossKcal,
         loggedAt: loggedAt,
         category: activity.category,
         activityId: activity.id,
-        intensity: activity.defaultIntensityId,
+        intensity: intensity.id,
         distanceKm: amount,
-        metValue: factor == null ? activity.defaultMet : null,
+        metValue: factor == null ? met : null,
         grossKcal: estimate.grossKcal,
         netKcal: estimate.netKcal,
         weightKgSnapshot: weight,
@@ -2200,6 +2217,18 @@ abstract final class SiriVoiceCodec {
               'lifestyleIncluded': activity.lifestyleIncluded,
               'met': activity.defaultMet,
               'netKcalPerKgKm': activity.netKcalPerKgKm,
+              'referenceSpeedKmh': activity.referenceSpeedKmh,
+              'defaultIntensityId': activity.defaultIntensityId,
+              // アプリの「きつさ」と同じ選択肢。Siri は2つ以上あれば会話で聞く。
+              'intensities': [
+                for (final option in activity.intensityOptions)
+                  {
+                    'id': option.id,
+                    'label': option.label,
+                    'met': option.met,
+                    'speedKmh': option.referenceSpeedKmh,
+                  },
+              ],
             },
       ],
       'mealTemplates': [
@@ -2229,6 +2258,7 @@ abstract final class SiriVoiceCodec {
                   'activityId': item.activityId,
                   'minutes': item.minutes,
                   'kilometers': item.kilometers,
+                  'intensityId': item.intensityId,
                 },
             ],
           },
@@ -2276,6 +2306,7 @@ abstract final class SiriVoiceCodec {
         'ownerUserId': ownerUserId,
         'loggedAt': formatLockScreenLoggedAt(exercise.loggedAt),
         'activityId': exercise.activityId,
+        'intensityId': exercise.intensity,
         'amount': amount,
         'quantityUnit': unit.name,
         'weightKg': weightKg ?? exercise.weightKgSnapshot,
@@ -2366,6 +2397,7 @@ abstract final class SiriVoiceCodec {
           unit: unit,
           weightKg: _double(row['weightKg']),
           loggedAt: loggedAt,
+          intensityId: _string(row['intensityId']),
         );
         if (entry != null) {
           exercises.add(entry);
@@ -2387,10 +2419,7 @@ bool siriUndoUtterance(String raw) {
       .replaceAll(' ', '')
       .replaceAll('　', '')
       .replaceAll(RegExp(r'[。．.！!？?、,]'), '');
-  text = text.replaceFirst(
-    RegExp(r'^(?:HeySiri|heySiri|へいしり)'),
-    '',
-  );
+  text = text.replaceFirst(RegExp(r'^(?:HeySiri|heySiri|へいしり)'), '');
   text = text.replaceFirst(RegExp(r'^カロナビで'), '');
   text = text.replaceFirst(RegExp(r'^(?:食事に|運動に)'), '');
   text = text.replaceFirst(RegExp(r'(です|ください|くれ)$'), '');
@@ -2419,12 +2448,10 @@ bool siriUndoUtterance(String raw) {
   if (phrases.contains(text)) {
     return true;
   }
-  final removes = text.contains('取り消') ||
-      text.contains('消して') ||
-      text.contains('削除');
-  final aboutLast = text.contains('登録') ||
-      text.contains('さっき') ||
-      text.contains('直前');
+  final removes =
+      text.contains('取り消') || text.contains('消して') || text.contains('削除');
+  final aboutLast =
+      text.contains('登録') || text.contains('さっき') || text.contains('直前');
   return removes && aboutLast && text.length <= 24;
 }
 

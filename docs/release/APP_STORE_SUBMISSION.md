@@ -18,7 +18,7 @@
 
 ## サーバ
 
-6. `supabase/migrations/20261008120000_delete_own_account_auth_must_succeed.sql` はリポジトリにだけ置く。本番へは自動適用しない。提出者が内容を確認してから適用する。退会時の記録は `anon_subject_id`（退会ごとに新しい uuid。利用者 ID からは作らない）で残し、個人を特定できる列は消す。`auth.identities` / `auth.users` の削除に失敗すると関数は例外で終わる。`kpi.excluded_user_ids` の退会集計の除外は `20261007112725` と同じで、開発者の匿名行は `kpi_excluded` が真になり `kpi.anon_*` から外れる。
+6. `supabase/migrations/20261007123300_delete_own_account_auth_must_succeed.sql` は 2026-10-07 に本番適用済み。退会時の記録は `anon_subject_id`（退会ごとに新しい uuid。利用者 ID からは作らない）で残し、個人を特定できる列は消す。`auth.identities` / `auth.users` の削除に失敗すると関数は例外で終わる。`kpi.excluded_user_ids` の退会集計の除外は `20261007112725` と同じで、開発者の匿名行は `kpi_excluded` が真になり `kpi.anon_*` から外れる。
 
 ## プライバシー
 

@@ -246,6 +246,18 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
     final saved = await savedFuture;
     final official = await officialFuture;
     final public = await publicFuture;
+    widget.controller.noteFoodSearchResults(
+      source: FoodSearchSources.savedFood,
+      count: saved.rows.length,
+    );
+    widget.controller.noteFoodSearchResults(
+      source: FoodSearchSources.officialFood,
+      count: official.matches.length,
+    );
+    widget.controller.noteFoodSearchResults(
+      source: FoodSearchSources.publicFood,
+      count: public.rows.length,
+    );
     if (!mounted || generation != _generation) {
       return;
     }
@@ -349,12 +361,14 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
           onTap: widget.onSavedFood == null
               ? null
               : () {
+                  widget.controller.pinFoodSearch(FoodSearchSources.savedFood);
                   CatalogActions.foodSearchResultSelect(
                     source: 'saved',
                     position: _saved.indexOf(food),
                     resultCount: _saved.length,
                     queryLength: widget.query.text.trim().length,
                     itemKind: 'saved_food',
+                    searchQueryId: widget.controller.linkedFoodSearchId,
                   );
                   widget.onSavedFood!(food);
                 },
@@ -463,7 +477,20 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
               subtitle: _officialSubtitle(match),
               onTap: widget.onOfficialFood == null
                   ? null
-                  : () => widget.onOfficialFood!(match),
+                  : () {
+                      widget.controller.pinFoodSearch(
+                        FoodSearchSources.officialFood,
+                      );
+                      CatalogActions.foodSearchResultSelect(
+                        source: 'official',
+                        position: _official.indexOf(match),
+                        resultCount: _official.length,
+                        queryLength: widget.query.text.trim().length,
+                        itemKind: 'official_food',
+                        searchQueryId: widget.controller.linkedFoodSearchId,
+                      );
+                      widget.onOfficialFood!(match);
+                    },
             ),
             const SizedBox(height: 8),
           ],
@@ -487,7 +514,20 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
                   '${formatNullableNutrient(match.food.kcalPerBase)} kcal',
               onTap: widget.onPublicFood == null
                   ? null
-                  : () => widget.onPublicFood!(match),
+                  : () {
+                      widget.controller.pinFoodSearch(
+                        FoodSearchSources.publicFood,
+                      );
+                      CatalogActions.foodSearchResultSelect(
+                        source: 'public',
+                        position: public.indexOf(match),
+                        resultCount: public.length,
+                        queryLength: widget.query.text.trim().length,
+                        itemKind: 'public_food',
+                        searchQueryId: widget.controller.linkedFoodSearchId,
+                      );
+                      widget.onPublicFood!(match);
+                    },
             ),
             const SizedBox(height: 8),
           ],

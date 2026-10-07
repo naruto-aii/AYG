@@ -2,9 +2,7 @@
 -- auth.identities / auth.users の削除に失敗したら例外にし、成功扱いにしない。
 -- kpi.excluded_user_ids の退会集計の除外は 20261007112725 と同じ。
 -- 開発者は anon_subjects.kpi_excluded を真にして、kpi.anon_* から外す。
--- 本番へは適用しない。提出者が確認してから流す。
-
-begin;
+-- 2026-10-07 本番適用済み
 
 create table public.anon_subjects (
   anon_subject_id uuid primary key,
@@ -585,5 +583,3 @@ end;
 $function$;
 revoke all on function public.delete_own_account(uuid) from public, anon, authenticated;
 grant execute on function public.delete_own_account(uuid) to service_role;
-
-commit;

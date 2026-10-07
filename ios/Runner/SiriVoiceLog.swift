@@ -36,10 +36,22 @@ enum SiriVoiceStore {
   }
 
   static func readPendingJSON() -> String {
-    defaults?.string(forKey: pendingKey) ?? "[]"
+    PendingRecordFiles.readJSON(
+      folder: PendingRecordFiles.siriFolder,
+      idKey: "id",
+      legacyKey: pendingKey
+    ) ?? defaults?.string(forKey: pendingKey) ?? "[]"
   }
 
   static func acknowledge(ids: [String]) {
+    if PendingRecordFiles.acknowledge(
+      folder: PendingRecordFiles.siriFolder,
+      ids: ids,
+      idKey: "id",
+      legacyKey: pendingKey
+    ) {
+      return
+    }
     let idSet = Set(ids)
     var pending = readPendingArray()
     pending.removeAll { record in
@@ -54,9 +66,21 @@ enum SiriVoiceStore {
   }
 
   static func commitAll(_ records: [[String: Any]]) {
-    var pending = readPendingArray()
-    pending.append(contentsOf: records)
-    writePendingArray(pending)
+    var wroteFiles = true
+    for record in records {
+      let wrote = PendingRecordFiles.append(
+        folder: PendingRecordFiles.siriFolder,
+        record: record,
+        idKey: "id",
+        legacyKey: pendingKey
+      )
+      wroteFiles = wroteFiles && wrote
+    }
+    if !wroteFiles {
+      var pending = readPendingArray()
+      pending.append(contentsOf: records)
+      writePendingArray(pending)
+    }
     var intake = 0.0
     var burn = 0.0
     for record in records {
@@ -976,16 +1000,17 @@ enum SiriVoiceStore {
       SiriAnalytics.finished(status: "cancelled", stopReason: "nothing_to_undo")
       return Plan(spoken: "取り消す登録がありません", asksConfirmation: false)
     }
-    var pending = readPendingArray()
-    let idSet = Set(last.ids)
-    pending.removeAll { record in
-      guard let id = record["id"] as? String else { return false }
-      return idSet.contains(id)
-    }
     let owner = ownerUserId()
     let loggedAt = LockScreenMealStore.formatLoggedAt(Date())
+    let removed = PendingRecordFiles.acknowledge(
+      folder: PendingRecordFiles.siriFolder,
+      ids: last.ids,
+      idKey: "id",
+      legacyKey: pendingKey
+    )
+    var undoRecords: [[String: Any]] = []
     for target in last.ids {
-      pending.append([
+      undoRecords.append([
         "kind": "undo",
         "id": UUID().uuidString,
         "ownerUserId": owner,
@@ -993,10 +1018,28 @@ enum SiriVoiceStore {
         "loggedAt": loggedAt,
       ])
     }
-    guard JSONSerialization.isValidJSONObject(pending) else {
+    guard JSONSerialization.isValidJSONObject(undoRecords) else {
       return Plan(spoken: "取り消す登録がありません", asksConfirmation: false)
     }
-    writePendingArray(pending)
+    if removed {
+      for record in undoRecords {
+        _ = PendingRecordFiles.append(
+          folder: PendingRecordFiles.siriFolder,
+          record: record,
+          idKey: "id",
+          legacyKey: pendingKey
+        )
+      }
+    } else {
+      var pending = readPendingArray()
+      let idSet = Set(last.ids)
+      pending.removeAll { record in
+        guard let id = record["id"] as? String else { return false }
+        return idSet.contains(id)
+      }
+      pending.append(contentsOf: undoRecords)
+      writePendingArray(pending)
+    }
     if last.intake != 0 || last.burn != 0 {
       LockScreenMealStore.applyFigures(intakeDelta: -last.intake, burnDelta: -last.burn)
     }

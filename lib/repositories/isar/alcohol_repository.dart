@@ -55,4 +55,16 @@ class AlcoholRepository implements AlcoholRepositoryBase {
       await _isar.alcoholEntryEntitys.clear();
     });
   }
+
+  Future<void> replaceAll(List<AlcoholEntry> entries) async {
+    await _isar.writeTxn(() async {
+      await _isar.alcoholEntryEntitys.clear();
+      if (entries.isEmpty) {
+        return;
+      }
+      await _isar.alcoholEntryEntitys.putAll(
+        entries.map(EntityMapper.toAlcoholEntryEntity).toList(),
+      );
+    });
+  }
 }

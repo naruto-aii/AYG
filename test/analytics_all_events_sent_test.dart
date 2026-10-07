@@ -21,6 +21,7 @@ import 'package:ayg/models/weight_entry.dart';
 import 'package:ayg/models/workout_template.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/plus_funnel_repository.dart';
+import 'package:ayg/repositories/storekit_subscription_repository.dart';
 import 'package:ayg/repositories/sync_step_runner.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
@@ -496,10 +497,7 @@ void main() {
                 foodEntryIds: const ['food-1'],
               ),
           'share_tap': () async {
-            controller.recordScreenAction(
-              screen: UsageScreen.home,
-              action: UsageScreenAction.shareMeal,
-            );
+            CatalogActions.shareTap(card: 'meal', result: 'completed');
           },
           'announcement_read': () async =>
               CatalogActions.announcementRead('list'),
@@ -511,7 +509,12 @@ void main() {
           'paywall_close': usePaywall,
           'plan_select': usePaywall,
           'purchase_tap': usePaywall,
-          'purchase_result': usePaywall,
+          'purchase_result': () async {
+            emitStoreKitPurchaseResult(
+              productId: SubscriptionCatalog.monthlyProductId,
+              status: 'purchased',
+            );
+          },
           'restore_tap': usePaywall,
           'restore_result': usePaywall,
           'gate_shown': () async {

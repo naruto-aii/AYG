@@ -126,10 +126,22 @@ enum LockScreenMealStore {
   }
 
   static func readPendingJSON() -> String {
-    defaults?.string(forKey: pendingKey) ?? "[]"
+    PendingRecordFiles.readJSON(
+      folder: PendingRecordFiles.lockScreenFolder,
+      idKey: "registrationId",
+      legacyKey: pendingKey
+    ) ?? defaults?.string(forKey: pendingKey) ?? "[]"
   }
 
   static func acknowledge(ids: [String]) {
+    if PendingRecordFiles.acknowledge(
+      folder: PendingRecordFiles.lockScreenFolder,
+      ids: ids,
+      idKey: "registrationId",
+      legacyKey: pendingKey
+    ) {
+      return
+    }
     let idSet = Set(ids)
     var pending = readPendingArray()
     pending.removeAll { record in
@@ -152,11 +164,18 @@ enum LockScreenMealStore {
     guard !owner.isEmpty, let button = source.first(where: { $0.slot == slot }), button.canRegister else {
       return "unassigned"
     }
-    var pending = readPendingArray()
-    pending.append(
-      button.makePendingRecord(ownerUserId: owner, loggedAt: Date(), surface: surface)
+    let record = button.makePendingRecord(ownerUserId: owner, loggedAt: Date(), surface: surface)
+    let wrote = PendingRecordFiles.append(
+      folder: PendingRecordFiles.lockScreenFolder,
+      record: record,
+      idKey: "registrationId",
+      legacyKey: pendingKey
     )
-    writePendingArray(pending)
+    if !wrote {
+      var pending = readPendingArray()
+      pending.append(record)
+      writePendingArray(pending)
+    }
     let intake = button.kind == "exercise" ? 0 : foodKcal(button.items)
     let burn = button.kind == "exercise" ? exerciseKcal(button.exercises) : 0
     applyFigures(intakeDelta: intake, burnDelta: burn)

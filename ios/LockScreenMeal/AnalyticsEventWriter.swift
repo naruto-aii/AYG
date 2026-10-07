@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// ウィジェットと Siri が、アプリが動いていなくても App Group に 1 件 1 ファイルで残す。
@@ -222,5 +223,181 @@ enum SiriAnalytics {
         "continued_in_app": continued,
       ]
     )
+  }
+}
+
+/// ウィジェットと Siri の未取り込み記録。1件1ファイルなので、取り込み中の追記は消えない。
+enum PendingRecordFiles {
+  static let lockScreenFolder = "lock_screen_meal_pending"
+  static let siriFolder = "siri_voice_pending"
+  static let legacyFileName = "pending.json"
+
+  /// 単体テストが App Group の代わりに使う親ディレクトリ。
+  static var testingRoot: URL?
+
+  static func append(
+    folder: String,
+    record: [String: Any],
+    idKey: String,
+    legacyKey: String
+  ) -> Bool {
+    guard let id = stringId(record[idKey]) else {
+      return false
+    }
+    return withDirectory(folder) { directory, defaults in
+      migrateUnlocked(directory: directory, idKey: idKey, legacyKey: legacyKey, defaults: defaults)
+      writeUnlocked(directory: directory, id: id, record: record)
+    }
+  }
+
+  static func readJSON(folder: String, idKey: String, legacyKey: String) -> String? {
+    var encoded: String?
+    let ready = withDirectory(folder) { directory, defaults in
+      migrateUnlocked(directory: directory, idKey: idKey, legacyKey: legacyKey, defaults: defaults)
+      let rows = readUnlocked(directory: directory)
+      if JSONSerialization.isValidJSONObject(rows),
+         let data = try? JSONSerialization.data(withJSONObject: rows),
+         let raw = String(data: data, encoding: .utf8) {
+        encoded = raw
+      } else {
+        encoded = "[]"
+      }
+    }
+    return ready ? encoded : nil
+  }
+
+  static func acknowledge(
+    folder: String,
+    ids: [String],
+    idKey: String,
+    legacyKey: String
+  ) -> Bool {
+    withDirectory(folder) { directory, defaults in
+      migrateUnlocked(directory: directory, idKey: idKey, legacyKey: legacyKey, defaults: defaults)
+      for id in ids {
+        let url = fileURL(directory: directory, id: id)
+        if FileManager.default.fileExists(atPath: url.path) {
+          try? FileManager.default.removeItem(at: url)
+        }
+      }
+    }
+  }
+
+  private static func withDirectory(
+    _ folder: String,
+    _ body: (URL, UserDefaults?) -> Void
+  ) -> Bool {
+    guard let directory = ensureDirectory(folder) else {
+      return false
+    }
+    let lockURL = directory.appendingPathComponent(".lock")
+    FileManager.default.createFile(atPath: lockURL.path, contents: nil)
+    guard let handle = FileHandle(forUpdatingAtPath: lockURL.path) else {
+      body(directory, sharedDefaults())
+      return true
+    }
+    flock(handle.fileDescriptor, LOCK_EX)
+    defer {
+      flock(handle.fileDescriptor, LOCK_UN)
+      try? handle.close()
+    }
+    body(directory, sharedDefaults())
+    return true
+  }
+
+  private static func ensureDirectory(_ folder: String) -> URL? {
+    guard let root = testingRoot ?? FileManager.default.containerURL(
+      forSecurityApplicationGroupIdentifier: LockScreenMealStore.appGroupId
+    ) else {
+      return nil
+    }
+    let directory = root.appendingPathComponent(folder, isDirectory: true)
+    do {
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    } catch {
+      return nil
+    }
+    return directory
+  }
+
+  private static func sharedDefaults() -> UserDefaults? {
+    AnalyticsEventWriter.testingDefaults ?? LockScreenMealStore.defaults
+  }
+
+  private static func migrateUnlocked(
+    directory: URL,
+    idKey: String,
+    legacyKey: String,
+    defaults: UserDefaults?
+  ) {
+    if let raw = defaults?.string(forKey: legacyKey) {
+      writeLegacyArray(raw, directory: directory, idKey: idKey)
+      defaults?.removeObject(forKey: legacyKey)
+    }
+    let legacyURL = directory.appendingPathComponent(legacyFileName)
+    if let raw = try? String(contentsOf: legacyURL, encoding: .utf8) {
+      writeLegacyArray(raw, directory: directory, idKey: idKey)
+      try? FileManager.default.removeItem(at: legacyURL)
+    }
+  }
+
+  private static func writeLegacyArray(_ raw: String, directory: URL, idKey: String) {
+    guard
+      let data = raw.data(using: .utf8),
+      let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+    else {
+      return
+    }
+    for record in rows {
+      guard let id = stringId(record[idKey]) else {
+        continue
+      }
+      writeUnlocked(directory: directory, id: id, record: record)
+    }
+  }
+
+  private static func writeUnlocked(directory: URL, id: String, record: [String: Any]) {
+    let url = fileURL(directory: directory, id: id)
+    if FileManager.default.fileExists(atPath: url.path) {
+      return
+    }
+    guard JSONSerialization.isValidJSONObject(record),
+          let data = try? JSONSerialization.data(withJSONObject: record)
+    else {
+      return
+    }
+    try? data.write(to: url, options: .atomic)
+  }
+
+  private static func readUnlocked(directory: URL) -> [[String: Any]] {
+    let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+    var rows: [[String: Any]] = []
+    for name in names.sorted() {
+      if !name.hasSuffix(".json") || name == legacyFileName || name.hasPrefix(".") {
+        continue
+      }
+      let url = directory.appendingPathComponent(name)
+      guard
+        let data = try? Data(contentsOf: url),
+        let row = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+      else {
+        continue
+      }
+      rows.append(row)
+    }
+    return rows
+  }
+
+  private static func fileURL(directory: URL, id: String) -> URL {
+    let safe = id.replacingOccurrences(of: "/", with: "_")
+    return directory.appendingPathComponent("\(safe).json")
+  }
+
+  private static func stringId(_ value: Any?) -> String? {
+    guard let id = value as? String else {
+      return nil
+    }
+    let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? nil : trimmed
   }
 }

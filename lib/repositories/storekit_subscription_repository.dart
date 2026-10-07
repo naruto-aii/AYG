@@ -64,6 +64,20 @@ class EntitlementLoad {
   final bool authoritative;
 }
 
+/// `purchase_result` は StoreKit の購入更新だけが送る。
+void emitStoreKitPurchaseResult({
+  required String productId,
+  required String status,
+  String? errorCode,
+}) {
+  Analytics.emit('purchase_result', {
+    'product_id':
+        SubscriptionCatalog.planKeyForProduct(productId) ?? productId,
+    'status': status,
+    if (errorCode != null && errorCode.isNotEmpty) 'error_code': errorCode,
+  });
+}
+
 /// App Store の自動更新サブスクリプション。
 class StoreKitSubscriptionRepository extends SubscriptionRepository {
   StoreKitSubscriptionRepository({
@@ -443,26 +457,26 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
             expiresAt: revoked ? null : _expiryOf(purchase),
           ),
         );
-        Analytics.emit('purchase_result', {
-          'product_id': purchase.productID,
-          'status': 'purchased',
-        });
+        emitStoreKitPurchaseResult(
+          productId: purchase.productID,
+          status: 'purchased',
+        );
       } else if (purchase.status == PurchaseStatus.canceled) {
-        Analytics.emit('purchase_result', {
-          'product_id': purchase.productID,
-          'status': 'cancelled',
-        });
+        emitStoreKitPurchaseResult(
+          productId: purchase.productID,
+          status: 'cancelled',
+        );
       } else if (purchase.status == PurchaseStatus.error) {
-        Analytics.emit('purchase_result', {
-          'product_id': purchase.productID,
-          'status': 'failed',
-          'error_code': purchase.error?.code,
-        });
+        emitStoreKitPurchaseResult(
+          productId: purchase.productID,
+          status: 'failed',
+          errorCode: purchase.error?.code,
+        );
       } else if (purchase.status == PurchaseStatus.pending) {
-        Analytics.emit('purchase_result', {
-          'product_id': purchase.productID,
-          'status': 'pending',
-        });
+        emitStoreKitPurchaseResult(
+          productId: purchase.productID,
+          status: 'pending',
+        );
       }
       if (purchase.pendingCompletePurchase && store != null) {
         await store.completePurchase(purchase);

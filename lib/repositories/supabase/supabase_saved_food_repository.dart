@@ -12,6 +12,7 @@ import '../../utils/food_name_normalizer.dart';
 import '../contracts/saved_food_remote_store.dart';
 import '../exceptions/food_master_exceptions.dart';
 import 'supabase_error_mapper.dart';
+import '../postgrest_pages.dart';
 import 'food_master_row_mapper.dart';
 
 /// Supabase 上の saved_foods 操作（public 取得・publish RPC 含む）。
@@ -123,10 +124,12 @@ class SupabaseSavedFoodRepository implements SavedFoodRemoteStore {
 
   Future<List<SavedFood>> pullAllOwn(String userId) async {
     try {
-      final rows = await _client
-          .from('saved_foods')
-          .select()
-          .eq('user_id', userId);
+      final rows = await fetchAllUserRows(
+        _client,
+        table: 'saved_foods',
+        userId: userId,
+        orderBy: const ['updated_at', 'food_id'],
+      );
       return rows
           .map((row) => FoodMasterRowMapper.savedFoodFromRow(row))
           .toList();

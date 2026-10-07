@@ -856,7 +856,8 @@ Set<String> _defaultLabelsFor(WidgetPatternKind kind) {
     for (var slot = 0; slot < LockScreenMealConfig.homeSlotCount; slot++)
       if (LockScreenMealConfig.homeDefaultKinds[slot] == kind)
         LockScreenMealConfig.homeDefaultLabels[slot],
-    if (kind == WidgetPatternKind.meal) ...LockScreenMealConfig.lockDefaultLabels,
+    if (kind == WidgetPatternKind.meal)
+      ...LockScreenMealConfig.lockDefaultLabels,
   };
 }
 
@@ -1098,6 +1099,42 @@ ExerciseEntry? widgetExerciseEntry({
     calculationSource: estimate.calculationSource,
     calculationVersion: estimate.calculationVersion,
     sourceKey: activity.sourceKey,
+  );
+}
+
+const widgetWeightPendingSourceKey = 'widget_weight_pending';
+
+/// 体重がまだ無い計算種目を、0 kcal で先に残す。後から体重で埋め直す。
+ExerciseEntry? widgetExercisePendingWeight({
+  required WidgetExercisePattern pattern,
+  required String id,
+  required DateTime loggedAt,
+}) {
+  if (!pattern.canRegister) {
+    return null;
+  }
+  final activity = MetActivityCatalog.findById(pattern.activityId);
+  if (activity == null || activity.requiresManualKcal) {
+    return null;
+  }
+  final name = pattern.name.trim().isEmpty
+      ? activity.displayName
+      : pattern.name.trim();
+  return ExerciseEntry(
+    id: id,
+    name: name,
+    durationMin: pattern.durationMin > 0 ? pattern.durationMin : 1,
+    burnedKcal: 0,
+    loggedAt: loggedAt,
+    category: activity.category,
+    activityId: activity.id,
+    intensity: activity.defaultIntensityId,
+    distanceKm: pattern.distanceKm,
+    metValue: activity.defaultMet,
+    grossKcal: 0,
+    netKcal: 0,
+    calculationSource: null,
+    sourceKey: widgetWeightPendingSourceKey,
   );
 }
 

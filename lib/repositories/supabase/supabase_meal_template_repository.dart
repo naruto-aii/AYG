@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/meal_template.dart';
+import '../postgrest_pages.dart';
 import 'food_master_row_mapper.dart';
 import 'supabase_error_mapper.dart';
 
@@ -12,10 +13,12 @@ class SupabaseMealTemplateRepository {
 
   Future<List<MealTemplate>> pullAllOwn(String userId) async {
     try {
-      final rows = await _client
-          .from('meal_templates')
-          .select()
-          .eq('user_id', userId);
+      final rows = await fetchAllUserRows(
+        _client,
+        table: 'meal_templates',
+        userId: userId,
+        orderBy: const ['updated_at', 'template_id'],
+      );
       return rows.map(FoodMasterRowMapper.mealTemplateFromRow).toList();
     } catch (error) {
       throw SupabaseErrorMapper.map(error, context: 'meal_templates pull');
@@ -43,11 +46,12 @@ class SupabaseMealTemplateRepository {
     String userId,
   ) async {
     try {
-      final rows = await _client
-          .from('meal_template_items')
-          .select()
-          .eq('user_id', userId)
-          .order('sort_order');
+      final rows = await fetchAllUserRows(
+        _client,
+        table: 'meal_template_items',
+        userId: userId,
+        orderBy: const ['template_id', 'sort_order', 'item_id'],
+      );
       final grouped = <String, List<MealTemplateItem>>{};
       for (final row in rows) {
         final item = FoodMasterRowMapper.mealTemplateItemFromRow(row);

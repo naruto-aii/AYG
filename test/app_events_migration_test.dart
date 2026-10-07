@@ -146,7 +146,8 @@ void main() {
     expect(schedule, isNot(contains('STORE_IMPORT_SECRET')));
     expect(matcher, contains('store_original_transactions'));
     expect(matcher, isNot(contains('entitlement_observed')));
-    expect(transport, contains("rpc('insert_app_events'"));
+    expect(transport, contains(".rpc("));
+    expect(transport, contains("'insert_app_events'"));
     expect(transport, contains("'PGRST202'"));
     expect(transport, contains("'42883'"));
 

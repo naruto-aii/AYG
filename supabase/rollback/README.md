@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261007112725 kpi excluded users
+
+本番には version `20261007112725` で適用済み。開発者アカウントを日次集計と退会集計から外す。戻すときは、先に `maintain_app_events` と `delete_own_account` を `20261007103757` 時点の本文へ戻す。本文は `db-backup-20261007/maintain_app_events_prod_before_kpi_excluded_users.sql` と `db-backup-20261007/delete_own_account_prod_before_kpi_excluded_users.sql`。そのあとこの down を流す。`kpi` スキーマと `public.kpi_excluded_users` が消える。定期実行 `20261008090300` を先に戻す。
+
+`supabase/rollback/20261007112725_kpi_excluded_users_down.sql`
+
 ## 20261007103757 app events closed month
 
 本番には version `20261007103757` で適用済み。集計済みの月を再び受け付ける。`insert_app_events` は整数の戻り値に戻り、`maintain_app_events` は本番の `20261007095347` に戻る。表と行は残す。定期実行 `20261008090300` を戻したあとに流す。戻すと、同じ操作の再送で集計が二重になる。
@@ -18,7 +24,7 @@
 
 本番には version `20261007094142` で適用済み。`20261007094059_app_events` と **同じ作業で適用した**。片方だけでは戻さない。アプリは `public.insert_app_events` で追加する。戻す SQL は `supabase/rollback/20261007094142_app_events_retention_down.sql`。先にこちらを流し、続けて `20261007094059` の down を流す。`20261007103757` と `20261007095347` を先に戻しておく。
 
-定期実行（90日より古い月の削除）は `20261008090300` で、`20261007103757` のあと、pg_cron の承認後に別途適用する。
+定期実行（90日より古い月の削除）は `20261008090300` で、適用済みの `20261007103757` と `20261007112725` のあと、pg_cron の承認後に別途適用する。
 
 ## 20261007094059 app events
 

@@ -232,4 +232,68 @@ void main() {
     expect(transport, contains('rejectedEventIdsFromInsert'));
     expect(service, contains('appEventMonthIsAggregated'));
   });
+
+  test('kpi exclusion stays in later recreations of event functions', () {
+    const version = '20261007112725';
+    final sql = File(
+      'supabase/migrations/${version}_kpi_excluded_users.sql',
+    ).readAsStringSync();
+    final down = File(
+      'supabase/rollback/${version}_kpi_excluded_users_down.sql',
+    ).readAsStringSync();
+
+    expect(sql, contains('create table public.kpi_excluded_users'));
+    expect(sql, contains('create view kpi.excluded_user_ids'));
+    expect(sql, contains('create view kpi.excluded_install_ids'));
+    expect(
+      sql,
+      contains(
+        'where not exists (select 1 from kpi.excluded_user_ids x where x.user_id = p.user_id)',
+      ),
+    );
+    expect(
+      sql,
+      contains(
+        'and not exists (select 1 from kpi.excluded_install_ids y where y.install_id = p.install_id)',
+      ),
+    );
+    expect(
+      sql,
+      contains(
+        'if not exists (select 1 from kpi.excluded_user_ids x where x.user_id = uid) then',
+      ),
+    );
+    expect(sql, contains('public.app_event_month_is_aggregated'));
+    expect(
+      sql,
+      contains(
+        'public.app_event_daily_totals.event_count + excluded.event_count',
+      ),
+    );
+
+    final executable = sql
+        .split('\n')
+        .where((line) => !line.trimLeft().startsWith('--'))
+        .join('\n')
+        .toLowerCase();
+    expect(executable, isNot(contains('insert into public.kpi_excluded_users')));
+
+    expect(down, contains('drop schema kpi cascade'));
+    expect(down, contains('drop table public.kpi_excluded_users'));
+
+    final later = Directory('supabase/migrations').listSync().whereType<File>();
+    for (final file in later) {
+      final name = file.uri.pathSegments.last;
+      final stamp = RegExp(r'^(\d{14})_').firstMatch(name)?.group(1);
+      if (stamp == null || stamp.compareTo(version) <= 0) continue;
+      final body = file.readAsStringSync().toLowerCase();
+      if (body.contains('create or replace function public.maintain_app_events')) {
+        expect(body, contains('kpi.excluded_user_ids'), reason: file.path);
+        expect(body, contains('kpi.excluded_install_ids'), reason: file.path);
+      }
+      if (body.contains('create or replace function public.delete_own_account')) {
+        expect(body, contains('kpi.excluded_user_ids'), reason: file.path);
+      }
+    }
+  });
 }

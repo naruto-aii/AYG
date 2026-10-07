@@ -73,4 +73,5 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 6. `store-analytics-import` と `store-sales-import` を配備する。
 7. `20261007095347_app_events_rollup_additive.sql` は本番に適用済み。集計は足し算。
 8. `20261007103757_app_events_closed_month.sql` は本番に適用済み。集計済みの月の操作は受け付けない。
-9. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 8 は適用済み。
+9. `20261007112725_kpi_excluded_users.sql` は本番に適用済み。開発者アカウントは日次集計と退会集計から外す。手順 8 のあと。
+10. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 8 と 9 は適用済み。

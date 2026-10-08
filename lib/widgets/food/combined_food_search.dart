@@ -16,6 +16,7 @@ import '../../theme/app_typography.dart';
 import '../../utils/nutrition_format.dart';
 import '../design/settings_row.dart';
 import '../official_food/official_food_attribution_line.dart';
+import 'ai_food_lookup_row.dart';
 
 /// テストが検索先だけ差し替える。未指定の項目は本番の検索を使う。
 class CombinedFoodSearchOverrides {
@@ -50,6 +51,7 @@ class CombinedFoodSearch extends StatefulWidget {
     this.onSavedFood,
     this.onOfficialFood,
     this.onPublicFood,
+    this.onAiFoodLookup,
     this.handle,
     this.debounce = const Duration(milliseconds: 250),
     this.browseSavedWhenEmpty = false,
@@ -76,6 +78,9 @@ class CombinedFoodSearch extends StatefulWidget {
   final ValueChanged<SavedFood>? onSavedFood;
   final ValueChanged<OfficialFoodMatch>? onOfficialFood;
   final ValueChanged<PublicFoodSearchMatch>? onPublicFood;
+
+  /// 結果の末尾。検索語を渡すだけで、推定は押したときだけ走る。
+  final ValueChanged<String>? onAiFoodLookup;
 
   /// 公開食品の作成者を結果から外す。
   final CombinedFoodSearchHandle? handle;
@@ -542,6 +547,12 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
               style: muted,
             ),
           ),
+        if (widget.onAiFoodLookup != null) ...[
+          const SizedBox(height: 8),
+          AiFoodLookupRow(
+            onTap: () => widget.onAiFoodLookup!(widget.query.text.trim()),
+          ),
+        ],
       ],
     );
   }

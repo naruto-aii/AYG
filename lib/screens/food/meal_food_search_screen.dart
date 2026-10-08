@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/official_food.dart';
 import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
+import '../../services/ai_food_lookup_client.dart';
 import '../../services/public_food_meal_add_flow.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/design/design_field.dart';
@@ -10,6 +11,7 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/food/combined_food_search.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../official_food/official_food_detail_screen.dart';
+import 'ai_food_lookup_screen.dart';
 
 /// 食事登録の「食品を探す」。保存済み・定番の食品・公開食品をまとめて探す。
 class MealFoodSearchScreen extends StatefulWidget {
@@ -17,10 +19,14 @@ class MealFoodSearchScreen extends StatefulWidget {
     super.key,
     required this.controller,
     this.searchOverrides,
+    this.aiLookup,
+    this.loggedAt,
   });
 
   final AppController controller;
   final CombinedFoodSearchOverrides? searchOverrides;
+  final AiFoodLookupClient? aiLookup;
+  final DateTime? loggedAt;
 
   @override
   State<MealFoodSearchScreen> createState() => _MealFoodSearchScreenState();
@@ -34,6 +40,19 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
   void dispose() {
     _queryController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openAiLookup(String query) async {
+    final saved = await openAiFoodLookup(
+      context: context,
+      controller: widget.controller,
+      query: query,
+      loggedAt: widget.loggedAt ?? DateTime.now(),
+      client: widget.aiLookup,
+    );
+    if (saved && mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   void _pickSaved(SavedFood food) {
@@ -96,6 +115,7 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
             onSavedFood: _pickSaved,
             onOfficialFood: _pickOfficial,
             onPublicFood: _pickPublic,
+            onAiFoodLookup: _openAiLookup,
             browseSavedWhenEmpty: true,
           ),
         ],

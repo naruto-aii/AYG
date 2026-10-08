@@ -132,3 +132,41 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 ```sh
 deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_photo_test.ts
 ```
+
+## AIで探す
+
+`lookup-food-text` は、入力された食品名だけを受け取り、候補を最大3件返します。写真は使いません。Web 検索も使いません。チェーンの栄養成分を食品データベースへ一括では入れません。返った数値をデータベースの食品へも置き換えません。
+
+モデルは `claude-haiku-5-5`（`PHOTO_AI_LIGHT_MODEL`）だけです。文章だけ、思考はオフ、`max_tokens` は空なら 300 です。推定は学習した知識だけから答えます。チェーン店やコンビニの栄養成分、日本食品標準成分表、一般的なレシピのうち、その食品に合うものを使います。
+
+検索語は、正規化してからプロンプトのデータの枠に入れます。指示としては読みません。同じ正規化の検索語の推定は、`ai_food_estimate_cache` にモデル名と期限つきで残します。これは食品の一覧としては出さず、利用者 ID も持ちません。期限は `TEXT_AI_CACHE_TTL_HOURS` です。空なら仮置きの 168 時間です。オーナーはまだ決めていません。
+
+1日と月の回数は AIで探すだけの環境変数です。空なら仮置きで、1日10回、月60回です。これも決まった上限ではありません。月間の費用は、写真で登録の `estimated_cost_jpy` と合算し、`PHOTO_AI_MONTHLY_SPEND_JPY` の仮置き（月120円）を共有します。キャッシュに当たった呼び出しの費用は 0 です。費用が上限以上でも、期限内のキャッシュは返せます。モデルは呼びません。回数の上限はキャッシュも数えます。
+
+この変更では関数をデプロイせず、マイグレーションも本番へ適用しません。
+
+### シークレットと環境変数
+
+写真で登録と同じ `ANTHROPIC_API_KEY` と、軽いモデルの単価（`PHOTO_AI_LIGHT_*`、`PHOTO_AI_USD_JPY`）を使います。
+
+任意（未設定なら括弧の仮置き。回数と期限はオーナー未決）:
+
+- `TEXT_AI_DAILY_LIMIT`（`10`）
+- `TEXT_AI_MONTHLY_LIMIT`（`60`）
+- `TEXT_AI_CACHE_TTL_HOURS`（`168`）
+- `TEXT_AI_MAX_TOKENS`（`300`）
+
+### 公開前の順番
+
+1. `supabase/migrations/20261008140000_meal_photo_analyses.sql` のあと、`supabase/migrations/20261008160000_ai_food_lookup.sql` を適用する。本番へはまだ適用していない。
+2. `ANTHROPIC_API_KEY` を設定する。
+3. `lookup-food-text` をデプロイする。この変更ではデプロイしない。
+4. そのあとで、AIで探すを出すアプリを出す。マイグレーションより先だと、案内の `ai_food_lookup` は再送待ちになり、利用記録の `saved` と `user_edited` は書けない。食事の保存自体は、既存の食事の経路なのでマイグレーションが無くてもできる。
+
+戻すときは、関数を消してから `supabase/rollback/20261008160000_ai_food_lookup_down.sql` を、写真で登録のロールバックより先に手で流す。食事の行は残る。
+
+### テスト
+
+```sh
+deno test --config supabase/functions/deno.json supabase/functions/lookup_food_text_test.ts
+```

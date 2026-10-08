@@ -424,6 +424,10 @@ verify_jwt = true
 [functions.analyze-meal-photo]
 verify_jwt = true
 
+# 食品名からの推定。JWT は検証する。食品データベースへは書き込まない。本番へはこの変更では配備しない。
+[functions.lookup-food-text]
+verify_jwt = true
+
 # Apple のサーバー通知は JWT を付けてこない。関数の中で署名を検証する。
 [functions.app-store-notifications]
 verify_jwt = false

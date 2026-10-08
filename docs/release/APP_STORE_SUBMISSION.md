@@ -11,9 +11,9 @@
 
 3. **Release** スキームで Archive する。Profile は `developmentPlusPreview` が真になり、購入せずカロナビ+になる。`CALONAVI_TEST_PURCHASE` は渡さない。`ios/Flutter/Release.xcconfig` にもその定義は無い。
 4. App Store Connect の価格は、次の商品 ID に合わせる。表示はストアが返した税込価格を使う。
-   - `calonavi_plus_monthly` … ¥580
-   - `calonavi_plus_half_year` … ¥2,900
-   - `calonavi_plus_yearly` … ¥5,400
+   - `calonavi_plus_monthly` … ¥980
+   - `calonavi_plus_half_year` … ¥4,900（980円×5。1か月分お得。月あたり約817円）
+   - `calonavi_plus_yearly` … ¥8,800（月あたり約733円。月額より約25%お得）
 5. ペイウォールには利用規約、プライバシーポリシー、特定商取引法に基づく表記と、自動更新の説明（確認時に Apple ID へ請求、期間終了の 24 時間以上前に解約しない限り更新、更新料は終了前 24 時間以内に請求、管理と解約は App Store のアカウント設定）がある。
 
 ## サーバ

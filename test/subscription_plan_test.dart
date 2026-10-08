@@ -50,8 +50,8 @@ void main() {
     expect(find.text('月額'), findsOneWidget);
     expect(find.text('半年'), findsOneWidget);
     expect(find.text('年額'), findsOneWidget);
-    expect(find.text('¥5,400で始める'), findsOneWidget);
-    expect(find.textContaining('¥580'), findsWidgets);
+    expect(find.text('¥8,800で始める'), findsOneWidget);
+    expect(find.textContaining('¥980'), findsWidgets);
     expect(find.textContaining('初回'), findsNothing);
     expect(find.textContaining('公開から1ヶ月'), findsNothing);
     expect(repository.purchased, isNull);
@@ -63,12 +63,12 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('plus-plan-monthly')));
     await tester.tap(find.byKey(const Key('plus-plan-monthly')));
     await tester.pumpAndSettle();
-    expect(find.text('¥580で始める'), findsOneWidget);
+    expect(find.text('¥980で始める'), findsOneWidget);
 
     await tester.ensureVisible(find.byKey(const Key('plus-plan-halfYear')));
     await tester.tap(find.byKey(const Key('plus-plan-halfYear')));
     await tester.pumpAndSettle();
-    expect(find.text('¥2,900で始める'), findsOneWidget);
+    expect(find.text('¥4,900で始める'), findsOneWidget);
     await tester.tap(find.byKey(const Key('plus-purchase')));
     await tester.pumpAndSettle();
 

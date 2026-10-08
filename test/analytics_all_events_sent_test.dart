@@ -760,17 +760,17 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥580',
+        localizedPrice: '¥980',
       ),
       halfYear: SubscriptionProductOffer(
         productId: SubscriptionCatalog.halfYearProductId,
         period: PlusBillingPeriod.halfYear,
-        localizedPrice: '¥2,900',
+        localizedPrice: '¥4,900',
       ),
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,
         period: PlusBillingPeriod.year,
-        localizedPrice: '¥5,400',
+        localizedPrice: '¥8,800',
       ),
       loadFailed: false,
     );

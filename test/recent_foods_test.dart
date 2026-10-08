@@ -97,7 +97,7 @@ void main() {
     },
   );
 
-  test('without Calonavi Plus the repeat and the memo are refused', () async {
+  test('without Calonavi Plus the repeat is refused and the memo is kept', () async {
     final controller = _controller(plus: false);
     addTearDown(controller.dispose);
     final source = food(
@@ -108,35 +108,32 @@ void main() {
     controller.foodEntries.add(source);
 
     expect(await controller.repeatRecentFood(source), isFalse);
-    expect(await controller.updateFoodMemo(source, '明日は150'), isFalse);
+    expect(await controller.updateFoodMemo(source, '明日は150'), isTrue);
     expect(controller.foodEntries, hasLength(1));
-    expect(controller.foodEntries.single.memo, isNull);
+    expect(controller.foodEntries.single.memo, '明日は150');
   });
 
-  test(
-    'a template memo is stored on each food only for Calonavi Plus',
-    () async {
-      final plus = _controller(plus: true);
-      addTearDown(plus.dispose);
-      await plus.registerFoodMealFromDrafts(
-        mealGroupName: 'ささみ定食',
-        items: [_draft()],
-        loggedAt: now,
-        memo: '少し多かったから明日は150',
-      );
-      expect(plus.foodEntries.single.memo, '少し多かったから明日は150');
+  test('a template memo is stored for free and for Calonavi Plus', () async {
+    final plus = _controller(plus: true);
+    addTearDown(plus.dispose);
+    await plus.registerFoodMealFromDrafts(
+      mealGroupName: 'ささみ定食',
+      items: [_draft()],
+      loggedAt: now,
+      memo: '少し多かったから明日は150',
+    );
+    expect(plus.foodEntries.single.memo, '少し多かったから明日は150');
 
-      final free = _controller(plus: false);
-      addTearDown(free.dispose);
-      await free.registerFoodMealFromDrafts(
-        mealGroupName: 'ささみ定食',
-        items: [_draft()],
-        loggedAt: now,
-        memo: '少し多かったから明日は150',
-      );
-      expect(free.foodEntries.single.memo, isNull);
-    },
-  );
+    final free = _controller(plus: false);
+    addTearDown(free.dispose);
+    await free.registerFoodMealFromDrafts(
+      mealGroupName: 'ささみ定食',
+      items: [_draft()],
+      loggedAt: now,
+      memo: '少し多かったから明日は150',
+    );
+    expect(free.foodEntries.single.memo, '少し多かったから明日は150');
+  });
 
   test(
     'a later registration of the same food does not keep the memo',
@@ -249,7 +246,9 @@ void main() {
     await tester.ensureVisible(find.text('メモ'));
     await tester.tap(find.text('メモ'));
     await tester.pumpAndSettle();
-    expect(find.text('食品のメモは、カロナビ+です。'), findsOneWidget);
+    expect(find.text('食品のメモは、カロナビ+です。'), findsNothing);
+    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('保存'), findsOneWidget);
   });
 }
 

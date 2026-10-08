@@ -140,7 +140,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               Text(
-                '直近3日からの追加と、食事のメモはカロナビ+です。',
+                '直近3日からの追加はカロナビ+です。',
                 style: AppTypography.caption.copyWith(
                   color: AppColors.textMuted,
                 ),
@@ -574,15 +574,6 @@ class HomeScreen extends StatelessWidget {
   }
 
   Future<void> _editFoodMemo(BuildContext context, FoodEntry entry) async {
-    final allowed = await ensureCalonaviPlus(
-      context,
-      controller,
-      message: '食品のメモは、カロナビ+です。',
-      feature: PlusFunnelFeature.memo,
-    );
-    if (!allowed || !context.mounted) {
-      return;
-    }
     final memo = await askFoodMemo(context, initial: entry.memo);
     if (memo == null || !context.mounted) {
       return;

@@ -822,7 +822,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       context,
       widget.controller,
       message:
-          '写真で登録 (β) は、カロナビ+です。食事の写真から、AIがカロリーとPFCの推定を出します。登録の前に確認して、数値を直せます。',
+          '写真で登録 (β) は、カロナビ+です。食事の写真から、AIがカロリーとPFCの推定を出します。登録の前に確認して、数値を直せます。${AppStrings.plusAiDailyLimit}',
       feature: PlusFunnelFeature.photoMeal,
     );
     if (!allowed || !mounted) {

@@ -483,12 +483,6 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(
-            icon: Symbols.edit_note_rounded,
-            title: AppStrings.plusBenefitNoteTitle,
-            body: AppStrings.plusBenefitNoteBody,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
             icon: Symbols.widgets_rounded,
             title: AppStrings.plusBenefitWidgetTitle,
             body: AppStrings.plusBenefitWidgetBody,
@@ -508,9 +502,21 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(
+            icon: Symbols.storefront_rounded,
+            title: AppStrings.plusBenefitEatingOutTitle,
+            body: AppStrings.plusBenefitEatingOutBody,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Benefit(
             icon: Symbols.search_rounded,
             title: AppStrings.plusBenefitAiSearchTitle,
             body: AppStrings.plusBenefitAiSearchBody,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Benefit(
+            icon: Symbols.nutrition_rounded,
+            title: AppStrings.plusBenefitCoachTitle,
+            body: AppStrings.plusBenefitCoachBody,
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(

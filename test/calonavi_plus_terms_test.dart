@@ -56,24 +56,38 @@ void main() {
     expect(AppStrings.plusAutoRenew, contains('24時間以上前'));
     expect(AppStrings.plusAutoRenew, contains('24時間以内'));
     expect(AppStrings.plusCancelHow, contains('App Store'));
+    expect(AppStrings.plusBetaAccessLead, 'β版機能に先行アクセス出来ます！');
+    expect(find.text('β版機能への先行アクセスも付きます。'), findsNothing);
+    expect(find.text('食事・運動の記録にメモを追加'), findsNothing);
+    expect(find.textContaining('無料ではメモは使えません'), findsNothing);
     expect(AppStrings.plusBenefitSiriTitle, '音声登録 (β)');
     expect(AppStrings.plusBenefitWidgetTitle, 'ウィジェットでワンタップ記録');
     expect(AppStrings.plusBenefitWidgetBody, contains('ホーム画面とロック画面のウィジェット'));
     expect(AppStrings.plusBenefitPhotoTitle, '写真で登録 (β)');
+    expect(AppStrings.plusBenefitEatingOutTitle, '外食・コンビニ (β)');
+    expect(AppStrings.plusBenefitEatingOutBody, contains('セブン サラダチキン'));
+    expect(AppStrings.plusBenefitEatingOutBody, contains('推定だと表示します'));
     expect(AppStrings.plusBenefitAiSearchTitle, 'AIで探す (β)');
-    expect(AppStrings.plusBenefitAiSearchBody, contains('チェーン店'));
-    expect(AppStrings.plusBenefitAiSearchBody, contains('推定だと表示します'));
+    expect(AppStrings.plusBenefitAiSearchBody, 'いつもの検索で見つからないときは、AIが候補を出します。');
+    expect(AppStrings.plusBenefitAiSearchBody, isNot(contains('チェーン店')));
+    expect(AppStrings.plusBenefitCoachTitle, 'パーソナルコーチ (β)');
+    expect(AppStrings.plusBenefitCoachBody, contains('自炊コーチ'));
+    expect(AppStrings.plusAiDailyLimit, contains('あわせて1日15回まで'));
     expect(AppStrings.plusBetaAccessBody, contains('音声登録 (β)'));
-    expect(AppStrings.plusBetaAccessBody, contains('AIで探す (β)'));
+    expect(AppStrings.plusBetaAccessBody, contains(AppStrings.plusAiDailyLimit));
     expect(find.textContaining('精度検証中'), findsNothing);
-    final photoTitle = tester.widget<Text>(
-      find.text(AppStrings.plusBenefitPhotoTitle),
-    );
-    final aiTitle = tester.widget<Text>(
-      find.text(AppStrings.plusBenefitAiSearchTitle),
-    );
-    expect(photoTitle.style?.fontSize, AppTypography.titleS.fontSize);
-    expect(aiTitle.style?.fontSize, AppTypography.titleS.fontSize);
+    for (final title in [
+      AppStrings.plusBenefitPhotoTitle,
+      AppStrings.plusBenefitEatingOutTitle,
+      AppStrings.plusBenefitAiSearchTitle,
+      AppStrings.plusBenefitCoachTitle,
+    ]) {
+      expect(
+        tester.widget<Text>(find.text(title)).style?.fontSize,
+        AppTypography.titleS.fontSize,
+        reason: title,
+      );
+    }
     expect(find.textContaining('現在の有効期限'), findsNothing);
     expect(find.textContaining('380'), findsNothing);
   });

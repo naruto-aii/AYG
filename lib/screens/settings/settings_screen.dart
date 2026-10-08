@@ -222,7 +222,7 @@ class SettingsScreen extends StatelessWidget {
             key: const Key('settings-personal-coach'),
             icon: AppIcons.meal,
             title: 'パーソナルコーチ (β)',
-            subtitle: '残りカロリーに合わせて食事を提案',
+            subtitle: '食事と自炊の献立を提案',
             onTap: () => _openPersonalCoach(context),
           ),
           const SizedBox(height: _rowGap),

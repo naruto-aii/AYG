@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 import 'package:uuid/uuid.dart';
 
 import '../config/subscription_catalog.dart';
@@ -3853,15 +3852,7 @@ class AppController extends ChangeNotifier {
       }
     }
     final official = OfficialFoodsFlag.enabled && SupabaseConfig.isConfigured;
-    var accessToken = '';
-    if (official) {
-      try {
-        accessToken =
-            Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-      } catch (_) {
-        accessToken = '';
-      }
-    }
+    final blockedCreators = official ? await siriBlockedFoodCreatorIds() : null;
     await gateway.publishCatalog(
       SiriVoiceCodec.encodeCatalog(
         ownerUserId: currentOwnerUserId,
@@ -3869,12 +3860,37 @@ class AppController extends ChangeNotifier {
         officialFoodsEnabled: official,
         supabaseUrl: SupabaseConfig.url,
         supabaseAnonKey: SupabaseConfig.anonKey,
-        supabaseAccessToken: accessToken,
+        blockedFoodCreatorIds: blockedCreators,
         foods: foods,
         mealTemplates: await _siriMealTemplates(),
         workoutTemplates: await _siriWorkoutTemplates(),
       ),
     );
+  }
+
+  /// Siri が公開食品から外す作成者（自分がブロックした人）。
+  ///
+  /// 読めなかったとき・ログインしていないときは null。そのとき Siri は公開食品を使わない
+  /// （ブロックした人の食品を出さない）。ブロックの仕組みが無いときは空。
+  @visibleForTesting
+  Future<List<String>?> siriBlockedFoodCreatorIds() async {
+    final repository = _blockedCreatorRepository;
+    final owner = currentOwnerUserId.trim();
+    if (repository == null) {
+      return const [];
+    }
+    if (!isAuthenticated || owner.isEmpty) {
+      return null;
+    }
+    try {
+      return await repository.getBlockedUserIds(owner);
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] siri blocked creators failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      return null;
+    }
   }
 
   Future<List<SiriMealTemplate>> _siriMealTemplates() async {

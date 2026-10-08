@@ -650,19 +650,23 @@ enum SiriVoiceStore {
     ], bearer: anonBearer())
   }
 
+  /// 公開食品は anon キーで search_public_foods_voice を呼ぶ。ログインのトークンを使わないので、
+  /// アプリを長く開いていなくても切れない。返るのは公開中の食品だけ。
+  /// 自分がブロックした作成者の食品は、アプリが書いた一覧で外す。一覧が無ければ公開食品は使わない。
   private static func publicFoodRows(query: String) async -> [[String: Any]]? {
-    guard let url = rpcURL("search_public_foods") else {
+    guard let blocked = SiriPublicFoodFilter.blockedCreatorIds(in: catalog()) else {
       return []
     }
-    let token = (catalog()["supabaseAccessToken"] as? String ?? "")
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-    if token.isEmpty {
+    guard let url = rpcURL(SiriPublicFoodFilter.rpcName) else {
       return []
     }
-    return await postRpc(url, body: [
+    guard let rows = await postRpc(url, body: [
       "p_query": String(query.prefix(64)),
       "p_limit": 30,
-    ], bearer: token)
+    ], bearer: anonBearer()) else {
+      return nil
+    }
+    return SiriPublicFoodFilter.removingBlocked(rows, blocked: blocked)
   }
 
   private static func rpcURL(_ name: String) -> URL? {
@@ -3941,5 +3945,42 @@ enum SiriSpeech {
       )
     }
     return spoken
+  }
+}
+
+/// Siri の公開食品検索。anon キーで呼べる関数と、ブロックした作成者を外す処理。
+/// Dart の `SiriVoiceCodec.encodeCatalog` が書く `blockedFoodCreatorIds` を読む。
+enum SiriPublicFoodFilter {
+  static let rpcName = "search_public_foods_voice"
+  static let blockedKey = "blockedFoodCreatorIds"
+
+  /// アプリが書いたブロック一覧。キーが無い（古いアプリ・読めなかった）ときは nil。
+  static func blockedCreatorIds(in catalog: [String: Any]) -> Set<String>? {
+    guard let raw = catalog[blockedKey] as? [Any] else {
+      return nil
+    }
+    var ids = Set<String>()
+    for value in raw {
+      if let id = value as? String {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+          ids.insert(trimmed.lowercased())
+        }
+      }
+    }
+    return ids
+  }
+
+  /// 作成者 id（user_id）がブロック一覧にある行を外す。作成者 id が無い行も外す。
+  static func removingBlocked(_ rows: [[String: Any]], blocked: Set<String>) -> [[String: Any]] {
+    rows.filter { row in
+      guard let owner = (row["user_id"] as? String)?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased(), !owner.isEmpty
+      else {
+        return false
+      }
+      return !blocked.contains(owner)
+    }
   }
 }

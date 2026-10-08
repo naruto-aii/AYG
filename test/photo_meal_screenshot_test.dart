@@ -92,7 +92,7 @@ void main() {
       scrollTo: find.text('補足'),
     );
     expect(
-      find.textContaining('これはAIの推定です。登録の前に確認して、数値を直せます。'),
+      find.textContaining('AIがカロリーとPFCを推定します。料理名、量、補足は任意で、入れると精度が上がります。'),
       findsOneWidget,
     );
     expect(find.text('任意です。入れると精度が上がります。'), findsOneWidget);

@@ -508,6 +508,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(
+            icon: Symbols.search_rounded,
+            title: AppStrings.plusBenefitAiSearchTitle,
+            body: AppStrings.plusBenefitAiSearchBody,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Benefit(
             icon: Symbols.eco_rounded,
             title: AppStrings.plusBetaAccessTitle,
             body: AppStrings.plusBetaAccessBody,

@@ -86,6 +86,18 @@ void main() {
     );
     expect(find.text('¥8,800で始める'), findsOneWidget);
 
+    await _captureFull(
+      tester,
+      UnavailableSubscriptionRepository(),
+      File('${directory.path}/paywall_full.png'),
+    );
+    expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
+    expect(find.text('写真で登録 (β)'), findsOneWidget);
+    expect(find.text('AIで探す (β)'), findsOneWidget);
+    expect(find.text('ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。'), findsOneWidget);
+    expect(find.textContaining('精度検証中'), findsNothing);
+    expect(find.text('プランを選ぶ'), findsOneWidget);
+
     await tester.binding.setSurfaceSize(const Size(390, 844));
     final key = GlobalKey();
     await tester.pumpWidget(
@@ -113,14 +125,44 @@ void main() {
   });
 }
 
+Future<void> _captureFull(
+  WidgetTester tester,
+  UnavailableSubscriptionRepository repository,
+  File file,
+) async {
+  final key = GlobalKey();
+  await tester.binding.setSurfaceSize(const Size(390, 844));
+  await tester.pumpWidget(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      home: RepaintBoundary(
+        key: key,
+        child: CalonaviPlusEntryScreen(repository: repository),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  final position = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+  final height = 844 + position.maxScrollExtent;
+  await tester.binding.setSurfaceSize(Size(390, height));
+  await tester.pumpAndSettle();
+  final bytes = await tester.runAsync(
+    () => pngBytesFromBoundary(key, pixelRatio: 2),
+  );
+  expect(bytes, isNotNull);
+  file.writeAsBytesSync(bytes!);
+}
+
 Future<void> _capture(
   WidgetTester tester,
   UnavailableSubscriptionRepository repository,
   File file, {
   required bool scrollToPlans,
+  Size surface = const Size(390, 844),
 }) async {
   final key = GlobalKey();
-  await tester.binding.setSurfaceSize(const Size(390, 844));
+  await tester.binding.setSurfaceSize(surface);
   await tester.pumpWidget(
     MaterialApp(
       debugShowCheckedModeBanner: false,

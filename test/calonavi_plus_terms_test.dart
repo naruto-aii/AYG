@@ -5,6 +5,7 @@ import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
 import 'package:ayg/services/subscription_entitlement.dart';
 import 'package:ayg/services/subscription_offer.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/theme/app_typography.dart';
 import 'package:ayg/widgets/design/design_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,7 +57,23 @@ void main() {
     expect(AppStrings.plusAutoRenew, contains('24時間以内'));
     expect(AppStrings.plusCancelHow, contains('App Store'));
     expect(AppStrings.plusBenefitSiriTitle, '音声登録 (β)');
+    expect(AppStrings.plusBenefitWidgetTitle, 'ウィジェットでワンタップ記録');
+    expect(AppStrings.plusBenefitWidgetBody, contains('ホーム画面とロック画面のウィジェット'));
+    expect(AppStrings.plusBenefitPhotoTitle, '写真で登録 (β)');
+    expect(AppStrings.plusBenefitAiSearchTitle, 'AIで探す (β)');
+    expect(AppStrings.plusBenefitAiSearchBody, contains('チェーン店'));
+    expect(AppStrings.plusBenefitAiSearchBody, contains('推定だと表示します'));
     expect(AppStrings.plusBetaAccessBody, contains('音声登録 (β)'));
+    expect(AppStrings.plusBetaAccessBody, contains('AIで探す (β)'));
+    expect(find.textContaining('精度検証中'), findsNothing);
+    final photoTitle = tester.widget<Text>(
+      find.text(AppStrings.plusBenefitPhotoTitle),
+    );
+    final aiTitle = tester.widget<Text>(
+      find.text(AppStrings.plusBenefitAiSearchTitle),
+    );
+    expect(photoTitle.style?.fontSize, AppTypography.titleS.fontSize);
+    expect(aiTitle.style?.fontSize, AppTypography.titleS.fontSize);
     expect(find.textContaining('現在の有効期限'), findsNothing);
     expect(find.textContaining('380'), findsNothing);
   });

@@ -81,7 +81,7 @@ class AppStrings {
   static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
   static const plusBetaAccessTitle = 'β版機能への先行アクセス';
   static const plusBetaAccessBody =
-      'パーソナルコーチ (β)、音声登録 (β)、写真で登録 (β) など、β版として先行公開している機能を使えます。';
+      'パーソナルコーチ (β)、音声登録 (β)、写真で登録 (β)、AIで探す (β) など、β版として先行公開している機能を使えます。';
   static const coachBetaNotice =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。';
   static const coachFeatureBody =
@@ -91,14 +91,17 @@ class AppStrings {
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
   static const plusBenefitNoteTitle = '食事・運動の記録にメモを追加';
   static const plusBenefitNoteBody = '無料ではメモは使えません。カロナビ+なら、食事にも運動にもメモを残せます。';
-  static const plusBenefitWidgetTitle = 'ホーム画面とロック画面からワンタップ記録';
+  static const plusBenefitWidgetTitle = 'ウィジェットでワンタップ記録';
   static const plusBenefitWidgetBody =
-      'アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
+      'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
   static const plusBenefitSiriTitle = '音声登録 (β)';
   static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
   static const plusBenefitPhotoTitle = '写真で登録 (β)';
   static const plusBenefitPhotoBody =
-      '食事の写真から、カロリーとPFCの推定を出します。登録の前に確認して、数値を直せます。';
+      '食事の写真から、AIがカロリーとPFCの推定を出します。料理名、量、補足は任意で、入れると精度が上がります。登録の前に確認して、数値を直せます。';
+  static const plusBenefitAiSearchTitle = 'AIで探す (β)';
+  static const plusBenefitAiSearchBody =
+      '検索で見つからない食品も、チェーン店のメニューなどから、AIがカロリーとPFCの推定を出します。推定だと表示します。';
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';

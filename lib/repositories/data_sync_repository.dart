@@ -27,6 +27,7 @@ import 'contracts/weight_repository_base.dart';
 import '../models/health_profile_data.dart';
 import '../models/sync_failure.dart';
 import '../services/health_workout_sync.dart';
+import '../utils/local_date.dart';
 import 'food_master_repositories.dart';
 import 'health_repository.dart';
 import 'supabase/exercise_entry_row_mapper.dart';
@@ -1102,7 +1103,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
                     'name': entry.name,
                     'duration_min': entry.durationMin,
                     'burned_kcal': entry.burnedKcal,
-                    'logged_at': entry.loggedAt.toIso8601String(),
+                    'logged_at': wallClockToDb(entry.loggedAt),
                   },
                 )
                 .toList(),
@@ -1201,7 +1202,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
           (row) => WeightEntry(
             id: row['entry_id'] as String,
             weightKg: (row['weight_kg'] as num).toDouble(),
-            recordedAt: DateTime.parse(row['recorded_at'] as String),
+            recordedAt: wallClockFromDb(row['recorded_at'] as String),
             source: _parseWeightSource(row['source'] as String?),
           ),
         )
@@ -1256,7 +1257,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
                     'user_id': userId,
                     'entry_id': entry.id,
                     'weight_kg': entry.weightKg,
-                    'recorded_at': entry.recordedAt.toIso8601String(),
+                    'recorded_at': wallClockToDb(entry.recordedAt),
                     'source': entry.source.storageValue,
                   },
                 )

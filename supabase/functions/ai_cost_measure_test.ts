@@ -54,7 +54,7 @@ Deno.test("resized pixels and yen per path stay within the measured figures", as
   assertEquals(decoded768.height, 576);
   assertEquals(imageTokensForPixels(decoded768.width, decoded768.height), 590);
   assertEquals(tierCallOptions("light", {}).imageMaxEdge, 1024);
-  assertEquals(tierCallOptions("light", {}).maxTokens, 300);
+  assertEquals(tierCallOptions("light", {}).maxTokens, 1200);
   assertEquals(tierCallOptions("light", {}).thinking, "off");
   assertEquals(
     tierCallOptions("light", { PHOTO_AI_LIGHT_IMAGE_MAX_EDGE: "768" }).imageMaxEdge,
@@ -68,7 +68,7 @@ Deno.test("resized pixels and yen per path stay within the measured figures", as
   const outputTokens = 120;
   const imageTokens = 1049;
   const imageTokensSmall = 590;
-  assertEquals(systemTokens, 651);
+  assertEquals(systemTokens, 688);
   assertEquals(userTokens, 42);
   assertEquals(lookupSystemTokens, 900);
   assertEquals(lookupUserTokens, 40);
@@ -123,11 +123,11 @@ Deno.test("resized pixels and yen per path stay within the measured figures", as
     cacheWriteTokens: 0,
   });
   const round6 = (value: number) => Math.round(value * 1_000_000) / 1_000_000;
-  assertEquals(round6(lightWrite), 0.039575);
-  assertEquals(round6(lightRead), 0.027746);
-  assertEquals(round6(heavyWrite), 0.791501);
-  assertEquals(round6(heavyRead), 0.544642);
-  assertEquals(round6(lightWrite768), 0.032323);
+  assertEquals(round6(lightWrite), 0.040306);
+  assertEquals(round6(lightRead), 0.027805);
+  assertEquals(round6(heavyWrite), 0.806116);
+  assertEquals(round6(heavyRead), 0.545226);
+  assertEquals(round6(lightWrite768), 0.033054);
   assertEquals(round6(textWrite), 0.027887);
   assertEquals(round6(textRead), 0.011534);
   assertEquals(yen({
@@ -144,14 +144,14 @@ Deno.test("resized pixels and yen per path stay within the measured figures", as
     outputTokens: ceiling,
     cacheReadTokens: 0,
     cacheWriteTokens: systemTokens,
-  })), 0.053795);
+  })), 0.054526);
   assertEquals(round6(yen({
     tier: "heavy",
     inputTokens: imageTokens + userTokens,
     outputTokens: ceiling,
     cacheReadTokens: 0,
     cacheWriteTokens: systemTokens,
-  })), 1.075901);
+  })), 1.090516);
   assertEquals(round6(yen({
     tier: "light",
     inputTokens: lookupUserTokens,

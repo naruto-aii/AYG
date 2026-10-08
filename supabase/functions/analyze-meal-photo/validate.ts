@@ -81,18 +81,21 @@ function nutritionOf(row: Record<string, unknown>): {
   };
 }
 
-function textField(value: unknown, max: number, allowEmpty: boolean): string | null {
+/// 長すぎる名前や量は、捨てずに上限で切る。量に文（「全体的に少なめ…」）を入れたときに、
+/// モデルが長い量を返して全体が失敗になるのを防ぐ。
+function clippedText(value: unknown, max: number, allowEmpty: boolean): { text: string; clipped: boolean } | null {
   if (typeof value !== "string") {
     return null;
   }
-  const trimmed = value.trim();
-  if (trimmed.length > max) {
-    return null;
-  }
+  const trimmed = value.trim().replace(/\s+/g, " ");
   if (!allowEmpty && trimmed.length === 0) {
     return null;
   }
-  return trimmed;
+  const chars = Array.from(trimmed);
+  if (chars.length <= max) {
+    return { text: trimmed, clipped: false };
+  }
+  return { text: chars.slice(0, max - 1).join("").trimEnd() + "…", clipped: true };
 }
 
 const shortToLong: Record<string, string> = {
@@ -143,57 +146,164 @@ export function expandMealJson(raw: unknown): unknown {
   return out;
 }
 
+/// 検証の結果。失敗は reason（項目名と理由だけ。モデルの文や数値は入れない）で返す。
+export type PhotoMealValidation =
+  | { ok: true; estimate: PhotoMealEstimate; repairs: string[] }
+  | { ok: false; reason: string };
+
 export function parsePhotoMealEstimate(raw: unknown): PhotoMealEstimate | null {
+  const result = validatePhotoMealEstimate(raw);
+  return result.ok ? result.estimate : null;
+}
+
+export function validatePhotoMealEstimate(raw: unknown): PhotoMealValidation {
   const expanded = expandMealJson(raw);
   if (expanded == null || typeof expanded !== "object" || Array.isArray(expanded)) {
-    return null;
+    return { ok: false, reason: "not_object" };
   }
+  const repairs: string[] = [];
   const row = expanded as Record<string, unknown>;
-  const dishName = textField(row.dish_name, maxDishNameLength, false);
-  const amount = textField(row.amount, maxAmountLength, true);
+  const dishName = clippedText(row.dish_name, maxDishNameLength, false);
+  if (dishName == null) {
+    return { ok: false, reason: "dish_name" };
+  }
+  if (dishName.clipped) {
+    repairs.push("dish_name_clipped");
+  }
+  const amount = clippedText(row.amount, maxAmountLength, true);
+  if (amount == null) {
+    return { ok: false, reason: "amount" };
+  }
+  if (amount.clipped) {
+    repairs.push("amount_clipped");
+  }
+  if (
+    !finiteInRange(row.kcal, maxMealKcal) ||
+    !finiteInRange(row.protein_g, maxMacroGrams) ||
+    !finiteInRange(row.fat_g, maxMacroGrams) ||
+    !finiteInRange(row.carb_g, maxMacroGrams)
+  ) {
+    return { ok: false, reason: "total_range" };
+  }
   const nutrition = nutritionOf(row);
-  if (dishName == null || amount == null || nutrition == null) {
-    return null;
+  if (nutrition == null) {
+    return { ok: false, reason: "total_pfc_mismatch" };
   }
-  if (!finiteInRange(row.confidence, 1)) {
-    return null;
+  const confidence = confidenceOf(row.confidence);
+  if (confidence == null) {
+    return { ok: false, reason: "confidence" };
   }
-  if (!Array.isArray(row.items) || row.items.length > maxItemCount) {
-    return null;
+  if (confidence !== row.confidence) {
+    repairs.push("confidence_scaled");
+  }
+  if (!Array.isArray(row.items)) {
+    return { ok: false, reason: "items_missing" };
   }
   const items: PhotoMealItem[] = [];
   for (const item of row.items) {
     if (item == null || typeof item !== "object" || Array.isArray(item)) {
-      return null;
+      repairs.push("item_dropped_shape");
+      continue;
     }
     const part = item as Record<string, unknown>;
-    const name = textField(part.name, maxDishNameLength, false);
-    const itemAmount = textField(part.amount, maxAmountLength, true);
-    const itemNutrition = nutritionOf(part);
-    if (name == null || itemAmount == null || itemNutrition == null) {
-      return null;
+    const name = clippedText(part.name, maxDishNameLength, false);
+    const itemAmount = clippedText(part.amount, maxAmountLength, true);
+    if (name == null || itemAmount == null) {
+      repairs.push("item_dropped_text");
+      continue;
+    }
+    if (name.clipped || itemAmount.clipped) {
+      repairs.push("item_text_clipped");
+    }
+    if (
+      !finiteInRange(part.kcal, maxMealKcal) ||
+      !finiteInRange(part.protein_g, maxMacroGrams) ||
+      !finiteInRange(part.fat_g, maxMacroGrams) ||
+      !finiteInRange(part.carb_g, maxMacroGrams)
+    ) {
+      repairs.push("item_dropped_range");
+      continue;
+    }
+    let kcal = part.kcal;
+    if (!pfcMatchesKcal(kcal, part.protein_g, part.fat_g, part.carb_g)) {
+      // 品目の kcal と PFC が合わないときは、グラムの PFC から kcal を作り直す。
+      // 全体の値はそのままで、下の alignMealItems が合計を全体に合わせる。
+      const derived = round1(derivedPfcKcal(part.protein_g, part.fat_g, part.carb_g));
+      if (!(derived > 0)) {
+        repairs.push("item_dropped_pfc");
+        continue;
+      }
+      kcal = derived;
+      repairs.push("item_kcal_from_pfc");
     }
     items.push({
-      name,
-      amount: itemAmount,
-      kcal: itemNutrition.kcal,
-      proteinG: itemNutrition.proteinG,
-      fatG: itemNutrition.fatG,
-      carbG: itemNutrition.carbG,
+      name: name.text,
+      amount: itemAmount.text,
+      kcal,
+      proteinG: part.protein_g,
+      fatG: part.fat_g,
+      carbG: part.carb_g,
     });
   }
-  const aligned = alignMealItems(items, nutrition);
+  const capped = capItems(items);
+  if (capped.length !== items.length) {
+    repairs.push("items_merged");
+  }
+  const aligned = alignMealItems(capped, nutrition);
   return {
-    dishName,
-    amount,
-    kcal: nutrition.kcal,
-    proteinG: nutrition.proteinG,
-    fatG: nutrition.fatG,
-    carbG: nutrition.carbG,
-    confidence: row.confidence,
-    chainName: optionalChain(row.chain_name),
-    items: aligned,
+    ok: true,
+    repairs: [...new Set(repairs)],
+    estimate: {
+      dishName: dishName.text,
+      amount: amount.text,
+      kcal: nutrition.kcal,
+      proteinG: nutrition.proteinG,
+      fatG: nutrition.fatG,
+      carbG: nutrition.carbG,
+      confidence,
+      chainName: optionalChain(row.chain_name),
+      items: aligned,
+    },
   };
+}
+
+/// 確信度は 0〜1。百分率（例: 70）で返ったときは 0.7 にする。
+function confidenceOf(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  if (value <= 1) {
+    return value;
+  }
+  if (value <= 100) {
+    return value >= 2 ? Math.round(value) / 100 : 1;
+  }
+  return null;
+}
+
+/// 品目が多すぎるときは、kcal の大きい順に残し、残りを「その他」1品にまとめる。
+/// 写っている量は捨てない。
+function capItems(items: PhotoMealItem[]): PhotoMealItem[] {
+  if (items.length <= maxItemCount) {
+    return items;
+  }
+  const keep = new Set(
+    items
+      .map((item, index) => ({ index, kcal: item.kcal }))
+      .sort((a, b) => b.kcal - a.kcal || a.index - b.index)
+      .slice(0, maxItemCount - 1)
+      .map((entry) => entry.index),
+  );
+  const rest = items.filter((_item, index) => !keep.has(index));
+  const other: PhotoMealItem = {
+    name: `その他（${rest.length}品）`,
+    amount: "",
+    kcal: round1(rest.reduce((sum, item) => sum + item.kcal, 0)),
+    proteinG: round1(rest.reduce((sum, item) => sum + item.proteinG, 0)),
+    fatG: round1(rest.reduce((sum, item) => sum + item.fatG, 0)),
+    carbG: round1(rest.reduce((sum, item) => sum + item.carbG, 0)),
+  };
+  return [...items.filter((_item, index) => keep.has(index)), other];
 }
 
 function round1(value: number): number {

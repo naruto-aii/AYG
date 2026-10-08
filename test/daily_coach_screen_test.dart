@@ -367,6 +367,8 @@ void main() {
       find.byKey(const Key('coach_exercise_amount')),
       '25',
     );
+    await tester.ensureVisible(find.byKey(const Key('coach_register_exercise')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('coach_register_exercise')));
     await tester.pumpAndSettle();
 

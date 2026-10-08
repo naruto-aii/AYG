@@ -338,6 +338,15 @@ Uint8List compressMealPhoto(
   return jpeg;
 }
 
+/// 送る JPEG の縦横比（幅 / 高さ）。読めなければ null。
+double? mealPhotoAspectRatio(Uint8List jpeg) {
+  final info = img.JpegDecoder().startDecode(jpeg);
+  if (info == null || info.width <= 0 || info.height <= 0) {
+    return null;
+  }
+  return info.width / info.height;
+}
+
 String formatPhotoNumber(double value) {
   if (!value.isFinite) {
     return '';

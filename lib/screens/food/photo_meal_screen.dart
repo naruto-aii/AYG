@@ -204,15 +204,7 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
                 '食事の写真から、AIがカロリーとPFCを推定します。料理名、量、補足は任意で、入れると精度が上がります。登録の前に確認して、数値を直せます。\n写真は栄養の推定に使い、カロナビには保存しません。${AppStrings.plusAiDailyLimit}',
           ),
           if (jpeg != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.memory(
-                jpeg,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            )
+            MealPhotoPreview(jpeg: jpeg)
           else
             DesignCard(
               child: Text(
@@ -300,6 +292,46 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
           const SizedBox(height: AppSpacing.lg),
         ],
       ),
+    );
+  }
+}
+
+/// AI に送る写真を、切らずに全体で見せる。
+///
+/// 以前は高さ 180 で [BoxFit.cover] にしていたため、縦の写真は上下が
+/// 大きく切れて見えた（送る写真は切れていない）。縦横比を保ち、
+/// 高さは [maxHeight] まで。余った左右は落ち着いた地の色にする。
+class MealPhotoPreview extends StatelessWidget {
+  const MealPhotoPreview({super.key, required this.jpeg, this.maxHeight = 360});
+
+  final Uint8List jpeg;
+  final double maxHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final aspect = mealPhotoAspectRatio(jpeg) ?? 4 / 3;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = (width / aspect).clamp(120.0, maxHeight);
+        return ClipRRect(
+          key: const ValueKey('photo_meal_preview'),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: width,
+            height: height,
+            color: AppColors.bgSurfaceSunken,
+            alignment: Alignment.center,
+            child: Image.memory(
+              jpeg,
+              width: width,
+              height: height,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+            ),
+          ),
+        );
+      },
     );
   }
 }

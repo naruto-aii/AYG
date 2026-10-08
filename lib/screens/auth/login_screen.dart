@@ -8,6 +8,7 @@ import '../../platform/web/in_app_browser_detector.dart';
 import '../../platform/web/web_browser_utils.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../services/ai_data_consent.dart';
 import '../../services/analytics/catalog_actions.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -85,12 +86,18 @@ class _LoginScreenState extends State<LoginScreen> {
     CatalogActions.loginTap(provider);
     setState(() => _isLoading = true);
     try {
+      if (kIsWeb) {
+        // Web は外部ブラウザへ遷移して戻るので、押した時点の同意を先に残す。
+        await AiDataConsent.recordLoginAgreement();
+      }
       await login();
       CatalogActions.loginResult(provider: provider, result: 'success');
       if (kIsWeb) {
         // Web は外部ブラウザへ遷移するので、戻ってきたときに復帰する。
         return;
       }
+      // ボタンを押してログインできたことが、下の同意文への同意。
+      await AiDataConsent.recordLoginAgreement();
       await widget.controller.handleAuthenticatedSession();
     } on SignInCancelledException {
       CatalogActions.loginResult(provider: provider, result: 'cancelled');

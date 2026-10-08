@@ -1,6 +1,7 @@
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_entry.dart';
+import '../../utils/local_date.dart';
 
 class ExerciseEntryRowMapper {
   const ExerciseEntryRowMapper._();
@@ -11,7 +12,7 @@ class ExerciseEntryRowMapper {
       name: row['name'] as String,
       durationMin: row['duration_min'] as int,
       burnedKcal: (row['burned_kcal'] as num).toDouble(),
-      loggedAt: DateTime.parse(row['logged_at'] as String),
+      loggedAt: wallClockFromDb(row['logged_at'] as String),
       category: ExerciseCategoryX.tryParse(row['category_key'] as String?),
       activityId: row['activity_id'] as String?,
       intensity: row['intensity'] as String?,
@@ -43,7 +44,7 @@ class ExerciseEntryRowMapper {
       'name': entry.name,
       'duration_min': entry.durationMin,
       'burned_kcal': entry.burnedKcal,
-      'logged_at': entry.loggedAt.toIso8601String(),
+      'logged_at': wallClockToDb(entry.loggedAt),
       'category_key': entry.category?.id,
       'activity_id': entry.activityId,
       'intensity': entry.intensity,

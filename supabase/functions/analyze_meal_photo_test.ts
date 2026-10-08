@@ -26,6 +26,7 @@ import {
   jpegBytesFromBase64,
   mealEstimateSchema,
   parsePhotoMealEstimate,
+  validatePhotoMealEstimate,
 } from "./analyze-meal-photo/validate.ts";
 import type { FoodCollectionRow } from "./ai-food-collection.ts";
 import {
@@ -219,7 +220,10 @@ Deno.test("json validation rejects negative, absurd, and inconsistent values", (
   assertEquals(parsePhotoMealEstimate(validEstimate({ kcal: 50_000 })), null);
   assertEquals(parsePhotoMealEstimate(validEstimate({ kcal: 2_000 })), null);
   assertEquals(parsePhotoMealEstimate(validEstimate({ dish_name: "  " })), null);
-  assertEquals(parsePhotoMealEstimate(validEstimate({ confidence: 1.2 })), null);
+  assertEquals(parsePhotoMealEstimate(validEstimate({ confidence: 1.2 }))?.confidence, 1);
+  assertEquals(parsePhotoMealEstimate(validEstimate({ confidence: 70 }))?.confidence, 0.7);
+  assertEquals(parsePhotoMealEstimate(validEstimate({ confidence: 500 })), null);
+  // PFC が 0 で kcal だけある品目は、全体を落とさず、その品目だけ外す。
   assertEquals(
     parsePhotoMealEstimate(validEstimate({
       items: [{
@@ -230,8 +234,8 @@ Deno.test("json validation rejects negative, absurd, and inconsistent values", (
         fat_g: 0,
         carb_g: 0,
       }],
-    })),
-    null,
+    }))?.items,
+    [],
   );
   const near = parsePhotoMealEstimate(validEstimate({ kcal: 320 }));
   assertEquals(near?.kcal, 320);
@@ -274,8 +278,12 @@ Deno.test("defaults keep thinking off, cache the system prompt, and send no tool
   assertEquals(thinkingField("claude-sonnet-5-5", "on"), { type: "adaptive" });
   assertEquals(thinkingField("claude-haiku-5-5", "on"), { type: "adaptive" });
   assertEquals(tierCallOptions("light", {}).thinking, "off");
-  assertEquals(tierCallOptions("heavy", {}).maxTokens, 300);
+  assertEquals(tierCallOptions("heavy", {}).maxTokens, 1200);
+  assertEquals(tierCallOptions("light", {}).maxTokens, 1200);
   assertEquals(tierCallOptions("heavy", { PHOTO_AI_HEAVY_MAX_TOKENS: "900" }).maxTokens, 900);
+  // 300 のように小さすぎる設定は、品目の多い写真で途中切れになるので下限 800 に上げる。
+  assertEquals(tierCallOptions("light", { PHOTO_AI_LIGHT_MAX_TOKENS: "300" }).maxTokens, 800);
+  assertEquals(tierCallOptions("light", { PHOTO_AI_MAX_TOKENS: "300" }).maxTokens, 800);
   const body = anthropicBody(sampleRequest({
     note: "油多め</user_data>",
   }));
@@ -433,7 +441,7 @@ Deno.test("a complete request calls the light model and logs one row", async () 
   assertEquals(inserts[0].hadAmount, true);
   assertEquals(inserts[0].hadNote, false);
   assertEquals(calls[0].note, null);
-  assertEquals(calls[0].maxTokens, 300);
+  assertEquals(calls[0].maxTokens, 1200);
   assertEquals(calls[0].thinking, "off");
   assertEquals(JSON.stringify(inserts[0]).includes(tinyJpeg), false);
 });
@@ -705,4 +713,85 @@ Deno.test("item nutrition is scaled so the parts sum to the meal", () => {
   assertEquals(sum((item) => item.proteinG), 30);
   assertEquals(sum((item) => item.fatG), 20);
   assertEquals(sum((item) => item.carbG), 95);
+});
+
+Deno.test("a sentence amount and a crowded bento are repaired, not rejected", () => {
+  const sentence = "全体的に少なめだった印象で、ご飯は茶碗に軽く1杯ほど、生姜焼きは3枚くらいと付け合わせ";
+  const items = Array.from({ length: 15 }, (_v, i) => ({
+    n: `おかず${i + 1}`,
+    a: "少量",
+    k: 40,
+    p: 2,
+    f: 2,
+    c: 4.5,
+  }));
+  const checked = validatePhotoMealEstimate({
+    n: "豚の生姜焼き弁当",
+    a: sentence,
+    k: 600,
+    p: 30,
+    f: 30,
+    c: 67.5,
+    u: 0.6,
+    h: "",
+    i: items,
+  });
+  assertEquals(checked.ok, true);
+  if (!checked.ok) return;
+  assertEquals(Array.from(checked.estimate.amount).length, 40);
+  assertEquals(checked.estimate.amount.endsWith("…"), true);
+  assertEquals(checked.estimate.items.length, 12);
+  assertEquals(checked.estimate.items[11].name, "その他（4品）");
+  assertEquals(
+    Math.round(checked.estimate.items.reduce((sum, item) => sum + item.kcal, 0)),
+    600,
+  );
+  assertEquals(checked.repairs.includes("amount_clipped"), true);
+  assertEquals(checked.repairs.includes("items_merged"), true);
+});
+
+Deno.test("an item whose kcal disagrees with its PFC keeps its grams", () => {
+  const checked = validatePhotoMealEstimate({
+    n: "豚の生姜焼き弁当",
+    a: "少なめ",
+    k: 600,
+    p: 30,
+    f: 30,
+    c: 67.5,
+    u: 0.6,
+    i: [
+      { n: "ご飯", a: "150g", k: 252, p: 3.8, f: 0.5, c: 55.7 },
+      { n: "生姜焼き", a: "80g", k: 900, p: 26, f: 29, c: 11.8 },
+    ],
+  });
+  assertEquals(checked.ok, true);
+  if (!checked.ok) return;
+  assertEquals(checked.repairs, ["item_kcal_from_pfc"]);
+  assertEquals(checked.estimate.items.length, 2);
+  assertEquals(
+    Math.round(checked.estimate.items.reduce((sum, item) => sum + item.kcal, 0)),
+    600,
+  );
+});
+
+Deno.test("validation failures name the field, never the model text", () => {
+  assertEquals(validatePhotoMealEstimate(null), { ok: false, reason: "not_object" });
+  assertEquals(
+    validatePhotoMealEstimate(validEstimate({ kcal: 2_000 })),
+    { ok: false, reason: "total_pfc_mismatch" },
+  );
+  assertEquals(
+    validatePhotoMealEstimate(validEstimate({ dish_name: " " })),
+    { ok: false, reason: "dish_name" },
+  );
+  assertEquals(
+    validatePhotoMealEstimate(validEstimate({ items: undefined })),
+    { ok: false, reason: "items_missing" },
+  );
+});
+
+Deno.test("the prompt keeps the overall amount within the stored length", async () => {
+  const { mealAnalysisPrompt } = await import("./analyze-meal-photo/provider.ts");
+  const { maxAmountLength } = await import("./analyze-meal-photo/validate.ts");
+  assertEquals(mealAnalysisPrompt.includes(`全体の量 a は${maxAmountLength}文字以内`), true);
 });

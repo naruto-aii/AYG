@@ -214,17 +214,22 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     final app = ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
-        if (controller.isInitializing ||
-            (controller.isAuthenticated && controller.isSyncInProgress)) {
+        if (controller.isInitializing) {
           return const AppStartupLoadingScreen();
         }
 
-        if (!controller.isAuthenticated) {
+        // 規約・プライバシー（AI送信の一文を含む）に、この端末でまだ同意して
+        // いなければ、ログイン済みでも同じログイン画面を出す。押すまで何も送らない。
+        if (!controller.isAuthenticated || controller.requiresTermsAgreement) {
           return LoginScreen(
             controller: controller,
             authenticationRepository: widget.authenticationRepository,
             authStorageAvailable: widget.authStorageAvailable,
           );
+        }
+
+        if (controller.isSyncInProgress) {
+          return const AppStartupLoadingScreen();
         }
 
         // ログイン（利用規約とプライバシーポリシーへの同意）のあとに記録を始める。

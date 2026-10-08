@@ -121,7 +121,8 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 - `PHOTO_AI_USD_JPY`（`158`）
 - `PHOTO_AI_LIGHT_INPUT_USD_PER_MILLION`（`0.10`）、`PHOTO_AI_LIGHT_OUTPUT_USD_PER_MILLION`（`0.50`）、`PHOTO_AI_LIGHT_CACHE_READ_USD_PER_MILLION`（`0.01`）、`PHOTO_AI_LIGHT_CACHE_WRITE_USD_PER_MILLION`（`0.125`）
 - `PHOTO_AI_HEAVY_INPUT_USD_PER_MILLION`（`2`）、`PHOTO_AI_HEAVY_OUTPUT_USD_PER_MILLION`（`10`）、`PHOTO_AI_HEAVY_CACHE_READ_USD_PER_MILLION`（`0.10`）、`PHOTO_AI_HEAVY_CACHE_WRITE_USD_PER_MILLION`（`2.5`）
-- `PHOTO_AI_MAX_TOKENS`（`300`）、`PHOTO_AI_LIGHT_MAX_TOKENS`、`PHOTO_AI_HEAVY_MAX_TOKENS`
+- `PHOTO_AI_MAX_TOKENS`（`1200`）、`PHOTO_AI_LIGHT_MAX_TOKENS`、`PHOTO_AI_HEAVY_MAX_TOKENS`（`800` 未満を入れても `800` にする。弁当や定食で品目が多いと 300 では JSON が途中で切れた）
+- 写真の推定で、長すぎる量（40文字超）は切って残し、13品以上は「その他」1品にまとめ、品目の kcal と PFC が合わないときは PFC から kcal を作り直す。直したときは `analyze-meal-photo repaired result: …`、直せないときは `invalid result: stage=… reason=…`（項目名だけ。モデルの文は出さない）をログに出す
 - `PHOTO_AI_LIGHT_THINKING`、`PHOTO_AI_HEAVY_THINKING`（`off`。`on` は adaptive。Sonnet 5.5 のオフは `between_tools`）
 - `PHOTO_AI_LIGHT_EFFORT`、`PHOTO_AI_HEAVY_EFFORT`（`low`。思考オフのときは high まで）
 - `PHOTO_AI_LIGHT_IMAGE_MAX_EDGE`、`PHOTO_AI_HEAVY_IMAGE_MAX_EDGE`（`1024`）

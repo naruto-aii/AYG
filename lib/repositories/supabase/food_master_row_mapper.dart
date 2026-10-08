@@ -10,6 +10,7 @@ import '../../models/food_visibility.dart';
 import '../../models/meal_template.dart';
 import '../../models/moderation_status.dart';
 import '../../models/saved_food.dart';
+import '../../utils/local_date.dart';
 
 class FoodMasterRowMapper {
   const FoodMasterRowMapper._();
@@ -229,7 +230,7 @@ class FoodMasterRowMapper {
           ?.toInt(),
       memo: _blankToNull(row['memo'] as String?),
       recordOrigin: _blankToNull(row['record_origin'] as String?),
-      loggedAt: DateTime.parse(row['logged_at'] as String),
+      loggedAt: wallClockFromDb(row['logged_at'] as String),
     );
   }
 
@@ -260,7 +261,7 @@ class FoodMasterRowMapper {
       'source_saved_food_version': entry.sourceSavedFoodVersion,
       'memo': _blankToNull(entry.memo),
       'record_origin': _blankToNull(entry.recordOrigin),
-      'logged_at': entry.loggedAt.toIso8601String(),
+      'logged_at': wallClockToDb(entry.loggedAt),
     };
   }
 
@@ -310,7 +311,7 @@ class FoodMasterRowMapper {
       totalCalories: (row['total_calories'] as num).toDouble(),
       pureAlcoholGrams: (row['pure_alcohol_grams'] as num).toDouble(),
       alcoholCalories: (row['alcohol_calories'] as num).toDouble(),
-      consumedAt: DateTime.parse(row['consumed_at'] as String),
+      consumedAt: wallClockFromDb(row['consumed_at'] as String),
     );
   }
 
@@ -328,7 +329,7 @@ class FoodMasterRowMapper {
       'total_calories': entry.totalCalories,
       'pure_alcohol_grams': entry.pureAlcoholGrams,
       'alcohol_calories': entry.alcoholCalories,
-      'consumed_at': entry.consumedAt.toIso8601String(),
+      'consumed_at': wallClockToDb(entry.consumedAt),
     };
   }
 

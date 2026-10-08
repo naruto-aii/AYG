@@ -7,15 +7,22 @@ import '../config/supabase_config.dart';
 /// ログイン画面の同意文面の版。変えたら、もう一度同意を取る。
 const aiDataConsentVersion = '2026-10-08';
 
-const aiDataConsentVersionKey = 'ai_data_consent_version';
-const aiDataConsentAtKey = 'ai_data_consent_at';
+/// 端末に残す、ログイン画面で同意した版。
+///
+/// 以前の `ai_data_consent_version` は、画面を出さずに保存済みのログイン状態が
+/// 戻っただけでも書いていた。その値は同意の証拠にならないので読まない。
+/// 新しい名前の値だけを、ログイン画面で押した事実として扱う。
+const aiDataConsentVersionKey = 'terms_agreement_version';
+const aiDataConsentAtKey = 'terms_agreement_server_at';
 
 const aiDataConsentRequiredMessage = 'AI機能を使うには、同意が必要です。';
 
 /// 端末とサーバに残す、AI機能の同意。
 ///
 /// 同意そのものはログイン画面で取る。ここは、その事実を端末に残し、
-/// ログイン後に `ai_data_consents` へ書く。
+/// ログイン後に `ai_data_consents` へ書く。保存済みのログイン状態が戻った
+/// だけ（再インストール後など）では書かない。端末に同意が無ければ、
+/// アプリはログイン画面をもう一度出す。サーバの行から端末へは戻さない。
 abstract class AiDataConsent {
   bool get isGranted;
 
@@ -46,7 +53,8 @@ abstract class AiDataConsent {
     }
   }
 
-  /// ログインできた時点で呼ぶ。失敗してもログインは止めない。
+  /// ログイン画面のボタンでログインできた時点で呼ぶ。失敗してもログインは止めない。
+  /// 起動時のセッション復元からは呼ばない。
   static Future<void> recordLoginAgreement() async {
     try {
       final current = override;
@@ -77,17 +85,6 @@ abstract class AiDataConsent {
       debugPrint('[AYG] ai data consent sync failed: $error');
       return false;
     }
-  }
-
-  static Future<AiDataConsent> load() async {
-    final current = override;
-    if (current != null) {
-      return current;
-    }
-    final preferences = await SharedPreferences.getInstance();
-    final store = PrefsAiDataConsent(preferences);
-    await store.restore();
-    return store;
   }
 }
 
@@ -197,36 +194,6 @@ class PrefsAiDataConsent extends AiDataConsent {
     } catch (error) {
       debugPrint('[AYG] ai data consent save failed: $error');
       return false;
-    }
-  }
-
-  /// 端末に無いときだけ、同じ版の同意をサーバから戻す。
-  Future<void> restore() async {
-    if (isGranted || !SupabaseConfig.isConfigured) {
-      return;
-    }
-    try {
-      final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null || userId.isEmpty) {
-        return;
-      }
-      final row = await supabase
-          .from('ai_data_consents')
-          .select('policy_version, consented_at')
-          .eq('user_id', userId)
-          .maybeSingle();
-      if (row == null) {
-        return;
-      }
-      final version = row['policy_version'];
-      final at = row['consented_at'];
-      if (version == aiDataConsentVersion && at is String && at.isNotEmpty) {
-        await _preferences.setString(aiDataConsentVersionKey, version as String);
-        await _preferences.setString(aiDataConsentAtKey, at);
-      }
-    } catch (error) {
-      debugPrint('[AYG] ai data consent restore failed: $error');
     }
   }
 }

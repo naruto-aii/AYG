@@ -19,7 +19,10 @@ export const heavyOutputUsdPerMillionDefault = 10;
 export const heavyCacheReadUsdPerMillionDefault = 0.1;
 export const heavyCacheWriteUsdPerMillionDefault = 2.5;
 
-export const maxTokensDefault = 300;
+// 品目が多い写真（弁当や定食で6〜12品）は JSON が 300 トークンを超え、途中で切れて失敗した。
+// 12品でも収まる量を初期値にし、環境変数で小さくしすぎても下限で止める。
+export const maxTokensDefault = 1200;
+export const maxTokensFloor = 800;
 export const imageMaxEdgeDefault = 1024;
 
 export type PhotoTier = "light" | "heavy";
@@ -338,7 +341,7 @@ export function tierCallOptions(tier: PhotoTier, env: PhotoAiEnv): TierCallOptio
     : env.PHOTO_AI_HEAVY_IMAGE_MAX_EDGE;
   const effortRaw = tier === "light" ? env.PHOTO_AI_LIGHT_EFFORT : env.PHOTO_AI_HEAVY_EFFORT;
   return {
-    maxTokens: readPositiveInt(maxRaw, sharedMax),
+    maxTokens: Math.max(maxTokensFloor, readPositiveInt(maxRaw, sharedMax)),
     thinking,
     effort: effortFor(thinking, effortRaw),
     imageMaxEdge: readPositiveInt(edgeRaw, imageMaxEdgeDefault),

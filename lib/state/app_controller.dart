@@ -139,7 +139,8 @@ class AppController extends ChangeNotifier {
     PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
-  }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
+    Future<bool> Function()? termsAgreed,
+  }) : _termsAgreed = termsAgreed ?? AiDataConsent.grantedNow, _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
        _dataSyncRepository = dataSyncRepository,
@@ -281,6 +282,16 @@ class AppController extends ChangeNotifier {
   StreamSubscription<AuthUser?>? _authSubscription;
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
+
+  /// この端末で、今の版の規約・プライバシー（AI送信の一文を含む）に
+  /// ログイン画面で同意したか。
+  final Future<bool> Function() _termsAgreed;
+  bool _termsAgreementRequired = false;
+  int _termsCheck = 0;
+
+  /// ログイン済みでも、ログイン画面（同意画面）をもう一度出す必要があるか。
+  /// 再インストールや規約の版上げで端末に同意が無いとき true。
+  bool get requiresTermsAgreement => _termsAgreementRequired;
   bool _lastSyncFailed = false;
   bool _hasUnsentRecords = false;
   bool _isInitializing = false;
@@ -465,8 +476,24 @@ class AppController extends ChangeNotifier {
   Future<void> handleAuthenticatedSession({bool force = false}) async {
     final authUser = _authenticationRepository?.currentUser;
     if (authUser != null) {
-      // ログインは止めない。保存に失敗しても、AI機能の直前でもう一度書く。
-      unawaited(AiDataConsent.recordLoginAgreement());
+      // 同意はログイン画面のボタンでだけ記録する。保存済みのログイン状態が
+      // 戻っただけなら、同意の画面をもう一度出し、同期も AI も始めない。
+      final check = ++_termsCheck;
+      final agreed = await _termsAgreed();
+      if (check != _termsCheck) {
+        return;
+      }
+      if (!agreed) {
+        if (!_termsAgreementRequired) {
+          _termsAgreementRequired = true;
+          notifyListeners();
+        }
+        return;
+      }
+      if (_termsAgreementRequired) {
+        _termsAgreementRequired = false;
+        notifyListeners();
+      }
     }
     final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
@@ -646,6 +673,8 @@ class AppController extends ChangeNotifier {
   }
 
   void _resetSyncState() {
+    _termsAgreementRequired = false;
+    _termsCheck += 1;
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;
     _hasUnsentRecords = false;

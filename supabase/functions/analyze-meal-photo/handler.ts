@@ -30,11 +30,17 @@ import { normalizeFoodQuery } from "../lookup-food-text/validate.ts";
 import {
   createPhotoAiProvider,
   PhotoAiCallError,
+  describePhotoFailure,
   PhotoAiConfigError,
   type FetchLike,
   type PhotoAiProvider,
 } from "./provider.ts";
-import { jpegBytesFromBase64, parseModelJson, parsePhotoMealEstimate } from "./validate.ts";
+import {
+  jpegBytesFromBase64,
+  parseModelJson,
+  type PhotoMealEstimate,
+  validatePhotoMealEstimate,
+} from "./validate.ts";
 import { photoMealMessage, type PhotoMealCode } from "./messages.ts";
 
 export type PhotoEnv = PhotoAiEnv & {
@@ -260,11 +266,27 @@ export async function handleAnalyzeMealPhoto(
       cacheWriteTokens: result.usage.cacheWriteTokens,
       prices: tokenPricesFromEnv(tier, deps.env),
     });
-    let parsed: ReturnType<typeof parsePhotoMealEstimate> = null;
+    let parsed: PhotoMealEstimate | null = null;
+    let failReason = "json";
     try {
-      parsed = parsePhotoMealEstimate(parseModelJson(result.text));
+      const checked = validatePhotoMealEstimate(parseModelJson(result.text));
+      if (checked.ok) {
+        parsed = checked.estimate;
+        if (checked.repairs.length > 0) {
+          deps.log(
+            `analyze-meal-photo repaired result: ${checked.repairs.join(",")} model=${model} tier=${tier} out=${result.usage.outputTokens}`,
+          );
+        }
+      } else {
+        failReason = checked.reason;
+      }
     } catch {
       parsed = null;
+    }
+    if (parsed == null) {
+      deps.log(
+        `analyze-meal-photo invalid result: stage=${failReason === "json" ? "json" : "validate"} reason=${failReason} model=${model} tier=${tier} out=${result.usage.outputTokens}`,
+      );
     }
     const usageId = await deps.insertUsage({
       userId,
@@ -306,20 +328,36 @@ export async function handleAnalyzeMealPhoto(
       return fail(error.code, 503);
     }
     if (error instanceof PhotoAiCallError) {
+      const usage = error.failure.usage;
       await deps.insertUsage({
         userId,
         provider: provider.id,
         model,
         tier,
-        inputTokens: 0,
-        outputTokens: 0,
-        estimatedCostJpy: 0,
+        inputTokens: usage?.inputTokens ?? 0,
+        outputTokens: usage?.outputTokens ?? 0,
+        estimatedCostJpy: usage == null ? 0 : estimateCostJpy({
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          cacheWriteTokens: usage.cacheWriteTokens,
+          prices: tokenPricesFromEnv(tier, deps.env),
+        }),
         latencyMs,
         ...usageFields,
         success: false,
         errorCode: "provider_error",
       });
-      deps.log("analyze-meal-photo provider failed");
+      deps.log(
+        `analyze-meal-photo provider failed: ${
+          describePhotoFailure(error.failure, {
+            model,
+            tier,
+            maxTokens: options.maxTokens,
+            imageBytes: Math.floor((imageForModel.length * 3) / 4),
+          })
+        }`,
+      );
       return fail("provider_error", 503);
     }
     deps.log("analyze-meal-photo failed");

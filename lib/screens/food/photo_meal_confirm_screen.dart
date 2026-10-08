@@ -1,0 +1,331 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../services/photo_meal.dart';
+import '../../services/photo_meal_client.dart';
+import '../../state/app_controller.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_card.dart';
+import '../../widgets/design/design_field.dart';
+import '../../widgets/design/design_page.dart';
+
+/// 料理名が未入力のとき、記録の前に名前の確認を出す。
+Future<String?> askPhotoMealDishName(
+  BuildContext context,
+  String prefilled,
+) {
+  return showDialog<String>(
+    context: context,
+    routeSettings: const RouteSettings(name: 'photo_meal_name_dialog'),
+    builder: (context) => _DishNameDialog(prefilled: prefilled),
+  );
+}
+
+class _DishNameDialog extends StatefulWidget {
+  const _DishNameDialog({required this.prefilled});
+
+  final String prefilled;
+
+  @override
+  State<_DishNameDialog> createState() => _DishNameDialogState();
+}
+
+class _DishNameDialogState extends State<_DishNameDialog> {
+  late final TextEditingController _field;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _field = TextEditingController(text: widget.prefilled);
+  }
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('料理名を確認してください'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('料理名の入力がなかったので、記録する名前を確認してください。'),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('photo_meal_name_confirm'),
+            controller: _field,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: '料理名',
+              errorText: _error,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('キャンセル'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final name = _field.text.trim();
+            if (name.isEmpty) {
+              setState(() => _error = '料理名を入力してください');
+              return;
+            }
+            Navigator.of(context).pop(name);
+          },
+          child: const Text('この名前で登録'),
+        ),
+      ],
+    );
+  }
+}
+
+/// 推定を直してから、手入力と同じ経路で 1 件保存する。
+class PhotoMealConfirmScreen extends StatefulWidget {
+  const PhotoMealConfirmScreen({
+    super.key,
+    required this.controller,
+    required this.loggedAt,
+    required this.analysis,
+    required this.hadUserDishName,
+    this.recordEdit,
+  });
+
+  final AppController controller;
+  final DateTime loggedAt;
+  final PhotoMealAnalysis analysis;
+
+  /// 写真の画面で料理名を入れていたか。無いときは保存時に確認する。
+  final bool hadUserDishName;
+  final Future<void> Function(String usageId, bool edited)? recordEdit;
+
+  @override
+  State<PhotoMealConfirmScreen> createState() => _PhotoMealConfirmScreenState();
+}
+
+class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
+  late final TextEditingController _name;
+  late final TextEditingController _amount;
+  late final TextEditingController _kcal;
+  late final TextEditingController _protein;
+  late final TextEditingController _fat;
+  late final TextEditingController _carb;
+  bool _saving = false;
+
+  PhotoMealEstimate get _estimate => widget.analysis.estimate;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: _estimate.dishName);
+    _amount = TextEditingController(text: _estimate.amount);
+    _kcal = TextEditingController(text: formatPhotoNumber(_estimate.kcal));
+    _protein = TextEditingController(
+      text: formatPhotoNumber(_estimate.proteinG),
+    );
+    _fat = TextEditingController(text: formatPhotoNumber(_estimate.fatG));
+    _carb = TextEditingController(text: formatPhotoNumber(_estimate.carbG));
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _amount.dispose();
+    _kcal.dispose();
+    _protein.dispose();
+    _fat.dispose();
+    _carb.dispose();
+    super.dispose();
+  }
+
+  double? _number(String raw, double max) {
+    final value = double.tryParse(raw.trim());
+    if (value == null || !value.isFinite || value < 0 || value > max) {
+      return null;
+    }
+    return value;
+  }
+
+  Future<void> _save() async {
+    if (_saving) {
+      return;
+    }
+    var name = _name.text.trim();
+    if (!widget.hadUserDishName) {
+      final confirmed = await askPhotoMealDishName(context, name);
+      if (!mounted || confirmed == null) {
+        return;
+      }
+      name = confirmed;
+      _name.text = confirmed;
+    }
+    if (name.isEmpty) {
+      _message('料理名を入力してください');
+      return;
+    }
+    final kcal = _number(_kcal.text, photoMealMaxKcal);
+    final protein = _number(_protein.text, photoMealMaxMacroG);
+    final fat = _number(_fat.text, photoMealMaxMacroG);
+    final carb = _number(_carb.text, photoMealMaxMacroG);
+    if (kcal == null || protein == null || fat == null || carb == null) {
+      _message('カロリーとPFCは、0以上の範囲で入れてください');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await saveConfirmedPhotoMeal(
+        controller: widget.controller,
+        loggedAt: widget.loggedAt,
+        name: name,
+        amountText: _amount.text,
+        kcal: kcal,
+        proteinG: protein,
+        fatG: fat,
+        carbG: carb,
+      );
+      final usageId = widget.analysis.usageId;
+      if (usageId != null) {
+        final edited = photoMealWasEdited(
+          original: _estimate,
+          name: name,
+          amount: _amount.text,
+          kcal: kcal,
+          proteinG: protein,
+          fatG: fat,
+          carbG: carb,
+        );
+        final record = widget.recordEdit ?? _recordEdit;
+        await record(usageId, edited);
+      }
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      debugPrint('[AYG] photo meal save failed: $error');
+      _message('食事の保存に失敗しました');
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _recordEdit(String usageId, bool edited) {
+    return recordPhotoMealEdit(usageId: usageId, edited: edited);
+  }
+
+  void _message(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _estimate.items;
+    return DesignPage(
+      bottomBar: DesignButton(
+        label: 'この内容で登録',
+        showTrailingIcon: false,
+        loading: _saving,
+        onPressed: _saving ? null : _save,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const DesignTitleBlock(
+            title: '推定の確認',
+            subtitle: 'これはAIの推定です。登録の前に確認して、数値を直せます。',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _field('料理名', _name, hint: '例）親子丼'),
+          const SizedBox(height: AppSpacing.md),
+          _field('量', _amount, hint: '例）200g'),
+          const SizedBox(height: AppSpacing.md),
+          _numberField('カロリー', _kcal, 'kcal'),
+          const SizedBox(height: AppSpacing.sm),
+          _numberField('たんぱく質', _protein, 'g'),
+          const SizedBox(height: AppSpacing.sm),
+          _numberField('脂質', _fat, 'g'),
+          const SizedBox(height: AppSpacing.sm),
+          _numberField('炭水化物', _carb, 'g'),
+          if (items.length > 1) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Text('品ごとの推定', style: AppTypography.titleS),
+            const SizedBox(height: AppSpacing.sm),
+            DesignCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final item in items)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '${item.name} ${item.amount}  ${formatPhotoNumber(item.kcal)}kcal',
+                        style: AppTypography.bodyS,
+                      ),
+                    ),
+                  Text(
+                    '合計を1件として記録します。',
+                    style: AppTypography.bodyS.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+        ],
+      ),
+    );
+  }
+
+  Widget _field(String label, TextEditingController controller, {String? hint}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: AppTypography.titleS),
+        const SizedBox(height: 6),
+        DesignInputBox(
+          child: DesignTextInput(controller: controller, hintText: hint),
+        ),
+      ],
+    );
+  }
+
+  Widget _numberField(String label, TextEditingController controller, String unit) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: AppTypography.titleS),
+        const SizedBox(height: 6),
+        DesignInputBox(
+          suffix: unit,
+          child: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            ],
+            decoration: const InputDecoration(
+              isCollapsed: true,
+              border: InputBorder.none,
+            ),
+            style: AppTypography.bodyL,
+          ),
+        ),
+      ],
+    );
+  }
+}

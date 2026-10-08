@@ -108,6 +108,11 @@ class ExternalTransmissionScreen extends StatelessWidget {
           ),
           _SendRow(what: '購入の情報', who: 'Apple Inc.', why: '購入の手続きのため'),
           _SendRow(what: 'バーコードの番号', who: 'Open Food Facts', why: '商品を探すため'),
+          _SendRow(
+            what: '食事の写真と、入力した料理名と量',
+            who: 'Anthropic, PBC（米国）',
+            why: 'カロリーとPFCの推定のため。カロナビは写真を保存しません',
+          ),
         ],
       ),
     );

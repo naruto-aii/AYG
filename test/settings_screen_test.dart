@@ -199,7 +199,11 @@ void main() {
         find.textContaining('β版として先行公開している機能で、カロナビ+で使えます'),
         findsNothing,
       );
-      expect(find.textContaining('写真'), findsNothing);
+      expect(find.textContaining('写真で登録 (β)'), findsWidgets);
+      expect(
+        find.textContaining('入れると推定が合いやすくなります'),
+        findsOneWidget,
+      );
       Navigator.of(tester.element(find.byType(HowToUseScreen))).pop();
       await tester.pumpAndSettle();
     }

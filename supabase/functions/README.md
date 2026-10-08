@@ -75,3 +75,51 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 8. `20261007103757_app_events_closed_month.sql` は本番に適用済み。集計済みの月の操作は受け付けない。
 9. `20261007112725_kpi_excluded_users.sql` は本番に適用済み。開発者アカウントは日次集計と退会集計から外す。手順 8 のあと。
 10. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 8 と 9 は適用済み。
+
+## 写真で登録
+
+`analyze-meal-photo` は、食事の JPEG と任意の料理名・量を受け取り、栄養の推定を返します。写真は関数の中だけで使い、Storage にも表にも残しません。API キーはアプリに置きません。
+
+この変更では関数をデプロイせず、マイグレーションも本番へ適用しません。
+
+既定の提供元は Anthropic です。料理名と量が両方あるときは `claude-haiku-5-5`、どちらかが無いときは `claude-sonnet-5-5` です。重いモデルは1人あたり月20回までです。それを超えて料理名か量が無いときは、モデルを呼ばず、名前と量を入れるよう返します。両方あれば軽いモデルのままです。回数は1日10回、月120回です。費用の上限は1人あたり月120円で、超えたら写真での登録だけ止まり、手入力は使えます。日付の境は日本時間です。
+
+Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` は、アダプタが無いので日本語の準備中を返します。未成年が使うアプリに Gemini の API を既定で使わないためです。
+
+`verify_jwt = true` です。利用者は JWT から決めます。カロナビ+ は `public.calonavi_plus_entitlements` の `status = 'active'` かつ `expires_at > now()` です。これは既存のサーバ側の見方と同じで、レシートの再検証はしません。
+
+### シークレットと環境変数
+
+値は Supabase のシークレットにだけ置き、git や `supabase/config.toml` には書きません。
+
+必須:
+
+- `ANTHROPIC_API_KEY`
+
+任意（未設定なら括弧の既定）:
+
+- `PHOTO_AI_PROVIDER`（`anthropic`）
+- `PHOTO_AI_LIGHT_MODEL`（`claude-haiku-5-5`）
+- `PHOTO_AI_HEAVY_MODEL`（`claude-sonnet-5-5`）
+- `PHOTO_AI_MONTHLY_SPEND_JPY`（`120`）
+- `PHOTO_AI_LIGHT_INPUT_JPY_PER_MILLION`（`16`）
+- `PHOTO_AI_LIGHT_OUTPUT_JPY_PER_MILLION`（`80`）
+- `PHOTO_AI_HEAVY_INPUT_JPY_PER_MILLION`（`320`）
+- `PHOTO_AI_HEAVY_OUTPUT_JPY_PER_MILLION`（`1600`）
+
+単価は 2026-10 の Claude API 料金（100k トークン以下）を 1 ドル 160 円で円にしたものです。軽いモデルは入力が 100k トークンを超えると 5 倍で数えます。`SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY` はプラットフォームが注入します。キーが無いときは 503 で「いま準備中です。手入力で記録できます。」を返し、食事の保存経路は呼びません。
+
+### 公開前の順番
+
+1. `supabase/migrations/20261008140000_meal_photo_analyses.sql` を、それより前のマイグレーションのあとに適用する。本番へはまだ適用していない。
+2. `ANTHROPIC_API_KEY` を設定する。単価やモデルを変えるときだけ、上の任意の環境変数を足す。
+3. `analyze-meal-photo` をデプロイする。この変更ではデプロイしない。
+4. そのあとで、写真で登録を出すアプリを出す。マイグレーションより先に出すと、案内の `photo_meal` は再送待ちになり、利用記録の `user_edited` は書けない。食事の保存自体は、既存の食事の経路なのでマイグレーションが無くてもできる。
+
+戻すときは、関数を消してから `supabase/rollback/20261008140000_meal_photo_analyses_down.sql` を手で流す。`photo_meal` の案内行を消してから、案内の制約を元に戻す。食事の行は残る。
+
+### テスト
+
+```sh
+deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_photo_test.ts
+```

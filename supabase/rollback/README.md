@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261008140000 meal photo analyses
+
+本番には適用していない。写真で登録の利用記録、退会時の削除、KPI 用ビュー、案内の `photo_meal` を戻す。食事の行は消えない。関数 `analyze-meal-photo` を出していれば、先にその関数を消す。
+
+`supabase/rollback/20261008140000_meal_photo_analyses_down.sql`
+
 ## 20261008003832 search public foods voice
 
 本番には version `20261008003832` で適用済み（2026-10-08 09:38 JST）。Siri 用の公開食品検索 `search_public_foods_voice` を足しただけで、既存の関数・表・行は変えていない。戻すとその関数が消え、Siri は公開食品を引けなくなる（公式の成分表と自分の食品は引ける）。アプリ側を戻さない場合、Siri の公開食品検索は失敗扱いになる。

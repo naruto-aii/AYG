@@ -17,7 +17,9 @@ import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
 import '../../models/public_food_search_match.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/photo_meal_client.dart';
 import '../../services/public_food_meal_add_flow.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -41,6 +43,7 @@ import '../../widgets/food/combined_food_search.dart';
 import '../../widgets/food/food_form_suggestion_list.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../official_food/official_food_detail_screen.dart';
+import '../subscription/plus_gate.dart';
 import '../../services/source_food_edit_policy.dart';
 import '../../widgets/food/source_food_update_dialog.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
@@ -48,6 +51,7 @@ import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../../widgets/saved_food/serving_amount_fields.dart';
 import 'meal_food_search_screen.dart';
 import 'barcode_scanner_screen.dart';
+import 'photo_meal_screen.dart';
 import 'food_form_template_actions.dart';
 import 'food_meal_registration_screen.dart';
 
@@ -757,14 +761,19 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             if (!widget.isEditing) ...[
               const SizedBox(height: 8),
               FormTabBar(
-                items: const [
-                  FormTabItem(icon: Symbols.edit_rounded, label: '手入力'),
-                  FormTabItem(
+                items: [
+                  const FormTabItem(icon: Symbols.edit_rounded, label: '手入力'),
+                  const FormTabItem(
                     icon: Symbols.barcode_scanner_rounded,
                     label: 'バーコード',
                   ),
-                  FormTabItem(icon: Symbols.search_rounded, label: '食品を探す'),
-                  FormTabItem(icon: Symbols.list_alt_rounded, label: 'テンプレート'),
+                  const FormTabItem(icon: Symbols.search_rounded, label: '食品を探す'),
+                  const FormTabItem(icon: Symbols.list_alt_rounded, label: 'テンプレート'),
+                  if (!kIsWeb)
+                    const FormTabItem(
+                      icon: Symbols.photo_camera_rounded,
+                      label: '写真で登録',
+                    ),
                 ],
                 selectedIndex: _barcodeSectionExpanded ? 1 : 0,
                 onSelected: _onInputTabSelected,
@@ -809,6 +818,33 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         _openFoodSearch();
       case 3:
         _openTemplatePicker();
+      case 4:
+        _openPhotoMeal();
+    }
+  }
+
+  Future<void> _openPhotoMeal() async {
+    final allowed = await ensureCalonaviPlus(
+      context,
+      widget.controller,
+      message: '写真で登録 (β) は、カロナビ+です。食事の写真から、カロリーとPFCの推定を出します。',
+      feature: PlusFunnelFeature.photoMeal,
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        settings: const RouteSettings(name: 'photo_meal'),
+        builder: (context) => PhotoMealScreen(
+          controller: widget.controller,
+          loggedAt: _loggedAt,
+          client: PhotoMealClient.supabase(),
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      Navigator.of(context).pop(true);
     }
   }
 

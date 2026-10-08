@@ -1,7 +1,6 @@
 // 自炊コーチ。料理の中身だけモデルに聞き、kcal と PFC は成分表で計算する。
 // この変更では関数をデプロイせず、マイグレーションも本番へ適用しない。
 
-import { purgeExpiredCache } from "../_shared/expired_cache.ts";
 import { parseModelJson } from "../analyze-meal-photo/validate.ts";
 import {
   combinedDailyLimitFromEnv,
@@ -73,7 +72,6 @@ export type CookDeps = {
   log: (message: string) => void;
   readCache?: (key: string) => Promise<Record<string, unknown> | null>;
   writeCache?: (key: string, body: Record<string, unknown>) => Promise<void>;
-  deleteExpiredCache?: () => Promise<void>;
 };
 
 export function cookCacheMaterial(input: {
@@ -154,13 +152,6 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
   const userId = await deps.userId(req);
   if (!userId) {
     return fail("unauthenticated", "ログインしてから、もう一度試してください。", 401);
-  }
-  if (deps.deleteExpiredCache) {
-    try {
-      await deps.deleteExpiredCache();
-    } catch (error) {
-      deps.log(`cook expired cache delete failed: ${error}`);
-    }
   }
   let payload: unknown;
   try {
@@ -689,15 +680,6 @@ export function liveDeps(
       const first = Array.isArray(result.body) ? result.body[0] : result.body;
       const id = first && typeof first === "object" ? (first as { id?: unknown }).id : null;
       return typeof id === "string" ? id : null;
-    },
-    deleteExpiredCache() {
-      return purgeExpiredCache({
-        base,
-        serviceKey,
-        fetchImpl,
-        table: "cook_coach_cache",
-        now: new Date(),
-      }).then(() => undefined);
     },
     async readCache(key) {
       if (!base || !serviceKey) {

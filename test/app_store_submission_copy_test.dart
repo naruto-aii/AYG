@@ -97,6 +97,52 @@ void main() {
       expect(html, isNot(contains('文案')), reason: path);
       expect(html, isNot(contains('Health Connect')), reason: path);
       expect(html, isNot(contains('最終更新日は 2026-10-07 です。')), reason: path);
+      expect(html, isNot(contains('期限が来たら捨てます')), reason: path);
+    }
+  });
+
+  test('estimate caches stay for reuse and are not described as discarded', () {
+    const banned = '期限が来たら捨てます';
+    const searchKept =
+        '同じ検索の推定は、同じ利用者が再利用するために残します。キャッシュは食品の一覧としては出さず、他の利用者には出しません。アカウントを削除すると消します';
+    const cookKept =
+        '同じ食材と丸めた目標の献立は、再利用するために残します。利用者の識別子は入れません。アカウントを削除しても、このキャッシュは消えません';
+    for (final path in [
+      'legal/privacy.html',
+      'docs/legal/privacy.html',
+      'legal/terms.html',
+      'docs/legal/terms.html',
+      'docs/app-store-privacy.md',
+      'lib/screens/settings/analytics_settings_screen.dart',
+      'supabase/functions/README.md',
+    ]) {
+      final text = File(path).readAsStringSync();
+      expect(text, isNot(contains(banned)), reason: path);
+      expect(text, isNot(contains('期限を過ぎた行は、次にその機能を使ったときに消します')), reason: path);
+    }
+    for (final path in ['legal/privacy.html', 'docs/legal/privacy.html']) {
+      final html = File(path).readAsStringSync();
+      expect(html, contains(searchKept), reason: path);
+      expect(html, contains(cookKept), reason: path);
+      expect(html, contains('推定に使ったあと捨てます'), reason: path);
+    }
+    final terms = File('legal/terms.html').readAsStringSync();
+    expect(terms, contains('アカウントを削除しても、このキャッシュは消えません'));
+    final screen = File(
+      'lib/screens/settings/analytics_settings_screen.dart',
+    ).readAsStringSync();
+    expect(screen, contains('推定は同じ利用者が再利用するために残し、アカウントを削除すると消します'));
+    expect(screen, contains('アカウントを削除しても消えません'));
+    expect(
+      File('supabase/functions/_shared/expired_cache.ts').existsSync(),
+      isFalse,
+    );
+    expect(File('supabase/functions/expired_cache_test.ts').existsSync(), isFalse);
+    for (final path in [
+      'supabase/functions/lookup-food-text/handler.ts',
+      'supabase/functions/cook-coach/handler.ts',
+    ]) {
+      expect(File(path).readAsStringSync(), isNot(contains('deleteExpiredCache')));
     }
   });
 }

@@ -98,7 +98,7 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 
 審査と TestFlight は Sandbox の取引です。`verify-store-transaction` は Production と Sandbox のどちらも、Apple の署名が通り、bundleId と商品IDが合うとき受けます。Sandbox を拒む設定は置きません。
 
-期限を過ぎた `ai_food_estimate_cache` と `cook_coach_cache` は、それぞれの関数が呼ばれるたびに最大 20 行消します。
+推定キャッシュは期限では消しません。`ai_food_estimate_cache` は同じ利用者が同じ検索を再利用するための行で、アカウント削除のときにその利用者の行を消します。`cook_coach_cache` は利用者の識別子を持たないので、アカウントを削除しても消えません。
 
 ### シークレットと環境変数
 

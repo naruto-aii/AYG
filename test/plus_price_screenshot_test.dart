@@ -57,10 +57,19 @@ void main() {
     final directory = Directory('/opt/cursor/artifacts/screenshots');
     directory.createSync(recursive: true);
 
-    await _capturePlans(
+    await _capture(
+      tester,
+      UnavailableSubscriptionRepository(),
+      File('${directory.path}/paywall_top.png'),
+      scrollToPlans: false,
+    );
+    expect(find.text('¥8,800で始める'), findsOneWidget);
+
+    await _capture(
       tester,
       UnavailableSubscriptionRepository(),
       File('${directory.path}/paywall_plans_fallback.png'),
+      scrollToPlans: true,
     );
     expect(find.text('¥980 ・ いつでも解約できます'), findsOneWidget);
     expect(find.text('¥4,900 ・ 月あたり約817円'), findsOneWidget);
@@ -69,10 +78,11 @@ void main() {
     expect(find.text('お得'), findsOneWidget);
     expect(find.text('一番お得'), findsOneWidget);
 
-    await _capturePlans(
+    await _capture(
       tester,
       _StorePrices(),
       File('${directory.path}/paywall_plans_store.png'),
+      scrollToPlans: true,
     );
     expect(find.text('¥8,800で始める'), findsOneWidget);
 
@@ -103,11 +113,12 @@ void main() {
   });
 }
 
-Future<void> _capturePlans(
+Future<void> _capture(
   WidgetTester tester,
   UnavailableSubscriptionRepository repository,
-  File file,
-) async {
+  File file, {
+  required bool scrollToPlans,
+}) async {
   final key = GlobalKey();
   await tester.binding.setSurfaceSize(const Size(390, 844));
   await tester.pumpWidget(
@@ -121,10 +132,12 @@ Future<void> _capturePlans(
     ),
   );
   await tester.pumpAndSettle();
-  await tester.scrollUntilVisible(find.text('プランを選ぶ'), 400);
-  await tester.pumpAndSettle();
-  await tester.ensureVisible(find.text('年額'));
-  await tester.pumpAndSettle();
+  if (scrollToPlans) {
+    await tester.scrollUntilVisible(find.text('プランを選ぶ'), 400);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('年額'));
+    await tester.pumpAndSettle();
+  }
   final bytes = await tester.runAsync(
     () => pngBytesFromBoundary(key, pixelRatio: 2),
   );

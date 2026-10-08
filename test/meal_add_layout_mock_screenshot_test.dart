@@ -8,6 +8,7 @@ import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/services/share_sheet_client.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/widgets/food/ai_food_lookup_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -82,6 +83,9 @@ void main() {
     );
     expect(find.text('その他の方法'), findsOneWidget);
     expect(find.text('成分表'), findsOneWidget);
+    expect(find.text(AiFoodLookupRow.label), findsOneWidget);
+    expect(find.text('公開食品を選ぶ'), findsNothing);
+    expect(find.text('公開食品から追加'), findsNothing);
     expect(find.text('手入力'), findsNothing);
   });
 }

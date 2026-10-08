@@ -9,6 +9,7 @@ import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
+import '../../widgets/food/ai_food_lookup_row.dart';
 
 /// 食事を追加のレイアウト案。本番の導線には繋がない。
 ///
@@ -83,6 +84,8 @@ class _MealAddLayoutMockState extends State<MealAddLayoutMock> {
             detail: '100gあたり · 108kcal',
             badge: '成分表',
           ),
+          const SizedBox(height: 8),
+          AiFoodLookupRow(onTap: () {}),
           const SizedBox(height: AppSpacing.md),
           const _OtherMethods(),
           const SizedBox(height: AppSpacing.lg),

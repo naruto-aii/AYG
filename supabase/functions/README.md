@@ -132,3 +132,83 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 ```sh
 deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_photo_test.ts
 ```
+
+## 自炊コーチ
+
+`cook-coach` は、手元の食材とこの食事の目標（kcal と PFC）を受け取り、確認済みの家庭料理から1品を返します。料理はモデルが作りません。リクエストのたびに `cook_recipes` と `cook_recipe_options` を読み、選んだ食品の `official_foods` で kcal と PFC を計算します。レシピはアプリに埋め込まず、応答キャッシュにもカタログ自体は入れません。行を足すと、アプリの更新なしに候補が増えます。
+
+各材料は、そのレシピで成立する入れ替え候補だけを持ちます。名前は `{protein}` のようなテンプレで、入れ替え後も自然な料理名になります。重量は代替食材ごとの基準gで、主食は 0.5〜1.5 倍、それ以外は 0.8〜1.2 倍の範囲だけ動かします。親子丼に鮭は入りません。候補はレシピごとに明示します。
+
+届ける範囲は、kcal が目標の ±10%（端数 0.51）、P/F/C がそれぞれ ±15% か ±5g の広い方（端数 0.05）です。範囲に入らない組み合わせは返しません。塩・しょうゆ・サラダ油・砂糖・みりん・味噌・酢・こしょう・顆粒だし・料理酒・ごはんは、利用者が避けていなければ家にあるものとして材料に出します。パン・うどん・そば・パスタは家にあるものにしません。手元だけで届かないときは、その料理で使う食材を 1 つか 2 つ買い足す案を出します。買い足し案も、入力した食材を少なくとも1つ使います。どちらも無いときは、空の配列と案内文を返します。空の結果は1日の回数に数えません。
+
+手持ちだけで作れる案が0件の入力は、正規化した食材名と時刻だけを `cook_zero_on_hand` に残します。`user_id` は持ちません。どの組み合わせが多いかは次で見ます。
+
+```sql
+select ingredients, count(*) as zero_count
+from public.cook_zero_on_hand
+group by ingredients
+order by zero_count desc, ingredients;
+
+select array_to_string(ingredients, '、') as foods, count(*) as zero_count
+from public.cook_zero_on_hand
+group by ingredients
+order by zero_count desc, foods;
+```
+
+品質チェックは型を全展開して見ます。
+
+```sh
+deno run -A supabase/functions/cook-coach/check_recipes.ts
+```
+
+採点だけ（ネットワーク無し）:
+
+```sh
+deno run -A supabase/functions/cook_coach_eval.ts
+```
+
+デプロイ後に実関数へ当てるときは、呼び出し回数の上限が必須です。この変更では実行しません。
+
+```sh
+COOK_EVAL_CALL_CAP=5 COOK_EVAL_URL=https://<project>.supabase.co/functions/v1/cook-coach \
+  COOK_EVAL_TOKEN=<jwt> deno run -A supabase/functions/cook_coach_eval.ts --live
+```
+
+1日の回数は、写真で登録（`meal_photo_analyses`）と、`ai_feature_uses` の `cook_coach` と `ai_search` を合わせて数えます。初期値は 15 回です。献立を返せたときだけ、トークン 0 の `cook_coach` 行を1件追加します。モデルは呼びません。
+
+この変更では関数をデプロイせず、マイグレーションも本番へ適用しません。
+
+`verify_jwt = true` です。利用者は JWT から決めます。カロナビ+ は `public.calonavi_plus_entitlements` の `status = 'active'` かつ `expires_at > now()` です。
+
+### レシピを足す
+
+1. `supabase/functions/cook-coach/recipes.ts` に型を足す。候補は、その調理で成立するものだけにする。
+2. `deno run -A supabase/functions/cook-coach/check_recipes.ts` が 0 で終わることを確認する。
+3. seed を出し直す。
+
+```sh
+deno run -A supabase/functions/cook-coach/emit_recipes_sql.ts > supabase/seed/cook_recipes.sql
+```
+
+4. `official_foods` が入っているデータベースで `supabase/seed/cook_recipes.sql` を流す。参照する食品番号が足りないときは、何も入れずに戻る。
+5. アプリの更新は要りません。次のリクエストから新しい行が候補になります。
+
+### 公開前の順番
+
+1. `supabase/migrations/20261008180000_ai_feature_uses.sql` を適用する。本番へはまだ適用していない。
+2. `supabase/migrations/20261008193000_cook_recipes.sql` を適用する。本番へはまだ適用していない。
+3. `official_foods` があるデータベースで `supabase/seed/cook_recipes.sql` を流す。
+4. `cook-coach` をデプロイする。この変更ではデプロイしない。
+5. そのあとで、自炊コーチを出すアプリを出す。
+
+戻すときは、関数を消してから `supabase/rollback/20261008193000_cook_recipes_down.sql` と `supabase/rollback/20261008180000_ai_feature_uses_down.sql` を手で流す。食事の行は残る。
+
+任意の環境変数は `AI_DAILY_LIMIT`（`15`。写真で登録、自炊コーチ、AIで探すの合計）です。献立の選定に `ANTHROPIC_API_KEY` は使いません。
+
+### テスト
+
+```sh
+deno test --config supabase/functions/deno.json supabase/functions/cook_coach_test.ts
+deno run -A supabase/functions/cook_coach_eval.ts
+deno run -A supabase/functions/cook-coach/check_recipes.ts
+```

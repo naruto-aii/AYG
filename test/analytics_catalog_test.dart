@@ -16,7 +16,7 @@ void main() {
       for (final line in lines.skip(1)) line.split(',').first.trim(),
     ];
     expect(names, AnalyticsEventNames.all);
-    expect(names.toSet().length, 97);
+    expect(names.toSet().length, 102);
     final pattern = RegExp(r'^[a-z][a-z0-9_]{1,62}$');
     for (final name in names) {
       expect(pattern.hasMatch(name), isTrue, reason: name);

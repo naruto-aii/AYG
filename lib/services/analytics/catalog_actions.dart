@@ -220,6 +220,52 @@ abstract final class CatalogActions {
     Analytics.emit('account_deletion_started', {'step': step});
   }
 
+  static void cookCoachOpen(String slot) {
+    Analytics.emit('cook_coach_open', {'slot': slot});
+  }
+
+  static void cookCoachGenerate({
+    required int latencyMs,
+    required int inputTokens,
+    required int outputTokens,
+    required bool retried,
+    required String result,
+  }) {
+    Analytics.emit('cook_coach_generate', {
+      'latency_ms': latencyMs,
+      'input_tokens': inputTokens,
+      'output_tokens': outputTokens,
+      'retried': retried,
+      'result': result,
+    });
+  }
+
+  static void cookCoachRetry({
+    required int latencyMs,
+    required int inputTokens,
+    required int outputTokens,
+  }) {
+    Analytics.emit('cook_coach_retry', {
+      'latency_ms': latencyMs,
+      'input_tokens': inputTokens,
+      'output_tokens': outputTokens,
+    });
+  }
+
+  static void cookCoachRegister({
+    required List<String> foodEntryIds,
+    required String pattern,
+  }) {
+    Analytics.emit('cook_coach_register', {
+      'food_entry_ids': foodEntryIds,
+      'pattern': pattern,
+    });
+  }
+
+  static void cookCoachCap() {
+    Analytics.emit('cook_coach_cap');
+  }
+
   static void appError({
     required String errorType,
     required String where,

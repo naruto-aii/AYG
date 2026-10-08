@@ -65,6 +65,20 @@ class DataSourceScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text('自炊コーチ (β) の栄養', style: AppTypography.titleS),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '料理は、確認済みの家庭料理から選びます。食材のグラムに対するカロリーとPFCは、日本食品標準成分表の値で計算します。画面に、この食事の目標との差を出します。',
+                  style: body,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text('パーソナルコーチ (β) の量と区分', style: AppTypography.titleS),
                 const SizedBox(height: AppSpacing.sm),
                 Text(

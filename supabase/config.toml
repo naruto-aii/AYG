@@ -424,6 +424,10 @@ verify_jwt = true
 [functions.analyze-meal-photo]
 verify_jwt = true
 
+# 自炊コーチ。JWT は検証する。食材と料理名は保存しない。本番へはこの変更では配備しない。
+[functions.cook-coach]
+verify_jwt = true
+
 # Apple のサーバー通知は JWT を付けてこない。関数の中で署名を検証する。
 [functions.app-store-notifications]
 verify_jwt = false

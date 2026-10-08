@@ -94,7 +94,7 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` は、アダプタが無いので日本語の準備中を返します。未成年が使うアプリに Gemini の API を既定で使わないためです。
 
-`verify_jwt = true` です。利用者は JWT から決めます。カロナビ+ は `public.calonavi_plus_entitlements` の `status = 'active'` かつ `expires_at > now()` です。この行はアプリが書きません。購入、復元、起動時の再読込は、StoreKit 2 の署名付き取引を `verify-store-transaction` に渡します。関数が Apple の署名を確かめ、`service_role` で行を書きます。写真で登録、AIで探す、自炊コーチは、その行が無い呼び出しを `not_plus` で返します。
+`verify_jwt = true` です。利用者は JWT から決めます。カロナビ+ は `public.calonavi_plus_entitlements` の `status = 'active'` かつ `expires_at > now()` です。この行はアプリが書きません。購入、復元、起動時の再読込は、StoreKit 2 の署名付き取引を `verify-store-transaction` に渡します。関数が Apple の署名を確かめ、`service_role` で行を書きます。写真で登録、AIで探す、自炊コーチは、その行が無い呼び出しを `not_plus` で返します。この確認の問い合わせが通信や 401・5xx で失敗したときは、300ms 待って1回だけやり直します。それでも失敗したら `not_plus` ではなく 503 の `provider_error`（「しばらくしてからもう一度」）を返します（`_shared/gate_check.ts`）。同意の確認（写真で登録、AIで探す）も同じです。
 
 審査と TestFlight は Sandbox の取引です。`verify-store-transaction` は Production と Sandbox のどちらも、Apple の署名が通り、bundleId と商品IDが合うとき受けます。Sandbox を拒む設定は置きません。
 

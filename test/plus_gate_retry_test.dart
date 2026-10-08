@@ -1,3 +1,5 @@
+import 'package:ayg/services/cook_coach_client.dart';
+import 'package:ayg/services/photo_meal_client.dart';
 import 'package:ayg/services/plus_gate_retry.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:functions_client/functions_client.dart';
@@ -38,5 +40,41 @@ void main() {
       throwsA(isA<FunctionException>()),
     );
     expect(calls, 1);
+  });
+
+  test('a temporary 503 from the Plus check is shown as try-again, not as not_plus', () async {
+    const photoBody = {
+      'ok': false,
+      'code': 'provider_error',
+      'message': '推定できませんでした。しばらくしてからもう一度試すか、手入力で記録できます。',
+    };
+    const cookBody = {
+      'ok': false,
+      'code': 'provider_error',
+      'message': '献立を作れませんでした。しばらくしてからもう一度試してください。',
+    };
+    var syncs = 0;
+    var calls = 0;
+    PlusGateRetry.bind(() async {
+      syncs += 1;
+      return true;
+    });
+    for (final body in [photoBody, cookBody]) {
+      expect(PlusGateRetry.isNotPlus(body), isFalse);
+      await expectLater(
+        PlusGateRetry.callOnce(() async {
+          calls += 1;
+          throw FunctionException(status: 503, details: body);
+        }),
+        throwsA(isA<FunctionException>()),
+      );
+    }
+    expect(syncs, 0);
+    expect(calls, 2);
+    // 写真で登録と AIで探すは photoMealMessageFromBody、自炊コーチは cookCoachMessageFromBody で表示する。
+    expect(photoMealMessageFromBody(photoBody), contains('しばらくしてから'));
+    expect(photoMealMessageFromBody('{"ok":false,"code":"provider_error","message":"推定できませんでした。しばらくしてからもう一度試すか、手入力で記録できます。"}'), contains('しばらくしてから'));
+    expect(cookCoachMessageFromBody(cookBody), contains('しばらくしてから'));
+    expect(cookCoachCodeFromBody(cookBody), 'provider_error');
   });
 }

@@ -1,4 +1,7 @@
 // AI機能で個人の入力を外部へ送る前の同意。版が一致する行があるときだけ送る。
+// 問い合わせ自体が失敗したときは false にせず投げる（呼び出し側で1回やり直し、だめなら一時的なエラーにする）。
+
+import { GateCheckError, gateRowsExist } from "./gate_check.ts";
 
 export const aiDataConsentVersion = "2026-10-08";
 
@@ -15,8 +18,11 @@ export async function hasAiDataConsent(args: {
   userId: string;
   fetchImpl: ConsentFetch;
 }): Promise<boolean> {
-  if (!args.base || !args.serviceKey || !args.userId) {
+  if (!args.userId) {
     return false;
+  }
+  if (!args.base || !args.serviceKey) {
+    throw new GateCheckError(null, "consent check not configured");
   }
   const url =
     `${args.base}/rest/v1/ai_data_consents?user_id=eq.${encodeURIComponent(args.userId)}` +
@@ -29,9 +35,11 @@ export async function hasAiDataConsent(args: {
       Accept: "application/json",
     },
   });
-  if (!response.ok) {
-    return false;
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
   }
-  const body = await response.json();
-  return Array.isArray(body) && body.length > 0;
+  return gateRowsExist({ ok: response.ok, status: response.status, body });
 }

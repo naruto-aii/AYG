@@ -7,6 +7,7 @@ import {
   type FoodCollectionRow,
 } from "../ai-food-collection.ts";
 import { hasAiDataConsent } from "../_shared/ai_data_consent.ts";
+import { checkGate, GateCheckError, gateRowsExist } from "../_shared/gate_check.ts";
 import { jpegBase64WithinEdge } from "./image.ts";
 import {
   checkPhotoCaps,
@@ -68,6 +69,7 @@ export type AnalyzeDeps = {
   userId: (req: Request) => Promise<string | null>;
   isPlus: (userId: string, now: Date) => Promise<boolean>;
   hasConsent?: (userId: string) => Promise<boolean>;
+  sleep?: (ms: number) => Promise<void>;
   usageRows: (userId: string, since: Date) => Promise<UsageRow[]>;
   insertUsage: (row: UsageInsert) => Promise<string | null>;
   insertCollections?: (rows: FoodCollectionRow[]) => Promise<Array<string | null>>;
@@ -173,12 +175,24 @@ export async function handleAnalyzeMealPhoto(
   const hasNote = presentText(note);
   const now = deps.now();
 
-  const plus = await deps.isPlus(userId, now);
-  if (!plus) {
+  // 確認の問い合わせが一時的に失敗したら1回やり直す。それでもだめなら not_plus ではなく一時的なエラーにする。
+  const gate = { sleep: deps.sleep, log: deps.log };
+  const plus = await checkGate(() => deps.isPlus(userId, now), { ...gate, label: "plus" });
+  if (plus === "unavailable") {
+    return fail("provider_error", 503);
+  }
+  if (plus === "no") {
     return fail("not_plus", 403);
   }
-  if (deps.hasConsent && !(await deps.hasConsent(userId))) {
-    return fail("consent_required", 403);
+  if (deps.hasConsent) {
+    const hasConsent = deps.hasConsent;
+    const consent = await checkGate(() => hasConsent(userId), { ...gate, label: "consent" });
+    if (consent === "unavailable") {
+      return fail("provider_error", 503);
+    }
+    if (consent === "no") {
+      return fail("consent_required", 403);
+    }
   }
 
   const limits = photoLimitsFromEnv(deps.env);
@@ -374,14 +388,14 @@ export function liveDeps(
     },
     async isPlus(userId, now) {
       if (!base || !serviceKey) {
-        return false;
+        throw new GateCheckError(null, "plus check not configured");
       }
       const cutoff = encodeURIComponent(now.toISOString());
       const url =
         `${base}/rest/v1/calonavi_plus_entitlements?user_id=eq.${userId}` +
         `&status=eq.active&expires_at=gt.${cutoff}&select=user_id&limit=1`;
       const result = await authedGet(url, serviceKey, fetchImpl);
-      return result.ok && Array.isArray(result.body) && result.body.length > 0;
+      return gateRowsExist(result);
     },
     hasConsent(userId) {
       return hasAiDataConsent({ base, serviceKey, userId, fetchImpl });

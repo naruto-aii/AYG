@@ -7,6 +7,7 @@ import {
   type PhotoAiEnv,
 } from "../analyze-meal-photo/policy.ts";
 import type { FetchLike, PhotoAiUsage } from "../analyze-meal-photo/provider.ts";
+import { checkGate, GateCheckError, gateRowsExist } from "../_shared/gate_check.ts";
 import { normalizeFoodName, type FoodRow, type MeasuredDish } from "./match.ts";
 import { cookRecipesFromDb, recipeStamp, selectCookPlans, type CookRecipe } from "./select.ts";
 
@@ -50,6 +51,7 @@ export type CookDeps = {
   now: () => Date;
   userId: (req: Request) => Promise<string | null>;
   isPlus: (userId: string, now: Date) => Promise<boolean>;
+  sleep?: (ms: number) => Promise<void>;
   dailyCount: (userId: string, since: Date) => Promise<number>;
   insertUsage: (row: CookUsageInsert) => Promise<string | null>;
   lookupFoods: (names: string[]) => Promise<FoodRow[]>;
@@ -159,7 +161,12 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
     return fail("bad_request", "食材を入れて、もう一度試してください。", 400);
   }
   const now = deps.now();
-  if (!await deps.isPlus(userId, now)) {
+  // Plus の確認が一時的に失敗したら1回やり直す。それでもだめなら not_plus ではなく一時的なエラーにする。
+  const plus = await checkGate(() => deps.isPlus(userId, now), { sleep: deps.sleep, log: deps.log, label: "plus" });
+  if (plus === "unavailable") {
+    return fail("provider_error", "献立を作れませんでした。しばらくしてからもう一度試してください。", 503);
+  }
+  if (plus === "no") {
     return fail("not_plus", "こちらはカロナビ+の機能です。", 403);
   }
   // 自炊コーチは外部へ何も送らないので、AIデータの同意は求めない。Plus の確認だけ行う。
@@ -471,14 +478,14 @@ export function liveDeps(
     },
     async isPlus(userId, now) {
       if (!base || !serviceKey) {
-        return false;
+        throw new GateCheckError(null, "plus check not configured");
       }
       const cutoff = encodeURIComponent(now.toISOString());
       const url =
         `${base}/rest/v1/calonavi_plus_entitlements?user_id=eq.${userId}` +
         `&status=eq.active&expires_at=gt.${cutoff}&select=user_id&limit=1`;
       const result = await authedFetch(url, serviceKey, fetchImpl);
-      return result.ok && Array.isArray(result.body) && result.body.length > 0;
+      return gateRowsExist(result);
     },
     async dailyCount(userId, since) {
       if (!base || !serviceKey) {

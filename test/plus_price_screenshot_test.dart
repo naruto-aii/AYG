@@ -223,6 +223,92 @@ void main() {
     expect(find.text('少し多かったから明日は150'), findsOneWidget);
     expect(find.text('メモを編集'), findsOneWidget);
   });
+
+  testWidgets('app store review shots are single 6.7-inch screens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1290, 2796);
+    tester.view.devicePixelRatio = 3;
+    tester.view.padding = FakeViewPadding.zero;
+    tester.view.viewPadding = FakeViewPadding.zero;
+    tester.view.viewInsets = FakeViewPadding.zero;
+    tester.view.systemGestureInsets = FakeViewPadding.zero;
+    addTearDown(tester.view.reset);
+
+    final directory = Directory('/opt/cursor/artifacts/screenshots')
+      ..createSync(recursive: true);
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        builder: (context, child) {
+          final media = MediaQuery.of(context);
+          return MediaQuery(
+            data: media.copyWith(
+              padding: EdgeInsets.zero,
+              viewPadding: EdgeInsets.zero,
+              viewInsets: EdgeInsets.zero,
+              systemGestureInsets: EdgeInsets.zero,
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: RepaintBoundary(
+          key: key,
+          child: CalonaviPlusEntryScreen(
+            repository: UnavailableSubscriptionRepository(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('9:41'), findsNothing);
+    expect(find.textContaining('Carrier'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await _writeAsc(
+      tester,
+      key,
+      File('${directory.path}/asc-review-paywall-features.png'),
+    );
+    expect(find.text('カロナビ+'), findsOneWidget);
+    expect(find.text('β版機能に先行アクセス出来ます！'), findsOneWidget);
+    expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
+    expect(find.text('写真で登録 (β)'), findsOneWidget);
+    _expectAbovePurchase(tester, 'ウィジェットでワンタップ記録');
+    _expectAbovePurchase(tester, '写真で登録 (β)');
+
+    await _alignPlans(tester);
+    expect(find.text('¥8,800で始める'), findsOneWidget);
+    _expectPlansOnScreen(tester);
+    await _writeAsc(
+      tester,
+      key,
+      File('${directory.path}/asc-review-paywall-annual.png'),
+    );
+
+    await tester.tap(find.byKey(const Key('plus-plan-monthly')));
+    await tester.pumpAndSettle();
+    expect(find.text('¥980で始める'), findsOneWidget);
+    _expectPlansOnScreen(tester);
+    await _writeAsc(
+      tester,
+      key,
+      File('${directory.path}/asc-review-paywall-monthly.png'),
+    );
+
+    await tester.tap(find.byKey(const Key('plus-plan-halfYear')));
+    await tester.pumpAndSettle();
+    expect(find.text('¥4,900で始める'), findsOneWidget);
+    _expectPlansOnScreen(tester);
+    await _writeAsc(
+      tester,
+      key,
+      File('${directory.path}/asc-review-paywall-half-year.png'),
+    );
+  });
 }
 
 Future<void> _captureFull(
@@ -291,6 +377,64 @@ Future<void> _capture(
     return frame.image;
   });
   expect(image!.width, greaterThan(100));
+}
+
+Future<void> _writeAsc(WidgetTester tester, GlobalKey key, File file) async {
+  final bytes = await tester.runAsync(
+    () => pngBytesFromBoundary(key, pixelRatio: 3),
+  );
+  expect(bytes, isNotNull);
+  file.writeAsBytesSync(bytes!);
+  final image = await tester.runAsync(() async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    codec.dispose();
+    return image;
+  });
+  expect(image!.width, 1290);
+  expect(image.height, 2796);
+  image.dispose();
+}
+
+Future<void> _alignPlans(WidgetTester tester) async {
+  final heading = find.text('プランを選ぶ');
+  await tester.scrollUntilVisible(heading, 500);
+  await tester.pumpAndSettle();
+  await Scrollable.ensureVisible(
+    tester.element(heading),
+    alignment: 0,
+    duration: Duration.zero,
+  );
+  await tester.pumpAndSettle();
+}
+
+void _expectPlansOnScreen(WidgetTester tester) {
+  final buttonTop = tester.getTopLeft(find.byKey(const Key('plus-purchase'))).dy;
+  final headingTop = tester.getTopLeft(find.text('プランを選ぶ')).dy;
+  expect(headingTop, greaterThanOrEqualTo(0));
+  expect(headingTop, lessThan(buttonTop));
+  for (final label in ['月額', '半年', '年額']) {
+    final rect = tester.getRect(find.text(label));
+    expect(rect.top, greaterThanOrEqualTo(0));
+    expect(rect.bottom, lessThan(buttonTop));
+  }
+  for (final price in [
+    '¥980 ・ いつでも解約できます',
+    '¥4,900 ・ 月あたり約817円',
+    '¥8,800 ・ 月あたり約733円',
+  ]) {
+    final rect = tester.getRect(find.text(price));
+    expect(rect.top, greaterThanOrEqualTo(0));
+    expect(rect.bottom, lessThanOrEqualTo(buttonTop));
+  }
+}
+
+void _expectAbovePurchase(WidgetTester tester, String text) {
+  final buttonTop = tester.getTopLeft(find.byKey(const Key('plus-purchase'))).dy;
+  final rect = tester.getRect(find.text(text));
+  expect(rect.top, greaterThanOrEqualTo(0));
+  expect(rect.bottom, lessThan(buttonTop));
 }
 
 class _StorePrices extends UnavailableSubscriptionRepository {

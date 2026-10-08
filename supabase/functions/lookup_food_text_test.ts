@@ -189,14 +189,26 @@ Deno.test("plus, caps, and shared spend block before the model", async () => {
   assertEquals((await notPlus.json()).code, "not_plus");
   const daily = await handleLookupFoodText(
     post("牛丼"),
-    deps({ calls, inserts, dayCount: 10 }),
+    deps({ calls, inserts, dayCount: 15 }),
   );
   const dailyBody = await daily.json();
   assertEquals(dailyBody.code, "daily_cap");
-  assertEquals(dailyBody.message, "きょうのAIで探すは、10回までです。手入力で記録できます。");
+  assertEquals(dailyBody.message, "本日の上限に達しました");
+  const underCalls: Array<Record<string, unknown>> = [];
+  const under = await handleLookupFoodText(
+    post("牛丼"),
+    deps({ calls: underCalls, dayCount: 14, monthSpendJpy: 9999 }),
+  );
+  assertEquals((await under.json()).ok, true);
+  assertEquals(underCalls.length, 1);
   const spend = await handleLookupFoodText(
     post("牛丼"),
-    deps({ calls, inserts, monthSpendJpy: 120 }),
+    deps({
+      calls,
+      inserts,
+      monthSpendJpy: 120,
+      env: { PHOTO_AI_MONTHLY_SPEND_JPY: "120" },
+    }),
   );
   assertEquals((await spend.json()).code, "spend_cap");
   assertEquals(calls.length, 0);
@@ -227,7 +239,7 @@ Deno.test("photo spend and text spend share one ceiling", () => {
     textRows: [{ createdAt: "2026-10-08T01:00:00Z", tier: "light", costJpy: 2 }],
     photoRows: [{ createdAt: "2026-10-08T02:00:00Z", tier: "heavy", costJpy: 118 }],
   });
-  assertEquals(usage.dayCount, 1);
+  assertEquals(usage.dayCount, 2);
   assertEquals(usage.monthCount, 1);
   assertEquals(usage.monthSpendJpy, 120);
   const prices = tokenPricesFromEnv("light", {});

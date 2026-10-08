@@ -152,7 +152,7 @@ export async function handleLookupFoodText(
   if (usage.dayCount >= limits.daily) {
     return fail("daily_cap", 429, limits);
   }
-  if (usage.monthCount >= limits.monthly) {
+  if (limits.monthly != null && usage.monthCount >= limits.monthly) {
     return fail("monthly_cap", 429, limits);
   }
 
@@ -179,7 +179,7 @@ export async function handleLookupFoodText(
     }, 200);
   }
 
-  if (usage.monthSpendJpy >= limits.spendJpy) {
+  if (limits.spendJpy != null && usage.monthSpendJpy >= limits.spendJpy) {
     return fail("spend_cap", 429, limits);
   }
 

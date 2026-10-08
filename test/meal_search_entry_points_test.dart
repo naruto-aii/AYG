@@ -142,7 +142,7 @@ void main() {
   }
 
   Future<void> openCombinedSearch(WidgetTester tester) async {
-    final searchTab = find.text('食品を探す');
+    final searchTab = find.text('検索');
     await tester.ensureVisible(searchTab);
     await tester.tap(searchTab);
     await tester.pumpAndSettle();
@@ -228,11 +228,9 @@ void main() {
 
     await tester.tap(find.text('食事を追加'));
     await tester.pumpAndSettle();
-    expect(find.text('撮る'), findsOneWidget);
-    expect(find.text('探す'), findsOneWidget);
+    expect(find.text('写真で登録'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
     expect(find.text('その他'), findsOneWidget);
-    expect(find.text('写真で登録 (β)'), findsOneWidget);
-    expect(find.text('食品を探す'), findsOneWidget);
     expect(find.text('保存済み'), findsNothing);
     expect(find.text('保存済み食品から選ぶ'), findsNothing);
     expect(find.text('食べたものを記録して、健康な毎日をつくりましょう'), findsNothing);
@@ -292,7 +290,7 @@ void main() {
     await tester.scrollUntilVisible(add, 200);
     await tester.tap(add);
     await tester.pumpAndSettle();
-    expect(find.text('食品を探す'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
     expectNoLegacyPublicScreen();
 
     await openCombinedSearch(tester);
@@ -318,7 +316,7 @@ void main() {
     await tester.ensureVisible(add);
     await tester.tap(add);
     await tester.pumpAndSettle();
-    expect(find.text('食品を探す'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
     expectNoLegacyPublicScreen();
 
     await openCombinedSearch(tester);

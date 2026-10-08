@@ -84,7 +84,9 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 既定の提供元は Anthropic です。写真に料理名と量が両方あるときだけ `claude-haiku-5-5`、写真だけ、または片方だけのときは `claude-sonnet-5-5` です。補足は振り分けに使いません。高性能の月間回数を超えて料理名か量が無いときは、モデルを呼ばず、名前と量を入れるよう返します。両方あれば軽いモデルのままです。日付の境は日本時間です。
 
-1日の回数、月の回数、高性能モデルの月間回数、1人あたりの月間費用は、すべて環境変数です。オーナーはまだ決めていません（TBD by owner）。未設定のときの仮置きは、1日10回、月120回、高性能モデル月20回、月120円です。これは決まった上限ではありません。画面の「○回まで」は、そのときの環境変数の値です。
+写真で登録と AIで探すは、どちらもカロナビ+だけです。無料の回数はありません。サーバは加入が無い呼び出しを 403 で返します。
+
+1日の回数は、写真で登録と AIで探すの合計です。未設定なら 15 回です。`AI_COMBINED_DAILY_LIMIT` を変えると、アプリを出さずに変わります。超えたときは「本日の上限に達しました」を返します。日付の境は日本時間です。月の回数と月の費用は、環境変数が空のあいだは止めません。オーナーはまだ決めていません。高性能モデルの月間回数の初期値は 20 のままです。
 
 推定はカロナビの食品データベースに合わせません。モデルは学習した知識だけから答えます。チェーン店やコンビニの公式な栄養成分、日本食品標準成分表、一般的なレシピのうち、その食事に合うものを使います。返った数値をデータベースの食品へ置き換えません。Web 検索は使いません。
 
@@ -107,7 +109,9 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 - `PHOTO_AI_PROVIDER`（`anthropic`）
 - `PHOTO_AI_LIGHT_MODEL`（`claude-haiku-5-5`）
 - `PHOTO_AI_HEAVY_MODEL`（`claude-sonnet-5-5`）
-- `PHOTO_AI_DAILY_LIMIT`、`PHOTO_AI_MONTHLY_LIMIT`、`PHOTO_AI_HEAVY_MONTHLY_LIMIT`、`PHOTO_AI_MONTHLY_SPEND_JPY`（空なら仮置き。オーナー未決）
+- `AI_COMBINED_DAILY_LIMIT`（`15`。写真で登録と AIで探すの合計。`PHOTO_AI_DAILY_LIMIT` は、こちらが空のときだけ同じ意味）
+- `PHOTO_AI_MONTHLY_LIMIT`、`PHOTO_AI_MONTHLY_SPEND_JPY`（空なら止めない。オーナー未決）
+- `PHOTO_AI_HEAVY_MONTHLY_LIMIT`（`20`）
 - `PHOTO_AI_USD_JPY`（`158`）
 - `PHOTO_AI_LIGHT_INPUT_USD_PER_MILLION`（`0.10`）、`PHOTO_AI_LIGHT_OUTPUT_USD_PER_MILLION`（`0.50`）、`PHOTO_AI_LIGHT_CACHE_READ_USD_PER_MILLION`（`0.01`）、`PHOTO_AI_LIGHT_CACHE_WRITE_USD_PER_MILLION`（`0.125`）
 - `PHOTO_AI_HEAVY_INPUT_USD_PER_MILLION`（`2`）、`PHOTO_AI_HEAVY_OUTPUT_USD_PER_MILLION`（`10`）、`PHOTO_AI_HEAVY_CACHE_READ_USD_PER_MILLION`（`0.10`）、`PHOTO_AI_HEAVY_CACHE_WRITE_USD_PER_MILLION`（`2.5`）
@@ -141,7 +145,7 @@ deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_
 
 検索語は、正規化してからプロンプトのデータの枠に入れます。指示としては読みません。同じ正規化の検索語の推定は、`ai_food_estimate_cache` にモデル名と期限つきで残します。これは食品の一覧としては出さず、利用者 ID も持ちません。期限は `TEXT_AI_CACHE_TTL_HOURS` です。空なら仮置きの 168 時間です。オーナーはまだ決めていません。
 
-1日と月の回数は AIで探すだけの環境変数です。空なら仮置きで、1日10回、月60回です。これも決まった上限ではありません。月間の費用は、写真で登録の `estimated_cost_jpy` と合算し、`PHOTO_AI_MONTHLY_SPEND_JPY` の仮置き（月120円）を共有します。キャッシュに当たった呼び出しの費用は 0 です。費用が上限以上でも、期限内のキャッシュは返せます。モデルは呼びません。回数の上限はキャッシュも数えます。
+1日の回数は写真で登録と合算し、`AI_COMBINED_DAILY_LIMIT`（空なら 15）です。超えたときは「本日の上限に達しました」です。月の回数は `TEXT_AI_MONTHLY_LIMIT` が空なら止めません。月間の費用は、写真で登録の `estimated_cost_jpy` と合算し、`PHOTO_AI_MONTHLY_SPEND_JPY` が空なら止めません。キャッシュに当たった呼び出しの費用は 0 です。費用の上限が設定されていて、それを超えていても、期限内のキャッシュは返せます。モデルは呼びません。回数の上限はキャッシュも数えます。AIで探すに無料の回数はありません。
 
 この変更では関数をデプロイせず、マイグレーションも本番へ適用しません。
 
@@ -151,8 +155,7 @@ deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_
 
 任意（未設定なら括弧の仮置き。回数と期限はオーナー未決）:
 
-- `TEXT_AI_DAILY_LIMIT`（`10`）
-- `TEXT_AI_MONTHLY_LIMIT`（`60`）
+- `TEXT_AI_MONTHLY_LIMIT`（空なら止めない。オーナー未決）
 - `TEXT_AI_CACHE_TTL_HOURS`（`168`）
 - `TEXT_AI_MAX_TOKENS`（`300`）
 

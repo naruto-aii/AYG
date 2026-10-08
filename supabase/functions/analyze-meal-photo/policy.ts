@@ -1,10 +1,9 @@
 // 写真で登録の振り分け、回数、費用。写真も API キーも持たない。
-// 回数と月間費用の初期値は仮置き。オーナーはまだ決めていない。
+// 1日の回数は、写真で登録と AIで探すの合計。月の回数と費用は、環境変数が無いあいだは止めない。
 
-export const photoDailyLimitDefault = 10;
-export const photoMonthlyLimitDefault = 120;
+export const combinedAiDailyLimitDefault = 15;
+export const photoDailyLimitDefault = combinedAiDailyLimitDefault;
 export const photoHeavyMonthlyLimitDefault = 20;
-export const photoMonthlySpendJpyDefault = 120;
 
 export const lightModelDefault = "claude-haiku-5-5";
 export const heavyModelDefault = "claude-sonnet-5-5";
@@ -43,19 +42,20 @@ export type CapCode = "daily_cap" | "monthly_cap" | "spend_cap";
 
 export type PhotoLimits = {
   daily: number;
-  monthly: number;
+  monthly: number | null;
   heavyMonthly: number;
-  spendJpy: number;
+  spendJpy: number | null;
 };
 
 export const defaultPhotoLimits: PhotoLimits = {
   daily: photoDailyLimitDefault,
-  monthly: photoMonthlyLimitDefault,
+  monthly: null,
   heavyMonthly: photoHeavyMonthlyLimitDefault,
-  spendJpy: photoMonthlySpendJpyDefault,
+  spendJpy: null,
 };
 
 export type PhotoAiEnv = {
+  AI_COMBINED_DAILY_LIMIT?: string;
   PHOTO_AI_DAILY_LIMIT?: string;
   PHOTO_AI_MONTHLY_LIMIT?: string;
   PHOTO_AI_HEAVY_MONTHLY_LIMIT?: string;
@@ -114,10 +114,10 @@ export function checkPhotoCaps(
   if (usage.dayCount >= limits.daily) {
     return "daily_cap";
   }
-  if (usage.monthCount >= limits.monthly) {
+  if (limits.monthly != null && usage.monthCount >= limits.monthly) {
     return "monthly_cap";
   }
-  if (usage.monthSpendJpy >= limits.spendJpy) {
+  if (limits.spendJpy != null && usage.monthSpendJpy >= limits.spendJpy) {
     return "spend_cap";
   }
   return null;
@@ -215,18 +215,45 @@ export function readPositiveInt(raw: string | undefined, fallback: number): numb
   return value >= 1 ? value : fallback;
 }
 
+function firstSet(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (value != null && value.trim() !== "") {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+export function readOptionalNonNegative(raw: string | undefined): number | null {
+  if (raw == null || raw.trim() === "") {
+    return null;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+/// 写真で登録と AIで探すで共有する1日の回数。アプリの更新は要らない。
+export function combinedDailyLimitFromEnv(env: PhotoAiEnv): number {
+  return readPositiveInt(
+    firstSet(env.AI_COMBINED_DAILY_LIMIT, env.PHOTO_AI_DAILY_LIMIT),
+    combinedAiDailyLimitDefault,
+  );
+}
+
 export function photoLimitsFromEnv(env: PhotoAiEnv): PhotoLimits {
+  const monthly = readOptionalNonNegative(env.PHOTO_AI_MONTHLY_LIMIT);
+  const spend = readOptionalNonNegative(env.PHOTO_AI_MONTHLY_SPEND_JPY);
   return {
-    daily: readNonNegativeInt(env.PHOTO_AI_DAILY_LIMIT, photoDailyLimitDefault),
-    monthly: readNonNegativeInt(env.PHOTO_AI_MONTHLY_LIMIT, photoMonthlyLimitDefault),
+    daily: combinedDailyLimitFromEnv(env),
+    monthly: monthly == null ? null : Math.floor(monthly),
     heavyMonthly: readNonNegativeInt(
       env.PHOTO_AI_HEAVY_MONTHLY_LIMIT,
       photoHeavyMonthlyLimitDefault,
     ),
-    spendJpy: readNonNegativeNumber(
-      env.PHOTO_AI_MONTHLY_SPEND_JPY,
-      photoMonthlySpendJpyDefault,
-    ),
+    spendJpy: spend,
   };
 }
 

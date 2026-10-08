@@ -251,10 +251,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('撮る'), findsOneWidget);
-    expect(find.text('探す'), findsOneWidget);
+    expect(find.text('写真で登録'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
     expect(find.text('その他'), findsOneWidget);
-    expect(find.text('写真で登録 (β)'), findsOneWidget);
     expect(find.text('手入力'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

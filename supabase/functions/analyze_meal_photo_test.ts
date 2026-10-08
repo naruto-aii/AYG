@@ -101,42 +101,44 @@ Deno.test("after 20 heavy uses, a missing field does not call the heavy model", 
   );
 });
 
-Deno.test("placeholder cap defaults are env-overridable and not a fixed product decision", () => {
+Deno.test("the shared daily cap is 15 and monthly spend stays off until set", () => {
   const base = {
     dayCount: 0,
     monthCount: 0,
     heavyMonthCount: 0,
     monthSpendJpy: 0,
   };
+  assertEquals(defaultPhotoLimits.daily, 15);
+  assertEquals(defaultPhotoLimits.monthly, null);
+  assertEquals(defaultPhotoLimits.spendJpy, null);
   assertEquals(checkPhotoCaps(base, defaultPhotoLimits), null);
   assertEquals(
-    checkPhotoCaps({ ...base, dayCount: defaultPhotoLimits.daily }, defaultPhotoLimits),
+    checkPhotoCaps({ ...base, dayCount: 14, monthCount: 500, monthSpendJpy: 9999 }, defaultPhotoLimits),
+    null,
+  );
+  assertEquals(
+    checkPhotoCaps({ ...base, dayCount: 15 }, defaultPhotoLimits),
     "daily_cap",
   );
-  assertEquals(
-    checkPhotoCaps({ ...base, monthCount: defaultPhotoLimits.monthly }, defaultPhotoLimits),
-    "monthly_cap",
-  );
-  assertEquals(
-    checkPhotoCaps({
-      ...base,
-      monthSpendJpy: defaultPhotoLimits.spendJpy,
-    }, defaultPhotoLimits),
-    "spend_cap",
-  );
+  assertEquals(photoMealMessage("daily_cap"), "本日の上限に達しました");
   const tuned = photoLimitsFromEnv({
+    AI_COMBINED_DAILY_LIMIT: "4",
     PHOTO_AI_DAILY_LIMIT: "2",
     PHOTO_AI_MONTHLY_LIMIT: "7",
     PHOTO_AI_HEAVY_MONTHLY_LIMIT: "3",
     PHOTO_AI_MONTHLY_SPEND_JPY: "4.5",
   });
-  assertEquals(tuned, { daily: 2, monthly: 7, heavyMonthly: 3, spendJpy: 4.5 });
+  assertEquals(tuned, { daily: 4, monthly: 7, heavyMonthly: 3, spendJpy: 4.5 });
   assertEquals(
-    photoMealMessage("daily_cap", tuned),
-    "きょうの写真での登録は、2回までです。手入力で記録できます。",
+    checkPhotoCaps({ ...base, monthCount: 7 }, tuned),
+    "monthly_cap",
   );
   assertEquals(
-    photoMealMessage("monthly_cap", tuned),
+    checkPhotoCaps({ ...base, monthSpendJpy: 4.5 }, tuned),
+    "spend_cap",
+  );
+  assertEquals(
+    photoMealMessage("monthly_cap", { monthly: tuned.monthly ?? undefined }),
     "今月の写真での登録は、7回までです。手入力で記録できます。",
   );
 });
@@ -485,22 +487,25 @@ Deno.test("caps and a missing key do not call the model", async () => {
     post({ image_base64: tinyJpeg, dish_name: "丼", amount: "1杯" }),
     deps({
       calls,
-      rows: Array.from({ length: 10 }, () => ({
+      rows: Array.from({ length: 15 }, () => ({
         createdAt: "2026-10-08T01:00:00Z",
         tier: "light" as const,
         costJpy: 0.1,
       })),
     }),
   );
-  assertEquals((await daily.json()).code, "daily_cap");
+  const dailyBody = await daily.json();
+  assertEquals(dailyBody.code, "daily_cap");
+  assertEquals(dailyBody.message, "本日の上限に達しました");
   const spend = await handleAnalyzeMealPhoto(
     post({ image_base64: tinyJpeg, dish_name: "丼", amount: "1杯" }),
     deps({
       calls,
+      env: { PHOTO_AI_MONTHLY_SPEND_JPY: "120" },
       rows: [{
         createdAt: "2026-10-01T00:00:00Z",
         tier: "light",
-        costJpy: defaultPhotoLimits.spendJpy,
+        costJpy: 120,
       }],
     }),
   );
@@ -537,7 +542,7 @@ Deno.test("configured caps replace the placeholder defaults", async () => {
     post({ image_base64: tinyJpeg, dish_name: "丼", amount: "1杯" }),
     deps({
       calls,
-      env: { PHOTO_AI_DAILY_LIMIT: "1" },
+      env: { AI_COMBINED_DAILY_LIMIT: "1" },
       rows: [{
         createdAt: "2026-10-08T01:00:00Z",
         tier: "light",
@@ -547,7 +552,7 @@ Deno.test("configured caps replace the placeholder defaults", async () => {
   );
   const body = await response.json();
   assertEquals(body.code, "daily_cap");
-  assertEquals(body.message, "きょうの写真での登録は、1回までです。手入力で記録できます。");
+  assertEquals(body.message, "本日の上限に達しました");
   assertEquals(calls.length, 0);
 });
 

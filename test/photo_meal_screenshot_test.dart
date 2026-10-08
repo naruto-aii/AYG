@@ -168,7 +168,7 @@ void main() {
     expect(find.text('700'), findsOneWidget);
   });
 
-  testWidgets('meal add shows 撮る, 探す, and その他', (tester) async {
+  testWidgets('meal add shows 写真で登録, 検索, and その他', (tester) async {
     final directory = Directory('/opt/cursor/artifacts/screenshots');
     directory.createSync(recursive: true);
     final controller = AppController();
@@ -181,13 +181,11 @@ void main() {
           userAgent: 'AYG/test (test@example.com)',
         ),
       ),
-      File('${directory.path}/meal_add_groups.png'),
+      File('${directory.path}/meal_add_three_groups.png'),
       find.text('その他'),
     );
-    expect(find.text('撮る'), findsOneWidget);
-    expect(find.text('探す'), findsOneWidget);
-    expect(find.text('写真で登録 (β)'), findsOneWidget);
-    expect(find.text('食品を探す'), findsOneWidget);
+    expect(find.text('写真で登録'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('バーコード'), findsOneWidget);
     expect(find.text('テンプレート'), findsOneWidget);

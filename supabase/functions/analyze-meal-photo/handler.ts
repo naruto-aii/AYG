@@ -362,31 +362,21 @@ export function liveDeps(
       if (!base || !serviceKey) {
         return [];
       }
-      const url =
+      const sinceParam = encodeURIComponent(since.toISOString());
+      const photoUrl =
         `${base}/rest/v1/meal_photo_analyses?user_id=eq.${userId}` +
-        `&created_at=gte.${encodeURIComponent(since.toISOString())}` +
-        `&select=created_at,tier,estimated_cost_jpy`;
-      const result = await authedGet(url, serviceKey, fetchImpl);
-      if (!result.ok || !Array.isArray(result.body)) {
-        return [];
-      }
-      const rows: UsageRow[] = [];
-      for (const item of result.body) {
-        if (item == null || typeof item !== "object") {
-          continue;
-        }
-        const row = item as Record<string, unknown>;
-        const tier = row.tier === "heavy" ? "heavy" : row.tier === "light" ? "light" : null;
-        const createdAt = typeof row.created_at === "string" ? row.created_at : "";
-        const cost = typeof row.estimated_cost_jpy === "number"
-          ? row.estimated_cost_jpy
-          : Number(row.estimated_cost_jpy);
-        if (!tier || !createdAt || !Number.isFinite(cost)) {
-          continue;
-        }
-        rows.push({ createdAt, tier, costJpy: cost });
-      }
-      return rows;
+        `&created_at=gte.${sinceParam}&select=created_at,tier,estimated_cost_jpy`;
+      const textUrl =
+        `${base}/rest/v1/meal_text_lookups?user_id=eq.${userId}` +
+        `&created_at=gte.${sinceParam}&select=created_at,estimated_cost_jpy`;
+      const [photo, text] = await Promise.all([
+        authedGet(photoUrl, serviceKey, fetchImpl),
+        authedGet(textUrl, serviceKey, fetchImpl),
+      ]);
+      return [
+        ...usageRowsFromBody(photo.ok ? photo.body : [], true),
+        ...usageRowsFromBody(text.ok ? text.body : [], false),
+      ];
     },
     async insertUsage(row) {
       if (!base || !serviceKey) {
@@ -428,4 +418,33 @@ export function liveDeps(
       return typeof id === "string" ? id : null;
     },
   };
+}
+
+function usageRowsFromBody(body: unknown, requireTier: boolean): UsageRow[] {
+  if (!Array.isArray(body)) {
+    return [];
+  }
+  const rows: UsageRow[] = [];
+  for (const item of body) {
+    if (item == null || typeof item !== "object") {
+      continue;
+    }
+    const row = item as Record<string, unknown>;
+    const tier = row.tier === "heavy"
+      ? "heavy"
+      : row.tier === "light"
+      ? "light"
+      : requireTier
+      ? null
+      : "light";
+    const createdAt = typeof row.created_at === "string" ? row.created_at : "";
+    const cost = typeof row.estimated_cost_jpy === "number"
+      ? row.estimated_cost_jpy
+      : Number(row.estimated_cost_jpy);
+    if (!tier || !createdAt || !Number.isFinite(cost)) {
+      continue;
+    }
+    rows.push({ createdAt, tier, costJpy: cost });
+  }
+  return rows;
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../config/demo_mode.dart';
 import '../../constants/app_strings.dart';
+import '../../demo/demo_authentication_repository.dart';
 import '../../platform/web/in_app_browser_detector.dart';
 import '../../platform/web/web_browser_utils.dart';
 import '../../repositories/auth_exceptions.dart';
@@ -65,6 +67,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signInWithApple() =>
       _signIn(widget.authenticationRepository.loginWithApple, 'Apple');
+
+  Future<void> _signInAsDemo() async {
+    final repository = widget.authenticationRepository;
+    if (repository is DemoAuthenticationRepository) {
+      await _signIn(repository.loginAsDemo, 'デモ');
+    }
+  }
 
   /// Google / Apple 共通のログイン処理。
   /// キャンセルは何も出さず、失敗だけ通知する。
@@ -255,6 +264,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         glyphSize: 24,
                         onPressed: _isLoading ? null : _signInWithApple,
                       ),
+                      if (calonaviDemoMode) ...[
+                        const SizedBox(height: 4),
+                        TextButton(
+                          key: const Key('demo-sign-in'),
+                          onPressed: _isLoading ? null : _signInAsDemo,
+                          child: Text(
+                            'デモではじめる',
+                            style: AppTypography.labelM.copyWith(
+                              color: AppColors.textBrand,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

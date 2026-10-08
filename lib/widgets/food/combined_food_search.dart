@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../config/demo_mode.dart';
+import '../../demo/demo_catalog.dart';
 import '../../models/official_food.dart';
 import '../../models/official_food_list_label.dart';
 import '../../models/public_food_search_match.dart';
@@ -311,7 +313,11 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
       source: FoodSearchSources.officialFood,
       query: query,
     );
-    final repository = widget.officialFoods ?? SupabaseOfficialFoodRepository();
+    final repository =
+        widget.officialFoods ??
+        (calonaviDemoMode
+            ? DemoOfficialFoodRepository()
+            : SupabaseOfficialFoodRepository());
     if (repository is SupabaseOfficialFoodRepository) {
       return repository.searchReporting(query);
     }
@@ -325,6 +331,9 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
   Future<({List<PublicFoodSearchMatch> rows, String? error})> _loadPublic(
     String query,
   ) async {
+    if (calonaviDemoMode && widget.searchPublic == null) {
+      return (rows: const <PublicFoodSearchMatch>[], error: null);
+    }
     try {
       final search = widget.searchPublic;
       final rows = search != null

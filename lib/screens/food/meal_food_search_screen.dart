@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../config/demo_mode.dart';
+import '../../demo/demo_ai.dart';
 import '../../models/official_food.dart';
 import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
@@ -48,7 +50,9 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
       controller: widget.controller,
       query: query,
       loggedAt: widget.loggedAt ?? DateTime.now(),
-      client: widget.aiLookup,
+      client:
+          widget.aiLookup ??
+          (calonaviDemoMode ? demoAiFoodLookupClient() : null),
     );
     if (saved && mounted) {
       Navigator.of(context).pop(true);

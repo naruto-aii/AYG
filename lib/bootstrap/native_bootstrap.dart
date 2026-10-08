@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app.dart';
+import '../config/demo_mode.dart';
 import '../config/development_plus_preview.dart';
 import '../config/test_purchase.dart';
 import '../config/open_food_facts_config.dart';
@@ -18,6 +21,9 @@ import '../repositories/food_master_repositories.dart';
 import '../repositories/food_repository.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/saved_food_repository.dart';
+import '../demo/demo_authentication_repository.dart';
+import '../demo/demo_catalog.dart';
+import '../demo/demo_subscription_repository.dart';
 import '../repositories/first_meal_guide_store.dart';
 import '../repositories/local_session_store.dart';
 import '../repositories/meal_template_repository.dart';
@@ -57,14 +63,17 @@ import '../state/app_controller.dart';
 Future<void> bootstrapApp() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (SupabaseConfig.isConfigured) {
+  final remote = !calonaviDemoMode && SupabaseConfig.isConfigured;
+  if (remote) {
     await Supabase.initialize(
       url: SupabaseConfig.url,
       anonKey: SupabaseConfig.anonKey,
     );
   }
 
-  final isar = await IsarService.open();
+  final isar = await IsarService.open(
+    directory: calonaviDemoMode ? await _demoDirectory() : null,
+  );
   final weightRepository = WeightRepository(isar);
   final userRepository = UserRepository(isar);
   final settingsRepository = SettingsRepository(isar);
@@ -75,7 +84,7 @@ Future<void> bootstrapApp() async {
   final mealTemplateRepository = MealTemplateRepository(isar);
   final workoutTemplateRepository = WorkoutTemplateRepository(isar);
 
-  final foodMasterRepositories = SupabaseConfig.isConfigured
+  final foodMasterRepositories = remote
       ? FoodMasterRepositories.synced(
           localSavedFoods: savedFoodRepository,
           mealTemplates: mealTemplateRepository,
@@ -102,14 +111,15 @@ Future<void> bootstrapApp() async {
     isar: isar,
   );
 
-  final AuthenticationRepository authenticationRepository =
-      SupabaseConfig.isConfigured
+  final AuthenticationRepository authenticationRepository = calonaviDemoMode
+      ? DemoAuthenticationRepository()
+      : remote
       ? SupabaseAuthenticationRepository()
       : UnconfiguredAuthenticationRepository();
 
   final preferences = await SharedPreferences.getInstance();
   final pendingRecords = PendingRecordStore(preferences: preferences);
-  final DataSyncRepository dataSyncRepository = SupabaseConfig.isConfigured
+  final DataSyncRepository dataSyncRepository = remote
       ? SupabaseDataSyncRepository(
           userRepository: userRepository,
           settingsRepository: settingsRepository,
@@ -160,13 +170,18 @@ Future<void> bootstrapApp() async {
     appVersion: appVersion,
     appBuild: appBuild,
     onUnauthorized: () async {
-      if (SupabaseConfig.isConfigured) {
+      if (remote) {
         await Supabase.instance.client.auth.refreshSession();
       }
     },
     onConsentRow: uploadAnalyticsConsent,
   );
-  analytics.deviceModel = await bridge.deviceModel();
+  try {
+    analytics.deviceModel = await bridge.deviceModel();
+  } catch (error, stackTrace) {
+    debugPrint('[AYG] device model unavailable: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
   Analytics.service = analytics;
   AnalyticsRuntime.preferences = preferences;
   AnalyticsRuntime.lifecycle = AnalyticsLifecycle(
@@ -178,12 +193,20 @@ Future<void> bootstrapApp() async {
     preferences: preferences,
   );
   AnalyticsRuntime.routes = AnalyticsRouteObserver(service: analytics);
-  final subscriptionRepository = StoreKitSubscriptionRepository(
-    preferences: preferences,
-    developmentPlusPreview: developmentPlusPreview,
-    testPurchaseEnabled: testPurchaseEnabled,
-  );
-  await subscriptionRepository.initialize();
+  final subscriptionRepository = calonaviDemoMode
+      ? DemoSubscriptionRepository()
+      : StoreKitSubscriptionRepository(
+          preferences: preferences,
+          developmentPlusPreview: developmentPlusPreview,
+          testPurchaseEnabled: testPurchaseEnabled,
+        );
+  if (subscriptionRepository is StoreKitSubscriptionRepository) {
+    await subscriptionRepository.initialize();
+  }
+  if (calonaviDemoMode) {
+    await seedDemoSavedFoods(savedFoodRepository);
+    await const FirstMealGuideStore().markSeen();
+  }
 
   final controller = AppController(
     healthRepository: healthRepository,
@@ -208,13 +231,13 @@ Future<void> bootstrapApp() async {
     siriVoiceGateway: SiriVoiceGatewayImpl(),
     pendingRecords: pendingRecords,
     subscriptionRepository: subscriptionRepository,
-    usageRecordRepository: SupabaseConfig.isConfigured
+    usageRecordRepository: remote
         ? SupabaseUsageRecordRepository()
         : const NoOpUsageRecordRepository(),
-    coachProposalLog: SupabaseConfig.isConfigured
+    coachProposalLog: remote
         ? SupabaseCoachProposalLog()
         : const NoOpCoachProposalLog(),
-    plusFunnelRepository: SupabaseConfig.isConfigured
+    plusFunnelRepository: remote
         ? SupabasePlusFunnelRepository()
         : const NoOpPlusFunnelRepository(),
     reviewPromptStore: PreferencesReviewPromptStore(preferences: preferences),
@@ -230,4 +253,12 @@ Future<void> bootstrapApp() async {
       showSplash: true,
     ),
   );
+}
+
+Future<String> _demoDirectory() async {
+  final home = Platform.environment['HOME'];
+  final root = (home == null || home.isEmpty) ? '/tmp' : home;
+  final directory = Directory('$root/Documents/calonavi-demo');
+  await directory.create(recursive: true);
+  return directory.path;
 }

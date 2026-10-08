@@ -28,7 +28,10 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../config/demo_mode.dart';
 import '../../constants/app_strings.dart';
+import '../../demo/demo_ai.dart';
+import '../../demo/demo_meal_photo.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_base_serving_format.dart';
@@ -830,7 +833,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         builder: (context) => PhotoMealScreen(
           controller: widget.controller,
           loggedAt: _loggedAt,
-          client: PhotoMealClient.supabase(),
+          client: calonaviDemoMode
+              ? demoPhotoMealClient()
+              : PhotoMealClient.supabase(),
+          source: calonaviDemoMode ? const DemoMealPhotoSource() : null,
+          recordEdit: calonaviDemoMode ? (_, _) async {} : null,
         ),
       ),
     );
@@ -845,7 +852,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       controller: widget.controller,
       query: query,
       loggedAt: _loggedAt,
-      client: widget.aiLookup,
+      client:
+          widget.aiLookup ??
+          (calonaviDemoMode ? demoAiFoodLookupClient() : null),
     );
     if (saved && mounted) {
       Navigator.of(context).pop(true);
@@ -1215,7 +1224,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   }
 }
 
-/// 食事を追加の入口。撮る、探す、その他。検索と保存の処理は変えない。
+/// 食事を追加の入口。写真で登録、検索、その他。検索と保存の処理は変えない。
 class _MealAddGroups extends StatelessWidget {
   const _MealAddGroups({
     required this.showPhoto,
@@ -1238,11 +1247,9 @@ class _MealAddGroups extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showPhoto) ...[
-          Text('撮る', style: AppTypography.titleS),
-          const SizedBox(height: 8),
           DesignButton(
             key: const Key('meal-add-photo'),
-            label: '写真で登録 (β)',
+            label: '写真で登録',
             showTrailingIcon: false,
             leading: const DesignIcon(
               Symbols.photo_camera_rounded,
@@ -1253,11 +1260,9 @@ class _MealAddGroups extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
         ],
-        Text('探す', style: AppTypography.titleS),
-        const SizedBox(height: 8),
         DesignButton(
           key: const Key('meal-add-search'),
-          label: '食品を探す',
+          label: '検索',
           style: DesignButtonStyle.outline,
           showTrailingIcon: false,
           leading: const DesignIcon(

@@ -104,7 +104,7 @@ void main() {
     );
   }
 
-  testWidgets('撮る・探す・その他 still opens the same three search headings', (
+  testWidgets('写真で登録・検索・その他 still opens the same three search headings', (
     tester,
   ) async {
     final controller = AppController();
@@ -124,16 +124,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('撮る'), findsOneWidget);
-    expect(find.text('探す'), findsOneWidget);
+    expect(find.text('写真で登録'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
     expect(find.text('その他'), findsOneWidget);
-    expect(find.text('写真で登録 (β)'), findsOneWidget);
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('バーコード'), findsOneWidget);
     expect(find.text('テンプレート'), findsOneWidget);
     expect(find.byKey(const ValueKey('food_name_field')), findsOneWidget);
 
-    await tester.tap(find.text('食品を探す'));
+    await tester.tap(find.text('検索'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('meal-food-search-field')),

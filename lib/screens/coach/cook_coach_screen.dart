@@ -534,15 +534,45 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
   }
 
   Widget _results(CookCoachResult result) {
+    if (result.patterns.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            result.emptyMessage,
+            key: const Key('cook_empty'),
+            style: AppTypography.bodyM,
+          ),
+          const SizedBox(height: 12),
+          DesignButton(
+            key: const Key('cook_back_to_input'),
+            label: '食材を変える',
+            height: 48,
+            style: DesignButtonStyle.secondary,
+            showTrailingIcon: false,
+            onPressed: _busy ? null : () => setState(() => _result = null),
+          ),
+        ],
+      );
+    }
+    final hasEstimate = result.patterns.any(
+      (dish) => dish.ingredients.any((item) => !item.fromDatabase),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '合計は成分表の行の和です。無い食品はAIの目安です。',
+          '合計は、材料の行を足した値です。',
           style: AppTypography.caption.copyWith(height: 1.15),
         ),
+        if (hasEstimate)
+          Text(
+            '成分表に無い食品はAIの目安です。',
+            key: const Key('cook_estimate_note'),
+            style: AppTypography.caption.copyWith(height: 1.15),
+          ),
         for (final dish in result.patterns) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
           _dishCard(dish),
         ],
         if (_error != null) ...[
@@ -563,39 +593,93 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
   }
 
   Widget _dishCard(CookDish dish) {
-    final title = dish.kind == 'extra' ? '足す食材あり' : '手元の食材だけ';
-    final line = AppTypography.caption.copyWith(
+    final onHand = dish.kind != 'extra';
+    final title = onHand ? '手持ちだけで作れます' : '買い足しで作れます';
+    final line = AppTypography.bodyS.copyWith(
       color: AppColors.textPrimary,
-      height: 1.2,
-      fontWeight: FontWeight.w500,
+      height: 1.35,
     );
-    final emphasis = AppTypography.titleS.copyWith(height: 1.15, fontSize: 14);
+    final emphasis = AppTypography.titleM.copyWith(height: 1.2);
     return DesignCard(
       key: Key('cook_pattern_${dish.kind}'),
-      padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: line.copyWith(color: AppColors.textMuted)),
-          Text(dish.name, style: emphasis),
-          if (dish.extras.isNotEmpty)
-            Text(
-              '足すもの: ${dish.extras.join('、')}',
-              style: line,
-            ),
-          if (dish.omitNote.isNotEmpty)
+          Text(title, style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
+          const SizedBox(height: 4),
+          Text(dish.name, style: AppTypography.headingM),
+          if (dish.minutes > 0) ...[
+            const SizedBox(height: 4),
+            Text('調理の目安 ${dish.minutes}分', style: AppTypography.titleM),
+          ],
+          if (dish.extras.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('買い足すもの: ${dish.extras.join('、')}', style: line),
+          ],
+          if (dish.omitNote.isNotEmpty) ...[
+            const SizedBox(height: 4),
             Text(dish.omitNote, style: line),
-          for (final item in dish.ingredients)
-            Text(
-              '${cookIngredientAmount(item.name, item.grams)}　${item.kcal}kcal　${item.fromDatabase ? '成分表' : 'AIの目安'}',
-              key: Key('cook_ingredient_${dish.kind}_${item.name}'),
-              style: line,
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: Text('材料', style: AppTypography.caption)),
+              SizedBox(
+                width: 88,
+                child: Text('量', textAlign: TextAlign.right, style: AppTypography.caption),
+              ),
+              SizedBox(
+                width: 64,
+                child: Text('kcal', textAlign: TextAlign.right, style: AppTypography.caption),
+              ),
+            ],
+          ),
+          for (final item in dish.ingredients) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    item.assumed
+                        ? '${item.name}（家にあるもの）'
+                        : item.extra
+                        ? '${item.name}（買い足し）'
+                        : item.name,
+                    key: Key('cook_ingredient_${dish.kind}_${item.name}'),
+                    style: line,
+                  ),
+                ),
+                SizedBox(
+                  width: 88,
+                  child: Text(
+                    _cookAmount(item.name, item.grams),
+                    textAlign: TextAlign.right,
+                    style: line,
+                  ),
+                ),
+                SizedBox(
+                  width: 64,
+                  child: Text(
+                    '${item.kcal}',
+                    key: Key('cook_kcal_${dish.kind}_${item.name}'),
+                    textAlign: TextAlign.right,
+                    style: line,
+                  ),
+                ),
+              ],
             ),
-          for (var i = 0; i < dish.steps.length; i++)
+          ],
+          const SizedBox(height: 12),
+          for (var i = 0; i < dish.steps.length; i++) ...[
+            if (i > 0) const SizedBox(height: 6),
             Text(
               '${i + 1}. ${dish.steps[i]}',
               style: line.copyWith(color: AppColors.textSecondary),
             ),
+          ],
+          const SizedBox(height: 12),
           Text(
             '${dish.kcal}kcal　P ${dish.proteinG}g　F ${dish.fatG}g　C ${dish.carbG}g',
             key: Key('cook_totals_${dish.kind}'),
@@ -697,4 +781,10 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
       ),
     );
   }
+}
+
+String _cookAmount(String name, int grams) {
+  final full = cookIngredientAmount(name, grams);
+  final split = full.indexOf(' ');
+  return split < 0 ? full : full.substring(split + 1);
 }

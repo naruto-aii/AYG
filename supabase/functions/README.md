@@ -135,9 +135,31 @@ deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_
 
 ## 自炊コーチ
 
-`cook-coach` は、手元の食材とこの食事の目標（kcal と PFC）を受け取り、家庭で作る料理を返します。モデルは料理の中身だけを決めます。kcal と PFC は `official_foods` の値で計算し直します。成分表に無い食品だけ、モデルの目安を使い、画面では「AIの目安」と出します。目標との差は残したまま返します。
+`cook-coach` は、手元の食材とこの食事の目標（kcal と PFC）を受け取り、確認済みの家庭料理から1品を返します。料理はモデルが作りません。リクエストのたびに `cook_recipes` と `cook_recipe_options` を読み、選んだ食品の `official_foods` で kcal と PFC を計算します。レシピはアプリに埋め込まず、応答キャッシュにもカタログ自体は入れません。行を足すと、アプリの更新なしに候補が増えます。
 
-届ける範囲は、kcal が目標の ±10%、P/F/C がそれぞれ ±15% か ±5g の広い方です。分量は一律の倍率ではなく、食材ごとの現実的な下限と上限の中で、kcal と PFC の差が小さくなるグラムを解きます。卵は 50g 刻み、ごはんは使うとき 100〜300g、肉と魚は 60〜250g、油は 15g まで、塩は 3g まで、しょうゆとみりんは 18g までです。下限を入れると目標を超える食材は、行から外して理由を書きます。塩・しょうゆ・サラダ油・砂糖・みりんは、利用者が避けていなければ家にあるものとして材料に足し、グラムと kcal を行に出します。手元の食材だけで届かないときは、スーパーで足す食材を 1 つか 2 つまで足して、もう一度解きます。画面の合計は、その行を足した値です。差は目標からその合計を引き、範囲内の表示もその差で決めます。届かないときは、どの栄養がどれだけ足りないかを文で返します。スキーマ違反、料理名と材料の不一致、家庭で作れない手順のときだけ、測った値を渡してもう 1 回モデルを呼びます。切って盛るだけ、生の材料を並べるだけ、料理名が材料の羅列、合計が5分未満も、同じ1回の作り直しです。火を使わないのは、冷奴や和え物のように調味する料理だけです。3 回目は呼びません。成分表に無く、モデルの kcal が食品の目安から大きく外れるときは、区分の目安に置き換えます。同じ食材と、10kcal 単位に丸めた目標は `cook_coach_cache` から返し、モデルは呼びません。思考はオフ、出力は短い JSON、固定のシステムプロンプトは prompt caching です。モデルは `PHOTO_AI_LIGHT_MODEL`（空なら `claude-haiku-5-5`）です。`COOK_AI_MAX_TOKENS` の初期値は 640 です。
+各材料は、そのレシピで成立する入れ替え候補だけを持ちます。名前は `{protein}` のようなテンプレで、入れ替え後も自然な料理名になります。重量は代替食材ごとの基準gで、主食は 0.5〜1.5 倍、それ以外は 0.8〜1.2 倍の範囲だけ動かします。親子丼に鮭は入りません。候補はレシピごとに明示します。
+
+届ける範囲は、kcal が目標の ±10%（端数 0.51）、P/F/C がそれぞれ ±15% か ±5g の広い方（端数 0.05）です。範囲に入らない組み合わせは返しません。塩・しょうゆ・サラダ油・砂糖・みりん・味噌・酢・こしょう・顆粒だし・料理酒・ごはんは、利用者が避けていなければ家にあるものとして材料に出します。パン・うどん・そば・パスタは家にあるものにしません。手元だけで届かないときは、その料理で使う食材を 1 つか 2 つ買い足す案を出します。買い足し案も、入力した食材を少なくとも1つ使います。どちらも無いときは、空の配列と案内文を返します。空の結果は1日の回数に数えません。
+
+手持ちだけで作れる案が0件の入力は、正規化した食材名と時刻だけを `cook_zero_on_hand` に残します。`user_id` は持ちません。どの組み合わせが多いかは次で見ます。
+
+```sql
+select ingredients, count(*) as zero_count
+from public.cook_zero_on_hand
+group by ingredients
+order by zero_count desc, ingredients;
+
+select array_to_string(ingredients, '、') as foods, count(*) as zero_count
+from public.cook_zero_on_hand
+group by ingredients
+order by zero_count desc, foods;
+```
+
+品質チェックは型を全展開して見ます。
+
+```sh
+deno run -A supabase/functions/cook-coach/check_recipes.ts
+```
 
 採点だけ（ネットワーク無し）:
 
@@ -152,35 +174,41 @@ COOK_EVAL_CALL_CAP=5 COOK_EVAL_URL=https://<project>.supabase.co/functions/v1/co
   COOK_EVAL_TOKEN=<jwt> deno run -A supabase/functions/cook_coach_eval.ts --live
 ```
 
-1日の回数は、写真で登録（`meal_photo_analyses`）と、この表の `cook_coach` と `ai_search` を合わせて数えます。初期値は 15 回です。`AI_DAILY_LIMIT` で変えます。AIで探すは、モデルを1回呼ぶたびに `ai_feature_uses` へ `feature = 'ai_search'` の行を1件追加します。写真で登録の行は、この表には入れません。
+1日の回数は、写真で登録（`meal_photo_analyses`）と、`ai_feature_uses` の `cook_coach` と `ai_search` を合わせて数えます。初期値は 15 回です。献立を返せたときだけ、トークン 0 の `cook_coach` 行を1件追加します。モデルは呼びません。
 
 この変更では関数をデプロイせず、マイグレーションも本番へ適用しません。
 
 `verify_jwt = true` です。利用者は JWT から決めます。カロナビ+ は `public.calonavi_plus_entitlements` の `status = 'active'` かつ `expires_at > now()` です。
 
-### シークレットと環境変数
+### レシピを足す
 
-`ANTHROPIC_API_KEY` は写真で登録と同じです。単価も `PHOTO_AI_USD_JPY` と `PHOTO_AI_LIGHT_*` を使います。
+1. `supabase/functions/cook-coach/recipes.ts` に型を足す。候補は、その調理で成立するものだけにする。
+2. `deno run -A supabase/functions/cook-coach/check_recipes.ts` が 0 で終わることを確認する。
+3. seed を出し直す。
 
-任意:
+```sh
+deno run -A supabase/functions/cook-coach/emit_recipes_sql.ts > supabase/seed/cook_recipes.sql
+```
 
-- `AI_DAILY_LIMIT`（`15`。写真で登録、自炊コーチ、AIで探すの合計）
-- `COOK_AI_MAX_TOKENS`（`640`）
-- `PHOTO_AI_LIGHT_MODEL`（`claude-haiku-5-5`）
-- `PHOTO_AI_LIGHT_THINKING` は自炊コーチでは使いません。思考はオフ固定です。
+4. `official_foods` が入っているデータベースで `supabase/seed/cook_recipes.sql` を流す。参照する食品番号が足りないときは、何も入れずに戻る。
+5. アプリの更新は要りません。次のリクエストから新しい行が候補になります。
 
 ### 公開前の順番
 
-1. `supabase/migrations/20261008180000_ai_feature_uses.sql` を、`20261008140000_meal_photo_analyses.sql` のあとに適用する。本番へはまだ適用していない。
-2. `ANTHROPIC_API_KEY` が入っていることを確認する。回数を変えるときだけ `AI_DAILY_LIMIT` を足す。
-3. `cook-coach` をデプロイする。この変更ではデプロイしない。
-4. そのあとで、自炊コーチを出すアプリを出す。マイグレーションより先に出すと、上限の記録は書けません。食事の保存自体は、既存の食事の経路なのでマイグレーションが無くてもできます。
+1. `supabase/migrations/20261008180000_ai_feature_uses.sql` を適用する。本番へはまだ適用していない。
+2. `supabase/migrations/20261008193000_cook_recipes.sql` を適用する。本番へはまだ適用していない。
+3. `official_foods` があるデータベースで `supabase/seed/cook_recipes.sql` を流す。
+4. `cook-coach` をデプロイする。この変更ではデプロイしない。
+5. そのあとで、自炊コーチを出すアプリを出す。
 
-戻すときは、関数を消してから `supabase/rollback/20261008180000_ai_feature_uses_down.sql` を手で流す。食事の行は残る。
+戻すときは、関数を消してから `supabase/rollback/20261008193000_cook_recipes_down.sql` と `supabase/rollback/20261008180000_ai_feature_uses_down.sql` を手で流す。食事の行は残る。
+
+任意の環境変数は `AI_DAILY_LIMIT`（`15`。写真で登録、自炊コーチ、AIで探すの合計）です。献立の選定に `ANTHROPIC_API_KEY` は使いません。
 
 ### テスト
 
 ```sh
 deno test --config supabase/functions/deno.json supabase/functions/cook_coach_test.ts
 deno run -A supabase/functions/cook_coach_eval.ts
+deno run -A supabase/functions/cook-coach/check_recipes.ts
 ```

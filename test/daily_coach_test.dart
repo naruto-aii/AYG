@@ -159,7 +159,7 @@ void main() {
       );
       expect(
         message,
-        '戻すにはランニングで約124分です。今日やるなら30分までにします。30分で約180kcal戻ります。残りの約564kcalは明日以降の食事で。',
+        '今日はランニング30分（約180kcal）がおすすめです。残り約564kcalは明日以降の食事で調整しましょう。',
       );
     },
   );
@@ -196,7 +196,7 @@ void main() {
         exercises: const [],
       );
       expect(large, contains('速歩き'));
-      expect(large, contains('20分で約48kcal戻ります'));
+      expect(large, contains('20分（約48kcal）'));
       expect(large, isNot(contains('ランニング')));
 
       final small = buildCoachExerciseMessage(
@@ -241,7 +241,8 @@ void main() {
       );
       expect(message, contains('自重トレーニング'));
       expect(message, contains('30分'));
-      expect(message, contains('kcal戻ります'));
+      expect(message, contains('（約57kcal）'));
+      expect(message, contains('がおすすめです'));
       expect(message, isNot(contains('ランニング')));
     },
   );
@@ -310,7 +311,7 @@ void main() {
       );
       expect(
         proposal!.message,
-        '戻すにはランニングで約124分です。今日やるなら30分までにします。30分で約180kcal戻ります。残りの約564kcalは明日以降の食事で。',
+        '今日はランニング30分（約180kcal）がおすすめです。残り約564kcalは明日以降の食事で調整しましょう。',
       );
       expect(proposal.activityId, 'running');
       expect(proposal.unit, CoachExerciseUnit.minutes);

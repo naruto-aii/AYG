@@ -54,6 +54,7 @@ export type MeasuredIngredient = {
   foodCode: string | null;
   officialName: string | null;
   extra: boolean;
+  assumed?: boolean;
 };
 
 export type MeasuredDish = {
@@ -68,6 +69,7 @@ export type MeasuredDish = {
   issues: string[];
   gapReason: string;
   omitNote: string;
+  minutes?: number;
 };
 
 export type Tolerance = {

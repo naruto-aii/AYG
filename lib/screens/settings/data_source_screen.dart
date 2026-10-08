@@ -68,7 +68,7 @@ class DataSourceScreen extends StatelessWidget {
                 Text('自炊コーチ (β) の栄養', style: AppTypography.titleS),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '料理の中身はAIが決めます。食材のグラムに対するカロリーとPFCは、日本食品標準成分表の値で計算します。成分表に無い食品だけ、AIの目安を使います。画面に、この食事の目標との差を出します。',
+                  '料理は、確認済みの家庭料理から選びます。食材のグラムに対するカロリーとPFCは、日本食品標準成分表の値で計算します。画面に、この食事の目標との差を出します。',
                   style: body,
                 ),
               ],

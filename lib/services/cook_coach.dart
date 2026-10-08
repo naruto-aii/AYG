@@ -18,6 +18,7 @@ class CookIngredient {
     this.foodCode,
     this.officialName,
     this.extra = false,
+    this.assumed = false,
   });
 
   final String name;
@@ -32,6 +33,7 @@ class CookIngredient {
   final String? foodCode;
   final String? officialName;
   final bool extra;
+  final bool assumed;
 
   bool get fromDatabase => source == 'db' && (foodCode ?? '').isNotEmpty;
 }
@@ -54,6 +56,7 @@ class CookDish {
     this.withinTolerance = false,
     this.gapReason = '',
     this.omitNote = '',
+    this.minutes = 0,
   });
 
   /// on_hand か extra。
@@ -79,6 +82,9 @@ class CookDish {
 
   /// 一緒にしない食材を外したときの一文。
   final String omitNote;
+
+  /// レシピの調理時間。
+  final int minutes;
 }
 
 class CookModelCallUsage {
@@ -98,11 +104,13 @@ class CookCoachResult {
     required this.patterns,
     required this.retried,
     required this.calls,
+    this.emptyMessage = '',
   });
 
   final List<CookDish> patterns;
   final bool retried;
   final List<CookModelCallUsage> calls;
+  final String emptyMessage;
 }
 
 const cookCoachCapMessage = '本日の上限に達しました';
@@ -174,6 +182,7 @@ CookDish alignCookDish(CookDish dish, CookCoachMealTarget target) {
     withinTolerance: within,
     gapReason: within ? '' : dish.gapReason,
     omitNote: dish.omitNote,
+    minutes: dish.minutes,
   );
 }
 
@@ -232,7 +241,10 @@ CookCoachResult? parseCookCoachResult(Object? data) {
     return null;
   }
   final patterns = data['patterns'];
-  if (patterns is! List || patterns.isEmpty) {
+  final emptyMessage = data['empty_message'] is String
+      ? (data['empty_message'] as String).trim()
+      : '';
+  if (patterns is! List || (patterns.isEmpty && emptyMessage.isEmpty)) {
     return null;
   }
   final dishes = <CookDish>[];
@@ -263,6 +275,7 @@ CookCoachResult? parseCookCoachResult(Object? data) {
     patterns: dishes,
     retried: data['retried'] == true,
     calls: calls,
+    emptyMessage: emptyMessage,
   );
 }
 
@@ -386,6 +399,7 @@ CookDish? _dish(Object? raw) {
     withinTolerance: raw['within_tolerance'] == true,
     gapReason: raw['gap_reason'] is String ? (raw['gap_reason'] as String).trim() : '',
     omitNote: raw['omit_note'] is String ? (raw['omit_note'] as String).trim() : '',
+    minutes: _int(raw['minutes']) ?? 0,
   );
 }
 
@@ -415,6 +429,7 @@ CookIngredient? _ingredient(Object? raw) {
     foodCode: code is String && code.isNotEmpty ? code : null,
     officialName: official is String && official.isNotEmpty ? official : null,
     extra: raw['extra'] == true,
+    assumed: raw['assumed'] == true,
   );
 }
 

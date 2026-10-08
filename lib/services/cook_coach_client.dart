@@ -107,7 +107,7 @@ class CookCoachClient {
       );
     }
     final parsed = parseCookCoachResult(data);
-    if (parsed == null || parsed.patterns.isEmpty) {
+    if (parsed == null) {
       throw const CookCoachFailure(
         '献立を確認できませんでした。食材を変えて、もう一度試してください。',
       );
@@ -118,6 +118,7 @@ class CookCoachClient {
       ],
       retried: parsed.retried,
       calls: parsed.calls,
+      emptyMessage: parsed.emptyMessage,
     );
   }
 }

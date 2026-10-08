@@ -24,6 +24,7 @@ import {
   type MeasuredDish,
 } from "./cook-coach/match.ts";
 import { evalScenarios, planScenario, runLocalEval } from "./cook_coach_eval.ts";
+import { cookRecipes } from "./cook-coach/recipes.ts";
 import { assemblyIssues, needsModelRetry, stepIssues } from "./cook-coach/plan.ts";
 import { explainRejectedTarget } from "./cook-coach/handler.ts";
 import {
@@ -164,6 +165,7 @@ function deps(options: {
       },
       lookupFoods: () => Promise.resolve(options.foods ?? [chicken]),
       model: () => model,
+      loadRecipes: () => Promise.resolve(cookRecipes),
       log: () => {},
     },
   };
@@ -437,142 +439,60 @@ Deno.test("raw plating is rejected, and seasoned cold tofu or aemono is allowed"
   assertEquals(needsModelRetry([rawMeasured, rawMeasured]), true);
 });
 
-Deno.test("handler returns db nutrition without a second model call", async () => {
-  const harness = deps({ replies: [modelText(999, 0)] });
-  const response = await handleCookCoach(request(onTarget), harness.deps);
-  const body = await response.json();
-  assertEquals(response.status, 200);
-  assertEquals(harness.calls.length, 1);
-  assertEquals(body.retried, false);
-  assertEquals(body.patterns[0].ingredients[0].source, "db");
-  assertEquals(body.patterns[0].ingredients[0].kcal, 108);
-  assertEquals(body.patterns[0].kcal, 108);
-  assertEquals(body.patterns[0].gap_kcal, 0);
-});
-
-Deno.test("handler retries once when the gap stays outside tolerance", async () => {
-  const fixed = {
-    a: {
-      n: "合いびき肉の炒め",
-      s: [
-        "合いびき肉80gをほぐす",
-        "フライパンを中火にし、4分炒める",
-        "中まで火を通して器に盛る",
-      ],
-      i: [{ n: "合いびき肉", g: 80, k: 200, p: 16, f: 14, c: 0 }],
-    },
-    b: {
-      n: "豆腐炒め",
-      s: ["肉と豆腐を中まで加熱する", "器に盛る"],
-      x: ["豆腐"],
-      i: [
-        { n: "合いびき肉", g: 80, k: 180, p: 14, f: 12, c: 0 },
-        { n: "豆腐", g: 80, k: 20, p: 2, f: 1, c: 1 },
-      ],
-    },
-  };
-  const off = {
-    a: {
-      n: "塩鶏",
-      s: [
-        "ブロッコリー80gを小房に分ける",
-        "フライパンを中火にし、4分炒める",
-        "器に盛る",
-      ],
-      i: [{ n: "ブロッコリー", g: 80, k: 26, p: 3, f: 0.3, c: 4 }],
-    },
-    b: {
-      n: "豆腐の塩鶏",
-      s: [
-        "ブロッコリー80gと豆腐80gを切る",
-        "フライパンを中火にし、4分炒める",
-        "器に盛る",
-      ],
-      x: ["豆腐"],
-      i: [
-        { n: "ブロッコリー", g: 80, k: 26, p: 3, f: 0.3, c: 4 },
-        { n: "豆腐", g: 80, k: 40, p: 4, f: 2, c: 1 },
-      ],
-    },
-  };
-  const harness = deps({
-    foods: [],
-    replies: [JSON.stringify(off), JSON.stringify(fixed)],
-  });
+Deno.test("handler returns db nutrition and does not call the model", async () => {
+  const harness = deps({ replies: [] });
   const response = await handleCookCoach(request({
-    ingredients: ["鶏むね肉"],
+    ingredients: ["鶏むね肉", "ほうれん草", "ごはん"],
     slot: "dinner",
-    target_kcal: 200,
-    target_protein_g: 16,
-    target_fat_g: 13,
-    target_carb_g: 1,
+    target_kcal: 620,
+    target_protein_g: 35,
+    target_fat_g: 15,
+    target_carb_g: 70,
+    note: "20分",
   }), harness.deps);
   const body = await response.json();
   assertEquals(response.status, 200);
-  assertEquals(harness.calls.length, 2);
-  assertEquals(body.retried, true);
-  assertEquals(body.calls.length, 2);
-  assertEquals(body.patterns[0].name, "合いびき肉の炒め");
-  assertEquals(body.patterns[0].ingredients[0].source, "ai");
-  assertEquals(body.patterns[0].kcal, 200);
+  assertEquals(harness.calls.length, 0);
+  assertEquals(body.retried, false);
+  assertEquals(body.input_tokens, 0);
+  assertEquals(body.patterns.length > 0, true);
+  const first = body.patterns[0];
+  assertEquals(first.kind, "on_hand");
+  assertEquals(first.within_tolerance, true);
+  assertEquals(first.name.includes("{"), false);
+  assertEquals(first.ingredients.every((item: { source: string; food_code: string }) =>
+    item.source === "db" && /^[0-9]{5}$/.test(item.food_code)
+  ), true);
+  const oil = first.ingredients.find((item: { name: string }) => item.name.includes("油"));
+  const rice = first.ingredients.find((item: { name: string }) => item.name === "ごはん");
+  const chicken = first.ingredients.find((item: { name: string }) => item.name.includes("鶏"));
+  assertEquals(oil != null && oil.grams <= 15 && oil.grams >= 1, true);
+  assertEquals(rice != null && rice.grams >= 100 && rice.grams <= 300, true);
+  assertEquals(chicken != null && chicken.grams >= 60 && chicken.grams <= 250, true);
 });
 
-Deno.test("raw ingredient lists are regenerated once and not returned", async () => {
-  const raw = {
-    a: {
-      n: "ごはん、木綿豆腐、トマト",
-      s: ["ごはんを盛る", "木綿豆腐を切る", "トマトをスライスしてのせる"],
-      i: [
-        { n: "ごはん", g: 150, k: 250, p: 4, f: 1, c: 55 },
-        { n: "木綿豆腐", g: 150, k: 110, p: 10, f: 6, c: 3 },
-        { n: "トマト", g: 80, k: 15, p: 1, f: 0, c: 4 },
-      ],
-    },
-    b: {
-      n: "ごはんと木綿豆腐",
-      s: ["ごはんを盛る", "木綿豆腐をのせる", "そのまま出す"],
-      x: ["卵"],
-      i: [
-        { n: "ごはん", g: 150, k: 250, p: 4, f: 1, c: 55 },
-        { n: "木綿豆腐", g: 100, k: 73, p: 7, f: 4, c: 2 },
-      ],
-    },
-  };
-  const cooked = {
-    a: {
-      n: "木綿豆腐とトマトの炒め丼",
-      s: [
-        "木綿豆腐150gとトマト80gを切る",
-        "フライパンを中火にし、サラダ油5gで5分炒める",
-        "しょうゆ8gを絡めて、ごはん150gにのせる",
-      ],
-      i: [
-        { n: "ごはん", g: 150, k: 252, p: 4, f: 1, c: 56 },
-        { n: "木綿豆腐", g: 150, k: 110, p: 10, f: 6, c: 3 },
-        { n: "トマト", g: 80, k: 15, p: 1, f: 0, c: 4 },
-        { n: "サラダ油", g: 5, k: 46, p: 0, f: 5, c: 0 },
-        { n: "しょうゆ", g: 8, k: 6, p: 1, f: 0, c: 1 },
-      ],
-    },
-    b: {
-      n: "木綿豆腐と卵の炒め",
-      s: [
-        "木綿豆腐100gを切って卵1個を溶く",
-        "フライパンを中火にし、5分炒める",
-        "塩1gを振って火を止める",
-      ],
-      x: ["卵"],
-      i: [
-        { n: "木綿豆腐", g: 100, k: 73, p: 7, f: 4, c: 2 },
-        { n: "卵", g: 50, k: 76, p: 6, f: 5, c: 0 },
-        { n: "塩", g: 1, k: 0, p: 0, f: 0, c: 0 },
-      ],
-    },
-  };
-  const harness = deps({
-    foods: [],
-    replies: [JSON.stringify(raw), JSON.stringify(cooked)],
-  });
+Deno.test("a protein gap is filled by buying one recipe ingredient", async () => {
+  const harness = deps({ replies: [] });
+  const response = await handleCookCoach(request({
+    ingredients: ["ごはん"],
+    slot: "dinner",
+    target_kcal: 500,
+    target_protein_g: 35,
+    target_fat_g: 12,
+    target_carb_g: 55,
+  }), harness.deps);
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(harness.calls.length, 0);
+  assertEquals(body.patterns.some((pattern: { kind: string }) => pattern.kind === "on_hand"), false);
+  const extra = body.patterns.find((pattern: { kind: string }) => pattern.kind === "extra");
+  assertEquals(extra.within_tolerance, true);
+  assertEquals(extra.extras.length >= 1 && extra.extras.length <= 2, true);
+  assertEquals(extra.ingredients.every((item: { source: string }) => item.source === "db"), true);
+});
+
+Deno.test("returned dishes are cooked recipes, not ingredient lists", async () => {
+  const harness = deps({ replies: [] });
   const response = await handleCookCoach(request({
     ingredients: ["ごはん", "木綿豆腐", "トマト"],
     slot: "dinner",
@@ -583,116 +503,150 @@ Deno.test("raw ingredient lists are regenerated once and not returned", async ()
   }), harness.deps);
   const body = await response.json();
   assertEquals(response.status, 200);
-  assertEquals(harness.calls.length, 2);
-  assertEquals(body.retried, true);
-  const names = body.patterns.map((pattern: { name: string; steps: string[] }) => pattern.name);
-  assertEquals(names.some((name: string) => name.includes("、")), false);
+  assertEquals(harness.calls.length, 0);
+  assertEquals(body.patterns.length > 0, true);
   for (const pattern of body.patterns) {
+    assertEquals(pattern.name.includes("{"), false);
+    assertEquals(pattern.name.includes("、"), false);
     assertEquals(assemblyIssues(pattern.name, pattern.steps, pattern.ingredients.map((item: { name: string; grams: number }) => ({
       name: item.name,
       grams: item.grams,
     }))), []);
+    assertEquals(/揚げる|天ぷら|唐揚げ/.test(pattern.name + pattern.steps.join("")), false);
   }
 });
 
-Deno.test("deep frying is regenerated once and not returned", async () => {
-  const fried = {
-    a: {
-      n: "鶏の天ぷら",
-      s: ["衣をつけて揚げる"],
-      i: [{ n: "鶏むね肉", g: 100, k: 108, p: 24, f: 1.5, c: 0 }],
-    },
-    b: {
-      n: "豆腐の天ぷら",
-      s: ["油で揚げる"],
-      x: ["豆腐"],
-      i: [
-        { n: "鶏むね肉", g: 100, k: 108, p: 24, f: 1.5, c: 0 },
-        { n: "豆腐", g: 80, k: 40, p: 4, f: 2, c: 1 },
-      ],
-    },
-  };
-  const harness = deps({ replies: [JSON.stringify(fried), modelText(999, 0)] });
-  const response = await handleCookCoach(request(onTarget), harness.deps);
+Deno.test("deep frying is never returned", async () => {
+  const harness = deps({ replies: [modelText(999, 0)] });
+  const response = await handleCookCoach(request({
+    ingredients: ["鶏むね肉", "ごはん"],
+    slot: "dinner",
+    target_kcal: 550,
+    target_protein_g: 30,
+    target_fat_g: 15,
+    target_carb_g: 60,
+  }), harness.deps);
   const body = await response.json();
   assertEquals(response.status, 200);
-  assertEquals(harness.calls.length, 2);
-  assertEquals(body.patterns.some((pattern: { name: string }) => pattern.name.includes("天ぷら")), false);
-  assertEquals(body.patterns[0].name, "塩鶏");
+  assertEquals(harness.calls.length, 0);
+  assertEquals(body.patterns.some((pattern: { name: string; steps: string[] }) =>
+    /揚げる|天ぷら|唐揚げ/.test(pattern.name + pattern.steps.join(""))
+  ), false);
 });
 
-Deno.test("the same ingredients and rounded targets do not call the model again", async () => {
+Deno.test("the same ingredients and rounded targets are served from cache", async () => {
   const cache = new Map<string, Record<string, unknown>>();
-  const harness = deps({ replies: [modelText(999, 0)] });
+  const harness = deps({ replies: [] });
+  let inserts = 0;
+  harness.deps.insertUsage = () => {
+    inserts += 1;
+    return Promise.resolve("usage-1");
+  };
   harness.deps.readCache = (key) => Promise.resolve(cache.get(key) ?? null);
   harness.deps.writeCache = (key, body) => {
     cache.set(key, body);
     return Promise.resolve();
   };
-  const first = await handleCookCoach(request(onTarget), harness.deps);
-  assertEquals(first.status, 200);
-  const near = {
-    ...onTarget,
-    target_kcal: 112,
+  const bodyIn = {
+    ingredients: ["鶏むね肉", "ほうれん草", "ごはん"],
+    slot: "dinner",
+    target_kcal: 620,
+    target_protein_g: 35,
+    target_fat_g: 15,
+    target_carb_g: 70,
   };
-  const second = await handleCookCoach(request(near), harness.deps);
-  const body = await second.json();
-  assertEquals(harness.calls.length, 1);
+  const first = await handleCookCoach(request(bodyIn), harness.deps);
+  assertEquals(first.status, 200);
+  const near = await handleCookCoach(request({ ...bodyIn, target_kcal: 624 }), harness.deps);
+  const body = await near.json();
+  assertEquals(harness.calls.length, 0);
   assertEquals(body.cached, true);
   assertEquals(body.input_tokens, 0);
-  assertEquals(body.patterns[0].kcal, 108);
+  assertEquals(inserts, 1);
   const other = await handleCookCoach(request({
-    ...onTarget,
-    ingredients: ["鶏むね肉", "玉ねぎ"],
+    ...bodyIn,
+    ingredients: ["鶏むね肉", "ごはん", "玉ねぎ"],
   }), harness.deps);
   assertEquals(other.status, 200);
-  assertEquals(harness.calls.length, 2);
+  assertEquals(inserts, 2);
 });
 
-Deno.test("rounded cache keys match across a 10 kcal band", async () => {
-  const left = cookCacheMaterial({
-    ingredients: ["卵", "鶏むね肉"],
-    slot: "dinner",
-    targetKcal: 648,
-    targetProteinG: 31.4,
-    targetFatG: 10,
-    targetCarbG: 40,
-    note: "20分",
-    avoid: ["えび", "卵"],
-  });
-  const right = cookCacheMaterial({
-    ingredients: ["鶏むね肉", "卵"],
-    slot: "dinner",
-    targetKcal: 652,
-    targetProteinG: 31,
-    targetFatG: 10.4,
-    targetCarbG: 40,
-    note: "20分",
-    avoid: ["卵", "えび"],
-  });
-  assertEquals(left, right);
-  assertEquals((await cookCacheKey(left)).length, 64);
-});
-
-Deno.test("a third model call is not made when the retry is still off", async () => {
-  const harness = deps({
-    foods: [],
-    replies: [modelText(10, 10), modelText(10, 10)],
-  });
+Deno.test("a zero on-hand input records normalized names and the clock only", async () => {
+  const hits: Array<Record<string, unknown>> = [];
+  const inserted: unknown[] = [];
+  const harness = deps({ replies: [] });
+  harness.deps.insertUsage = (row) => {
+    inserted.push(row);
+    return Promise.resolve("usage-1");
+  };
+  harness.deps.recordZeroHit = (row) => {
+    hits.push(row as unknown as Record<string, unknown>);
+    return Promise.resolve();
+  };
   const response = await handleCookCoach(request({
-    ingredients: ["鶏むね肉"],
-    slot: "lunch",
+    ingredients: ["トリュフ", "ほっけ"],
+    slot: "dinner",
     target_kcal: 600,
-    target_protein_g: 40,
-    target_fat_g: 20,
+    target_protein_g: 30,
+    target_fat_g: 16,
     target_carb_g: 70,
   }), harness.deps);
   const body = await response.json();
-  assertEquals(harness.calls.length, 2);
-  assertEquals(body.ok, true);
-  assertEquals(body.patterns[0].within_tolerance, false);
-  assertEquals(body.patterns[0].gap_kcal > 0, true);
+  assertEquals(response.status, 200);
+  assertEquals(body.patterns, []);
+  assertEquals(body.empty_message.length > 0, true);
+  assertEquals(inserted.length, 0);
+  assertEquals(hits.length, 1);
+  assertEquals(hits[0].ingredients, ["とりゅふ", "ほっけ"]);
+  assertEquals(hits[0].atTime, "19:00:00");
+  assertEquals(Object.hasOwn(hits[0], "userId"), false);
+  assertEquals(Object.hasOwn(hits[0], "user_id"), false);
+  const kept = deps({ replies: [] });
+  const logged: unknown[] = [];
+  kept.deps.recordZeroHit = (row) => {
+    logged.push(row);
+    return Promise.resolve();
+  };
+  const hit = await handleCookCoach(request({
+    ingredients: ["卵"],
+    slot: "snack",
+    target_kcal: 150,
+    target_protein_g: 12,
+    target_fat_g: 10,
+    target_carb_g: 2,
+  }), kept.deps);
+  const hitBody = await hit.json();
+  assertEquals(hitBody.patterns[0].kind, "on_hand");
+  assertEquals(logged.length, 0);
 });
+
+Deno.test("a missing recipe table returns 503 and does not call the model", async () => {
+  const harness = deps({ replies: [modelText(108, 0)] });
+  harness.deps.loadRecipes = () => Promise.reject(new Error("down"));
+  const response = await handleCookCoach(request(onTarget), harness.deps);
+  const body = await response.json();
+  assertEquals(response.status, 503);
+  assertEquals(body.code, "recipes_unavailable");
+  assertEquals(harness.calls.length, 0);
+});
+
+Deno.test("combinations outside tolerance are not returned", async () => {
+  const harness = deps({ replies: [] });
+  const response = await handleCookCoach(request({
+    ingredients: ["卵"],
+    slot: "dinner",
+    target_kcal: 150,
+    target_protein_g: 80,
+    target_fat_g: 5,
+    target_carb_g: 5,
+  }), harness.deps);
+  const body = await response.json();
+  assertEquals(harness.calls.length, 0);
+  assertEquals(body.ok, true);
+  assertEquals(body.patterns, []);
+  assertEquals(body.empty_message.length > 0, true);
+});
+
 
 Deno.test("daily cap is shared and says 本日の上限に達しました", async () => {
   assertEquals(aiDailyLimitDefault, 15);
@@ -807,28 +761,30 @@ Deno.test("local eval scores every scenario without a network call", () => {
   const report = runLocalEval();
   assertEquals(report.scenarios >= 30, true);
   assertEquals(report.failed, []);
+  assertEquals(report.miss.inputs >= 10, true);
+  assertEquals(report.miss.onHand + report.miss.extra + report.miss.zero, report.miss.inputs);
 });
 
-Deno.test("adding one or two foods closes a protein gap, and an impossible target says why", () => {
+Deno.test("buying one or two foods fills a protein gap, and an impossible target stays empty", () => {
   const protein = evalScenarios.find((item) => item.id === "dinner-rice-needs-protein");
   if (!protein) {
     throw new Error("missing scenario");
   }
   const closed = planScenario(protein);
-  assertEquals(closed.a.within, false);
-  assertEquals(closed.a.gapReason.includes("たんぱく質"), true);
+  assertEquals(closed.a, null);
+  if (!closed.b) {
+    throw new Error("missing buy-extra plan");
+  }
   assertEquals(closed.b.within, true);
-  assertEquals(closed.b.ingredients.filter((item) => item.extra).length <= 2, true);
-  assertGapReported(closed.b, protein.target);
+  assertEquals(closed.b.extras.length >= 1 && closed.b.extras.length <= 2, true);
   const impossible = evalScenarios.find((item) => item.id === "dinner-protein-impossible");
   if (!impossible) {
     throw new Error("missing scenario");
   }
   const missed = planScenario(impossible);
-  assertEquals(missed.b.within, false);
-  assertEquals(missed.b.gapReason.includes("たんぱく質"), true);
-  assertGapReported(missed.a, impossible.target);
-  assertGapReported(missed.b, impossible.target);
+  assertEquals(missed.a, null);
+  assertEquals(missed.b, null);
+  assertEquals(missed.emptyMessage.length > 0, true);
 });
 
 Deno.test("implausible meat calories are replaced, and eggs stay on a 50g grid", () => {
@@ -843,10 +799,16 @@ Deno.test("implausible meat calories are replaced, and eggs stay on a 50g grid",
     throw new Error("missing scenario");
   }
   const pair = planScenario(snack);
+  if (!pair.a) {
+    throw new Error("missing egg dish");
+  }
   const eggs = pair.a.ingredients.filter((item) => item.name.includes("卵"));
   assertEquals(eggs.length > 0, true);
   assertEquals(eggs.every((item) => item.grams % 50 === 0 && item.grams >= 50 && item.grams <= 200), true);
-  const dinner = planScenario(evalScenarios.find((item) => item.id === "dinner-chicken-rice")!);
+  const dinner = planScenario(evalScenarios.find((item) => item.id === "dinner-chicken-spinach")!);
+  if (!dinner.a) {
+    throw new Error("missing chicken rice dish");
+  }
   const oil = dinner.a.ingredients.find((item) => item.name.includes("油"));
   const rice = dinner.a.ingredients.find((item) => item.name === "ごはん");
   const chicken = dinner.a.ingredients.find((item) => item.name.includes("鶏"));

@@ -1,29 +1,18 @@
-// 自炊コーチ。料理の中身だけモデルに聞き、kcal と PFC は成分表で計算する。
-// この変更では関数をデプロイせず、マイグレーションも本番へ適用しない。
+// 自炊コーチ。検証済みレシピを毎回 DB から読み、手持ちと買い足しで選ぶ。
+// 料理の考案ではモデルを呼ばない。この変更では関数をデプロイせず、本番へ適用しない。
 
-import { parseModelJson } from "../analyze-meal-photo/validate.ts";
 import {
-  estimateCostJpy,
   lightModelDefault,
   readNonNegativeInt,
   readPositiveInt,
-  tokenPricesFromEnv,
   tokyoDateKey,
   type PhotoAiEnv,
 } from "../analyze-meal-photo/policy.ts";
 import type { PhotoAiUsage } from "../analyze-meal-photo/provider.ts";
 import type { FetchLike } from "../analyze-meal-photo/provider.ts";
-import {
-  bestMeasured,
-  normalizeFoodName,
-  pantryStapleNames,
-  preferDish,
-  type FoodRow,
-  type MeasuredDish,
-} from "./match.ts";
-import { finalizePair, gapCloserNames, needsModelRetry } from "./plan.ts";
-import { completeCook, PhotoAiCallError, PhotoAiConfigError } from "./model.ts";
-import { cookRetryPrompt, cookUserPrompt, parseCookModel } from "./prompt.ts";
+import { normalizeFoodName, type FoodRow, type MeasuredDish } from "./match.ts";
+import { completeCook } from "./model.ts";
+import { cookRecipesFromDb, recipeStamp, selectCookPlans, type CookRecipe } from "./select.ts";
 
 export const aiDailyLimitDefault = 15;
 export const cookMaxTokensDefault = 640;
@@ -70,6 +59,8 @@ export type CookDeps = {
   insertUsage: (row: CookUsageInsert) => Promise<string | null>;
   lookupFoods: (names: string[]) => Promise<FoodRow[]>;
   model: () => CookModelCall;
+  loadRecipes: () => Promise<CookRecipe[]>;
+  recordZeroHit?: (row: { ingredients: string[]; atTime: string }) => Promise<void>;
   log: (message: string) => void;
   readCache?: (key: string) => Promise<Record<string, unknown> | null>;
   writeCache?: (key: string, body: Record<string, unknown>) => Promise<void>;
@@ -84,9 +75,11 @@ export function cookCacheMaterial(input: {
   targetCarbG: number;
   note: string;
   avoid: string[];
+  stamp?: string;
+  recent?: string[];
 }): string {
   return JSON.stringify({
-    v: 5,
+    v: 6,
     ingredients: [...input.ingredients].map((item) => item.trim()).filter((item) => item.length > 0).sort(),
     slot: input.slot,
     kcal: Math.round(input.targetKcal / 10) * 10,
@@ -95,7 +88,25 @@ export function cookCacheMaterial(input: {
     carb: Math.round(input.targetCarbG),
     note: input.note.trim(),
     avoid: [...input.avoid].map((item) => item.trim()).filter((item) => item.length > 0).sort(),
+    stamp: input.stamp ?? "",
+    recent: [...(input.recent ?? [])].map((item) => item.trim()).filter((item) => item.length > 0).sort(),
   });
+}
+
+export function tokyoClock(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${pick("hour")}:${pick("minute")}:${pick("second")}`;
+}
+
+export function zeroHitIngredients(names: string[]): string[] {
+  return [...new Set(names.map((name) => normalizeFoodName(name)).filter((name) => name.length > 0))].sort();
 }
 
 export async function cookCacheKey(material: string): Promise<string> {
@@ -128,15 +139,6 @@ function json(body: unknown, status: number): Response {
 
 function fail(code: string, message: string, status: number): Response {
   return json({ ok: false, code, message }, status);
-}
-
-function addUsage(left: PhotoAiUsage, right: PhotoAiUsage): PhotoAiUsage {
-  return {
-    inputTokens: left.inputTokens + right.inputTokens,
-    outputTokens: left.outputTokens + right.outputTokens,
-    cacheReadTokens: left.cacheReadTokens + right.cacheReadTokens,
-    cacheWriteTokens: left.cacheWriteTokens + right.cacheWriteTokens,
-  };
 }
 
 const emptyUsage: PhotoAiUsage = {
@@ -172,7 +174,21 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
   if (!await deps.isPlus(userId, now)) {
     return fail("not_plus", "こちらはカロナビ+の機能です。", 403);
   }
-  const cacheKey = await cookCacheKey(cookCacheMaterial(input));
+  let recipes: CookRecipe[];
+  try {
+    recipes = await deps.loadRecipes();
+  } catch {
+    deps.log("cook-coach recipes failed");
+    return fail("recipes_unavailable", "献立を作れませんでした。しばらくしてからもう一度試してください。", 503);
+  }
+  if (!Array.isArray(recipes) || recipes.length === 0) {
+    return fail("recipes_unavailable", "献立を作れませんでした。しばらくしてからもう一度試してください。", 503);
+  }
+  const cacheKey = await cookCacheKey(cookCacheMaterial({
+    ...input,
+    stamp: recipeStamp(recipes),
+    recent: input.recent,
+  }));
   if (deps.readCache) {
     try {
       const hit = await deps.readCache(cacheKey);
@@ -200,159 +216,57 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
     return fail("daily_cap", "本日の上限に達しました", 429);
   }
 
-  const providerName = deps.env.PHOTO_AI_PROVIDER?.trim() || "anthropic";
-  if (providerName !== "anthropic") {
-    return fail("provider_unwired", "自炊コーチは、いま準備中です。", 503);
-  }
-
-  let model: CookModelCall;
-  try {
-    model = deps.model();
-  } catch (error) {
-    if (error instanceof PhotoAiConfigError) {
-      return fail(error.code, "自炊コーチは、いま準備中です。", 503);
-    }
-    throw error;
-  }
-
-  const modelName = deps.env.PHOTO_AI_LIGHT_MODEL?.trim() || lightModelDefault;
-  const userText = cookUserPrompt(input);
   const started = Date.now();
-  let usage = emptyUsage;
-  let retried = false;
-  const calls: Array<{ input_tokens: number; output_tokens: number; latency_ms: number }> = [];
-  try {
-    const firstStarted = Date.now();
-    const first = await model.complete(userText);
-    usage = addUsage(usage, first.usage);
-    calls.push({
-      input_tokens: first.usage.inputTokens,
-      output_tokens: first.usage.outputTokens,
-      latency_ms: Math.max(0, Date.now() - firstStarted),
-    });
-    let parsed = readModel(first.text);
-    let foods: FoodRow[] = [];
-    let firstDishes: { a: MeasuredDish; b: MeasuredDish } | null = null;
-    if (parsed) {
-      foods = await deps.lookupFoods(lookupNames(parsed));
-      firstDishes = {
-        a: bestMeasured(parsed.a, foods, input.target, undefined, input.note, input.avoid),
-        b: bestMeasured(parsed.b, foods, input.target, undefined, input.note, input.avoid),
-      };
-    }
-    let chosen = firstDishes;
-    if (!parsed || (firstDishes && needsModelRetry([firstDishes.a, firstDishes.b], input.note))) {
-      retried = true;
-      const retryText = parsed && firstDishes
-        ? cookRetryPrompt({ first: userText, dishes: [firstDishes.a, firstDishes.b] })
-        : `${userText}\nJSONだけを返してください。`;
-      const secondStarted = Date.now();
-      const second = await model.complete(retryText);
-      usage = addUsage(usage, second.usage);
-      calls.push({
-        input_tokens: second.usage.inputTokens,
-        output_tokens: second.usage.outputTokens,
-        latency_ms: Math.max(0, Date.now() - secondStarted),
+  const selection = selectCookPlans(recipes, {
+    ingredients: input.ingredients,
+    slot: input.slot,
+    target: input.target,
+    note: input.note,
+    avoid: input.avoid,
+    recentNames: input.recent,
+  });
+  if (selection.a == null && deps.recordZeroHit) {
+    try {
+      await deps.recordZeroHit({
+        ingredients: zeroHitIngredients(input.ingredients),
+        atTime: tokyoClock(now),
       });
-      const again = readModel(second.text);
-      if (again) {
-        const names = lookupNames(again);
-        if (foods.length === 0) {
-          foods = await deps.lookupFoods(names);
-        } else {
-          const more = await deps.lookupFoods(names);
-          foods = mergeFoods(foods, more);
-        }
-        const secondDishes = {
-          a: bestMeasured(again.a, foods, input.target, undefined, input.note, input.avoid),
-          b: bestMeasured(again.b, foods, input.target, undefined, input.note, input.avoid),
-        };
-        chosen = {
-          a: preferDish(firstDishes?.a ?? secondDishes.a, secondDishes.a),
-          b: preferDish(firstDishes?.b ?? secondDishes.b, secondDishes.b),
-        };
-      }
+    } catch {
+      deps.log("cook-coach zero hit log failed");
     }
-    const latencyMs = Math.max(0, Date.now() - started);
-    const cost = estimateCostJpy({
-      inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
-      cacheReadTokens: usage.cacheReadTokens,
-      cacheWriteTokens: usage.cacheWriteTokens,
-      prices: tokenPricesFromEnv("light", deps.env),
-    });
-    if (!chosen) {
-      await deps.insertUsage(usageRow({
-        userId,
-        model: modelName,
-        usage,
-        cost,
-        latencyMs,
-        retried,
-        hadNote: input.note.length > 0,
-        mealSlot: input.slot,
-        success: false,
-        errorCode: "invalid_result",
-      }));
-      return fail("invalid_result", "献立を確認できませんでした。食材を変えて、もう一度試してください。", 422);
-    }
-    const finished = finalizePair({
-      onHand: chosen.a,
-      extra: chosen.b,
-      foods,
-      target: input.target,
-      avoid: input.avoid,
+  }
+  const patterns = [
+    selection.a ? patternJson("on_hand", selection.a) : null,
+    selection.b ? patternJson("extra", selection.b) : null,
+  ].filter((item) => item != null);
+  const latencyMs = Math.max(0, Date.now() - started);
+  const stored = {
+    ok: true,
+    retried: false,
+    empty_message: patterns.length === 0 ? selection.emptyMessage : "",
+    target: {
+      kcal: input.target.kcal,
+      protein_g: input.target.proteinG,
+      fat_g: input.target.fatG,
+      carb_g: input.target.carbG,
       slot: input.slot,
-      note: input.note,
-      userIngredients: input.ingredients,
-    });
-    const patterns = (
-      [
-        ["on_hand", finished.a],
-        ["extra", finished.b],
-      ] as const
-    )
-      .filter((entry) => entry[1].issues.length === 0)
-      .map((entry) => patternJson(entry[0], entry[1]));
-    if (patterns.length === 0) {
-      await deps.insertUsage(usageRow({
-        userId,
-        model: modelName,
-        usage,
-        cost,
-        latencyMs,
-        retried,
-        hadNote: input.note.length > 0,
-        mealSlot: input.slot,
-        success: false,
-        errorCode: "unrealistic",
-      }));
-      return fail("unrealistic", "家庭で作れる組み合わせを提案できませんでした。食材を変えて、もう一度試してください。", 422);
-    }
-    const usageId = await deps.insertUsage(usageRow({
+    },
+    patterns,
+  };
+  let usageId: string | null = null;
+  if (patterns.length > 0) {
+    usageId = await deps.insertUsage(usageRow({
       userId,
-      model: modelName,
-      usage,
-      cost,
+      model: "none",
+      usage: emptyUsage,
+      cost: 0,
       latencyMs,
-      retried,
+      retried: false,
       hadNote: input.note.length > 0,
       mealSlot: input.slot,
       success: true,
       errorCode: null,
     }));
-    const stored = {
-      ok: true,
-      retried,
-      target: {
-        kcal: input.target.kcal,
-        protein_g: input.target.proteinG,
-        fat_g: input.target.fatG,
-        carb_g: input.target.carbG,
-        slot: input.slot,
-      },
-      patterns,
-    };
     if (deps.writeCache) {
       try {
         await deps.writeCache(cacheKey, stored);
@@ -360,41 +274,18 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
         deps.log("cook-coach cache write failed");
       }
     }
-    return json({
-      ...stored,
-      cached: false,
-      usage_id: usageId,
-      latency_ms: latencyMs,
-      input_tokens: usage.inputTokens,
-      output_tokens: usage.outputTokens,
-      cache_read_tokens: usage.cacheReadTokens,
-      cache_write_tokens: usage.cacheWriteTokens,
-      calls,
-    }, 200);
-  } catch (error) {
-    const latencyMs = Math.max(0, Date.now() - started);
-    if (error instanceof PhotoAiConfigError) {
-      return fail(error.code, "自炊コーチは、いま準備中です。", 503);
-    }
-    if (error instanceof PhotoAiCallError) {
-      await deps.insertUsage(usageRow({
-        userId,
-        model: modelName,
-        usage,
-        cost: 0,
-        latencyMs,
-        retried,
-        hadNote: input.note.length > 0,
-        mealSlot: input.slot,
-        success: false,
-        errorCode: "provider_error",
-      }));
-      deps.log("cook-coach provider failed");
-      return fail("provider_error", "献立を作れませんでした。しばらくしてからもう一度試してください。", 503);
-    }
-    deps.log("cook-coach failed");
-    return fail("provider_error", "献立を作れませんでした。しばらくしてからもう一度試してください。", 500);
   }
+  return json({
+    ...stored,
+    cached: false,
+    usage_id: usageId,
+    latency_ms: latencyMs,
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+    calls: [],
+  }, 200);
 }
 
 type CookInput = {
@@ -408,6 +299,7 @@ type CookInput = {
   targetCarbG: number;
   note: string;
   avoid: string[];
+  recent: string[];
 };
 
 function parseInput(payload: unknown): CookInput | null {
@@ -449,6 +341,13 @@ function parseInput(payload: unknown): CookInput | null {
       .filter((item) => item.length > 0 && item.length <= 40)
       .slice(0, 20)
     : [];
+  const recent = Array.isArray(body.recent_names)
+    ? body.recent_names
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0 && item.length <= 40)
+      .slice(0, 12)
+    : [];
   return {
     ingredients,
     slot,
@@ -465,6 +364,7 @@ function parseInput(payload: unknown): CookInput | null {
     targetCarbG,
     note,
     avoid,
+    recent,
   };
 }
 
@@ -505,36 +405,11 @@ function clampNumber(value: unknown, min: number, max: number): number | null {
   return Math.min(max, Math.max(min, number));
 }
 
-function readModel(text: string) {
-  try {
-    return parseCookModel(parseModelJson(text));
-  } catch {
-    return null;
-  }
-}
-
-function ingredientNames(parsed: { a: { ingredients: { name: string }[]; extras: string[] }; b: { ingredients: { name: string }[]; extras: string[] } }): string[] {
-  return [
-    ...parsed.a.ingredients.map((item) => item.name),
-    ...parsed.b.ingredients.map((item) => item.name),
-    ...parsed.a.extras,
-    ...parsed.b.extras,
-  ];
-}
-
-function lookupNames(parsed: { a: { ingredients: { name: string }[]; extras: string[] }; b: { ingredients: { name: string }[]; extras: string[] } }): string[] {
-  return [...ingredientNames(parsed), ...pantryStapleNames, ...gapCloserNames];
-}
-
-function mergeFoods(left: FoodRow[], right: FoodRow[]): FoodRow[] {
-  const seen = new Set(left.map((food) => food.foodCode));
-  return [...left, ...right.filter((food) => !seen.has(food.foodCode))];
-}
-
 function patternJson(kind: "on_hand" | "extra", dish: MeasuredDish) {
   return {
     kind,
     name: dish.name,
+    minutes: dish.minutes ?? 0,
     steps: dish.steps,
     extras: dish.extras,
     kcal: dish.totals.kcal,
@@ -559,6 +434,7 @@ function patternJson(kind: "on_hand" | "extra", dish: MeasuredDish) {
       food_code: item.foodCode,
       official_name: item.officialName,
       extra: item.extra,
+      assumed: item.assumed === true,
     })),
   };
 }
@@ -577,7 +453,7 @@ function usageRow(args: {
 }): CookUsageInsert {
   return {
     userId: args.userId,
-    provider: "anthropic",
+    provider: "recipe-db",
     model: args.model,
     inputTokens: args.usage.inputTokens,
     outputTokens: args.usage.outputTokens,
@@ -767,6 +643,43 @@ export function liveDeps(
           }),
         },
       );
+    },
+    async loadRecipes() {
+      if (!base || !serviceKey) {
+        throw new Error("recipes unavailable");
+      }
+      const select = [
+        "id",
+        "name_template",
+        "genre",
+        "category",
+        "method",
+        "minutes",
+        "steps",
+        "cook_recipe_options(slot_key,role,label,food_code,base_grams,sort_order,match_names,staple,official_foods(name,kcal,protein_g,fat_g,carb_g))",
+      ].join(",");
+      const result = await authedFetch(
+        `${base}/rest/v1/cook_recipes?select=${encodeURIComponent(select)}&order=id.asc`,
+        serviceKey,
+        fetchImpl,
+      );
+      if (!result.ok || !Array.isArray(result.body)) {
+        throw new Error("recipes unavailable");
+      }
+      return cookRecipesFromDb(result.body);
+    },
+    async recordZeroHit(row) {
+      if (!base || !serviceKey || row.ingredients.length === 0) {
+        return;
+      }
+      await authedFetch(`${base}/rest/v1/cook_zero_on_hand`, serviceKey, fetchImpl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({
+          ingredients: row.ingredients,
+          at_time: row.atTime,
+        }),
+      });
     },
     async lookupFoods(names) {
       if (!base || !serviceKey || names.length === 0) {

@@ -43,7 +43,7 @@ export const gapClosers: Closer[] = [
 
 export const gapCloserNames = gapClosers.map((item) => item.name);
 
-const sweetWords = ["チョコ", "ケーキ", "クッキー", "アイス", "大福", "あんこ"];
+const sweetWords = ["チョコ", "ケーキ", "クッキー", "アイス", "大福", "あんこ", "トリュフ"];
 const savoryWords = ["肉", "魚", "鮭", "鶏", "豚", "牛", "納豆", "刺身"];
 
 export function splitIncompatible(names: string[]): { keep: string[]; dropped: string[] } {

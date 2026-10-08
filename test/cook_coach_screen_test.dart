@@ -89,10 +89,12 @@ void main() {
     expect(find.text('142kcal　P 29.0g　F 2.0g　C 2.0g'), findsOneWidget);
     expect(find.text('134kcal　P 27.0g　F 2.0g　C 3.0g'), findsOneWidget);
     expect(find.text('目標の範囲に入っています'), findsNothing);
-    expect(find.text('手元の食材だけ'), findsOneWidget);
-    expect(find.text('足す食材あり'), findsOneWidget);
-    expect(find.text('鶏むね肉 120g　130kcal　成分表'), findsOneWidget);
-    expect(find.text('自家製つゆ 15g　12kcal　AIの目安'), findsOneWidget);
+    expect(find.text('手持ちだけで作れます'), findsOneWidget);
+    expect(find.text('買い足しで作れます'), findsOneWidget);
+    expect(find.byKey(const Key('cook_ingredient_on_hand_鶏むね肉')), findsOneWidget);
+    expect(find.text('120g'), findsWidgets);
+    expect(find.byKey(const Key('cook_kcal_on_hand_鶏むね肉')), findsOneWidget);
+    expect(find.text('成分表に無い食品はAIの目安です。'), findsOneWidget);
     expect(events, contains('cook_coach_generate'));
     expect(events, contains('cook_coach_retry'));
   });

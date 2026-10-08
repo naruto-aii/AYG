@@ -123,25 +123,25 @@ void main() {
     expect(find.textContaining('F あと＋0.7g'), findsOneWidget);
     expect(find.text('631kcal　P 32.9g　F 17.3g　C 79.9g'), findsOneWidget);
     expect(find.text('641kcal　P 32.4g　F 19.3g　C 78.4g'), findsOneWidget);
-    expect(find.text('鶏むね肉 113g　122kcal　成分表'), findsOneWidget);
-    expect(find.text('サラダ油 15g　138kcal　成分表'), findsOneWidget);
-    expect(find.text('しょうゆ 10g　7kcal　成分表'), findsOneWidget);
-    expect(find.text('しょうゆ 4g　3kcal　成分表'), findsOneWidget);
+    expect(find.byKey(const Key('cook_ingredient_on_hand_鶏むね肉')), findsOneWidget);
+    expect(find.text('113g'), findsWidgets);
+    expect(find.byKey(const Key('cook_kcal_on_hand_鶏むね肉')), findsOneWidget);
+    expect(find.text('15g'), findsWidgets);
     expect(find.text('鶏むね肉の照り焼き丼'), findsOneWidget);
     expect(find.text('鶏むね肉と木綿豆腐の照り焼き丼'), findsOneWidget);
     expect(find.text('1. 鶏むね肉113gを一口大に切る'), findsOneWidget);
     tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
     await tester.pumpAndSettle();
     _expectFullyVisible(tester, '鶏むね肉の照り焼き丼');
+    await _write(tester, boundary, File('${directory.path}/results.png'));
+    await tester.ensureVisible(find.text('鶏むね肉と木綿豆腐の照り焼き丼'));
+    await tester.pumpAndSettle();
     _expectFullyVisible(tester, '鶏むね肉と木綿豆腐の照り焼き丼');
-    _expectFullyVisible(
-      tester,
-      'P 目標より0.4g多い　F 目標より1.3g多い　C 目標より3.4g多い',
-    );
+    await tester.ensureVisible(find.byKey(const Key('cook_register_extra')));
+    await tester.pumpAndSettle();
     _expectRectInside(
       tester.getRect(find.byKey(const Key('cook_register_extra'))),
     );
-    await _write(tester, boundary, File('${directory.path}/results.png'));
 
     await tester.ensureVisible(find.byKey(const Key('cook_register_on_hand')));
     await tester.tap(find.byKey(const Key('cook_register_on_hand')));

@@ -12,6 +12,7 @@ import 'package:ayg/services/cook_coach_target.dart';
 import 'package:ayg/services/daily_coach_session.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/widgets/design/design_button.dart';
 import 'package:ayg/theme/app_typography.dart';
 import 'package:ayg/utils/meal_slot.dart';
 import 'package:flutter/material.dart';
@@ -83,12 +84,17 @@ void main() {
     expect(sent?['slot'], 'dinner');
     expect(sent?['note'], '20分');
     expect(sent?['target_kcal'], 650);
-    expect(find.text('あと＋80kcal'), findsNWidgets(2));
+    expect(find.text('あと＋508kcal'), findsOneWidget);
+    expect(find.text('あと＋516kcal'), findsOneWidget);
+    expect(find.text('142kcal　P 29.0g　F 2.0g　C 2.0g'), findsOneWidget);
+    expect(find.text('134kcal　P 27.0g　F 2.0g　C 3.0g'), findsOneWidget);
     expect(find.text('目標の範囲に入っています'), findsNothing);
-    expect(find.text('手元の食材だけ'), findsOneWidget);
-    expect(find.text('足す食材あり'), findsOneWidget);
-    expect(find.text('鶏むね肉 120g　130kcal　成分表'), findsOneWidget);
-    expect(find.text('自家製つゆ 15g　12kcal　AIの目安'), findsOneWidget);
+    expect(find.text('手持ちだけで作れます'), findsOneWidget);
+    expect(find.text('買い足しで作れます'), findsOneWidget);
+    expect(find.byKey(const Key('cook_ingredient_on_hand_鶏むね肉')), findsOneWidget);
+    expect(find.text('120g'), findsWidgets);
+    expect(find.byKey(const Key('cook_kcal_on_hand_鶏むね肉')), findsOneWidget);
+    expect(find.text('成分表に無い食品はAIの目安です。'), findsOneWidget);
     expect(events, contains('cook_coach_generate'));
     expect(events, contains('cook_coach_retry'));
   });
@@ -160,9 +166,14 @@ void main() {
     expect(sauce.officialFoodCode, isNull);
     expect(sauce.mealGroupId, chicken.mealGroupId);
     expect(sauce.loggedAt, loggedAt);
+    expect(chicken.totalKcal + sauce.totalKcal, 142);
+    final savedTotals = tester.widget<Text>(
+      find.byKey(const Key('cook_saved_totals')),
+    );
+    expect(savedTotals.data, startsWith('142kcal'));
     expect(
       chicken.totalKcal + sauce.totalKcal,
-      142,
+      int.parse(savedTotals.data!.split('kcal').first),
     );
     expect(
       await pending.preferLocalIds(PendingRecordKind.food),
@@ -237,6 +248,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('カロナビ+を見る'), findsOneWidget);
     expect(find.byKey(const Key('cook_generate')), findsNothing);
+  });
+
+  testWidgets('a day already at the target explains that and does not generate', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        CookCoachScreen(
+          now: now,
+          target: const CookCoachMealTarget(
+            slot: MealSlot.dinner,
+            kcal: 0,
+            proteinG: 0,
+            fatG: 0,
+            carbG: 0,
+            remainingKcal: 0,
+            remainingProteinG: 0,
+            remainingFatG: 0,
+            remainingCarbG: 0,
+          ),
+          client: CookCoachClient(invoke: (_) async => _payload()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('今日の目標は、もう足りています。'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('cook_choice_卵')));
+    await tester.pumpAndSettle();
+    final button = tester.widget<DesignButton>(find.byKey(const Key('cook_generate')));
+    expect(button.onPressed, isNull);
   });
 }
 

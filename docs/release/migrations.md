@@ -1,0 +1,33 @@
+# マイグレーションと自炊コーチの seed
+
+この変更では、本番にマイグレーションを適用しない。関数もデプロイしない。`supabase/seed/cook_recipes.sql` も本番には流さない。
+
+出すときは、次の順で手で適用する。ファイル名の時刻順と同じである。
+
+1. `supabase/migrations/20261008140000_meal_photo_analyses.sql`
+2. `supabase/migrations/20261008160000_ai_food_lookup.sql`
+3. `supabase/migrations/20261008160100_food_memo_is_free.sql`（160000 の直後。食事と運動のメモを無料にする）
+4. `supabase/migrations/20261008180000_ai_feature_uses.sql`
+5. `supabase/migrations/20261008190000_ai_food_result_collections.sql`
+6. `supabase/migrations/20261008193000_cook_recipes.sql`
+7. `supabase/migrations/20261008200000_entitlements_server_only.sql`
+8. `supabase/migrations/20261008210000_ai_data_consent.sql`
+
+`20261008193000` はレシピの表だけを作る。行は seed にある。
+
+## seed の出し方と流し方
+
+レシピを変えたときは、先に型をチェックしてから SQL を出し直す。
+
+```sh
+deno run -A supabase/functions/cook-coach/check_recipes.ts
+deno run -A supabase/functions/cook-coach/emit_recipes_sql.ts > supabase/seed/cook_recipes.sql
+```
+
+流すのは、`20261008193000_cook_recipes.sql` のあと、`official_foods` が入っているデータベースだけである。seed は参照する食品番号が足りないと、何も入れずに戻る。
+
+```sh
+psql "$DATABASE_URL" -f supabase/seed/cook_recipes.sql
+```
+
+本番のデータベースには、この変更では流さない。

@@ -73,6 +73,7 @@ Deno.test("photo, lookup, and cook do not call the model without consent", async
     userId: () => Promise.resolve("user-1"),
     isPlus: () => Promise.resolve(true),
     hasConsent: () => Promise.resolve(false),
+    loadRecipes: () => Promise.resolve([]),
     dailyCount: () => Promise.resolve(0),
     insertUsage: () => Promise.resolve("usage-1"),
     lookupFoods: () => Promise.resolve([]),

@@ -33,8 +33,8 @@ Deno.test("apple jwt expires in under 20 minutes and names the audience", async 
   const verified = await crypto.subtle.verify(
     { name: "ECDSA", hash: "SHA-256" },
     key.publicKey,
-    decode(signature),
-    new TextEncoder().encode(`${header}.${payload}`),
+    bytesToArrayBuffer(decode(signature)),
+    bytesToArrayBuffer(new TextEncoder().encode(`${header}.${payload}`)),
   );
   assertEquals(verified, true);
 });
@@ -65,6 +65,12 @@ Deno.test("sales dates cover the previous 14 days", () => {
   assertEquals(dates[0], "2026-10-07");
   assertEquals(dates[13], "2026-09-24");
 });
+
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return copy;
+}
 
 function decode(value: string): Uint8Array {
   const padded = value.replaceAll("-", "+").replaceAll("_", "/") +

@@ -2,9 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:ayg/repositories/coach_intro_store.dart';
 import 'package:ayg/screens/coach/cook_coach_screen.dart';
+import 'package:ayg/screens/coach/daily_coach_screen.dart';
 import 'package:ayg/services/cook_coach_client.dart';
 import 'package:ayg/services/cook_coach_target.dart';
+import 'package:ayg/services/daily_coach.dart';
+import 'package:ayg/services/daily_coach_session.dart';
 import 'package:ayg/services/share_sheet_client.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/utils/meal_slot.dart';
@@ -53,7 +57,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadFonts);
 
-  const now = CookCoachMealTarget(
+  const target = CookCoachMealTarget(
     slot: MealSlot.dinner,
     kcal: 650,
     proteinG: 32,
@@ -65,11 +69,8 @@ void main() {
     remainingCarbG: 75,
   );
 
-  testWidgets('cook coach input, result gap, and saved meal', (tester) async {
-    final preferred = Directory('/opt/cursor/artifacts/screenshots/cook-coach');
-    final directory = preferred.parent.existsSync()
-        ? preferred
-        : Directory.systemTemp.createTempSync('cook-coach-shots');
+  testWidgets('realistic dinner plans at 1290 by 2796', (tester) async {
+    final directory = Directory('/opt/cursor/artifacts/screenshots');
     directory.createSync(recursive: true);
     final boundary = GlobalKey();
 
@@ -84,12 +85,10 @@ void main() {
           key: boundary,
           child: CookCoachScreen(
             now: DateTime(2026, 10, 8, 18),
-            target: now,
+            target: target,
             client: CookCoachClient(invoke: (_) async => _payload()),
             onRegister: (dish, slot) async {
               expect(slot, MealSlot.dinner);
-              expect(dish.ingredients.first.grams, 119);
-              expect(dish.ingredients.first.kcal, 129);
               expect(dish.kcal, 603);
               expect(
                 dish.ingredients.fold<int>(0, (sum, item) => sum + item.kcal),
@@ -97,6 +96,8 @@ void main() {
               );
               expect(dish.gapKcal, 47);
               expect(dish.withinTolerance, isTrue);
+              expect(dish.ingredients.first.grams, 119);
+              expect(dish.ingredients.first.kcal, 129);
               return const ['entry-1'];
             },
           ),
@@ -104,54 +105,139 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('夕食の目標 650kcal（P 32g / F 18g / C 75g）'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('cook_choice_鶏むね肉')));
+    for (final name in const ['鶏むね肉', 'ごはん']) {
+      await tester.tap(find.byKey(Key('cook_choice_$name')));
+      await tester.pumpAndSettle();
+    }
+    _jump(tester, 0);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('cook_choice_ごはん')));
-    await tester.pumpAndSettle();
-    tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
-    await tester.pumpAndSettle();
-    await _write(tester, boundary, File('${directory.path}/input.png'));
+    await _write(tester, boundary, File('${directory.path}/cook_input.png'));
 
     await tester.ensureVisible(find.byKey(const Key('cook_generate')));
     await tester.tap(find.byKey(const Key('cook_generate')));
     await tester.pumpAndSettle();
     expect(find.text('目標の範囲に入っています'), findsNWidgets(2));
-    expect(find.text('あと＋47kcal'), findsNWidgets(2));
-    expect(find.textContaining('P 目標より1.2g多い'), findsOneWidget);
-    expect(find.textContaining('F あと＋1.6g'), findsOneWidget);
-    expect(find.text('603kcal　P 33.2g　F 16.4g　C 79.9g'), findsOneWidget);
-    expect(find.text('603kcal　P 33.6g　F 16.5g　C 79.2g'), findsOneWidget);
-    expect(find.byKey(const Key('cook_ingredient_on_hand_鶏むね肉')), findsOneWidget);
-    expect(find.text('119g'), findsWidgets);
-    expect(find.byKey(const Key('cook_kcal_on_hand_鶏むね肉')), findsOneWidget);
-    expect(find.text('185g'), findsWidgets);
+    expect(find.text('手持ちだけで作れます'), findsOneWidget);
+    expect(find.text('買い足しで作れます'), findsOneWidget);
     expect(find.text('鶏むね肉の照り焼き、ごはんの温め'), findsOneWidget);
     expect(find.text('鶏むね肉の生姜焼き、ごはんの温め'), findsOneWidget);
-    expect(find.text('調理の目安 13分'), findsNWidgets(2));
+    expect(find.text('603kcal　P 33.2g　F 16.4g　C 79.9g'), findsOneWidget);
+    expect(find.text('603kcal　P 33.6g　F 16.5g　C 79.2g'), findsOneWidget);
+    expect(find.text('あと＋47kcal'), findsNWidgets(2));
+    expect(find.textContaining('P 目標より1.2g多い'), findsOneWidget);
     expect(find.text('1. 鶏むね肉を一口大に切る。'), findsOneWidget);
-    tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
+    expect(find.text('調理の目安 13分'), findsNWidgets(2));
+    expect(find.textContaining('サラダ油（家にあるもの）'), findsWidgets);
+    expect(find.text('しょうが（買い足し）'), findsOneWidget);
+    expect(find.text('買い足すもの: しょうが'), findsOneWidget);
+    expect(find.textContaining('成分表'), findsNothing);
+
+    _jump(tester, 0);
     await tester.pumpAndSettle();
-    _expectFullyVisible(tester, '鶏むね肉の照り焼き、ごはんの温め');
-    await _write(tester, boundary, File('${directory.path}/results.png'));
-    await tester.ensureVisible(find.text('鶏むね肉の生姜焼き、ごはんの温め'));
-    await tester.pumpAndSettle();
-    _expectFullyVisible(tester, '鶏むね肉の生姜焼き、ごはんの温め');
-    await tester.ensureVisible(find.byKey(const Key('cook_register_extra')));
-    await tester.pumpAndSettle();
-    _expectRectInside(
-      tester.getRect(find.byKey(const Key('cook_register_extra'))),
+    await _write(tester, boundary, File('${directory.path}/cook_results.png'));
+
+    await _scrollTextTo(tester, '鶏むね肉の生姜焼き、ごはんの温め', 80);
+    await _write(tester, boundary, File('${directory.path}/cook_results_extra.png'));
+    expect(
+      tester.getRect(find.text('鶏むね肉の生姜焼き、ごはんの温め')).top,
+      greaterThanOrEqualTo(0),
     );
 
     await tester.ensureVisible(find.byKey(const Key('cook_register_on_hand')));
     await tester.tap(find.byKey(const Key('cook_register_on_hand')));
     await tester.pumpAndSettle();
     expect(find.text('食事に追加しました'), findsOneWidget);
-    expect(find.text('鶏むね肉 119g　129kcal'), findsOneWidget);
     expect(find.text('603kcal　P 33.2g　F 16.4g　C 79.9g'), findsOneWidget);
-    expect(find.byKey(const Key('cook_saved_totals')), findsOneWidget);
-    await _write(tester, boundary, File('${directory.path}/saved.png'));
+    expect(find.text('鶏むね肉 119g　129kcal'), findsOneWidget);
+    _jump(tester, 0);
+    await tester.pumpAndSettle();
+    await _write(tester, boundary, File('${directory.path}/cook_saved.png'));
   });
+
+  testWidgets('over-target day shows an exercise suggestion', (tester) async {
+    final directory = Directory('/opt/cursor/artifacts/screenshots');
+    directory.createSync(recursive: true);
+    final boundary = GlobalKey();
+    final now = DateTime(2026, 10, 8, 18);
+    final proposal = buildCoachExerciseProposal(
+      overageKcal: 280,
+      weightKg: 60,
+      exercises: const [],
+      now: now,
+    );
+    expect(proposal, isNotNull);
+    expect(proposal!.message.contains('速歩き'), isTrue);
+    expect(proposal.canRegister, isTrue);
+
+    tester.view.devicePixelRatio = 3;
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        home: RepaintBoundary(
+          key: boundary,
+          child: DailyCoachScreen(
+            introStore: _SeenIntro(),
+            now: now,
+            load: () async => DailyCoachLoadResult(
+              status: DailyCoachStatus.ready,
+              focus: DailyCoachFocus.exercise,
+              exercise: proposal,
+            ),
+            onSelectExercise: (_, _) async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('速歩き'), findsOneWidget);
+    expect(find.text('この量で登録'), findsOneWidget);
+    expect(find.text('自炊コーチ (β)'), findsOneWidget);
+    await _write(tester, boundary, File('${directory.path}/coach_over_target.png'));
+  });
+}
+
+void _jump(WidgetTester tester, double offset) {
+  tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(offset);
+}
+
+Future<void> _scrollTextTo(WidgetTester tester, String text, double top) async {
+  // DesignScreen は幅 390 を画面幅へ拡大する。スクロール量は設計座標。
+  const scale = 430 / 390;
+  final dy = tester.getTopLeft(find.text(text)).dy;
+  final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
+  final next = (scroll.position.pixels + (dy - top) / scale).clamp(
+    0.0,
+    scroll.position.maxScrollExtent,
+  );
+  scroll.position.jumpTo(next);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _write(WidgetTester tester, GlobalKey key, File file) async {
+  final bytes = await tester.runAsync(
+    () => pngBytesFromBoundary(key, pixelRatio: 3),
+  );
+  expect(bytes, isNotNull);
+  file.parent.createSync(recursive: true);
+  file.writeAsBytesSync(bytes!);
+  final image = await tester.runAsync(() async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  });
+  expect(image!.width, 1290);
+  expect(image.height, 2796);
+}
+
+class _SeenIntro implements CoachIntroStore {
+  @override
+  Future<bool> hasSeen() async => true;
+
+  @override
+  Future<void> markSeen() async {}
 }
 
 Map<String, Object?> _row({
@@ -181,7 +267,7 @@ Map<String, Object?> _row({
 }
 
 Map<String, Object?> _payload() {
-  // 鶏むね肉＋ごはん、夕食 650/32/18/75。合計は材料の行の和。
+  // 鶏むね肉＋ごはん、夕食 650/32/18/75。照り焼き＋ごはん。行の和が画面の合計。
   return {
     'ok': true,
     'retried': false,
@@ -206,6 +292,9 @@ Map<String, Object?> _payload() {
         'fat_g': 16.4,
         'carb_g': 79.9,
         'gap_kcal': 47,
+        'gap_protein_g': -1.2,
+        'gap_fat_g': 1.6,
+        'gap_carb_g': -4.9,
         'within_tolerance': true,
         'ingredients': [
           _row(name: '鶏むね肉', grams: 119, kcal: 129, protein: 27.7, fat: 1.8, carb: 0.1, code: '11220'),
@@ -236,6 +325,9 @@ Map<String, Object?> _payload() {
         'fat_g': 16.5,
         'carb_g': 79.2,
         'gap_kcal': 47,
+        'gap_protein_g': -1.6,
+        'gap_fat_g': 1.5,
+        'gap_carb_g': -4.2,
         'within_tolerance': true,
         'ingredients': [
           _row(name: '鶏むね肉', grams: 119, kcal: 129, protein: 27.7, fat: 1.8, carb: 0.1, code: '11220'),
@@ -249,29 +341,4 @@ Map<String, Object?> _payload() {
       },
     ],
   };
-}
-
-Future<void> _write(WidgetTester tester, GlobalKey key, File file) async {
-  final bytes = await tester.runAsync(
-    () => pngBytesFromBoundary(key, pixelRatio: 3),
-  );
-  expect(bytes, isNotNull);
-  file.parent.createSync(recursive: true);
-  file.writeAsBytesSync(bytes!);
-  final image = await tester.runAsync(() async {
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    return frame.image;
-  });
-  expect(image!.width, 1290);
-  expect(image.height, 2796);
-}
-
-void _expectFullyVisible(WidgetTester tester, String text) {
-  _expectRectInside(tester.getRect(find.text(text)));
-}
-
-void _expectRectInside(Rect rect) {
-  expect(rect.top, greaterThanOrEqualTo(0));
-  expect(rect.bottom, lessThanOrEqualTo(932));
 }

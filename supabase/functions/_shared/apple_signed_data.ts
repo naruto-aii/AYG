@@ -1,11 +1,15 @@
+import { Buffer } from "node:buffer";
 import { Environment, SignedDataVerifier } from "npm:@apple/app-store-server-library";
 
-export function appleRootCertificates(): Uint8Array[] {
+export function appleRootCertificates(): Buffer[] {
   const root = Deno.env.get("APPLE_ROOT_CA_BASE64") ?? Deno.env.get("APPLE_ROOT_CA") ?? "";
   if (!root) {
     return [];
   }
-  return [Uint8Array.from(atob(root), (char) => char.charCodeAt(0))];
+  const raw = Uint8Array.from(atob(root), (char) => char.charCodeAt(0));
+  const copy = new ArrayBuffer(raw.byteLength);
+  new Uint8Array(copy).set(raw);
+  return [Buffer.from(copy)];
 }
 
 export function signedDataVerifier(environment: Environment): SignedDataVerifier {

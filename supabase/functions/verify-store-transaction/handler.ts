@@ -1,7 +1,11 @@
 // アプリが購入・復元・起動時に渡す StoreKit 2 の署名付き取引を検証し、
 // 加入の行は service_role で書く。アプリからの status と期限は見ない。
 
-import { decideEntitlement, type EntitlementRow } from "../_shared/store_entitlement.ts";
+import {
+  decideEntitlement,
+  shouldSkipOlderExpiry,
+  type EntitlementRow,
+} from "../_shared/store_entitlement.ts";
 
 export type VerifiedTransaction = {
   bundleId: string;
@@ -20,6 +24,8 @@ export type VerifyStoreDeps = {
   boundUser: (originalTransactionId: string) => Promise<string | null>;
   bind: (originalTransactionId: string, userId: string, productId: string) => Promise<void>;
   write: (row: EntitlementRow) => Promise<void>;
+  /// 今の加入。無いときは null。古い期限で上書きしないために読む。
+  current?: (userId: string, productId: string) => Promise<{ expiresAt: string | null } | null>;
 };
 
 const maxTransactions = 8;
@@ -114,6 +120,16 @@ export async function handleVerifyStoreTransaction(
       userId,
       verified.productId,
     );
+    if (deps.current) {
+      const stored = await deps.current(userId, decision.row.product_id);
+      if (shouldSkipOlderExpiry({
+        revoked: verified.revocationDate != null,
+        currentExpiresAt: stored?.expiresAt ?? null,
+        nextExpiresAt: decision.row.expires_at,
+      })) {
+        continue;
+      }
+    }
     await deps.write(decision.row);
   }
   if (conflict) {

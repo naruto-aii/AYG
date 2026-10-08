@@ -127,7 +127,69 @@ export function parseLookupCandidates(body: unknown): LookupCandidate[] | null {
       candidates.push(parsed);
     }
   }
-  return candidates.length > 0 ? candidates : null;
+  return candidates.length > 0 ? alignCandidatePortions(candidates) : null;
+}
+
+const portionPattern =
+  /(\d+(?:\.\d+)?)\s*(個入り|本入り|枚入り|袋入り|個入|本入|枚入|袋入|パック|個|本|枚|切れ|袋|箱|缶|玉)/;
+
+export function amountCount(text: string): { count: number; unit: string } | null {
+  const matched = text.normalize("NFKC").match(portionPattern);
+  if (!matched) {
+    return null;
+  }
+  const count = Number(matched[1]);
+  if (!Number.isFinite(count) || count <= 0) {
+    return null;
+  }
+  const unit = matched[2].replace(/入り?$/, "");
+  return { count, unit };
+}
+
+/// 個数だけが違う候補は、最初の候補の 1 単位あたりに合わせる。大きく外れた候補は直す。
+export function alignCandidatePortions(candidates: LookupCandidate[]): LookupCandidate[] {
+  if (candidates.length < 2 || !(candidates[0].kcal > 0)) {
+    return candidates;
+  }
+  const first = amountCount(`${candidates[0].name} ${candidates[0].amount}`);
+  if (!first) {
+    return candidates;
+  }
+  const perUnit = candidates[0].kcal / first.count;
+  const aligned = [candidates[0]];
+  for (const candidate of candidates.slice(1)) {
+    const count = amountCount(`${candidate.name} ${candidate.amount}`);
+    if (!count || count.unit !== first.unit || !(candidate.kcal > 0)) {
+      aligned.push(candidate);
+      continue;
+    }
+    const expected = perUnit * count.count;
+    const ratio = candidate.kcal / expected;
+    if (ratio >= 0.75 && ratio <= 1.25) {
+      aligned.push(candidate);
+      continue;
+    }
+    const factor = expected / candidate.kcal;
+    if (!Number.isFinite(factor) || factor < 0.2 || factor > 5) {
+      continue;
+    }
+    const scaled: LookupCandidate = {
+      ...candidate,
+      kcal: Math.round(candidate.kcal * factor),
+      proteinG: round1(candidate.proteinG * factor),
+      fatG: round1(candidate.fatG * factor),
+      carbG: round1(candidate.carbG * factor),
+    };
+    if (!pfcMatchesKcal(scaled.kcal, scaled.proteinG, scaled.fatG, scaled.carbG)) {
+      continue;
+    }
+    aligned.push(scaled);
+  }
+  return aligned;
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 function parseOne(row: Record<string, unknown>): LookupCandidate | null {

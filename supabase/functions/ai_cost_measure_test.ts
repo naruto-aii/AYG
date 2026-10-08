@@ -70,7 +70,7 @@ Deno.test("resized pixels and yen per path stay within the measured figures", as
   const imageTokensSmall = 590;
   assertEquals(systemTokens, 651);
   assertEquals(userTokens, 42);
-  assertEquals(lookupSystemTokens, 646);
+  assertEquals(lookupSystemTokens, 747);
   assertEquals(lookupUserTokens, 40);
 
   const lightWrite = yen({
@@ -128,8 +128,8 @@ Deno.test("resized pixels and yen per path stay within the measured figures", as
   assertEquals(round6(heavyWrite), 0.791501);
   assertEquals(round6(heavyRead), 0.544642);
   assertEquals(round6(lightWrite768), 0.032323);
-  assertEquals(round6(textWrite), 0.022871);
-  assertEquals(round6(textRead), 0.011133);
+  assertEquals(round6(textWrite), 0.024865);
+  assertEquals(round6(textRead), 0.011292);
   assertEquals(yen({
     tier: "light",
     inputTokens: 0,
@@ -158,5 +158,5 @@ Deno.test("resized pixels and yen per path stay within the measured figures", as
     outputTokens: ceiling,
     cacheReadTokens: 0,
     cacheWriteTokens: lookupSystemTokens,
-  })), 0.037091);
+  })), 0.039085);
 });

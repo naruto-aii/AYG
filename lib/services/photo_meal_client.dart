@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'ai_data_consent.dart';
 import 'photo_meal.dart';
+import 'plus_gate_retry.dart';
 
 class PhotoMealFailure implements Exception {
   const PhotoMealFailure(this.message);
@@ -62,11 +63,13 @@ class PhotoMealClient {
         }
         final supabase = client ?? Supabase.instance.client;
         try {
-          final response = await supabase.functions.invoke(
-            'analyze-meal-photo',
-            body: body,
-          );
-          return response.data;
+          return await PlusGateRetry.callOnce(() async {
+            final response = await supabase.functions.invoke(
+              'analyze-meal-photo',
+              body: body,
+            );
+            return response.data;
+          });
         } on FunctionException catch (error) {
           throw PhotoMealFailure(photoMealMessageFromBody(error.details));
         }

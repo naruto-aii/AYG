@@ -139,6 +139,89 @@ void main() {
     await repository.dispose();
   });
 
+  test('refresh keeps the latest expiry when an older transaction is read last', () async {
+    final later = now.add(const Duration(days: 40));
+    final earlier = now.add(const Duration(days: 10));
+    final repository = StoreKitSubscriptionRepository(
+      preferences: await prefsWith({}),
+      purchaseUpdates: const Stream.empty(),
+      loadEntitlements: () async => EntitlementLoad(
+        records: [
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: later,
+            signedTransaction: 'later.payload.signature',
+          ),
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: earlier,
+            signedTransaction: 'earlier.payload.signature',
+          ),
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: later.add(const Duration(days: 5)),
+            signedTransaction: 'revoked.payload.signature',
+            revoked: true,
+          ),
+        ],
+        authoritative: true,
+      ),
+      clock: () => now,
+    );
+    await repository.initialize();
+    expect(repository.isPlusActive, isTrue);
+    expect(
+      repository.confirmedEntitlements.single.signedTransaction,
+      'later.payload.signature',
+    );
+    expect(
+      repository.inactiveEntitlements.map((record) => record.signedTransaction),
+      contains('revoked.payload.signature'),
+    );
+    await repository.dispose();
+  });
+
+  test('an older purchase update does not replace a newer signed transaction', () async {
+    final prefs = await prefsWith({});
+    final updates = StreamController<List<PurchaseDetails>>();
+    final repository = StoreKitSubscriptionRepository(
+      preferences: prefs,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => now,
+    );
+    await repository.initialize();
+    final later = now.add(const Duration(days: 40));
+    final earlier = now.add(const Duration(days: 10));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${later.millisecondsSinceEpoch}',
+        serverVerificationData: 'later.payload.signature',
+      ),
+    ]);
+    await repository.plusChanges.first.timeout(const Duration(seconds: 2));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${earlier.millisecondsSinceEpoch}',
+        serverVerificationData: 'earlier.payload.signature',
+      ),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      repository.confirmedEntitlements.single.signedTransaction,
+      'later.payload.signature',
+    );
+    expect(
+      repository.confirmedEntitlements.single.expiresAt?.isAtSameMomentAs(later),
+      isTrue,
+    );
+    await updates.close();
+    await repository.dispose();
+  });
+
   test('purchase and restore keep Plus locally and hold the signed transaction', () async {
     final prefs = await prefsWith({});
     final updates = StreamController<List<PurchaseDetails>>();

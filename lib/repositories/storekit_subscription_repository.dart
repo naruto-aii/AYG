@@ -142,6 +142,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   String? _applicationUserName;
   String? _originalTransactionId;
   final Map<String, String> _signedByProduct = {};
+  final Map<String, String> _revocationSigned = {};
   Completer<PurchaseStatus>? _purchaseWaiter;
   String? _purchaseWaitProductId;
 
@@ -176,7 +177,17 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         SubscriptionEntitlementRecord(
           productId: id,
           expiresAt: _lastExpiry[id],
-          signedTransaction: _signedByProduct[id],
+          signedTransaction: _revocationSigned[id] ?? _signedByProduct[id],
+          revoked: _revocationSigned.containsKey(id),
+        ),
+    for (final entry in _revocationSigned.entries)
+      if (!_revokedIds.contains(entry.key) &&
+          SubscriptionCatalog.isPlusProduct(entry.key))
+        SubscriptionEntitlementRecord(
+          productId: entry.key,
+          expiresAt: null,
+          signedTransaction: entry.value,
+          revoked: true,
         ),
     ?_testInactive,
   ];
@@ -447,7 +458,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       if (original != null) {
         _originalTransactionId = original;
       }
-      _rememberSigned(purchase.productID, purchase.verificationData.serverVerificationData);
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
         final revoked =
@@ -455,10 +465,12 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
               purchase.verificationData.localVerificationData,
             ) !=
             null;
-        _applyRecord(
+        _applyIncoming(
           SubscriptionEntitlementRecord(
             productId: purchase.productID,
-            expiresAt: revoked ? null : _expiryOf(purchase),
+            expiresAt: _expiryOf(purchase),
+            signedTransaction: purchase.verificationData.serverVerificationData,
+            revoked: revoked,
           ),
         );
         emitStoreKitPurchaseResult(
@@ -561,14 +573,20 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     final remembered = {
       for (final id in previous) id: _entitlement.expiryByProduct[id],
     };
-    if (result.authoritative) {
-      final current = {for (final record in result.records) record.productId};
-      _signedByProduct.removeWhere((id, _) => !current.contains(id));
-    }
-    for (final record in result.records) {
+    final selection = selectEntitlementTransactions(result.records);
+    final activeIds = {for (final record in selection.active) record.productId};
+    _signedByProduct.removeWhere((id, _) => !activeIds.contains(id));
+    _revocationSigned
+      ..clear()
+      ..addEntries(
+        selection.revocations
+            .where((record) => (record.signedTransaction ?? '').trim().isNotEmpty)
+            .map((record) => MapEntry(record.productId, record.signedTransaction!.trim())),
+      );
+    for (final record in selection.active) {
       _rememberSigned(record.productId, record.signedTransaction);
     }
-    _entitlement.replaceAll(result.records);
+    _entitlement.replaceAll(selection.active);
     _confirmedIds
       ..clear()
       ..addAll(_entitlement.expiryByProduct.keys);
@@ -615,6 +633,41 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     });
   }
 
+  /// 古い更新が後から来ても、期限も署名も戻さない。取り消しが今の期限より遅ければ無効にする。
+  void _applyIncoming(SubscriptionEntitlementRecord record) {
+    if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+      return;
+    }
+    final signed = record.signedTransaction?.trim() ?? '';
+    final current = _entitlement.expiryByProduct[record.productId];
+    if (record.revoked) {
+      if (current != null &&
+          record.expiresAt != null &&
+          record.expiresAt!.isBefore(current)) {
+        return;
+      }
+      if (signed.isNotEmpty) {
+        _revocationSigned[record.productId] = signed;
+      }
+      _applyRecord(
+        SubscriptionEntitlementRecord(
+          productId: record.productId,
+          expiresAt: null,
+          revoked: true,
+        ),
+      );
+      return;
+    }
+    if (record.expiresAt != null &&
+        current != null &&
+        !record.expiresAt!.isAfter(current)) {
+      return;
+    }
+    _revocationSigned.remove(record.productId);
+    _rememberSigned(record.productId, signed);
+    _applyRecord(record);
+  }
+
   void _rememberSigned(String productId, String? signedTransaction) {
     final signed = signedTransaction?.trim() ?? '';
     if (signed.isEmpty || !SubscriptionCatalog.isPlusProduct(productId)) {
@@ -643,13 +696,13 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     _productsConfirmed = true;
   }
 
-  /// [SK2Transaction.transactions] は Transaction.all。並びは保証されないので
-  /// [SubscriptionEntitlementState.replaceAll] が商品ごとの最新期限を残す。
+  /// [SK2Transaction.transactions] は Transaction.all。並びは保証されない。
+  /// 商品ごとに、取り消されていない取引のうち期限が最も遅いものだけを送る。
   ///
   /// Transaction.currentEntitlements は in_app_purchase_storekit 0.4.13 では
-  /// restorePurchases の中だけで使われ、結果は購入ストリームへ流れる。
-  /// 読み取り専用の API は無い。課金猶予（期限は過ぎているが currentEntitlements
-  /// に残る）は、ここで判定しない。
+  /// restorePurchases の中だけで使われ、読み取り専用の API は無い。
+  /// ここでは Transaction.all から同じ選び方（最新の有効期限、返金は除外）をする。
+  /// 課金猶予（期限は過ぎているが currentEntitlements に残る）は、ここで判定しない。
   Future<EntitlementLoad> _loadStoreEntitlements() async {
     if (kIsWeb ||
         (defaultTargetPlatform != TargetPlatform.iOS &&
@@ -663,12 +716,11 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
           for (final transaction in transactions)
             SubscriptionEntitlementRecord(
               productId: transaction.productId,
-              expiresAt:
-                  parseStoreRevocationDate(transaction.jsonRepresentation) ==
-                      null
-                  ? parseStoreExpiryMillis(transaction.expirationDate)
-                  : null,
+              expiresAt: parseStoreExpiryMillis(transaction.expirationDate),
               signedTransaction: transaction.receiptData,
+              revoked:
+                  parseStoreRevocationDate(transaction.jsonRepresentation) !=
+                  null,
             ),
         ],
         authoritative: true,

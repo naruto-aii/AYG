@@ -1,6 +1,7 @@
 import { verifySignedTransaction } from "../_shared/apple_signed_data.ts";
 import {
   boundStoreUser,
+  readPlusEntitlement,
   rememberOriginalTransaction,
   upsertPlusEntitlement,
 } from "../_shared/store_live.ts";
@@ -54,5 +55,9 @@ Deno.serve((req) =>
     bind: (originalTransactionId, owner, productId) =>
       rememberOriginalTransaction(originalTransactionId, owner, productId),
     write: (row) => upsertPlusEntitlement(row),
+    current: async (owner, productId) => {
+      const row = await readPlusEntitlement(owner, productId);
+      return row ? { expiresAt: row.expiresAt } : null;
+    },
   })
 );

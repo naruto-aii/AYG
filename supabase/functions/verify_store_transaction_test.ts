@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { decideEntitlement } from "./_shared/store_entitlement.ts";
+import { decideEntitlement, shouldSkipOlderExpiry } from "./_shared/store_entitlement.ts";
 import {
   handleVerifyStoreTransaction,
   type VerifiedTransaction,
@@ -28,6 +28,7 @@ function harness(options: {
   verify?: (jws: string) => Promise<VerifiedTransaction>;
   bound?: Record<string, string>;
   userId?: string | null;
+  current?: (userId: string, productId: string) => Promise<{ expiresAt: string | null } | null>;
 } = {}): { deps: VerifyStoreDeps; writes: Array<Record<string, unknown>>; binds: string[] } {
   const writes: Array<Record<string, unknown>> = [];
   const binds: string[] = [];
@@ -55,6 +56,7 @@ function harness(options: {
         writes.push(row);
         return Promise.resolve();
       },
+      current: options.current,
     },
   };
 }
@@ -140,6 +142,48 @@ Deno.test("the wrong bundle or product is rejected", async () => {
   );
   assertEquals(productResponse.status, 400);
   assertEquals(wrongProduct.writes, []);
+});
+
+Deno.test("an older renewal does not move expires_at backward", async () => {
+  const { deps, writes } = harness({
+    verify: () => Promise.resolve(verified({ expiresDate: Date.parse("2026-10-20T00:00:00Z") })),
+    current: () => Promise.resolve({ expiresAt: "2026-12-08T00:00:00.000Z" }),
+  });
+  const response = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(writes, []);
+  assertEquals(shouldSkipOlderExpiry({
+    revoked: false,
+    currentExpiresAt: "2026-12-08T00:00:00.000Z",
+    nextExpiresAt: "2026-10-20T00:00:00.000Z",
+  }), true);
+});
+
+Deno.test("a later renewal replaces the stored expiry", async () => {
+  const later = Date.parse("2027-01-08T00:00:00Z");
+  const { deps, writes } = harness({
+    verify: () => Promise.resolve(verified({ expiresDate: later })),
+    current: () => Promise.resolve({ expiresAt: "2026-11-08T00:00:00.000Z" }),
+  });
+  const response = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(writes.length, 1);
+  assertEquals(writes[0].expires_at, "2027-01-08T00:00:00.000Z");
+  assertEquals(writes[0].status, "active");
+});
+
+Deno.test("a revocation still clears a later expiry", async () => {
+  const { deps, writes } = harness({
+    verify: () => Promise.resolve(verified({
+      expiresDate: Date.parse("2026-10-20T00:00:00Z"),
+      revocationDate: Date.parse("2026-10-09T00:00:00Z"),
+    })),
+    current: () => Promise.resolve({ expiresAt: "2026-12-08T00:00:00.000Z" }),
+  });
+  const response = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(writes.length, 1);
+  assertEquals(writes[0].status, "inactive");
 });
 
 Deno.test("decideEntitlement keeps a revoked transaction inactive", () => {

@@ -3,7 +3,7 @@ import {
   signedDataVerifier,
   verifySignedNotification,
 } from "../_shared/apple_signed_data.ts";
-import { decideEntitlement } from "../_shared/store_entitlement.ts";
+import { decideEntitlement, shouldSkipOlderExpiry } from "../_shared/store_entitlement.ts";
 import {
   boundStoreUser,
   insertFailedNotification,
@@ -11,6 +11,7 @@ import {
   matchStoreUser,
   notificationExists,
   rememberOriginalTransaction,
+  readPlusEntitlement,
   upsertPlusEntitlement,
 } from "../_shared/store_live.ts";
 import { handleAppStoreNotification, type DecodedStoreNotification } from "./handler.ts";
@@ -78,6 +79,14 @@ Deno.serve((request) =>
         input.userId,
         input.productId,
       );
+      const stored = await readPlusEntitlement(input.userId, input.productId);
+      if (shouldSkipOlderExpiry({
+        revoked: input.revocationDate != null,
+        currentExpiresAt: stored?.expiresAt ?? null,
+        nextExpiresAt: decision.row.expires_at,
+      })) {
+        return;
+      }
       await upsertPlusEntitlement(decision.row);
     },
     insert: (row) => insertNotification(row),

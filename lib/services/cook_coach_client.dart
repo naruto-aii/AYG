@@ -7,6 +7,7 @@ import '../utils/meal_slot.dart';
 import 'ai_data_consent.dart';
 import 'cook_coach.dart';
 import 'cook_coach_target.dart';
+import 'plus_gate_retry.dart';
 
 class CookCoachFailure implements Exception {
   const CookCoachFailure(this.message, {this.code});
@@ -67,11 +68,13 @@ class CookCoachClient {
         }
         final supabase = client ?? Supabase.instance.client;
         try {
-          final response = await supabase.functions.invoke(
-            'cook-coach',
-            body: body,
-          );
-          return response.data;
+          return await PlusGateRetry.callOnce(() async {
+            final response = await supabase.functions.invoke(
+              'cook-coach',
+              body: body,
+            );
+            return response.data;
+          });
         } on FunctionException catch (error) {
           throw CookCoachFailure(
             cookCoachMessageFromBody(error.details),

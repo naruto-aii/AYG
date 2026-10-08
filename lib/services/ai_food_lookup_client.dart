@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'ai_data_consent.dart';
 import 'ai_food_lookup.dart';
 import 'photo_meal_client.dart';
+import 'plus_gate_retry.dart';
 
 typedef AiFoodLookupInvoke =
     Future<Object?> Function(Map<String, Object?> body);
@@ -27,11 +28,13 @@ class AiFoodLookupClient {
         }
         final supabase = client ?? Supabase.instance.client;
         try {
-          final response = await supabase.functions.invoke(
-            'lookup-food-text',
-            body: body,
-          );
-          return response.data;
+          return await PlusGateRetry.callOnce(() async {
+            final response = await supabase.functions.invoke(
+              'lookup-food-text',
+              body: body,
+            );
+            return response.data;
+          });
         } on FunctionException catch (error) {
           throw PhotoMealFailure(photoMealMessageFromBody(error.details));
         }

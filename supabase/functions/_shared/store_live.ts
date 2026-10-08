@@ -183,6 +183,32 @@ export async function boundStoreUser(originalTransactionId: string): Promise<str
   return typeof userId === "string" && userId.length > 0 ? userId : null;
 }
 
+export async function readPlusEntitlement(
+  userId: string,
+  productId: string,
+): Promise<{ expiresAt: string | null; status: string } | null> {
+  if (!isUuid(userId) || !productId) {
+    return null;
+  }
+  const response = await rest(
+    `calonavi_plus_entitlements?user_id=eq.${encodeURIComponent(userId)}&product_id=eq.${encodeURIComponent(productId)}&select=expires_at,status&limit=1`,
+  );
+  if (!response.ok) {
+    throw new Error(`entitlement read ${response.status}`);
+  }
+  const rows = await response.json();
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row || typeof row !== "object") {
+    return null;
+  }
+  const expires = (row as { expires_at?: unknown }).expires_at;
+  const status = (row as { status?: unknown }).status;
+  return {
+    expiresAt: typeof expires === "string" ? expires : null,
+    status: typeof status === "string" ? status : "",
+  };
+}
+
 export async function upsertPlusEntitlement(row: {
   user_id: string;
   product_id: string;

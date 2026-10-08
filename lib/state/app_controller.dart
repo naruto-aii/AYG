@@ -94,6 +94,7 @@ import '../services/meal_template_apply_service.dart';
 import '../services/meal_template_dependency_service.dart';
 import '../services/meal_template_totals_service.dart';
 import '../services/nutrition_engine.dart';
+import '../services/plus_gate_retry.dart';
 import '../services/official_food_provenance.dart';
 import '../services/public_food_search_service.dart';
 import '../services/public_food_similar_service.dart';
@@ -175,7 +176,9 @@ class AppController extends ChangeNotifier {
        _mealTemplateTotalsService = const MealTemplateTotalsService(),
        _mealTemplateDependencyService = const MealTemplateDependencyService(),
        _mealTemplateApplyService = const MealTemplateApplyService(),
-       _searchSuggestionService = const SearchSuggestionService();
+       _searchSuggestionService = const SearchSuggestionService() {
+    PlusGateRetry.bind(_syncPlusForAiRetry);
+  }
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
@@ -3605,6 +3608,35 @@ class AppController extends ChangeNotifier {
         .listen((_) {
           unawaited(_syncPlusEntitlement());
         });
+  }
+
+  Future<bool> _syncPlusForAiRetry() async {
+    if (!_hasUnexpiredStorePlus()) {
+      return false;
+    }
+    try {
+      await _subscriptionRepository.refreshEntitlement();
+    } catch (_) {}
+    if (!_hasUnexpiredStorePlus()) {
+      return false;
+    }
+    await _syncPlusEntitlement();
+    return true;
+  }
+
+  bool _hasUnexpiredStorePlus() {
+    final now = DateTime.now();
+    for (final record in _subscriptionRepository.confirmedEntitlements) {
+      final signed = record.signedTransaction?.trim() ?? '';
+      final expiry = record.expiresAt;
+      if (signed.isNotEmpty &&
+          expiry != null &&
+          expiry.isAfter(now) &&
+          SubscriptionCatalog.isPlusProduct(record.productId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _syncPlusEntitlement() async {

@@ -10,7 +10,7 @@ import {
   type UsageInsert,
 } from "./lookup-food-text/handler.ts";
 import { lookupUsageFromRows } from "./lookup-food-text/policy.ts";
-import { lookupBody } from "./lookup-food-text/provider.ts";
+import { lookupBody, lookupPrompt } from "./lookup-food-text/provider.ts";
 import {
   candidateMatchesQuery,
   normalizeFoodQuery,
@@ -461,4 +461,26 @@ Deno.test("a missing key does not call the model", async () => {
   );
   assertEquals((await response.json()).code, "missing_key");
   assertEquals(calls.length, 0);
+});
+
+Deno.test("sold units come first in the prompt, and mismatched pack kcal is scaled to the first candidate", () => {
+  assertEquals(lookupPrompt.includes("1パック"), true);
+  assertEquals(lookupPrompt.includes("知っている公式の栄養成分があれば、それに合わせてください"), true);
+  const scaled = parseLookupCandidates({
+    i: [
+      { n: "からあげクン", a: "1個", k: 104, p: 6, f: 6, c: 6, b: true },
+      { n: "からあげクン", a: "5個入り", k: 226, p: 13, f: 13, c: 13, b: true },
+    ],
+  });
+  assertEquals(scaled?.[0].kcal, 104);
+  assertEquals(scaled?.[1].amount, "5個入り");
+  assertEquals(scaled?.[1].kcal, 520);
+  const packFirst = parseLookupCandidates({
+    i: [
+      { n: "からあげクン", a: "5個入り", k: 226, p: 10, f: 12, c: 22, b: true },
+      { n: "からあげクン", a: "1個", k: 104, p: 6, f: 6, c: 6, b: true },
+    ],
+  });
+  assertEquals(packFirst?.[0].kcal, 226);
+  assertEquals(packFirst?.[1].kcal, 45);
 });

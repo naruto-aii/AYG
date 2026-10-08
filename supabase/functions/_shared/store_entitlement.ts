@@ -41,6 +41,30 @@ export function entitlementTiming(input: {
   return { status: "expired", expiresAt };
 }
 
+/// 届いた期限が今の期限より前なら、加入の行を上書きしない。
+/// 返金・取り消し（revocationDate）は、期限が前でも権利を無効にする。
+export function shouldSkipOlderExpiry(input: {
+  revoked: boolean;
+  currentExpiresAt: string | null;
+  nextExpiresAt: string | null;
+}): boolean {
+  if (input.revoked) {
+    return false;
+  }
+  if (!input.currentExpiresAt) {
+    return false;
+  }
+  if (!input.nextExpiresAt) {
+    return true;
+  }
+  const current = Date.parse(input.currentExpiresAt);
+  const next = Date.parse(input.nextExpiresAt);
+  if (!Number.isFinite(current) || !Number.isFinite(next)) {
+    return false;
+  }
+  return next < current;
+}
+
 /// 署名検証が通った取引だけを渡す。bundleId、商品、環境、取引の持ち主をここで見る。
 export function decideEntitlement(input: {
   userId: string;

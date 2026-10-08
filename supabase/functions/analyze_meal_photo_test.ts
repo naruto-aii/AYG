@@ -681,3 +681,28 @@ Deno.test("photo count does not include cook coach", async () => {
   assertEquals(urls.some((url) => url.includes("ai_feature_uses")), false);
   assertEquals(urls.some((url) => url.includes("ai_search")), false);
 });
+
+Deno.test("item nutrition is scaled so the parts sum to the meal", () => {
+  const parsed = parsePhotoMealEstimate({
+    dish_name: "定食",
+    amount: "1人前",
+    kcal: 680,
+    protein_g: 30,
+    fat_g: 20,
+    carb_g: 95,
+    confidence: 0.8,
+    items: [
+      { name: "ごはん", amount: "200g", kcal: 300, protein_g: 15, fat_g: 10, carb_g: 37.5 },
+      { name: "焼き魚", amount: "1切れ", kcal: 362, protein_g: 14, fat_g: 10, carb_g: 48 },
+    ],
+  });
+  if (!parsed) {
+    throw new Error("missing estimate");
+  }
+  const sum = (pick: (item: { kcal: number; proteinG: number; fatG: number; carbG: number }) => number) =>
+    Math.round(parsed.items.reduce((total, item) => total + pick(item), 0) * 10) / 10;
+  assertEquals(sum((item) => item.kcal), 680);
+  assertEquals(sum((item) => item.proteinG), 30);
+  assertEquals(sum((item) => item.fatG), 20);
+  assertEquals(sum((item) => item.carbG), 95);
+});

@@ -193,7 +193,7 @@ export function scoreDish(dish: MeasuredDish, target: Macros, slot: string, note
   }
   if ((slot === "lunch" || slot === "dinner") && dish.within && target.kcal >= 400) {
     const proteinFood = dish.ingredients.some((item) =>
-      /肉|鶏|豚|牛|鮭|魚|卵|豆腐|納豆/.test(item.name)
+      /肉|鶏|豚|牛|鮭|魚|卵|豆腐|納豆|いか|えび|さば|ぶり|たら|ツナ/.test(item.name)
     );
     if (!proteinFood) {
       reasons.push("meal has no protein");

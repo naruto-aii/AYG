@@ -830,6 +830,24 @@ Deno.test("onion alone does not make long onion on hand, and dashi stays within 
   assertEquals(seasoningOverCap([{ name: "顆粒だし", grams: 3 }, { name: "顆粒だし", grams: 3 }]), false);
 });
 
+Deno.test("plans do not depend on recipe order, and chicken breast with rice keeps a buy-one plan within tolerance", async () => {
+  const { selectCookPlans } = await import("./cook-coach/select.ts");
+  const input = {
+    ingredients: ["鶏むね肉", "ごはん"],
+    slot: "dinner",
+    target: { kcal: 650, proteinG: 40, fatG: 18, carbG: 80 },
+  };
+  const forward = selectCookPlans(cookRecipes, input);
+  const reversed = selectCookPlans([...cookRecipes].reverse(), input);
+  const rotated = selectCookPlans([...cookRecipes.slice(37), ...cookRecipes.slice(0, 37)], input);
+  for (const other of [reversed, rotated]) {
+    assertEquals(other.a?.name, forward.a?.name);
+    assertEquals(other.b?.name, forward.b?.name);
+    assertEquals(other.b?.totals, forward.b?.totals);
+  }
+  assertEquals(forward.b != null && forward.b.within, true, forward.b?.name);
+});
+
 Deno.test("consomme uses the solid bouillon code and food values follow the official table", async () => {
   const { cookFood } = await import("./cook-coach/foods.ts");
   const consomme = cookFood("consomme");

@@ -158,8 +158,10 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
   if (listed.length === 0) {
     return { a: null, b: null, onHandHits: 0, extraHits: 0, emptyMessage, omitNote };
   }
-  const onHand = composeMeals(recipes, listed, avoid, input.target, limit, input.slot, note, omitNote, recent, "on_hand");
-  const extra = composeMeals(recipes, listed, avoid, input.target, limit, input.slot, note, omitNote, recent, "extra");
+  // 本番は id 順で読み込むので、ここでも id 順にして結果を同じにする。
+  const ordered = [...recipes].sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+  const onHand = composeMeals(ordered, listed, avoid, input.target, limit, input.slot, note, omitNote, recent, "on_hand");
+  const extra = composeMeals(ordered, listed, avoid, input.target, limit, input.slot, note, omitNote, recent, "extra");
   const a = pick(onHand);
   const b = pick(extra.filter((item) => !a || item.dish.name !== a.dish.name));
   return {
@@ -400,33 +402,52 @@ function collect(
     }
   }
   return {
-    mains: diversify(mains, listed, kind === "extra" ? 40 : 16, 2),
-    onHandMains: diversify(onHandMains, listed, 10, 2),
-    sides: diversify(sides, listed, 4, 1),
-    extraSides: diversify(extraSides, listed, 4, 1),
-    soups: diversify(soups, listed, 4, 2),
+    mains: diversify(mains, listed, target, kind === "extra" ? 40 : 16, 2),
+    onHandMains: diversify(onHandMains, listed, target, 10, 2),
+    sides: diversify(sides, listed, null, 4, 1),
+    extraSides: diversify(extraSides, listed, null, 4, 1),
+    soups: diversify(soups, listed, null, 4, 2),
   };
 }
 
 function diversify(
   packs: Array<{ recipeId: string; parts: MeasuredDish[] }>,
   listed: string[],
+  target: Macros | null,
   max: number,
   perRecipe: number,
 ) {
-  const groups = new Map<string, Array<{ recipeId: string; parts: MeasuredDish[] }>>();
-  for (const pack of packs) {
-    const list = groups.get(pack.recipeId) ?? [];
-    list.push(pack);
-    groups.set(pack.recipeId, list);
+  // 主菜は、使う食材の数が同じなら、ごはんで kcal を埋めたときに目標へ近い品を残す（id 順で落とさない）。
+  const keyed = packs.map((pack) => ({
+    pack,
+    used: usedCount(pack.parts[0], listed),
+    fit: target ? riceFilledGap(pack.parts[0], target) : 0,
+  }));
+  const order = (left: typeof keyed[number], right: typeof keyed[number]) => right.used - left.used || left.fit - right.fit;
+  const groups = new Map<string, typeof keyed>();
+  for (const item of keyed) {
+    const list = groups.get(item.pack.recipeId) ?? [];
+    list.push(item);
+    groups.set(item.pack.recipeId, list);
   }
-  const out: Array<{ recipeId: string; parts: MeasuredDish[] }> = [];
+  const out: typeof keyed = [];
   for (const list of groups.values()) {
-    list.sort((left, right) => usedCount(right.parts[0], listed) - usedCount(left.parts[0], listed));
+    list.sort(order);
     out.push(...list.slice(0, perRecipe));
   }
-  out.sort((left, right) => usedCount(right.parts[0], listed) - usedCount(left.parts[0], listed));
-  return out.slice(0, max);
+  out.sort(order);
+  return out.slice(0, max).map((item) => item.pack);
+}
+
+function riceFilledGap(dish: MeasuredDish, target: Macros): number {
+  const rice = cookFood("rice");
+  const grams = hasStarch([dish]) ? 0 : Math.max(0, (target.kcal - dish.totals.kcal) / rice.kcal * 100);
+  return gapScore(target, {
+    kcal: dish.totals.kcal + rice.kcal * grams / 100,
+    proteinG: dish.totals.proteinG + rice.proteinG * grams / 100,
+    fatG: dish.totals.fatG + rice.fatG * grams / 100,
+    carbG: dish.totals.carbG + rice.carbG * grams / 100,
+  });
 }
 
 function scaledDishes(fill: Fill, target: Macros, omitNote: string, listed: string[]): MeasuredDish[] {

@@ -184,7 +184,7 @@ export function buildCookRecipes(): CookRecipe[] {
       "しょうゆ{g:soy}gとみりん{g:mirin}gと砂糖{g:sugar}gを加えて3分絡める。",
       "ごはん{g:rice}gにのせて出す。",
     ], [s("protein", meatP), s("rice", [["rice", 180]]), oil(), soy(10), mirin(10), sugar(6)]),
-    dish("fish-shio", "{protein}の焼き魚", "和", "主菜", "焼", [
+    dish("fish-shio", "{protein}の塩焼き", "和", "主菜", "焼", [
       "{protein}の水気をふく。",
       "フライパンを中火にし、{oil}{g:oil}gを熱して{protein}を7分焼く。",
       "塩{g:salt}gとこしょう{g:pepper}gをふり、2分焼いて中まで火を通す。",
@@ -463,12 +463,16 @@ export function buildCookRecipes(): CookRecipe[] {
       ]),
       dashi(), miso(12), soy(4),
     ]),
-    dish("miso-plain", "味噌汁", "和", "汁物", "煮", [
+    dish("miso-plain", "わかめとねぎの味噌汁", "和", "汁物", "煮", [
+      "わかめとねぎを食べやすく切る。",
       "鍋に水を300mlと顆粒だし{g:dashi}gを入れて4分煮立たせる。",
-      "味噌{g:miso}gを溶き入れる。",
-      "しょうゆ{g:soy}gを加えて2分煮て火を止める。",
-      "器に盛る。",
-    ], [dashi(), miso(12), soy(4)]),
+      "わかめとねぎを入れて3分煮る。",
+      "味噌{g:miso}gとしょうゆ{g:soy}gを溶き入れて火を止める。",
+    ], [
+      s("wakame", [["wakame", 20]]),
+      s("negi", [["negi", 40]]),
+      dashi(), miso(12), soy(4),
+    ]),
     dish("tonjiru", "豚汁", "和", "汁物", "煮", [
       "豚こまと{veg}を食べやすく切る。",
       "鍋に水を400mlと顆粒だし{g:dashi}gを入れて煮立たせる。",
@@ -517,12 +521,17 @@ export function buildCookRecipes(): CookRecipe[] {
       s("consomme", [["consomme", 4]]),
       salt(), pepper(),
     ]),
-    dish("milk-soup", "牛乳スープ", "洋", "汁物", "煮", [
-      "鍋に牛乳を入れ、中火で温める。",
-      "水を50mlとバター{g:oil}gを加えて2分混ぜる。",
-      "塩{g:salt}gとこしょう{g:pepper}gを加えて3分温めて火を止める。",
-      "器に盛る。",
-    ], [s("milk", [["milk", 160]]), butter(8), salt(), pepper()]),
+    dish("milk-soup", "キャベツとベーコンのミルクスープ", "洋", "汁物", "煮", [
+      "キャベツとベーコンを食べやすく切る。",
+      "鍋に水を200mlと牛乳{g:milk}gを入れて中火にする。",
+      "キャベツとベーコンとバター{g:oil}gを入れて6分煮る。",
+      "塩{g:salt}gとこしょう{g:pepper}gを加えて2分煮て火を止める。",
+    ], [
+      s("veg", [["cabbage", 80]]),
+      s("protein", [["bacon", 70]]),
+      s("milk", [["milk", 150]]),
+      butter(8), salt(), pepper(),
+    ]),
     dish("veg-soup", "{veg}のコンソメスープ", "洋", "汁物", "煮", [
       "{veg}を食べやすく切る。",
       "鍋に水を350mlとコンソメ{g:consomme}gを入れて煮立たせる。",
@@ -559,7 +568,7 @@ export function buildCookRecipes(): CookRecipe[] {
       "しょうゆ{g:soy}gとみりん{g:mirin}gと砂糖{g:sugar}gを加えて3分炒め、水分を飛ばす。",
       "火を止めて器に盛る。",
     ], [
-      s("veg", [["gobo", 60], ["carrot", 60], ["daikon", 70]]),
+      s("veg", [["gobo", 60], ["carrot", 60], ["daikon", 70], ["rakkyo", 50]]),
       oil(6), soy(8), mirin(8), sugar(4),
     ]),
     dish("potato-butter", "じゃがいものバター蒸し", "洋", "軽い品", "蒸", [
@@ -601,18 +610,27 @@ export function buildCookRecipes(): CookRecipe[] {
       "卵を流し入れて2分火を通す。",
       "塩{g:salt}gとこしょう{g:pepper}gを振って器に盛る。",
     ], [s("veg", [["tomato", 100]]), s("egg", [["egg", 100]]), oil(6), salt(), pepper()]),
-    dish("tk", "卵かけご飯", "和", "丼麺", "蒸", [
-      "ごはんを器に盛る。",
-      "卵を落とし、しょうゆ{g:soy}gと塩{g:salt}gをかける。",
-      "電子レンジで2分加熱する。",
-      "3分置いて火が通ったら出す。",
-    ], [s("rice", [["rice", 160]]), s("egg", [["egg", 50]]), soy(8), salt()]),
-    dish("natto-rice", "納豆和えご飯", "和", "丼麺", "蒸", [
-      "ごはんを器に盛る。",
-      "納豆としょうゆ{g:soy}gと塩{g:salt}gをのせて混ぜる。",
-      "電子レンジで2分加熱する。",
-      "3分置いてから出す。",
-    ], [s("protein", [["natto", 50]]), s("rice", [["rice", 160]]), soy(6), salt()]),
+    dish("tk", "卵とじ丼", "和", "丼麺", "煮", [
+      "卵を溶いておく。",
+      "鍋に水を200mlと顆粒だし{g:dashi}gとしょうゆ{g:soy}gとみりん{g:mirin}gを入れて4分煮立たせる。",
+      "溶き卵を回し入れて2分火を通し、半熟になったら火を止める。",
+      "ごはん{g:rice}gにかけて出す。",
+    ], [
+      s("egg", [["egg", 100]]),
+      s("rice", [["rice", 180]]),
+      dashi(), soy(8), mirin(8),
+    ]),
+    dish("natto-rice", "納豆チャーハン", "中", "丼麺", "炒", [
+      "卵を溶き、納豆と混ぜておく。",
+      "フライパンを中火にし、{oil}{g:oil}gを熱して卵と納豆を2分炒める。",
+      "ごはん{g:rice}gとしょうゆ{g:soy}gとこしょう{g:pepper}gを加えて3分炒め合わせる。",
+      "火を止めて器に盛る。",
+    ], [
+      s("protein", [["natto", 50]]),
+      s("egg", [["egg", 50]]),
+      s("rice", [["rice", 160]]),
+      oil(6), soy(6), pepper(),
+    ]),
     dish("ham-egg", "{protein}と卵の炒め", "洋", "主菜", "炒", [
       "{protein}を食べやすく切る。",
       "フライパンを中火にし、{oil}{g:oil}gで{protein}を3分焼く。",
@@ -623,7 +641,7 @@ export function buildCookRecipes(): CookRecipe[] {
       s("egg", [["egg", 50]]),
       oil(4), salt(), pepper(),
     ]),
-    dish("tuna-toast", "ツナの焼きサンド", "洋", "軽い品", "焼", [
+    dish("tuna-toast", "ツナトースト", "洋", "軽い品", "焼", [
       "ツナと塩{g:salt}gとこしょう{g:pepper}gを混ぜる。",
       "食パンにのせる。",
       "フライパンを中火にし、バター{g:oil}gを熱して片面を3分焼く。",
@@ -643,7 +661,7 @@ export function buildCookRecipes(): CookRecipe[] {
       s("bread", [["bread", 70]]),
       butter(5), salt(), pepper(),
     ]),
-    dish("egg-toast", "卵の焼きトースト", "洋", "主食", "焼", [
+    dish("egg-toast", "目玉焼きトースト", "洋", "主食", "焼", [
       "食パンを一口大に切る。",
       "フライパンを中火にし、バター{g:oil}gを熱してパンを3分焼く。",
       "卵を流し入れて2分火を通す。",
@@ -747,12 +765,15 @@ export function buildCookRecipes(): CookRecipe[] {
       "しょうゆ{g:soy}gとみりん{g:mirin}gを加えて3分絡める。",
       "火を止めて器に盛る。",
     ], [s("veg", [["menma", 60]]), s("negi", [["negi", 50]]), oil(4), soy(6), mirin(6)]),
-    dish("rakkyo", "らっきょうの甘酢", "和", "副菜", "漬", [
-      "らっきょうを洗って水気を切る。",
-      "鍋に酢{g:vinegar}gと砂糖{g:sugar}gと塩{g:salt}gと水を50mlを入れて煮立たせる。",
-      "らっきょうを入れて4分煮る。",
-      "火を止めて3分置き、味を含ませて出す。",
-    ], [s("veg", [["rakkyo", 50]]), vinegar(12), sugar(8), salt()]),
+    dish("nasu-nibitashi", "なすの煮びたし", "和", "副菜", "煮", [
+      "なすを食べやすく切る。",
+      "鍋に水を250mlと顆粒だし{g:dashi}gを入れて煮立たせる。",
+      "なすを入れて6分煮る。",
+      "しょうゆ{g:soy}gとみりん{g:mirin}gを加えて2分煮て火を止める。",
+    ], [
+      s("veg", [["eggplant", 120]]),
+      dashi(), soy(8), mirin(8),
+    ]),
     dish("gobo-simmer", "ごぼうの煮物", "和", "副菜", "煮", [
       "ごぼうをささがきにして水にさらす。",
       "鍋に水を200mlと顆粒だし{g:dashi}gを入れて煮立たせる。",
@@ -888,10 +909,15 @@ export function buildCookRecipes(): CookRecipe[] {
     ], [s("egg", [["egg", 100]]), butter(8), salt(), pepper()]),
     dish("spinach-goma", "ほうれん草のごま和え", "和", "副菜", "和え", [
       "ほうれん草を2分ゆでて水気をしぼる。",
-      "しょうゆ{g:soy}gと砂糖{g:sugar}gとごま油{g:oil}gで和える。",
+      "しょうゆ{g:soy}gと砂糖{g:sugar}gとすりごま{g:goma}gとごま油{g:oil}gで和える。",
       "3分置いて味をなじませる。",
       "器に盛る。",
-    ], [s("veg", [["spinach", 80]]), soy(6), sugar(3), s("oil", [["sesame", 4]])]),
+    ], [
+      s("veg", [["spinach", 80]]),
+      soy(6), sugar(3),
+      s("goma", [["surigoma", 8]]),
+      s("oil", [["sesame", 4]]),
+    ]),
     dish("corn-butter", "とうもろこしのバター炒め", "洋", "副菜", "炒", [
       "とうもろこしを食べやすく切る。",
       "フライパンを中火にし、バター{g:oil}gを熱してとうもろこしを4分炒める。",
@@ -971,12 +997,16 @@ export function buildCookRecipes(): CookRecipe[] {
       s("mayo", [["mayo", 12]]),
       salt(), pepper(),
     ]),
-    dish("saba-shio", "さばの塩焼き", "和", "主菜", "焼", [
-      "さばの水気をふく。",
-      "フライパンを中火にし、{oil}{g:oil}gを熱してさばを片面5分焼く。",
-      "裏返して4分焼き、塩{g:salt}gとこしょう{g:pepper}gをふる。",
-      "中まで火を通して器に盛る。",
-    ], [s("protein", [["saba", 110]]), oil(4), salt(), pepper()]),
+    dish("milk-okayu", "牛乳がゆ", "和", "主食", "煮", [
+      "ごはんを鍋に入れる。",
+      "牛乳{g:milk}gと水を100mlを加えて中火にする。",
+      "8分煮てごはんをやわらかくする。",
+      "塩{g:salt}gと砂糖{g:sugar}gを加えて2分煮て火を止める。",
+    ], [
+      s("rice", [["rice", 60]]),
+      s("milk", [["milk", 100]]),
+      salt(), sugar(3),
+    ]),
   ];
   return recipes;
 }

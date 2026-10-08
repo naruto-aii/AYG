@@ -110,6 +110,8 @@ function checkRow(row: Row): string[] {
     [/ムニエル/, /小麦粉|薄力粉/],
     [/ムニエル/, /バター/],
     [/バター/, /バター/],
+    [/ごま和え/, /すりごま/],
+    [/油淋/, /油/],
     [/トマト/, /トマト|ケチャップ/],
     [/味噌/, /味噌/],
     [/カレー/, /カレー/],
@@ -160,16 +162,21 @@ function line(row: Row): string {
     .filter((option) => isSeasoning(option.label) && !isOil(option.label))
     .map((option) => `${option.label}${option.grams}g`)
     .join(" ");
+  const oils = row.chosen
+    .filter((option) => isOil(option.label))
+    .map((option) => `${option.label}${option.grams}g`)
+    .join("、");
   const foods = row.chosen
     .filter((option) => !isSeasoning(option.label) && !isOil(option.label))
     .map((option) => `${option.label}${option.grams}g`)
     .join("、");
+  const shown = [foods, oils].filter((part) => part.length > 0).join("、");
   return [
     row.name,
     row.recipe.genre,
     row.recipe.category,
     `${row.recipe.minutes}分`,
-    foods,
+    shown,
     season,
     `${totals.kcal}kcal`,
     `P${totals.proteinG}`,

@@ -594,7 +594,12 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
 
   Widget _dishCard(CookDish dish) {
     final onHand = dish.kind != 'extra';
-    final title = onHand ? '手持ちだけで作れます' : '買い足しで作れます';
+    final assumesRice = dish.ingredients.any((item) => item.assumed && _isRiceName(item.name));
+    final title = !onHand
+        ? '買い足しで作れます'
+        : assumesRice
+        ? 'ごはんがご自宅にあれば作れます'
+        : '手持ちだけで作れます';
     final line = AppTypography.bodyS.copyWith(
       color: AppColors.textPrimary,
       height: 1.35,
@@ -642,11 +647,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    item.assumed
-                        ? '${item.name}（家にあるもの）'
-                        : item.extra
-                        ? '${item.name}（買い足し）'
-                        : item.name,
+                    _shownIngredientName(item),
                     key: Key('cook_ingredient_${dish.kind}_${item.name}'),
                     style: line,
                   ),
@@ -734,7 +735,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
         const SizedBox(height: 8),
         for (var i = 0; i < dish.ingredients.length; i++)
           Text(
-            '${cookIngredientAmount(dish.ingredients[i].name, dish.ingredients[i].grams)}　${dish.ingredients[i].kcal}kcal',
+            '${cookIngredientAmount(dish.ingredients[i].name, dish.ingredients[i].grams).replaceFirst(dish.ingredients[i].name, _shownIngredientName(dish.ingredients[i]))}　${dish.ingredients[i].kcal}kcal',
             key: Key('cook_saved_${i}_${dish.ingredients[i].name}'),
             style: AppTypography.bodyS.copyWith(color: AppColors.textPrimary),
           ),
@@ -781,6 +782,26 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
       ),
     );
   }
+}
+
+bool _isRiceName(String name) {
+  if (name.contains('米酢') || name.contains('米粉')) {
+    return false;
+  }
+  return name.contains('ごはん') || name.contains('ご飯');
+}
+
+String _shownIngredientName(CookIngredient item) {
+  if (item.assumed && _isRiceName(item.name)) {
+    return '${item.name}（ご自宅にあれば）';
+  }
+  if (item.assumed) {
+    return '${item.name}（家にあるもの）';
+  }
+  if (item.extra) {
+    return '${item.name}（買い足し）';
+  }
+  return item.name;
 }
 
 String _cookAmount(String name, int grams) {

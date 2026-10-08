@@ -230,8 +230,11 @@ function composeMeals(
     const hardMiss = missedHard(meal, listed);
     const within = meal.within ? 0 : 1;
     const used = usedCount(meal, listed);
-    const score = hardMiss * 1e12 + within * 1e9 + gapScore(target, meal.totals) +
-      (recent.has(meal.name) ? 8000 : 0) - used * 50;
+    const gap = gapScore(target, meal.totals);
+    // 同じくらい近い案では、入力した食材を多く使う方を先にする。
+    const band = Math.floor(gap / 8000);
+    const score = hardMiss * 1e12 + within * 1e9 + band * 1e6 - used * 1000 + gap / 10000 +
+      (recent.has(meal.name) ? 0.5 : 0);
     found.push({ dish: meal, recipeId, score, used: used - hardMiss * 100 });
     if (found.length > 500) {
       found.sort((left, right) => left.score - right.score);
@@ -253,6 +256,15 @@ function composeMeals(
   };
   for (const main of mains) {
     visit(basesOf(main.parts, groups.sides, groups.soups), main.recipeId);
+  }
+  if (
+    kind === "on_hand" &&
+    !avoidRice(avoid) &&
+    listed.some((name) => namesMatch(name, "ごはん") || namesMatch(name, "ご飯"))
+  ) {
+    for (const grams of riceFit(0, target.kcal)) {
+      consider([riceDish(grams, listed)], "rice-warm");
+    }
   }
   if (kind === "extra") {
     for (const main of groups.onHandMains) {
@@ -371,7 +383,7 @@ function collect(
     }
   }
   return {
-    mains: diversify(mains, listed, 16, 2),
+    mains: diversify(mains, listed, kind === "extra" ? 40 : 16, 2),
     onHandMains: diversify(onHandMains, listed, 10, 2),
     sides: diversify(sides, listed, 4, 1),
     extraSides: diversify(extraSides, listed, 4, 1),
@@ -634,7 +646,9 @@ function anchored(
     if (forcedKeys.size > 0 && (unique.length < 1 || unique.length > 2)) {
       continue;
     }
-    if (!usesListed(chosen, listed) && !chosen.every((option) => option.staple)) {
+    const listedRice = listed.some((name) => namesMatch(name, "ごはん") || namesMatch(name, "ご飯"));
+    const hasRice = chosen.some((option) => isRice(option.label));
+    if (!usesListed(chosen, listed) && !chosen.every((option) => option.staple) && !(listedRice && !hasRice)) {
       continue;
     }
     out.push({ recipe, chosen, extras: unique });
@@ -649,12 +663,17 @@ function cartesian(groups: CookOption[][], max = 48): CookOption[][] {
   let rows: CookOption[][] = [[]];
   for (const group of groups) {
     const next: CookOption[][] = [];
+    let stop = false;
     for (const row of rows) {
       for (const option of group) {
         next.push([...row, option]);
-        if (next.length > max) {
-          return next;
+        if (next.length >= max) {
+          stop = true;
+          break;
         }
+      }
+      if (stop) {
+        break;
       }
     }
     rows = next;

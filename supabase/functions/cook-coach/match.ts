@@ -302,6 +302,12 @@ export function realisticGramBounds(name: string, suggested: number): GramWindow
   } else if (isSugar(name)) {
     min = 0;
     max = 12;
+  } else if (name.includes("すりごま") || (name.includes("ごま") && !name.includes("油"))) {
+    min = 5;
+    max = 20;
+  } else if (name.includes("わかめ")) {
+    min = 10;
+    max = 50;
   } else if (name.includes("片栗粉") || name.includes("小麦粉") || name.includes("薄力粉")) {
     min = 5;
     max = 30;

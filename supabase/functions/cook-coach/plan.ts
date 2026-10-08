@@ -85,7 +85,14 @@ export function nameMismatch(name: string, items: { name: string }[]): boolean {
     { pattern: /にんにく|ガーリック/, ok: (rows) => rows.some((item) => item.name.includes("にんにく")) },
     { pattern: /生姜|しょうが/, ok: (rows) => rows.some((item) => item.name.includes("しょうが")) },
   ];
-  return claims.some((claim) => claim.pattern.test(name) && !claim.ok(items));
+  if (claims.some((claim) => claim.pattern.test(name) && !claim.ok(items))) {
+    return true;
+  }
+  const withoutSoy = name.replaceAll("醤油", "").replaceAll("しょうゆ", "").replaceAll("油揚げ", "");
+  if (withoutSoy.includes("油") && !items.some((item) => isOil(item.name))) {
+    return true;
+  }
+  return false;
 }
 
 const dishMethod =

@@ -119,28 +119,27 @@ void main() {
     expect(find.text('目標の範囲に入っています'), findsNWidgets(2));
     expect(find.text('手持ちだけで作れます'), findsOneWidget);
     expect(find.text('買い足しで作れます'), findsOneWidget);
-    expect(find.text('鶏むね肉の照り焼き、味噌汁、ごはんの温め'), findsOneWidget);
-    expect(find.text('鶏むね肉とキャベツの味噌炒め、味噌汁、ごはんの温め'), findsOneWidget);
-    expect(find.text('603kcal　P 35.5g　F 17.1g　C 75.7g'), findsOneWidget);
-    expect(find.text('603kcal　P 35.2g　F 17.8g　C 75.9g'), findsOneWidget);
+    expect(find.text('鶏むね肉の照り焼き、ごはんの温め'), findsOneWidget);
+    expect(find.text('鶏むね肉の生姜焼き、ごはんの温め'), findsOneWidget);
+    expect(find.text('603kcal　P 33.2g　F 16.4g　C 79.9g'), findsOneWidget);
+    expect(find.text('603kcal　P 33.6g　F 16.5g　C 79.2g'), findsOneWidget);
     expect(find.text('あと＋47kcal'), findsNWidgets(2));
-    expect(find.textContaining('P 目標より3.5g多い'), findsOneWidget);
+    expect(find.textContaining('P 目標より1.2g多い'), findsOneWidget);
     expect(find.text('1. 鶏むね肉を一口大に切る。'), findsOneWidget);
-    expect(find.text('調理の目安 19分'), findsOneWidget);
-    expect(find.text('調理の目安 18分'), findsOneWidget);
-    expect(find.textContaining('（家にあるもの）'), findsWidgets);
-    expect(find.text('キャベツ（買い足し）'), findsOneWidget);
-    expect(find.text('買い足すもの: キャベツ'), findsOneWidget);
+    expect(find.text('調理の目安 13分'), findsNWidgets(2));
+    expect(find.textContaining('サラダ油（家にあるもの）'), findsWidgets);
+    expect(find.text('しょうが（買い足し）'), findsOneWidget);
+    expect(find.text('買い足すもの: しょうが'), findsOneWidget);
     expect(find.textContaining('成分表'), findsNothing);
 
     _jump(tester, 0);
     await tester.pumpAndSettle();
     await _write(tester, boundary, File('${directory.path}/cook_results.png'));
 
-    await _scrollTextTo(tester, '鶏むね肉とキャベツの味噌炒め、味噌汁、ごはんの温め', 80);
+    await _scrollTextTo(tester, '鶏むね肉の生姜焼き、ごはんの温め', 80);
     await _write(tester, boundary, File('${directory.path}/cook_results_extra.png'));
     expect(
-      tester.getRect(find.text('鶏むね肉とキャベツの味噌炒め、味噌汁、ごはんの温め')).top,
+      tester.getRect(find.text('鶏むね肉の生姜焼き、ごはんの温め')).top,
       greaterThanOrEqualTo(0),
     );
 
@@ -148,7 +147,7 @@ void main() {
     await tester.tap(find.byKey(const Key('cook_register_on_hand')));
     await tester.pumpAndSettle();
     expect(find.text('食事に追加しました'), findsOneWidget);
-    expect(find.text('603kcal　P 35.5g　F 17.1g　C 75.7g'), findsOneWidget);
+    expect(find.text('603kcal　P 33.2g　F 16.4g　C 79.9g'), findsOneWidget);
     expect(find.text('鶏むね肉 119g　129kcal'), findsOneWidget);
     _jump(tester, 0);
     await tester.pumpAndSettle();
@@ -268,7 +267,7 @@ Map<String, Object?> _row({
 }
 
 Map<String, Object?> _payload() {
-  // 鶏むね肉＋ごはん、夕食 650/32/18/75。主菜＋味噌汁＋ごはん。行の和が画面の合計。
+  // 鶏むね肉＋ごはん、夕食 650/32/18/75。照り焼き＋ごはん。行の和が画面の合計。
   return {
     'ok': true,
     'retried': false,
@@ -276,30 +275,26 @@ Map<String, Object?> _payload() {
     'patterns': [
       {
         'kind': 'on_hand',
-        'name': '鶏むね肉の照り焼き、味噌汁、ごはんの温め',
-        'minutes': 19,
+        'name': '鶏むね肉の照り焼き、ごはんの温め',
+        'minutes': 13,
         'steps': [
           '鶏むね肉を一口大に切る。',
           'フライパンを中火にし、サラダ油14gを熱して鶏むね肉を5分焼く。',
           'しょうゆ12gとみりん10gと砂糖6gを加えて3分絡め、照りを出す。',
           '火を止めて器に盛る。',
-          '鍋に水を300mlと顆粒だし6gを入れて4分煮立たせる。',
-          '味噌12gを溶き入れる。',
-          'しょうゆ4gを加えて2分煮て火を止める。',
-          '器に盛る。',
-          'ごはん160gを茶碗によそう。',
+          'ごはん185gを茶碗によそう。',
           '塩1gをふって混ぜ、電子レンジで2分温める。',
           '3分置いてから出す。',
         ],
         'extras': <String>[],
         'kcal': 603,
-        'protein_g': 35.5,
-        'fat_g': 17.1,
-        'carb_g': 75.7,
+        'protein_g': 33.2,
+        'fat_g': 16.4,
+        'carb_g': 79.9,
         'gap_kcal': 47,
-        'gap_protein_g': -3.5,
-        'gap_fat_g': 0.9,
-        'gap_carb_g': -0.7,
+        'gap_protein_g': -1.2,
+        'gap_fat_g': 1.6,
+        'gap_carb_g': -4.9,
         'within_tolerance': true,
         'ingredients': [
           _row(name: '鶏むね肉', grams: 119, kcal: 129, protein: 27.7, fat: 1.8, carb: 0.1, code: '11220'),
@@ -307,51 +302,40 @@ Map<String, Object?> _payload() {
           _row(name: 'しょうゆ', grams: 12, kcal: 9, protein: 0.9, fat: 0, carb: 0.9, code: '17007', assumed: true),
           _row(name: 'みりん', grams: 10, kcal: 24, protein: 0, fat: 0, carb: 4.3, code: '16025', assumed: true),
           _row(name: '砂糖', grams: 6, kcal: 23, protein: 0, fat: 0, carb: 6, code: '03003', assumed: true),
-          _row(name: '顆粒だし', grams: 6, kcal: 14, protein: 1.1, fat: 0.1, carb: 2.2, code: '17028', assumed: true),
-          _row(name: '味噌', grams: 12, kcal: 22, protein: 1.5, fat: 0.7, carb: 2.5, code: '17045', assumed: true),
-          _row(name: 'しょうゆ', grams: 4, kcal: 3, protein: 0.3, fat: 0, carb: 0.3, code: '17007', assumed: true),
-          _row(name: 'ごはん', grams: 160, kcal: 250, protein: 4, fat: 0.5, carb: 59.4, code: '01088'),
+          _row(name: 'ごはん', grams: 185, kcal: 289, protein: 4.6, fat: 0.6, carb: 68.6, code: '01088'),
           _row(name: '塩', grams: 1, kcal: 0, protein: 0, fat: 0, carb: 0, code: '17012', assumed: true),
         ],
       },
       {
         'kind': 'extra',
-        'name': '鶏むね肉とキャベツの味噌炒め、味噌汁、ごはんの温め',
-        'minutes': 18,
+        'name': '鶏むね肉の生姜焼き、ごはんの温め',
+        'minutes': 13,
         'steps': [
-          '鶏むね肉とキャベツを食べやすく切る。',
-          'フライパンを中火にし、サラダ油14gを熱して鶏むね肉を4分焼く。',
-          'キャベツを加えて3分炒め、味噌12gと砂糖6gと料理酒8gを絡める。',
-          '火を止めて器に盛る。',
-          '鍋に水を300mlと顆粒だし6gを入れて4分煮立たせる。',
-          '味噌12gを溶き入れる。',
-          'しょうゆ4gを加えて2分煮て火を止める。',
-          '器に盛る。',
-          'ごはん156gを茶碗によそう。',
+          '鶏むね肉を一口大に切り、しょうがをすりおろす。',
+          'フライパンを中火にし、サラダ油14gを熱して鶏むね肉を5分焼く。',
+          'しょうが21gとしょうゆ12gとみりん12gを加えて3分絡める。',
+          '中まで火を通して器に盛る。',
+          'ごはん193gを茶碗によそう。',
           '塩1gをふって混ぜ、電子レンジで2分温める。',
           '3分置いてから出す。',
         ],
-        'extras': ['キャベツ'],
+        'extras': ['しょうが'],
         'kcal': 603,
-        'protein_g': 35.2,
-        'fat_g': 17.8,
-        'carb_g': 75.9,
+        'protein_g': 33.6,
+        'fat_g': 16.5,
+        'carb_g': 79.2,
         'gap_kcal': 47,
-        'gap_protein_g': -3.2,
-        'gap_fat_g': 0.2,
-        'gap_carb_g': -0.9,
+        'gap_protein_g': -1.6,
+        'gap_fat_g': 1.5,
+        'gap_carb_g': -4.2,
         'within_tolerance': true,
         'ingredients': [
-          _row(name: '鶏むね肉', grams: 111, kcal: 120, protein: 25.9, fat: 1.7, carb: 0.1, code: '11220'),
-          _row(name: 'キャベツ', grams: 77, kcal: 18, protein: 1, fat: 0.1, carb: 4, code: '06061', extra: true),
+          _row(name: '鶏むね肉', grams: 119, kcal: 129, protein: 27.7, fat: 1.8, carb: 0.1, code: '11220'),
+          _row(name: 'しょうが', grams: 21, kcal: 6, protein: 0.2, fat: 0.1, carb: 1.4, code: '06103', extra: true),
           _row(name: 'サラダ油', grams: 14, kcal: 129, protein: 0, fat: 14, carb: 0, code: '14006', assumed: true),
-          _row(name: '味噌', grams: 12, kcal: 22, protein: 1.5, fat: 0.7, carb: 2.5, code: '17045', assumed: true),
-          _row(name: '砂糖', grams: 6, kcal: 23, protein: 0, fat: 0, carb: 6, code: '03003', assumed: true),
-          _row(name: '料理酒', grams: 8, kcal: 9, protein: 0, fat: 0, carb: 0.4, code: '17138', assumed: true),
-          _row(name: '顆粒だし', grams: 6, kcal: 14, protein: 1.1, fat: 0.1, carb: 2.2, code: '17028', assumed: true),
-          _row(name: '味噌', grams: 12, kcal: 22, protein: 1.5, fat: 0.7, carb: 2.5, code: '17045', assumed: true),
-          _row(name: 'しょうゆ', grams: 4, kcal: 3, protein: 0.3, fat: 0, carb: 0.3, code: '17007', assumed: true),
-          _row(name: 'ごはん', grams: 156, kcal: 243, protein: 3.9, fat: 0.5, carb: 57.9, code: '01088'),
+          _row(name: 'しょうゆ', grams: 12, kcal: 9, protein: 0.9, fat: 0, carb: 0.9, code: '17007', assumed: true),
+          _row(name: 'みりん', grams: 12, kcal: 29, protein: 0, fat: 0, carb: 5.2, code: '16025', assumed: true),
+          _row(name: 'ごはん', grams: 193, kcal: 301, protein: 4.8, fat: 0.6, carb: 71.6, code: '01088'),
           _row(name: '塩', grams: 1, kcal: 0, protein: 0, fat: 0, carb: 0, code: '17012', assumed: true),
         ],
       },

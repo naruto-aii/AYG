@@ -228,6 +228,10 @@ void main() {
 
     await tester.tap(find.text('食事を追加'));
     await tester.pumpAndSettle();
+    expect(find.text('撮る'), findsOneWidget);
+    expect(find.text('探す'), findsOneWidget);
+    expect(find.text('その他'), findsOneWidget);
+    expect(find.text('写真で登録 (β)'), findsOneWidget);
     expect(find.text('食品を探す'), findsOneWidget);
     expect(find.text('保存済み'), findsNothing);
     expect(find.text('保存済み食品から選ぶ'), findsNothing);
@@ -238,10 +242,7 @@ void main() {
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('バーコード'), findsOneWidget);
     expect(find.text('テンプレート'), findsOneWidget);
-    expect(
-      find.text('食べたものを記録します。保存済み食品や定番の食品は「食品を探す」から選べます。'),
-      findsOneWidget,
-    );
+    expect(find.text('保存済み、定番の食品、公開食品をまとめて探します。'), findsOneWidget);
     expect(find.text('バーコードから追加'), findsNothing);
     expect(find.text('カメラで読み取る'), findsNothing);
     expectNoLegacyPublicScreen();
@@ -524,10 +525,7 @@ void main() {
     await tester.tap(find.text('開く'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('保存済み・定番の食品・公開食品から探せます。'),
-      findsOneWidget,
-    );
+    expect(find.text('保存済み・定番の食品・公開食品から探せます。'), findsOneWidget);
     expect(find.text(CombinedFoodSearch.savedBrowseEmpty), findsNothing);
     expect(find.text(CombinedFoodSearch.officialHeading), findsNothing);
     expect(find.text(CombinedFoodSearch.publicHeading), findsNothing);

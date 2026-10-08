@@ -34,6 +34,7 @@ import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_base_serving_format.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
@@ -770,34 +771,12 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             ],
             if (!widget.isEditing) ...[
               const SizedBox(height: 8),
-              FormTabBar(
-                items: [
-                  const FormTabItem(icon: Symbols.edit_rounded, label: '手入力'),
-                  const FormTabItem(
-                    icon: Symbols.barcode_scanner_rounded,
-                    label: 'バーコード',
-                  ),
-                  const FormTabItem(
-                    icon: Symbols.search_rounded,
-                    label: '食品を探す',
-                  ),
-                  const FormTabItem(
-                    icon: Symbols.list_alt_rounded,
-                    label: 'テンプレート',
-                  ),
-                  if (!kIsWeb)
-                    const FormTabItem(
-                      icon: Symbols.photo_camera_rounded,
-                      label: '写真で登録',
-                    ),
-                ],
-                selectedIndex: _barcodeSectionExpanded ? 1 : 0,
-                onSelected: _onInputTabSelected,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '食べたものを記録します。保存済み食品や定番の食品は「食品を探す」から選べます。',
-                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              _MealAddGroups(
+                showPhoto: !kIsWeb,
+                barcodeSelected: _barcodeSectionExpanded,
+                onPhoto: _openPhotoMeal,
+                onSearch: _openFoodSearch,
+                onOtherSelected: _onOtherMethodSelected,
               ),
             ],
             if (!_barcodeSectionExpanded) ...[
@@ -824,18 +803,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
-  void _onInputTabSelected(int index) {
+  void _onOtherMethodSelected(int index) {
     switch (index) {
       case 0:
         setState(() => _barcodeSectionExpanded = false);
       case 1:
         setState(() => _barcodeSectionExpanded = true);
       case 2:
-        _openFoodSearch();
-      case 3:
         _openTemplatePicker();
-      case 4:
-        _openPhotoMeal();
     }
   }
 
@@ -1237,5 +1212,75 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       return;
     }
     Navigator.of(context).pop();
+  }
+}
+
+/// 食事を追加の入口。撮る、探す、その他。検索と保存の処理は変えない。
+class _MealAddGroups extends StatelessWidget {
+  const _MealAddGroups({
+    required this.showPhoto,
+    required this.barcodeSelected,
+    required this.onPhoto,
+    required this.onSearch,
+    required this.onOtherSelected,
+  });
+
+  final bool showPhoto;
+  final bool barcodeSelected;
+  final VoidCallback onPhoto;
+  final VoidCallback onSearch;
+  final ValueChanged<int> onOtherSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AppTypography.bodyS.copyWith(color: AppColors.textMuted);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showPhoto) ...[
+          Text('撮る', style: AppTypography.titleS),
+          const SizedBox(height: 8),
+          DesignButton(
+            key: const Key('meal-add-photo'),
+            label: '写真で登録 (β)',
+            showTrailingIcon: false,
+            leading: const DesignIcon(
+              Symbols.photo_camera_rounded,
+              size: 22,
+              color: AppColors.textOnPrimary,
+            ),
+            onPressed: onPhoto,
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        Text('探す', style: AppTypography.titleS),
+        const SizedBox(height: 8),
+        DesignButton(
+          key: const Key('meal-add-search'),
+          label: '食品を探す',
+          style: DesignButtonStyle.outline,
+          showTrailingIcon: false,
+          leading: const DesignIcon(
+            Symbols.search_rounded,
+            size: 22,
+            color: AppColors.textBrand,
+          ),
+          onPressed: onSearch,
+        ),
+        const SizedBox(height: 6),
+        Text('保存済み、定番の食品、公開食品をまとめて探します。', style: muted),
+        const SizedBox(height: AppSpacing.md),
+        Text('その他', style: AppTypography.titleS),
+        FormTabBar(
+          items: const [
+            FormTabItem(icon: Symbols.edit_rounded, label: '手入力'),
+            FormTabItem(icon: Symbols.barcode_scanner_rounded, label: 'バーコード'),
+            FormTabItem(icon: Symbols.list_alt_rounded, label: 'テンプレート'),
+          ],
+          selectedIndex: barcodeSelected ? 1 : 0,
+          onSelected: onOtherSelected,
+        ),
+      ],
+    );
   }
 }

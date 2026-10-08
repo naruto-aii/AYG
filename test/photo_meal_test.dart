@@ -45,22 +45,10 @@ void main() {
     });
 
     test('rejects negative, absurd, and PFC-inconsistent values', () {
-      expect(
-        parsePhotoMealEstimate({...valid(), 'kcal': -1}),
-        isNull,
-      );
-      expect(
-        parsePhotoMealEstimate({...valid(), 'kcal': 10001}),
-        isNull,
-      );
-      expect(
-        parsePhotoMealEstimate({...valid(), 'protein_g': 1001}),
-        isNull,
-      );
-      expect(
-        parsePhotoMealEstimate({...valid(), 'confidence': 1.2}),
-        isNull,
-      );
+      expect(parsePhotoMealEstimate({...valid(), 'kcal': -1}), isNull);
+      expect(parsePhotoMealEstimate({...valid(), 'kcal': 10001}), isNull);
+      expect(parsePhotoMealEstimate({...valid(), 'protein_g': 1001}), isNull);
+      expect(parsePhotoMealEstimate({...valid(), 'confidence': 1.2}), isNull);
       expect(
         parsePhotoMealEstimate({
           ...valid(),
@@ -171,7 +159,10 @@ void main() {
     expect(harness.controller.foodEntries, isEmpty);
     expect(harness.edits, isEmpty);
 
-    await tester.enterText(find.byKey(const ValueKey('photo_meal_name_confirm')), '');
+    await tester.enterText(
+      find.byKey(const ValueKey('photo_meal_name_confirm')),
+      '',
+    );
     await tester.tap(find.text('この名前で登録'));
     await tester.pumpAndSettle();
     expect(find.text('料理名を入力してください'), findsOneWidget);
@@ -180,7 +171,10 @@ void main() {
     await tester.tap(find.text('キャンセル'));
     await tester.pumpAndSettle();
     expect(harness.controller.foodEntries, isEmpty);
-    expect(await harness.pending.preferLocalIds(PendingRecordKind.food), isEmpty);
+    expect(
+      await harness.pending.preferLocalIds(PendingRecordKind.food),
+      isEmpty,
+    );
 
     await tester.tap(find.text('この内容で登録'));
     await tester.pumpAndSettle();
@@ -193,10 +187,9 @@ void main() {
 
     expect(harness.controller.foodEntries, hasLength(1));
     expect(harness.controller.foodEntries.single.name, '親子丼');
-    expect(
-      await harness.pending.preferLocalIds(PendingRecordKind.food),
-      {harness.controller.foodEntries.single.id},
-    );
+    expect(await harness.pending.preferLocalIds(PendingRecordKind.food), {
+      harness.controller.foodEntries.single.id,
+    });
     expect(harness.events, ['manual']);
     expect(harness.edits, [true]);
     expect(find.text('open'), findsOneWidget);
@@ -236,7 +229,10 @@ void main() {
     expect(find.text('カロリーとPFCは、0以上の範囲で入れてください'), findsOneWidget);
     expect(harness.controller.foodEntries, isEmpty);
     expect(harness.events, isEmpty);
-    expect(await harness.pending.preferLocalIds(PendingRecordKind.food), isEmpty);
+    expect(
+      await harness.pending.preferLocalIds(PendingRecordKind.food),
+      isEmpty,
+    );
   });
 
   testWidgets('the meal form shows 写真で登録 on a phone width', (tester) async {
@@ -255,7 +251,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('写真で登録'), findsOneWidget);
+    expect(find.text('撮る'), findsOneWidget);
+    expect(find.text('探す'), findsOneWidget);
+    expect(find.text('その他'), findsOneWidget);
+    expect(find.text('写真で登録 (β)'), findsOneWidget);
     expect(find.text('手入力'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

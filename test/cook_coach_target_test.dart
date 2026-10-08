@@ -85,6 +85,8 @@ void main() {
   test('gap text and dictated ingredient text', () {
     expect(cookKcalGapLabel(80), 'あと＋80kcal');
     expect(cookKcalGapLabel(0), '目標どおり');
+    expect(cookMacroGapLabel('P', -0.6), 'P 目標より0.6g多い');
+    expect(cookMacroGapLabel('F', 0.7), 'F あと＋0.7g');
     expect(cookKcalGapLabel(-30), '目標より30kcal多い');
     expect(
       cookIngredientNames('卵、玉ねぎ，豚こま\n卵'),
@@ -124,5 +126,67 @@ void main() {
     expect(parsed!.patterns.single.withinTolerance, isTrue);
     expect(parsed.patterns.single.gapKcal, 12);
     expect(cookKcalGapLabel(parsed.patterns.single.gapKcal), 'あと＋12kcal');
+  });
+
+  test('displayed gap is target minus the ingredient rows', () {
+    const target = CookCoachMealTarget(
+      slot: MealSlot.dinner,
+      kcal: 650,
+      proteinG: 32,
+      fatG: 18,
+      carbG: 75,
+      remainingKcal: 650,
+      remainingProteinG: 32,
+      remainingFatG: 18,
+      remainingCarbG: 75,
+    );
+    const lying = CookDish(
+      kind: 'on_hand',
+      name: '鶏むねとごはん',
+      steps: ['鶏肉は中まで火を通す', 'ごはんを盛る'],
+      extras: [],
+      ingredients: [
+        CookIngredient(
+          name: '鶏むね肉',
+          grams: 150,
+          kcal: 162,
+          proteinG: 36,
+          fatG: 2,
+          carbG: 0,
+          source: 'db',
+          foodCode: '11226',
+        ),
+        CookIngredient(
+          name: 'ごはん',
+          grams: 140,
+          kcal: 235,
+          proteinG: 4,
+          fatG: 0,
+          carbG: 52,
+          source: 'db',
+          foodCode: '1080',
+        ),
+      ],
+      kcal: 420,
+      proteinG: 36,
+      fatG: 4,
+      carbG: 52,
+      gapKcal: 12,
+      gapProteinG: 1,
+      gapFatG: 0,
+      gapCarbG: 2,
+      withinTolerance: true,
+    );
+    final shown = alignCookDish(lying, target);
+    expect(shown.kcal, 162 + 235);
+    expect(shown.proteinG, 40);
+    expect(shown.fatG, 2);
+    expect(shown.carbG, 52);
+    expect(shown.gapKcal, 650 - 397);
+    expect(shown.gapProteinG, closeTo(32 - 40, 0.001));
+    expect(shown.gapFatG, closeTo(18 - 2, 0.001));
+    expect(shown.gapCarbG, closeTo(75 - 52, 0.001));
+    expect(shown.withinTolerance, isFalse);
+    expect(cookKcalGapLabel(shown.gapKcal), 'あと＋253kcal');
   });
 }

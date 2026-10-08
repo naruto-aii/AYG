@@ -112,6 +112,12 @@ class CookCoachClient {
         '献立を確認できませんでした。食材を変えて、もう一度試してください。',
       );
     }
-    return parsed;
+    return CookCoachResult(
+      patterns: [
+        for (final dish in parsed.patterns) alignCookDish(dish, target),
+      ],
+      retried: parsed.retried,
+      calls: parsed.calls,
+    );
   }
 }

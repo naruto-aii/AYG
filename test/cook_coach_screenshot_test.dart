@@ -74,8 +74,8 @@ void main() {
     directory.createSync(recursive: true);
     final boundary = GlobalKey();
 
+    tester.view.devicePixelRatio = 3;
     await tester.binding.setSurfaceSize(const Size(390, 1200));
-    tester.view.devicePixelRatio = 1;
     await tester.pumpWidget(
       MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -88,8 +88,15 @@ void main() {
             client: CookCoachClient(invoke: (_) async => _payload()),
             onRegister: (dish, slot) async {
               expect(slot, MealSlot.dinner);
-              expect(dish.ingredients.first.grams, 150);
-              expect(dish.kcal, 420);
+              expect(dish.ingredients.first.grams, 110);
+              expect(dish.ingredients.first.kcal, 119);
+              expect(dish.kcal, 628);
+              expect(
+                dish.ingredients.fold<int>(0, (sum, item) => sum + item.kcal),
+                dish.kcal,
+              );
+              expect(dish.gapKcal, 22);
+              expect(dish.withinTolerance, isTrue);
               return const ['entry-1'];
             },
           ),
@@ -107,12 +114,21 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('cook_generate')));
     await tester.tap(find.byKey(const Key('cook_generate')));
     await tester.pumpAndSettle();
-    expect(find.text('目標の範囲に入っています'), findsOneWidget);
-    expect(find.text('あと＋12kcal'), findsOneWidget);
-    expect(find.text('あと＋80kcal'), findsOneWidget);
-    expect(find.text('鶏むね肉 150g　162kcal　成分表'), findsOneWidget);
-    expect(find.text('自家製つゆ 15g　12kcal　AIの目安'), findsOneWidget);
-    await tester.binding.setSurfaceSize(const Size(390, 2000));
+    expect(find.text('目標の範囲に入っています'), findsNWidgets(2));
+    expect(find.text('あと＋22kcal'), findsOneWidget);
+    expect(find.text('あと＋21kcal'), findsOneWidget);
+    expect(find.textContaining('P 目標より0.6g多い'), findsOneWidget);
+    expect(find.textContaining('F あと＋0.7g'), findsNWidgets(2));
+    expect(find.text('628kcal　P 32.6g　F 17.3g　C 79.0g'), findsOneWidget);
+    expect(find.text('629kcal　P 32.7g　F 17.3g　C 79.0g'), findsOneWidget);
+    expect(find.text('鶏むね肉 110g　119kcal　成分表'), findsNWidgets(2));
+    expect(find.text('サラダ油 15g　138kcal　成分表'), findsNWidgets(2));
+    expect(find.text('しょうゆ 18g　13kcal　AIの目安'), findsNWidgets(2));
+    expect(find.text('鶏むね肉の照り焼き丼'), findsOneWidget);
+    expect(find.text('1. 鶏むね肉は一口大に切る'), findsOneWidget);
+    await tester.binding.setSurfaceSize(const Size(390, 1800));
+    await tester.pumpAndSettle();
+    tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
     await tester.pumpAndSettle();
     await _write(tester, boundary, File('${directory.path}/results.png'));
 
@@ -120,7 +136,8 @@ void main() {
     await tester.tap(find.byKey(const Key('cook_register_on_hand')));
     await tester.pumpAndSettle();
     expect(find.text('食事に追加しました'), findsOneWidget);
-    expect(find.text('鶏むね肉 150g　162kcal'), findsOneWidget);
+    expect(find.text('鶏むね肉 110g　119kcal'), findsOneWidget);
+    expect(find.text('628kcal　P 32.6g　F 17.3g　C 79.0g'), findsOneWidget);
     expect(find.byKey(const Key('cook_saved_totals')), findsOneWidget);
     await tester.binding.setSurfaceSize(const Size(390, 844));
     await tester.pumpAndSettle();
@@ -128,7 +145,32 @@ void main() {
   });
 }
 
+Map<String, Object?> _row({
+  required String name,
+  required int grams,
+  required int kcal,
+  required double protein,
+  required double fat,
+  required double carb,
+  String? code,
+  bool extra = false,
+}) {
+  return {
+    'name': name,
+    'grams': grams,
+    'kcal': kcal,
+    'protein_g': protein,
+    'fat_g': fat,
+    'carb_g': carb,
+    'source': code == null ? 'ai' : 'db',
+    'food_code': code,
+    'official_name': code == null ? null : name,
+    'extra': extra,
+  };
+}
+
 Map<String, Object?> _payload() {
+  // 成分表のグラム最適化と同じ行。合計は行の和。差は 650 から引いた値。
   return {
     'ok': true,
     'retried': false,
@@ -138,8 +180,13 @@ Map<String, Object?> _payload() {
     'patterns': [
       {
         'kind': 'on_hand',
-        'name': '鶏むねとごはん',
-        'steps': ['鶏肉は中まで火を通す', 'ごはんを盛る'],
+        'name': '鶏むね肉の照り焼き丼',
+        'steps': [
+          '鶏むね肉は一口大に切る',
+          'フライパンでサラダ油を熱し、中まで焼く',
+          'しょうゆとみりんを絡める',
+          'ごはんにのせる',
+        ],
         'extras': <String>[],
         'kcal': 420,
         'protein_g': 36,
@@ -149,67 +196,35 @@ Map<String, Object?> _payload() {
         'gap_protein_g': 1,
         'gap_fat_g': 0,
         'gap_carb_g': 2,
-        'within_tolerance': true,
+        'within_tolerance': false,
         'ingredients': [
-          {
-            'name': '鶏むね肉',
-            'grams': 150,
-            'kcal': 162,
-            'protein_g': 36,
-            'fat_g': 2,
-            'carb_g': 0,
-            'source': 'db',
-            'food_code': '11226',
-            'official_name': '鶏むね肉',
-          },
-          {
-            'name': 'ごはん',
-            'grams': 140,
-            'kcal': 235,
-            'protein_g': 4,
-            'fat_g': 0,
-            'carb_g': 52,
-            'source': 'db',
-            'food_code': '1080',
-            'official_name': 'ごはん',
-          },
+          _row(name: '鶏むね肉', grams: 110, kcal: 119, protein: 26.4, fat: 1.7, carb: 0, code: '11226'),
+          _row(name: 'ごはん', grams: 193, kcal: 324, protein: 4.8, fat: 0.6, carb: 71.6, code: '1080'),
+          _row(name: 'サラダ油', grams: 15, kcal: 138, protein: 0, fat: 15, carb: 0, code: '1400'),
+          _row(name: 'しょうゆ', grams: 18, kcal: 13, protein: 1.4, fat: 0, carb: 1.4, code: null),
+          _row(name: 'みりん', grams: 14, kcal: 34, protein: 0, fat: 0, carb: 6, code: null),
         ],
       },
       {
         'kind': 'extra',
-        'name': '豆腐を足した煮物',
-        'steps': ['肉と豆腐を中まで加熱する'],
-        'extras': ['豆腐'],
+        'name': '鶏むね肉と玉ねぎの炒め丼',
+        'steps': [
+          '鶏むね肉と玉ねぎを切る',
+          'フライパンで肉を中まで焼く',
+          '玉ねぎを加えてしんなりさせる',
+          'しょうゆで味をつけ、ごはんにのせる',
+        ],
+        'extras': ['玉ねぎ'],
         'kcal': 180,
-        'protein_g': 20,
-        'fat_g': 4,
-        'carb_g': 8,
         'gap_kcal': 80,
-        'gap_protein_g': 8,
-        'gap_fat_g': 4,
-        'gap_carb_g': 40,
-        'within_tolerance': false,
+        'within_tolerance': true,
         'ingredients': [
-          {
-            'name': '鶏むね肉',
-            'grams': 80,
-            'kcal': 86,
-            'protein_g': 19,
-            'fat_g': 1,
-            'carb_g': 0,
-            'source': 'db',
-            'food_code': '11226',
-            'official_name': '鶏むね肉',
-          },
-          {
-            'name': '自家製つゆ',
-            'grams': 15,
-            'kcal': 12,
-            'protein_g': 1,
-            'fat_g': 0,
-            'carb_g': 2,
-            'source': 'ai',
-          },
+          _row(name: '鶏むね肉', grams: 110, kcal: 119, protein: 26.4, fat: 1.7, carb: 0, code: '11226'),
+          _row(name: 'ごはん', grams: 187, kcal: 314, protein: 4.7, fat: 0.6, carb: 69.4, code: '1080'),
+          _row(name: '玉ねぎ', grams: 15, kcal: 6, protein: 0.2, fat: 0, carb: 1.3, code: '6200', extra: true),
+          _row(name: 'サラダ油', grams: 15, kcal: 138, protein: 0, fat: 15, carb: 0, code: '1400'),
+          _row(name: 'しょうゆ', grams: 18, kcal: 13, protein: 1.4, fat: 0, carb: 1.4, code: null),
+          _row(name: 'みりん', grams: 16, kcal: 39, protein: 0, fat: 0, carb: 6.9, code: null),
         ],
       },
     ],
@@ -218,7 +233,7 @@ Map<String, Object?> _payload() {
 
 Future<void> _write(WidgetTester tester, GlobalKey key, File file) async {
   final bytes = await tester.runAsync(
-    () => pngBytesFromBoundary(key, pixelRatio: 1),
+    () => pngBytesFromBoundary(key, pixelRatio: 3),
   );
   expect(bytes, isNotNull);
   file.parent.createSync(recursive: true);
@@ -228,5 +243,5 @@ Future<void> _write(WidgetTester tester, GlobalKey key, File file) async {
     final frame = await codec.getNextFrame();
     return frame.image;
   });
-  expect(image, isNotNull);
+  expect(image!.width, 390 * 3);
 }

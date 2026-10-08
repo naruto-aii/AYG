@@ -16,6 +16,7 @@ import type { FetchLike } from "../analyze-meal-photo/provider.ts";
 import {
   bestMeasured,
   normalizeFoodName,
+  pantryStapleNames,
   preferDish,
   shouldRetry,
   type FoodRow,
@@ -85,7 +86,7 @@ export function cookCacheMaterial(input: {
   avoid: string[];
 }): string {
   return JSON.stringify({
-    v: 2,
+    v: 3,
     ingredients: [...input.ingredients].map((item) => item.trim()).filter((item) => item.length > 0).sort(),
     slot: input.slot,
     kcal: Math.round(input.targetKcal / 10) * 10,
@@ -229,10 +230,10 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
     let foods: FoodRow[] = [];
     let firstDishes: { a: MeasuredDish; b: MeasuredDish } | null = null;
     if (parsed) {
-      foods = await deps.lookupFoods(ingredientNames(parsed));
+      foods = await deps.lookupFoods(lookupNames(parsed));
       firstDishes = {
-        a: bestMeasured(parsed.a, foods, input.target, undefined, input.note),
-        b: bestMeasured(parsed.b, foods, input.target, undefined, input.note),
+        a: bestMeasured(parsed.a, foods, input.target, undefined, input.note, input.avoid),
+        b: bestMeasured(parsed.b, foods, input.target, undefined, input.note, input.avoid),
       };
     }
     let chosen = firstDishes;
@@ -251,7 +252,7 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
       });
       const again = readModel(second.text);
       if (again) {
-        const names = ingredientNames(again);
+        const names = lookupNames(again);
         if (foods.length === 0) {
           foods = await deps.lookupFoods(names);
         } else {
@@ -259,8 +260,8 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
           foods = mergeFoods(foods, more);
         }
         const secondDishes = {
-          a: bestMeasured(again.a, foods, input.target, undefined, input.note),
-          b: bestMeasured(again.b, foods, input.target, undefined, input.note),
+          a: bestMeasured(again.a, foods, input.target, undefined, input.note, input.avoid),
+          b: bestMeasured(again.b, foods, input.target, undefined, input.note, input.avoid),
         };
         chosen = {
           a: preferDish(firstDishes?.a ?? secondDishes.a, secondDishes.a),
@@ -476,6 +477,10 @@ function ingredientNames(parsed: { a: { ingredients: { name: string }[]; extras:
     ...parsed.a.extras,
     ...parsed.b.extras,
   ];
+}
+
+function lookupNames(parsed: { a: { ingredients: { name: string }[]; extras: string[] }; b: { ingredients: { name: string }[]; extras: string[] } }): string[] {
+  return [...ingredientNames(parsed), ...pantryStapleNames];
 }
 
 function mergeFoods(left: FoodRow[], right: FoodRow[]): FoodRow[] {

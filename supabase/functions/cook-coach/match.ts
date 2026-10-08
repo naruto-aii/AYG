@@ -279,51 +279,107 @@ export function measureIngredients(
 export type GramWindow = { min: number; max: number };
 
 export function realisticGramBounds(name: string, suggested: number): GramWindow {
-  const base = Math.max(1, Math.round(suggested));
-  let absMin = 20;
-  let absMax = 180;
-  let low = 0.4;
-  let high = 2;
+  const optional = !(suggested > 0);
+  let min = 15;
+  let max = 180;
   if (name.includes("油揚げ") || name.includes("がんも")) {
-    absMin = 10;
-    absMax = 80;
-    low = 0.5;
-    high = 1.8;
+    min = 10;
+    max = 80;
   } else if (name.includes("卵") || name.includes("たまご")) {
-    absMin = 50;
-    absMax = 150;
-    low = 0.5;
-    high = 2;
+    min = 50;
+    max = 150;
+  } else if (isSalt(name)) {
+    min = optional ? 0 : 0;
+    max = 3;
   } else if (isOil(name)) {
-    absMin = 1;
-    absMax = 15;
-    low = 0.3;
-    high = 3;
-  } else if (isProtein(name)) {
-    absMin = 30;
-    absMax = 220;
-    low = 0.45;
-    high = 2.2;
+    min = 0;
+    max = 15;
   } else if (isSeasoning(name)) {
-    absMin = 1;
-    absMax = 20;
-    low = 0.4;
-    high = 2;
+    min = 0;
+    max = 18;
   } else if (isStaple(name)) {
-    absMin = 40;
-    absMax = 250;
-    low = 0.35;
-    high = 1.8;
+    min = 40;
+    max = 250;
+  } else if (isProtein(name)) {
+    min = 40;
+    max = 200;
   }
-  let min = Math.max(absMin, Math.round(base * low));
-  let max = Math.min(absMax, Math.round(base * high));
-  if (min > max) {
-    min = absMin;
-    max = absMax;
+  if (optional) {
+    min = 0;
   }
-  min = Math.max(1, min);
-  max = Math.max(min, max);
-  return { min, max };
+  return { min, max: Math.max(min, max) };
+}
+
+type PantryStaple = {
+  name: string;
+  per100: Macros;
+};
+
+// 家にある前提。利用者が避けたものだけ外す。パターンAにも入れる。
+export const pantryStaples: PantryStaple[] = [
+  { name: "サラダ油", per100: { kcal: 921, proteinG: 0, fatG: 100, carbG: 0 } },
+  { name: "しょうゆ", per100: { kcal: 71, proteinG: 8, fatG: 0, carbG: 8 } },
+  { name: "みりん", per100: { kcal: 241, proteinG: 0.1, fatG: 0, carbG: 43 } },
+  { name: "砂糖", per100: { kcal: 386, proteinG: 0, fatG: 0, carbG: 100 } },
+  { name: "塩", per100: { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 } },
+];
+
+export const pantryStapleNames = pantryStaples.map((item) => item.name);
+
+const maxDishIngredients = 8;
+
+export function appendPantryStaples(
+  items: MeasuredIngredient[],
+  foods: FoodRow[],
+  avoid: string[] = [],
+): MeasuredIngredient[] {
+  const next = items.slice();
+  for (const staple of pantryStaples) {
+    if (next.length >= maxDishIngredients) {
+      break;
+    }
+    if (next.some((item) => stapleAlreadyPresent(item.name, staple.name))) {
+      continue;
+    }
+    if (avoid.some((item) => stapleAlreadyPresent(item, staple.name))) {
+      continue;
+    }
+    const food = matchFood(staple.name, foods);
+    const per100 = food ? nutritionAtGrams(food, 100) : staple.per100;
+    if (!per100) {
+      continue;
+    }
+    next.push({
+      name: staple.name,
+      grams: 0,
+      originalGrams: 0,
+      kcal: per100.kcal / 100,
+      proteinG: per100.proteinG / 100,
+      fatG: per100.fatG / 100,
+      carbG: per100.carbG / 100,
+      source: food ? "db" : "ai",
+      foodCode: food?.foodCode ?? null,
+      officialName: food ? (food.displayName || food.name) : null,
+      extra: false,
+    });
+  }
+  return next;
+}
+
+function stapleAlreadyPresent(name: string, staple: string): boolean {
+  if (staple === "サラダ油") {
+    if (name.includes("醤油") || name.includes("しょうゆ") || name.includes("油揚げ")) {
+      return false;
+    }
+    return name.includes("油") || name.includes("オイル");
+  }
+  if (staple === "しょうゆ") {
+    return name.includes("しょうゆ") || name.includes("醤油");
+  }
+  if (staple === "塩") {
+    return name === "塩" || name.includes("食塩");
+  }
+  return name.includes(staple);
 }
 
 type Rates = { kcal: number; proteinG: number; fatG: number; carbG: number };
@@ -453,8 +509,15 @@ export function presentDish(
   tolerance: Tolerance = defaultTolerance,
   note = "",
 ): MeasuredDish {
-  const shown = ingredients.map(presentIngredient);
-  const totals = roundMacros(sumMacros(shown));
+  const shown = ingredients
+    .map(presentIngredient)
+    .filter((item) => item.grams >= 1);
+  const totals = {
+    kcal: shown.reduce((sum, item) => sum + item.kcal, 0),
+    proteinG: round1(shown.reduce((sum, item) => sum + item.proteinG, 0)),
+    fatG: round1(shown.reduce((sum, item) => sum + item.fatG, 0)),
+    carbG: round1(shown.reduce((sum, item) => sum + item.carbG, 0)),
+  };
   const gap = {
     kcal: Math.round(target.kcal - totals.kcal),
     proteinG: round1(target.proteinG - totals.proteinG),
@@ -480,13 +543,15 @@ export function bestMeasured(
   target: Macros,
   tolerance: Tolerance = defaultTolerance,
   note = "",
+  avoid: string[] = [],
 ): MeasuredDish {
   const measured = measureIngredients(dish, foods);
   const unscaled = presentDish(dish, measured, target, tolerance, note);
   if (unscaled.within && unscaled.issues.length === 0) {
     return unscaled;
   }
-  const scaled = presentDish(dish, optimizeIngredients(measured, target), target, tolerance, note);
+  const expanded = appendPantryStaples(measured, foods, avoid);
+  const scaled = presentDish(dish, optimizeIngredients(expanded, target), target, tolerance, note);
   return preferDish(unscaled, scaled);
 }
 
@@ -650,8 +715,12 @@ function kcalStart(
   return grams.map((gram, index) => clamp(gram * ratio, bounds[index].min, bounds[index].max));
 }
 
+function isSalt(name: string): boolean {
+  return name === "塩" || name.includes("食塩");
+}
+
 function isOil(name: string): boolean {
-  if (name.includes("油揚げ")) {
+  if (name.includes("油揚げ") || name.includes("醤油") || name.includes("しょうゆ")) {
     return false;
   }
   return name.includes("油") || name.includes("オイル") || name.includes("バター") || name.includes("ラード");

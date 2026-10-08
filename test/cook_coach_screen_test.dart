@@ -83,7 +83,10 @@ void main() {
     expect(sent?['slot'], 'dinner');
     expect(sent?['note'], '20分');
     expect(sent?['target_kcal'], 650);
-    expect(find.text('あと＋80kcal'), findsNWidgets(2));
+    expect(find.text('あと＋508kcal'), findsOneWidget);
+    expect(find.text('あと＋516kcal'), findsOneWidget);
+    expect(find.text('142kcal　P 29.0g　F 2.0g　C 2.0g'), findsOneWidget);
+    expect(find.text('134kcal　P 27.0g　F 2.0g　C 3.0g'), findsOneWidget);
     expect(find.text('目標の範囲に入っています'), findsNothing);
     expect(find.text('手元の食材だけ'), findsOneWidget);
     expect(find.text('足す食材あり'), findsOneWidget);
@@ -160,9 +163,14 @@ void main() {
     expect(sauce.officialFoodCode, isNull);
     expect(sauce.mealGroupId, chicken.mealGroupId);
     expect(sauce.loggedAt, loggedAt);
+    expect(chicken.totalKcal + sauce.totalKcal, 142);
+    final savedTotals = tester.widget<Text>(
+      find.byKey(const Key('cook_saved_totals')),
+    );
+    expect(savedTotals.data, startsWith('142kcal'));
     expect(
       chicken.totalKcal + sauce.totalKcal,
-      142,
+      int.parse(savedTotals.data!.split('kcal').first),
     );
     expect(
       await pending.preferLocalIds(PendingRecordKind.food),

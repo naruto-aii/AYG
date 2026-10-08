@@ -62,8 +62,18 @@ const onion = food("6200", "玉ねぎ", 37, 1, 0.1, 8.8);
 const pantry = [chicken, rice, oil, egg, broccoli, onion];
 
 function assertGapReported(finished: MeasuredDish, target: Macros) {
+  const kcal = finished.ingredients.reduce((sum, item) => sum + item.kcal, 0);
+  const protein = Math.round(finished.ingredients.reduce((sum, item) => sum + item.proteinG, 0) * 10) / 10;
+  const fat = Math.round(finished.ingredients.reduce((sum, item) => sum + item.fatG, 0) * 10) / 10;
+  const carb = Math.round(finished.ingredients.reduce((sum, item) => sum + item.carbG, 0) * 10) / 10;
+  assertEquals(finished.totals.kcal, kcal);
+  assertEquals(finished.totals.proteinG, protein);
+  assertEquals(finished.totals.fatG, fat);
+  assertEquals(finished.totals.carbG, carb);
   assertEquals(finished.gap.kcal, Math.round(target.kcal - finished.totals.kcal));
   assertEquals(finished.gap.proteinG, Math.round((target.proteinG - finished.totals.proteinG) * 10) / 10);
+  assertEquals(finished.gap.fatG, Math.round((target.fatG - finished.totals.fatG) * 10) / 10);
+  assertEquals(finished.gap.carbG, Math.round((target.carbG - finished.totals.carbG) * 10) / 10);
   assertEquals(finished.within, withinTolerance(target, finished.totals));
 }
 
@@ -265,6 +275,28 @@ Deno.test("target profiles hit tolerance or report the remaining gap", () => {
     assertGapReported(finished, profile.target);
     assertEquals(finished.within, profile.expectHit, profile.name);
   }
+});
+
+Deno.test("chicken and rice plus pantry oil move to a 650 kcal dinner", () => {
+  const target: Macros = { kcal: 650, proteinG: 32, fatG: 18, carbG: 75 };
+  const finished = bestMeasured(
+    dish([
+      { name: "鶏むね肉", grams: 100, kcal: 999, proteinG: 1, fatG: 1, carbG: 1 },
+      { name: "ごはん", grams: 150, kcal: 999, proteinG: 1, fatG: 1, carbG: 1 },
+    ]),
+    pantry,
+    target,
+  );
+  const rice = finished.ingredients.find((item) => item.name === "ごはん");
+  const oil = finished.ingredients.find((item) => item.name.includes("油"));
+  assertEquals(rice != null && rice.grams > 150, true);
+  assertEquals(oil != null && oil.grams >= 1, true);
+  assertGapReported(finished, target);
+  assertEquals(finished.within, true, JSON.stringify({
+    totals: finished.totals,
+    gap: finished.gap,
+    grams: finished.ingredients.map((item) => [item.name, item.grams, item.kcal]),
+  }));
 });
 
 Deno.test("a dish already inside tolerance is not scaled", () => {

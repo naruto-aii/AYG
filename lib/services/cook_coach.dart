@@ -3,6 +3,7 @@ import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../state/app_controller.dart';
 import '../utils/meal_slot.dart';
+import 'cook_coach_target.dart';
 
 /// 画面に出した1品。保存する数値は、この値と同じにする。
 class CookIngredient {
@@ -98,6 +99,73 @@ class CookCoachResult {
 
 const cookCoachCapMessage = '本日の上限に達しました';
 
+double cookRound1(double value) => (value * 10).roundToDouble() / 10;
+
+/// 画面に出す合計は、材料の行を足したもの。差は目標からその合計を引く。
+bool cookWithinTolerance({
+  required double targetKcal,
+  required double targetProteinG,
+  required double targetFatG,
+  required double targetCarbG,
+  required int kcal,
+  required double proteinG,
+  required double fatG,
+  required double carbG,
+}) {
+  final kcalOk = (kcal - targetKcal).abs() <= targetKcal.abs() * 0.10 + 0.51;
+  var macrosOk = true;
+  for (final pair in [
+    (proteinG, targetProteinG),
+    (fatG, targetFatG),
+    (carbG, targetCarbG),
+  ]) {
+    final limit = pair.$2.abs() * 0.15;
+    final band = limit > 5 ? limit : 5.0;
+    if ((pair.$1 - pair.$2).abs() > band + 0.05) {
+      macrosOk = false;
+    }
+  }
+  return kcalOk && macrosOk;
+}
+
+CookDish alignCookDish(CookDish dish, CookCoachMealTarget target) {
+  final kcal = dish.ingredients.fold<int>(0, (sum, item) => sum + item.kcal);
+  final protein = cookRound1(
+    dish.ingredients.fold<double>(0, (sum, item) => sum + item.proteinG),
+  );
+  final fat = cookRound1(
+    dish.ingredients.fold<double>(0, (sum, item) => sum + item.fatG),
+  );
+  final carb = cookRound1(
+    dish.ingredients.fold<double>(0, (sum, item) => sum + item.carbG),
+  );
+  return CookDish(
+    kind: dish.kind,
+    name: dish.name,
+    steps: dish.steps,
+    extras: dish.extras,
+    ingredients: dish.ingredients,
+    kcal: kcal,
+    proteinG: protein,
+    fatG: fat,
+    carbG: carb,
+    gapKcal: target.kcal.round() - kcal,
+    gapProteinG: cookRound1(target.proteinG - protein),
+    gapFatG: cookRound1(target.fatG - fat),
+    gapCarbG: cookRound1(target.carbG - carb),
+    withinTolerance: cookWithinTolerance(
+      targetKcal: target.kcal,
+      targetProteinG: target.proteinG,
+      targetFatG: target.fatG,
+      targetCarbG: target.carbG,
+      kcal: kcal,
+      proteinG: protein,
+      fatG: fat,
+      carbG: carb,
+    ),
+  );
+}
+
 /// 目標までの差。正はまだ足りない分。
 String cookKcalGapLabel(num gapKcal) {
   final gap = gapKcal.round();
@@ -111,14 +179,17 @@ String cookKcalGapLabel(num gapKcal) {
 }
 
 String cookMacroGapLabel(String name, num gapG) {
-  final gap = gapG.round();
+  final gap = cookRound1(gapG.toDouble());
   if (gap == 0) {
     return '$name 目標どおり';
   }
+  final amount = gap == gap.roundToDouble()
+      ? gap.round().toString()
+      : gap.toString();
   if (gap > 0) {
-    return '$name あと＋${gap}g';
+    return '$name あと＋${amount}g';
   }
-  return '$name 目標より${gap.abs()}g多い';
+  return '$name 目標より${amount.replaceFirst('-', '')}g多い';
 }
 
 /// チップ、キーボード、音声入力の文を食材名に分ける。

@@ -17,7 +17,6 @@ export const lookupCandidateSchema = {
   properties: {
     i: {
       type: "array",
-      maxItems: maxLookupCandidates,
       items: {
         type: "object",
         additionalProperties: false,

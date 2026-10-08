@@ -34,7 +34,8 @@ enum PlusFunnelFeature {
   widget('widget'),
   siri('siri'),
   coach('coach'),
-  photoMeal('photo_meal');
+  photoMeal('photo_meal'),
+  aiFoodLookup('ai_food_lookup');
 
   const PlusFunnelFeature(this.storageValue);
 

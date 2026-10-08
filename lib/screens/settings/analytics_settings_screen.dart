@@ -113,6 +113,11 @@ class ExternalTransmissionScreen extends StatelessWidget {
             who: 'Anthropic, PBC（米国）',
             why: 'カロリーとPFCの推定のため。カロナビは写真を保存しません',
           ),
+          _SendRow(
+            what: 'AIで探すの検索語',
+            who: 'Anthropic, PBC（米国）',
+            why: 'カロリーとPFCの推定のため。食品データベースには保存しません',
+          ),
         ],
       ),
     );

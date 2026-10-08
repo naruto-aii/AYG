@@ -13,10 +13,7 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 
 /// 料理名が未入力のとき、記録の前に名前の確認を出す。
-Future<String?> askPhotoMealDishName(
-  BuildContext context,
-  String prefilled,
-) {
+Future<String?> askPhotoMealDishName(BuildContext context, String prefilled) {
   return showDialog<String>(
     context: context,
     routeSettings: const RouteSettings(name: 'photo_meal_name_dialog'),
@@ -63,10 +60,7 @@ class _DishNameDialogState extends State<_DishNameDialog> {
             key: const ValueKey('photo_meal_name_confirm'),
             controller: _field,
             autofocus: true,
-            decoration: InputDecoration(
-              labelText: '料理名',
-              errorText: _error,
-            ),
+            decoration: InputDecoration(labelText: '料理名', errorText: _error),
           ),
         ],
       ),
@@ -99,6 +93,8 @@ class PhotoMealConfirmScreen extends StatefulWidget {
     required this.loggedAt,
     required this.analysis,
     required this.hadUserDishName,
+    this.title = '推定の確認',
+    this.subtitle = 'これはAIの推定です。登録の前に確認して、数値を直せます。',
     this.recordEdit,
   });
 
@@ -108,6 +104,8 @@ class PhotoMealConfirmScreen extends StatefulWidget {
 
   /// 写真の画面で料理名を入れていたか。無いときは保存時に確認する。
   final bool hadUserDishName;
+  final String title;
+  final String subtitle;
   final Future<void> Function(String usageId, bool edited)? recordEdit;
 
   @override
@@ -243,10 +241,7 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const DesignTitleBlock(
-            title: '推定の確認',
-            subtitle: 'これはAIの推定です。登録の前に確認して、数値を直せます。',
-          ),
+          DesignTitleBlock(title: widget.title, subtitle: widget.subtitle),
           const SizedBox(height: AppSpacing.md),
           _field('料理名', _name, hint: '例）親子丼'),
           const SizedBox(height: AppSpacing.md),
@@ -291,7 +286,11 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
     );
   }
 
-  Widget _field(String label, TextEditingController controller, {String? hint}) {
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    String? hint,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -304,7 +303,11 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
     );
   }
 
-  Widget _numberField(String label, TextEditingController controller, String unit) {
+  Widget _numberField(
+    String label,
+    TextEditingController controller,
+    String unit,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

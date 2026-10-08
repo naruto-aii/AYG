@@ -19,6 +19,7 @@ import '../../models/public_food_search_match.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/ai_food_lookup_client.dart';
 import '../../services/photo_meal_client.dart';
 import '../../services/public_food_meal_add_flow.dart';
 import '../../state/app_controller.dart';
@@ -51,6 +52,7 @@ import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../../widgets/saved_food/serving_amount_fields.dart';
 import 'meal_food_search_screen.dart';
 import 'barcode_scanner_screen.dart';
+import 'ai_food_lookup_screen.dart';
 import 'photo_meal_screen.dart';
 import 'food_form_template_actions.dart';
 import 'food_meal_registration_screen.dart';
@@ -68,6 +70,7 @@ class FoodFormScreen extends StatefulWidget {
     this.guideFirstMeal = false,
     this.initialQuery,
     this.searchOverrides,
+    this.aiLookup,
   });
 
   final AppController controller;
@@ -84,6 +87,9 @@ class FoodFormScreen extends StatefulWidget {
 
   /// テストが食品名欄と「食品を探す」の検索先を差し替える。
   final CombinedFoodSearchOverrides? searchOverrides;
+
+  /// テストが AIで探すの呼び出し先を差し替える。
+  final AiFoodLookupClient? aiLookup;
 
   bool get isEditing => entry != null;
 
@@ -287,7 +293,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
     final barcode = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
-      settings: const RouteSettings(name: 'food_form_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'food_form_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => const BarcodeScannerScreen(),
       ),
     );
@@ -352,6 +360,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         builder: (context) => MealFoodSearchScreen(
           controller: widget.controller,
           searchOverrides: widget.searchOverrides,
+          aiLookup: widget.aiLookup,
+          loggedAt: _loggedAt,
         ),
       ),
     );
@@ -767,8 +777,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                     icon: Symbols.barcode_scanner_rounded,
                     label: 'バーコード',
                   ),
-                  const FormTabItem(icon: Symbols.search_rounded, label: '食品を探す'),
-                  const FormTabItem(icon: Symbols.list_alt_rounded, label: 'テンプレート'),
+                  const FormTabItem(
+                    icon: Symbols.search_rounded,
+                    label: '食品を探す',
+                  ),
+                  const FormTabItem(
+                    icon: Symbols.list_alt_rounded,
+                    label: 'テンプレート',
+                  ),
                   if (!kIsWeb)
                     const FormTabItem(
                       icon: Symbols.photo_camera_rounded,
@@ -848,6 +864,19 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
   }
 
+  Future<void> _openAiLookup(String query) async {
+    final saved = await openAiFoodLookup(
+      context: context,
+      controller: widget.controller,
+      query: query,
+      loggedAt: _loggedAt,
+      client: widget.aiLookup,
+    );
+    if (saved && mounted) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
   /// 空欄はテンプレートと保存済みの候補。文字があるときは3種類を見出し付きで出す。
   Widget _nameLookup() {
     final overrides = widget.searchOverrides;
@@ -875,6 +904,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
           onOfficialFood: (match) =>
               openOfficialFoodDetail(context, widget.controller, match),
           onPublicFood: _pickPublicFood,
+          onAiFoodLookup: _openAiLookup,
         );
       },
     );

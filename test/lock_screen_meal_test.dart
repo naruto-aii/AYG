@@ -361,10 +361,10 @@ void main() {
       ),
     );
     expect(find.text('ウィジェット'), findsOneWidget);
-    expect(find.text('アプリを開かず食事・運動を登録'), findsOneWidget);
+    expect(find.text('ホーム画面とロック画面から登録'), findsOneWidget);
     expect(
       tester
-          .renderObject<RenderParagraph>(find.text('アプリを開かず食事・運動を登録'))
+          .renderObject<RenderParagraph>(find.text('ホーム画面とロック画面から登録'))
           .didExceedMaxLines,
       isFalse,
     );
@@ -554,7 +554,7 @@ void main() {
     expect(find.text('こちらは有料の機能です'), findsOneWidget);
     expect(
       find.text(
-        'ウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
+        'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
       ),
       findsOneWidget,
     );
@@ -563,8 +563,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('購入を復元'), findsOneWidget);
-    expect(find.text('¥5,400で始める'), findsOneWidget);
-    expect(find.textContaining('¥580'), findsWidgets);
+    expect(find.text('¥8,800で始める'), findsOneWidget);
+    expect(find.textContaining('¥980'), findsWidgets);
     expect(find.textContaining(r'$'), findsNothing);
     expect(controller.foodEntries, isEmpty);
     expect(controller.exerciseEntries, isEmpty);
@@ -630,8 +630,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('購入を復元'), findsOneWidget);
-    expect(find.text('¥5,400で始める'), findsOneWidget);
-    expect(find.textContaining('¥580'), findsWidgets);
+    expect(find.text('¥8,800で始める'), findsOneWidget);
+    expect(find.textContaining('¥980'), findsWidgets);
     expect(find.textContaining(r'$'), findsNothing);
     expect(find.text('ホーム画面'), findsNothing);
     expect(controller.foodEntries, isEmpty);

@@ -8,14 +8,40 @@ Future<String?> askFoodMemo(
   String? initial,
   String title = 'メモ',
 }) {
-  final editor = TextEditingController(text: initial ?? '');
   return showDialog<String>(
-      routeSettings: const RouteSettings(name: 'food_memo_dialog_showDialog_0'),
+    routeSettings: const RouteSettings(name: 'food_memo_dialog_showDialog_0'),
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
+    builder: (context) => _FoodMemoDialog(initial: initial, title: title),
+  );
+}
+
+class _FoodMemoDialog extends StatefulWidget {
+  const _FoodMemoDialog({required this.title, this.initial});
+
+  final String title;
+  final String? initial;
+
+  @override
+  State<_FoodMemoDialog> createState() => _FoodMemoDialogState();
+}
+
+class _FoodMemoDialogState extends State<_FoodMemoDialog> {
+  late final TextEditingController _editor = TextEditingController(
+    text: widget.initial ?? '',
+  );
+
+  @override
+  void dispose() {
+    _editor.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
       content: TextField(
-        controller: editor,
+        controller: _editor,
         autofocus: true,
         maxLength: AppController.foodMemoMaxLength,
         maxLines: 3,
@@ -30,10 +56,10 @@ Future<String?> askFoodMemo(
           child: const Text('キャンセル'),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(editor.text),
+          onPressed: () => Navigator.of(context).pop(_editor.text),
           child: const Text('保存'),
         ),
       ],
-    ),
-  ).whenComplete(editor.dispose);
+    );
+  }
 }

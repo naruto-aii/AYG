@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/content/daily_calorie_target_explanation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,6 +39,37 @@ void main() {
     expect(plist, contains('生年月日、性別、身長、体重、アクティブエネルギー、ワークアウト'));
     expect(plist, contains('ヘルスケアへ書き込みません'));
     expect(plist, isNot(contains('必要に応じてHealthデータを更新')));
+  });
+
+  test('published plus prices are the tax-included catalog', () {
+    const sentence =
+        '月額980円、半年4,900円（月あたり約817円。1か月分お得）、年額8,800円（月あたり約733円。月額より約25%お得）';
+    for (final path in [
+      'legal/terms.html',
+      'docs/legal/terms.html',
+      'legal/tokushoho.html',
+      'docs/legal/tokushoho.html',
+      'docs/app-store-listing-ja.md',
+      'docs/index.html',
+    ]) {
+      expect(File(path).readAsStringSync(), contains(sentence), reason: path);
+    }
+    expect(
+      File('legal/terms.html').readAsStringSync(),
+      File('docs/legal/terms.html').readAsStringSync(),
+    );
+    expect(
+      File('legal/tokushoho.html').readAsStringSync(),
+      File('docs/legal/tokushoho.html').readAsStringSync(),
+    );
+    expect(AppStrings.plusFallbackMonthlyPrice, '¥980');
+    expect(AppStrings.plusFallbackHalfYearPrice, '¥4,900');
+    expect(AppStrings.plusFallbackYearlyPrice, '¥8,800');
+    expect(980 * 5, 4900);
+    expect((4900 / 6).round(), 817);
+    expect((8800 / 12).round(), 733);
+    final yearlyPerMonth = 8800 / 12;
+    expect((980 - yearlyPerMonth) / 980, closeTo(0.2517, 0.0001));
   });
 
   test('privacy policy names Singapore and drops draft wording', () {

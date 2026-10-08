@@ -45,7 +45,7 @@ Future<void> showCalonaviPlus(
   );
 }
 
-/// `¥2,900` のような円表示だけを読む。ドルなどは読まない。
+/// `¥4,900` のような円表示だけを読む。ドルなどは読まない。
 int? yenAmount(String localized) {
   final match = RegExp(
     r'^[¥￥]\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)$',
@@ -483,12 +483,6 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(
-            icon: Symbols.edit_note_rounded,
-            title: AppStrings.plusBenefitNoteTitle,
-            body: AppStrings.plusBenefitNoteBody,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
             icon: Symbols.widgets_rounded,
             title: AppStrings.plusBenefitWidgetTitle,
             body: AppStrings.plusBenefitWidgetBody,
@@ -505,6 +499,24 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
             icon: Symbols.photo_camera_rounded,
             title: AppStrings.plusBenefitPhotoTitle,
             body: AppStrings.plusBenefitPhotoBody,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Benefit(
+            icon: Symbols.storefront_rounded,
+            title: AppStrings.plusBenefitEatingOutTitle,
+            body: AppStrings.plusBenefitEatingOutBody,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Benefit(
+            icon: Symbols.search_rounded,
+            title: AppStrings.plusBenefitAiSearchTitle,
+            body: AppStrings.plusBenefitAiSearchBody,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Benefit(
+            icon: Symbols.nutrition_rounded,
+            title: AppStrings.plusBenefitCoachTitle,
+            body: AppStrings.plusBenefitCoachBody,
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(

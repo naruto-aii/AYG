@@ -92,7 +92,7 @@ class SettingsScreen extends StatelessWidget {
         context: context,
         title: 'こちらは有料の機能です',
         message:
-            'ウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
+            'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );
@@ -222,7 +222,7 @@ class SettingsScreen extends StatelessWidget {
             key: const Key('settings-personal-coach'),
             icon: AppIcons.meal,
             title: 'パーソナルコーチ (β)',
-            subtitle: '残りカロリーに合わせて食事を提案',
+            subtitle: '食事と自炊の献立を提案',
             onTap: () => _openPersonalCoach(context),
           ),
           const SizedBox(height: _rowGap),
@@ -274,7 +274,7 @@ class SettingsScreen extends StatelessWidget {
             SettingsRow(
               icon: AppIcons.template,
               title: 'ウィジェット',
-              subtitle: 'アプリを開かず食事・運動を登録',
+              subtitle: 'ホーム画面とロック画面から登録',
               onTap: () => _openMealWidget(context),
             ),
             const SizedBox(height: _rowGap),

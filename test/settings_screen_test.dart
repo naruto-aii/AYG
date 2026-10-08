@@ -199,7 +199,13 @@ void main() {
         find.textContaining('β版として先行公開している機能で、カロナビ+で使えます'),
         findsNothing,
       );
+      expect(find.textContaining('β版機能に先行アクセス出来ます！'), findsOneWidget);
+      expect(find.textContaining('食事と運動のメモは無料です'), findsOneWidget);
+      expect(find.textContaining('食事のメモはカロナビ+です'), findsNothing);
       expect(find.textContaining('写真で登録 (β)'), findsWidgets);
+      expect(find.textContaining('外食・コンビニ (β)'), findsWidgets);
+      expect(find.textContaining('自炊コーチ'), findsOneWidget);
+      expect(find.textContaining('あわせて1日15回までです'), findsWidgets);
       expect(
         find.textContaining('入れると精度が上がります'),
         findsOneWidget,
@@ -354,11 +360,12 @@ void main() {
     );
 
     for (final subtitle in const [
+      '食事と自炊の献立を提案',
       'はじめての操作と、無料との違い',
       '名前・体格と、目標カロリー',
       '運動・歩数・ヘルスケア連携の設定',
       '保存済み食品の登録・管理',
-      'アプリを開かず食事・運動を登録',
+      'ホーム画面とロック画面から登録',
       '声だけで食事・運動を登録',
       '算出方法と食品データの出典',
       '利用規約、プライバシー、特商法',

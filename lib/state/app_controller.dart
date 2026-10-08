@@ -1501,13 +1501,10 @@ class AppController extends ChangeNotifier {
 
   static const foodMemoMaxLength = 200;
 
-  /// 空と、カロナビ+が無いときのメモは保存しない。
+  /// 空のメモは保存しない。無料でもカロナビ+でも同じ。
   String? storedFoodMemo(String? memo) {
     final trimmed = memo?.trim();
     if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-    if (!_subscriptionRepository.isPlusActive) {
       return null;
     }
     if (trimmed.length <= foodMemoMaxLength) {
@@ -1516,13 +1513,10 @@ class AppController extends ChangeNotifier {
     return trimmed.substring(0, foodMemoMaxLength);
   }
 
-  /// 空と、カロナビ+が無いときの運動メモは保存しない。
+  /// 空の運動メモは保存しない。無料でもカロナビ+でも同じ。
   String? storedExerciseNotes(String? notes) {
     final trimmed = notes?.trim();
     if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-    if (!_subscriptionRepository.isPlusActive) {
       return null;
     }
     return trimmed;
@@ -1578,9 +1572,6 @@ class AppController extends ChangeNotifier {
       'has_memo': memo != null && memo.isNotEmpty,
       'memo_length': memo?.length ?? 0,
     });
-    if (!_subscriptionRepository.isPlusActive) {
-      return false;
-    }
     final stored = storedFoodMemo(memo);
     await updateFood(entry.copyWith(memo: stored, clearMemo: stored == null));
     return true;

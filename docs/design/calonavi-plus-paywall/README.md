@@ -7,11 +7,12 @@
 Cursor など他のツールからもこのデザインをそのまま把握・再現できます。
 
 - `top.png` — 画面の先頭（見出し・ベネフィット一覧）
+- `full.png` — 機能一覧からプラン、規約まで画面の全文
 - `plans.png` — プラン選択カード（月額 / 半年 / 年額）
 - `legal-footer.png` — プラン選択の続きと規約・特商法リンク
 
 開いたときは年額が選ばれています。月額か半年を押すと、そのプランに変わり、下のボタンの文言も変わります。
-価格はプレビュー用の仮の表示です（月額¥580 / 半年¥2,900 / 年額¥5,400）。半年は月あたり約483円、年額は月あたり450円です。
+価格はプレビュー用の仮の表示です（月額¥980 / 半年¥4,900 / 年額¥8,800）。半年は月あたり約817円（1か月分お得）、年額は月あたり約733円（月額より約25%お得）です。
 実機では StoreKit（App Store Connect の商品設定）が返す金額がそのまま出ます。
 この確認用の画面は購入も登録も走らせません。`UnavailableSubscriptionRepository` の購入は例外になります。
 
@@ -46,17 +47,17 @@ class _PreviewPlus extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥580',
+        localizedPrice: '¥980',
       ),
       halfYear: SubscriptionProductOffer(
         productId: SubscriptionCatalog.halfYearProductId,
         period: PlusBillingPeriod.halfYear,
-        localizedPrice: '¥2,900',
+        localizedPrice: '¥4,900',
       ),
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,
         period: PlusBillingPeriod.year,
-        localizedPrice: '¥5,400',
+        localizedPrice: '¥8,800',
       ),
       loadFailed: false,
     );

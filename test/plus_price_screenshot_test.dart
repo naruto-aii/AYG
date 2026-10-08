@@ -227,6 +227,8 @@ void main() {
   testWidgets('app store review shots are single 6.7-inch screens', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     tester.view.physicalSize = const Size(1290, 2796);
     tester.view.devicePixelRatio = 3;
     tester.view.padding = FakeViewPadding.zero;

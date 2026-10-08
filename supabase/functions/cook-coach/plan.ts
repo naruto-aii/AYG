@@ -208,7 +208,8 @@ export function composeHomeDish(
   const egg = used.find((item) => isEgg(item.name));
   const tofu = used.find((item) => item.name.includes("豆腐"));
   const rice = used.find((item) => isRice(item.name));
-  const veg = used.find((item) => isVeg(item.name));
+  const vegs = used.filter((item) => isVeg(item.name));
+  const veg = vegs[0];
   const oil = used.find((item) => isOil(item.name) && item.grams >= 1);
   const soy = used.find((item) => item.name.includes("しょうゆ") || item.name.includes("醤油"));
   const mirin = used.find((item) => item.name.includes("みりん"));
@@ -272,8 +273,8 @@ export function composeHomeDish(
   if (tofu) {
     prep.push(`${tofu.name}${tofu.grams}gを2cm角に切る`);
   }
-  if (veg) {
-    prep.push(`${veg.name}${veg.grams}gを食べやすく切る`);
+  for (const item of vegs) {
+    prep.push(`${item.name}${item.grams}gを食べやすく切る`);
   }
   if (prep.length === 0) {
     prep.push(rice ? `ごはん${rice.grams}gを器に用意する` : "材料を量ってそろえる");
@@ -291,9 +292,15 @@ export function composeHomeDish(
   const tasteText = tastes.length > 0
     ? tastes.map((item) => `${item.name}${item.grams}g`).join("と")
     : "塩1g";
-  const season = veg
-    ? `${veg.name}を加えて2分炒め、${tasteText}を絡めて1分火を通す`
-    : `${tasteText}を加えて1分絡め、中まで火を通す`;
+  const vegText = vegs.map((item) => item.name).join("と");
+  const eggInPan = egg && (protein || tofu || vegs.length > 0)
+    ? "溶いた卵を回し入れて1分火を通す"
+    : "";
+  const season = method === "煮" || method === "煮びたし"
+    ? `${vegText ? `${vegText}を加え、` : ""}${tasteText}を入れて4分煮る${eggInPan ? `。${eggInPan}` : ""}`
+    : vegs.length > 0
+    ? `${vegText}を加えて2分炒め、${tasteText}を絡めて1分火を通す${eggInPan ? `。${eggInPan}` : ""}`
+    : `${tasteText}を加えて1分絡め、中まで火を通す${eggInPan ? `。${eggInPan}` : ""}`;
   let plate = "器に盛り、すぐ出す";
   if (rice) {
     const when = slot === "breakfast"

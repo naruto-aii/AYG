@@ -38,12 +38,13 @@ void main() {
       'NSPrivacyCollectedDataTypeDeviceID',
       'NSPrivacyCollectedDataTypeAdvertisingData',
     ];
-    for (final type in [...collected, ...analyticsOnly]) {
+    const functionalityOnly = ['NSPrivacyCollectedDataTypePhotosorVideos'];
+    for (final type in [...collected, ...analyticsOnly, ...functionalityOnly]) {
       expect(manifest, contains(type), reason: type);
     }
     expect(
       'NSPrivacyCollectedDataTypePurposeAppFunctionality'.allMatches(manifest),
-      hasLength(collected.length),
+      hasLength(collected.length + functionalityOnly.length),
     );
     expect(
       'NSPrivacyCollectedDataTypePurposeAnalytics'.allMatches(manifest),
@@ -53,7 +54,9 @@ void main() {
     expect(
       '<key>NSPrivacyCollectedDataTypeTracking</key>\n\t\t\t<false/>'
           .allMatches(manifest),
-      hasLength(collected.length + analyticsOnly.length),
+      hasLength(
+        collected.length + analyticsOnly.length + functionalityOnly.length,
+      ),
     );
     expect(
       manifest,

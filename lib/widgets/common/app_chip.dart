@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
+import '../../theme/app_typography.dart';
 
 class AppChip extends StatelessWidget {
   const AppChip({
@@ -32,6 +33,7 @@ class AppChip extends StatelessWidget {
       ),
       shape: RoundedRectangleBorder(borderRadius: AppRadius.chip),
       labelStyle: TextStyle(
+        fontFamily: AppTypography.fontFamily,
         color: selected ? AppColors.primaryGreen : AppColors.primaryText,
         fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
       ),

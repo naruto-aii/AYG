@@ -502,6 +502,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(
+            icon: Symbols.photo_camera_rounded,
+            title: AppStrings.plusBenefitPhotoTitle,
+            body: AppStrings.plusBenefitPhotoBody,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _Benefit(
             icon: Symbols.eco_rounded,
             title: AppStrings.plusBetaAccessTitle,
             body: AppStrings.plusBetaAccessBody,

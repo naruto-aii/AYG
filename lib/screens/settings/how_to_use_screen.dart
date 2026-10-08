@@ -57,7 +57,7 @@ class HowToUseScreen extends StatelessWidget {
                 const _Section(
                   title: '無料とカロナビ+',
                   body:
-                      '無料でも、食事・運動・体重の記録、記録の共有、食事テンプレート4件、運動テンプレート4件が使えます。カロナビ+では食事と運動のテンプレートの件数制限がなくなり、食事のメモ、直近3日の食品、ウィジェットでワンタップ記録、音声登録 (β)、写真で登録 (β)、外食・コンビニ (β)、AIで探す (β)、パーソナルコーチ (β) が使えます。ウィジェットとSiriで、記録を速くできます。あわせて、β版機能への先行アクセスが付きます。${AppStrings.plusAiDailyLimit}ウィジェットの置き方と音声の始め方は、上の節と各画面に書いてあります。',
+                      '無料でも、食事・運動・体重の記録、記録の共有、食事と運動のメモ、食事テンプレート4件、運動テンプレート4件が使えます。カロナビ+では食事と運動のテンプレートの件数制限がなくなり、直近3日の食品、ウィジェットでワンタップ記録、音声登録 (β)、写真で登録 (β)、外食・コンビニ (β)、AIで探す (β)、パーソナルコーチ (β) が使えます。ウィジェットとSiriで、記録を速くできます。${AppStrings.plusBetaAccessLead}${AppStrings.plusAiDailyLimit}ウィジェットの置き方と音声の始め方は、上の節と各画面に書いてあります。',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 const _Section(
@@ -68,7 +68,7 @@ class HowToUseScreen extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
                 const _Section(
                   title: 'メモ',
-                  body: '食事のメモはカロナビ+です。無料のときは「メモ」を押すと案内が出ます。メモはカロリーの計算には使いません。',
+                  body: '食事と運動のメモは無料です。カロリーの計算には使いません。',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 const _Section(

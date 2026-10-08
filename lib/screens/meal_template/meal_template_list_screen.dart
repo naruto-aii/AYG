@@ -99,14 +99,11 @@ class _MealTemplateListScreenState extends State<MealTemplateListScreen> {
     if (_isApplying) {
       return;
     }
-    String? memo;
-    if (widget.controller.subscriptionRepository.isPlusActive) {
-      final entered = await askFoodMemo(context, title: 'この食事のメモ');
-      if (!mounted || entered == null) {
-        return;
-      }
-      memo = entered;
+    final entered = await askFoodMemo(context, title: 'この食事のメモ');
+    if (!mounted || entered == null) {
+      return;
     }
+    final memo = entered;
     setState(() => _isApplying = true);
     try {
       var result = await widget.controller.applyMealTemplate(

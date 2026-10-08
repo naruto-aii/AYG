@@ -7,8 +7,6 @@ import '../../state/app_controller.dart';
 import '../../utils/macro_display.dart';
 import '../meal_template/meal_template_list_screen.dart';
 import '../meal_template/meal_template_picker_screen.dart';
-import '../../repositories/plus_funnel_repository.dart';
-import '../subscription/plus_gate.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
@@ -116,9 +114,7 @@ class _FoodMealRegistrationScreenState
         items: drafts,
         loggedAt: _loggedAt,
         sourceTemplateId: widget.sourceTemplateId,
-        memo: widget.controller.subscriptionRepository.isPlusActive
-            ? _memoController.text
-            : null,
+        memo: _memoController.text,
       );
       if (!mounted) {
         return;
@@ -168,26 +164,6 @@ class _FoodMealRegistrationScreenState
   }
 
   Widget _memoField() {
-    final plus = widget.controller.subscriptionRepository.isPlusActive;
-    if (!plus) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton(
-          onPressed: () async {
-            final allowed = await ensureCalonaviPlus(
-              context,
-              widget.controller,
-              message: '食品のメモは、カロナビ+です。',
-              feature: PlusFunnelFeature.memo,
-            );
-            if (allowed && mounted) {
-              setState(() {});
-            }
-          },
-          child: const Text('メモを付ける'),
-        ),
-      );
-    }
     return TextField(
       controller: _memoController,
       maxLength: AppController.foodMemoMaxLength,

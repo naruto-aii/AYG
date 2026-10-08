@@ -483,12 +483,6 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(
-            icon: Symbols.edit_note_rounded,
-            title: AppStrings.plusBenefitNoteTitle,
-            body: AppStrings.plusBenefitNoteBody,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
             icon: Symbols.widgets_rounded,
             title: AppStrings.plusBenefitWidgetTitle,
             body: AppStrings.plusBenefitWidgetBody,

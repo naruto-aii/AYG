@@ -56,6 +56,10 @@ void main() {
     expect(AppStrings.plusAutoRenew, contains('24時間以上前'));
     expect(AppStrings.plusAutoRenew, contains('24時間以内'));
     expect(AppStrings.plusCancelHow, contains('App Store'));
+    expect(AppStrings.plusBetaAccessLead, 'β版機能に先行アクセス出来ます！');
+    expect(find.text('β版機能への先行アクセスも付きます。'), findsNothing);
+    expect(find.text('食事・運動の記録にメモを追加'), findsNothing);
+    expect(find.textContaining('無料ではメモは使えません'), findsNothing);
     expect(AppStrings.plusBenefitSiriTitle, '音声登録 (β)');
     expect(AppStrings.plusBenefitWidgetTitle, 'ウィジェットでワンタップ記録');
     expect(AppStrings.plusBenefitWidgetBody, contains('ホーム画面とロック画面のウィジェット'));

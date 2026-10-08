@@ -24,8 +24,6 @@ import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../screens/settings/calculation_references_screen.dart';
 import '../../repositories/plus_funnel_repository.dart';
-import '../../screens/subscription/plus_gate.dart';
-
 /// 運動フォーム内の MET 自動計算（種目1回 + 分量 + 追加消費）。
 class ExerciseMetCalculationSection extends StatefulWidget {
   static const activityMenuKey = Key('exercise-activity-menu');
@@ -817,26 +815,6 @@ class _ExerciseMetCalculationSectionState
     final notesController = widget.notesController;
     if (notesController == null) {
       return const SizedBox.shrink();
-    }
-    final plus = widget.controller.subscriptionRepository.isPlusActive;
-    if (!plus) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton(
-          onPressed: () async {
-            final allowed = await ensureCalonaviPlus(
-              context,
-              widget.controller,
-              message: '運動のメモは、カロナビ+です。',
-              feature: PlusFunnelFeature.memo,
-            );
-            if (allowed && mounted) {
-              setState(() {});
-            }
-          },
-          child: const Text('メモを付ける'),
-        ),
-      );
     }
     return DesignFieldCard(
       icon: _icon(AppIcons.pen),

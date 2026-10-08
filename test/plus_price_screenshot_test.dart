@@ -3,13 +3,25 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:ayg/config/subscription_catalog.dart';
+import 'package:ayg/models/activity_level.dart';
+import 'package:ayg/models/food_entry.dart';
+import 'package:ayg/models/food_unit_type.dart';
+import 'package:ayg/models/goal.dart';
+import 'package:ayg/models/nutrition_settings.dart';
+import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
+import 'package:ayg/screens/home/home_screen.dart';
 import 'package:ayg/screens/legal/legal_document.dart';
 import 'package:ayg/screens/legal/legal_document_screen.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
+import 'package:ayg/services/nutrition_engine.dart';
+import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/services/share_sheet_client.dart';
 import 'package:ayg/services/subscription_offer.dart';
+import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+
+import 'mocks/mock_health_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +112,8 @@ void main() {
     expect(find.textContaining('自炊コーチ'), findsOneWidget);
     expect(find.textContaining('あわせて1日15回までです'), findsOneWidget);
     expect(find.text('ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。'), findsOneWidget);
+    expect(find.text('β版機能に先行アクセス出来ます！'), findsOneWidget);
+    expect(find.text('食事・運動の記録にメモを追加'), findsNothing);
     expect(find.textContaining('精度検証中'), findsNothing);
     expect(find.text('プランを選ぶ'), findsOneWidget);
 
@@ -127,6 +141,87 @@ void main() {
       () => pngBytesFromBoundary(key, pixelRatio: 2),
     );
     File('${directory.path}/tokushoho_price.png').writeAsBytesSync(bytes!);
+  });
+
+  testWidgets('a free user can add a meal memo', (tester) async {
+    final controller = AppController(
+      nutritionEngine: NutritionEngine(),
+      healthRepository: MockHealthRepository(isAvailable: false),
+    );
+    addTearDown(controller.dispose);
+    controller.setProfile(
+      UserProfile(
+        birthDate: DateTime(1990, 1, 1),
+        gender: Gender.male,
+        heightCm: 170,
+        weightKg: 60,
+      ),
+    );
+    controller.setNutritionSettings(
+      const NutritionSettings(
+        useHealthIntegration: false,
+        activityLevel: ActivityLevel.moderate,
+      ),
+    );
+    controller.setGoal(
+      Goal(
+        type: GoalType.maintain,
+        targetWeightKg: 60,
+        targetDate: DateTime(2026, 12, 1),
+      ),
+    );
+    controller.foodEntries.add(
+      FoodEntry(
+        id: 'today',
+        name: 'ささみ',
+        kcalPerBase: 100,
+        baseAmount: 100,
+        unitType: FoodUnitType.g,
+        consumedAmount: 200,
+        loggedAt: DateTime.now(),
+      ),
+    );
+
+    final key = GlobalKey();
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    await tester.pumpWidget(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        builder: (context, child) => RepaintBoundary(
+          key: key,
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: HomeScreen(
+          controller: controller,
+          openFoodFactsService: OpenFoodFactsService(userAgent: 'test'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.subscriptionRepository.isPlusActive, isFalse);
+    await tester.scrollUntilVisible(
+      find.text('メモ'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('メモ'));
+    await tester.pumpAndSettle();
+    expect(find.text('こちらは有料の機能です'), findsNothing);
+    await tester.enterText(find.byType(TextField), '少し多かったから明日は150');
+    await tester.pumpAndSettle();
+    final bytes = await tester.runAsync(
+      () => pngBytesFromBoundary(key, pixelRatio: 3),
+    );
+    expect(bytes, isNotNull);
+    final shot = Directory('/opt/cursor/artifacts/screenshots')
+      ..createSync(recursive: true);
+    File('${shot.path}/free_user_memo.png').writeAsBytesSync(bytes!);
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(controller.foodEntries.single.memo, '少し多かったから明日は150');
+    expect(find.text('少し多かったから明日は150'), findsOneWidget);
+    expect(find.text('メモを編集'), findsOneWidget);
   });
 }
 

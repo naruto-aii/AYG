@@ -78,7 +78,7 @@ class AppStrings {
   static const plusHeroSubtitle = 'テンプレートの上限をなくし、ウィジェットとSiriで記録をもっと速く。';
 
   /// 既存の見出しの下に足す。ウィジェットと Siri の文は置き換えない。
-  static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
+  static const plusBetaAccessLead = 'β版機能に先行アクセス出来ます！';
   static const plusBetaAccessTitle = 'β版機能への先行アクセス';
   static const coachCookingBody =
       '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
@@ -93,8 +93,6 @@ class AppStrings {
   static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
   static const plusBenefitTemplateBody =
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
-  static const plusBenefitNoteTitle = '食事・運動の記録にメモを追加';
-  static const plusBenefitNoteBody = '無料ではメモは使えません。カロナビ+なら、食事にも運動にもメモを残せます。';
   static const plusBenefitWidgetTitle = 'ウィジェットでワンタップ記録';
   static const plusBenefitWidgetBody =
       'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';

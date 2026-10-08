@@ -202,7 +202,9 @@ void main() {
     },
   );
 
-  testWidgets('an empty catalog still offers AI only as a row', (tester) async {
+  testWidgets('an empty catalog offers AI as a prominent suggestion', (
+    tester,
+  ) async {
     final controller = AppController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -222,10 +224,75 @@ void main() {
       '筑前煮',
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text(AiFoodLookupRow.label));
+    await tester.ensureVisible(find.byKey(const Key('ai-food-lookup-empty')));
     expect(find.text('該当する食品が見つかりませんでした'), findsOneWidget);
+    expect(find.text(AiFoodLookupEmptySuggestion.headline), findsOneWidget);
+    expect(find.byKey(const Key('ai-food-lookup-empty')), findsOneWidget);
+    expect(find.byKey(const Key('ai-food-lookup-row')), findsNothing);
     expect(find.text(AiFoodLookupRow.label), findsOneWidget);
     expect(find.text('公開食品を選ぶ'), findsNothing);
+  });
+
+  testWidgets('zero results still save one food through the confirm screen', (
+    tester,
+  ) async {
+    final events = <Map<String, Object?>>[];
+    Analytics.onEmitForTest = (name, props) {
+      if (name == 'food_entry_added') {
+        events.add(props);
+      }
+    };
+    final pending = PendingRecordStore();
+    final controller = AppController(
+      subscriptionRepository: _ActivePlus(),
+      pendingRecords: pending,
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MealFoodSearchScreen(
+          controller: controller,
+          loggedAt: now,
+          aiLookup: AiFoodLookupClient(
+            invoke: (body) async {
+              expect(body, {'query': '筑前煮'});
+              return {
+                'ok': true,
+                'usage_id': 'usage-empty',
+                'cache_hit': false,
+                'candidates': [candidate(name: '筑前煮', kcal: 272, known: false)],
+              };
+            },
+          ),
+          searchOverrides: overrides(
+            saved: const [],
+            official: const [],
+            public: const [],
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(
+      find.byKey(const Key('meal-food-search-field')),
+      '筑前煮',
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('ai-food-lookup-empty')));
+    await tester.tap(find.text(AiFoodLookupRow.label));
+    await tester.pumpAndSettle();
+    expect(find.text(aiFoodLookupEstimateTitle), findsOneWidget);
+    expect(controller.foodEntries, isEmpty);
+    await tester.tap(find.text('筑前煮'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('この内容で登録'));
+    await tester.pumpAndSettle();
+    expect(controller.foodEntries, hasLength(1));
+    expect(controller.foodEntries.single.name, '筑前煮');
+    expect(await pending.preferLocalIds(PendingRecordKind.food), {
+      controller.foodEntries.single.id,
+    });
+    expect(events, hasLength(1));
+    expect(events.single['method'], 'manual');
   });
 
   testWidgets('without Plus the row does not call the model', (tester) async {

@@ -240,8 +240,43 @@ void main() {
     expect(find.text(aiFoodLookupEstimateSubtitle), findsOneWidget);
     expect(find.text('872'), findsOneWidget);
     expect(find.textContaining('公式'), findsNothing);
+
+    await _capture(
+      tester,
+      MealFoodSearchScreen(
+        controller: controller,
+        loggedAt: now,
+        aiLookup: AiFoodLookupClient(invoke: (_) async => null),
+        searchOverrides: const CombinedFoodSearchOverrides(
+          debounce: Duration.zero,
+          searchSaved: _emptySaved,
+          searchOfficial: _emptyOfficial,
+          searchPublic: _emptyPublic,
+        ),
+      ),
+      File('${directory.path}/ai_food_lookup_empty.png'),
+      find.byKey(const Key('ai-food-lookup-empty')),
+      prepare: (tester) async {
+        await tester.enterText(
+          find.byKey(const Key('meal-food-search-field')),
+          '筑前煮',
+        );
+        await tester.pumpAndSettle();
+      },
+    );
+    expect(find.text(AiFoodLookupEmptySuggestion.headline), findsOneWidget);
+    expect(find.byKey(const Key('ai-food-lookup-row')), findsNothing);
+    expect(find.text('該当する食品が見つかりませんでした'), findsOneWidget);
   });
 }
+
+Future<List<SavedFood>> _emptySaved(String _) async => const [];
+
+Future<OfficialFoodSearchResult> _emptyOfficial(String _) async {
+  return const OfficialFoodSearchResult(matches: []);
+}
+
+Future<List<PublicFoodSearchMatch>> _emptyPublic(String _) async => const [];
 
 Future<void> _capture(
   WidgetTester tester,

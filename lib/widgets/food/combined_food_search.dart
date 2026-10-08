@@ -537,7 +537,7 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
             const SizedBox(height: 8),
           ],
         ],
-        if (!_loading && !hasRows && !hasError)
+        if (!_loading && !hasRows && !hasError) ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Text(
@@ -547,7 +547,11 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
               style: muted,
             ),
           ),
-        if (widget.onAiFoodLookup != null) ...[
+          if (widget.onAiFoodLookup != null)
+            AiFoodLookupEmptySuggestion(
+              onTap: () => widget.onAiFoodLookup!(widget.query.text.trim()),
+            ),
+        ] else if (widget.onAiFoodLookup != null) ...[
           const SizedBox(height: 8),
           AiFoodLookupRow(
             onTap: () => widget.onAiFoodLookup!(widget.query.text.trim()),

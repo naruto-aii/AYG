@@ -264,7 +264,7 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
           Text('補足', style: AppTypography.titleS),
           const SizedBox(height: 4),
           Text(
-            '任意です。油を多めに使った、脂身が多い、ソース少なめなど、写真で分かりにくい特徴を書くと精度が上がります。',
+            '任意です。例）油を多めに使った、脂身が多い部位など、写真で分かりにくい特徴を書くと精度が上がります。',
             style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: 6),

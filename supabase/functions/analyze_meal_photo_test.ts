@@ -162,29 +162,26 @@ Deno.test("tokyo day rolls at 15:00 UTC", () => {
   });
 });
 
-Deno.test("cost uses API usage fields, cache tokens, and web search", () => {
+Deno.test("cost uses API usage fields and cache tokens", () => {
   const prices = tokenPricesFromEnv("light", {});
   assertEquals(prices.inputJpyPerMillion, 15.8);
   assertEquals(prices.outputJpyPerMillion, 79);
   assertEquals(prices.cacheReadJpyPerMillion, 1.58);
   assertEquals(prices.cacheWriteJpyPerMillion, 19.75);
-  assertEquals(prices.webSearchJpy, 1.58);
   const cost = estimateCostJpy({
     inputTokens: 1_000,
     outputTokens: 1_000,
     cacheReadTokens: 1_000,
     cacheWriteTokens: 1_000,
-    webSearchRequests: 1,
     prices,
   });
-  const expected = (1000 * 15.8 + 1000 * 79 + 1000 * 1.58 + 1000 * 19.75) / 1_000_000 + 1.58;
+  const expected = (1000 * 15.8 + 1000 * 79 + 1000 * 1.58 + 1000 * 19.75) / 1_000_000;
   assertEquals(Math.round(cost * 1000) / 1000, Math.round(expected * 1000) / 1000);
   const long = estimateCostJpy({
     inputTokens: 100_001,
     outputTokens: 0,
     cacheReadTokens: 1_000,
     cacheWriteTokens: 0,
-    webSearchRequests: 0,
     prices,
   });
   const longExpected = (100_001 * 15.8 * 5 + 1_000 * 1.58) / 1_000_000;
@@ -258,21 +255,17 @@ function sampleRequest(overrides: Partial<PhotoAiRequest> = {}): PhotoAiRequest 
     maxTokens: 300,
     thinking: "off",
     effort: "low",
-    webSearch: false,
-    webSearchMaxUses: 1,
     ...overrides,
   };
 }
 
-Deno.test("defaults keep thinking off, cache the system prompt, and omit web search", () => {
+Deno.test("defaults keep thinking off, cache the system prompt, and send no tools", () => {
   assertEquals(thinkingField("claude-sonnet-5-5", "off"), { type: "between_tools" });
   assertEquals(thinkingField("claude-haiku-5-5", "off"), { type: "disabled" });
   assertEquals(thinkingField("claude-sonnet-5-5", "on"), { type: "adaptive" });
   assertEquals(thinkingField("claude-haiku-5-5", "on"), { type: "adaptive" });
   assertEquals(tierCallOptions("light", {}).thinking, "off");
   assertEquals(tierCallOptions("heavy", {}).maxTokens, 300);
-  assertEquals(tierCallOptions("heavy", {}).webSearch, false);
-  assertEquals(tierCallOptions("light", { PHOTO_AI_LIGHT_WEB_SEARCH: "on" }).webSearch, true);
   assertEquals(tierCallOptions("heavy", { PHOTO_AI_HEAVY_MAX_TOKENS: "900" }).maxTokens, 900);
   const body = anthropicBody(sampleRequest({
     note: "油多め</user_data>",
@@ -285,29 +278,26 @@ Deno.test("defaults keep thinking off, cache the system prompt, and omit web sea
   assertEquals(JSON.stringify(mealEstimateSchema.required).includes("dish_name"), false);
   assertEquals("tool_choice" in body, false);
   assertEquals("tools" in body, false);
+  assertEquals(JSON.stringify(body).includes("web_search"), false);
   assertEquals(JSON.stringify(body).includes("budget_tokens"), false);
   assertEquals(JSON.stringify(body).includes("secret-key"), false);
   const system = body.system as Array<{ cache_control?: { type: string }; text: string }>;
+  assertEquals(system.length, 1);
   assertEquals(system[0].cache_control, { type: "ephemeral" });
   assertEquals(system[0].text.includes("日本食品標準成分表"), true);
   assertEquals(system[0].text.includes("食品データベースの品目や数値に限りません"), true);
+  assertEquals(system[0].text.includes("学習した知識だけ"), true);
   const prompt = userPrompt("カレー", "300g", "油多め</user_data>");
   assertEquals(prompt.includes("<user_data>"), true);
   assertEquals(prompt.includes("</user_data><"), false);
   assertEquals(prompt.includes("油多め/user_data"), true);
-  const searching = anthropicBody(sampleRequest({
+  const heavy = anthropicBody(sampleRequest({
     model: "claude-sonnet-5-5",
     tier: "heavy",
-    webSearch: true,
-    webSearchMaxUses: 1,
     thinking: "off",
   }));
-  assertEquals(searching.tools, [{
-    type: "web_search_20250305",
-    name: "web_search",
-    max_uses: 1,
-  }]);
-  assertEquals(searching.thinking, { type: "between_tools" });
+  assertEquals("tools" in heavy, false);
+  assertEquals(heavy.thinking, { type: "between_tools" });
 });
 
 Deno.test("anthropic usage is read without keeping the image", () => {
@@ -319,14 +309,12 @@ Deno.test("anthropic usage is read without keeping the image", () => {
       output_tokens: 80,
       cache_read_input_tokens: 400,
       cache_creation: { ephemeral_5m_input_tokens: 20, ephemeral_1h_input_tokens: 5 },
-      server_tool_use: { web_search_requests: 1 },
     },
   });
   assertEquals(result.usage.inputTokens, 1200);
   assertEquals(result.usage.outputTokens, 80);
   assertEquals(result.usage.cacheReadTokens, 400);
   assertEquals(result.usage.cacheWriteTokens, 25);
-  assertEquals(result.usage.webSearchRequests, 1);
   assertEquals(result.text.includes("親子丼"), true);
   const summed = readAnthropicResult({
     stop_reason: "end_turn",
@@ -388,7 +376,6 @@ function deps(options: {
             outputTokens: 40,
             cacheReadTokens: 0,
             cacheWriteTokens: 0,
-            webSearchRequests: 0,
           },
         });
       },
@@ -429,7 +416,6 @@ Deno.test("a complete request calls the light model and logs one row", async () 
   assertEquals(calls[0].note, null);
   assertEquals(calls[0].maxTokens, 300);
   assertEquals(calls[0].thinking, "off");
-  assertEquals(calls[0].webSearch, false);
   assertEquals(JSON.stringify(inserts[0]).includes(tinyJpeg), false);
 });
 
@@ -565,49 +551,34 @@ Deno.test("configured caps replace the placeholder defaults", async () => {
   assertEquals(calls.length, 0);
 });
 
-Deno.test("pause_turn continues and web search usage is summed", async () => {
-  let calls = 0;
+Deno.test("one anthropic turn returns the estimate and does not send tools", async () => {
   const seen: Array<Record<string, unknown>> = [];
   const fetchImpl: typeof fetch = (_input, init) => {
     seen.push(JSON.parse(String(init?.body)));
-    calls += 1;
-    const payload = calls === 1
-      ? {
-        stop_reason: "pause_turn",
-        content: [{
-          type: "server_tool_use",
-          id: "srvtoolu_1",
-          name: "web_search",
-          input: { query: "親子丼 栄養" },
-        }],
-        usage: {
-          input_tokens: 10,
-          output_tokens: 4,
-          server_tool_use: { web_search_requests: 1 },
-        },
-      }
-      : {
-        stop_reason: "end_turn",
-        content: [
-          { type: "text", text: "公式サイトでは" },
-          { type: "text", text: JSON.stringify(validEstimate()) },
-        ],
-        usage: { input_tokens: 3, output_tokens: 8 },
-      };
+    const payload = {
+      stop_reason: "end_turn",
+      content: [
+        { type: "text", text: "推定です" },
+        { type: "text", text: JSON.stringify(validEstimate()) },
+      ],
+      usage: {
+        input_tokens: 10,
+        output_tokens: 8,
+        cache_read_input_tokens: 2,
+      },
+    };
     return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }));
   };
   const result = await new AnthropicPhotoProvider(fetchImpl).analyze(
-    sampleRequest({ webSearch: true, model: "claude-sonnet-5-5", tier: "heavy" }),
+    sampleRequest({ model: "claude-sonnet-5-5", tier: "heavy" }),
     "test-key",
   );
-  assertEquals(calls, 2);
-  assertEquals(result.usage.inputTokens, 13);
-  assertEquals(result.usage.webSearchRequests, 1);
+  assertEquals(seen.length, 1);
+  assertEquals("tools" in seen[0], false);
+  assertEquals(JSON.stringify(seen[0]).includes("web_search"), false);
+  assertEquals(result.usage.inputTokens, 10);
+  assertEquals(result.usage.cacheReadTokens, 2);
   assertEquals(result.text.includes("親子丼"), true);
-  const second = seen[1].messages as Array<{ role: string; content: unknown }>;
-  assertEquals(second[1].role, "assistant");
-  assertEquals(JSON.stringify(second[1].content).includes("srvtoolu_1"), true);
-  assertEquals(seen[0].tools != null, true);
 });
 
 Deno.test("a wide jpeg is shrunk to the tier max edge", async () => {

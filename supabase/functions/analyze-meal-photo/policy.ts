@@ -19,15 +19,11 @@ export const heavyInputUsdPerMillionDefault = 2;
 export const heavyOutputUsdPerMillionDefault = 10;
 export const heavyCacheReadUsdPerMillionDefault = 0.1;
 export const heavyCacheWriteUsdPerMillionDefault = 2.5;
-// Anthropic の公開価格は 1,000 検索あたり 10 USD。検索は既定でオフ。
-export const webSearchUsdPerSearchDefault = 0.01;
 
 export const maxTokensDefault = 300;
 export const imageMaxEdgeDefault = 1024;
-export const webSearchMaxUsesDefault = 1;
 
 export type PhotoTier = "light" | "heavy";
-export type PhotoRouteMode = "name_and_amount" | "always_light" | "always_heavy" | "name";
 export type ThinkingMode = "on" | "off";
 
 export type UsageRow = {
@@ -64,7 +60,6 @@ export type PhotoAiEnv = {
   PHOTO_AI_MONTHLY_LIMIT?: string;
   PHOTO_AI_HEAVY_MONTHLY_LIMIT?: string;
   PHOTO_AI_MONTHLY_SPEND_JPY?: string;
-  PHOTO_AI_ROUTE?: string;
   PHOTO_AI_USD_JPY?: string;
   PHOTO_AI_LIGHT_INPUT_USD_PER_MILLION?: string;
   PHOTO_AI_LIGHT_OUTPUT_USD_PER_MILLION?: string;
@@ -74,7 +69,6 @@ export type PhotoAiEnv = {
   PHOTO_AI_HEAVY_OUTPUT_USD_PER_MILLION?: string;
   PHOTO_AI_HEAVY_CACHE_READ_USD_PER_MILLION?: string;
   PHOTO_AI_HEAVY_CACHE_WRITE_USD_PER_MILLION?: string;
-  PHOTO_AI_WEB_SEARCH_USD_PER_SEARCH?: string;
   PHOTO_AI_MAX_TOKENS?: string;
   PHOTO_AI_LIGHT_MAX_TOKENS?: string;
   PHOTO_AI_HEAVY_MAX_TOKENS?: string;
@@ -84,9 +78,6 @@ export type PhotoAiEnv = {
   PHOTO_AI_HEAVY_EFFORT?: string;
   PHOTO_AI_LIGHT_IMAGE_MAX_EDGE?: string;
   PHOTO_AI_HEAVY_IMAGE_MAX_EDGE?: string;
-  PHOTO_AI_LIGHT_WEB_SEARCH?: string;
-  PHOTO_AI_HEAVY_WEB_SEARCH?: string;
-  PHOTO_AI_WEB_SEARCH_MAX_USES?: string;
 };
 
 export type RouteDecision =
@@ -97,51 +88,20 @@ export function presentText(value: string | null | undefined): boolean {
   return (value ?? "").trim().length > 0;
 }
 
-export function photoRouteMode(raw: string | undefined): PhotoRouteMode {
-  switch ((raw ?? "").trim()) {
-    case "always_light":
-    case "always_heavy":
-    case "name":
-    case "name_and_amount":
-      return raw!.trim() as PhotoRouteMode;
-    default:
-      return "name_and_amount";
-  }
-}
-
-// 補足は見ない。既定は、料理名と量が両方あるときだけ軽いモデル。
-// 高性能の月間回数を超えたら、料理名と量が両方あるときだけ軽いモデルに落とす。
+// 補足は見ない。料理名と量が両方あるときだけ軽いモデル。
+// 写真だけ、または片方だけのときは高性能。
+// 高性能の月間回数を超えたら、両方あるときだけ軽いモデルに落とす。
 export function routePhotoModel(args: {
   hasName: boolean;
   hasAmount: boolean;
   heavyMonthCount: number;
   heavyMonthlyLimit: number;
-  mode?: PhotoRouteMode;
 }): RouteDecision {
-  const mode = args.mode ?? "name_and_amount";
   const both = args.hasName && args.hasAmount;
-  let wantsHeavy = false;
-  switch (mode) {
-    case "always_light":
-      wantsHeavy = false;
-      break;
-    case "always_heavy":
-      wantsHeavy = true;
-      break;
-    case "name":
-      wantsHeavy = !args.hasName;
-      break;
-    case "name_and_amount":
-      wantsHeavy = !both;
-      break;
-  }
-  if (!wantsHeavy) {
+  if (both) {
     return { kind: "model", tier: "light" };
   }
   if (args.heavyMonthCount >= args.heavyMonthlyLimit) {
-    if (both) {
-      return { kind: "model", tier: "light" };
-    }
     return { kind: "need_details" };
   }
   return { kind: "model", tier: "heavy" };
@@ -216,7 +176,6 @@ export type TokenPrices = {
   cacheReadJpyPerMillion: number;
   cacheWriteJpyPerMillion: number;
   longPromptMultiplier: number;
-  webSearchJpy: number;
 };
 
 export function estimateCostJpy(args: {
@@ -224,7 +183,6 @@ export function estimateCostJpy(args: {
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
-  webSearchRequests: number;
   prices: TokenPrices;
 }): number {
   const long = args.inputTokens > 100_000 ? args.prices.longPromptMultiplier : 1;
@@ -233,8 +191,7 @@ export function estimateCostJpy(args: {
     (args.inputTokens * args.prices.inputJpyPerMillion * long) / perMillion +
     (args.outputTokens * args.prices.outputJpyPerMillion * long) / perMillion +
     (args.cacheReadTokens * args.prices.cacheReadJpyPerMillion) / perMillion +
-    (args.cacheWriteTokens * args.prices.cacheWriteJpyPerMillion) / perMillion +
-    args.webSearchRequests * args.prices.webSearchJpy
+    (args.cacheWriteTokens * args.prices.cacheWriteJpyPerMillion) / perMillion
   );
 }
 
@@ -279,7 +236,6 @@ function usd(raw: string | undefined, fallback: number): number {
 
 export function tokenPricesFromEnv(tier: PhotoTier, env: PhotoAiEnv): TokenPrices {
   const rate = usd(env.PHOTO_AI_USD_JPY, usdJpyDefault);
-  const search = usd(env.PHOTO_AI_WEB_SEARCH_USD_PER_SEARCH, webSearchUsdPerSearchDefault) * rate;
   if (tier === "light") {
     return {
       inputJpyPerMillion: usd(env.PHOTO_AI_LIGHT_INPUT_USD_PER_MILLION, lightInputUsdPerMillionDefault) * rate,
@@ -293,7 +249,6 @@ export function tokenPricesFromEnv(tier: PhotoTier, env: PhotoAiEnv): TokenPrice
         lightCacheWriteUsdPerMillionDefault,
       ) * rate,
       longPromptMultiplier: 5,
-      webSearchJpy: search,
     };
   }
   return {
@@ -308,7 +263,6 @@ export function tokenPricesFromEnv(tier: PhotoTier, env: PhotoAiEnv): TokenPrice
       heavyCacheWriteUsdPerMillionDefault,
     ) * rate,
     longPromptMultiplier: 1,
-    webSearchJpy: search,
   };
 }
 
@@ -318,10 +272,6 @@ export function thinkingMode(raw: string | undefined): ThinkingMode {
     return "on";
   }
   return "off";
-}
-
-export function flagOn(raw: string | undefined): boolean {
-  return thinkingMode(raw) === "on";
 }
 
 const effortsOn = ["low", "medium", "high", "xhigh", "max"];
@@ -338,8 +288,6 @@ export type TierCallOptions = {
   thinking: ThinkingMode;
   effort: string;
   imageMaxEdge: number;
-  webSearch: boolean;
-  webSearchMaxUses: number;
 };
 
 export function tierCallOptions(tier: PhotoTier, env: PhotoAiEnv): TierCallOptions {
@@ -352,13 +300,10 @@ export function tierCallOptions(tier: PhotoTier, env: PhotoAiEnv): TierCallOptio
     ? env.PHOTO_AI_LIGHT_IMAGE_MAX_EDGE
     : env.PHOTO_AI_HEAVY_IMAGE_MAX_EDGE;
   const effortRaw = tier === "light" ? env.PHOTO_AI_LIGHT_EFFORT : env.PHOTO_AI_HEAVY_EFFORT;
-  const searchRaw = tier === "light" ? env.PHOTO_AI_LIGHT_WEB_SEARCH : env.PHOTO_AI_HEAVY_WEB_SEARCH;
   return {
     maxTokens: readPositiveInt(maxRaw, sharedMax),
     thinking,
     effort: effortFor(thinking, effortRaw),
     imageMaxEdge: readPositiveInt(edgeRaw, imageMaxEdgeDefault),
-    webSearch: flagOn(searchRaw),
-    webSearchMaxUses: readPositiveInt(env.PHOTO_AI_WEB_SEARCH_MAX_USES, webSearchMaxUsesDefault),
   };
 }

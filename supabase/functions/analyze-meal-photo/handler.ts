@@ -8,7 +8,6 @@ import {
   heavyModelDefault,
   lightModelDefault,
   photoLimitsFromEnv,
-  photoRouteMode,
   presentText,
   routePhotoModel,
   summarizeUsage,
@@ -182,7 +181,6 @@ export async function handleAnalyzeMealPhoto(
     hasAmount,
     heavyMonthCount: usage.heavyMonthCount,
     heavyMonthlyLimit: limits.heavyMonthly,
-    mode: photoRouteMode(deps.env.PHOTO_AI_ROUTE),
   });
   if (route.kind === "need_details") {
     return fail("need_details", 429);
@@ -225,8 +223,6 @@ export async function handleAnalyzeMealPhoto(
         maxTokens: options.maxTokens,
         thinking: options.thinking,
         effort: options.effort,
-        webSearch: options.webSearch,
-        webSearchMaxUses: options.webSearchMaxUses,
       },
       apiKey,
     );
@@ -236,7 +232,6 @@ export async function handleAnalyzeMealPhoto(
       outputTokens: result.usage.outputTokens,
       cacheReadTokens: result.usage.cacheReadTokens,
       cacheWriteTokens: result.usage.cacheWriteTokens,
-      webSearchRequests: result.usage.webSearchRequests,
       prices: tokenPricesFromEnv(tier, deps.env),
     });
     let parsed: ReturnType<typeof parsePhotoMealEstimate> = null;

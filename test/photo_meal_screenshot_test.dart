@@ -102,6 +102,12 @@ void main() {
     );
     expect(find.text('油多め'), findsOneWidget);
     expect(find.text('皮なし'), findsOneWidget);
+    expect(
+      find.text(
+        '任意です。例）油を多めに使った、脂身が多い部位など、写真で分かりにくい特徴を書くと精度が上がります。',
+      ),
+      findsOneWidget,
+    );
     final note = tester.widget<TextField>(
       find.descendant(
         of: find.byKey(const ValueKey('photo_meal_note')),

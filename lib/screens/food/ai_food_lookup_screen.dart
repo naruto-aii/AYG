@@ -115,6 +115,7 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
           subtitle: aiFoodLookupEstimateSubtitle,
           analysis: PhotoMealAnalysis(
             usageId: result?.usageId,
+            collectionId: candidate.collectionId,
             estimate: candidate.toEstimate(),
           ),
           recordEdit: (usageId, edited) {

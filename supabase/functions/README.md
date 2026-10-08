@@ -86,7 +86,7 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 写真で登録と AIで探すは、どちらもカロナビ+だけです。無料の回数はありません。サーバは加入が無い呼び出しを 403 で返します。
 
-1日の回数は、写真で登録と AIで探すの合計です。未設定なら 15 回です。`AI_COMBINED_DAILY_LIMIT` を変えると、アプリを出さずに変わります。超えたときは「本日の上限に達しました」を返します。日付の境は日本時間です。月の回数と月の費用は、環境変数が空のあいだは止めません。オーナーはまだ決めていません。高性能モデルの月間回数の初期値は 20 のままです。
+1日の回数は、写真で登録、外食・コンビニ、AIで探す、自炊コーチの合計です。未設定なら 15 回です。`AI_COMBINED_DAILY_LIMIT` を変えると、アプリを出さずに変わります。空のときは `AI_DAILY_LIMIT`、それも空のときは `PHOTO_AI_DAILY_LIMIT` を見ます。超えたときは「本日の上限に達しました」を返します。日付の境は日本時間です。自炊コーチの表 `ai_feature_uses` がまだ無いときは、その分は 0 として数えます。数えるのは `feature = cook_coach` だけです。AIで探すは `meal_text_lookups` に入るので、`ai_search` の行は足しません。月の回数と月の費用は、環境変数が空のあいだは止めません。オーナーはまだ決めていません。高性能モデルの月間回数の初期値は 20 のままです。
 
 推定はカロナビの食品データベースに合わせません。モデルは学習した知識だけから答えます。チェーン店やコンビニの公式な栄養成分、日本食品標準成分表、一般的なレシピのうち、その食事に合うものを使います。返った数値をデータベースの食品へ置き換えません。Web 検索は使いません。
 
@@ -109,7 +109,7 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 - `PHOTO_AI_PROVIDER`（`anthropic`）
 - `PHOTO_AI_LIGHT_MODEL`（`claude-haiku-5-5`）
 - `PHOTO_AI_HEAVY_MODEL`（`claude-sonnet-5-5`）
-- `AI_COMBINED_DAILY_LIMIT`（`15`。写真で登録と AIで探すの合計。`PHOTO_AI_DAILY_LIMIT` は、こちらが空のときだけ同じ意味）
+- `AI_COMBINED_DAILY_LIMIT`（`15`。写真、外食・コンビニ、AIで探す、自炊コーチの合計。空なら `AI_DAILY_LIMIT`、それも空なら `PHOTO_AI_DAILY_LIMIT`）
 - `PHOTO_AI_MONTHLY_LIMIT`、`PHOTO_AI_MONTHLY_SPEND_JPY`（空なら止めない。オーナー未決）
 - `PHOTO_AI_HEAVY_MONTHLY_LIMIT`（`20`）
 - `PHOTO_AI_USD_JPY`（`158`）
@@ -124,8 +124,10 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 
 ### 公開前の順番
 
+この変更ではデプロイしない。マイグレーションも本番へ適用しない。出すときは、下の「本番に出す順番」だけを使う。
+
 1. `supabase/migrations/20261008140000_meal_photo_analyses.sql` を、それより前のマイグレーションのあとに適用する。本番へはまだ適用していない。
-2. `ANTHROPIC_API_KEY` を設定する。単価やモデルを変えるときだけ、上の任意の環境変数を足す。
+2. シークレットは設定済み。単価や上限を変えるときだけ、上の任意の環境変数を足す。
 3. `analyze-meal-photo` をデプロイする。この変更ではデプロイしない。
 4. そのあとで、写真で登録を出すアプリを出す。マイグレーションより先に出すと、案内の `photo_meal` は再送待ちになり、利用記録の `user_edited` は書けない。食事の保存自体は、既存の食事の経路なのでマイグレーションが無くてもできる。
 
@@ -143,9 +145,13 @@ deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_
 
 モデルは `claude-haiku-5-5`（`PHOTO_AI_LIGHT_MODEL`）だけです。文章だけ、思考はオフ、`max_tokens` は空なら 300 です。推定は学習した知識だけから答えます。チェーン店やコンビニの栄養成分、日本食品標準成分表、一般的なレシピのうち、その食品に合うものを使います。
 
-検索語は、正規化してからプロンプトのデータの枠に入れます。指示としては読みません。同じ正規化の検索語の推定は、`ai_food_estimate_cache` にモデル名と期限つきで残します。これは食品の一覧としては出さず、利用者 ID も持ちません。期限は `TEXT_AI_CACHE_TTL_HOURS` です。空なら仮置きの 168 時間です。オーナーはまだ決めていません。
+検索語は、正規化してからプロンプトのデータの枠に入れます。指示としては読みません。同じ利用者の、同じ正規化の検索語だけを `ai_food_estimate_cache` にモデル名と期限つきで残します。主キーは利用者と検索語です。他の利用者には出さず、食品の一覧としても出しません。以前の共有行は、マイグレーションが消します。期限は `TEXT_AI_CACHE_TTL_HOURS` です。空なら仮置きの 168 時間です。オーナーはまだ決めていません。
 
-1日の回数は写真で登録と合算し、`AI_COMBINED_DAILY_LIMIT`（空なら 15）です。超えたときは「本日の上限に達しました」です。月の回数は `TEXT_AI_MONTHLY_LIMIT` が空なら止めません。月間の費用は、写真で登録の `estimated_cost_jpy` と合算し、`PHOTO_AI_MONTHLY_SPEND_JPY` が空なら止めません。キャッシュに当たった呼び出しの費用は 0 です。費用の上限が設定されていて、それを超えていても、期限内のキャッシュは返せます。モデルは呼びません。回数の上限はキャッシュも数えます。AIで探すに無料の回数はありません。
+外食・コンビニも同じ関数です。通常の食品検索が 0 件のときと、結果があるときの「AIで探す (β)」は、どちらも利用者が押したときだけ呼びます。入力のたびにモデルは呼びません。
+
+1日の回数は写真で登録、外食・コンビニ、自炊コーチと合算し、`AI_COMBINED_DAILY_LIMIT`（空なら `AI_DAILY_LIMIT`、それも空なら 15）です。超えたときは「本日の上限に達しました」です。月の回数は `TEXT_AI_MONTHLY_LIMIT` が空なら止めません。月間の費用は、写真で登録と自炊コーチの `estimated_cost_jpy` と合算し、`PHOTO_AI_MONTHLY_SPEND_JPY` が空なら止めません。キャッシュに当たった呼び出しの費用は 0 です。費用の上限が設定されていて、それを超えていても、期限内のキャッシュは返せます。モデルは呼びません。回数の上限はキャッシュも数えます。無料の回数はありません。
+
+返した候補は `ai_food_result_collections` に集めます。アプリの検索には出さず、本人も読めません。保存したあと、そのままか直したかだけを関数 `record_ai_food_result_outcome` で書きます。この書き込みに失敗しても、食事の保存は戻しません。
 
 この変更では関数をデプロイせず、マイグレーションも本番へ適用しません。
 
@@ -161,15 +167,38 @@ deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_
 
 ### 公開前の順番
 
-1. `supabase/migrations/20261008140000_meal_photo_analyses.sql` のあと、`supabase/migrations/20261008160000_ai_food_lookup.sql` を適用する。本番へはまだ適用していない。
-2. `ANTHROPIC_API_KEY` を設定する。
-3. `lookup-food-text` をデプロイする。この変更ではデプロイしない。
-4. そのあとで、AIで探すを出すアプリを出す。マイグレーションより先だと、案内の `ai_food_lookup` は再送待ちになり、利用記録の `saved` と `user_edited` は書けない。食事の保存自体は、既存の食事の経路なのでマイグレーションが無くてもできる。
+この変更ではデプロイしない。出すときは、下の「本番に出す順番」だけを使う。
 
-戻すときは、関数を消してから `supabase/rollback/20261008160000_ai_food_lookup_down.sql` を、写真で登録のロールバックより先に手で流す。食事の行は残る。
+戻すときは、関数を消してから `supabase/rollback/20261008190000_ai_food_result_collections_down.sql` を先に流し、そのあと `supabase/rollback/20261008160000_ai_food_lookup_down.sql` を、写真で登録のロールバックより先に手で流す。食事の行は残る。
 
 ### テスト
 
 ```sh
-deno test --config supabase/functions/deno.json supabase/functions/lookup_food_text_test.ts
+deno test --allow-read --config supabase/functions/deno.json supabase/functions/lookup_food_text_test.ts supabase/functions/ai_food_collection_test.ts supabase/functions/ai_cost_measure_test.ts
 ```
+
+## 本番に出す順番
+
+このリポジトリの変更では、マイグレーションを適用せず、関数もデプロイしない。
+
+設定済みで、変えないシークレット:
+
+- `ANTHROPIC_API_KEY`
+- `PHOTO_AI_PROVIDER=anthropic`
+- `PHOTO_AI_LIGHT_MODEL=claude-haiku-5-5`
+- `PHOTO_AI_HEAVY_MODEL=claude-sonnet-5-5`
+
+マイグレーションは、この順に手で適用する。
+
+1. `supabase/migrations/20261008140000_meal_photo_analyses.sql`
+2. `supabase/migrations/20261008160000_ai_food_lookup.sql`
+3. 自炊コーチを同じリリースに入れるときだけ、`supabase/migrations/20261008180000_ai_feature_uses.sql`
+4. `supabase/migrations/20261008190000_ai_food_result_collections.sql`
+
+そのあとで関数をデプロイする。
+
+1. `analyze-meal-photo`
+2. `lookup-food-text`
+3. 自炊コーチを同じリリースに入れるときだけ、そのマイグレーションのあとで `cook-coach`
+
+アプリは関数のあとで出す。月の回数と月の費用の環境変数は空のままにする。1日の回数は未設定なら 15 です。

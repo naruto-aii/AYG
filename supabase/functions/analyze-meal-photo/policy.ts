@@ -56,6 +56,7 @@ export const defaultPhotoLimits: PhotoLimits = {
 
 export type PhotoAiEnv = {
   AI_COMBINED_DAILY_LIMIT?: string;
+  AI_DAILY_LIMIT?: string;
   PHOTO_AI_DAILY_LIMIT?: string;
   PHOTO_AI_MONTHLY_LIMIT?: string;
   PHOTO_AI_HEAVY_MONTHLY_LIMIT?: string;
@@ -235,10 +236,19 @@ export function readOptionalNonNegative(raw: string | undefined): number | null 
   return value;
 }
 
-/// 写真で登録と AIで探すで共有する1日の回数。アプリの更新は要らない。
+/// 自炊コーチの行だけ。AIで探すは meal_text_lookups に入るので、ここには含めない。
+export function cookCoachUsageQuery(userId: string, sinceIso: string): string {
+  return `user_id=eq.${encodeURIComponent(userId)}` +
+    `&feature=eq.cook_coach` +
+    `&created_at=gte.${encodeURIComponent(sinceIso)}` +
+    `&select=created_at,estimated_cost_jpy`;
+}
+
+/// 写真、外食・コンビニ、AIで探す、自炊コーチで共有する1日の回数。アプリの更新は要らない。
+/// `AI_DAILY_LIMIT` は自炊コーチと同じ名前。空なら `AI_COMBINED_DAILY_LIMIT`、それも空なら 15。
 export function combinedDailyLimitFromEnv(env: PhotoAiEnv): number {
   return readPositiveInt(
-    firstSet(env.AI_COMBINED_DAILY_LIMIT, env.PHOTO_AI_DAILY_LIMIT),
+    firstSet(env.AI_COMBINED_DAILY_LIMIT, env.AI_DAILY_LIMIT, env.PHOTO_AI_DAILY_LIMIT),
     combinedAiDailyLimitDefault,
   );
 }

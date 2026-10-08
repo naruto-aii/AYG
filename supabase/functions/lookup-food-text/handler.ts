@@ -2,6 +2,12 @@
 // 鍵と単価は環境変数。アプリには置かない。
 
 import {
+  collectIds,
+  insertFoodCollections,
+  type FoodCollectionRow,
+} from "../ai-food-collection.ts";
+import {
+  cookCoachUsageQuery,
   estimateCostJpy,
   lightModelDefault,
   tokenPricesFromEnv,
@@ -68,9 +74,10 @@ export type LookupDeps = {
   userId: (req: Request) => Promise<string | null>;
   isPlus: (userId: string, now: Date) => Promise<boolean>;
   usage: (userId: string, since: Date, now: Date) => Promise<LookupUsage>;
-  readCache: (queryKey: string) => Promise<CacheRow | null>;
-  writeCache: (queryKey: string, row: CacheRow) => Promise<void>;
+  readCache: (userId: string, queryKey: string) => Promise<CacheRow | null>;
+  writeCache: (userId: string, queryKey: string, row: CacheRow) => Promise<void>;
   insertUsage: (row: UsageInsert) => Promise<string | null>;
+  insertCollections?: (rows: FoodCollectionRow[]) => Promise<Array<string | null>>;
   complete: (args: {
     model: string;
     maxTokens: number;
@@ -158,7 +165,7 @@ export async function handleLookupFoodText(
   }
 
   const model = deps.env.PHOTO_AI_LIGHT_MODEL?.trim() || lightModelDefault;
-  const cached = await deps.readCache(query);
+  const cached = await deps.readCache(userId, query);
   const cachedRelevant = cached && freshCache(cached, model, now)
     ? relevantCandidates(query, cached.candidates)
     : null;
@@ -175,11 +182,15 @@ export async function handleLookupFoodText(
       success: true,
       errorCode: null,
     });
+    const ids = await collectIds(
+      deps.insertCollections,
+      cachedRelevant.map((candidate) => collectionRow(userId, model, candidate)),
+    );
     return json({
       ok: true,
       usage_id: usageId,
       cache_hit: true,
-      candidates: cachedRelevant.map(candidateJson),
+      candidates: withCollectionIds(cachedRelevant, ids),
     }, 200);
   }
 
@@ -226,16 +237,20 @@ export async function handleLookupFoodText(
       return fail("invalid_result", 422);
     }
     const expires = new Date(now.getTime() + limits.cacheTtlHours * 60 * 60 * 1000);
-    await deps.writeCache(query, {
+    await deps.writeCache(userId, query, {
       model,
       expiresAt: expires.toISOString(),
       candidates,
     });
+    const ids = await collectIds(
+      deps.insertCollections,
+      candidates.map((candidate) => collectionRow(userId, model, candidate)),
+    );
     return json({
       ok: true,
       usage_id: usageId,
       cache_hit: false,
-      candidates: candidates.map(candidateJson),
+      candidates: withCollectionIds(candidates, ids),
     }, 200);
   } catch (error) {
     const latencyMs = Math.max(0, Date.now() - started);
@@ -310,6 +325,35 @@ function costRows(body: unknown): UsageRow[] {
   return rows;
 }
 
+function collectionRow(
+  userId: string,
+  model: string,
+  candidate: LookupCandidate,
+): FoodCollectionRow {
+  return {
+    userId,
+    sourcePath: "ai_search",
+    normalizedName: normalizeFoodQuery(candidate.name),
+    chainName: candidate.chainName,
+    amount: candidate.amount,
+    kcal: candidate.kcal,
+    proteinG: candidate.proteinG,
+    fatG: candidate.fatG,
+    carbG: candidate.carbG,
+    model,
+  };
+}
+
+function withCollectionIds(
+  candidates: LookupCandidate[],
+  ids: Array<string | null>,
+) {
+  return candidates.map((candidate, index) => ({
+    ...candidateJson(candidate),
+    collection_id: ids[index],
+  }));
+}
+
 function candidatesFromCache(body: unknown): LookupCandidate[] | null {
   return parseLookupCandidates(
     body != null && typeof body === "object"
@@ -372,22 +416,27 @@ export function liveDeps(
       const photoUrl =
         `${base}/rest/v1/meal_photo_analyses?user_id=eq.${userId}` +
         `&created_at=gte.${sinceParam}&select=created_at,tier,estimated_cost_jpy`;
-      const [text, photo] = await Promise.all([
+      const cookUrl =
+        `${base}/rest/v1/ai_feature_uses?${cookCoachUsageQuery(userId, since.toISOString())}`;
+      const [text, photo, cook] = await Promise.all([
         authedGet(textUrl, serviceKey, fetchImpl),
         authedGet(photoUrl, serviceKey, fetchImpl),
+        authedGet(cookUrl, serviceKey, fetchImpl),
       ]);
       return lookupUsageFromRows({
         textRows: text.ok ? costRows(text.body) : [],
         photoRows: photo.ok ? costRows(photo.body) : [],
+        cookRows: cook.ok ? costRows(cook.body) : [],
         now,
       });
     },
-    async readCache(queryKey) {
+    async readCache(userId, queryKey) {
       if (!base || !serviceKey) {
         return null;
       }
       const url =
-        `${base}/rest/v1/ai_food_estimate_cache?query_key=eq.${encodeURIComponent(queryKey)}` +
+        `${base}/rest/v1/ai_food_estimate_cache?user_id=eq.${encodeURIComponent(userId)}` +
+        `&query_key=eq.${encodeURIComponent(queryKey)}` +
         `&select=model,expires_at,candidates&limit=1`;
       const result = await authedGet(url, serviceKey, fetchImpl);
       if (!result.ok || !Array.isArray(result.body) || result.body.length === 0) {
@@ -406,25 +455,32 @@ export function liveDeps(
       }
       return { model, expiresAt, candidates };
     },
-    async writeCache(queryKey, row) {
+    async writeCache(userId, queryKey, row) {
       if (!base || !serviceKey) {
         return;
       }
-      await fetchImpl(`${base}/rest/v1/ai_food_estimate_cache`, {
-        method: "POST",
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-          "Content-Type": "application/json",
-          Prefer: "resolution=merge-duplicates",
+      await fetchImpl(
+        `${base}/rest/v1/ai_food_estimate_cache?on_conflict=user_id,query_key`,
+        {
+          method: "POST",
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            "Content-Type": "application/json",
+            Prefer: "resolution=merge-duplicates",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            query_key: queryKey,
+            model: row.model,
+            expires_at: row.expiresAt,
+            candidates: row.candidates.map(candidateJson),
+          }),
         },
-        body: JSON.stringify({
-          query_key: queryKey,
-          model: row.model,
-          expires_at: row.expiresAt,
-          candidates: row.candidates.map(candidateJson),
-        }),
-      });
+      );
+    },
+    insertCollections(rows) {
+      return insertFoodCollections(base, serviceKey, fetchImpl, rows);
     },
     async insertUsage(row) {
       if (!base || !serviceKey) {

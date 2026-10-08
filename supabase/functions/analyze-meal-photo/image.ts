@@ -72,6 +72,14 @@ export async function downscaleJpeg(bytes: Uint8Array, maxEdge: number): Promise
   }
 }
 
+// Anthropic の画像トークン。長辺 1568 以下、かつ 1024 や 768 なら追加の縮小は無い。
+export function imageTokensForPixels(width: number, height: number): number {
+  if (width < 1 || height < 1) {
+    return 0;
+  }
+  return Math.ceil((width * height) / 750);
+}
+
 export async function jpegBase64WithinEdge(base64: string, maxEdge: number): Promise<string> {
   const cleaned = base64.replace(/\s/g, "");
   const bytes = jpegBytesFromBase64(cleaned);

@@ -3,6 +3,7 @@ import { downscaleJpeg } from "./analyze-meal-photo/image.ts";
 import { photoMealMessage } from "./analyze-meal-photo/messages.ts";
 import {
   checkPhotoCaps,
+  cookCoachUsageQuery,
   defaultPhotoLimits,
   estimateCostJpy,
   photoLimitsFromEnv,
@@ -27,8 +28,10 @@ import {
   mealEstimateSchema,
   parsePhotoMealEstimate,
 } from "./analyze-meal-photo/validate.ts";
+import type { FoodCollectionRow } from "./ai-food-collection.ts";
 import {
   handleAnalyzeMealPhoto,
+  liveDeps,
   type AnalyzeDeps,
   type PhotoEnv,
   type UsageInsert,
@@ -203,8 +206,13 @@ Deno.test("json validation rejects negative, absurd, and inconsistent values", (
     fatG: 10,
     carbG: 30,
     confidence: 0.7,
+    chainName: null,
     items: [],
   });
+  assertEquals(
+    parsePhotoMealEstimate(validEstimate({ h: "吉野家" }))?.chainName,
+    "吉野家",
+  );
   assertEquals(
     parsePhotoMealEstimate(validEstimate({ protein_g: -1 })),
     null,
@@ -340,6 +348,8 @@ function deps(options: {
   provider?: string;
   calls?: FakeCall[];
   inserts?: UsageInsert[];
+  collections?: FoodCollectionRow[][];
+  failCollections?: boolean;
   text?: string;
   failCall?: boolean;
   env?: PhotoEnv;
@@ -360,6 +370,14 @@ function deps(options: {
       inserts.push(row);
       return Promise.resolve("usage-1");
     },
+    insertCollections: options.failCollections
+      ? () => Promise.reject(new Error("db"))
+      : options.collections
+      ? (rows) => {
+        options.collections!.push(rows);
+        return Promise.resolve(rows.map((_, index) => `col-${index}`));
+      }
+      : undefined,
     providerFor: (name) => {
       if ((options.provider ?? "anthropic") !== "anthropic") {
         return createPhotoAiProvider(name);
@@ -614,4 +632,57 @@ Deno.test("an unwired provider fails closed in Japanese", async () => {
   assertEquals(response.status, 503);
   assertEquals(body.code, "provider_unwired");
   assertEquals(body.message.includes("手入力"), true);
+});
+
+Deno.test("a photo result is collected without the image", async () => {
+  const collections: FoodCollectionRow[][] = [];
+  const response = await handleAnalyzeMealPhoto(
+    post({ image_base64: tinyJpeg, dish_name: "カレー", amount: "300g" }),
+    deps({
+      collections,
+      text: JSON.stringify(validEstimate({ h: "吉野家" })),
+    }),
+  );
+  const body = await response.json();
+  assertEquals(body.ok, true);
+  assertEquals(body.collection_id, "col-0");
+  assertEquals(collections[0][0].sourcePath, "photo");
+  assertEquals(collections[0][0].normalizedName, "親子丼");
+  assertEquals(collections[0][0].chainName, "吉野家");
+  assertEquals(collections[0][0].kcal, 290);
+  assertEquals(collections[0][0].model, "claude-haiku-5-5");
+  assertEquals(JSON.stringify(collections).includes(tinyJpeg), false);
+  const failed = await handleAnalyzeMealPhoto(
+    post({ image_base64: tinyJpeg, dish_name: "カレー", amount: "300g" }),
+    deps({ failCollections: true }),
+  );
+  const failedBody = await failed.json();
+  assertEquals(failedBody.ok, true);
+  assertEquals(failedBody.collection_id, null);
+});
+
+Deno.test("a missing cook table does not change the photo count", async () => {
+  const urls: string[] = [];
+  const fetchImpl = (input: string) => {
+    urls.push(input);
+    if (input.includes("ai_feature_uses")) {
+      return Promise.resolve(new Response("{}", { status: 404 }));
+    }
+    if (input.includes("meal_photo_analyses")) {
+      return Promise.resolve(Response.json([
+        { created_at: "2026-10-08T01:00:00Z", tier: "light", estimated_cost_jpy: 1 },
+      ]));
+    }
+    return Promise.resolve(Response.json([]));
+  };
+  const live = liveDeps(
+    { SUPABASE_URL: "https://db.test", SUPABASE_SERVICE_ROLE_KEY: "svc" },
+    fetchImpl,
+  );
+  const rows = await live.usageRows("user-1", new Date("2026-10-01T00:00:00Z"));
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].tier, "light");
+  const query = cookCoachUsageQuery("user-1", "2026-10-01T00:00:00.000Z");
+  assertEquals(urls.some((url) => url.includes(query)), true);
+  assertEquals(urls.some((url) => url.includes("ai_search")), false);
 });

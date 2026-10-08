@@ -100,8 +100,12 @@ class PhotoMealClient {
       );
     }
     final usageId = data['usage_id'];
+    final collectionId = data['collection_id'];
     return PhotoMealAnalysis(
       usageId: usageId is String && usageId.isNotEmpty ? usageId : null,
+      collectionId: collectionId is String && collectionId.isNotEmpty
+          ? collectionId
+          : null,
       estimate: estimate,
     );
   }
@@ -121,5 +125,38 @@ Future<void> recordPhotoMealEdit({
         .eq('id', usageId);
   } catch (error) {
     debugPrint('[AYG] photo meal edit flag failed: $error');
+  }
+}
+
+/// 収集表へ、そのまま保存したか直したかを書く。失敗しても食事の保存は戻さない。
+/// 行は読まない。
+Future<void> recordAiFoodResultOutcome({
+  SupabaseClient? client,
+  required String collectionId,
+  required bool edited,
+  required String name,
+  required String amount,
+  required double kcal,
+  required double proteinG,
+  required double fatG,
+  required double carbG,
+}) async {
+  try {
+    final supabase = client ?? Supabase.instance.client;
+    await supabase.rpc(
+      'record_ai_food_result_outcome',
+      params: {
+        'p_id': collectionId,
+        'p_registered_as_is': !edited,
+        'p_edited_name': edited ? name : null,
+        'p_edited_amount': edited ? amount : null,
+        'p_edited_kcal': edited ? kcal : null,
+        'p_edited_protein_g': edited ? proteinG : null,
+        'p_edited_fat_g': edited ? fatG : null,
+        'p_edited_carb_g': edited ? carbG : null,
+      },
+    );
+  } catch (error) {
+    debugPrint('[AYG] ai food result outcome failed: $error');
   }
 }

@@ -103,6 +103,17 @@ void main() {
     expect(parsed, isNotNull);
     expect(parsed!.map((item) => item.name), ['牛丼', '筑前煮']);
     expect(parsed.first.knownProduct, isTrue);
+    expect(parsed.first.collectionId, isNull);
+  });
+
+  test('a collection id is kept and is not a food record', () {
+    final parsed = parseAiFoodCandidates([
+      {
+        ...candidate(name: '牛丼', kcal: 290, known: true),
+        'collection_id': 'col-1',
+      },
+    ]);
+    expect(parsed!.single.collectionId, 'col-1');
   });
 
   test('a different dish is dropped for the query', () {

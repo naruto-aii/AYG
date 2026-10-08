@@ -93,6 +93,32 @@ void main() {
     expect(longest, lessThanOrEqualTo(photoMealLongEdge));
   });
 
+  test('compressMealPhoto strips EXIF and can use a 768 long edge', () {
+    final source = img.Image(width: 1600, height: 1200);
+    img.fill(source, color: img.ColorRgb8(12, 80, 40));
+    final jpeg = img.encodeJpg(source);
+    final payload = 'Exif\u0000\u0000GPSLatitudeSECRET'.codeUnits;
+    final length = payload.length + 2;
+    final withExif = Uint8List.fromList([
+      ...jpeg.sublist(0, 2),
+      0xFF,
+      0xE1,
+      (length >> 8) & 0xff,
+      length & 0xff,
+      ...payload,
+      ...jpeg.sublist(2),
+    ]);
+    expect(String.fromCharCodes(withExif), contains('GPSLatitudeSECRET'));
+    final out = compressMealPhoto(withExif, longEdge: 768);
+    expect(String.fromCharCodes(out), isNot(contains('GPSLatitudeSECRET')));
+    expect(out[0], 0xFF);
+    expect(out[1], 0xD8);
+    final decoded = img.decodeJpg(out);
+    expect(decoded, isNotNull);
+    expect(decoded!.width, 768);
+    expect(decoded.height, 576);
+  });
+
   test('save writes exactly one outbox row and one food_entry_added', () async {
     final pending = PendingRecordStore();
     final controller = AppController(pendingRecords: pending);

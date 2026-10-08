@@ -1,9 +1,15 @@
 // 写真をモデルに渡し、結果の JSON だけを返す。写真は保存しない。
 // 鍵と単価は環境変数。アプリには置かない。
 
+import {
+  collectIds,
+  insertFoodCollections,
+  type FoodCollectionRow,
+} from "../ai-food-collection.ts";
 import { jpegBase64WithinEdge } from "./image.ts";
 import {
   checkPhotoCaps,
+  cookCoachUsageQuery,
   estimateCostJpy,
   heavyModelDefault,
   lightModelDefault,
@@ -19,6 +25,7 @@ import {
   type PhotoTier,
   type UsageRow,
 } from "./policy.ts";
+import { normalizeFoodQuery } from "../lookup-food-text/validate.ts";
 import {
   createPhotoAiProvider,
   PhotoAiCallError,
@@ -62,6 +69,7 @@ export type AnalyzeDeps = {
   isPlus: (userId: string, now: Date) => Promise<boolean>;
   usageRows: (userId: string, since: Date) => Promise<UsageRow[]>;
   insertUsage: (row: UsageInsert) => Promise<string | null>;
+  insertCollections?: (rows: FoodCollectionRow[]) => Promise<Array<string | null>>;
   providerFor: (name: string) => PhotoAiProvider;
   log: (message: string) => void;
 };
@@ -256,9 +264,22 @@ export async function handleAnalyzeMealPhoto(
     if (parsed == null) {
       return fail("invalid_result", 422);
     }
+    const collectionIds = await collectIds(deps.insertCollections, [{
+      userId,
+      sourcePath: "photo",
+      normalizedName: normalizeFoodQuery(parsed.dishName),
+      chainName: parsed.chainName,
+      amount: parsed.amount,
+      kcal: parsed.kcal,
+      proteinG: parsed.proteinG,
+      fatG: parsed.fatG,
+      carbG: parsed.carbG,
+      model,
+    }]);
     return json({
       ok: true,
       usage_id: usageId,
+      collection_id: collectionIds[0],
       estimate: estimateJson(parsed),
     }, 200);
   } catch (error) {
@@ -369,14 +390,21 @@ export function liveDeps(
       const textUrl =
         `${base}/rest/v1/meal_text_lookups?user_id=eq.${userId}` +
         `&created_at=gte.${sinceParam}&select=created_at,estimated_cost_jpy`;
-      const [photo, text] = await Promise.all([
+      const cookUrl =
+        `${base}/rest/v1/ai_feature_uses?${cookCoachUsageQuery(userId, since.toISOString())}`;
+      const [photo, text, cook] = await Promise.all([
         authedGet(photoUrl, serviceKey, fetchImpl),
         authedGet(textUrl, serviceKey, fetchImpl),
+        authedGet(cookUrl, serviceKey, fetchImpl),
       ]);
       return [
         ...usageRowsFromBody(photo.ok ? photo.body : [], true),
         ...usageRowsFromBody(text.ok ? text.body : [], false),
+        ...usageRowsFromBody(cook.ok ? cook.body : [], false),
       ];
+    },
+    insertCollections(rows) {
+      return insertFoodCollections(base, serviceKey, fetchImpl, rows);
     },
     async insertUsage(row) {
       if (!base || !serviceKey) {

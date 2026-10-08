@@ -13,6 +13,7 @@ class AiFoodCandidate {
     required this.fatG,
     required this.carbG,
     required this.knownProduct,
+    this.collectionId,
   });
 
   final String name;
@@ -24,6 +25,9 @@ class AiFoodCandidate {
 
   /// チェーンや商品の名前として知っているか。数値の出典には使わない。
   final bool knownProduct;
+
+  /// 収集表の行。検索結果には出さない。
+  final String? collectionId;
 
   PhotoMealEstimate toEstimate() {
     return PhotoMealEstimate(
@@ -139,6 +143,10 @@ List<AiFoodCandidate>? parseAiFoodCandidates(Object? raw, {String? query}) {
         fatG: (item['fat_g'] as num).toDouble(),
         carbG: (item['carb_g'] as num).toDouble(),
         knownProduct: known,
+        collectionId: item['collection_id'] is String &&
+                (item['collection_id'] as String).isNotEmpty
+            ? item['collection_id'] as String
+            : null,
       ),
     );
   }

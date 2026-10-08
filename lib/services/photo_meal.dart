@@ -12,7 +12,10 @@ const photoMealMaxKcal = 10000.0;
 const photoMealMaxMacroG = 1000.0;
 const photoMealPfcAbsoluteKcal = 50.0;
 const photoMealPfcRelative = 0.2;
-const photoMealLongEdge = 1024;
+const photoMealLongEdge = int.fromEnvironment(
+  'PHOTO_MEAL_LONG_EDGE',
+  defaultValue: 1024,
+);
 const photoMealNoteMaxLength = 100;
 
 const photoMealNoteChips = <String>[
@@ -82,10 +85,17 @@ class PhotoMealEstimate {
 }
 
 class PhotoMealAnalysis {
-  const PhotoMealAnalysis({required this.usageId, required this.estimate});
+  const PhotoMealAnalysis({
+    required this.usageId,
+    required this.estimate,
+    this.collectionId,
+  });
 
   final String? usageId;
   final PhotoMealEstimate estimate;
+
+  /// 収集表の行。食事の保存とは別で、検索には出さない。
+  final String? collectionId;
 }
 
 double photoMealDerivedKcal(double proteinG, double fatG, double carbG) {

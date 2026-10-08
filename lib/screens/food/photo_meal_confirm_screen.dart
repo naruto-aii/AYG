@@ -192,10 +192,25 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
         fatG: fat,
         carbG: carb,
       );
+      final edited = photoMealWasEdited(
+        original: _estimate,
+        name: name,
+        amount: _amount.text,
+        kcal: kcal,
+        proteinG: protein,
+        fatG: fat,
+        carbG: carb,
+      );
       final usageId = widget.analysis.usageId;
       if (usageId != null) {
-        final edited = photoMealWasEdited(
-          original: _estimate,
+        final record = widget.recordEdit ?? _recordEdit;
+        await record(usageId, edited);
+      }
+      final collectionId = widget.analysis.collectionId;
+      if (collectionId != null) {
+        await recordAiFoodResultOutcome(
+          collectionId: collectionId,
+          edited: edited,
           name: name,
           amount: _amount.text,
           kcal: kcal,
@@ -203,8 +218,6 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
           fatG: fat,
           carbG: carb,
         );
-        final record = widget.recordEdit ?? _recordEdit;
-        await record(usageId, edited);
       }
       if (!mounted) {
         return;

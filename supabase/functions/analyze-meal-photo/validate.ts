@@ -25,6 +25,7 @@ export type PhotoMealEstimate = {
   fatG: number;
   carbG: number;
   confidence: number;
+  chainName: string | null;
   items: PhotoMealItem[];
 };
 
@@ -103,6 +104,7 @@ const shortToLong: Record<string, string> = {
   c: "carb_g",
   u: "confidence",
   i: "items",
+  h: "chain_name",
 };
 
 const shortItemToLong: Record<string, string> = {
@@ -188,8 +190,20 @@ export function parsePhotoMealEstimate(raw: unknown): PhotoMealEstimate | null {
     fatG: nutrition.fatG,
     carbG: nutrition.carbG,
     confidence: row.confidence,
+    chainName: optionalChain(row.chain_name),
     items,
   };
+}
+
+function optionalChain(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length < 1 || trimmed.length > maxDishNameLength) {
+    return null;
+  }
+  return trimmed;
 }
 
 export function parseModelJson(text: string): unknown {
@@ -208,6 +222,7 @@ export const mealEstimateSchema = {
     f: { type: "number" },
     c: { type: "number" },
     u: { type: "number" },
+    h: { type: "string" },
     i: {
       type: "array",
       items: {

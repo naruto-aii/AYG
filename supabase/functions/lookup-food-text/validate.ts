@@ -29,6 +29,7 @@ export const lookupCandidateSchema = {
           f: { type: "number" },
           c: { type: "number" },
           b: { type: "boolean" },
+          h: { type: "string" },
         },
         required: ["n", "a", "k", "p", "f", "c", "b"],
       },
@@ -45,6 +46,7 @@ export type LookupCandidate = {
   fatG: number;
   carbG: number;
   knownProduct: boolean;
+  chainName: string | null;
 };
 
 export function normalizeFoodQuery(raw: string): string {
@@ -157,7 +159,19 @@ function parseOne(row: Record<string, unknown>): LookupCandidate | null {
     fatG: fat,
     carbG: carb,
     knownProduct: known,
+    chainName: optionalChain(row.h ?? row.chain_name),
   };
+}
+
+function optionalChain(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length < 1 || trimmed.length > maxDishNameLength) {
+    return null;
+  }
+  return trimmed;
 }
 
 export function candidateJson(candidate: LookupCandidate) {

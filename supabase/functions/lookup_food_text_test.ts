@@ -1,7 +1,10 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { estimateCostJpy, tokenPricesFromEnv } from "./analyze-meal-photo/policy.ts";
+import { cookCoachUsageQuery, combinedDailyLimitFromEnv } from "./analyze-meal-photo/policy.ts";
+import type { FoodCollectionRow } from "./ai-food-collection.ts";
 import {
   handleLookupFoodText,
+  liveDeps,
   type CacheRow,
   type LookupDeps,
   type UsageInsert,
@@ -28,10 +31,14 @@ function deps(options: {
   monthCount?: number;
   monthSpendJpy?: number;
   cache?: CacheRow | null;
+  cacheStore?: Map<string, CacheRow>;
+  userId?: string;
   key?: string;
   calls?: Array<Record<string, unknown>>;
   inserts?: UsageInsert[];
   writes?: CacheRow[];
+  collections?: FoodCollectionRow[][];
+  failCollections?: boolean;
   text?: string;
   failCall?: boolean;
   env?: Record<string, string>;
@@ -46,18 +53,32 @@ function deps(options: {
       ...options.env,
     },
     now: () => new Date("2026-10-08T03:00:00Z"),
-    userId: () => Promise.resolve("user-1"),
+    userId: () => Promise.resolve(options.userId ?? "user-1"),
     isPlus: () => Promise.resolve(options.plus ?? true),
     usage: () => Promise.resolve({
       dayCount: options.dayCount ?? 0,
       monthCount: options.monthCount ?? 0,
       monthSpendJpy: options.monthSpendJpy ?? 0,
     }),
-    readCache: () => Promise.resolve(options.cache ?? null),
-    writeCache: (_key, row) => {
+    readCache: (userId, queryKey) => {
+      if (options.cacheStore) {
+        return Promise.resolve(options.cacheStore.get(`${userId}\n${queryKey}`) ?? null);
+      }
+      return Promise.resolve(options.cache ?? null);
+    },
+    writeCache: (userId, queryKey, row) => {
       writes.push(row);
+      options.cacheStore?.set(`${userId}\n${queryKey}`, row);
       return Promise.resolve();
     },
+    insertCollections: options.failCollections
+      ? () => Promise.reject(new Error("db"))
+      : options.collections
+      ? (rows) => {
+        options.collections!.push(rows);
+        return Promise.resolve(rows.map((_, index) => `col-${index}`));
+      }
+      : undefined,
     insertUsage: (row) => {
       inserts.push(row);
       return Promise.resolve("usage-1");
@@ -305,6 +326,143 @@ Deno.test("bad numbers are dropped and an empty set is rejected", async () => {
   assertEquals((await response.json()).code, "invalid_result");
   assertEquals(inserts.length, 1);
   assertEquals(inserts[0].success, false);
+});
+
+Deno.test("the same user reuses a cache and another user does not", async () => {
+  const store = new Map<string, CacheRow>();
+  const firstCalls: Array<Record<string, unknown>> = [];
+  const first = await handleLookupFoodText(
+    post("牛丼"),
+    deps({ calls: firstCalls, cacheStore: store, userId: "user-1" }),
+  );
+  assertEquals((await first.json()).cache_hit, false);
+  assertEquals(firstCalls.length, 1);
+  const secondCalls: Array<Record<string, unknown>> = [];
+  const second = await handleLookupFoodText(
+    post("牛丼"),
+    deps({ calls: secondCalls, cacheStore: store, userId: "user-1" }),
+  );
+  assertEquals((await second.json()).cache_hit, true);
+  assertEquals(secondCalls.length, 0);
+  const thirdCalls: Array<Record<string, unknown>> = [];
+  const third = await handleLookupFoodText(
+    post("牛丼"),
+    deps({ calls: thirdCalls, cacheStore: store, userId: "user-2" }),
+  );
+  assertEquals((await third.json()).cache_hit, false);
+  assertEquals(thirdCalls.length, 1);
+  assertEquals(store.has("user-1\n牛丼"), true);
+  assertEquals(store.has("user-2\n牛丼"), true);
+});
+
+Deno.test("shown candidates are collected and a failed insert still returns them", async () => {
+  const collections: FoodCollectionRow[][] = [];
+  const response = await handleLookupFoodText(
+    post("吉野家 牛丼 大盛"),
+    deps({
+      collections,
+      text: JSON.stringify({
+        i: [{
+          n: "牛丼（大盛）",
+          a: "1杯",
+          k: 820,
+          p: 32,
+          f: 28,
+          c: 110,
+          b: true,
+          h: "吉野家",
+        }],
+      }),
+    }),
+  );
+  const body = await response.json();
+  assertEquals(body.candidates[0].collection_id, "col-0");
+  assertEquals(collections[0][0].sourcePath, "ai_search");
+  assertEquals(collections[0][0].normalizedName, "牛丼(大盛)");
+  assertEquals(collections[0][0].chainName, "吉野家");
+  assertEquals(collections[0][0].kcal, 820);
+  assertEquals(collections[0][0].model, "claude-haiku-5-5");
+  assertEquals(JSON.stringify(collections).includes("image"), false);
+  const failed = await handleLookupFoodText(
+    post("牛丼"),
+    deps({ failCollections: true }),
+  );
+  const failedBody = await failed.json();
+  assertEquals(failedBody.ok, true);
+  assertEquals(failedBody.candidates[0].collection_id, null);
+});
+
+Deno.test("a cache hit is collected for the same user", async () => {
+  const collections: FoodCollectionRow[][] = [];
+  const cached: CacheRow = {
+    model: "claude-haiku-5-5",
+    expiresAt: "2026-10-09T00:00:00.000Z",
+    candidates: parseLookupCandidates(valid)!,
+  };
+  const response = await handleLookupFoodText(
+    post("牛丼"),
+    deps({ collections, cache: cached }),
+  );
+  const body = await response.json();
+  assertEquals(body.cache_hit, true);
+  assertEquals(body.candidates[0].collection_id, "col-0");
+  assertEquals(collections.length, 1);
+  assertEquals(collections[0][0].sourcePath, "ai_search");
+  assertEquals(collections[0][0].userId, "user-1");
+});
+
+Deno.test("cook coach rows share the daily cap and a missing table is zero", async () => {
+  const now = new Date("2026-10-08T03:00:00Z");
+  const photo = Array.from({ length: 10 }, () => ({
+    createdAt: "2026-10-08T01:00:00Z",
+    tier: "light" as const,
+    costJpy: 1,
+  }));
+  const cook = Array.from({ length: 5 }, () => ({
+    createdAt: "2026-10-08T01:00:00Z",
+    tier: "light" as const,
+    costJpy: 1,
+  }));
+  const usage = lookupUsageFromRows({
+    now,
+    textRows: [],
+    photoRows: photo,
+    cookRows: cook,
+  });
+  assertEquals(usage.dayCount, 15);
+  assertEquals(usage.monthCount, 0);
+  assertEquals(combinedDailyLimitFromEnv({ AI_DAILY_LIMIT: "15" }), 15);
+  assertEquals(
+    combinedDailyLimitFromEnv({
+      AI_COMBINED_DAILY_LIMIT: "15",
+      AI_DAILY_LIMIT: "99",
+    }),
+    15,
+  );
+  const query = cookCoachUsageQuery("user-1", now.toISOString());
+  assertEquals(query.includes("feature=eq.cook_coach"), true);
+  assertEquals(query.includes("ai_search"), false);
+  const urls: string[] = [];
+  const fetchImpl = (input: string) => {
+    urls.push(input);
+    if (input.includes("ai_feature_uses")) {
+      return Promise.resolve(new Response("{}", { status: 404 }));
+    }
+    if (input.includes("meal_photo_analyses")) {
+      return Promise.resolve(Response.json([
+        { created_at: "2026-10-08T01:00:00Z", tier: "light", estimated_cost_jpy: 1 },
+      ]));
+    }
+    return Promise.resolve(Response.json([]));
+  };
+  const live = liveDeps(
+    { SUPABASE_URL: "https://db.test", SUPABASE_SERVICE_ROLE_KEY: "svc" },
+    fetchImpl,
+  );
+  const counted = await live.usage("user-1", new Date("2026-10-01T00:00:00Z"), now);
+  assertEquals(counted.dayCount, 1);
+  assertEquals(urls.some((url) => url.includes("feature=eq.cook_coach")), true);
+  assertEquals(urls.some((url) => url.includes("ai_search")), false);
 });
 
 Deno.test("a missing key does not call the model", async () => {

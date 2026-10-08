@@ -168,6 +168,41 @@ export function accountIsClosed(deletedAt: unknown): boolean {
   return deletedAt != null;
 }
 
+export async function boundStoreUser(originalTransactionId: string): Promise<string | null> {
+  const tx = originalTransactionId.trim();
+  if (!tx) {
+    return null;
+  }
+  const response = await rest(storeOriginalTransactionPath(tx));
+  if (!response.ok) {
+    throw new Error(`transaction lookup ${response.status}`);
+  }
+  const rows = await response.json();
+  const row = Array.isArray(rows) ? rows[0] : null;
+  const userId = row && typeof row === "object" ? (row as { user_id?: unknown }).user_id : null;
+  return typeof userId === "string" && userId.length > 0 ? userId : null;
+}
+
+export async function upsertPlusEntitlement(row: {
+  user_id: string;
+  product_id: string;
+  expires_at: string | null;
+  status: string;
+  advertising_use: false;
+}): Promise<void> {
+  const response = await rest(
+    "calonavi_plus_entitlements?on_conflict=user_id,product_id",
+    {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify(row),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`entitlement write ${response.status}`);
+  }
+}
+
 export async function rememberOriginalTransaction(
   originalTransactionId: string,
   userId: string,

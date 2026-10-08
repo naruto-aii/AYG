@@ -23,17 +23,19 @@ void main() {
     required String productId,
     String? expirationDate,
     String localVerificationData = 'local',
+    String serverVerificationData = 'server',
+    PurchaseStatus status = PurchaseStatus.purchased,
   }) {
     return SK2PurchaseDetails(
       productID: productId,
       purchaseID: 'tx-$productId',
       verificationData: PurchaseVerificationData(
         localVerificationData: localVerificationData,
-        serverVerificationData: 'server',
+        serverVerificationData: serverVerificationData,
         source: 'app_store',
       ),
       transactionDate: '${now.millisecondsSinceEpoch}',
-      status: PurchaseStatus.purchased,
+      status: status,
       expirationDate: expirationDate,
     );
   }
@@ -134,6 +136,52 @@ void main() {
     expect(stored, isNot(contains('verification')));
     expect(stored, isNot(contains('token')));
     expect(stored, isNot(contains('receipt')));
+    await repository.dispose();
+  });
+
+  test('purchase and restore keep Plus locally and hold the signed transaction', () async {
+    final prefs = await prefsWith({});
+    final updates = StreamController<List<PurchaseDetails>>();
+    final repository = StoreKitSubscriptionRepository(
+      preferences: prefs,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => now,
+    );
+    await repository.initialize();
+    const signed = 'header.payload.signature';
+    final expiry = now.add(const Duration(days: 30));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${expiry.millisecondsSinceEpoch}',
+        serverVerificationData: signed,
+      ),
+    ]);
+    await repository.plusChanges.first.timeout(const Duration(seconds: 2));
+    expect(repository.isPlusActive, isTrue);
+    expect(
+      repository.confirmedEntitlements.single.signedTransaction,
+      signed,
+    );
+    expect(prefs.getString(StoreKitSubscriptionRepository.entitlementsKey), isNot(contains(signed)));
+
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.yearlyProductId,
+        expirationDate: '${expiry.millisecondsSinceEpoch}',
+        serverVerificationData: 'restore.payload.signature',
+        status: PurchaseStatus.restored,
+      ),
+    ]);
+    await repository.entitlementChanges.first.timeout(const Duration(seconds: 2));
+    expect(repository.isPlusActive, isTrue);
+    expect(
+      repository.confirmedEntitlements.map((record) => record.signedTransaction),
+      contains('restore.payload.signature'),
+    );
+    await updates.close();
     await repository.dispose();
   });
 

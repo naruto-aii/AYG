@@ -109,14 +109,19 @@ class ExternalTransmissionScreen extends StatelessWidget {
           _SendRow(what: '購入の情報', who: 'Apple Inc.', why: '購入の手続きのため'),
           _SendRow(what: 'バーコードの番号', who: 'Open Food Facts', why: '商品を探すため'),
           _SendRow(
-            what: '食事の写真と、入力した料理名と量',
+            what: '食事の写真と、入力した料理名、量、補足',
             who: 'Anthropic, PBC（米国）',
-            why: 'カロリーとPFCの推定のため。カロナビは写真を保存しません',
+            why: 'カロリーとPFCの推定のため。カロナビは写真、料理名、量、補足の文面を保存しません',
           ),
           _SendRow(
             what: 'AIで探すの検索語',
             who: 'Anthropic, PBC（米国）',
-            why: 'カロリーとPFCの推定のため。食品データベースには保存しません',
+            why: 'カロリーとPFCの推定のため。食品データベースには保存しません。推定のキャッシュは期限が来たら捨てます',
+          ),
+          _SendRow(
+            what: '自炊コーチの、手元にある食材と、この食事の条件のメモ',
+            who: 'Anthropic, PBC（米国）',
+            why: '献立の推定のため。食材の一覧とメモの原文は食品データベースに保存しません。献立のキャッシュは期限が来たら捨てます',
           ),
         ],
       ),

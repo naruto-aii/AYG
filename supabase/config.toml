@@ -432,6 +432,10 @@ verify_jwt = true
 [functions.cook-coach]
 verify_jwt = true
 
+# 購入の署名付き取引。JWT は検証する。加入の行は service_role だけが書く。本番へはこの変更では配備しない。
+[functions.verify-store-transaction]
+verify_jwt = true
+
 # Apple のサーバー通知は JWT を付けてこない。関数の中で署名を検証する。
 [functions.app-store-notifications]
 verify_jwt = false

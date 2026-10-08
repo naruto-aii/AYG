@@ -239,32 +239,63 @@ void main() {
     expect(preferences.getString('coach_proposal_outbox'), isNull);
   });
 
-  test('entitlement payload is ready for the table', () async {
+  test('purchase and restore send the signed transaction and do not write the table', () async {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
-    Map<String, dynamic>? saved;
+    final writes = <String>[];
+    final verified = <List<String>>[];
     final usage = SupabaseUsageRecordRepository(
       preferences: preferences,
       currentUserId: () => '11111111-1111-4111-8111-111111111111',
       upsertRow: (table, row) async {
-        saved = {'table': table, ...row};
+        writes.add(table);
+      },
+      insertRow: (table, row) async {
+        writes.add(table);
+      },
+      verifyStoreTransactions: (signed) async {
+        verified.add(signed);
       },
     );
+    const signed = 'header.payload.signature';
     await usage.syncPlusEntitlements(
       confirmed: [
         SubscriptionEntitlementRecord(
           productId: SubscriptionCatalog.monthlyProductId,
           expiresAt: DateTime.utc(2027, 1, 1),
+          signedTransaction: signed,
+        ),
+      ],
+      inactive: [
+        SubscriptionEntitlementRecord(
+          productId: SubscriptionCatalog.yearlyProductId,
+          expiresAt: DateTime.utc(2026, 1, 1),
+          signedTransaction: 'restore.payload.signature',
+        ),
+      ],
+      authoritative: true,
+    );
+    expect(writes, isEmpty);
+    expect(verified, [
+      [signed, 'restore.payload.signature'],
+    ]);
+    expect(
+      preferences.getString('usage_event_outbox'),
+      isNot(contains('calonavi_plus_entitlements')),
+    );
+
+    await usage.syncPlusEntitlements(
+      confirmed: [
+        SubscriptionEntitlementRecord(
+          productId: SubscriptionCatalog.monthlyProductId,
+          expiresAt: DateTime.utc(2099, 1, 1),
         ),
       ],
       inactive: const [],
-      authoritative: false,
+      authoritative: true,
     );
-    expect(saved?['table'], 'calonavi_plus_entitlements');
-    expect(saved?['product_id'], SubscriptionCatalog.monthlyProductId);
-    expect(saved?['status'], 'active');
-    expect(saved?['advertising_use'], isFalse);
-    expect(saved?.containsKey('memo'), isFalse);
+    expect(verified, hasLength(1));
+    expect(writes, isEmpty);
   });
 }
 

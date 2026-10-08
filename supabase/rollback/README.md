@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261008200000 entitlements server only
+
+本番には適用していない。アプリから `calonavi_plus_entitlements` への INSERT と UPDATE を止め、SELECT だけを残す。戻すと、利用者が自分の加入行を再び書ける。関数 `verify-store-transaction` を出していれば、先にその関数を消す。
+
+`supabase/rollback/20261008200000_entitlements_server_only_down.sql`
+
 ## 20261008190000 ai food result collections
 
 本番には適用していない。AIが返した食品の収集表、保存結果を書く関数、退会時の削除、KPI 用ビューを消す。推定キャッシュは利用者ごとの主キーをやめ、検索語だけの主キーに戻す。その行は消す。食事の行と食品データベースは消えない。`20261008160000` のロールバックより先に流す。

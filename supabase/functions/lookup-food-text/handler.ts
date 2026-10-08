@@ -32,6 +32,7 @@ import {
   type FetchLike,
   type LookupCallUsage,
 } from "./provider.ts";
+import { purgeExpiredCache } from "../_shared/expired_cache.ts";
 import {
   candidateJson,
   normalizeFoodQuery,
@@ -78,6 +79,7 @@ export type LookupDeps = {
   writeCache: (userId: string, queryKey: string, row: CacheRow) => Promise<void>;
   insertUsage: (row: UsageInsert) => Promise<string | null>;
   insertCollections?: (rows: FoodCollectionRow[]) => Promise<Array<string | null>>;
+  deleteExpiredCache?: () => Promise<void>;
   complete: (args: {
     model: string;
     maxTokens: number;
@@ -124,6 +126,13 @@ export async function handleLookupFoodText(
   const userId = await deps.userId(req);
   if (!userId) {
     return fail("unauthenticated", 401);
+  }
+  if (deps.deleteExpiredCache) {
+    try {
+      await deps.deleteExpiredCache();
+    } catch (error) {
+      deps.log(`lookup expired cache delete failed: ${error}`);
+    }
   }
   let payload: unknown;
   try {
@@ -481,6 +490,15 @@ export function liveDeps(
     },
     insertCollections(rows) {
       return insertFoodCollections(base, serviceKey, fetchImpl, rows);
+    },
+    deleteExpiredCache() {
+      return purgeExpiredCache({
+        base,
+        serviceKey,
+        fetchImpl,
+        table: "ai_food_estimate_cache",
+        now: new Date(),
+      }).then(() => undefined);
     },
     async insertUsage(row) {
       if (!base || !serviceKey) {

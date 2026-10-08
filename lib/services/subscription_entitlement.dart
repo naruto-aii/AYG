@@ -6,12 +6,17 @@ class SubscriptionEntitlementRecord {
   const SubscriptionEntitlementRecord({
     required this.productId,
     required this.expiresAt,
+    this.signedTransaction,
   });
 
   final String productId;
 
   /// Null when the store did not provide an expiry. That is not an active grant.
   final DateTime? expiresAt;
+
+  /// StoreKit 2 の署名付き取引。端末の有料表示には使わず、サーバ検証にだけ渡す。
+  /// 端末の保存には残さない。
+  final String? signedTransaction;
 }
 
 /// Plus access follows the latest unexpired subscription, not a sticky flag.

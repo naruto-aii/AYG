@@ -94,7 +94,11 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` は、アダプタが無いので日本語の準備中を返します。未成年が使うアプリに Gemini の API を既定で使わないためです。
 
-`verify_jwt = true` です。利用者は JWT から決めます。カロナビ+ は `public.calonavi_plus_entitlements` の `status = 'active'` かつ `expires_at > now()` です。これは既存のサーバ側の見方と同じで、レシートの再検証はしません。
+`verify_jwt = true` です。利用者は JWT から決めます。カロナビ+ は `public.calonavi_plus_entitlements` の `status = 'active'` かつ `expires_at > now()` です。この行はアプリが書きません。購入、復元、起動時の再読込は、StoreKit 2 の署名付き取引を `verify-store-transaction` に渡します。関数が Apple の署名を確かめ、`service_role` で行を書きます。写真で登録、AIで探す、自炊コーチは、その行が無い呼び出しを `not_plus` で返します。
+
+審査と TestFlight は Sandbox の取引です。`verify-store-transaction` は Production と Sandbox のどちらも、Apple の署名が通り、bundleId と商品IDが合うとき受けます。Sandbox を拒む設定は置きません。
+
+期限を過ぎた `ai_food_estimate_cache` と `cook_coach_cache` は、それぞれの関数が呼ばれるたびに最大 20 行消します。
 
 ### シークレットと環境変数
 
@@ -230,13 +234,24 @@ deno test --config supabase/functions/deno.json supabase/functions/cook_coach_te
 
 1. `supabase/migrations/20261008140000_meal_photo_analyses.sql`
 2. `supabase/migrations/20261008160000_ai_food_lookup.sql`
-3. `supabase/migrations/20261008180000_ai_feature_uses.sql`
-4. `supabase/migrations/20261008190000_ai_food_result_collections.sql`
+3. `supabase/migrations/20261008160100_food_memo_is_free.sql`（食事と運動のメモは無料、というコメントだけ。AIで探すと同じ時刻にならないよう、ファイル名をずらしてあります）
+4. `supabase/migrations/20261008180000_ai_feature_uses.sql`
+5. `supabase/migrations/20261008190000_ai_food_result_collections.sql`
+6. `supabase/migrations/20261008200000_entitlements_server_only.sql`
 
 そのあとで関数をデプロイする。
 
 1. `analyze-meal-photo`
 2. `lookup-food-text`
 3. `cook-coach`
+4. `verify-store-transaction`
 
 アプリは関数のあとで出す。月の回数と月の費用の環境変数は空のままにする。1日の回数は未設定なら 15 です。
+
+`verify-store-transaction` と `app-store-notifications` は、次のシークレットを使います。値はこのリポジトリに書きません。
+
+- `APP_BUNDLE_ID`（`com.narutoaii.ayg`）
+- `ASC_APP_APPLE_ID`（App Store Connect の Apple ID。数字）
+- `APPLE_ROOT_CA_BASE64`（または `APPLE_ROOT_CA`）
+
+App Store Server Notifications の URL は、これまでどおり `app-store-notifications` です。更新と期限切れは、その通知が検証済みの取引から加入の行を更新します。

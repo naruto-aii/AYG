@@ -141,6 +141,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   bool _suppressAuthoritativeSweep = false;
   String? _applicationUserName;
   String? _originalTransactionId;
+  final Map<String, String> _signedByProduct = {};
   Completer<PurchaseStatus>? _purchaseWaiter;
   String? _purchaseWaitProductId;
 
@@ -163,6 +164,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         SubscriptionEntitlementRecord(
           productId: id,
           expiresAt: _entitlement.expiryByProduct[id],
+          signedTransaction: _signedByProduct[id],
         ),
     ?_testConfirmed,
   ];
@@ -174,6 +176,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         SubscriptionEntitlementRecord(
           productId: id,
           expiresAt: _lastExpiry[id],
+          signedTransaction: _signedByProduct[id],
         ),
     ?_testInactive,
   ];
@@ -444,6 +447,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       if (original != null) {
         _originalTransactionId = original;
       }
+      _rememberSigned(purchase.productID, purchase.verificationData.serverVerificationData);
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
         final revoked =
@@ -557,6 +561,13 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     final remembered = {
       for (final id in previous) id: _entitlement.expiryByProduct[id],
     };
+    if (result.authoritative) {
+      final current = {for (final record in result.records) record.productId};
+      _signedByProduct.removeWhere((id, _) => !current.contains(id));
+    }
+    for (final record in result.records) {
+      _rememberSigned(record.productId, record.signedTransaction);
+    }
     _entitlement.replaceAll(result.records);
     _confirmedIds
       ..clear()
@@ -574,6 +585,13 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         _lastExpiry[id] = expiry;
       }
       _revokedIds.add(id);
+    }
+    for (final record in result.records) {
+      if (record.expiresAt == null &&
+          SubscriptionCatalog.isPlusProduct(record.productId) &&
+          !_confirmedIds.contains(record.productId)) {
+        _revokedIds.add(record.productId);
+      }
     }
     _productsConfirmed = true;
     await _persist();
@@ -595,6 +613,14 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       'original_transaction_id': _originalTransactionId,
       'changed': changed,
     });
+  }
+
+  void _rememberSigned(String productId, String? signedTransaction) {
+    final signed = signedTransaction?.trim() ?? '';
+    if (signed.isEmpty || !SubscriptionCatalog.isPlusProduct(productId)) {
+      return;
+    }
+    _signedByProduct[productId] = signed;
   }
 
   void _applyRecord(SubscriptionEntitlementRecord record) {
@@ -635,12 +661,15 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       return EntitlementLoad(
         records: [
           for (final transaction in transactions)
-            if (parseStoreRevocationDate(transaction.jsonRepresentation) ==
-                null)
-              SubscriptionEntitlementRecord(
-                productId: transaction.productId,
-                expiresAt: parseStoreExpiryMillis(transaction.expirationDate),
-              ),
+            SubscriptionEntitlementRecord(
+              productId: transaction.productId,
+              expiresAt:
+                  parseStoreRevocationDate(transaction.jsonRepresentation) ==
+                      null
+                  ? parseStoreExpiryMillis(transaction.expirationDate)
+                  : null,
+              signedTransaction: transaction.receiptData,
+            ),
         ],
         authoritative: true,
       );

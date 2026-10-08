@@ -1,12 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:ayg/screens/coach/cook_coach_screen.dart';
-import 'package:image/image.dart' as img;
-import 'package:ayg/screens/food/ai_food_lookup_screen.dart';
-import 'package:ayg/screens/food/photo_meal_screen.dart';
-import 'package:ayg/screens/legal/ai_data_consent_dialog.dart';
-import 'package:ayg/screens/legal/legal_document_screen.dart';
+import 'package:ayg/constants/app_strings.dart';
+import 'package:ayg/screens/auth/login_screen.dart';
 import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/services/ai_food_lookup_client.dart';
 import 'package:ayg/services/cook_coach_client.dart';
@@ -14,15 +10,12 @@ import 'package:ayg/services/cook_coach_target.dart';
 import 'package:ayg/services/photo_meal_client.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/theme/app_typography.dart';
 import 'package:ayg/utils/meal_slot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Uint8List _jpeg() {
-  final photo = img.Image(width: 8, height: 8);
-  img.fill(photo, color: img.ColorRgb8(200, 120, 60));
-  return Uint8List.fromList(img.encodeJpg(photo));
-}
+import 'mocks/mock_authentication_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,11 +56,60 @@ void main() {
     );
   });
 
-  test('production clients do not call the network before consent', () async {
-    AiDataConsent.override = MemoryAiDataConsent();
+  test('the login agreement is the AI consent and has no extra checkbox', () {
+    final screen = File('lib/screens/auth/login_screen.dart').readAsStringSync();
+    expect(screen, contains('AppStrings.loginAiDisclosureMultiline'));
+    expect(screen, contains('AppTypography.caption'));
+    expect(screen, isNot(contains('Checkbox')));
+    expect(File('lib/screens/legal/ai_data_consent_dialog.dart').existsSync(), isFalse);
+    expect(
+      AppStrings.loginAiDisclosure.replaceAll('\n', ''),
+      '写真で登録などのAI機能では、入力した内容を推定のためAnthropic, PBC（米国）に送ります。',
+    );
+    expect(
+      AppStrings.loginAiDisclosureMultiline.replaceAll('\n', ''),
+      AppStrings.loginAiDisclosure,
+    );
+    expect(AppStrings.loginLegalAgreement, contains('利用規約とプライバシーポリシー'));
+    for (final path in [
+      'lib/screens/food/photo_meal_screen.dart',
+      'lib/screens/food/ai_food_lookup_screen.dart',
+      'lib/screens/coach/cook_coach_screen.dart',
+    ]) {
+      expect(
+        File(path).readAsStringSync(),
+        isNot(contains('ensureAiDataConsent')),
+        reason: path,
+      );
+    }
+  });
+
+  test('login records the agreement and a failed write stays local', () async {
+    final memory = MemoryAiDataConsent(failGrant: true);
+    AiDataConsent.override = memory;
+    await AiDataConsent.recordLoginAgreement();
+    expect(memory.isGranted, isTrue);
+    expect(memory.synced, isFalse);
+    expect(memory.grantCalls, 1);
+
+    expect(await AiDataConsent.ensureServerCopy(), isFalse);
+    expect(memory.grantCalls, 2);
+    expect(memory.synced, isFalse);
+
+    memory.failGrant = false;
+    expect(await AiDataConsent.ensureServerCopy(), isTrue);
+    expect(memory.grantCalls, 3);
+    expect(memory.synced, isTrue);
+    expect(await AiDataConsent.ensureServerCopy(), isTrue);
+    expect(memory.grantCalls, 3);
+  });
+
+  test('production clients do not call the network before agreement', () async {
+    final memory = MemoryAiDataConsent();
+    AiDataConsent.override = memory;
     await expectLater(
       PhotoMealClient.supabase().analyze(
-        jpeg: Uint8List.fromList(const [1, 2, 3]),
+        jpeg: Uint8List(8),
         dishName: 'カレー',
         amount: '1皿',
       ),
@@ -113,224 +155,97 @@ void main() {
         ),
       ),
     );
-  });
-
-  testWidgets('declining photo, lookup, and cook sends nothing', (tester) async {
-    final memory = MemoryAiDataConsent();
-    AiDataConsent.override = memory;
-    var photoCalls = 0;
-    var lookupCalls = 0;
-    var cookCalls = 0;
-    final controller = AppController();
-    addTearDown(controller.dispose);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: PhotoMealScreen(
-          controller: controller,
-          loggedAt: DateTime(2026, 10, 8, 12),
-          initialJpeg: _jpeg(),
-          client: PhotoMealClient(
-            invoke: (_) async {
-              photoCalls += 1;
-              return null;
-            },
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('推定する'));
-    await tester.pumpAndSettle();
-    expect(find.text(aiDataConsentTitle), findsOneWidget);
-    expect(find.textContaining('Anthropic, PBC（米国）'), findsOneWidget);
-    expect(find.text(aiDataConsentStorage), findsOneWidget);
-    expect(photoCalls, 0);
-    await tester.tap(find.byKey(const Key('ai-data-consent-privacy')));
-    await tester.pumpAndSettle();
-    expect(find.byType(LegalDocumentScreen), findsOneWidget);
-    expect(photoCalls, 0);
-    await tester.tap(find.byTooltip('閉じる'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ai-data-consent-decline')));
-    await tester.pumpAndSettle();
-    expect(photoCalls, 0);
-    expect(memory.grantCalls, 0);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Builder(
-          builder: (context) {
-            return TextButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => AiFoodLookupScreen(
-                      controller: controller,
-                      query: '牛丼',
-                      loggedAt: DateTime(2026, 10, 8, 12),
-                      client: AiFoodLookupClient(
-                        invoke: (_) async {
-                          lookupCalls += 1;
-                          return null;
-                        },
-                      ),
-                    ),
-                  ),
-                );
-              },
-              child: const Text('開く'),
-            );
-          },
-        ),
-      ),
-    );
-    await tester.tap(find.text('開く'));
-    await tester.pumpAndSettle();
-    expect(find.text(aiDataConsentAcceptLabel), findsOneWidget);
-    expect(lookupCalls, 0);
-    await tester.tap(find.byKey(const Key('ai-data-consent-decline')));
-    await tester.pumpAndSettle();
-    expect(lookupCalls, 0);
-    expect(find.text('開く'), findsOneWidget);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: CookCoachScreen(
-          now: DateTime(2026, 10, 8, 18),
-          target: const CookCoachMealTarget(
-            slot: MealSlot.dinner,
-            kcal: 650,
-            proteinG: 32,
-            fatG: 18,
-            carbG: 75,
-            remainingKcal: 650,
-            remainingProteinG: 32,
-            remainingFatG: 18,
-            remainingCarbG: 75,
-          ),
-          client: CookCoachClient(
-            invoke: (_) async {
-              cookCalls += 1;
-              return null;
-            },
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('cook_choice_卵')));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('cook_generate')));
-    await tester.tap(find.byKey(const Key('cook_generate')));
-    await tester.pumpAndSettle();
-    expect(cookCalls, 0);
-    await tester.tap(find.byKey(const Key('ai-data-consent-decline')));
-    await tester.pumpAndSettle();
-    expect(cookCalls, 0);
     expect(memory.grantCalls, 0);
   });
 
-  testWidgets('agreeing saves consent and then calls the model', (tester) async {
-    final memory = MemoryAiDataConsent();
+  test('a failed resend does not call the model and shows no consent screen', () async {
+    final memory = MemoryAiDataConsent(granted: true, failGrant: true);
     AiDataConsent.override = memory;
-    var calls = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: CookCoachScreen(
-          now: DateTime(2026, 10, 8, 18),
-          target: const CookCoachMealTarget(
-            slot: MealSlot.dinner,
-            kcal: 650,
-            proteinG: 32,
-            fatG: 18,
-            carbG: 75,
-            remainingKcal: 650,
-            remainingProteinG: 32,
-            remainingFatG: 18,
-            remainingCarbG: 75,
-          ),
-          client: CookCoachClient(
-            invoke: (_) async {
-              calls += 1;
-              return null;
-            },
-          ),
+    await expectLater(
+      PhotoMealClient.supabase().analyze(
+        jpeg: Uint8List(8),
+        dishName: 'カレー',
+        amount: '1皿',
+      ),
+      throwsA(
+        isA<PhotoMealFailure>().having(
+          (error) => error.message,
+          'message',
+          photoMealFallbackMessage,
         ),
       ),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('cook_choice_卵')));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('cook_generate')));
-    await tester.tap(find.byKey(const Key('cook_generate')));
-    await tester.pumpAndSettle();
-    expect(calls, 0);
-    await tester.tap(find.byKey(const Key('ai-data-consent-accept')));
-    await tester.pumpAndSettle();
-    expect(memory.grantCalls, 1);
-    expect(memory.isGranted, isTrue);
-    expect(calls, 1);
+    await expectLater(
+      AiFoodLookupClient.supabase().lookup('牛丼'),
+      throwsA(
+        isA<PhotoMealFailure>().having(
+          (error) => error.message,
+          'message',
+          photoMealFallbackMessage,
+        ),
+      ),
+    );
+    await expectLater(
+      CookCoachClient.supabase().generate(
+        ingredients: const ['卵'],
+        slot: MealSlot.dinner,
+        target: const CookCoachMealTarget(
+          slot: MealSlot.dinner,
+          kcal: 650,
+          proteinG: 32,
+          fatG: 18,
+          carbG: 75,
+          remainingKcal: 650,
+          remainingProteinG: 32,
+          remainingFatG: 18,
+          remainingCarbG: 75,
+        ),
+      ),
+      throwsA(
+        isA<CookCoachFailure>().having(
+          (error) => error.message,
+          'message',
+          cookCoachFallbackMessage,
+        ),
+      ),
+    );
+    expect(memory.grantCalls, 3);
+    expect(memory.synced, isFalse);
   });
 
-  testWidgets('a failed save does not call the model', (tester) async {
-    final memory = MemoryAiDataConsent(failGrant: true);
-    AiDataConsent.override = memory;
-    var calls = 0;
+  testWidgets('the login screen shows the Anthropic sentence in caption size', (
+    tester,
+  ) async {
     final controller = AppController();
     addTearDown(controller.dispose);
+    final repository = MockAuthenticationRepository();
+    addTearDown(repository.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: PhotoMealScreen(
+        home: LoginScreen(
           controller: controller,
-          loggedAt: DateTime(2026, 10, 8, 12),
-          initialJpeg: _jpeg(),
-          client: PhotoMealClient(
-            invoke: (_) async {
-              calls += 1;
-              return null;
-            },
-          ),
+          authenticationRepository: repository,
         ),
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('推定する'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ai-data-consent-accept')));
-    await tester.pumpAndSettle();
-    expect(memory.grantCalls, 1);
-    expect(calls, 0);
-    expect(find.text(aiDataConsentSaveFailedMessage), findsOneWidget);
-  });
 
-  testWidgets('the dialog is the consent screen', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Builder(
-          builder: (context) {
-            return TextButton(
-              onPressed: () => showAiDataConsentDialog(context),
-              child: const Text('開く'),
-            );
-          },
-        ),
-      ),
+    expect(find.text(AppStrings.loginLegalAgreementMultiline), findsOneWidget);
+    expect(find.text(AppStrings.loginAiDisclosureMultiline), findsOneWidget);
+    expect(find.text('AI機能を使う前に'), findsNothing);
+    expect(find.text('同意して使う'), findsNothing);
+    expect(find.byType(Checkbox), findsNothing);
+
+    final disclosure = tester.widget<Text>(
+      find.text(AppStrings.loginAiDisclosureMultiline),
     );
-    await tester.tap(find.text('開く'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('ai-data-consent-dialog')), findsOneWidget);
-    expect(find.text(aiDataConsentBody), findsOneWidget);
-    for (final line in aiDataConsentSends) {
-      expect(find.text('・$line'), findsOneWidget);
-    }
-    expect(find.text(aiDataConsentAcceptLabel), findsOneWidget);
-    expect(find.text(aiDataConsentDeclineLabel), findsOneWidget);
+    final agreement = tester.widget<Text>(
+      find.text(AppStrings.loginLegalAgreementMultiline),
+    );
+    expect(disclosure.style?.fontSize, AppTypography.caption.fontSize);
+    expect(disclosure.style?.fontSize, agreement.style?.fontSize);
+    expect(find.text('利用規約'), findsOneWidget);
+    expect(find.text('プライバシーポリシー'), findsOneWidget);
   });
 }

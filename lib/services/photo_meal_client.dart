@@ -54,8 +54,11 @@ class PhotoMealClient {
   factory PhotoMealClient.supabase({SupabaseClient? client}) {
     return PhotoMealClient(
       invoke: (body) async {
-        if (!await AiDataConsent.grantedNow()) {
-          throw const PhotoMealFailure(aiDataConsentRequiredMessage);
+        if (!await AiDataConsent.ensureServerCopy()) {
+          final agreed = await AiDataConsent.grantedNow();
+          throw PhotoMealFailure(
+            agreed ? photoMealFallbackMessage : aiDataConsentRequiredMessage,
+          );
         }
         final supabase = client ?? Supabase.instance.client;
         try {

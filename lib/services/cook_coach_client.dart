@@ -59,8 +59,11 @@ class CookCoachClient {
   factory CookCoachClient.supabase({SupabaseClient? client}) {
     return CookCoachClient(
       invoke: (body) async {
-        if (!await AiDataConsent.grantedNow()) {
-          throw const CookCoachFailure(aiDataConsentRequiredMessage);
+        if (!await AiDataConsent.ensureServerCopy()) {
+          final agreed = await AiDataConsent.grantedNow();
+          throw CookCoachFailure(
+            agreed ? cookCoachFallbackMessage : aiDataConsentRequiredMessage,
+          );
         }
         final supabase = client ?? Supabase.instance.client;
         try {

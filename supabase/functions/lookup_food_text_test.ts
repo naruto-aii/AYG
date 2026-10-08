@@ -1,6 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { estimateCostJpy, tokenPricesFromEnv } from "./analyze-meal-photo/policy.ts";
-import { cookCoachUsageQuery, combinedDailyLimitFromEnv } from "./analyze-meal-photo/policy.ts";
+import { combinedDailyLimitFromEnv } from "./analyze-meal-photo/policy.ts";
 import type { FoodCollectionRow } from "./ai-food-collection.ts";
 import {
   handleLookupFoodText,
@@ -411,14 +411,9 @@ Deno.test("a cache hit is collected for the same user", async () => {
   assertEquals(collections[0][0].userId, "user-1");
 });
 
-Deno.test("cook coach rows share the daily cap and a missing table is zero", async () => {
+Deno.test("the daily cap is the three AI features and ignores cook coach", async () => {
   const now = new Date("2026-10-08T03:00:00Z");
   const photo = Array.from({ length: 10 }, () => ({
-    createdAt: "2026-10-08T01:00:00Z",
-    tier: "light" as const,
-    costJpy: 1,
-  }));
-  const cook = Array.from({ length: 5 }, () => ({
     createdAt: "2026-10-08T01:00:00Z",
     tier: "light" as const,
     costJpy: 1,
@@ -427,9 +422,8 @@ Deno.test("cook coach rows share the daily cap and a missing table is zero", asy
     now,
     textRows: [],
     photoRows: photo,
-    cookRows: cook,
   });
-  assertEquals(usage.dayCount, 15);
+  assertEquals(usage.dayCount, 10);
   assertEquals(usage.monthCount, 0);
   assertEquals(combinedDailyLimitFromEnv({ AI_DAILY_LIMIT: "15" }), 15);
   assertEquals(
@@ -439,15 +433,9 @@ Deno.test("cook coach rows share the daily cap and a missing table is zero", asy
     }),
     15,
   );
-  const query = cookCoachUsageQuery("user-1", now.toISOString());
-  assertEquals(query.includes("feature=eq.cook_coach"), true);
-  assertEquals(query.includes("ai_search"), false);
   const urls: string[] = [];
   const fetchImpl = (input: string) => {
     urls.push(input);
-    if (input.includes("ai_feature_uses")) {
-      return Promise.resolve(new Response("{}", { status: 404 }));
-    }
     if (input.includes("meal_photo_analyses")) {
       return Promise.resolve(Response.json([
         { created_at: "2026-10-08T01:00:00Z", tier: "light", estimated_cost_jpy: 1 },
@@ -461,7 +449,7 @@ Deno.test("cook coach rows share the daily cap and a missing table is zero", asy
   );
   const counted = await live.usage("user-1", new Date("2026-10-01T00:00:00Z"), now);
   assertEquals(counted.dayCount, 1);
-  assertEquals(urls.some((url) => url.includes("feature=eq.cook_coach")), true);
+  assertEquals(urls.some((url) => url.includes("ai_feature_uses")), false);
   assertEquals(urls.some((url) => url.includes("ai_search")), false);
 });
 

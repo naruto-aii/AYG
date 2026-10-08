@@ -56,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
   static const double _buttonTop = 518;
   static const double _buttonGap = 13;
 
-  static const double _consentTop = 762;
+  static const double _consentTop = 714;
   static const double _footerTop = 799;
   static const double _footerHeight = 25;
 
@@ -285,11 +285,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   top: _consentTop,
                   left: _contentLeft,
                   width: _contentWidth,
-                  child: Text(
-                    AppStrings.loginLegalAgreementMultiline,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    style: AppTypography.caption,
+                  child: const Column(
+                    children: [
+                      Text(
+                        AppStrings.loginLegalAgreementMultiline,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: AppTypography.caption,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        AppStrings.loginAiDisclosureMultiline,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: AppTypography.caption,
+                      ),
+                    ],
                   ),
                 ),
                 // 規約リンク

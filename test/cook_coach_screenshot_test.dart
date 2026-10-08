@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:ayg/screens/coach/cook_coach_screen.dart';
-import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/services/cook_coach.dart';
 import 'package:ayg/services/cook_coach_client.dart';
 import 'package:ayg/services/cook_coach_target.dart';
@@ -54,12 +53,6 @@ String _materialSymbolsFontPath() {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadFonts);
-  setUp(() {
-    AiDataConsent.override = MemoryAiDataConsent(granted: true);
-  });
-  tearDown(() {
-    AiDataConsent.override = null;
-  });
 
   const now = CookCoachMealTarget(
     slot: MealSlot.dinner,

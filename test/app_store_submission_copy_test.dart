@@ -106,7 +106,7 @@ void main() {
     const searchKept =
         '同じ検索の推定は、同じ利用者が再利用するために残します。キャッシュは食品の一覧としては出さず、他の利用者には出しません。アカウントを削除すると消します';
     const cookKept =
-        '同じ食材と丸めた目標の献立は、再利用するために残します。利用者の識別子は入れません。アカウントを削除しても、このキャッシュは消えません';
+        '手持ちの食材だけでは作れる案が無かったときだけ、正規化した食材名と時刻を残します。利用者の識別子は入れないので、アカウントを削除しても消えません';
     for (final path in [
       'legal/privacy.html',
       'docs/legal/privacy.html',
@@ -127,12 +127,14 @@ void main() {
       expect(html, contains('推定に使ったあと捨てます'), reason: path);
     }
     final terms = File('legal/terms.html').readAsStringSync();
-    expect(terms, contains('アカウントを削除しても、このキャッシュは消えません'));
+    expect(terms, contains('入力した食材や条件は外部のAI事業者へ送りません'));
+    expect(terms, contains(cookKept));
+    expect(terms, isNot(contains('献立の推定のため Anthropic')));
     final screen = File(
       'lib/screens/settings/analytics_settings_screen.dart',
     ).readAsStringSync();
     expect(screen, contains('推定は同じ利用者が再利用するために残し、アカウントを削除すると消します'));
-    expect(screen, contains('アカウントを削除しても消えません'));
+    expect(screen, isNot(contains('自炊コーチの、手元にある食材')));
     expect(
       File('supabase/functions/_shared/expired_cache.ts').existsSync(),
       isFalse,

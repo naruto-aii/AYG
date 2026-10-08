@@ -118,11 +118,6 @@ class ExternalTransmissionScreen extends StatelessWidget {
             who: 'Anthropic, PBC（米国）',
             why: 'カロリーとPFCの推定のため。食品データベースには保存しません。推定は同じ利用者が再利用するために残し、アカウントを削除すると消します',
           ),
-          _SendRow(
-            what: '自炊コーチの、手元にある食材と、この食事の条件のメモ',
-            who: 'Anthropic, PBC（米国）',
-            why: '献立の推定のため。食材の一覧とメモの原文は食品データベースに保存しません。献立は再利用するために残します。利用者の識別子は入れないので、アカウントを削除しても消えません',
-          ),
         ],
       ),
     );

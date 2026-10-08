@@ -10,7 +10,6 @@ import { hasAiDataConsent } from "../_shared/ai_data_consent.ts";
 import { jpegBase64WithinEdge } from "./image.ts";
 import {
   checkPhotoCaps,
-  cookCoachUsageQuery,
   estimateCostJpy,
   heavyModelDefault,
   lightModelDefault,
@@ -398,17 +397,13 @@ export function liveDeps(
       const textUrl =
         `${base}/rest/v1/meal_text_lookups?user_id=eq.${userId}` +
         `&created_at=gte.${sinceParam}&select=created_at,estimated_cost_jpy`;
-      const cookUrl =
-        `${base}/rest/v1/ai_feature_uses?${cookCoachUsageQuery(userId, since.toISOString())}`;
-      const [photo, text, cook] = await Promise.all([
+      const [photo, text] = await Promise.all([
         authedGet(photoUrl, serviceKey, fetchImpl),
         authedGet(textUrl, serviceKey, fetchImpl),
-        authedGet(cookUrl, serviceKey, fetchImpl),
       ]);
       return [
         ...usageRowsFromBody(photo.ok ? photo.body : [], true),
         ...usageRowsFromBody(text.ok ? text.body : [], false),
-        ...usageRowsFromBody(cook.ok ? cook.body : [], false),
       ];
     },
     insertCollections(rows) {

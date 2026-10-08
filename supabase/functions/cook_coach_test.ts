@@ -474,15 +474,14 @@ Deno.test("a third model call is not made when the retry is still off", async ()
   assertEquals(body.patterns[0].gap_kcal > 0, true);
 });
 
-Deno.test("daily cap is shared and says 本日の上限に達しました", async () => {
+Deno.test("cook coach is outside the shared daily cap", async () => {
   assertEquals(aiDailyLimitDefault, 15);
-  const harness = deps({ used: 15, replies: [] });
+  const harness = deps({ used: 15, replies: [modelText(108, 50)] });
   const response = await handleCookCoach(request(onTarget), harness.deps);
   const body = await response.json();
-  assertEquals(response.status, 429);
-  assertEquals(body.code, "daily_cap");
-  assertEquals(body.message, "本日の上限に達しました");
-  assertEquals(harness.calls.length, 0);
+  assertEquals(body.code, undefined);
+  assertEquals(response.status, 200);
+  assertEquals(harness.calls.length > 0, true);
 });
 
 Deno.test("plus is required", async () => {

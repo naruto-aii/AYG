@@ -2,14 +2,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:ayg/screens/legal/ai_data_consent_dialog.dart';
-import 'package:ayg/services/ai_data_consent.dart';
+import 'package:ayg/constants/app_strings.dart';
+import 'package:ayg/screens/auth/login_screen.dart';
 import 'package:ayg/services/share_sheet_client.dart';
+import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'mocks/mock_authentication_repository.dart';
 
 Future<void> _loadFonts() async {
   final zen = FontLoader('ZenMaruGothic');
@@ -50,7 +53,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadFonts);
 
-  testWidgets('the consent dialog is a 6.7-inch screen at 3x', (tester) async {
+  testWidgets('the login agreement is a 6.7-inch screen at 3x', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     tester.view.physicalSize = const Size(1290, 2796);
@@ -61,35 +64,29 @@ void main() {
     tester.view.systemGestureInsets = FakeViewPadding.zero;
     addTearDown(tester.view.reset);
 
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    final repository = MockAuthenticationRepository();
+    addTearDown(repository.dispose);
     final key = GlobalKey();
-    var opened = false;
     await tester.pumpWidget(
       RepaintBoundary(
         key: key,
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
-          home: Scaffold(
-            backgroundColor: AppTheme.light.colorScheme.surface,
-            body: Builder(
-              builder: (context) {
-                if (!opened) {
-                  opened = true;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    showAiDataConsentDialog(context);
-                  });
-                }
-                return const SizedBox.expand();
-              },
-            ),
+          home: LoginScreen(
+            controller: controller,
+            authenticationRepository: repository,
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(aiDataConsentTitle), findsOneWidget);
-    expect(find.text(aiDataConsentAcceptLabel), findsOneWidget);
-    expect(find.text(aiDataConsentDeclineLabel), findsOneWidget);
+    expect(find.text(AppStrings.loginLegalAgreementMultiline), findsOneWidget);
+    expect(find.text(AppStrings.loginAiDisclosureMultiline), findsOneWidget);
+    expect(find.text('利用規約'), findsOneWidget);
+    expect(find.text('プライバシーポリシー'), findsOneWidget);
 
     final directory = Directory('/opt/cursor/artifacts/screenshots')
       ..createSync(recursive: true);
@@ -97,7 +94,7 @@ void main() {
       () => pngBytesFromBoundary(key, pixelRatio: 3),
     );
     expect(bytes, isNotNull);
-    final file = File('${directory.path}/ai_data_consent.png');
+    final file = File('${directory.path}/login_agreement.png');
     file.writeAsBytesSync(bytes!);
     final image = await tester.runAsync(() async {
       final codec = await ui.instantiateImageCodec(bytes);

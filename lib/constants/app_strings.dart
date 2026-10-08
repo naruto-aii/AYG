@@ -83,7 +83,7 @@ class AppStrings {
   static const coachCookingBody =
       '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
   static const plusAiDailyLimit =
-      '写真で登録 (β)、外食・コンビニ (β)、AIで探す (β)、パーソナルコーチ (β) は、あわせて1日15回までです。';
+      '写真で登録 (β)、外食・コンビニ (β)、AIで探す (β) は、あわせて1日15回までです。';
   static const plusBetaAccessBody =
       '音声登録 (β)、写真で登録 (β)、外食・コンビニ (β)、AIで探す (β)、パーソナルコーチ (β) など、β版として先行公開している機能を使えます。$plusAiDailyLimit';
   static const coachBetaNotice =
@@ -131,6 +131,14 @@ class AppStrings {
   /// 端末ごとに折り返し位置が変わらないよう、改行位置を明示する。
   static const loginLegalAgreementMultiline =
       'ログインにより、利用規約とプライバシーポリシーに\n同意したものとします。';
+
+  /// ログイン画面の同意に足す一文。チェックボックスは増やさない。
+  static const loginAiDisclosure =
+      '写真で登録などのAI機能では、入力した内容を推定のためAnthropic, PBC（米国）に送ります。';
+
+  /// 折り返し位置が端末で変わらないよう、改行位置を明示する。
+  static const loginAiDisclosureMultiline =
+      '写真で登録などのAI機能では、入力した内容を\n推定のためAnthropic, PBC（米国）に送ります。';
 
   static const displayName = 'ユーザー名';
   static const displayNameHint = '表示する名前';

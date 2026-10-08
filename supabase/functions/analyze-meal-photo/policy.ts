@@ -244,8 +244,8 @@ export function cookCoachUsageQuery(userId: string, sinceIso: string): string {
     `&select=created_at,estimated_cost_jpy`;
 }
 
-/// 写真、外食・コンビニ、AIで探す、自炊コーチで共有する1日の回数。アプリの更新は要らない。
-/// `AI_DAILY_LIMIT` は自炊コーチと同じ名前。空なら `AI_COMBINED_DAILY_LIMIT`、それも空なら 15。
+/// 写真、外食・コンビニ、AIで探すで共有する1日の回数。自炊コーチは入れない。
+/// 空なら `AI_COMBINED_DAILY_LIMIT`、それも空なら 15。
 export function combinedDailyLimitFromEnv(env: PhotoAiEnv): number {
   return readPositiveInt(
     firstSet(env.AI_COMBINED_DAILY_LIMIT, env.AI_DAILY_LIMIT, env.PHOTO_AI_DAILY_LIMIT),

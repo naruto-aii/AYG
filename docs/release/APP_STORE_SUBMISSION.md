@@ -14,7 +14,7 @@
    - `calonavi_plus_monthly` … ¥980
    - `calonavi_plus_half_year` … ¥4,900（980円×5。1か月分お得。月あたり約817円）
    - `calonavi_plus_yearly` … ¥8,800（月あたり約733円。月額より約25%お得）
-5. ペイウォールには利用規約、プライバシーポリシー、特定商取引法に基づく表記と、自動更新の説明（確認時に Apple ID へ請求、期間終了の 24 時間以上前に解約しない限り更新、更新料は終了前 24 時間以内に請求、管理と解約は App Store のアカウント設定）がある。AI機能は、写真で登録 (β)、外食・コンビニ (β)、AIで探す (β)、パーソナルコーチ (β)（自炊コーチを含む）です。あわせて1日15回までです。
+5. ペイウォールには利用規約、プライバシーポリシー、特定商取引法に基づく表記と、自動更新の説明（確認時に Apple ID へ請求、期間終了の 24 時間以上前に解約しない限り更新、更新料は終了前 24 時間以内に請求、管理と解約は App Store のアカウント設定）がある。AI機能は、写真で登録 (β)、外食・コンビニ (β)、AIで探す (β) の3つです。あわせて1日15回までです。自炊コーチはこの回数に入りません。
 
 ## サーバ
 
@@ -52,24 +52,28 @@ App Store Connect の審査メモに、日本語と英語の両方を入れる�
 
 日本語:
 
-カロナビ+のAI機能は、写真で登録、外食・コンビニ、AIで探す、自炊コーチです。どれもカロナビ+が必要です。4つあわせて1日15回までです。商品は `calonavi_plus_monthly`（月額980円）、`calonavi_plus_half_year`（半年4,900円）、`calonavi_plus_yearly`（年額8,800円）です。
+カロナビ+のAI機能は、写真で登録、外食・コンビニ、AIで探すの3つです。どれもカロナビ+が必要です。3つあわせて1日15回までです。自炊コーチはこの回数に入りません。商品は `calonavi_plus_monthly`（月額980円）、`calonavi_plus_half_year`（半年4,900円）、`calonavi_plus_yearly`（年額8,800円）です。
 
-これらの機能は、食事の写真、料理名、量、補足、店名や食品名、手元の食材と条件のメモを Anthropic, PBC（米国）へ送り、カロリーとPFCの推定に使います。写真はカロナビに保存しません。初めて使う前に同意の画面を出します。同意するまで送りません。「やめる」では何も送りません。
+写真で登録、外食・コンビニ、AIで探すは、食事の写真、料理名、量、補足、店名や食品名を Anthropic, PBC（米国）へ送り、カロリーとPFCの推定に使います。写真はカロナビに保存しません。自炊コーチは Anthropic へ何も送りません。
+
+初回起動時の利用規約・プライバシーポリシーの同意画面で、送信先Anthropicを明示して同意を得ている。同意しないとアプリを使えず、何も送らない。
 
 確認手順:
-1. Sandbox の Apple ID でアプリにログインする。
-2. カロナビ+を Sandbox で1つ購入する。
-3. 食事の追加から「写真で登録」、検索の中の「外食・コンビニ」または「AIで探す」、またはパーソナルコーチの「自炊コーチ」を開く。
-4. 初回は「AI機能を使う前に」と出ます。「同意して使う」のあとで推定が動きます。
+1. アプリを初めて開く。ログイン画面に「写真で登録などのAI機能では、入力した内容を推定のためAnthropic, PBC（米国）に送ります。」と出ます。
+2. Sandbox の Apple ID でログインする。ログインしない限り、何も送りません。
+3. カロナビ+を Sandbox で1つ購入する。
+4. 食事の追加から「写真で登録」、検索の中の「外食・コンビニ」または「AIで探す」を開く。
 
 English:
 
-Calonavi+ AI features are Photo Log, Restaurant and Convenience Store, AI Search, and Cook Coach. Each requires Calonavi+. Together they are limited to 15 uses per day. Product IDs: calonavi_plus_monthly (¥980), calonavi_plus_half_year (¥4,900), and calonavi_plus_yearly (¥8,800).
+Calonavi+ AI features are Photo Log, Restaurant and Convenience Store, and AI Search. Each requires Calonavi+. Together they are limited to 15 uses per day. Cook Coach is not part of this limit. Product IDs: calonavi_plus_monthly (¥980), calonavi_plus_half_year (¥4,900), and calonavi_plus_yearly (¥8,800).
 
-These features send the meal photo, dish name, amount, note, store or food name, or the ingredients and condition memo to Anthropic, PBC in the United States to estimate calories and protein, fat, and carbohydrate. Photos are not stored by Calonavi. Before the first use, the app shows a consent dialog. Nothing is sent until the user agrees. Decline sends nothing.
+Photo Log, Restaurant and Convenience Store, and AI Search send the meal photo, dish name, amount, note, or store or food name to Anthropic, PBC in the United States to estimate calories and protein, fat, and carbohydrate. Photos are not stored by Calonavi. Cook Coach sends nothing to Anthropic.
+
+On the first-launch Terms and Privacy Policy agreement screen, the app names Anthropic as the recipient and obtains consent. If the user does not agree, they cannot use the app and nothing is sent.
 
 How to test:
-1. Sign in with a Sandbox Apple ID.
-2. Buy one Calonavi+ plan in the sandbox.
-3. Open Photo Log, Restaurant and Convenience Store, AI Search, or Cook Coach.
-4. The first time, the consent dialog appears. Estimation runs after 「同意して使う」.
+1. Open the app for the first time. The login screen states that photo log and similar AI features send what you enter to Anthropic, PBC (United States) for estimation.
+2. Sign in with a Sandbox Apple ID. Nothing is sent unless the user logs in.
+3. Buy one Calonavi+ plan in the sandbox.
+4. Open Photo Log, Restaurant and Convenience Store, or AI Search.

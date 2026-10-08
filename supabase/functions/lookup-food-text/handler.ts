@@ -8,7 +8,6 @@ import {
 } from "../ai-food-collection.ts";
 import { hasAiDataConsent } from "../_shared/ai_data_consent.ts";
 import {
-  cookCoachUsageQuery,
   estimateCostJpy,
   lightModelDefault,
   tokenPricesFromEnv,
@@ -424,17 +423,13 @@ export function liveDeps(
       const photoUrl =
         `${base}/rest/v1/meal_photo_analyses?user_id=eq.${userId}` +
         `&created_at=gte.${sinceParam}&select=created_at,tier,estimated_cost_jpy`;
-      const cookUrl =
-        `${base}/rest/v1/ai_feature_uses?${cookCoachUsageQuery(userId, since.toISOString())}`;
-      const [text, photo, cook] = await Promise.all([
+      const [text, photo] = await Promise.all([
         authedGet(textUrl, serviceKey, fetchImpl),
         authedGet(photoUrl, serviceKey, fetchImpl),
-        authedGet(cookUrl, serviceKey, fetchImpl),
       ]);
       return lookupUsageFromRows({
         textRows: text.ok ? costRows(text.body) : [],
         photoRows: photo.ok ? costRows(photo.body) : [],
-        cookRows: cook.ok ? costRows(cook.body) : [],
         now,
       });
     },

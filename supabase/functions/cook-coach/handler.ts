@@ -197,12 +197,6 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
       deps.log("cook-coach cache read failed");
     }
   }
-  const limit = aiDailyLimitFromEnv(deps.env);
-  const used = await deps.dailyCount(userId, tokyoDayStartUtc(now));
-  if (used >= limit) {
-    return fail("daily_cap", "本日の上限に達しました", 429);
-  }
-
   const providerName = deps.env.PHOTO_AI_PROVIDER?.trim() || "anthropic";
   if (providerName !== "anthropic") {
     return fail("provider_unwired", "自炊コーチは、いま準備中です。", 503);

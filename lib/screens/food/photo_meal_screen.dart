@@ -18,7 +18,6 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
-import '../legal/ai_data_consent_dialog.dart';
 import 'photo_meal_confirm_screen.dart';
 
 /// カメラかカメラロールから JPEG を渡す。テストは差し替える。
@@ -139,10 +138,6 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
   Future<void> _submit() async {
     final jpeg = _jpeg;
     if (jpeg == null || _busy) {
-      return;
-    }
-    final allowed = await ensureAiDataConsent(context);
-    if (!allowed || !mounted) {
       return;
     }
     setState(() => _busy = true);

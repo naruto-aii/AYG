@@ -4,40 +4,28 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/supabase_config.dart';
 
-/// 同意ダイアログの文面の版。変えたら、もう一度同意を取る。
+/// ログイン画面の同意文面の版。変えたら、もう一度同意を取る。
 const aiDataConsentVersion = '2026-10-08';
 
 const aiDataConsentVersionKey = 'ai_data_consent_version';
 const aiDataConsentAtKey = 'ai_data_consent_at';
 
-const aiDataConsentTitle = 'AI機能を使う前に';
-
-const aiDataConsentBody =
-    '写真で登録、外食・コンビニ、AIで探す、自炊コーチは、入力した内容を Anthropic, PBC（米国）へ送り、カロリーとPFCの推定に使います。';
-
-const aiDataConsentSendsTitle = '送るもの';
-
-const aiDataConsentSends = [
-  '食事の写真、料理名、量、補足',
-  '店名や食品名',
-  '手元の食材と、この食事の条件のメモ',
-];
-
-const aiDataConsentStorage = '写真はカロナビに保存しません。';
-
-const aiDataConsentAcceptLabel = '同意して使う';
-const aiDataConsentDeclineLabel = 'やめる';
-const aiDataConsentPrivacyLabel = 'プライバシーポリシー';
-
 const aiDataConsentRequiredMessage = 'AI機能を使うには、同意が必要です。';
-const aiDataConsentSaveFailedMessage = '同意を保存できませんでした。もう一度試してください。';
-const aiDataConsentDeclinedMessage = '同意しないと、推定はしません。';
 
 /// 端末とサーバに残す、AI機能の同意。
+///
+/// 同意そのものはログイン画面で取る。ここは、その事実を端末に残し、
+/// ログイン後に `ai_data_consents` へ書く。
 abstract class AiDataConsent {
   bool get isGranted;
 
-  /// サーバに書いてから、端末に残す。失敗したら false。
+  /// ログイン画面で同意した事実を端末に残す。サーバにはまだ書かない。
+  Future<void> rememberAgreed();
+
+  /// 端末の同意がサーバに無ければ書く。書けていれば true。
+  Future<bool> sync();
+
+  /// サーバに書いてから、時刻を端末に残す。失敗したら false。
   Future<bool> grant();
 
   /// テストが差し替える。本番は null。
@@ -58,6 +46,39 @@ abstract class AiDataConsent {
     }
   }
 
+  /// ログインできた時点で呼ぶ。失敗してもログインは止めない。
+  static Future<void> recordLoginAgreement() async {
+    try {
+      final current = override;
+      if (current != null) {
+        await current.rememberAgreed();
+        await current.sync();
+        return;
+      }
+      final preferences = await SharedPreferences.getInstance();
+      final store = PrefsAiDataConsent(preferences);
+      await store.rememberAgreed();
+      await store.sync();
+    } catch (error) {
+      debugPrint('[AYG] ai data consent record failed: $error');
+    }
+  }
+
+  /// AI機能を呼ぶ直前。同意がサーバに無ければ静かに再送する。画面は出さない。
+  static Future<bool> ensureServerCopy() async {
+    try {
+      final current = override;
+      if (current != null) {
+        return current.sync();
+      }
+      final preferences = await SharedPreferences.getInstance();
+      return PrefsAiDataConsent(preferences).sync();
+    } catch (error) {
+      debugPrint('[AYG] ai data consent sync failed: $error');
+      return false;
+    }
+  }
+
   static Future<AiDataConsent> load() async {
     final current = override;
     if (current != null) {
@@ -72,14 +93,35 @@ abstract class AiDataConsent {
 
 /// テスト用。サーバには繋がない。
 class MemoryAiDataConsent extends AiDataConsent {
-  MemoryAiDataConsent({this.granted = false, this.failGrant = false});
+  MemoryAiDataConsent({
+    this.granted = false,
+    this.synced = false,
+    this.failGrant = false,
+  });
 
   bool granted;
+  bool synced;
   bool failGrant;
   int grantCalls = 0;
 
   @override
   bool get isGranted => granted;
+
+  @override
+  Future<void> rememberAgreed() async {
+    granted = true;
+  }
+
+  @override
+  Future<bool> sync() async {
+    if (!granted) {
+      return false;
+    }
+    if (synced) {
+      return true;
+    }
+    return grant();
+  }
 
   @override
   Future<bool> grant() async {
@@ -88,6 +130,7 @@ class MemoryAiDataConsent extends AiDataConsent {
       return false;
     }
     granted = true;
+    synced = true;
     return true;
   }
 }
@@ -100,6 +143,30 @@ class PrefsAiDataConsent extends AiDataConsent {
   @override
   bool get isGranted =>
       _preferences.getString(aiDataConsentVersionKey) == aiDataConsentVersion;
+
+  bool get hasServerCopy {
+    final at = _preferences.getString(aiDataConsentAtKey);
+    return isGranted && at != null && at.isNotEmpty;
+  }
+
+  @override
+  Future<void> rememberAgreed() async {
+    if (_preferences.getString(aiDataConsentVersionKey) != aiDataConsentVersion) {
+      await _preferences.remove(aiDataConsentAtKey);
+    }
+    await _preferences.setString(aiDataConsentVersionKey, aiDataConsentVersion);
+  }
+
+  @override
+  Future<bool> sync() async {
+    if (!isGranted) {
+      return false;
+    }
+    if (hasServerCopy) {
+      return true;
+    }
+    return grant();
+  }
 
   @override
   Future<bool> grant() async {

@@ -3,7 +3,6 @@ import { downscaleJpeg } from "./analyze-meal-photo/image.ts";
 import { photoMealMessage } from "./analyze-meal-photo/messages.ts";
 import {
   checkPhotoCaps,
-  cookCoachUsageQuery,
   defaultPhotoLimits,
   estimateCostJpy,
   photoLimitsFromEnv,
@@ -661,13 +660,10 @@ Deno.test("a photo result is collected without the image", async () => {
   assertEquals(failedBody.collection_id, null);
 });
 
-Deno.test("a missing cook table does not change the photo count", async () => {
+Deno.test("photo count does not include cook coach", async () => {
   const urls: string[] = [];
   const fetchImpl = (input: string) => {
     urls.push(input);
-    if (input.includes("ai_feature_uses")) {
-      return Promise.resolve(new Response("{}", { status: 404 }));
-    }
     if (input.includes("meal_photo_analyses")) {
       return Promise.resolve(Response.json([
         { created_at: "2026-10-08T01:00:00Z", tier: "light", estimated_cost_jpy: 1 },
@@ -682,7 +678,6 @@ Deno.test("a missing cook table does not change the photo count", async () => {
   const rows = await live.usageRows("user-1", new Date("2026-10-01T00:00:00Z"));
   assertEquals(rows.length, 1);
   assertEquals(rows[0].tier, "light");
-  const query = cookCoachUsageQuery("user-1", "2026-10-01T00:00:00.000Z");
-  assertEquals(urls.some((url) => url.includes(query)), true);
+  assertEquals(urls.some((url) => url.includes("ai_feature_uses")), false);
   assertEquals(urls.some((url) => url.includes("ai_search")), false);
 });

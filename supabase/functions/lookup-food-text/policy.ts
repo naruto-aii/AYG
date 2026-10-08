@@ -45,20 +45,18 @@ export type LookupUsage = {
   monthSpendJpy: number;
 };
 
-// 1日は写真、AIで探す（外食・コンビニも同じ行）、自炊コーチを足す。
-// 月の回数は AIで探すだけ。費用は届いた行を全部足す。
+// 1日は写真、AIで探す（外食・コンビニも同じ行）を足す。自炊コーチは入れない。
+// 月の回数は AIで探すだけ。費用は写真と AIで探すを足す。
 export function lookupUsageFromRows(args: {
   textRows: UsageRow[];
   photoRows: UsageRow[];
-  cookRows?: UsageRow[];
   now: Date;
 }): LookupUsage {
   const text = summarizeUsage(args.textRows, args.now);
   const photo = summarizeUsage(args.photoRows, args.now);
-  const cook = summarizeUsage(args.cookRows ?? [], args.now);
   return {
-    dayCount: text.dayCount + photo.dayCount + cook.dayCount,
+    dayCount: text.dayCount + photo.dayCount,
     monthCount: text.monthCount,
-    monthSpendJpy: text.monthSpendJpy + photo.monthSpendJpy + cook.monthSpendJpy,
+    monthSpendJpy: text.monthSpendJpy + photo.monthSpendJpy,
   };
 }

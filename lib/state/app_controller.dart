@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../config/subscription_catalog.dart';
 import '../constants/app_strings.dart';
+import '../services/ai_data_consent.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/catalog_actions.dart';
 import '../repositories/storekit_subscription_repository.dart';
@@ -460,6 +461,10 @@ class AppController extends ChangeNotifier {
 
   Future<void> handleAuthenticatedSession({bool force = false}) async {
     final authUser = _authenticationRepository?.currentUser;
+    if (authUser != null) {
+      // ログインは止めない。保存に失敗しても、AI機能の直前でもう一度書く。
+      unawaited(AiDataConsent.recordLoginAgreement());
+    }
     final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
       return;

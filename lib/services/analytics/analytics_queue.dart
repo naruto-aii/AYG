@@ -14,14 +14,16 @@ class AnalyticsQueue {
   final int maxPending;
   int droppedOverflow = 0;
 
-  Future<void> enqueue(AnalyticsEvent event) async {
+  /// [now] は最初に送ってよい時刻。`AnalyticsService` は自分の時計（本番は `DateTime.now`）を渡す。
+  /// [markRetry] と同じく、渡されなければ端末の今の時刻。
+  Future<void> enqueue(AnalyticsEvent event, {DateTime? now}) async {
     final row = PendingAnalyticsEvent()
       ..eventId = event.eventId
       ..userId = event.userId
       ..json = event.encode()
       ..createdAt = DateTime.now().toUtc()
       ..attempts = 0
-      ..nextAttemptAt = DateTime.now().toUtc()
+      ..nextAttemptAt = (now ?? DateTime.now()).toUtc()
       ..quarantined = false;
     await _isar.writeTxn(() async {
       await _isar.pendingAnalyticsEvents.putByEventId(row);

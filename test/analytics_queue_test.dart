@@ -199,6 +199,57 @@ void main() {
     }
   });
 
+  test(
+    'the first send time comes from the given clock, else real now',
+    () async {
+      final isarHarness = await setUpIsarHarness();
+      final queue = AnalyticsQueue(isar: isarHarness.isar);
+      final past = DateTime.utc(2020, 1, 1, 9);
+      await queue.enqueue(_event('id-clock'), now: past);
+      final before = DateTime.now().toUtc();
+      await queue.enqueue(_event('id-real'));
+      final after = DateTime.now().toUtc();
+      final rows = {for (final row in await queue.all()) row.eventId: row};
+      expect(rows['id-clock']!.nextAttemptAt.toUtc(), past);
+      final real = rows['id-real']!.nextAttemptAt.toUtc();
+      expect(
+        real.isBefore(before.subtract(const Duration(seconds: 1))),
+        isFalse,
+      );
+      expect(real.isAfter(after.add(const Duration(seconds: 1))), isFalse);
+    },
+  );
+
+  test('events logged on a past test clock are sent on that clock', () async {
+    // 実際の時刻より前の時計でも、記録した時点で送れる（実時刻に左右されない）。
+    final isarHarness = await setUpIsarHarness();
+    final analytics = await AnalyticsHarness.open(
+      isar: isarHarness.isar,
+      clock: () => DateTime.utc(2020, 1, 1, 9),
+    );
+    await analytics.service.grantConsent(surface: 'first_launch');
+    await analytics.service.setCurrentUser(
+      '11111111-1111-4111-8111-111111111111',
+    );
+    await analytics.service.track('app_error', {
+      'error_type': 'StateError',
+      'where': 'queue',
+      'fatal': false,
+    });
+    await analytics.service.settled;
+    for (final row in await analytics.queue.all()) {
+      expect(row.nextAttemptAt.toUtc(), DateTime.utc(2020, 1, 1, 9));
+    }
+    analytics.holding.next = const AnalyticsSendResult.success();
+    await analytics.service.flush();
+    expect(
+      analytics.holding.delivered.where(
+        (row) => row['event_name'] == 'app_error',
+      ),
+      hasLength(1),
+    );
+  });
+
   test('overflow drops the oldest and counts it', () async {
     final isarHarness = await setUpIsarHarness();
     final queue = AnalyticsQueue(isar: isarHarness.isar, maxPending: 2);

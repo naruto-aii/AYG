@@ -209,12 +209,12 @@ class AnalyticsService {
 
   Future<void> _save(AnalyticsEvent event) async {
     try {
-      await _queue.enqueue(event);
+      await _queue.enqueue(event, now: _clock());
     } catch (error, stackTrace) {
       debugPrint('[AYG] analytics enqueue failed: $error');
       debugPrintStack(stackTrace: stackTrace);
       try {
-        await _queue.enqueue(event);
+        await _queue.enqueue(event, now: _clock());
       } catch (again, againStack) {
         enqueueFailures += 1;
         await _preferences.setInt(
@@ -262,7 +262,7 @@ class AnalyticsService {
           props: _sanitize(event.eventName, event.props),
           userId: event.userId ?? currentUserId,
         );
-        await _queue.enqueue(stamped);
+        await _queue.enqueue(stamped, now: _clock());
         saved.add(file.name);
       } catch (error, stackTrace) {
         debugPrint('[AYG] analytics native import failed: $error');

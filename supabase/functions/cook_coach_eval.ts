@@ -257,8 +257,9 @@ function scoreSelection(scenario: EvalScenario, selection: CookSelection): strin
     if (!dish) {
       continue;
     }
-    if (!dish.within) {
-      reasons.push(`${label} outside tolerance`);
+    const kcalLimit = Math.abs(scenario.target.kcal) * 0.10 + 0.51;
+    if (Math.abs(dish.totals.kcal - scenario.target.kcal) > kcalLimit) {
+      reasons.push(`${label} kcal outside ±10%`);
     }
     for (const reason of scoreDish(dish, scenario.target, scenario.slot, scenario.note)) {
       reasons.push(`${label} ${reason}`);

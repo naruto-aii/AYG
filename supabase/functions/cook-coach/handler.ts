@@ -2,20 +2,15 @@
 // 料理の考案ではモデルを呼ばない。この変更では関数をデプロイせず、本番へ適用しない。
 
 import {
-  lightModelDefault,
   readNonNegativeInt,
-  readPositiveInt,
   tokyoDateKey,
   type PhotoAiEnv,
 } from "../analyze-meal-photo/policy.ts";
-import type { PhotoAiUsage } from "../analyze-meal-photo/provider.ts";
-import type { FetchLike } from "../analyze-meal-photo/provider.ts";
+import type { FetchLike, PhotoAiUsage } from "../analyze-meal-photo/provider.ts";
 import { normalizeFoodName, type FoodRow, type MeasuredDish } from "./match.ts";
-import { completeCook } from "./model.ts";
 import { cookRecipesFromDb, recipeStamp, selectCookPlans, type CookRecipe } from "./select.ts";
 
 export const aiDailyLimitDefault = 15;
-export const cookMaxTokensDefault = 640;
 const cacheTtlMs = 7 * 24 * 60 * 60 * 1000;
 
 export type CookEnv = PhotoAiEnv & {
@@ -141,13 +136,6 @@ function fail(code: string, message: string, status: number): Response {
   return json({ ok: false, code, message }, status);
 }
 
-const emptyUsage: PhotoAiUsage = {
-  inputTokens: 0,
-  outputTokens: 0,
-  cacheReadTokens: 0,
-  cacheWriteTokens: 0,
-};
-
 export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Response> {
   if (req.method !== "POST") {
     return fail("bad_request", "送信できませんでした。もう一度試してください。", 405);
@@ -210,12 +198,6 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
       deps.log("cook-coach cache read failed");
     }
   }
-  const limit = aiDailyLimitFromEnv(deps.env);
-  const used = await deps.dailyCount(userId, tokyoDayStartUtc(now));
-  if (used >= limit) {
-    return fail("daily_cap", "本日の上限に達しました", 429);
-  }
-
   const started = Date.now();
   const selection = selectCookPlans(recipes, {
     ingredients: input.ingredients,
@@ -253,26 +235,12 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
     },
     patterns,
   };
-  let usageId: string | null = null;
-  if (patterns.length > 0) {
-    usageId = await deps.insertUsage(usageRow({
-      userId,
-      model: "none",
-      usage: emptyUsage,
-      cost: 0,
-      latencyMs,
-      retried: false,
-      hadNote: input.note.length > 0,
-      mealSlot: input.slot,
-      success: true,
-      errorCode: null,
-    }));
-    if (deps.writeCache) {
-      try {
-        await deps.writeCache(cacheKey, stored);
-      } catch {
-        deps.log("cook-coach cache write failed");
-      }
+  const usageId: string | null = null;
+  if (patterns.length > 0 && deps.writeCache) {
+    try {
+      await deps.writeCache(cacheKey, stored);
+    } catch {
+      deps.log("cook-coach cache write failed");
     }
   }
   return json({
@@ -439,36 +407,6 @@ function patternJson(kind: "on_hand" | "extra", dish: MeasuredDish) {
   };
 }
 
-function usageRow(args: {
-  userId: string;
-  model: string;
-  usage: PhotoAiUsage;
-  cost: number;
-  latencyMs: number;
-  retried: boolean;
-  hadNote: boolean;
-  mealSlot: string;
-  success: boolean;
-  errorCode: string | null;
-}): CookUsageInsert {
-  return {
-    userId: args.userId,
-    provider: "recipe-db",
-    model: args.model,
-    inputTokens: args.usage.inputTokens,
-    outputTokens: args.usage.outputTokens,
-    cacheReadTokens: args.usage.cacheReadTokens,
-    cacheWriteTokens: args.usage.cacheWriteTokens,
-    estimatedCostJpy: args.cost,
-    latencyMs: args.latencyMs,
-    retried: args.retried,
-    hadNote: args.hadNote,
-    mealSlot: args.mealSlot,
-    success: args.success,
-    errorCode: args.errorCode,
-  };
-}
-
 type FetchJson = { ok: boolean; status: number; body: unknown; headers: Headers };
 
 async function authedFetch(
@@ -509,14 +447,7 @@ export function liveDeps(
     now: () => new Date(),
     log: (message) => console.error(message),
     model: () => ({
-      complete: (userText) =>
-        completeCook({
-          fetchImpl,
-          apiKey: env.ANTHROPIC_API_KEY ?? "",
-          model: env.PHOTO_AI_LIGHT_MODEL?.trim() || lightModelDefault,
-          maxTokens: readPositiveInt(env.COOK_AI_MAX_TOKENS, cookMaxTokensDefault),
-          userText,
-        }),
+      complete: () => Promise.reject(new Error("cook coach does not call a model")),
     }),
     async userId(req) {
       const header = req.headers.get("Authorization") ?? "";
@@ -560,7 +491,7 @@ export function liveDeps(
       );
       const shared = await countRows(
         `${base}/rest/v1/ai_feature_uses?user_id=eq.${userId}&created_at=gte.${sinceKey}` +
-          `&feature=in.(cook_coach,ai_search)&select=id`,
+          `&feature=eq.ai_search&select=id`,
         serviceKey,
         fetchImpl,
       );

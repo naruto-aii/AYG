@@ -302,12 +302,18 @@ export function realisticGramBounds(name: string, suggested: number): GramWindow
   } else if (isSugar(name)) {
     min = 0;
     max = 12;
+  } else if (name.includes("片栗粉") || name.includes("小麦粉") || name.includes("薄力粉")) {
+    min = 5;
+    max = 30;
+  } else if (name.includes("カレールウ")) {
+    min = 15;
+    max = 45;
   } else if (isSeasoning(name)) {
     min = 0;
     max = 18;
   } else if (isRice(name)) {
-    min = 100;
-    max = 300;
+    min = 50;
+    max = 400;
   } else if (isBread(name)) {
     min = 60;
     max = 180;
@@ -617,11 +623,11 @@ export function explainGap(target: Macros, dish: MeasuredDish): string {
     );
   }
   const rice = dish.ingredients.find((item) => isRice(item.name));
-  if (rice && rice.grams <= 100 && gap.carbG < 0) {
-    parts.push("ごはんは100gより少なくできない");
+  if (rice && rice.grams <= 50 && gap.carbG < 0) {
+    parts.push("ごはんは50gより少なくできない");
   }
-  if (rice && rice.grams >= 300 && gap.kcal > 0) {
-    parts.push("ごはんは300gまで");
+  if (rice && rice.grams >= 400 && gap.kcal > 0) {
+    parts.push("ごはんは400gまで");
   }
   const meat = dish.ingredients.find((item) => isMeatFish(item.name));
   if (meat && meat.grams >= 250 && gap.proteinG > 0) {
@@ -878,7 +884,10 @@ function isSugar(name: string): boolean {
 }
 
 export function isSeasoning(name: string): boolean {
-  const words = ["塩", "しょうゆ", "醤油", "砂糖", "酒", "みりん", "酢", "味噌", "みそ", "こしょう", "胡椒", "だし", "ソース", "ケチャップ", "マヨ"];
+  const words = [
+    "塩", "しょうゆ", "醤油", "砂糖", "酒", "みりん", "酢", "味噌", "みそ", "こしょう", "胡椒", "だし",
+    "ソース", "ケチャップ", "マヨ", "豆板醤", "ナンプラー", "ウスター", "コンソメ",
+  ];
   return words.some((word) => name.includes(word));
 }
 
@@ -906,7 +915,11 @@ export function isMeatFish(name: string): boolean {
   if (isEgg(name) || name.includes("豆腐") || name.includes("納豆") || name.includes("チーズ") || name.includes("牛乳")) {
     return false;
   }
-  const words = ["肉", "鶏", "豚", "牛", "鮭", "さけ", "魚", "ひき", "ささみ", "ぶり", "さば", "あじ", "いわし", "たら", "まぐろ", "ツナ", "えび", "いか", "サーモン"];
+  const words = [
+    "肉", "鶏", "豚", "牛", "鮭", "さけ", "魚", "ひき", "ささみ", "ぶり", "さば", "あじ", "いわし", "たら",
+    "まぐろ", "ツナ", "えび", "いか", "サーモン", "ほっけ", "あんこう", "ちくわ", "ベーコン", "ウインナー",
+    "ハム", "ロース", "厚揚げ",
+  ];
   return words.some((word) => name.includes(word));
 }
 
@@ -918,7 +931,12 @@ export function isVeg(name: string): boolean {
   if (isPotato(name)) {
     return true;
   }
-  const words = ["キャベツ", "玉ねぎ", "たまねぎ", "にんじん", "人参", "トマト", "ねぎ", "もやし", "ほうれん草", "ブロッコリー", "白菜", "ピーマン", "なす", "きゅうり", "レタス", "大根", "きのこ", "しいたけ", "小松菜", "豆苗"];
+  const words = [
+    "キャベツ", "玉ねぎ", "たまねぎ", "にんじん", "人参", "トマト", "ねぎ", "もやし", "ほうれん草",
+    "ブロッコリー", "白菜", "ピーマン", "なす", "きゅうり", "レタス", "大根", "きのこ", "しいたけ",
+    "小松菜", "豆苗", "ごぼう", "こんにゃく", "アボカド", "かぼちゃ", "とうもろこし", "しめじ",
+    "えのき", "めんま", "らっきょう",
+  ];
   return words.some((word) => name.includes(word));
 }
 

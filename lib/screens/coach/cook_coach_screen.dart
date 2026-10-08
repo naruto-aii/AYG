@@ -732,10 +732,10 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
         const SizedBox(height: 8),
         Text(dish.name, style: AppTypography.titleM),
         const SizedBox(height: 8),
-        for (final item in dish.ingredients)
+        for (var i = 0; i < dish.ingredients.length; i++)
           Text(
-            '${cookIngredientAmount(item.name, item.grams)}　${item.kcal}kcal',
-            key: Key('cook_saved_${item.name}'),
+            '${cookIngredientAmount(dish.ingredients[i].name, dish.ingredients[i].grams)}　${dish.ingredients[i].kcal}kcal',
+            key: Key('cook_saved_${i}_${dish.ingredients[i].name}'),
             style: AppTypography.bodyS.copyWith(color: AppColors.textPrimary),
           ),
         const SizedBox(height: 8),

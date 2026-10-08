@@ -69,16 +69,27 @@ export function nameMismatch(name: string, items: { name: string }[]): boolean {
     { pattern: /豚/, ok: (rows) => rows.some((item) => item.name.includes("豚")) },
     { pattern: /牛/, ok: (rows) => rows.some((item) => item.name.includes("牛")) },
     { pattern: /鮭|さけ|サーモン/, ok: (rows) => rows.some((item) => /鮭|さけ|サーモン/.test(item.name)) },
-    { pattern: /魚/, ok: (rows) => rows.some((item) => /魚|鮭|さけ|ぶり|さば|あじ|いわし|まぐろ/.test(item.name)) },
+    { pattern: /魚/, ok: (rows) => rows.some((item) => /魚|鮭|さけ|ぶり|さば|あじ|いわし|まぐろ|ほっけ|たら|あんこう|いか|えび/.test(item.name)) },
     { pattern: /玉ねぎ|たまねぎ/, ok: (rows) => rows.some((item) => item.name.includes("玉ねぎ") || item.name.includes("たまねぎ")) },
     { pattern: /トマト/, ok: (rows) => rows.some((item) => item.name.includes("トマト")) },
     { pattern: /納豆/, ok: (rows) => rows.some((item) => item.name.includes("納豆")) },
+    { pattern: /味噌/, ok: (rows) => rows.some((item) => item.name.includes("味噌")) },
+    { pattern: /バター/, ok: (rows) => rows.some((item) => item.name.includes("バター")) },
+    { pattern: /ムニエル/, ok: (rows) => rows.some((item) => /小麦粉|薄力粉/.test(item.name)) && rows.some((item) => item.name.includes("バター")) },
+    { pattern: /麻婆/, ok: (rows) => rows.some((item) => item.name.includes("豆板醤")) && rows.some((item) => item.name.includes("片栗粉")) },
+    { pattern: /レモン/, ok: (rows) => rows.some((item) => item.name.includes("レモン")) },
+    { pattern: /コンソメ/, ok: (rows) => rows.some((item) => item.name.includes("コンソメ")) },
+    { pattern: /エスニック/, ok: (rows) => rows.some((item) => /ナンプラー|レモン/.test(item.name)) },
+    { pattern: /酢豚/, ok: (rows) => rows.some((item) => item.name.includes("酢")) && rows.filter((item) => isVeg(item.name)).length >= 2 },
+    { pattern: /チーズ/, ok: (rows) => rows.some((item) => item.name.includes("チーズ")) },
+    { pattern: /にんにく|ガーリック/, ok: (rows) => rows.some((item) => item.name.includes("にんにく")) },
+    { pattern: /生姜|しょうが/, ok: (rows) => rows.some((item) => item.name.includes("しょうが")) },
   ];
   return claims.some((claim) => claim.pattern.test(name) && !claim.ok(items));
 }
 
 const dishMethod =
-  /丼|炒|煮|焼|蒸|ゆで|茹|和え|冷奴|冷やっこ|冷ややっこ|サラダ|スープ|汁|鍋|漬|浸し|おひたし|チャーハン|雑炊|粥|おかゆ|オムレツ|目玉|スクランブル|温め|グリル|ソテー|あんかけ|南蛮|竜田|生姜|ムニエル|ホイル|茶碗|卵とじ|玉子|おにぎり|弁当|ステーキ|マリネ|照り/;
+  /丼|炒|煮|焼|蒸|ゆで|茹|和え|冷奴|冷やっこ|冷ややっこ|サラダ|スープ|汁|鍋|漬|浸し|おひたし|チャーハン|雑炊|粥|おかゆ|オムレツ|目玉|スクランブル|温め|グリル|ソテー|あんかけ|南蛮|竜田|生姜|ムニエル|ホイル|茶碗|卵とじ|玉子|おにぎり|弁当|ステーキ|マリネ|照り|麺|うどん|そば|パスタ/;
 const noHeatDish = /冷奴|冷ややっこ|冷やっこ|和え物|和え|酢の物|おひたし|お浸し/;
 const cookAction = /フライパン|鍋|電子レンジ|炊飯器|焼|煮|炒|蒸|ゆで|茹|加熱|温め|熱し|熱する/;
 const seasonVerb = /かける|和え|あえ|混ぜ|のせる|ふる|振る|絡め|溶く/;
@@ -170,7 +181,8 @@ export function stepIssues(
   note = "",
 ): string[] {
   const issues: string[] = [];
-  if (steps.length < 3 || steps.length > 6) {
+  const stepMax = name.includes("、") ? 18 : 6;
+  if (steps.length < 3 || steps.length > stepMax) {
     issues.push("count");
   }
   const text = steps.join("\n");

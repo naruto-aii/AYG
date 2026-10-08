@@ -105,6 +105,36 @@ function checkRow(row: Row): string[] {
       issues.push("protein ratio");
     }
   }
+  const joined = chosen.map((option) => option.label).join(" ");
+  const keywordNeeds: Array<[RegExp, RegExp]> = [
+    [/ムニエル/, /小麦粉|薄力粉/],
+    [/ムニエル/, /バター/],
+    [/バター/, /バター/],
+    [/トマト/, /トマト|ケチャップ/],
+    [/味噌/, /味噌/],
+    [/カレー/, /カレー/],
+    [/麻婆/, /豆板醤/],
+    [/麻婆/, /片栗粉/],
+    [/レモン/, /レモン/],
+    [/コンソメ/, /コンソメ/],
+    [/エスニック/, /ナンプラー|レモン/],
+    [/ナンプラー/, /ナンプラー/],
+    [/酢豚/, /酢/],
+    [/にんにく|ガーリック/, /にんにく/],
+    [/生姜|しょうが/, /しょうが/],
+    [/チーズ/, /チーズ/],
+  ];
+  for (const [claim, need] of keywordNeeds) {
+    if (claim.test(name) && !need.test(joined)) {
+      issues.push(`keyword ${claim}`);
+    }
+  }
+  if (/かきたま|卵とトマトのスープ/.test(name) && joined.includes("味噌")) {
+    issues.push("miso in clear soup");
+  }
+  if (/和え/.test(name) && !/ゆで|茹|火を通|加熱|焼く/.test(steps.join("\n")) && /じゃがいも|ブロッコリー|かぼちゃ|ごぼう/.test(joined)) {
+    issues.push("boiled vegetable missing a cook step");
+  }
   const totals = macros(chosen);
   const floor = recipe.category === "副菜" || recipe.category === "汁物" || recipe.category === "軽い品" ? 25 : 80;
   if (totals.kcal < floor || totals.kcal > 1200) {
@@ -151,7 +181,17 @@ function line(row: Row): string {
 const recipes = cookRecipes;
 const failures: string[] = [];
 const names = new Map<string, string>();
+const fingerprints = new Map<string, string>();
 let patterns = 0;
+
+function fingerprint(row: Row): string {
+  const foods = row.chosen
+    .map((option) => `${option.foodCode}:${option.grams}`)
+    .sort()
+    .join("|");
+  const totals = macros(row.chosen);
+  return `${foods}#${totals.kcal},${totals.proteinG},${totals.fatG},${totals.carbG}`;
+}
 if (recipes.length !== 100) {
   failures.push(`recipe count ${recipes.length}`);
 }
@@ -172,7 +212,16 @@ for (const recipe of recipes) {
       failures.push(`duplicate name ${row.name} (${previous}, ${recipe.id})`);
     }
     names.set(row.name, recipe.id);
+    const print = fingerprint(row);
+    const same = fingerprints.get(print);
+    if (same && same !== recipe.id) {
+      failures.push(`duplicate composition ${row.name} (${same}, ${recipe.id})`);
+    }
+    fingerprints.set(print, recipe.id);
   }
+}
+if (patterns < 1500) {
+  failures.push(`patterns ${patterns} < 1500`);
 }
 
 const genres = new Map<string, number>();

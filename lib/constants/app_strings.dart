@@ -106,9 +106,9 @@ class AppStrings {
   static const plusMonthlyNote = 'いつでも解約できます';
 
   /// ストアが金額を返せないときだけの表示。購入処理では使わない。
-  static const plusFallbackMonthlyPrice = '¥580';
-  static const plusFallbackHalfYearPrice = '¥2,900';
-  static const plusFallbackYearlyPrice = '¥5,400';
+  static const plusFallbackMonthlyPrice = '¥980';
+  static const plusFallbackHalfYearPrice = '¥4,900';
+  static const plusFallbackYearlyPrice = '¥8,800';
   static const plusAutoRenew =
       '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
   static const plusCancelHow =

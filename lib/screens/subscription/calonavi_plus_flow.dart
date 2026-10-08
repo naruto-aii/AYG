@@ -45,7 +45,7 @@ Future<void> showCalonaviPlus(
   );
 }
 
-/// `¥2,900` のような円表示だけを読む。ドルなどは読まない。
+/// `¥4,900` のような円表示だけを読む。ドルなどは読まない。
 int? yenAmount(String localized) {
   final match = RegExp(
     r'^[¥￥]\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)$',

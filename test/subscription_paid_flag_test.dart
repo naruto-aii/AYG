@@ -82,10 +82,10 @@ void main() {
         find.textContaining(AppStrings.siriVoiceFoodPhrase),
         findsOneWidget,
       );
-      expect(find.textContaining('¥580'), findsWidgets);
+      expect(find.textContaining('¥980'), findsWidgets);
       expect(find.text('半年'), findsOneWidget);
       expect(find.text('年額'), findsOneWidget);
-      expect(find.text('¥5,400で始める'), findsOneWidget);
+      expect(find.text('¥8,800で始める'), findsOneWidget);
       expect(find.textContaining('380'), findsNothing);
       expect(gateway.paid, isFalse);
       expect(plus.monthlyPurchases, 0);
@@ -94,7 +94,7 @@ void main() {
       await tester.tap(find.byKey(const Key('plus-plan-monthly')));
       await tester.pumpAndSettle();
       expect(plus.monthlyPurchases, 0);
-      expect(find.text('¥580で始める'), findsOneWidget);
+      expect(find.text('¥980で始める'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('plus-purchase')));
       await tester.pumpAndSettle();
@@ -129,7 +129,7 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥580',
+        localizedPrice: '¥980',
       ),
       yearly: null,
       loadFailed: false,

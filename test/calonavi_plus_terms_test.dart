@@ -22,10 +22,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('¥580 ・ いつでも解約できます'), findsOneWidget);
-    expect(find.text('¥2,900 ・ 月あたり約483円'), findsOneWidget);
-    expect(find.text('¥5,400 ・ 月あたり450円'), findsOneWidget);
-    expect(find.text('¥5,400で始める'), findsOneWidget);
+    expect(find.text('¥980 ・ いつでも解約できます'), findsOneWidget);
+    expect(find.text('¥4,900 ・ 月あたり約817円'), findsOneWidget);
+    expect(find.text('¥8,800 ・ 月あたり約733円'), findsOneWidget);
+    expect(find.text('¥8,800で始める'), findsOneWidget);
     expect(AppStrings.plusBenefitSiriBody.contains('β'), isFalse);
     expect(AppStrings.plusBenefitSiriBody.contains('カロナビ+'), isFalse);
     expect(find.text('お得'), findsOneWidget);
@@ -94,14 +94,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('¥580 ・ いつでも解約できます'), findsOneWidget);
-    expect(find.text('¥3,480 ・ 月あたり580円'), findsOneWidget);
-    expect(find.text('¥5,800 ・ 月あたり約483円'), findsOneWidget);
-    expect(find.text('¥5,800で始める'), findsOneWidget);
+    expect(find.text('¥1,200 ・ いつでも解約できます'), findsOneWidget);
+    expect(find.text('¥7,200 ・ 月あたり1,200円'), findsOneWidget);
+    expect(find.text('¥10,000 ・ 月あたり約833円'), findsOneWidget);
+    expect(find.text('¥10,000で始める'), findsOneWidget);
     expect(find.text('一番お得'), findsOneWidget);
     expect(find.text('お得'), findsNothing);
-    expect(find.textContaining('¥5,400'), findsNothing);
-    expect(find.textContaining('¥2,900'), findsNothing);
+    expect(find.textContaining('¥980'), findsNothing);
+    expect(find.textContaining('¥4,900'), findsNothing);
+    expect(find.textContaining('¥8,800'), findsNothing);
   });
 }
 
@@ -119,17 +120,17 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥580',
+        localizedPrice: '¥980',
       ),
       halfYear: SubscriptionProductOffer(
         productId: SubscriptionCatalog.halfYearProductId,
         period: PlusBillingPeriod.halfYear,
-        localizedPrice: '¥2,900',
+        localizedPrice: '¥4,900',
       ),
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,
         period: PlusBillingPeriod.year,
-        localizedPrice: '¥5,400',
+        localizedPrice: '¥8,800',
       ),
       loadFailed: false,
     );
@@ -143,17 +144,17 @@ class _DifferentStorePrices extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥580',
+        localizedPrice: '¥1,200',
       ),
       halfYear: SubscriptionProductOffer(
         productId: SubscriptionCatalog.halfYearProductId,
         period: PlusBillingPeriod.halfYear,
-        localizedPrice: '¥3,480',
+        localizedPrice: '¥7,200',
       ),
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,
         period: PlusBillingPeriod.year,
-        localizedPrice: '¥5,800',
+        localizedPrice: '¥10,000',
       ),
       loadFailed: false,
     );

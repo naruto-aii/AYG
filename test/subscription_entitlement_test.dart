@@ -149,10 +149,10 @@ void main() {
     const offer = SubscriptionProductOffer(
       productId: SubscriptionCatalog.monthlyProductId,
       period: PlusBillingPeriod.month,
-      localizedPrice: '¥580',
+      localizedPrice: '¥980',
     );
     expect(offer.canPurchase, isTrue);
-    expect(offer.buttonLabel, '月額 ¥580');
+    expect(offer.buttonLabel, '月額 ¥980');
     const empty = SubscriptionProductOffer(
       productId: SubscriptionCatalog.monthlyProductId,
       period: PlusBillingPeriod.month,

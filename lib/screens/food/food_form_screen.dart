@@ -17,7 +17,10 @@ import '../../models/saved_food.dart';
 import '../../models/saved_food_draft.dart';
 import '../../models/public_food_search_match.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../services/open_food_facts_service.dart';
+import '../../services/ai_food_lookup_client.dart';
+import '../../services/photo_meal_client.dart';
 import '../../services/public_food_meal_add_flow.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -25,12 +28,16 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../config/demo_mode.dart';
 import '../../constants/app_strings.dart';
+import '../../demo/demo_ai.dart';
+import '../../demo/demo_meal_photo.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_base_serving_format.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/design/design_button.dart';
+import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
@@ -41,6 +48,7 @@ import '../../widgets/food/combined_food_search.dart';
 import '../../widgets/food/food_form_suggestion_list.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../official_food/official_food_detail_screen.dart';
+import '../subscription/plus_gate.dart';
 import '../../services/source_food_edit_policy.dart';
 import '../../widgets/food/source_food_update_dialog.dart';
 import '../../widgets/saved_food/duplicate_saved_food_dialog.dart';
@@ -48,6 +56,8 @@ import '../../widgets/saved_food/saved_food_visibility_selector.dart';
 import '../../widgets/saved_food/serving_amount_fields.dart';
 import 'meal_food_search_screen.dart';
 import 'barcode_scanner_screen.dart';
+import 'ai_food_lookup_screen.dart';
+import 'photo_meal_screen.dart';
 import 'food_form_template_actions.dart';
 import 'food_meal_registration_screen.dart';
 
@@ -64,6 +74,7 @@ class FoodFormScreen extends StatefulWidget {
     this.guideFirstMeal = false,
     this.initialQuery,
     this.searchOverrides,
+    this.aiLookup,
   });
 
   final AppController controller;
@@ -80,6 +91,9 @@ class FoodFormScreen extends StatefulWidget {
 
   /// テストが食品名欄と「食品を探す」の検索先を差し替える。
   final CombinedFoodSearchOverrides? searchOverrides;
+
+  /// テストが AIで探すの呼び出し先を差し替える。
+  final AiFoodLookupClient? aiLookup;
 
   bool get isEditing => entry != null;
 
@@ -283,7 +297,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
     final barcode = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
-      settings: const RouteSettings(name: 'food_form_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'food_form_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => const BarcodeScannerScreen(),
       ),
     );
@@ -348,6 +364,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         builder: (context) => MealFoodSearchScreen(
           controller: widget.controller,
           searchOverrides: widget.searchOverrides,
+          aiLookup: widget.aiLookup,
+          loggedAt: _loggedAt,
         ),
       ),
     );
@@ -756,23 +774,12 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             ],
             if (!widget.isEditing) ...[
               const SizedBox(height: 8),
-              FormTabBar(
-                items: const [
-                  FormTabItem(icon: Symbols.edit_rounded, label: '手入力'),
-                  FormTabItem(
-                    icon: Symbols.barcode_scanner_rounded,
-                    label: 'バーコード',
-                  ),
-                  FormTabItem(icon: Symbols.search_rounded, label: '食品を探す'),
-                  FormTabItem(icon: Symbols.list_alt_rounded, label: 'テンプレート'),
-                ],
-                selectedIndex: _barcodeSectionExpanded ? 1 : 0,
-                onSelected: _onInputTabSelected,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '食べたものを記録します。保存済み食品や定番の食品は「食品を探す」から選べます。',
-                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              _MealAddGroups(
+                showPhoto: !kIsWeb,
+                barcodeSelected: _barcodeSectionExpanded,
+                onPhoto: _openPhotoMeal,
+                onSearch: _openFoodSearch,
+                onOtherSelected: _onOtherMethodSelected,
               ),
             ],
             if (!_barcodeSectionExpanded) ...[
@@ -799,16 +806,58 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
-  void _onInputTabSelected(int index) {
+  void _onOtherMethodSelected(int index) {
     switch (index) {
       case 0:
         setState(() => _barcodeSectionExpanded = false);
       case 1:
         setState(() => _barcodeSectionExpanded = true);
       case 2:
-        _openFoodSearch();
-      case 3:
         _openTemplatePicker();
+    }
+  }
+
+  Future<void> _openPhotoMeal() async {
+    final allowed = await ensureCalonaviPlus(
+      context,
+      widget.controller,
+      message: '写真で登録 (β) は、カロナビ+です。食事の写真から、カロリーとPFCの推定を出します。',
+      feature: PlusFunnelFeature.photoMeal,
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        settings: const RouteSettings(name: 'photo_meal'),
+        builder: (context) => PhotoMealScreen(
+          controller: widget.controller,
+          loggedAt: _loggedAt,
+          client: calonaviDemoMode
+              ? demoPhotoMealClient()
+              : PhotoMealClient.supabase(),
+          source: calonaviDemoMode ? const DemoMealPhotoSource() : null,
+          recordEdit: calonaviDemoMode ? (_, _) async {} : null,
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  Future<void> _openAiLookup(String query) async {
+    final saved = await openAiFoodLookup(
+      context: context,
+      controller: widget.controller,
+      query: query,
+      loggedAt: _loggedAt,
+      client:
+          widget.aiLookup ??
+          (calonaviDemoMode ? demoAiFoodLookupClient() : null),
+    );
+    if (saved && mounted) {
+      Navigator.of(context).pop(true);
     }
   }
 
@@ -839,6 +888,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
           onOfficialFood: (match) =>
               openOfficialFoodDetail(context, widget.controller, match),
           onPublicFood: _pickPublicFood,
+          onAiFoodLookup: _openAiLookup,
         );
       },
     );
@@ -1171,5 +1221,71 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       return;
     }
     Navigator.of(context).pop();
+  }
+}
+
+/// 食事を追加の入口。写真で登録、検索、その他。検索と保存の処理は変えない。
+class _MealAddGroups extends StatelessWidget {
+  const _MealAddGroups({
+    required this.showPhoto,
+    required this.barcodeSelected,
+    required this.onPhoto,
+    required this.onSearch,
+    required this.onOtherSelected,
+  });
+
+  final bool showPhoto;
+  final bool barcodeSelected;
+  final VoidCallback onPhoto;
+  final VoidCallback onSearch;
+  final ValueChanged<int> onOtherSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AppTypography.bodyS.copyWith(color: AppColors.textMuted);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showPhoto) ...[
+          DesignButton(
+            key: const Key('meal-add-photo'),
+            label: '写真で登録',
+            showTrailingIcon: false,
+            leading: const DesignIcon(
+              Symbols.photo_camera_rounded,
+              size: 22,
+              color: AppColors.textOnPrimary,
+            ),
+            onPressed: onPhoto,
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        DesignButton(
+          key: const Key('meal-add-search'),
+          label: '検索',
+          style: DesignButtonStyle.outline,
+          showTrailingIcon: false,
+          leading: const DesignIcon(
+            Symbols.search_rounded,
+            size: 22,
+            color: AppColors.textBrand,
+          ),
+          onPressed: onSearch,
+        ),
+        const SizedBox(height: 6),
+        Text('保存済み、定番の食品、公開食品をまとめて探します。', style: muted),
+        const SizedBox(height: AppSpacing.md),
+        Text('その他', style: AppTypography.titleS),
+        FormTabBar(
+          items: const [
+            FormTabItem(icon: Symbols.edit_rounded, label: '手入力'),
+            FormTabItem(icon: Symbols.barcode_scanner_rounded, label: 'バーコード'),
+            FormTabItem(icon: Symbols.list_alt_rounded, label: 'テンプレート'),
+          ],
+          selectedIndex: barcodeSelected ? 1 : 0,
+          onSelected: onOtherSelected,
+        ),
+      ],
+    );
   }
 }

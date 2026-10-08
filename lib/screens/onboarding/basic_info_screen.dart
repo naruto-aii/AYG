@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
+import '../../config/demo_mode.dart';
 import '../../models/display_name.dart';
 import '../../models/health_profile_data.dart';
 import '../../models/user_profile.dart';
@@ -68,6 +69,12 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
     final weight = widget.healthPrefill.weightKg;
     if (weight != null) {
       _weightController.text = weight.toStringAsFixed(1);
+    }
+    if (calonaviDemoMode && _birthDate == null) {
+      _birthDate = DateTime(1996, 4, 12);
+      _gender = Gender.female;
+      _heightController.text = '162';
+      _weightController.text = '54.0';
     }
   }
 
@@ -143,7 +150,9 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'basic_info_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'basic_info_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => GoalSetupScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,

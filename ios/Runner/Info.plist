@@ -69,9 +69,11 @@
   <key>NSSiriUsageDescription</key>
   <string>食事と運動を、復唱してから登録するためにSiriを使います。</string>
   <key>NSCameraUsageDescription</key>
-  <string>商品バーコードを読み取り、食事登録を簡単にするためにカメラを使用します。</string>
+  <string>食事の写真を撮って栄養を推定し、商品バーコードを読み取るためにカメラを使います。食事の写真はカロナビに保存しません。</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>カメラロールの食事の写真から栄養を推定するために使います。選んだ写真はカロナビに保存しません。</string>
   <key>NSPhotoLibraryAddUsageDescription</key>
-  <string>共有した記録の画像を、写真に保存するときに使います。写真は読み取りません。</string>
+  <string>共有した記録の画像を、写真に保存するときに使います。</string>
   <key>NSHealthShareUsageDescription</key>
   <string>生年月日、性別、身長、体重、アクティブエネルギー、ワークアウトを読み取り、1日の食事目標を計算するために使います。</string>
   <key>NSHealthUpdateUsageDescription</key>

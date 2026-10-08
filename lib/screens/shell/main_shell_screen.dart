@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../config/demo_mode.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
@@ -162,7 +163,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
         healthRepository: widget.healthRepository,
         openFoodFactsService: widget.openFoodFactsService,
         showLockScreenMeal:
-            !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
+            calonaviDemoMode ||
+            (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS),
       ),
     ];
   }

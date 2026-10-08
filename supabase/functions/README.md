@@ -132,3 +132,41 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 ```sh
 deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_photo_test.ts
 ```
+
+## 自炊コーチ
+
+`cook-coach` は、手元の食材とこの食事の目標（kcal と PFC）を受け取り、家庭で作る料理を返します。モデルは料理の中身だけを決めます。kcal と PFC は `official_foods` の値で計算し直します。成分表に無い食品だけ、モデルの目安を使い、画面では「AIの目安」と出します。目標との差は残したまま返します。
+
+届ける範囲は、kcal が目標の ±10%、P/F/C がそれぞれ ±15% か ±5g の広い方です。分量は一律の倍率ではなく、食材ごとの現実的な下限と上限の中で、kcal と PFC の差が小さくなるグラムを解きます。調味料や油は小さじ程度、主菜や主食は家庭の一皿に収まる範囲です。それでも範囲に入らないときだけ、測った値を渡してもう1回モデルを呼びます。揚げ物、真空調理、低温調理、専門の食材、9つ以上の食材、指定が無いときの30分超も、その1回で家庭の手順に直します。3回目は呼びません。同じ食材と、10kcal 単位に丸めた目標は `cook_coach_cache` から返し、モデルは呼びません。思考はオフ、出力は短い JSON、固定のシステムプロンプトは prompt caching です。モデルは `PHOTO_AI_LIGHT_MODEL`（空なら `claude-haiku-5-5`）です。`COOK_AI_MAX_TOKENS` の初期値は 640 です。
+
+1日の回数は、写真で登録（`meal_photo_analyses`）と、この表の `cook_coach` と `ai_search` を合わせて数えます。初期値は 15 回です。`AI_DAILY_LIMIT` で変えます。AIで探すは、モデルを1回呼ぶたびに `ai_feature_uses` へ `feature = 'ai_search'` の行を1件追加します。写真で登録の行は、この表には入れません。
+
+この変更では関数をデプロイせず、マイグレーションも本番へ適用しません。
+
+`verify_jwt = true` です。利用者は JWT から決めます。カロナビ+ は `public.calonavi_plus_entitlements` の `status = 'active'` かつ `expires_at > now()` です。
+
+### シークレットと環境変数
+
+`ANTHROPIC_API_KEY` は写真で登録と同じです。単価も `PHOTO_AI_USD_JPY` と `PHOTO_AI_LIGHT_*` を使います。
+
+任意:
+
+- `AI_DAILY_LIMIT`（`15`。写真で登録、自炊コーチ、AIで探すの合計）
+- `COOK_AI_MAX_TOKENS`（`640`）
+- `PHOTO_AI_LIGHT_MODEL`（`claude-haiku-5-5`）
+- `PHOTO_AI_LIGHT_THINKING` は自炊コーチでは使いません。思考はオフ固定です。
+
+### 公開前の順番
+
+1. `supabase/migrations/20261008180000_ai_feature_uses.sql` を、`20261008140000_meal_photo_analyses.sql` のあとに適用する。本番へはまだ適用していない。
+2. `ANTHROPIC_API_KEY` が入っていることを確認する。回数を変えるときだけ `AI_DAILY_LIMIT` を足す。
+3. `cook-coach` をデプロイする。この変更ではデプロイしない。
+4. そのあとで、自炊コーチを出すアプリを出す。マイグレーションより先に出すと、上限の記録は書けません。食事の保存自体は、既存の食事の経路なのでマイグレーションが無くてもできます。
+
+戻すときは、関数を消してから `supabase/rollback/20261008180000_ai_feature_uses_down.sql` を手で流す。食事の行は残る。
+
+### テスト
+
+```sh
+deno test --config supabase/functions/deno.json supabase/functions/cook_coach_test.ts
+```

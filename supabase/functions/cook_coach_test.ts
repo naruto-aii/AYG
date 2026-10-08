@@ -1,0 +1,651 @@
+import { assertEquals } from "jsr:@std/assert@1";
+
+import { cookRequestBody } from "./cook-coach/model.ts";
+import {
+  aiDailyLimitDefault,
+  cookCacheKey,
+  cookCacheMaterial,
+  handleCookCoach,
+  type CookDeps,
+  type CookModelCall,
+} from "./cook-coach/handler.ts";
+import {
+  bestMeasured,
+  gapOf,
+  matchFood,
+  measureIngredients,
+  normalizeFoodName,
+  realismIssues,
+  techniqueHits,
+  withinTolerance,
+  type AiDish,
+  type FoodRow,
+  type Macros,
+  type MeasuredDish,
+} from "./cook-coach/match.ts";
+import {
+  cookOutputSchema,
+  cookRetryPrompt,
+  cookSystemPrompt,
+  cookUserPrompt,
+  parseCookModel,
+} from "./cook-coach/prompt.ts";
+import {
+  lightInputUsdPerMillionDefault,
+  lightOutputUsdPerMillionDefault,
+  lightCacheReadUsdPerMillionDefault,
+  lightCacheWriteUsdPerMillionDefault,
+} from "./analyze-meal-photo/policy.ts";
+
+function food(code: string, name: string, kcal: number, proteinG: number, fatG: number, carbG: number): FoodRow {
+  return {
+    foodCode: code,
+    name,
+    displayName: name,
+    normalizedName: normalizeFoodName(name),
+    aliases: [],
+    kcal,
+    proteinG,
+    fatG,
+    carbG,
+    baseAmount: 100,
+  };
+}
+
+const chicken = food("11226", "鶏むね肉", 108, 24, 1.5, 0);
+chicken.aliases = [{ normalized: normalizeFoodName("鶏むね"), candidate: false }];
+const rice = food("1080", "ごはん", 168, 2.5, 0.3, 37.1);
+const oil = food("1400", "サラダ油", 921, 0, 100, 0);
+const egg = food("1200", "卵", 151, 12.3, 10.3, 0.3);
+const broccoli = food("6250", "ブロッコリー", 33, 4.3, 0.4, 5.2);
+const onion = food("6200", "玉ねぎ", 37, 1, 0.1, 8.8);
+const pantry = [chicken, rice, oil, egg, broccoli, onion];
+
+function assertGapReported(finished: MeasuredDish, target: Macros) {
+  assertEquals(finished.gap.kcal, Math.round(target.kcal - finished.totals.kcal));
+  assertEquals(finished.gap.proteinG, Math.round((target.proteinG - finished.totals.proteinG) * 10) / 10);
+  assertEquals(finished.within, withinTolerance(target, finished.totals));
+}
+
+function assertHit(finished: MeasuredDish, target: Macros) {
+  assertGapReported(finished, target);
+  assertEquals(finished.within, true);
+  assertEquals(finished.issues, []);
+}
+
+function dish(ingredients: AiDish["ingredients"], extras: string[] = []): AiDish {
+  return {
+    name: extras.length === 0 ? "塩鶏" : "豆腐の塩鶏",
+    steps: ["肉の中心まで火を通す", "器に盛る"],
+    extras,
+    ingredients,
+  };
+}
+
+function chickenIngredient(kcal = 999): AiDish["ingredients"][number] {
+  return { name: "鶏むね肉", grams: 100, kcal, proteinG: 1, fatG: 1, carbG: 1 };
+}
+
+function modelText(aKcal: number, bKcal: number): string {
+  const body = {
+    a: {
+      n: "塩鶏",
+      s: ["肉の中心まで火を通す", "器に盛る"],
+      i: [{ n: "鶏むね肉", g: 100, k: aKcal, p: 1, f: 1, c: 1 }],
+    },
+    b: {
+      n: "豆腐の塩鶏",
+      s: ["肉と豆腐を火が通るまで加熱する", "器に盛る"],
+      x: ["豆腐"],
+      i: [
+        { n: "鶏むね肉", g: 100, k: aKcal, p: 1, f: 1, c: 1 },
+        { n: "豆腐", g: 100, k: bKcal, p: 5, f: 3, c: 2 },
+      ],
+    },
+  };
+  return JSON.stringify(body);
+}
+
+function deps(options: {
+  plus?: boolean;
+  used?: number;
+  foods?: FoodRow[];
+  replies: string[];
+}): { deps: CookDeps; calls: string[] } {
+  const calls: string[] = [];
+  const model: CookModelCall = {
+    complete(userText: string) {
+      const text = options.replies[calls.length] ?? options.replies.at(-1) ?? "";
+      calls.push(userText);
+      return Promise.resolve({
+        text,
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
+          cacheReadTokens: calls.length > 1 ? 80 : 0,
+          cacheWriteTokens: calls.length === 1 ? 80 : 0,
+        },
+      });
+    },
+  };
+  const inserted: unknown[] = [];
+  return {
+    calls,
+    deps: {
+      env: { AI_DAILY_LIMIT: "15" },
+      now: () => new Date("2026-10-08T10:00:00Z"),
+      userId: () => Promise.resolve("user-1"),
+      isPlus: () => Promise.resolve(options.plus ?? true),
+      dailyCount: () => Promise.resolve(options.used ?? 0),
+      insertUsage: (row) => {
+        inserted.push(row);
+        return Promise.resolve("usage-1");
+      },
+      lookupFoods: () => Promise.resolve(options.foods ?? [chicken]),
+      model: () => model,
+      log: () => {},
+    },
+  };
+}
+
+function request(body: unknown): Request {
+  return new Request("https://example.test/cook-coach", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+const onTarget = {
+  ingredients: ["鶏むね肉"],
+  slot: "dinner",
+  target_kcal: 108,
+  target_protein_g: 24,
+  target_fat_g: 1.5,
+  target_carb_g: 0,
+};
+
+Deno.test("match uses the nutrition row and ignores the model's kcal", () => {
+  const measured = measureIngredients(
+    dish([chickenIngredient()]),
+    [chicken],
+  );
+  assertEquals(measured[0].source, "db");
+  assertEquals(measured[0].foodCode, "11226");
+  assertEquals(measured[0].kcal, 108);
+  assertEquals(measured[0].proteinG, 24);
+});
+
+Deno.test("an unknown ingredient keeps the model's nutrition and is marked ai", () => {
+  const measured = measureIngredients(
+    dish([{ name: "自家製つゆ", grams: 20, kcal: 15, proteinG: 1, fatG: 0, carbG: 2 }]),
+    [chicken],
+  );
+  assertEquals(measured[0].source, "ai");
+  assertEquals(measured[0].foodCode, null);
+  assertEquals(measured[0].kcal, 15);
+});
+
+Deno.test("alias 鶏むね matches 鶏むね肉", () => {
+  const found = matchFood("鶏むね", [chicken]);
+  assertEquals(found?.foodCode, "11226");
+});
+
+Deno.test("bounded least squares moves protein and starch in opposite directions", () => {
+  const target: Macros = { kcal: 400, proteinG: 40, fatG: 8, carbG: 35 };
+  const finished = bestMeasured(
+    dish([
+      { name: "鶏むね肉", grams: 80, kcal: 86, proteinG: 19, fatG: 1, carbG: 0 },
+      { name: "ごはん", grams: 150, kcal: 252, proteinG: 4, fatG: 0.5, carbG: 56 },
+      { name: "サラダ油", grams: 5, kcal: 46, proteinG: 0, fatG: 5, carbG: 0 },
+    ]),
+    [chicken, rice, oil],
+    target,
+  );
+  const chickenGrams = finished.ingredients[0].grams;
+  assertEquals(chickenGrams > 88, true);
+  assertEquals(finished.ingredients[1].grams < 150, true);
+  assertHit(finished, target);
+});
+
+Deno.test("target profiles hit tolerance or report the remaining gap", () => {
+  const profiles: Array<{ name: string; target: Macros; foods: AiDish["ingredients"]; expectHit: boolean }> = [
+    {
+      name: "high-protein-low-fat",
+      target: { kcal: 400, proteinG: 40, fatG: 8, carbG: 35 },
+      foods: [
+        { name: "鶏むね肉", grams: 90, kcal: 97, proteinG: 22, fatG: 1.4, carbG: 0 },
+        { name: "ごはん", grams: 160, kcal: 269, proteinG: 4, fatG: 0.5, carbG: 59 },
+        { name: "サラダ油", grams: 6, kcal: 55, proteinG: 0, fatG: 6, carbG: 0 },
+      ],
+      expectHit: true,
+    },
+    {
+      name: "low-carb",
+      target: { kcal: 420, proteinG: 40, fatG: 22, carbG: 8 },
+      foods: [
+        { name: "鶏むね肉", grams: 110, kcal: 119, proteinG: 26, fatG: 1.7, carbG: 0 },
+        { name: "卵", grams: 50, kcal: 76, proteinG: 6, fatG: 5, carbG: 0.2 },
+        { name: "ブロッコリー", grams: 80, kcal: 27, proteinG: 3.5, fatG: 0.3, carbG: 4 },
+        { name: "サラダ油", grams: 8, kcal: 74, proteinG: 0, fatG: 8, carbG: 0 },
+      ],
+      expectHit: true,
+    },
+    {
+      name: "small-remaining",
+      target: { kcal: 180, proteinG: 12, fatG: 5, carbG: 22 },
+      foods: [
+        { name: "ごはん", grams: 140, kcal: 235, proteinG: 3.5, fatG: 0.4, carbG: 52 },
+        { name: "卵", grams: 50, kcal: 76, proteinG: 6, fatG: 5, carbG: 0.2 },
+      ],
+      expectHit: true,
+    },
+    {
+      name: "large-remaining",
+      target: { kcal: 750, proteinG: 42, fatG: 18, carbG: 95 },
+      foods: [
+        { name: "ごはん", grams: 180, kcal: 302, proteinG: 4.5, fatG: 0.5, carbG: 67 },
+        { name: "鶏むね肉", grams: 120, kcal: 130, proteinG: 29, fatG: 1.8, carbG: 0 },
+        { name: "卵", grams: 50, kcal: 76, proteinG: 6, fatG: 5, carbG: 0.2 },
+        { name: "サラダ油", grams: 8, kcal: 74, proteinG: 0, fatG: 8, carbG: 0 },
+        { name: "玉ねぎ", grams: 60, kcal: 22, proteinG: 0.6, fatG: 0.1, carbG: 5 },
+      ],
+      expectHit: true,
+    },
+    {
+      name: "rice-cannot-make-protein",
+      target: { kcal: 400, proteinG: 40, fatG: 5, carbG: 40 },
+      foods: [
+        { name: "ごはん", grams: 180, kcal: 302, proteinG: 4.5, fatG: 0.5, carbG: 67 },
+      ],
+      expectHit: false,
+    },
+  ];
+  for (const profile of profiles) {
+    const finished = bestMeasured(dish(profile.foods), pantry, profile.target);
+    assertGapReported(finished, profile.target);
+    assertEquals(finished.within, profile.expectHit, profile.name);
+  }
+});
+
+Deno.test("a dish already inside tolerance is not scaled", () => {
+  const target: Macros = { kcal: 108, proteinG: 24, fatG: 1.5, carbG: 0 };
+  const finished = bestMeasured(dish([chickenIngredient()]), [chicken], target);
+  assertEquals(finished.within, true);
+  assertEquals(finished.ingredients[0].grams, 100);
+  assertEquals(finished.totals.kcal, 108);
+  assertEquals(gapOf(target, finished.totals).kcal, 0);
+});
+
+Deno.test("within tolerance uses kcal ±10% and the wider macro band", () => {
+  const target: Macros = { kcal: 500, proteinG: 30, fatG: 15, carbG: 60 };
+  assertEquals(
+    withinTolerance(target, { kcal: 550, proteinG: 35, fatG: 15, carbG: 60 }),
+    true,
+  );
+  assertEquals(
+    withinTolerance(target, { kcal: 560, proteinG: 30, fatG: 15, carbG: 60 }),
+    false,
+  );
+  assertEquals(
+    withinTolerance(target, { kcal: 500, proteinG: 36, fatG: 15, carbG: 60 }),
+    false,
+  );
+  const largeProtein: Macros = { kcal: 500, proteinG: 40, fatG: 15, carbG: 60 };
+  assertEquals(
+    withinTolerance(largeProtein, { kcal: 500, proteinG: 46, fatG: 15, carbG: 60 }),
+    true,
+  );
+});
+
+Deno.test("frying pan and aburaage stay, deep fry and truffle do not", () => {
+  const home = dish([{ name: "油揚げ", grams: 20, kcal: 70, proteinG: 4, fatG: 6, carbG: 1 }]);
+  home.steps = ["フライパンで両面を焼く", "カツオ節をふる"];
+  assertEquals(techniqueHits("フライパンでカツオ節をふる"), false);
+  assertEquals(realismIssues(home), []);
+  const fried = dish([{ name: "鶏むね肉", grams: 100, kcal: 108, proteinG: 24, fatG: 1.5, carbG: 0 }]);
+  fried.name = "鶏の天ぷら";
+  fried.steps = ["衣をつけて揚げる"];
+  assertEquals(realismIssues(fried).includes("technique"), true);
+  const rare = dish([{ name: "黒トリュフ", grams: 5, kcal: 1, proteinG: 0, fatG: 0, carbG: 0 }]);
+  assertEquals(realismIssues(rare).includes("rare"), true);
+  const many = dish(Array.from({ length: 9 }, (_, index) => ({
+    name: `野菜${index}`,
+    grams: 10,
+    kcal: 1,
+    proteinG: 0,
+    fatG: 0,
+    carbG: 0,
+  })));
+  assertEquals(realismIssues(many).includes("too_many"), true);
+  const slow = dish([chickenIngredient()]);
+  slow.steps = ["45分煮込む"];
+  assertEquals(realismIssues(slow).includes("time"), true);
+  assertEquals(realismIssues(slow, "60分かけて").includes("time"), false);
+});
+
+Deno.test("handler returns db nutrition without a second model call", async () => {
+  const harness = deps({ replies: [modelText(999, 0)] });
+  const response = await handleCookCoach(request(onTarget), harness.deps);
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(harness.calls.length, 1);
+  assertEquals(body.retried, false);
+  assertEquals(body.patterns[0].ingredients[0].source, "db");
+  assertEquals(body.patterns[0].ingredients[0].kcal, 108);
+  assertEquals(body.patterns[0].kcal, 108);
+  assertEquals(body.patterns[0].gap_kcal, 0);
+});
+
+Deno.test("handler retries once when the gap stays outside tolerance", async () => {
+  const fixed = {
+    a: {
+      n: "野菜炒め",
+      s: ["肉の中心まで火を通す", "器に盛る"],
+      i: [{ n: "合いびき肉", g: 80, k: 200, p: 16, f: 14, c: 0 }],
+    },
+    b: {
+      n: "豆腐炒め",
+      s: ["肉と豆腐を中まで加熱する", "器に盛る"],
+      x: ["豆腐"],
+      i: [
+        { n: "合いびき肉", g: 80, k: 180, p: 14, f: 12, c: 0 },
+        { n: "豆腐", g: 80, k: 20, p: 2, f: 1, c: 1 },
+      ],
+    },
+  };
+  const harness = deps({
+    foods: [],
+    replies: [modelText(10, 10), JSON.stringify(fixed)],
+  });
+  const response = await handleCookCoach(request({
+    ingredients: ["鶏むね肉"],
+    slot: "dinner",
+    target_kcal: 200,
+    target_protein_g: 16,
+    target_fat_g: 13,
+    target_carb_g: 1,
+  }), harness.deps);
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(harness.calls.length, 2);
+  assertEquals(body.retried, true);
+  assertEquals(body.calls.length, 2);
+  assertEquals(body.patterns[0].name, "野菜炒め");
+  assertEquals(body.patterns[0].ingredients[0].source, "ai");
+  assertEquals(body.patterns[0].kcal, 200);
+});
+
+Deno.test("deep frying is regenerated once and not returned", async () => {
+  const fried = {
+    a: {
+      n: "鶏の天ぷら",
+      s: ["衣をつけて揚げる"],
+      i: [{ n: "鶏むね肉", g: 100, k: 108, p: 24, f: 1.5, c: 0 }],
+    },
+    b: {
+      n: "豆腐の天ぷら",
+      s: ["油で揚げる"],
+      x: ["豆腐"],
+      i: [
+        { n: "鶏むね肉", g: 100, k: 108, p: 24, f: 1.5, c: 0 },
+        { n: "豆腐", g: 80, k: 40, p: 4, f: 2, c: 1 },
+      ],
+    },
+  };
+  const harness = deps({ replies: [JSON.stringify(fried), modelText(999, 0)] });
+  const response = await handleCookCoach(request(onTarget), harness.deps);
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(harness.calls.length, 2);
+  assertEquals(body.patterns.some((pattern: { name: string }) => pattern.name.includes("天ぷら")), false);
+  assertEquals(body.patterns[0].name, "塩鶏");
+});
+
+Deno.test("the same ingredients and rounded targets do not call the model again", async () => {
+  const cache = new Map<string, Record<string, unknown>>();
+  const harness = deps({ replies: [modelText(999, 0)] });
+  harness.deps.readCache = (key) => Promise.resolve(cache.get(key) ?? null);
+  harness.deps.writeCache = (key, body) => {
+    cache.set(key, body);
+    return Promise.resolve();
+  };
+  const first = await handleCookCoach(request(onTarget), harness.deps);
+  assertEquals(first.status, 200);
+  const near = {
+    ...onTarget,
+    target_kcal: 112,
+  };
+  const second = await handleCookCoach(request(near), harness.deps);
+  const body = await second.json();
+  assertEquals(harness.calls.length, 1);
+  assertEquals(body.cached, true);
+  assertEquals(body.input_tokens, 0);
+  assertEquals(body.patterns[0].kcal, 108);
+  const other = await handleCookCoach(request({
+    ...onTarget,
+    ingredients: ["鶏むね肉", "玉ねぎ"],
+  }), harness.deps);
+  assertEquals(other.status, 200);
+  assertEquals(harness.calls.length, 2);
+});
+
+Deno.test("rounded cache keys match across a 10 kcal band", async () => {
+  const left = cookCacheMaterial({
+    ingredients: ["卵", "鶏むね肉"],
+    slot: "dinner",
+    targetKcal: 648,
+    targetProteinG: 31.4,
+    targetFatG: 10,
+    targetCarbG: 40,
+    note: "20分",
+    avoid: ["えび", "卵"],
+  });
+  const right = cookCacheMaterial({
+    ingredients: ["鶏むね肉", "卵"],
+    slot: "dinner",
+    targetKcal: 652,
+    targetProteinG: 31,
+    targetFatG: 10.4,
+    targetCarbG: 40,
+    note: "20分",
+    avoid: ["卵", "えび"],
+  });
+  assertEquals(left, right);
+  assertEquals((await cookCacheKey(left)).length, 64);
+});
+
+Deno.test("a third model call is not made when the retry is still off", async () => {
+  const harness = deps({
+    foods: [],
+    replies: [modelText(10, 10), modelText(10, 10)],
+  });
+  const response = await handleCookCoach(request({
+    ingredients: ["鶏むね肉"],
+    slot: "lunch",
+    target_kcal: 600,
+    target_protein_g: 40,
+    target_fat_g: 20,
+    target_carb_g: 70,
+  }), harness.deps);
+  const body = await response.json();
+  assertEquals(harness.calls.length, 2);
+  assertEquals(body.ok, true);
+  assertEquals(body.patterns[0].within_tolerance, false);
+  assertEquals(body.patterns[0].gap_kcal > 0, true);
+});
+
+Deno.test("daily cap is shared and says 本日の上限に達しました", async () => {
+  assertEquals(aiDailyLimitDefault, 15);
+  const harness = deps({ used: 15, replies: [] });
+  const response = await handleCookCoach(request(onTarget), harness.deps);
+  const body = await response.json();
+  assertEquals(response.status, 429);
+  assertEquals(body.code, "daily_cap");
+  assertEquals(body.message, "本日の上限に達しました");
+  assertEquals(harness.calls.length, 0);
+});
+
+Deno.test("plus is required", async () => {
+  const harness = deps({ plus: false, replies: [] });
+  const response = await handleCookCoach(request(onTarget), harness.deps);
+  assertEquals(response.status, 403);
+  assertEquals(harness.calls.length, 0);
+});
+
+Deno.test("model request disables thinking and caches the system prompt", () => {
+  const body = cookRequestBody({
+    model: "claude-haiku-5-5",
+    maxTokens: 900,
+    userText: "x",
+  });
+  assertEquals(body.thinking, { type: "disabled" });
+  const system = body.system as Array<Record<string, unknown>>;
+  assertEquals(system[0].cache_control, { type: "ephemeral" });
+  assertEquals(system[0].text, cookSystemPrompt);
+});
+
+const sampleUser = cookUserPrompt({
+  ingredients: ["鶏むね肉", "玉ねぎ", "にんじん", "ごはん", "卵"],
+  slotLabel: "夕食",
+  targetKcal: 650,
+  targetProteinG: 32,
+  targetFatG: 18,
+  targetCarbG: 75,
+  note: "20分",
+  avoid: [],
+});
+
+const sampleOutput = JSON.stringify({
+  a: {
+    n: "鶏肉と野菜の煮物",
+    s: [
+      "鶏肉は一口大に切り、中まで火を通す",
+      "玉ねぎとにんじんを薄切りにする",
+      "鍋で鶏肉を炒めてから野菜を加える",
+      "水としょうゆを入れて10分煮る",
+      "ごはんと卵焼きを添える",
+    ],
+    i: [
+      { n: "鶏むね肉", g: 120, k: 130, p: 28, f: 2, c: 0 },
+      { n: "玉ねぎ", g: 80, k: 30, p: 1, f: 0, c: 7 },
+      { n: "にんじん", g: 50, k: 18, p: 0, f: 0, c: 4 },
+      { n: "ごはん", g: 150, k: 234, p: 4, f: 1, c: 55 },
+      { n: "卵", g: 50, k: 76, p: 6, f: 5, c: 0 },
+      { n: "しょうゆ", g: 8, k: 6, p: 1, f: 0, c: 1 },
+    ],
+  },
+  b: {
+    n: "鶏肉のトマト煮",
+    x: ["トマト", "オリーブ油"],
+    s: [
+      "鶏肉は中まで火を通す",
+      "玉ねぎを炒める",
+      "トマトを崩して加える",
+      "10分煮て塩で味を整える",
+      "ごはんにのせる",
+    ],
+    i: [
+      { n: "鶏むね肉", g: 110, k: 119, p: 26, f: 2, c: 0 },
+      { n: "玉ねぎ", g: 60, k: 22, p: 1, f: 0, c: 5 },
+      { n: "ごはん", g: 160, k: 250, p: 4, f: 1, c: 59 },
+      { n: "トマト", g: 80, k: 15, p: 1, f: 0, c: 3 },
+      { n: "オリーブ油", g: 5, k: 46, p: 0, f: 5, c: 0 },
+    ],
+  },
+});
+
+function estimateClaudeTokens(text: string): number {
+  let tokens = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code <= 0x7f) {
+      tokens += 0.28;
+    } else {
+      tokens += 1.6;
+    }
+  }
+  return Math.ceil(tokens);
+}
+
+function jpy(args: {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}): number {
+  const rate = 150;
+  const million = 1_000_000;
+  return (
+    (args.input * lightInputUsdPerMillionDefault * rate) / million +
+    (args.output * lightOutputUsdPerMillionDefault * rate) / million +
+    (args.cacheRead * lightCacheReadUsdPerMillionDefault * rate) / million +
+    (args.cacheWrite * lightCacheWriteUsdPerMillionDefault * rate) / million
+  );
+}
+
+Deno.test("a realistic run stays under 0.3 JPY even with the retry", () => {
+  const schema = JSON.stringify(cookOutputSchema);
+  const requestBody = JSON.stringify(cookRequestBody({
+    model: "claude-haiku-5-5",
+    maxTokens: 900,
+    userText: sampleUser,
+  }));
+  const systemTokens = estimateClaudeTokens(cookSystemPrompt);
+  const schemaTokens = estimateClaudeTokens(schema);
+  const userTokens = estimateClaudeTokens(sampleUser);
+  const outputTokens = estimateClaudeTokens(sampleOutput);
+  const parsed = parseCookModel(JSON.parse(sampleOutput));
+  if (!parsed) {
+    throw new Error("sample output did not parse");
+  }
+  const retryUser = cookRetryPrompt({
+    first: sampleUser,
+    dishes: [
+      bestMeasured(parsed.a, [], {
+        kcal: 650,
+        proteinG: 32,
+        fatG: 18,
+        carbG: 75,
+      }),
+      bestMeasured(parsed.b, [], {
+        kcal: 650,
+        proteinG: 32,
+        fatG: 18,
+        carbG: 75,
+      }),
+    ],
+  });
+  const retryUserTokens = estimateClaudeTokens(retryUser);
+  const overhead = estimateClaudeTokens(requestBody) - systemTokens - userTokens - schemaTokens;
+  const fixedInput = Math.max(0, overhead) + schemaTokens;
+  const first = jpy({
+    input: fixedInput + userTokens,
+    output: outputTokens,
+    cacheRead: 0,
+    cacheWrite: systemTokens,
+  });
+  const second = jpy({
+    input: fixedInput + retryUserTokens,
+    output: outputTokens,
+    cacheRead: systemTokens,
+    cacheWrite: 0,
+  });
+  const withRetry = first + second;
+  const average = first + 0.25 * second;
+  console.log(JSON.stringify({
+    systemTokens,
+    schemaTokens,
+    userTokens,
+    outputTokens,
+    retryUserTokens,
+    firstJpy: Number(first.toFixed(4)),
+    withRetryJpy: Number(withRetry.toFixed(4)),
+    averageJpy: Number(average.toFixed(4)),
+    usdJpy: 150,
+    inputUsdPerMillion: lightInputUsdPerMillionDefault,
+    outputUsdPerMillion: lightOutputUsdPerMillionDefault,
+  }));
+  assertEquals(first < 0.3, true);
+  assertEquals(withRetry < 0.3, true);
+  assertEquals(average < 0.3, true);
+});

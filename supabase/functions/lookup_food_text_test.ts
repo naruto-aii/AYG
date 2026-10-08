@@ -129,7 +129,7 @@ Deno.test("a tap calls the light model once and does not send tools", async () =
   assertEquals(body.candidates[0].known_product, true);
   assertEquals(calls.length, 1);
   assertEquals(calls[0].model, "claude-haiku-5-5");
-  assertEquals(calls[0].maxTokens, 300);
+  assertEquals(calls[0].maxTokens, 800);
   assertEquals(inserts.length, 1);
   assertEquals(inserts[0].cacheHit, false);
   assertEquals(inserts[0].success, true);

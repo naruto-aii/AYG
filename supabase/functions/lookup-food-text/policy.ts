@@ -11,7 +11,10 @@ import {
 } from "../analyze-meal-photo/policy.ts";
 
 export const textCacheTtlHoursDefault = 168;
-export const textMaxTokensDefault = 300;
+// 300 では候補3件の JSON が足りないことがあった（写真と同じく余裕を持たせる）。
+// 環境変数で小さい値が残っていても、下限より下げない。
+export const textMaxTokensDefault = 800;
+export const textMaxTokensFloor = 800;
 
 export type TextLookupEnv = PhotoAiEnv & {
   TEXT_AI_DAILY_LIMIT?: string;
@@ -35,7 +38,10 @@ export function textLookupLimitsFromEnv(env: TextLookupEnv): TextLookupLimits {
     monthly: monthly == null ? null : Math.floor(monthly),
     spendJpy: photoLimitsFromEnv(env).spendJpy,
     cacheTtlHours: readPositiveInt(env.TEXT_AI_CACHE_TTL_HOURS, textCacheTtlHoursDefault),
-    maxTokens: readPositiveInt(env.TEXT_AI_MAX_TOKENS, textMaxTokensDefault),
+    maxTokens: Math.max(
+      textMaxTokensFloor,
+      readPositiveInt(env.TEXT_AI_MAX_TOKENS, textMaxTokensDefault),
+    ),
   };
 }
 

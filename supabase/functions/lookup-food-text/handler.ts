@@ -29,6 +29,7 @@ import {
 } from "./policy.ts";
 import {
   callLookupModel,
+  describeLookupFailure,
   LookupCallError,
   type FetchLike,
   type LookupCallUsage,
@@ -233,11 +234,20 @@ export async function handleLookupFoodText(
       prices: tokenPricesFromEnv("light", deps.env),
     });
     let candidates: LookupCandidate[] | null = null;
+    let stage = "json";
     try {
-      const parsed = parseLookupCandidates(parseModelJson(result.text));
+      const raw = parseModelJson(result.text);
+      stage = "validate";
+      const parsed = parseLookupCandidates(raw);
+      stage = parsed ? "relevance" : "validate";
       candidates = parsed ? relevantCandidates(query, parsed) : null;
     } catch {
       candidates = null;
+    }
+    if (candidates == null) {
+      deps.log(
+        `lookup-food-text invalid result: stage=${stage} model=${model} out=${result.usage.outputTokens}`,
+      );
     }
     const usageId = await deps.insertUsage({
       userId,
@@ -273,19 +283,30 @@ export async function handleLookupFoodText(
   } catch (error) {
     const latencyMs = Math.max(0, Date.now() - started);
     if (error instanceof LookupCallError) {
+      const used = error.failure.usage;
       await deps.insertUsage({
         userId,
         provider: "anthropic",
         model,
-        inputTokens: 0,
-        outputTokens: 0,
-        estimatedCostJpy: 0,
+        inputTokens: used?.inputTokens ?? 0,
+        outputTokens: used?.outputTokens ?? 0,
+        estimatedCostJpy: used == null ? 0 : estimateCostJpy({
+          inputTokens: used.inputTokens,
+          outputTokens: used.outputTokens,
+          cacheReadTokens: used.cacheReadTokens,
+          cacheWriteTokens: used.cacheWriteTokens,
+          prices: tokenPricesFromEnv("light", deps.env),
+        }),
         latencyMs,
         cacheHit: false,
         success: false,
         errorCode: "provider_error",
       });
-      deps.log("lookup-food-text provider failed");
+      deps.log(
+        `lookup-food-text provider failed: ${
+          describeLookupFailure(error.failure, { model, maxTokens: limits.maxTokens })
+        }`,
+      );
       return fail("provider_error", 503);
     }
     deps.log("lookup-food-text failed");

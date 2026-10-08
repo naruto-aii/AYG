@@ -170,7 +170,7 @@ deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_
 
 - `TEXT_AI_MONTHLY_LIMIT`（空なら止めない。オーナー未決）
 - `TEXT_AI_CACHE_TTL_HOURS`（`168`）
-- `TEXT_AI_MAX_TOKENS`（`300`）
+- `TEXT_AI_MAX_TOKENS`（`800`。`800` 未満を入れても `800` にする。途中で切れたときは `lookup-food-text provider failed: reason=max_tokens …` をログに出し、使ったトークンの費用を残す）
 
 ### 公開前の順番
 

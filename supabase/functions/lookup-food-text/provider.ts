@@ -1,6 +1,11 @@
 // 文章だけで候補を聞く。写真も Web 検索も使わない。
 
-import { modelJsonText, thinkingField } from "../analyze-meal-photo/provider.ts";
+import {
+  anthropicErrorInfo,
+  modelJsonText,
+  thinkingField,
+  type PhotoAiFailureReason,
+} from "../analyze-meal-photo/provider.ts";
 import { lookupCandidateSchema, normalizeFoodQuery } from "./validate.ts";
 
 export const lookupPrompt =
@@ -47,10 +52,54 @@ export type LookupCallUsage = {
   cacheWriteTokens: number;
 };
 
+/// 失敗の理由。写真と同じ分け方。鍵や検索語は入れない。
+export type LookupFailureReason = PhotoAiFailureReason | "missing_key";
+
+export type LookupFailure = {
+  reason: LookupFailureReason;
+  status: number | null;
+  errorType: string | null;
+  errorMessage: string | null;
+  stopReason: string | null;
+  usage: LookupCallUsage | null;
+};
+
 export class LookupCallError extends Error {
-  constructor() {
+  readonly failure: LookupFailure;
+
+  constructor(failure: Partial<LookupFailure> = {}) {
     super("provider_call_failed");
+    this.failure = {
+      reason: failure.reason ?? "bad_shape",
+      status: failure.status ?? null,
+      errorType: failure.errorType ?? null,
+      errorMessage: failure.errorMessage ?? null,
+      stopReason: failure.stopReason ?? null,
+      usage: failure.usage ?? null,
+    };
   }
+}
+
+/// 失敗の1行ログ。鍵と利用者の検索語は含めない。
+export function describeLookupFailure(
+  failure: LookupFailure,
+  context: { model: string; maxTokens: number },
+): string {
+  const usage = failure.usage;
+  const parts = [
+    `reason=${failure.reason}`,
+    `status=${failure.status ?? "-"}`,
+    `type=${failure.errorType ?? "-"}`,
+    `stop=${failure.stopReason ?? "-"}`,
+    `model=${context.model}`,
+    `max_tokens=${context.maxTokens}`,
+    `in=${usage?.inputTokens ?? 0}`,
+    `out=${usage?.outputTokens ?? 0}`,
+  ];
+  if (failure.errorMessage) {
+    parts.push(`message=${failure.errorMessage}`);
+  }
+  return parts.join(" ");
 }
 
 export type FetchLike = (
@@ -66,7 +115,7 @@ export async function callLookupModel(args: {
   fetchImpl: FetchLike;
 }): Promise<{ text: string; usage: LookupCallUsage }> {
   if (!args.apiKey.trim()) {
-    throw new LookupCallError();
+    throw new LookupCallError({ reason: "missing_key" });
   }
   let response: Response;
   try {
@@ -84,24 +133,46 @@ export async function callLookupModel(args: {
       })),
     });
   } catch {
-    throw new LookupCallError();
+    throw new LookupCallError({ reason: "network" });
   }
   if (!response.ok) {
-    throw new LookupCallError();
+    let errorBody: unknown = null;
+    try {
+      errorBody = await response.json();
+    } catch {
+      errorBody = null;
+    }
+    const info = anthropicErrorInfo(errorBody);
+    throw new LookupCallError({
+      reason: "http",
+      status: response.status,
+      errorType: info.type,
+      errorMessage: info.message,
+    });
   }
   let body: unknown;
   try {
     body = await response.json();
   } catch {
-    throw new LookupCallError();
+    throw new LookupCallError({ reason: "bad_json", status: response.status });
   }
   if (body == null || typeof body !== "object") {
-    throw new LookupCallError();
+    throw new LookupCallError({ reason: "bad_shape", status: response.status });
   }
   const row = body as Record<string, unknown>;
+  const stopReason = typeof row.stop_reason === "string" ? row.stop_reason : null;
   if (!Array.isArray(row.content)) {
-    throw new LookupCallError();
+    throw new LookupCallError({ reason: "bad_shape", status: response.status, stopReason });
   }
+  const usageRow = row.usage != null && typeof row.usage === "object"
+    ? row.usage as Record<string, unknown>
+    : {};
+  const usage: LookupCallUsage = {
+    inputTokens: tokenCount(usageRow.input_tokens),
+    outputTokens: tokenCount(usageRow.output_tokens),
+    cacheReadTokens: tokenCount(usageRow.cache_read_input_tokens),
+    cacheWriteTokens: cacheWriteTokens(usageRow),
+  };
   const texts = row.content
     .filter((block): block is { type: string; text: string } => {
       return block != null &&
@@ -111,21 +182,14 @@ export async function callLookupModel(args: {
     })
     .map((block) => block.text);
   const text = modelJsonText(texts).trim();
-  if (row.stop_reason === "max_tokens" || !text) {
-    throw new LookupCallError();
+  if (stopReason === "max_tokens") {
+    // 途中で切れた。使ったトークンは費用に残す。
+    throw new LookupCallError({ reason: "max_tokens", status: response.status, stopReason, usage });
   }
-  const usage = row.usage != null && typeof row.usage === "object"
-    ? row.usage as Record<string, unknown>
-    : {};
-  return {
-    text,
-    usage: {
-      inputTokens: tokenCount(usage.input_tokens),
-      outputTokens: tokenCount(usage.output_tokens),
-      cacheReadTokens: tokenCount(usage.cache_read_input_tokens),
-      cacheWriteTokens: cacheWriteTokens(usage),
-    },
-  };
+  if (!text) {
+    throw new LookupCallError({ reason: "empty_text", status: response.status, stopReason, usage });
+  }
+  return { text, usage };
 }
 
 function cacheWriteTokens(usage: Record<string, unknown>): number {

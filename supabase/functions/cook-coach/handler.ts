@@ -7,10 +7,6 @@ import {
   type PhotoAiEnv,
 } from "../analyze-meal-photo/policy.ts";
 import type { FetchLike, PhotoAiUsage } from "../analyze-meal-photo/provider.ts";
-import {
-  aiDataConsentRequiredMessage,
-  hasAiDataConsent,
-} from "../_shared/ai_data_consent.ts";
 import { normalizeFoodName, type FoodRow, type MeasuredDish } from "./match.ts";
 import { cookRecipesFromDb, recipeStamp, selectCookPlans, type CookRecipe } from "./select.ts";
 
@@ -54,7 +50,6 @@ export type CookDeps = {
   now: () => Date;
   userId: (req: Request) => Promise<string | null>;
   isPlus: (userId: string, now: Date) => Promise<boolean>;
-  hasConsent?: (userId: string) => Promise<boolean>;
   dailyCount: (userId: string, since: Date) => Promise<number>;
   insertUsage: (row: CookUsageInsert) => Promise<string | null>;
   lookupFoods: (names: string[]) => Promise<FoodRow[]>;
@@ -167,9 +162,7 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
   if (!await deps.isPlus(userId, now)) {
     return fail("not_plus", "こちらはカロナビ+の機能です。", 403);
   }
-  if (deps.hasConsent && !(await deps.hasConsent(userId))) {
-    return fail("consent_required", aiDataConsentRequiredMessage, 403);
-  }
+  // 自炊コーチは外部へ何も送らないので、AIデータの同意は求めない。Plus の確認だけ行う。
   let recipes: CookRecipe[];
   try {
     recipes = await deps.loadRecipes();
@@ -486,9 +479,6 @@ export function liveDeps(
         `&status=eq.active&expires_at=gt.${cutoff}&select=user_id&limit=1`;
       const result = await authedFetch(url, serviceKey, fetchImpl);
       return result.ok && Array.isArray(result.body) && result.body.length > 0;
-    },
-    hasConsent(userId) {
-      return hasAiDataConsent({ base, serviceKey, userId, fetchImpl });
     },
     async dailyCount(userId, since) {
       if (!base || !serviceKey) {

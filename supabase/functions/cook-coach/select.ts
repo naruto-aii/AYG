@@ -1,7 +1,7 @@
 // 検証済みレシピを展開し、手持ちと買い足し1〜2品から目標に入る案を選ぶ。
 // 分量は基準gの倍率だけ動かす。成分は選んだ食品の成分表から計算する。
 
-import { cookFood, type CookFood, type CookRole } from "./foods.ts";
+import { cookFood, cookFoods, type CookFood, type CookRole } from "./foods.ts";
 import {
   allowedMinutes,
   defaultTolerance,
@@ -214,6 +214,9 @@ function composeMeals(
       return;
     }
     if (!proteinRule(meal, listed)) {
+      return;
+    }
+    if (seasoningOverCap(meal.ingredients)) {
       return;
     }
     if (nameMismatch(meal.name, meal.ingredients)) {
@@ -429,7 +432,7 @@ function diversify(
 function scaledDishes(fill: Fill, target: Macros, omitNote: string, listed: string[]): MeasuredDish[] {
   const hasEgg = fill.chosen.some((option) => isEgg(option.label));
   const hasStaple = fill.chosen.some((option) => option.role === "staple");
-  const bodies = hasEgg ? [1, 2] : [0.85, 1, 1.45];
+  const bodies = hasEgg ? [0.5, 1, 2] : [0.85, 1, 1.45];
   const staples = hasStaple ? [0.55, 1, 1.35] : [1];
   // 油はレシピの分量のまま。kcal は主材料とごはんで合わせる。
   const oilScales = [1];
@@ -741,22 +744,66 @@ function listedHits(key: string, names: string[]): boolean {
   return names.some((name) => namesMatch(name, key));
 }
 
-function namesMatch(left: string, right: string): boolean {
-  const a = normalizeFoodName(left);
-  const b = normalizeFoodName(right);
-  if (!a || !b) {
-    return false;
+// 食材名は部分一致させない（「玉ねぎ」で「ねぎ」が手持ちにならないように）。
+// 成分表の別名と、この同義語の表で同じ食品にまとめ、正規化した名前の完全一致で比べる。
+const extraSynonyms: Record<string, string[]> = {
+  rice: ["白ごはん", "白ご飯", "ライス", "米"],
+  onion: ["玉葱", "新玉ねぎ", "新たまねぎ"],
+  negi: ["長ネギ", "白ねぎ", "白ネギ", "根深ねぎ"],
+  carrot: ["ニンジン"],
+  tomato: ["ミニトマト", "プチトマト"],
+  chicken: ["鶏ムネ", "鶏ムネ肉", "むね肉", "胸肉"],
+  pork: ["豚小間", "豚こま肉"],
+  beef: ["牛小間", "牛こま切れ"],
+  egg: ["生卵", "鶏卵"],
+  tofu: ["もめん豆腐", "木綿"],
+  kinu: ["きぬ豆腐", "絹ごし"],
+  salmon: ["生鮭", "生さけ", "秋鮭"],
+  cabbage: ["きゃべつ"],
+  spinach: ["ほうれんそう"],
+  shiitake: ["生しいたけ"],
+  consomme: ["コンソメキューブ"],
+};
+
+const canonicalByName: Map<string, string> = (() => {
+  const map = new Map<string, string>();
+  for (const food of cookFoods) {
+    for (const name of [food.label, ...food.match, ...(extraSynonyms[food.id] ?? [])]) {
+      const key = normalizeFoodName(name);
+      if (key && !map.has(key)) {
+        map.set(key, food.id);
+      }
+    }
   }
-  if (a === b) {
-    return true;
+  return map;
+})();
+
+/// 入力名や候補名を、同じ食品なら同じ値になる鍵にする。表に無い名前は正規化した名前のまま。
+export function canonicalFood(name: string): string {
+  const key = normalizeFoodName(name);
+  if (!key) {
+    return "";
   }
-  if (a.length < 2 || b.length < 2) {
-    return false;
-  }
-  if (!(a.includes(b) || b.includes(a))) {
-    return false;
-  }
-  return Math.min(a.length, b.length) / Math.max(a.length, b.length) >= 0.5;
+  const id = canonicalByName.get(key);
+  return id ? `food:${id}` : `name:${key}`;
+}
+
+export function namesMatch(left: string, right: string): boolean {
+  const a = canonicalFood(left);
+  const b = canonicalFood(right);
+  return a !== "" && a === b;
+}
+
+// 1食の中で、だしの素などの合計が家庭の量を超えないようにする（g）。
+const mealSeasoningCaps: Array<{ name: string; max: number }> = [
+  { name: "顆粒だし", max: 6 },
+  { name: "コンソメ", max: 6 },
+];
+
+export function seasoningOverCap(ingredients: Array<{ name: string; grams: number }>): boolean {
+  return mealSeasoningCaps.some((cap) =>
+    ingredients.filter((item) => item.name === cap.name).reduce((sum, item) => sum + item.grams, 0) > cap.max
+  );
 }
 
 function materialize(

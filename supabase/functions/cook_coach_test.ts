@@ -752,3 +752,92 @@ Deno.test("zero remaining does not call the model, and 1200 kcal is accepted", a
   assertEquals(body.target.kcal, 1200);
   assertEquals(harness.calls.length, 0);
 });
+
+Deno.test("ingredient names match only through the synonym table, never by partial match", async () => {
+  const { canonicalFood, namesMatch } = await import("./cook-coach/select.ts");
+  const different: Array<[string, string]> = [
+    ["玉ねぎ", "ねぎ"],
+    ["玉ねぎ", "長ねぎ"],
+    ["ミニキャロット", "にんじん"],
+    ["牛ひき肉", "ひき肉"],
+    ["鶏ひき肉", "豚ひき肉"],
+    ["ごま油", "ごま"],
+    ["絹ごし豆腐", "木綿豆腐"],
+    ["玄米ごはん", "ごはん"],
+    ["鶏もも肉", "鶏むね肉"],
+    ["豚ロース", "豚こま"],
+    ["粉チーズ", "チーズ"],
+    ["キャベツ", "紫キャベツ"],
+    ["卵", "卵豆腐"],
+    ["白菜", "白菜キムチ"],
+  ];
+  for (const [left, right] of different) {
+    assertEquals(namesMatch(left, right), false, `${left} / ${right}`);
+  }
+  const same: Array<[string, string]> = [
+    ["豚こま", "豚こま切れ"],
+    ["豚こま", "豚肉"],
+    ["鶏むね", "鶏むね肉"],
+    ["長ねぎ", "ねぎ"],
+    ["玉葱", "玉ねぎ"],
+    ["ライス", "ごはん"],
+    ["顆粒だし", "だし"],
+    ["タマネギ", "たまねぎ"],
+    ["ミニトマト", "トマト"],
+  ];
+  for (const [left, right] of same) {
+    assertEquals(namesMatch(left, right), true, `${left} / ${right}`);
+  }
+  assertEquals(canonicalFood("  "), "");
+});
+
+Deno.test("no two foods share a synonym", async () => {
+  const { cookFoods } = await import("./cook-coach/foods.ts");
+  const seen = new Map<string, string>();
+  for (const item of cookFoods) {
+    for (const name of [item.label, ...item.match]) {
+      const key = normalizeFoodName(name);
+      const owner = seen.get(key);
+      assertEquals(owner == null || owner === item.id, true, `${name}: ${owner} / ${item.id}`);
+      seen.set(key, item.id);
+    }
+  }
+});
+
+Deno.test("onion alone does not make long onion on hand, and dashi stays within a home amount per meal", async () => {
+  const { selectCookPlans, seasoningOverCap } = await import("./cook-coach/select.ts");
+  const pork = selectCookPlans(cookRecipes, {
+    ingredients: ["豚こま", "玉ねぎ"],
+    slot: "lunch",
+    target: { kcal: 600, proteinG: 30, fatG: 18, carbG: 80 },
+  });
+  assertEquals(pork.a != null, true);
+  const longOnion = pork.a!.ingredients.filter((item) => item.name === "ねぎ");
+  assertEquals(longOnion.every((item) => item.extra === true), true);
+  assertEquals(pork.a!.extras.length, 0);
+  const tofu = selectCookPlans(cookRecipes, {
+    ingredients: ["木綿豆腐", "卵", "キャベツ"],
+    slot: "dinner",
+    target: { kcal: 650, proteinG: 40, fatG: 18, carbG: 80 },
+  });
+  for (const plan of [pork.a, pork.b, tofu.a, tofu.b]) {
+    if (!plan) continue;
+    const dashi = plan.ingredients.filter((item) => item.name === "顆粒だし").reduce((sum, item) => sum + item.grams, 0);
+    assertEquals(dashi <= 6, true, `${plan.name}: ${dashi}g`);
+    assertEquals(plan.name.includes("煮込み湯豆腐"), false);
+  }
+  assertEquals(seasoningOverCap([{ name: "顆粒だし", grams: 4 }, { name: "顆粒だし", grams: 3 }]), true);
+  assertEquals(seasoningOverCap([{ name: "顆粒だし", grams: 3 }, { name: "顆粒だし", grams: 3 }]), false);
+});
+
+Deno.test("consomme uses the solid bouillon code and food values follow the official table", async () => {
+  const { cookFood } = await import("./cook-coach/foods.ts");
+  const consomme = cookFood("consomme");
+  assertEquals(consomme.code, "17027");
+  assertEquals([consomme.kcal, consomme.proteinG, consomme.fatG, consomme.carbG], [233, 7, 4.3, 42.1]);
+  assertEquals(cookFood("shiitake").code, "08039");
+  assertEquals(cookFood("beef").code, "11047");
+  const names = cookRecipes.map((recipe) => recipe.name);
+  assertEquals(names.includes("湯豆腐"), true);
+  assertEquals(names.some((name) => name.includes("煮込み湯豆腐")), false);
+});

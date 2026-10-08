@@ -15,6 +15,8 @@ import {
   candidateMatchesQuery,
   normalizeFoodQuery,
   parseLookupCandidates,
+  preferPlainFirst,
+  productKey,
   relevantCandidates,
 } from "./lookup-food-text/validate.ts";
 
@@ -483,4 +485,65 @@ Deno.test("sold units come first in the prompt, and mismatched pack kcal is scal
   });
   assertEquals(packFirst?.[0].kcal, 226);
   assertEquals(packFirst?.[1].kcal, 45);
+});
+
+Deno.test("a different size or name keeps its own kcal and is not rewritten to the first candidate", () => {
+  const burgers = parseLookupCandidates({
+    i: [
+      { n: "ビッグマック", a: "1個", k: 525, p: 26, f: 28.3, c: 41.8, b: true },
+      { n: "ダブルビッグマック", a: "1個", k: 720, p: 41.8, f: 41.6, c: 44.3, b: true },
+    ],
+  });
+  assertEquals(burgers?.map((row) => row.kcal), [525, 720]);
+  const teriyaki = parseLookupCandidates({
+    i: [
+      { n: "てりやきマックバーガー", a: "1個", k: 478, p: 15.5, f: 30.2, c: 36.5, b: true },
+      { n: "ダブルてりやきマックバーガー", a: "1個", k: 650, p: 26.5, f: 43, c: 38.3, b: true },
+    ],
+  });
+  assertEquals(teriyaki?.map((row) => row.kcal), [478, 650]);
+  const sizes = parseLookupCandidates({
+    i: [
+      { n: "ポテト（M）", a: "1個", k: 409, p: 5.3, f: 20.6, c: 51.1, b: true },
+      { n: "ポテト（L）", a: "1個", k: 517, p: 6.7, f: 26, c: 64.6, b: true },
+    ],
+  });
+  assertEquals(sizes?.map((row) => row.kcal), [409, 517]);
+  const parts = parseLookupCandidates({
+    i: [
+      { n: "オリジナルチキン", a: "1ピース", k: 218, p: 16.5, f: 12.8, c: 9.1, b: true },
+      { n: "オリジナルチキン（キール）", a: "1ピース", k: 290, p: 24, f: 18, c: 8, b: true },
+    ],
+  });
+  assertEquals(parts?.map((row) => row.kcal), [218, 290]);
+  // 同じ商品の数違いだけが比例のチェックを受ける。
+  assertEquals(productKey({ name: "からあげクン（5個入り）", amount: "1パック" } as never), productKey({ name: "からあげクン", amount: "1個" } as never));
+  assertEquals(productKey({ name: "ダブルビッグマック", amount: "1個" } as never) === productKey({ name: "ビッグマック", amount: "1個" } as never), false);
+});
+
+Deno.test("an unasked part or size is not shown first when the plain product is in the list", () => {
+  const rows = parseLookupCandidates({
+    i: [
+      { n: "オリジナルチキン（レッグ）", a: "1ピース", k: 180, p: 14, f: 10, c: 8, b: true },
+      { n: "オリジナルチキン", a: "1ピース", k: 218, p: 16.5, f: 12.8, c: 9.1, b: true },
+    ],
+  }) ?? [];
+  assertEquals(relevantCandidates("ケンタッキー オリジナルチキン", rows)?.[0].name, "オリジナルチキン");
+  assertEquals(relevantCandidates("ケンタッキー オリジナルチキン", rows)?.[0].kcal, 218);
+  // 尋ねた部位はそのまま先頭に残す。
+  assertEquals(preferPlainFirst("オリジナルチキン レッグ", rows)[0].name, "オリジナルチキン（レッグ）");
+  // 数量だけの括弧は限定とみなさない。
+  const pack = parseLookupCandidates({
+    i: [
+      { n: "からあげクン（5個入り）", a: "1パック", k: 226, p: 14.4, f: 15.4, c: 7.8, b: true },
+      { n: "からあげクン", a: "1個", k: 45, p: 2.9, f: 3.1, c: 1.6, b: true },
+    ],
+  }) ?? [];
+  assertEquals(relevantCandidates("からあげクン", pack)?.[0].kcal, 226);
+});
+
+Deno.test("the prompt asks for the store's standard unit first without naming products", () => {
+  assertEquals(lookupPrompt.includes("ダブル"), true);
+  assertEquals(lookupPrompt.includes("からあげクン"), false);
+  assertEquals(lookupPrompt.includes("ケンタッキー"), false);
 });

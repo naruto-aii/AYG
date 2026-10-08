@@ -84,7 +84,7 @@ export function relevantCandidates(
   candidates: LookupCandidate[],
 ): LookupCandidate[] | null {
   const kept = candidates.filter((candidate) => candidateMatchesQuery(query, candidate.name));
-  return kept.length > 0 ? kept : null;
+  return kept.length > 0 ? preferPlainFirst(query, kept) : null;
 }
 
 function finiteInRange(value: unknown, max: number): value is number {
@@ -146,7 +146,44 @@ export function amountCount(text: string): { count: number; unit: string } | nul
   return { count, unit };
 }
 
-/// 個数だけが違う候補は、最初の候補の 1 単位あたりに合わせる。大きく外れた候補は直す。
+const countPattern =
+  /(\d+(?:\.\d+)?)\s*(個入り|本入り|枚入り|袋入り|個入|本入|枚入|袋入|パック|個|本|枚|切れ|袋|箱|缶|玉)/g;
+const gramPattern = /約?\s*(\d+(?:\.\d+)?)\s*(g|グラム|ml)/i;
+
+/// 括弧の中が個数やグラムだけなら、商品名の一部ではない。
+function quantityOnly(inner: string): boolean {
+  const rest = inner
+    .replace(countPattern, "")
+    .replace(/約?\s*\d+(?:\.\d+)?\s*(g|グラム|ml)/gi, "")
+    .replace(/[約入りずつ分・、,\s]/g, "");
+  return rest.length === 0;
+}
+
+/// 同じ商品かを見るための名前。店名、個数、量だけの括弧を外す。部位やサイズの言葉は残す。
+export function productKey(candidate: LookupCandidate): string {
+  let name = normalizeFoodQuery(candidate.name);
+  if (candidate.chainName) {
+    const chain = normalizeFoodQuery(candidate.chainName);
+    if (chain) {
+      name = name.replaceAll(chain, "");
+    }
+  }
+  name = name.replace(/\(([^)]*)\)/g, (all, inner: string) => quantityOnly(inner) ? "" : all);
+  name = name.replace(countPattern, "");
+  return name.replace(/[\s・]/g, "");
+}
+
+function gramsPerUnit(candidate: LookupCandidate, count: number): number | null {
+  const matched = candidate.amount.normalize("NFKC").match(gramPattern);
+  if (!matched) {
+    return null;
+  }
+  const grams = Number(matched[1]);
+  return Number.isFinite(grams) && grams > 0 ? grams / count : null;
+}
+
+/// 同じ商品で個数だけが違う候補は、最初の候補の 1 単位あたりに合わせる。
+/// 名前やサイズが違う候補（ダブル、L、部位違いなど）は、その候補の値のまま残す。
 export function alignCandidatePortions(candidates: LookupCandidate[]): LookupCandidate[] {
   if (candidates.length < 2 || !(candidates[0].kcal > 0)) {
     return candidates;
@@ -155,6 +192,8 @@ export function alignCandidatePortions(candidates: LookupCandidate[]): LookupCan
   if (!first) {
     return candidates;
   }
+  const firstKey = productKey(candidates[0]);
+  const firstGrams = gramsPerUnit(candidates[0], first.count);
   const perUnit = candidates[0].kcal / first.count;
   const aligned = [candidates[0]];
   for (const candidate of candidates.slice(1)) {
@@ -162,6 +201,18 @@ export function alignCandidatePortions(candidates: LookupCandidate[]): LookupCan
     if (!count || count.unit !== first.unit || !(candidate.kcal > 0)) {
       aligned.push(candidate);
       continue;
+    }
+    if (!firstKey || productKey(candidate) !== firstKey) {
+      aligned.push(candidate);
+      continue;
+    }
+    const grams = gramsPerUnit(candidate, count.count);
+    if (firstGrams != null && grams != null) {
+      const gramRatio = grams / firstGrams;
+      if (gramRatio < 0.8 || gramRatio > 1.25) {
+        aligned.push(candidate);
+        continue;
+      }
     }
     const expected = perUnit * count.count;
     const ratio = candidate.kcal / expected;
@@ -186,6 +237,34 @@ export function alignCandidatePortions(candidates: LookupCandidate[]): LookupCan
     aligned.push(scaled);
   }
   return aligned;
+}
+
+/// 検索語に部位やサイズの指定がないのに、1つ目だけが部位やサイズ違いなら、
+/// 指定のない候補を先にする。数値は書き換えない。
+export function preferPlainFirst(query: string, candidates: LookupCandidate[]): LookupCandidate[] {
+  if (candidates.length < 2) {
+    return candidates;
+  }
+  const normalizedQuery = normalizeFoodQuery(query);
+  const qualifier = (candidate: LookupCandidate): string[] => {
+    const out: string[] = [];
+    for (const matched of normalizeFoodQuery(candidate.name).matchAll(/\(([^)]*)\)/g)) {
+      if (!quantityOnly(matched[1])) {
+        out.push(matched[1].trim());
+      }
+    }
+    return out;
+  };
+  const extra = (candidate: LookupCandidate) =>
+    qualifier(candidate).filter((word) => word && !normalizedQuery.includes(word));
+  if (extra(candidates[0]).length === 0) {
+    return candidates;
+  }
+  const index = candidates.findIndex((candidate) => extra(candidate).length === 0);
+  if (index <= 0) {
+    return candidates;
+  }
+  return [candidates[index], ...candidates.filter((_candidate, i) => i !== index)];
 }
 
 function round1(value: number): number {

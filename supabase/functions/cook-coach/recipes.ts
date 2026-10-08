@@ -45,7 +45,8 @@ const sugar = (g = 6) => s("sugar", [["sugar", g]]);
 const salt = (g = 1) => s("salt", [["salt", g]]);
 const pepper = (g = 1) => s("pepper", [["pepper", g]]);
 const miso = (g = 12) => s("miso", [["miso", g]]);
-const dashi = (g = 6) => s("dashi", [["dashi", g]]);
+// 顆粒だしは水100mlに約1g（汁物・煮物の家庭の量）。
+const dashi = (g = 3) => s("dashi", [["dashi", g]]);
 const sake = (g = 8) => s("sake", [["sake", g]]);
 const vinegar = (g = 10) => s("vinegar", [["vinegar", g]]);
 const butter = (g = 10) => s("oil", [["butter", g]]);
@@ -131,7 +132,7 @@ export function buildCookRecipes(): CookRecipe[] {
       s("protein", [["pork", 90], ["beef", 90], ["thigh", 100], ["chicken", 100]]),
       s("potato", [["potato", 160]]),
       s("onion", [["onion", 70]]),
-      dashi(8), soy(12), mirin(12), sugar(8),
+      dashi(4), soy(12), mirin(12), sugar(8),
     ]),
     dish("nikudofu", "{protein}の肉豆腐", "和", "主菜", "煮", [
       "{protein}と木綿豆腐と玉ねぎを食べやすく切る。",
@@ -197,7 +198,7 @@ export function buildCookRecipes(): CookRecipe[] {
       "味噌{g:miso}gと砂糖{g:sugar}gとしょうゆ{g:soy}gを加えて5分煮て味を含ませる。",
     ], [
       s("protein", [["saba", 110], ["salmon", 120], ["buri", 90], ["hokke", 120]]),
-      dashi(8), sake(), miso(14), sugar(6), soy(6),
+      dashi(4), sake(), miso(14), sugar(6), soy(6),
     ]),
     dish("buri-daikon", "{protein}と大根の煮物", "和", "主菜", "煮", [
       "{protein}と大根を食べやすく切る。",
@@ -207,7 +208,7 @@ export function buildCookRecipes(): CookRecipe[] {
     ], [
       s("protein", [["buri", 90], ["saba", 100], ["salmon", 110]]),
       s("veg", [["daikon", 140]]),
-      dashi(8), soy(10), mirin(10), sugar(6),
+      dashi(4), soy(10), mirin(10), sugar(6),
     ]),
     dish("chanchan", "鮭と{veg}のちゃんちゃん焼き", "和", "主菜", "焼", [
       "鮭と{veg}を食べやすく切る。",
@@ -389,7 +390,7 @@ export function buildCookRecipes(): CookRecipe[] {
       s("protein", [["pork", 60], ["chicken", 70], ["chikuwa", 60], ["wiener", 50]]),
       s("veg", [["negi", 50], ["menma", 50], ["spinach", 50], ["moyashi", 60], ["hakusai", 70]]),
       s("rice", [["ramen", 180]]),
-      dashi(8), soy(10), pepper(),
+      dashi(4), soy(10), pepper(),
     ]),
     dish("chahan", "{protein}チャーハン", "中", "丼麺", "炒", [
       "{protein}を細かく切る。",
@@ -481,7 +482,7 @@ export function buildCookRecipes(): CookRecipe[] {
     ], [
       s("protein", [["pork", 60]]),
       s("veg", [["daikon", 80], ["carrot", 40], ["gobo", 40], ["onion", 50], ["konnyaku", 80]]),
-      dashi(8), miso(14), soy(4),
+      dashi(4), miso(14), soy(4),
     ]),
     dish("kakitama", "かきたま汁", "和", "汁物", "煮", [
       "卵を溶いておく。",
@@ -550,9 +551,9 @@ export function buildCookRecipes(): CookRecipe[] {
     dish("ohitashi", "{veg}のおひたし", "和", "副菜", "煮", [
       "{veg}を食べやすく切る。",
       "鍋に湯を沸かし、{veg}を2分ゆでて水気をしぼる。",
-      "顆粒だし{g:dashi}gとしょうゆ{g:soy}gとみりん{g:mirin}gを混ぜたたれをかける。",
+      "顆粒だし{g:dashi}gを湯大さじ1で溶き、しょうゆ{g:soy}gとみりん{g:mirin}gを混ぜたたれをかける。",
       "3分置いて味を含ませて出す。",
-    ], [s("veg", leaf), dashi(3), soy(8), mirin(6)]),
+    ], [s("veg", leaf), dashi(1), soy(8), mirin(6)]),
     dish("aemono", "{veg}の和え物", "和", "副菜", "和え", [
       "{veg}を食べやすく切る。",
       "鍋に湯を沸かし、{veg}を2分ゆでて水気を切る。",
@@ -855,7 +856,7 @@ export function buildCookRecipes(): CookRecipe[] {
       s("veg", [["piman", 80]]),
       oil(8), soy(8), sake(6), sugar(4),
     ]),
-    dish("yudofu", "煮込み湯豆腐", "和", "主菜", "煮", [
+    dish("yudofu", "湯豆腐", "和", "主菜", "煮", [
       "木綿豆腐を食べやすく切る。",
       "鍋に水を300mlと顆粒だし{g:dashi}gを入れて煮立たせる。",
       "豆腐を入れて6分煮る。",

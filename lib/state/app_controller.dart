@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 import 'package:uuid/uuid.dart';
 
 import '../config/subscription_catalog.dart';
@@ -1369,6 +1368,7 @@ class AppController extends ChangeNotifier {
     }
 
     final day = referenceDate ?? DateTime.now();
+    _summaryDay = day;
     summary = _nutritionEngine.calculateDailySummary(
       profile: currentProfile,
       goal: currentGoal,
@@ -3309,6 +3309,40 @@ class AppController extends ChangeNotifier {
     return MealTemplateWithItems(template: template, items: items);
   }
 
+  /// ウィジェットの枠に流し込む食事テンプレートの一覧。検索の計測は残さない。
+  Future<List<MealTemplate>> mealTemplatesForWidget() async {
+    final repository = _mealTemplateRepository;
+    final owner = currentOwnerUserId.trim();
+    if (repository == null || owner.isEmpty) {
+      return const [];
+    }
+    final all = await repository.getAll(owner);
+    final active = [
+      for (final template in all)
+        if (template.status == TemplateStatus.active &&
+            template.deletedAt == null)
+          template,
+    ]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return active;
+  }
+
+  /// ウィジェットの枠に流し込む運動テンプレートの一覧。検索の計測は残さない。
+  Future<List<WorkoutTemplate>> workoutTemplatesForWidget() async {
+    final repository = _workoutTemplateRepository;
+    final owner = currentOwnerUserId.trim();
+    if (repository == null || owner.isEmpty) {
+      return const [];
+    }
+    final all = await repository.getAll(owner);
+    final active = [
+      for (final template in all)
+        if (template.status == WorkoutTemplateStatus.active &&
+            template.deletedAt == null)
+          template,
+    ]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return active;
+  }
+
   /// 無料は4件まで。カロナビ+は件数の上限なし。編集と復元は止めない。
   Future<bool> canCreateWorkoutTemplate() async {
     final repository = _workoutTemplateRepository;
@@ -3818,15 +3852,7 @@ class AppController extends ChangeNotifier {
       }
     }
     final official = OfficialFoodsFlag.enabled && SupabaseConfig.isConfigured;
-    var accessToken = '';
-    if (official) {
-      try {
-        accessToken =
-            Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-      } catch (_) {
-        accessToken = '';
-      }
-    }
+    final blockedCreators = official ? await siriBlockedFoodCreatorIds() : null;
     await gateway.publishCatalog(
       SiriVoiceCodec.encodeCatalog(
         ownerUserId: currentOwnerUserId,
@@ -3834,12 +3860,37 @@ class AppController extends ChangeNotifier {
         officialFoodsEnabled: official,
         supabaseUrl: SupabaseConfig.url,
         supabaseAnonKey: SupabaseConfig.anonKey,
-        supabaseAccessToken: accessToken,
+        blockedFoodCreatorIds: blockedCreators,
         foods: foods,
         mealTemplates: await _siriMealTemplates(),
         workoutTemplates: await _siriWorkoutTemplates(),
       ),
     );
+  }
+
+  /// Siri が公開食品から外す作成者（自分がブロックした人）。
+  ///
+  /// 読めなかったとき・ログインしていないときは null。そのとき Siri は公開食品を使わない
+  /// （ブロックした人の食品を出さない）。ブロックの仕組みが無いときは空。
+  @visibleForTesting
+  Future<List<String>?> siriBlockedFoodCreatorIds() async {
+    final repository = _blockedCreatorRepository;
+    final owner = currentOwnerUserId.trim();
+    if (repository == null) {
+      return const [];
+    }
+    if (!isAuthenticated || owner.isEmpty) {
+      return null;
+    }
+    try {
+      return await repository.getBlockedUserIds(owner);
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] siri blocked creators failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      return null;
+    }
   }
 
   Future<List<SiriMealTemplate>> _siriMealTemplates() async {
@@ -4021,11 +4072,15 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  /// [summary] を計算した日。ウィジェットの数字にその日付を付ける。
+  DateTime? _summaryDay;
+
   MealWidgetFigures _mealWidgetFigures() {
     final current = summary;
     if (current == null) {
       return const MealWidgetFigures();
     }
+    final summaryDay = _summaryDay;
     final remaining = current.remainingKcal;
     return MealWidgetFigures(
       remainingKcal: remaining < 0 ? 0 : remaining.round(),
@@ -4035,6 +4090,7 @@ class AppController extends ChangeNotifier {
       overageKcal: current.isCalorieOverage
           ? current.calorieOverageKcal.round()
           : null,
+      day: summaryDay == null ? null : mealWidgetDayKey(summaryDay),
     );
   }
 

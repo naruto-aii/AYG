@@ -7,6 +7,7 @@ import '../../repositories/coach_intro_store.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/coach_nutrition_source.dart';
 import '../../repositories/coach_proposal_log.dart';
+import '../../repositories/coach_slot_store.dart';
 import '../../services/analytics/catalog_actions.dart';
 import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
@@ -36,6 +37,7 @@ class DailyCoachScreen extends StatefulWidget {
     this.now,
     this.introStore,
     this.proposalLog,
+    this.slotStore,
   });
 
   final AppController? controller;
@@ -52,6 +54,9 @@ class DailyCoachScreen extends StatefulWidget {
   final CoachIntroStore? introStore;
   final CoachProposalLog? proposalLog;
 
+  /// 1日の案で登録した枠。省略時は端末に保存する。
+  final CoachSlotStore? slotStore;
+
   @override
   State<DailyCoachScreen> createState() => _DailyCoachScreenState();
 }
@@ -65,6 +70,9 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   int _mealShift = 0;
   bool _wasPlusBlocked = false;
   StreamSubscription<bool>? _plusSubscription;
+
+  late final CoachSlotStore _slotStore =
+      widget.slotStore ?? PreferencesCoachSlotStore();
 
   CoachProposalLog get _log {
     return widget.proposalLog ??
@@ -134,16 +142,18 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   void _bindAmounts(DailyCoachLoadResult result) {
     _disposeAmounts();
     if (result.offersMeals) {
-      for (final indexed in result.meals.indexed) {
+      final flat = [for (final plan in result.dayPlans) ...plan.meals];
+      for (final indexed in flat.indexed) {
         for (
           var component = 0;
           component < indexed.$2.components.length;
           component++
         ) {
           final grams = indexed.$2.components[component].grams;
+          // 量を変えたら、食品・食事・合計の kcal をその場で変える。
           _amounts['${indexed.$1}-$component'] = TextEditingController(
             text: formatCoachAmount(grams.toDouble()),
-          );
+          )..addListener(_onAmountChanged);
         }
       }
     }
@@ -158,6 +168,12 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     }
   }
 
+  void _onAmountChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   Future<void> _maybeShowIntro() async {
     final store = widget.introStore ?? PreferencesCoachIntroStore();
     final seen = await store.hasSeen();
@@ -165,7 +181,9 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       return;
     }
     await showDialog<void>(
-      routeSettings: const RouteSettings(name: 'daily_coach_screen_showDialog_0'),
+      routeSettings: const RouteSettings(
+        name: 'daily_coach_screen_showDialog_0',
+      ),
       context: context,
       builder: (context) => AlertDialog(
         content: const Text(AppStrings.coachFeatureBody),
@@ -194,6 +212,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     return DailyCoachSession(
       controller: controller,
       nutritionSource: widget.nutritionSource,
+      slotStore: _slotStore,
     ).load(widget.now ?? DateTime.now());
   }
 
@@ -301,6 +320,16 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             controller: controller,
           ).saveMeal(proposal, grams: grams);
         }
+        // 登録した枠は、開き直したときの案から外す（新しい残りで、まだの枠だけを組み直す）。
+        final slot = proposal.slot;
+        if (slot != null) {
+          await _slotStore.markRegistered(
+            day: widget.now ?? DateTime.now(),
+            slot: slot,
+            kcal: _mealKcal(proposal, index),
+            entryIds: ids,
+          );
+        }
         final logId = index >= 0 && index < _shown.length
             ? _shown[index].id
             : 'local';
@@ -374,7 +403,10 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
           if (_plusBlocked) ...[
             const DesignCard(
               key: Key('coach_beta_notice'),
-              child: Text(AppStrings.coachBetaNotice, style: AppTypography.bodyS),
+              child: Text(
+                AppStrings.coachBetaNotice,
+                style: AppTypography.bodyS,
+              ),
             ),
             const SizedBox(height: 16),
             DesignButton(
@@ -411,7 +443,8 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
               Text(result.message!, style: AppTypography.bodyS),
             if (result.offersExercise) _exerciseCard(result),
             if (result.offersMeals) ...[
-              Text('食事の案', style: AppTypography.titleM),
+              if (result.plans.isEmpty)
+                Text('食事の案', style: AppTypography.titleM),
               _visibleMeal(result),
             ],
           ],
@@ -430,31 +463,31 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
   }
 
   Widget _visibleMeal(DailyCoachLoadResult result) {
-    final count = result.meals.length;
+    final plans = result.dayPlans;
+    final count = plans.length;
     final now = widget.now ?? DateTime.now();
     final day = DateTime(
       now.year,
       now.month,
       now.day,
     ).difference(DateTime(now.year)).inDays;
-    final index = count == 0 ? 0 : (day + _mealShift) % count;
-    final meal = result.meals[index];
+    final shown = count == 0 ? 0 : (day + _mealShift) % count;
+    final plan = plans[shown];
+    // 画面と記録で共通の通し番号。前の案の回数を足す。
+    var offset = 0;
+    for (var i = 0; i < shown; i++) {
+      offset += plans[i].meals.length;
+    }
+    final daySummary = result.plans.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (meal.bandLabel != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              meal.bandLabel!,
-              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-            ),
-          ),
-        _mealCard(meal, index),
-        if (meal.note != null)
+        if (daySummary)
+          _daySummary(result, plan, offset)
+        else if (plan.note != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(meal.note!, style: AppTypography.bodyS),
+            child: Text(plan.note!, style: AppTypography.bodyS),
           ),
         if (count > 1) ...[
           const SizedBox(height: 8),
@@ -467,8 +500,141 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             onPressed: () => setState(() => _mealShift++),
           ),
         ],
+        for (var m = 0; m < plan.meals.length; m++)
+          _mealSection(
+            plan.meals[m],
+            offset + m,
+            _numberedLabel(plan.meals, m),
+          ),
       ],
     );
+  }
+
+  /// 今日の残りに対して、どの食事で何kcal食べ、合計がいくつになるか。
+  Widget _daySummary(
+    DailyCoachLoadResult result,
+    CoachDayPlan plan,
+    int offset,
+  ) {
+    final remaining = plan.remainingKcal.round();
+    var total = 0;
+    for (var m = 0; m < plan.meals.length; m++) {
+      total += _mealKcal(plan.meals[m], offset + m);
+    }
+    final percent = remaining <= 0 ? 0 : (total / remaining * 100).round();
+    final muted = AppTypography.bodyM.copyWith(color: AppColors.textMuted);
+    return DesignCard(
+      key: const Key('coach_day_summary'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '今日の残り ${formatCoachKcal(remaining)}kcal の食べ方',
+            key: const Key('coach_day_summary_title'),
+            style: AppTypography.titleM,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'おすすめの量で食べたときのカロリーです。',
+            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 10),
+          for (final item in result.registered)
+            _summaryRow(
+              item.slot.label,
+              '登録済み ${formatCoachKcal(item.kcal)}kcal',
+              key: Key('coach_summary_registered_${item.slot.name}'),
+              style: muted,
+            ),
+          for (var m = 0; m < plan.meals.length; m++)
+            _summaryRow(
+              _numberedLabel(plan.meals, m),
+              '${formatCoachKcal(_mealKcal(plan.meals[m], offset + m))}kcal',
+              key: Key('coach_summary_row_${offset + m}'),
+              style: AppTypography.bodyM.copyWith(color: AppColors.textPrimary),
+            ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1, color: AppColors.neutral200),
+          ),
+          _summaryRow(
+            '合計',
+            '${formatCoachKcal(total)}kcal（残りの$percent%）',
+            key: const Key('coach_day_total'),
+            style: AppTypography.titleS,
+          ),
+          if (plan.note != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              plan.note!,
+              key: const Key('coach_day_note'),
+              style: AppTypography.bodyS,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(
+    String label,
+    String value, {
+    required Key key,
+    required TextStyle style,
+  }) {
+    return Padding(
+      key: key,
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Text(label, style: style)),
+          const SizedBox(width: 12),
+          Text(value, style: style, textAlign: TextAlign.right),
+        ],
+      ),
+    );
+  }
+
+  /// 同じ枠が2回あるとき（22時以降の間食2つ）は「間食 1」「間食 2」と番号を付ける。
+  String _numberedLabel(List<CoachMealProposal> meals, int index) {
+    final label = _mealLabel(meals[index]) ?? '食事';
+    final same = [
+      for (var i = 0; i < meals.length; i++)
+        if ((_mealLabel(meals[i]) ?? '食事') == label) i,
+    ];
+    if (same.length < 2) {
+      return label;
+    }
+    return '$label ${same.indexOf(index) + 1}';
+  }
+
+  /// 1日の案では枠（朝食・昼食・間食・夕食）。枠の無い1回分の案（旧形式）だけ量の区分。
+  String? _mealLabel(CoachMealProposal meal) {
+    return meal.slotLabel ?? meal.bandLabel;
+  }
+
+  /// 入っている量での、食品1つの kcal。数字でなければ null。
+  int? _componentKcal(CoachMealProposal meal, int index, int component) {
+    final item = meal.components[component];
+    final edited = parseCoachAmount(_amounts['$index-$component']?.text ?? '');
+    if (edited == null || item.grams <= 0) {
+      return null;
+    }
+    final kcal = item.kcalPerUnit * item.units * edited / item.grams;
+    if (!kcal.isFinite) {
+      return null;
+    }
+    return (kcal + 1e-9).round();
+  }
+
+  /// 入っている量での、食事1回の kcal（食品ごとの kcal の合計）。
+  int _mealKcal(CoachMealProposal meal, int index) {
+    var total = 0;
+    for (var component = 0; component < meal.components.length; component++) {
+      total += _componentKcal(meal, index, component) ?? 0;
+    }
+    return total;
   }
 
   Widget _exerciseCard(DailyCoachLoadResult result) {
@@ -491,7 +657,9 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
                   : () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'daily_coach_screen_MaterialPageRoute_0'),
+                          settings: const RouteSettings(
+                            name: 'daily_coach_screen_MaterialPageRoute_0',
+                          ),
                           builder: (context) => WeightRecordScreen(
                             controller: widget.controller!,
                           ),
@@ -528,55 +696,112 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     );
   }
 
-  Widget _mealCard(CoachMealProposal meal, int index) {
+  /// 枠ごとの見出し（枠名と kcal）と、食品・おすすめの量・kcal、登録ボタン。
+  Widget _mealSection(CoachMealProposal meal, int index, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 20, bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  key: Key('coach_meal_label_$index'),
+                  style: AppTypography.titleM,
+                ),
+              ),
+              Text(
+                '${formatCoachKcal(_mealKcal(meal, index))}kcal',
+                key: Key('coach_meal_kcal_$index'),
+                style: AppTypography.titleM,
+              ),
+            ],
+          ),
+        ),
+        DesignCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 枠の無い1回分の案（旧形式）は、食品と量の一覧を見出しに出す。
+              if (meal.slotLabel == null) ...[
+                Text(meal.headline, style: AppTypography.titleS),
+                const SizedBox(height: 8),
+              ],
+              if (meal.macroNote != null) ...[
+                Text(meal.macroNote!, style: AppTypography.bodyS),
+                const SizedBox(height: 8),
+              ],
+              for (
+                var component = 0;
+                component < meal.components.length;
+                component++
+              )
+                _foodRow(meal, index, component),
+              const SizedBox(height: 4),
+              DesignButton(
+                key: Key('coach_register_meal_$index'),
+                label: 'この量で登録',
+                height: 48,
+                showTrailingIcon: false,
+                onPressed: _saving ? null : () => _registerMeal(meal, index),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _foodRow(CoachMealProposal meal, int index, int component) {
+    final item = meal.components[component];
+    final kcal = _componentKcal(meal, index, component);
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: DesignCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(meal.headline, style: AppTypography.titleM),
-            const SizedBox(height: 4),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(item.displayName, style: AppTypography.labelM),
+          if (item.portionNote != null)
             Text(
-              '約${meal.kcal.round()}kcal',
+              'おすすめ ${item.grams}g（${item.portionNote}）',
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            )
+          else
+            Text(
+              'おすすめ ${item.grams}g',
               style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
             ),
-            if (meal.macroNote != null) ...[
-              const SizedBox(height: 4),
-              Text(meal.macroNote!, style: AppTypography.bodyS),
-            ],
-            const SizedBox(height: 12),
-            for (
-              var component = 0;
-              component < meal.components.length;
-              component++
-            ) ...[
-              Text(
-                meal.components[component].displayName,
-                style: AppTypography.labelM,
-              ),
-              const SizedBox(height: 6),
-              DesignInputBox(
-                suffix: 'g',
-                child: DesignTextInput(
-                  controller: _amounts['$index-$component']!,
-                  inputKey: Key('coach_meal_grams_${index}_$component'),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: DesignInputBox(
+                  suffix: 'g',
+                  child: DesignTextInput(
+                    controller: _amounts['$index-$component']!,
+                    inputKey: Key('coach_meal_grams_${index}_$component'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 84,
+                child: Text(
+                  kcal == null ? '—' : '${formatCoachKcal(kcal)}kcal',
+                  key: Key('coach_food_kcal_${index}_$component'),
+                  style: AppTypography.bodyM,
+                  textAlign: TextAlign.right,
+                ),
+              ),
             ],
-            DesignButton(
-              key: Key('coach_register_meal_$index'),
-              label: 'この量で登録',
-              height: 48,
-              showTrailingIcon: false,
-              onPressed: _saving ? null : () => _registerMeal(meal, index),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/meal_template.dart';
 import '../../models/meal_template_draft.dart';
+import '../../models/workout_template.dart';
 import '../../services/lock_screen_meal.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -17,6 +18,7 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../meal_template/meal_template_form_screen.dart';
 import 'widget_exercise_pattern_screen.dart';
+import 'widget_template_amount_screen.dart';
 
 /// 保存はボタンの中身だけ。ホーム画面とロック画面への追加手順。
 const String widgetPlacementLead =
@@ -73,6 +75,8 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
 
   bool _loading = true;
   bool _saving = false;
+  List<MealTemplate> _mealTemplates = const [];
+  List<WorkoutTemplate> _workoutTemplates = const [];
 
   @override
   void initState() {
@@ -89,6 +93,13 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
   Future<void> _load() async {
     final config = await widget.controller.loadLockScreenMealConfig();
     _fill(_home, config.homeButtons);
+    try {
+      _mealTemplates = await widget.controller.mealTemplatesForWidget();
+      _workoutTemplates = await widget.controller.workoutTemplatesForWidget();
+    } catch (_) {
+      _mealTemplates = const [];
+      _workoutTemplates = const [];
+    }
     if (!mounted) {
       return;
     }
@@ -141,6 +152,76 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
       _home.items[slot] = items;
       _home.names[slot] = selected.name;
     });
+  }
+
+  /// テンプレートを選んだら、構成ごとの量を入れる画面へ進む。
+  Future<void> _pickMealTemplate(int slot, String templateId) async {
+    final bundle = await widget.controller.getMealTemplateWithItems(templateId);
+    if (!mounted || bundle == null || bundle.items.isEmpty) {
+      return;
+    }
+    final items = [...bundle.items]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final selected = await Navigator.of(context).push<MealTemplateDraft>(
+      MaterialPageRoute<MealTemplateDraft>(
+        settings: const RouteSettings(name: 'widget_meal_template_amount'),
+        builder: (context) => WidgetMealAmountScreen(
+          templateName: bundle.template.name,
+          items: items,
+        ),
+      ),
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    final now = DateTime.now();
+    setState(() {
+      _home.items[slot] = [
+        for (final draft in selected.items)
+          draft.toItem(itemId: generateUniqueId(), now: now),
+      ];
+      _home.names[slot] = selected.name;
+      _fillLabel(slot, selected.name);
+    });
+  }
+
+  Future<void> _pickWorkoutTemplate(int slot, String templateId) async {
+    final bundle = await widget.controller.getWorkoutTemplateWithItems(
+      templateId,
+    );
+    if (!mounted || bundle == null || bundle.items.isEmpty) {
+      return;
+    }
+    final items = [...bundle.items]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final selected = await Navigator.of(context)
+        .push<List<WidgetExercisePattern>>(
+          MaterialPageRoute<List<WidgetExercisePattern>>(
+            settings: const RouteSettings(
+              name: 'widget_workout_template_amount',
+            ),
+            builder: (context) => WidgetWorkoutAmountScreen(
+              templateName: bundle.template.name,
+              items: items,
+            ),
+          ),
+        );
+    if (selected == null || selected.isEmpty || !mounted) {
+      return;
+    }
+    setState(() {
+      _home.exercises[slot] = selected;
+      _fillLabel(slot, bundle.template.name);
+    });
+  }
+
+  /// ボタンの文字が空なら、テンプレート名（8文字まで）を入れる。
+  void _fillLabel(int slot, String name) {
+    if (_home.labels[slot].text.trim().isNotEmpty) {
+      return;
+    }
+    final characters = name.trim().characters;
+    _home.labels[slot].text = characters.take(8).toString();
   }
 
   Future<void> _editExercise(int slot) async {
@@ -280,7 +361,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
                 const DesignTitleBlock(
                   title: 'ウィジェット',
                   subtitle:
-                      'ホーム画面の大きなウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。ロック画面の3枠は、ホームの1〜3枠目を種類も含めてそのまま使います。このパターンは食事テンプレートの4件とは別です。',
+                      'ホーム画面の大きなウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。ロック画面の3枠は、ホームの1〜3枠目を種類も含めてそのまま使います。枠の中身は、保存した食事・運動テンプレートを選んで食品や種目ごとに量を変えて入れるか、その場で作ります。枠に入れても元のテンプレートは変わらず、テンプレートの件数にも入りません。',
                 ),
                 DesignCard(
                   child: Column(
@@ -382,6 +463,8 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
+          _templatePicker(slot, exercise),
+          const SizedBox(height: AppSpacing.md),
           DesignInputBox(
             child: DesignTextInput(
               key: Key('lock-screen-meal-label-home-$slot'),
@@ -426,6 +509,52 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  /// 保存したテンプレートのプルダウン。選ぶと量の入力へ進む。
+  Widget _templatePicker(int slot, bool exercise) {
+    final options = exercise
+        ? [
+            for (final template in _workoutTemplates)
+              (template.templateId, template.name),
+          ]
+        : [
+            for (final template in _mealTemplates)
+              (template.templateId, template.name),
+          ];
+    final empty = options.isEmpty;
+    return DropdownButtonFormField<String>(
+      key: Key('widget-slot-template-$slot-${exercise ? 'exercise' : 'meal'}'),
+      initialValue: null,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: exercise ? '運動テンプレートから選ぶ' : '食事テンプレートから選ぶ',
+        border: const OutlineInputBorder(),
+      ),
+      hint: Text(
+        empty ? '保存したテンプレートはまだありません' : 'テンプレートを選ぶ',
+        style: AppTypography.bodyM.copyWith(color: AppColors.textMuted),
+      ),
+      items: [
+        for (final option in options)
+          DropdownMenuItem<String>(
+            value: option.$1,
+            child: Text(option.$2, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: empty
+          ? null
+          : (id) {
+              if (id == null) {
+                return;
+              }
+              if (exercise) {
+                _pickWorkoutTemplate(slot, id);
+              } else {
+                _pickMealTemplate(slot, id);
+              }
+            },
     );
   }
 

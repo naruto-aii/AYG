@@ -8,7 +8,6 @@ import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/health_repository.dart';
 import '../../services/analytics/catalog_actions.dart';
 import '../../services/open_food_facts_service.dart';
-import 'analytics_settings_screen.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -295,14 +294,6 @@ class SettingsScreen extends StatelessWidget {
                 ? '算出方法と食品データの出典'
                 : 'カロリーと栄養素の算出方法',
             onTap: () => _push(context, const SettingsReferenceScreen()),
-          ),
-          const SizedBox(height: _rowGap),
-          SettingsRow(
-            key: const Key('settings-analytics'),
-            icon: AppIcons.information,
-            title: '利用状況の記録',
-            subtitle: '協力のオンとオフ。協力しなくても使えます',
-            onTap: () => _push(context, const AnalyticsSettingsScreen()),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(

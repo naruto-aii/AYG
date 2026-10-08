@@ -60,12 +60,16 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('coach_meal_grams_0_0')), '0');
+    await tester.ensureVisible(find.widgetWithText(DesignButton, 'この量で登録'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(DesignButton, 'この量で登録'));
     await tester.pumpAndSettle();
     expect(events, isEmpty);
     expect(find.text('量は0より大きい数字にしてください'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('coach_meal_grams_0_0')), '80');
+    await tester.ensureVisible(find.widgetWithText(DesignButton, 'この量で登録'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(DesignButton, 'この量で登録'));
     await tester.pumpAndSettle();
 

@@ -7,6 +7,7 @@ import '../models/exercise_entry.dart';
 import '../models/exercise_quantity_unit.dart';
 import '../services/exercise_calorie_calculator.dart';
 import '../utils/local_date.dart';
+import '../utils/meal_slot.dart';
 
 const coachNutritionMissingMessage = '食品の数値が取れませんでした。';
 
@@ -31,11 +32,15 @@ class CoachMealComponent {
     required this.proteinPerUnit,
     required this.fatPerUnit,
     required this.carbPerUnit,
+    this.portionNote,
   });
 
   final String foodCode;
   final String displayName;
   final String? officialName;
+
+  /// グラム以外の目安（「2個」「1丁の半分」、中身の説明）。無ければ null。
+  final String? portionNote;
 
   /// 提案単位の数。食事記録の数量はこの数で、あとから変えられる。
   final int units;
@@ -57,6 +62,8 @@ class CoachMealProposal {
     this.macroNote,
     this.note,
     this.bandLabel,
+    this.slotLabel,
+    this.slot,
   });
 
   final String headline;
@@ -72,6 +79,12 @@ class CoachMealProposal {
 
   /// 間食、軽食、一食（ちゃんと）、一食（しっかり）。
   final String? bandLabel;
+
+  /// 1日の案での枠（朝食・昼食・間食・夕食）。
+  final String? slotLabel;
+
+  /// 1日の案での枠。登録した枠を、開き直したときの案から外すのに使う。
+  final MealSlot? slot;
 
   Set<String> get foodCodes => {for (final item in components) item.foodCode};
 }
@@ -126,6 +139,126 @@ int? coachWholeMinutes(double amount) {
   return minutes;
 }
 
+/// 1日の残りを、これからの食事と間食に分けた案。
+class CoachDayPlan {
+  const CoachDayPlan({
+    required this.meals,
+    required this.remainingKcal,
+    this.note,
+  });
+
+  /// 朝食・昼食・間食・夕食の順。1件ずつ登録する。
+  final List<CoachMealProposal> meals;
+  final double remainingKcal;
+  final String? note;
+
+  double get kcal => meals.fold(0.0, (sum, meal) => sum + meal.kcal);
+}
+
+/// 残りを今の時刻からとれる食事に分ける。上位 [limit] 通り。
+///
+/// 0〜10時台は朝食・昼食・間食・夕食、11〜14時台は昼食・間食・夕食、
+/// 15〜21時台は夕食だけ、22時以降は間食だけ。残りが1食分（450kcal）未満なら1回分だけ。
+List<CoachDayPlan> planCoachDay({
+  required List<CoachFoodStock> foods,
+  required Set<String> excludedFoodCodes,
+  required double remainingKcal,
+  required DateTime now,
+  int limit = 5,
+  Set<MealSlot> skipSlots = const {},
+}) {
+  final days = planPersonalCoachDay(
+    foods: foods,
+    excludedFoodCodes: excludedFoodCodes,
+    remainingKcal: remainingKcal,
+    now: now,
+    limit: limit,
+    skipSlots: skipSlots,
+  );
+  return [
+    for (final day in days)
+      CoachDayPlan(
+        remainingKcal: remainingKcal,
+        note: coachDayPlanNote(day, now),
+        meals: [
+          for (final entry in day.meals)
+            _proposal(
+              foods,
+              entry.meal,
+              slotLabel: entry.label,
+              slot: entry.slot,
+            ),
+        ],
+      ),
+  ];
+}
+
+/// 案の下に出す一文。この時間帯の案で埋めきれない残りがあるときだけ。
+///
+/// 1食の上限に届かない端数（調味料の分の余白）には出さない。
+String? coachDayPlanNote(PlannedCoachDay day, DateTime now) {
+  final leftover = day.leftoverKcal.round();
+  if (leftover < 100) {
+    return null;
+  }
+  if (personalCoachIsLateEvening(now)) {
+    return '夜遅い時間なので、間食までにしています。残りは無理に食べなくて大丈夫です。';
+  }
+  if (!day.hitsMealCap) {
+    return null;
+  }
+  return '1食は850kcalまでにしています。この案を全部食べると、残りは約${leftover}kcalです。';
+}
+
+CoachMealProposal _proposal(
+  List<CoachFoodStock> foods,
+  PlannedCoachMeal meal, {
+  String? slotLabel,
+  MealSlot? slot,
+  String? note,
+}) {
+  return CoachMealProposal(
+    headline: meal.headline,
+    bandLabel: personalCoachBandLabel(meal.band),
+    slotLabel: slotLabel,
+    slot: slot,
+    note: note,
+    components: [
+      for (final item in meal.items)
+        CoachMealComponent(
+          foodCode: item.foodCode,
+          displayName: item.displayName,
+          officialName: item.displayName,
+          units: 1,
+          grams: item.grams,
+          kcalPerUnit: _componentKcal(foods, item),
+          proteinPerUnit: item.proteinG,
+          fatPerUnit: item.fatG,
+          carbPerUnit: item.carbG,
+          portionNote: coachPortionNote(item),
+        ),
+    ],
+    kcal: meal.kcal.toDouble(),
+    proteinG: meal.proteinG,
+    fatG: meal.fatG,
+    carbG: meal.carbG,
+  );
+}
+
+/// 食品の横に出す、グラム以外の目安。「200g」のようにグラムだけなら出さない。
+String? coachPortionNote(PlannedCoachItem item) {
+  final parts = <String>[
+    if (item.label.trim().isNotEmpty && item.label.trim() != '${item.grams}g')
+      item.label.trim(),
+    if (item.contentsNote != null && item.contentsNote!.trim().isNotEmpty)
+      item.contentsNote!.trim(),
+  ];
+  if (parts.isEmpty) {
+    return null;
+  }
+  return parts.join('・');
+}
+
 /// 上位10案。量は食品ごとの選択肢だけ。unit_grams では増やさない。
 List<CoachMealProposal> planCoachMeals({
   required List<CoachFoodStock> foods,
@@ -144,32 +277,10 @@ List<CoachMealProposal> planCoachMeals({
     now: now,
     limit: limit,
   );
-  final note = remainingKcal > 850 ? '残りは次の食事で' : null;
+  final late = now != null && personalCoachIsLateEvening(now);
+  final note = remainingKcal > 850 && !late ? '残りは次の食事で' : null;
   return [
-    for (final meal in planned)
-      CoachMealProposal(
-        headline: meal.headline,
-        bandLabel: personalCoachBandLabel(meal.band),
-        note: note,
-        components: [
-          for (final item in meal.items)
-            CoachMealComponent(
-              foodCode: item.foodCode,
-              displayName: item.displayName,
-              officialName: item.displayName,
-              units: 1,
-              grams: item.grams,
-              kcalPerUnit: _componentKcal(foods, item),
-              proteinPerUnit: item.proteinG,
-              fatPerUnit: item.fatG,
-              carbPerUnit: item.carbG,
-            ),
-        ],
-        kcal: meal.kcal.toDouble(),
-        proteinG: meal.proteinG,
-        fatG: meal.fatG,
-        carbG: meal.carbG,
-      ),
+    for (final meal in planned) _proposal(foods, meal, note: note),
   ];
 }
 
@@ -761,6 +872,20 @@ String _timeMessage({
   final limit = today < needed ? 'までにします' : 'にします';
   final tail = rest > 0 ? '残りの約${rest}kcalは明日以降の食事で。' : '';
   return '戻すには$activityNameで約$needed分です。今日やるなら$today分$limit。$todayLine$tail';
+}
+
+/// kcal の表示。3桁ごとにカンマ（2,438）。
+String formatCoachKcal(int kcal) {
+  final negative = kcal < 0;
+  final digits = kcal.abs().toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(digits[i]);
+  }
+  return negative ? '-$buffer' : buffer.toString();
 }
 
 String formatCoachAmount(double value) {

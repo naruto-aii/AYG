@@ -7,6 +7,7 @@ import '../models/food_entry.dart';
 import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../models/meal_template.dart';
+import '../utils/calorie_ring_progress.dart';
 import 'exercise_calorie_calculator.dart';
 
 /// ホームとロック画面のウィジェットが共有する JSON（version 3）。
@@ -79,20 +80,64 @@ class WidgetExercisePattern {
   }
 }
 
+/// ウィジェットの日付キー。端末のローカル日付（yyyy-MM-dd）。
+/// Swift の `MealWidgetDay.key` と同じ。
+String mealWidgetDayKey(DateTime value) {
+  final local = value.isUtc ? value.toLocal() : value;
+  final year = local.year.toString().padLeft(4, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
+/// 保存日（[MealWidgetFigures.day]）が [now] の日と違えば、今日の初期状態にする。
+///
+/// 摂取 0・消費 0・あと＝目標・超過なし（リングは空）。目標は保存されたものを使う。
+/// 日付が無い古いデータは、アプリが新しく書くまでそのまま返す。
+/// Swift の `StoredMealFigures.forToday` と同じ。
+MealWidgetFigures mealWidgetFiguresForToday(
+  MealWidgetFigures figures, {
+  required DateTime now,
+}) {
+  final day = figures.day;
+  final today = mealWidgetDayKey(now);
+  if (day == null || day == today) {
+    return figures;
+  }
+  final target = figures.targetKcal;
+  return MealWidgetFigures(
+    remainingKcal: target == null ? null : (target < 0 ? 0 : target),
+    intakeKcal: 0,
+    burnKcal: 0,
+    targetKcal: target,
+    day: today,
+  );
+}
+
 /// ボタンを押した分だけ、ウィジェットの整数表示を動かす。
 ///
 /// 摂取と消費は足す。残りは「残り − 摂取増 + 消費増」で、0 未満になった分は超過にする
 /// （超過の日は「−超過」から計算する）。目標はそのまま引き継ぐ。
-/// Swift の `LockScreenMealStore.applyFigures` と同じ。
+/// [now] を渡すと、保存日が前の日なら昨日の合計に足さず今日の 0 から始める。
+/// 前の日の記録の取り消し（どちらも 0 以下）は、今日の数字を動かさない。
+/// Swift の `LockScreenMealStore.applyFigures`（`StoredMealFigures.applying`）と同じ。
 MealWidgetFigures applyMealWidgetFigures({
   required MealWidgetFigures figures,
   required double intakeDelta,
   required double burnDelta,
+  DateTime? now,
 }) {
   final intakeAdd = intakeDelta.round();
   final burnAdd = burnDelta.round();
-  final remaining = figures.remainingKcal;
-  final overage = figures.overageKcal;
+  final base = now == null
+      ? figures
+      : mealWidgetFiguresForToday(figures, now: now);
+  final rolledOver = base.day != figures.day;
+  if (rolledOver && intakeAdd <= 0 && burnAdd <= 0) {
+    return base;
+  }
+  final remaining = base.remainingKcal;
+  final overage = base.overageKcal;
   int? nextRemaining;
   int? nextOverage = overage;
   if (remaining != null) {
@@ -103,10 +148,11 @@ MealWidgetFigures applyMealWidgetFigures({
   }
   return MealWidgetFigures(
     remainingKcal: nextRemaining,
-    intakeKcal: (figures.intakeKcal ?? 0) + intakeAdd,
-    burnKcal: (figures.burnKcal ?? 0) + burnAdd,
-    targetKcal: figures.targetKcal,
+    intakeKcal: (base.intakeKcal ?? 0) + intakeAdd,
+    burnKcal: (base.burnKcal ?? 0) + burnAdd,
+    targetKcal: base.targetKcal,
     overageKcal: nextOverage,
+    day: base.day,
   );
 }
 
@@ -257,7 +303,8 @@ class LockScreenMealConfig {
 /// ウィジェットに出す、今日の残り・摂取・消費。
 ///
 /// 目標と超過は、ウィジェットのカロリーリングをアプリのホームと同じ見た目にするために渡す。
-/// 超過していない日は [overageKcal] を null にする。
+/// 超過していない日は [overageKcal] を null にする。[day] は数字の日付で、日付が変わったら
+/// ウィジェットがアプリを開かなくても今日の初期状態に切り替えるために使う。
 class MealWidgetFigures {
   const MealWidgetFigures({
     this.remainingKcal,
@@ -265,6 +312,7 @@ class MealWidgetFigures {
     this.burnKcal,
     this.targetKcal,
     this.overageKcal,
+    this.day,
   });
 
   final int? remainingKcal;
@@ -272,6 +320,45 @@ class MealWidgetFigures {
   final int? burnKcal;
   final int? targetKcal;
   final int? overageKcal;
+
+  /// この数字の日（ローカル日付 yyyy-MM-dd、[mealWidgetDayKey]）。
+  /// ウィジェットは今日と違えば今日の初期状態を出す。無ければ日付の確認をしない。
+  final String? day;
+
+  /// ウィジェットのカロリーリングの塗り（0.0〜1.0）。Swift の `MealWidgetFigures.progress` と同じ。
+  ///
+  /// リング中央の「今日あと」と同じ数字から [calorieRingProgress] で求める。
+  /// 一周ちょうど＝あと 0kcal。超過は一周。目標が 0 以下なら 0。
+  /// 残りが無い古いデータだけ「摂取 ÷ 目標」にする。
+  double get ringProgress {
+    final target = targetKcal;
+    final intake = intakeKcal;
+    final remaining = remainingKcal;
+    if (target != null && target <= 0) {
+      return 0;
+    }
+    if ((overageKcal ?? 0) > 0) {
+      return 1;
+    }
+    if (intake == null || intake <= 0) {
+      return 0;
+    }
+    if (remaining != null) {
+      return calorieRingProgress(
+        intakeKcal: intake.toDouble(),
+        remainingKcal: remaining < 0 ? 0 : remaining.toDouble(),
+        targetKcal: (target ?? intake + remaining).toDouble(),
+      );
+    }
+    if (target != null) {
+      return calorieRingProgress(
+        intakeKcal: intake.toDouble(),
+        remainingKcal: (target - intake).toDouble(),
+        targetKcal: target.toDouble(),
+      );
+    }
+    return 0;
+  }
 }
 
 class LockScreenMealButtonSnapshot {
@@ -626,6 +713,7 @@ abstract final class LockScreenMealCodec {
       'burn': snapshot.figures.burnKcal,
       'target': snapshot.figures.targetKcal,
       'overage': snapshot.figures.overageKcal,
+      if (snapshot.figures.day != null) 'day': snapshot.figures.day,
       'home': [for (final button in snapshot.homeButtons) _buttonJson(button)],
       'lock': [for (final button in snapshot.lockButtons) _buttonJson(button)],
     });

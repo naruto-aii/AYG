@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../utils/calorie_ring_progress.dart';
 import '../../theme/app_typography.dart';
 
 /// Figma: CalorieRing（164×164）。
@@ -24,7 +25,8 @@ class CalorieRing extends StatelessWidget {
   final String value;
   final String unit;
 
-  /// 0.0〜1.0。
+  /// 0.0〜1.0。[calorieRingProgress] の値をそのまま渡す（丸めない）。
+  /// 1.0 でちょうど一周。丸い端のはみ出しは描画側で差し引く。
   final double progress;
   final double size;
   final Color? progressColor;
@@ -142,7 +144,14 @@ class _RingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, radius, track);
 
-    if (progress <= 0) {
+    final range = ringTrimRange(
+      progress: progress,
+      capFraction: ringRoundCapFraction(
+        radius: radius,
+        strokeWidth: strokeWidth,
+      ),
+    );
+    if (range == null) {
       return;
     }
 
@@ -152,8 +161,19 @@ class _RingPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    // 12 時から反時計まわり。
-    canvas.drawArc(rect, -math.pi / 2, -2 * math.pi * progress, false, paint);
+    if (range.to - range.from >= 1) {
+      canvas.drawCircle(center, radius, paint);
+      return;
+    }
+
+    // 12 時から反時計まわり。丸い端のはみ出しを含めて、見た目が 0〜progress になる。
+    canvas.drawArc(
+      rect,
+      -math.pi / 2 - 2 * math.pi * range.from,
+      -2 * math.pi * (range.to - range.from),
+      false,
+      paint,
+    );
   }
 
   @override

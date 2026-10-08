@@ -2188,7 +2188,7 @@ abstract final class SiriVoiceCodec {
     required bool officialFoodsEnabled,
     required String supabaseUrl,
     required String supabaseAnonKey,
-    String supabaseAccessToken = '',
+    List<String>? blockedFoodCreatorIds,
     required List<SiriFoodRecord> foods,
     List<SiriMealTemplate> mealTemplates = const [],
     List<SiriWorkoutTemplate> workoutTemplates = const [],
@@ -2200,7 +2200,14 @@ abstract final class SiriVoiceCodec {
       'officialFoodsEnabled': officialFoodsEnabled,
       'supabaseUrl': officialFoodsEnabled ? supabaseUrl : '',
       'supabaseAnonKey': officialFoodsEnabled ? supabaseAnonKey : '',
-      'supabaseAccessToken': officialFoodsEnabled ? supabaseAccessToken : '',
+      // ログイン中のトークンは書かない（約1時間で切れるうえ、App Group に置く必要が無い）。
+      // 公開食品は anon キーで search_public_foods_voice を呼び、ブロックした作成者は
+      // この一覧で Siri が外す。一覧を読めなかったときはキーを書かず、Siri は公開食品を使わない。
+      if (officialFoodsEnabled && blockedFoodCreatorIds != null)
+        'blockedFoodCreatorIds': [
+          for (final id in blockedFoodCreatorIds)
+            if (id.trim().isNotEmpty) id.trim(),
+        ],
       'foods': [for (final food in foods) _foodJson(food)],
       'activities': [
         for (final activity in MetActivityCatalog.activities)

@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:ayg/screens/consent/analytics_consent_screen.dart';
 import 'package:ayg/screens/settings/analytics_settings_screen.dart';
 import 'package:ayg/services/share_sheet_client.dart';
 import 'package:ayg/theme/app_theme.dart';
@@ -26,14 +25,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadZenMaru);
 
-  testWidgets('renders the consent and external-send drafts', (tester) async {
+  testWidgets('renders the usage-record setting and external-send screens', (tester) async {
     final directory = Directory('/tmp/analytics_ui');
     directory.createSync(recursive: true);
     await _capture(
       tester,
-      const AnalyticsConsentScreen(onDecide: _noop),
-      File('${directory.path}/analytics_consent.png'),
-      find.text('利用状況の記録に協力する'),
+      const AnalyticsSettingsScreen(),
+      File('${directory.path}/analytics_settings.png'),
+      find.text('利用状況の記録'),
     );
     await _capture(
       tester,
@@ -43,8 +42,6 @@ void main() {
     );
   });
 }
-
-Future<void> _noop(bool cooperate) async {}
 
 Future<void> _capture(
   WidgetTester tester,

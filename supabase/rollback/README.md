@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261008003832 search public foods voice
+
+本番には version `20261008003832` で適用済み（2026-10-08 09:38 JST）。Siri 用の公開食品検索 `search_public_foods_voice` を足しただけで、既存の関数・表・行は変えていない。戻すとその関数が消え、Siri は公開食品を引けなくなる（公式の成分表と自分の食品は引ける）。アプリ側を戻さない場合、Siri の公開食品検索は失敗扱いになる。
+
+`supabase/rollback/20261008003832_search_public_foods_voice_down.sql`
+
 ## 20261007112725 kpi excluded users
 
 本番には version `20261007112725` で適用済み。開発者アカウントを日次集計と退会集計から外す。戻すときは、先に `maintain_app_events` と `delete_own_account` を `20261007103757` 時点の本文へ戻す。本文は `db-backup-20261007/maintain_app_events_prod_before_kpi_excluded_users.sql` と `db-backup-20261007/delete_own_account_prod_before_kpi_excluded_users.sql`。そのあとこの down を流す。`kpi` スキーマと `public.kpi_excluded_users` が消える。定期実行 `20261008090300` を先に戻す。

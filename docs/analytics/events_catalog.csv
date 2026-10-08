@@ -8,7 +8,7 @@ session_end,セッションが終わった,app,duration_seconds / screens_viewed
 app_version_changed,アプリまたは OS の版が変わってから初めて起動した,app,from_app_version / to_app_version / from_os_version / to_os_version,新規 analytics_lifecycle.dart（前回の版を shared_preferences に保存して比較）,7,更新後の不具合と利用の変化を見る
 screen_view,画面を表示した（全画面）,app,screen(画面名) / previous_screen / previous_screen_dwell_ms / via(tab/push/modal/sheet/deeplink),新規 lib/services/analytics/analytics_route_observer.dart を MaterialApp.navigatorObservers に登録。全 MaterialPageRoute に RouteSettings(name:) を付ける。タブは lib/screens/shell/main_shell_screen.dart の initState と _selectTab,"12, 42, 55, 69",旧 app_screen_actions の open を置き換える（1 版は二重書き込み）
 tab_select,下のタブを押した,app,tab(food/workout/home/weight/settings) / from_tab,lib/screens/shell/main_shell_screen.dart _selectTab,12,旧 app_screen_actions の select を置き換える
-analytics_consent_shown,利用状況の記録への同意画面を出した,app,policy_version / surface(first_launch/settings),新規 lib/screens/consent/analytics_consent_screen.dart,全指標の取得率,同意しなかった場合は以後何も送らない。同意の結果自体は analytics_consents 表に入れる
+analytics_consent_shown,利用状況の記録を始めた（規約とプライバシーポリシーへの同意＝ログインのあと、または設定でオン）,app,policy_version / surface(terms_agreement/settings),lib/app.dart と lib/screens/settings/analytics_settings_screen.dart,全指標の取得率,同意しなかった場合は以後何も送らない。同意の結果自体は analytics_consents 表に入れる
 login_tap,ログインボタンを押した,app,provider(apple/google),lib/screens/auth/login_screen.dart の Apple・Google ボタンの押下処理,"17, 18",ログイン前のイベントは端末に保存し、ログイン後に送る
 login_result,ログインの結果,app,provider / result(success/cancelled/failed) / error_kind / is_new_account,lib/screens/auth/login_screen.dart と lib/repositories/supabase_authentication_repository.dart,"8, 17, 18",
 logout,ログアウトした,app,forced(bool),AppController.logout（lib/state/app_controller.dart 487 行付近）,9,ログアウト前に送信キューを一度送る。未送信分は消さない

@@ -788,7 +788,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('こちらは有料の機能です'), findsNothing);
-    expect(find.textContaining('食事テンプレートの4件とは別'), findsOneWidget);
+    expect(find.textContaining('元のテンプレートは変わらず'), findsOneWidget);
     expect(find.text('ホーム画面'), findsWidgets);
     expect(find.text('ロック画面'), findsWidgets);
     expect(
@@ -1167,7 +1167,8 @@ void main() {
     expect(find.text('ウォーキング'), findsNothing);
 
     await _alignSlotToTop(tester, 0);
-    await _keepLabelAboveFold(tester, 2);
+    // 枠ごとにテンプレートのプルダウンが増えたので、1画面に入るのは枠1〜2まで。
+    await _keepLabelAboveFold(tester, 1);
     expect(tester.getTopLeft(find.text('枠1・食事')).dy, greaterThan(0));
     expect(find.text('ご飯、みそ汁'), findsOneWidget);
     expect(find.text('弁当'), findsOneWidget);

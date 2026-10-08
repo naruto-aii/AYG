@@ -78,11 +78,19 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 ## 写真で登録
 
-`analyze-meal-photo` は、食事の JPEG と任意の料理名・量を受け取り、栄養の推定を返します。写真は関数の中だけで使い、Storage にも表にも残しません。API キーはアプリに置きません。
+`analyze-meal-photo` は、食事の JPEG と任意の料理名・量・補足を受け取り、栄養の推定を返します。写真と補足の文面は関数の中だけで使い、Storage にも表にも残しません。表に残すのは補足があったかどうかだけです。API キーはアプリに置きません。
 
 この変更では関数をデプロイせず、マイグレーションも本番へ適用しません。
 
-既定の提供元は Anthropic です。料理名と量が両方あるときは `claude-haiku-5-5`、どちらかが無いときは `claude-sonnet-5-5` です。重いモデルは1人あたり月20回までです。それを超えて料理名か量が無いときは、モデルを呼ばず、名前と量を入れるよう返します。両方あれば軽いモデルのままです。回数は1日10回、月120回です。費用の上限は1人あたり月120円で、超えたら写真での登録だけ止まり、手入力は使えます。日付の境は日本時間です。
+既定の提供元は Anthropic です。料理名と量が両方あるときは `claude-haiku-5-5`、どちらかが無いときは `claude-sonnet-5-5` です。補足は振り分けに使いません。高性能の月間回数を超えて料理名か量が無いときは、モデルを呼ばず、名前と量を入れるよう返します。両方あれば軽いモデルのままです。日付の境は日本時間です。
+
+1日の回数、月の回数、高性能モデルの月間回数、1人あたりの月間費用は、すべて環境変数です。オーナーはまだ決めていません（TBD by owner）。未設定のときの仮置きは、1日10回、月120回、高性能モデル月20回、月120円です。これは決まった上限ではありません。画面の「○回まで」は、そのときの環境変数の値です。
+
+推定はカロナビの食品データベースに合わせません。モデルは、チェーン店やコンビニの公式な栄養成分、日本食品標準成分表、一般的なレシピのうち、その食事に合うものを使います。返った数値をデータベースの食品へ置き換えません。
+
+思考のオンオフ、`max_tokens`、写真の長辺は階層ごとに環境変数です。精度の比較で決めます。空のときは思考オフ、`max_tokens` 300、長辺 1024 です。システムプロンプトは prompt caching を使います。モデルへ渡す JSON のキーは短くします。
+
+Web 検索（Anthropic の server tool `web_search_20250305`）は階層ごとにオンオフできます。空のときはオフです。オンにすると、特定の商品やチェーンのメニューだと分かったときに公式の栄養成分を検索できます。1回の依頼での上限は `PHOTO_AI_WEB_SEARCH_MAX_USES`（空なら 1）です。検索回数は `usage.server_tool_use.web_search_requests` を費用に足します。オンにする前に、検索クエリが料理名や補足を含みうることと、引用の出し方をプライバシーへ書く必要があります。この変更ではオフのままです。
 
 Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` は、アダプタが無いので日本語の準備中を返します。未成年が使うアプリに Gemini の API を既定で使わないためです。
 
@@ -101,13 +109,20 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 - `PHOTO_AI_PROVIDER`（`anthropic`）
 - `PHOTO_AI_LIGHT_MODEL`（`claude-haiku-5-5`）
 - `PHOTO_AI_HEAVY_MODEL`（`claude-sonnet-5-5`）
-- `PHOTO_AI_MONTHLY_SPEND_JPY`（`120`）
-- `PHOTO_AI_LIGHT_INPUT_JPY_PER_MILLION`（`16`）
-- `PHOTO_AI_LIGHT_OUTPUT_JPY_PER_MILLION`（`80`）
-- `PHOTO_AI_HEAVY_INPUT_JPY_PER_MILLION`（`320`）
-- `PHOTO_AI_HEAVY_OUTPUT_JPY_PER_MILLION`（`1600`）
+- `PHOTO_AI_ROUTE`（`name_and_amount`。ほかに `always_light`、`always_heavy`、`name`）
+- `PHOTO_AI_DAILY_LIMIT`、`PHOTO_AI_MONTHLY_LIMIT`、`PHOTO_AI_HEAVY_MONTHLY_LIMIT`、`PHOTO_AI_MONTHLY_SPEND_JPY`（空なら仮置き。オーナー未決）
+- `PHOTO_AI_USD_JPY`（`158`）
+- `PHOTO_AI_LIGHT_INPUT_USD_PER_MILLION`（`0.10`）、`PHOTO_AI_LIGHT_OUTPUT_USD_PER_MILLION`（`0.50`）、`PHOTO_AI_LIGHT_CACHE_READ_USD_PER_MILLION`（`0.01`）、`PHOTO_AI_LIGHT_CACHE_WRITE_USD_PER_MILLION`（`0.125`）
+- `PHOTO_AI_HEAVY_INPUT_USD_PER_MILLION`（`2`）、`PHOTO_AI_HEAVY_OUTPUT_USD_PER_MILLION`（`10`）、`PHOTO_AI_HEAVY_CACHE_READ_USD_PER_MILLION`（`0.10`）、`PHOTO_AI_HEAVY_CACHE_WRITE_USD_PER_MILLION`（`2.5`）
+- `PHOTO_AI_MAX_TOKENS`（`300`）、`PHOTO_AI_LIGHT_MAX_TOKENS`、`PHOTO_AI_HEAVY_MAX_TOKENS`
+- `PHOTO_AI_LIGHT_THINKING`、`PHOTO_AI_HEAVY_THINKING`（`off`。`on` は adaptive。Sonnet 5.5 のオフは `between_tools`）
+- `PHOTO_AI_LIGHT_EFFORT`、`PHOTO_AI_HEAVY_EFFORT`（`low`。思考オフのときは high まで）
+- `PHOTO_AI_LIGHT_IMAGE_MAX_EDGE`、`PHOTO_AI_HEAVY_IMAGE_MAX_EDGE`（`1024`）
+- `PHOTO_AI_LIGHT_WEB_SEARCH`、`PHOTO_AI_HEAVY_WEB_SEARCH`（`off`）
+- `PHOTO_AI_WEB_SEARCH_MAX_USES`（`1`）
+- `PHOTO_AI_WEB_SEARCH_USD_PER_SEARCH`（`0.01`。公開価格の 1,000 検索あたり 10 USD）
 
-単価は 2026-10 の Claude API 料金（100k トークン以下）を 1 ドル 160 円で円にしたものです。軽いモデルは入力が 100k トークンを超えると 5 倍で数えます。`SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY` はプラットフォームが注入します。キーが無いときは 503 で「いま準備中です。手入力で記録できます。」を返し、食事の保存経路は呼びません。
+費用は、API が返した入力・出力・キャッシュ読み・キャッシュ書きのトークンと、Web 検索の回数から計算します。キャッシュの単価には、長いプロンプトの倍率を掛けません。軽いモデルは、キャッシュに入っていない入力が 100k トークンを超えると、その入力と出力を 5 倍で数えます。`SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY` はプラットフォームが注入します。キーが無いときは 503 で「いま準備中です。手入力で記録できます。」を返し、食事の保存経路は呼びません。
 
 ### 公開前の順番
 

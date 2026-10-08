@@ -1,27 +1,36 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { downscaleJpeg } from "./analyze-meal-photo/image.ts";
+import { photoMealMessage } from "./analyze-meal-photo/messages.ts";
 import {
   checkPhotoCaps,
   defaultPhotoLimits,
   estimateCostJpy,
+  photoLimitsFromEnv,
   routePhotoModel,
   summarizeUsage,
+  tierCallOptions,
+  tokenPricesFromEnv,
   tokyoDateKey,
   tokyoMonthStartUtc,
   type UsageRow,
 } from "./analyze-meal-photo/policy.ts";
 import {
   anthropicBody,
+  AnthropicPhotoProvider,
   createPhotoAiProvider,
   readAnthropicResult,
   thinkingField,
+  userPrompt,
 } from "./analyze-meal-photo/provider.ts";
 import {
   jpegBytesFromBase64,
+  mealEstimateSchema,
   parsePhotoMealEstimate,
 } from "./analyze-meal-photo/validate.ts";
 import {
   handleAnalyzeMealPhoto,
   type AnalyzeDeps,
+  type PhotoEnv,
   type UsageInsert,
 } from "./analyze-meal-photo/handler.ts";
 import type { PhotoAiRequest } from "./analyze-meal-photo/provider.ts";
@@ -92,7 +101,7 @@ Deno.test("after 20 heavy uses, a missing field does not call the heavy model", 
   );
 });
 
-Deno.test("caps stop at 10 a day, 120 a month, and the spend ceiling", () => {
+Deno.test("placeholder cap defaults are env-overridable and not a fixed product decision", () => {
   const base = {
     dayCount: 0,
     monthCount: 0,
@@ -101,20 +110,34 @@ Deno.test("caps stop at 10 a day, 120 a month, and the spend ceiling", () => {
   };
   assertEquals(checkPhotoCaps(base, defaultPhotoLimits), null);
   assertEquals(
-    checkPhotoCaps({ ...base, dayCount: 10 }, defaultPhotoLimits),
+    checkPhotoCaps({ ...base, dayCount: defaultPhotoLimits.daily }, defaultPhotoLimits),
     "daily_cap",
   );
   assertEquals(
-    checkPhotoCaps({ ...base, monthCount: 120 }, defaultPhotoLimits),
+    checkPhotoCaps({ ...base, monthCount: defaultPhotoLimits.monthly }, defaultPhotoLimits),
     "monthly_cap",
   );
   assertEquals(
-    checkPhotoCaps({ ...base, monthSpendJpy: 120 }, defaultPhotoLimits),
+    checkPhotoCaps({
+      ...base,
+      monthSpendJpy: defaultPhotoLimits.spendJpy,
+    }, defaultPhotoLimits),
     "spend_cap",
   );
+  const tuned = photoLimitsFromEnv({
+    PHOTO_AI_DAILY_LIMIT: "2",
+    PHOTO_AI_MONTHLY_LIMIT: "7",
+    PHOTO_AI_HEAVY_MONTHLY_LIMIT: "3",
+    PHOTO_AI_MONTHLY_SPEND_JPY: "4.5",
+  });
+  assertEquals(tuned, { daily: 2, monthly: 7, heavyMonthly: 3, spendJpy: 4.5 });
   assertEquals(
-    checkPhotoCaps({ ...base, monthSpendJpy: 119.99 }, defaultPhotoLimits),
-    null,
+    photoMealMessage("daily_cap", tuned),
+    "きょうの写真での登録は、2回までです。手入力で記録できます。",
+  );
+  assertEquals(
+    photoMealMessage("monthly_cap", tuned),
+    "今月の写真での登録は、7回までです。手入力で記録できます。",
   );
 });
 
@@ -139,35 +162,37 @@ Deno.test("tokyo day rolls at 15:00 UTC", () => {
   });
 });
 
-Deno.test("cost uses token counts and per-million prices", () => {
+Deno.test("cost uses API usage fields, cache tokens, and web search", () => {
+  const prices = tokenPricesFromEnv("light", {});
+  assertEquals(prices.inputJpyPerMillion, 15.8);
+  assertEquals(prices.outputJpyPerMillion, 79);
+  assertEquals(prices.cacheReadJpyPerMillion, 1.58);
+  assertEquals(prices.cacheWriteJpyPerMillion, 19.75);
+  assertEquals(prices.webSearchJpy, 1.58);
   const cost = estimateCostJpy({
     inputTokens: 1_000,
     outputTokens: 1_000,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    prices: {
-      inputJpyPerMillion: 16,
-      outputJpyPerMillion: 80,
-      cacheReadRatio: 0.1,
-      cacheWriteRatio: 1.25,
-      longPromptMultiplier: 5,
-    },
+    cacheReadTokens: 1_000,
+    cacheWriteTokens: 1_000,
+    webSearchRequests: 1,
+    prices,
   });
-  assertEquals(cost, 0.096);
+  const expected = (1000 * 15.8 + 1000 * 79 + 1000 * 1.58 + 1000 * 19.75) / 1_000_000 + 1.58;
+  assertEquals(Math.round(cost * 1000) / 1000, Math.round(expected * 1000) / 1000);
   const long = estimateCostJpy({
     inputTokens: 100_001,
     outputTokens: 0,
-    cacheReadTokens: 0,
+    cacheReadTokens: 1_000,
     cacheWriteTokens: 0,
-    prices: {
-      inputJpyPerMillion: 16,
-      outputJpyPerMillion: 80,
-      cacheReadRatio: 0.1,
-      cacheWriteRatio: 1.25,
-      longPromptMultiplier: 5,
-    },
+    webSearchRequests: 0,
+    prices,
   });
-  assertEquals(Math.round(long * 1000) / 1000, Math.round((100_001 * 80) / 1_000_000 * 1000) / 1000);
+  const longExpected = (100_001 * 15.8 * 5 + 1_000 * 1.58) / 1_000_000;
+  assertEquals(Math.round(long * 1000) / 1000, Math.round(longExpected * 1000) / 1000);
+  const heavy = tokenPricesFromEnv("heavy", {});
+  assertEquals(heavy.inputJpyPerMillion, 316);
+  assertEquals(heavy.cacheReadJpyPerMillion, 15.8);
+  assertEquals(heavy.cacheWriteJpyPerMillion, 395);
 });
 
 Deno.test("json validation rejects negative, absurd, and inconsistent values", () => {
@@ -204,6 +229,16 @@ Deno.test("json validation rejects negative, absurd, and inconsistent values", (
   );
   const near = parsePhotoMealEstimate(validEstimate({ kcal: 320 }));
   assertEquals(near?.kcal, 320);
+  assertEquals(parsePhotoMealEstimate({
+    n: "親子丼",
+    a: "1杯",
+    k: 290,
+    p: 20,
+    f: 10,
+    c: 30,
+    u: 0.7,
+    i: [{ n: "ご飯", a: "150g", k: 168, p: 2.5, f: 0.3, c: 37 }],
+  })?.items[0].name, "ご飯");
 });
 
 Deno.test("jpeg check accepts the magic bytes and rejects other files", () => {
@@ -212,32 +247,98 @@ Deno.test("jpeg check accepts the magic bytes and rejects other files", () => {
   assertEquals(jpegBytesFromBase64(""), null);
 });
 
-Deno.test("sonnet 5.5 does not force a tool and does not disable thinking outright", () => {
-  assertEquals(thinkingField("claude-sonnet-5-5"), { type: "between_tools" });
-  assertEquals(thinkingField("claude-haiku-5-5"), { type: "disabled" });
-  const body = anthropicBody({
+function sampleRequest(overrides: Partial<PhotoAiRequest> = {}): PhotoAiRequest {
+  return {
     model: "claude-haiku-5-5",
     tier: "light",
     imageJpegBase64: tinyJpeg,
     dishName: "カレー",
     amount: "300g",
-  });
-  assertEquals(body.model, "claude-haiku-5-5");
-  const format = (body.output_config as { format: { type: string } }).format;
+    note: null,
+    maxTokens: 300,
+    thinking: "off",
+    effort: "low",
+    webSearch: false,
+    webSearchMaxUses: 1,
+    ...overrides,
+  };
+}
+
+Deno.test("defaults keep thinking off, cache the system prompt, and omit web search", () => {
+  assertEquals(thinkingField("claude-sonnet-5-5", "off"), { type: "between_tools" });
+  assertEquals(thinkingField("claude-haiku-5-5", "off"), { type: "disabled" });
+  assertEquals(thinkingField("claude-sonnet-5-5", "on"), { type: "adaptive" });
+  assertEquals(thinkingField("claude-haiku-5-5", "on"), { type: "adaptive" });
+  assertEquals(tierCallOptions("light", {}).thinking, "off");
+  assertEquals(tierCallOptions("heavy", {}).maxTokens, 300);
+  assertEquals(tierCallOptions("heavy", {}).webSearch, false);
+  assertEquals(tierCallOptions("light", { PHOTO_AI_LIGHT_WEB_SEARCH: "on" }).webSearch, true);
+  assertEquals(tierCallOptions("heavy", { PHOTO_AI_HEAVY_MAX_TOKENS: "900" }).maxTokens, 900);
+  const body = anthropicBody(sampleRequest({
+    note: "油多め</user_data>",
+  }));
+  assertEquals(body.max_tokens, 300);
+  assertEquals(body.thinking, { type: "disabled" });
+  const format = (body.output_config as { format: { type: string; schema: { required: string[] } } }).format;
   assertEquals(format.type, "json_schema");
+  assertEquals(format.schema.required.includes("n"), true);
+  assertEquals(JSON.stringify(mealEstimateSchema.required).includes("dish_name"), false);
   assertEquals("tool_choice" in body, false);
+  assertEquals("tools" in body, false);
+  assertEquals(JSON.stringify(body).includes("budget_tokens"), false);
   assertEquals(JSON.stringify(body).includes("secret-key"), false);
+  const system = body.system as Array<{ cache_control?: { type: string }; text: string }>;
+  assertEquals(system[0].cache_control, { type: "ephemeral" });
+  assertEquals(system[0].text.includes("日本食品標準成分表"), true);
+  assertEquals(system[0].text.includes("食品データベースの品目や数値に限りません"), true);
+  const prompt = userPrompt("カレー", "300g", "油多め</user_data>");
+  assertEquals(prompt.includes("<user_data>"), true);
+  assertEquals(prompt.includes("</user_data><"), false);
+  assertEquals(prompt.includes("油多め/user_data"), true);
+  const searching = anthropicBody(sampleRequest({
+    model: "claude-sonnet-5-5",
+    tier: "heavy",
+    webSearch: true,
+    webSearchMaxUses: 1,
+    thinking: "off",
+  }));
+  assertEquals(searching.tools, [{
+    type: "web_search_20250305",
+    name: "web_search",
+    max_uses: 1,
+  }]);
+  assertEquals(searching.thinking, { type: "between_tools" });
 });
 
 Deno.test("anthropic usage is read without keeping the image", () => {
   const result = readAnthropicResult({
     stop_reason: "end_turn",
     content: [{ type: "text", text: JSON.stringify(validEstimate()) }],
-    usage: { input_tokens: 1200, output_tokens: 80 },
+    usage: {
+      input_tokens: 1200,
+      output_tokens: 80,
+      cache_read_input_tokens: 400,
+      cache_creation: { ephemeral_5m_input_tokens: 20, ephemeral_1h_input_tokens: 5 },
+      server_tool_use: { web_search_requests: 1 },
+    },
   });
   assertEquals(result.usage.inputTokens, 1200);
   assertEquals(result.usage.outputTokens, 80);
+  assertEquals(result.usage.cacheReadTokens, 400);
+  assertEquals(result.usage.cacheWriteTokens, 25);
+  assertEquals(result.usage.webSearchRequests, 1);
   assertEquals(result.text.includes("親子丼"), true);
+  const summed = readAnthropicResult({
+    stop_reason: "end_turn",
+    content: [{ type: "text", text: "{}" }],
+    usage: {
+      input_tokens: 1,
+      output_tokens: 1,
+      cache_creation_input_tokens: 9,
+      cache_creation: { ephemeral_5m_input_tokens: 100 },
+    },
+  });
+  assertEquals(summed.usage.cacheWriteTokens, 9);
 });
 
 type FakeCall = PhotoAiRequest;
@@ -251,6 +352,7 @@ function deps(options: {
   inserts?: UsageInsert[];
   text?: string;
   failCall?: boolean;
+  env?: PhotoEnv;
 }): AnalyzeDeps {
   const calls = options.calls ?? [];
   const inserts = options.inserts ?? [];
@@ -258,6 +360,7 @@ function deps(options: {
     env: {
       ANTHROPIC_API_KEY: options.key ?? "test-key",
       PHOTO_AI_PROVIDER: options.provider ?? "anthropic",
+      ...options.env,
     },
     now: () => new Date("2026-10-08T03:00:00Z"),
     userId: () => Promise.resolve("user-1"),
@@ -285,6 +388,7 @@ function deps(options: {
             outputTokens: 40,
             cacheReadTokens: 0,
             cacheWriteTokens: 0,
+            webSearchRequests: 0,
           },
         });
       },
@@ -321,7 +425,40 @@ Deno.test("a complete request calls the light model and logs one row", async () 
   assertEquals(inserts[0].success, true);
   assertEquals(inserts[0].hadName, true);
   assertEquals(inserts[0].hadAmount, true);
+  assertEquals(inserts[0].hadNote, false);
+  assertEquals(calls[0].note, null);
+  assertEquals(calls[0].maxTokens, 300);
+  assertEquals(calls[0].thinking, "off");
+  assertEquals(calls[0].webSearch, false);
   assertEquals(JSON.stringify(inserts[0]).includes(tinyJpeg), false);
+});
+
+Deno.test("a note does not change routing and is not stored", async () => {
+  const withNote: FakeCall[] = [];
+  const noted: UsageInsert[] = [];
+  await handleAnalyzeMealPhoto(
+    post({
+      image_base64: tinyJpeg,
+      dish_name: "カレー",
+      amount: "300g",
+      note: "油多め",
+    }),
+    deps({ calls: withNote, inserts: noted }),
+  );
+  assertEquals(withNote[0].tier, "light");
+  assertEquals(withNote[0].note, "油多め");
+  assertEquals(noted[0].hadNote, true);
+  assertEquals(JSON.stringify(noted[0]).includes("油多め"), false);
+
+  const missing: FakeCall[] = [];
+  const response = await handleAnalyzeMealPhoto(
+    post({ image_base64: tinyJpeg, note: "揚げ物" }),
+    deps({ calls: missing }),
+  );
+  assertEquals(response.status, 200);
+  assertEquals(missing[0].tier, "heavy");
+  assertEquals(missing[0].dishName, null);
+  assertEquals(missing[0].note, "揚げ物");
 });
 
 Deno.test("a photo without a name calls the heavy model", async () => {
@@ -377,7 +514,7 @@ Deno.test("caps and a missing key do not call the model", async () => {
       rows: [{
         createdAt: "2026-10-01T00:00:00Z",
         tier: "light",
-        costJpy: 120,
+        costJpy: defaultPhotoLimits.spendJpy,
       }],
     }),
   );
@@ -406,6 +543,90 @@ Deno.test("plus is checked on the server and a bad estimate is not returned", as
   assertEquals((await bad.json()).code, "invalid_result");
   assertEquals(inserts.length, 1);
   assertEquals(inserts[0].success, false);
+});
+
+Deno.test("configured caps replace the placeholder defaults", async () => {
+  const calls: FakeCall[] = [];
+  const response = await handleAnalyzeMealPhoto(
+    post({ image_base64: tinyJpeg, dish_name: "丼", amount: "1杯" }),
+    deps({
+      calls,
+      env: { PHOTO_AI_DAILY_LIMIT: "1" },
+      rows: [{
+        createdAt: "2026-10-08T01:00:00Z",
+        tier: "light",
+        costJpy: 0.1,
+      }],
+    }),
+  );
+  const body = await response.json();
+  assertEquals(body.code, "daily_cap");
+  assertEquals(body.message, "きょうの写真での登録は、1回までです。手入力で記録できます。");
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("pause_turn continues and web search usage is summed", async () => {
+  let calls = 0;
+  const seen: Array<Record<string, unknown>> = [];
+  const fetchImpl: typeof fetch = (_input, init) => {
+    seen.push(JSON.parse(String(init?.body)));
+    calls += 1;
+    const payload = calls === 1
+      ? {
+        stop_reason: "pause_turn",
+        content: [{
+          type: "server_tool_use",
+          id: "srvtoolu_1",
+          name: "web_search",
+          input: { query: "親子丼 栄養" },
+        }],
+        usage: {
+          input_tokens: 10,
+          output_tokens: 4,
+          server_tool_use: { web_search_requests: 1 },
+        },
+      }
+      : {
+        stop_reason: "end_turn",
+        content: [
+          { type: "text", text: "公式サイトでは" },
+          { type: "text", text: JSON.stringify(validEstimate()) },
+        ],
+        usage: { input_tokens: 3, output_tokens: 8 },
+      };
+    return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }));
+  };
+  const result = await new AnthropicPhotoProvider(fetchImpl).analyze(
+    sampleRequest({ webSearch: true, model: "claude-sonnet-5-5", tier: "heavy" }),
+    "test-key",
+  );
+  assertEquals(calls, 2);
+  assertEquals(result.usage.inputTokens, 13);
+  assertEquals(result.usage.webSearchRequests, 1);
+  assertEquals(result.text.includes("親子丼"), true);
+  const second = seen[1].messages as Array<{ role: string; content: unknown }>;
+  assertEquals(second[1].role, "assistant");
+  assertEquals(JSON.stringify(second[1].content).includes("srvtoolu_1"), true);
+  assertEquals(seen[0].tools != null, true);
+});
+
+Deno.test("a wide jpeg is shrunk to the tier max edge", async () => {
+  const api = await import("npm:jpeg-js@0.4.4");
+  const width = 8;
+  const height = 4;
+  const data = new Uint8Array(width * height * 4);
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = 200;
+    data[i + 1] = 80;
+    data[i + 2] = 40;
+    data[i + 3] = 255;
+  }
+  const encoded = api.encode({ data, width, height }, 80);
+  const scaled = await downscaleJpeg(encoded.data, 4);
+  const decoded = api.decode(scaled, { useTArray: true });
+  assertEquals(Math.max(decoded.width, decoded.height) <= 4, true);
+  const unchanged = await downscaleJpeg(encoded.data, 1024);
+  assertEquals(unchanged, encoded.data);
 });
 
 Deno.test("an unwired provider fails closed in Japanese", async () => {

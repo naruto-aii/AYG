@@ -1,25 +1,23 @@
 // 写真をモデルに渡し、結果の JSON だけを返す。写真は保存しない。
 // 鍵と単価は環境変数。アプリには置かない。
 
+import { jpegBase64WithinEdge } from "./image.ts";
 import {
   checkPhotoCaps,
-  defaultPhotoLimits,
   estimateCostJpy,
-  heavyInputJpyPerMillionDefault,
   heavyModelDefault,
-  heavyOutputJpyPerMillionDefault,
-  lightInputJpyPerMillionDefault,
   lightModelDefault,
-  lightOutputJpyPerMillionDefault,
-  photoMonthlySpendJpyDefault,
+  photoLimitsFromEnv,
+  photoRouteMode,
   presentText,
-  readPositiveNumber,
   routePhotoModel,
   summarizeUsage,
+  tierCallOptions,
+  tokenPricesFromEnv,
   tokyoMonthStartUtc,
+  type PhotoAiEnv,
   type PhotoLimits,
   type PhotoTier,
-  type TokenPrices,
   type UsageRow,
 } from "./policy.ts";
 import {
@@ -30,9 +28,9 @@ import {
   type PhotoAiProvider,
 } from "./provider.ts";
 import { jpegBytesFromBase64, parseModelJson, parsePhotoMealEstimate } from "./validate.ts";
-import { photoMealMessages, type PhotoMealCode } from "./messages.ts";
+import { photoMealMessage, type PhotoMealCode } from "./messages.ts";
 
-export type PhotoEnv = {
+export type PhotoEnv = PhotoAiEnv & {
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
@@ -40,11 +38,6 @@ export type PhotoEnv = {
   PHOTO_AI_PROVIDER?: string;
   PHOTO_AI_LIGHT_MODEL?: string;
   PHOTO_AI_HEAVY_MODEL?: string;
-  PHOTO_AI_MONTHLY_SPEND_JPY?: string;
-  PHOTO_AI_LIGHT_INPUT_JPY_PER_MILLION?: string;
-  PHOTO_AI_LIGHT_OUTPUT_JPY_PER_MILLION?: string;
-  PHOTO_AI_HEAVY_INPUT_JPY_PER_MILLION?: string;
-  PHOTO_AI_HEAVY_OUTPUT_JPY_PER_MILLION?: string;
 };
 
 export type UsageInsert = {
@@ -58,6 +51,7 @@ export type UsageInsert = {
   latencyMs: number;
   hadName: boolean;
   hadAmount: boolean;
+  hadNote: boolean;
   success: boolean;
   errorCode: string | null;
 };
@@ -80,49 +74,12 @@ function json(body: unknown, status: number): Response {
   });
 }
 
-function fail(code: PhotoMealCode, status: number): Response {
-  return json({ ok: false, code, message: photoMealMessages[code] }, status);
-}
-
-function limitsFrom(env: PhotoEnv): PhotoLimits {
-  return {
-    ...defaultPhotoLimits,
-    spendJpy: readPositiveNumber(
-      env.PHOTO_AI_MONTHLY_SPEND_JPY,
-      photoMonthlySpendJpyDefault,
-    ),
-  };
-}
-
-function pricesFor(tier: PhotoTier, env: PhotoEnv): TokenPrices {
-  if (tier === "light") {
-    return {
-      inputJpyPerMillion: readPositiveNumber(
-        env.PHOTO_AI_LIGHT_INPUT_JPY_PER_MILLION,
-        lightInputJpyPerMillionDefault,
-      ),
-      outputJpyPerMillion: readPositiveNumber(
-        env.PHOTO_AI_LIGHT_OUTPUT_JPY_PER_MILLION,
-        lightOutputJpyPerMillionDefault,
-      ),
-      cacheReadRatio: 0.1,
-      cacheWriteRatio: 1.25,
-      longPromptMultiplier: 5,
-    };
-  }
-  return {
-    inputJpyPerMillion: readPositiveNumber(
-      env.PHOTO_AI_HEAVY_INPUT_JPY_PER_MILLION,
-      heavyInputJpyPerMillionDefault,
-    ),
-    outputJpyPerMillion: readPositiveNumber(
-      env.PHOTO_AI_HEAVY_OUTPUT_JPY_PER_MILLION,
-      heavyOutputJpyPerMillionDefault,
-    ),
-    cacheReadRatio: 0.05,
-    cacheWriteRatio: 1.25,
-    longPromptMultiplier: 1,
-  };
+function fail(code: PhotoMealCode, status: number, limits?: PhotoLimits): Response {
+  return json({
+    ok: false,
+    code,
+    message: photoMealMessage(code, limits),
+  }, status);
 }
 
 function modelFor(tier: PhotoTier, env: PhotoEnv): string {
@@ -202,8 +159,10 @@ export async function handleAnalyzeMealPhoto(
   }
   const dishName = clip(body.dish_name, 80);
   const amount = clip(body.amount, 80);
+  const note = clip(body.note, 100);
   const hasName = presentText(dishName);
   const hasAmount = presentText(amount);
+  const hasNote = presentText(note);
   const now = deps.now();
 
   const plus = await deps.isPlus(userId, now);
@@ -211,18 +170,19 @@ export async function handleAnalyzeMealPhoto(
     return fail("not_plus", 403);
   }
 
-  const limits = limitsFrom(deps.env);
+  const limits = photoLimitsFromEnv(deps.env);
   const rows = await deps.usageRows(userId, tokyoMonthStartUtc(now));
   const usage = summarizeUsage(rows, now);
   const cap = checkPhotoCaps(usage, limits);
   if (cap) {
-    return fail(cap, 429);
+    return fail(cap, 429, limits);
   }
   const route = routePhotoModel({
     hasName,
     hasAmount,
     heavyMonthCount: usage.heavyMonthCount,
     heavyMonthlyLimit: limits.heavyMonthly,
+    mode: photoRouteMode(deps.env.PHOTO_AI_ROUTE),
   });
   if (route.kind === "need_details") {
     return fail("need_details", 429);
@@ -245,15 +205,28 @@ export async function handleAnalyzeMealPhoto(
 
   const tier = route.tier;
   const model = modelFor(tier, deps.env);
+  const options = tierCallOptions(tier, deps.env);
+  const imageForModel = await jpegBase64WithinEdge(image, options.imageMaxEdge);
   const started = Date.now();
+  const usageFields = {
+    hadName: hasName,
+    hadAmount: hasAmount,
+    hadNote: hasNote,
+  };
   try {
     const result = await provider.analyze(
       {
         model,
         tier,
-        imageJpegBase64: image.replace(/\s/g, ""),
+        imageJpegBase64: imageForModel,
         dishName: hasName ? dishName : null,
         amount: hasAmount ? amount : null,
+        note: hasNote ? note : null,
+        maxTokens: options.maxTokens,
+        thinking: options.thinking,
+        effort: options.effort,
+        webSearch: options.webSearch,
+        webSearchMaxUses: options.webSearchMaxUses,
       },
       apiKey,
     );
@@ -263,7 +236,8 @@ export async function handleAnalyzeMealPhoto(
       outputTokens: result.usage.outputTokens,
       cacheReadTokens: result.usage.cacheReadTokens,
       cacheWriteTokens: result.usage.cacheWriteTokens,
-      prices: pricesFor(tier, deps.env),
+      webSearchRequests: result.usage.webSearchRequests,
+      prices: tokenPricesFromEnv(tier, deps.env),
     });
     let parsed: ReturnType<typeof parsePhotoMealEstimate> = null;
     try {
@@ -280,8 +254,7 @@ export async function handleAnalyzeMealPhoto(
       outputTokens: result.usage.outputTokens,
       estimatedCostJpy: cost,
       latencyMs,
-      hadName: hasName,
-      hadAmount: hasAmount,
+      ...usageFields,
       success: parsed != null,
       errorCode: parsed == null ? "invalid_result" : null,
     });
@@ -308,8 +281,7 @@ export async function handleAnalyzeMealPhoto(
         outputTokens: 0,
         estimatedCostJpy: 0,
         latencyMs,
-        hadName: hasName,
-        hadAmount: hasAmount,
+        ...usageFields,
         success: false,
         errorCode: "provider_error",
       });
@@ -444,6 +416,7 @@ export function liveDeps(
           latency_ms: row.latencyMs,
           had_name: row.hadName,
           had_amount: row.hadAmount,
+          had_note: row.hadNote,
           success: row.success,
           error_code: row.errorCode,
           advertising_use: false,

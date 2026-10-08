@@ -15,6 +15,14 @@ class PhotoMealFailure implements Exception {
 const photoMealFallbackMessage =
     '推定できませんでした。しばらくしてからもう一度試すか、手入力で記録できます。';
 
+String _clipNote(String note) {
+  final trimmed = note.trim();
+  if (trimmed.length <= photoMealNoteMaxLength) {
+    return trimmed;
+  }
+  return trimmed.substring(0, photoMealNoteMaxLength);
+}
+
 String photoMealMessageFromBody(Object? body) {
   if (body is Map && body['message'] is String) {
     final message = (body['message'] as String).trim();
@@ -63,6 +71,7 @@ class PhotoMealClient {
     required Uint8List jpeg,
     required String dishName,
     required String amount,
+    String note = '',
   }) async {
     final Object? data;
     try {
@@ -70,6 +79,7 @@ class PhotoMealClient {
         'image_base64': base64Encode(jpeg),
         'dish_name': dishName.trim(),
         'amount': amount.trim(),
+        'note': _clipNote(note),
       });
     } on PhotoMealFailure {
       rethrow;

@@ -13,6 +13,33 @@ const photoMealMaxMacroG = 1000.0;
 const photoMealPfcAbsoluteKcal = 50.0;
 const photoMealPfcRelative = 0.2;
 const photoMealLongEdge = 1024;
+const photoMealNoteMaxLength = 100;
+
+const photoMealNoteChips = <String>[
+  '油多め',
+  '油少なめ',
+  '脂身多め',
+  'タレ・ソース多め',
+  'ご飯少なめ',
+  '揚げ物',
+  '皮なし',
+];
+
+/// チップは文末に足す。既にある語と、100字を超える足し方は変えない。
+String appendPhotoMealNote(
+  String current,
+  String chip, {
+  int maxLength = photoMealNoteMaxLength,
+}) {
+  if (chip.isEmpty || current.contains(chip)) {
+    return current;
+  }
+  final next = current.isEmpty ? chip : '$current、$chip';
+  if (next.length > maxLength) {
+    return current;
+  }
+  return next;
+}
 
 class PhotoMealItemEstimate {
   const PhotoMealItemEstimate({

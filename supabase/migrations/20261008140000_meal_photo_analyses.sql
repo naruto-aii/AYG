@@ -24,6 +24,7 @@ create table if not exists public.meal_photo_analyses (
     check (latency_ms >= 0),
   had_name boolean not null,
   had_amount boolean not null,
+  had_note boolean not null,
   success boolean not null,
   user_edited boolean,
   error_code text
@@ -33,7 +34,9 @@ create table if not exists public.meal_photo_analyses (
 );
 
 comment on table public.meal_photo_analyses is
-  '写真で登録を1回呼んだ記録。利用者、モデル、トークン、推定費用、遅延、料理名と量の有無、成功、保存前に数値を直したか。写真と料理名と栄養の中身は入れない。広告には使わない。';
+  '写真で登録を1回呼んだ記録。利用者、モデル、トークン、推定費用、遅延、料理名と量と補足の有無、成功、保存前に数値を直したか。写真、料理名、量、補足の文面、栄養の中身は入れない。広告には使わない。';
+comment on column public.meal_photo_analyses.had_note is
+  '利用者が補足を書いたとき true。文面は保存しない。';
 comment on column public.meal_photo_analyses.user_edited is
   '保存前に料理名、量、カロリー、PFCのどれかを変えたとき true。まだ保存していないときは null。';
 comment on column public.meal_photo_analyses.estimated_cost_jpy is
@@ -84,6 +87,7 @@ begin
     or new.latency_ms is distinct from old.latency_ms
     or new.had_name is distinct from old.had_name
     or new.had_amount is distinct from old.had_amount
+    or new.had_note is distinct from old.had_note
     or new.success is distinct from old.success
     or new.error_code is distinct from old.error_code
     or new.advertising_use is distinct from old.advertising_use

@@ -9,6 +9,7 @@ import 'package:ayg/screens/food/photo_meal_confirm_screen.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/services/analytics/analytics.dart';
 import 'package:ayg/services/photo_meal.dart';
+import 'package:ayg/services/photo_meal_client.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -259,6 +260,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('note chips append without passing 100 characters or repeating', () {
+    expect(appendPhotoMealNote('', '油多め'), '油多め');
+    expect(appendPhotoMealNote('油多め', '皮なし'), '油多め、皮なし');
+    expect(appendPhotoMealNote('油多め、皮なし', '油多め'), '油多め、皮なし');
+    final full = 'あ' * photoMealNoteMaxLength;
+    expect(appendPhotoMealNote(full, '揚げ物'), full);
+    expect(photoMealNoteChips, contains('タレ・ソース多め'));
+  });
+
+  test('analyze sends a clipped note and does not require one', () async {
+    final sent = <Map<String, Object?>>[];
+    final client = PhotoMealClient(
+      invoke: (body) async {
+        sent.add(body);
+        return {
+          'ok': true,
+          'usage_id': 'usage-1',
+          'estimate': {
+            'dish_name': 'カレー',
+            'amount': '200g',
+            'kcal': 400,
+            'protein_g': 15,
+            'fat_g': 12,
+            'carb_g': 50,
+            'confidence': 0.7,
+            'items': <Object?>[],
+          },
+        };
+      },
+    );
+    await client.analyze(
+      jpeg: Uint8List.fromList([1, 2, 3]),
+      dishName: ' カレー ',
+      amount: '200g',
+      note: ' 油多め ',
+    );
+    expect(sent.single['note'], '油多め');
+    expect(sent.single['dish_name'], 'カレー');
+    await client.analyze(
+      jpeg: Uint8List.fromList([1]),
+      dishName: '',
+      amount: '',
+      note: 'あ' * 120,
+    );
+    expect((sent.last['note'] as String).length, photoMealNoteMaxLength);
+  });
+
   test('migration does not store the photo and locks edits to one column', () {
     final sql = File(
       'supabase/migrations/20261008140000_meal_photo_analyses.sql',
@@ -267,6 +315,8 @@ void main() {
     expect(sql, contains("'photo_meal'"));
     expect(sql, contains('only user_edited can change'));
     expect(sql, isNot(contains('image_base64')));
+    expect(sql, contains('had_note boolean not null'));
+    expect(sql, isNot(contains('note text')));
     final rollback = File(
       'supabase/rollback/20261008140000_meal_photo_analyses_down.sql',
     ).readAsStringSync();

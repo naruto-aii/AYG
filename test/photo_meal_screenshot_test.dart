@@ -89,6 +89,7 @@ void main() {
       ),
       File('${directory.path}/photo_meal_entry.png'),
       find.text('写真で登録 (β)'),
+      scrollTo: find.text('補足'),
     );
     expect(
       find.textContaining('これはAIの推定です。登録の前に確認して、数値を直せます。'),
@@ -99,6 +100,30 @@ void main() {
       find.text('任意です。グラム・個数・杯数など、できるだけ正確に入れると精度が上がります。'),
       findsOneWidget,
     );
+    expect(find.text('油多め'), findsOneWidget);
+    expect(find.text('皮なし'), findsOneWidget);
+    final note = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey('photo_meal_note')),
+        matching: find.byType(TextField),
+      ),
+    );
+    await tester.ensureVisible(find.text('油多め'));
+    await tester.tap(find.text('油多め'));
+    await tester.pump();
+    expect(note.controller?.text, '油多め');
+    await tester.ensureVisible(find.text('皮なし'));
+    await tester.tap(find.text('皮なし'));
+    await tester.pump();
+    expect(note.controller?.text, '油多め、皮なし');
+    final scrollable = find
+        .descendant(
+          of: find.byType(PhotoMealScreen),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.drag(scrollable, const Offset(0, 1600));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('写真を撮る'));
     await tester.pump();
@@ -145,8 +170,9 @@ Future<GlobalKey> _capture(
   WidgetTester tester,
   Widget screen,
   File file,
-  Finder visible,
-) async {
+  Finder visible, {
+  Finder? scrollTo,
+}) async {
   final key = GlobalKey();
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -159,6 +185,21 @@ Future<GlobalKey> _capture(
   );
   await tester.pumpAndSettle();
   expect(visible, findsWidgets);
+  if (scrollTo != null) {
+    final scrollable = find
+        .descendant(
+          of: find.byType(PhotoMealScreen),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    for (var i = 0; i < 8 && scrollTo.hitTestable().evaluate().isEmpty; i++) {
+      await tester.drag(scrollable, const Offset(0, -280));
+      await tester.pumpAndSettle();
+    }
+    expect(scrollTo.hitTestable(), findsOneWidget);
+    await tester.drag(scrollable, const Offset(0, -180));
+    await tester.pumpAndSettle();
+  }
   await _write(tester, file, key: key);
   return key;
 }

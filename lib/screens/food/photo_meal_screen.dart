@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/symbols.dart' show Symbols;
 
@@ -10,6 +11,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/common/app_chip.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
@@ -76,16 +78,39 @@ class PhotoMealScreen extends StatefulWidget {
 class _PhotoMealScreenState extends State<PhotoMealScreen> {
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
+  final _noteController = TextEditingController();
   Uint8List? _jpeg;
   bool _busy = false;
 
   MealPhotoSource get _source => widget.source ?? ImagePickerMealPhotoSource();
 
   @override
+  void initState() {
+    super.initState();
+    _noteController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _amountController.dispose();
+    _noteController.dispose();
     super.dispose();
+  }
+
+  void _appendChip(String chip) {
+    final next = appendPhotoMealNote(_noteController.text, chip);
+    if (next == _noteController.text) {
+      return;
+    }
+    _noteController.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
   }
 
   Future<void> _capture(Future<Uint8List?> Function() pick) async {
@@ -115,6 +140,7 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
         jpeg: jpeg,
         dishName: _nameController.text,
         amount: _amountController.text,
+        note: _noteController.text,
       );
       if (!mounted) {
         return;
@@ -232,6 +258,37 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
               key: const ValueKey('photo_meal_amount'),
               controller: _amountController,
               hintText: '例）200g、2個、丼1杯',
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('補足', style: AppTypography.titleS),
+          const SizedBox(height: 4),
+          Text(
+            '任意です。油を多めに使った、脂身が多い、ソース少なめなど、写真で分かりにくい特徴を書くと精度が上がります。',
+            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final chip in photoMealNoteChips)
+                AppChip(
+                  label: chip,
+                  selected: _noteController.text.contains(chip),
+                  onTap: _busy ? null : () => _appendChip(chip),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          DesignInputBox(
+            child: DesignTextInput(
+              key: const ValueKey('photo_meal_note'),
+              controller: _noteController,
+              hintText: '例）油多めで炒めた、脂身多め',
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(photoMealNoteMaxLength),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.lg),

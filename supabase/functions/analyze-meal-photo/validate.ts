@@ -94,11 +94,59 @@ function textField(value: unknown, max: number, allowEmpty: boolean): string | n
   return trimmed;
 }
 
-export function parsePhotoMealEstimate(raw: unknown): PhotoMealEstimate | null {
+const shortToLong: Record<string, string> = {
+  n: "dish_name",
+  a: "amount",
+  k: "kcal",
+  p: "protein_g",
+  f: "fat_g",
+  c: "carb_g",
+  u: "confidence",
+  i: "items",
+};
+
+const shortItemToLong: Record<string, string> = {
+  n: "name",
+  a: "amount",
+  k: "kcal",
+  p: "protein_g",
+  f: "fat_g",
+  c: "carb_g",
+};
+
+function copyMissing(target: Record<string, unknown>, map: Record<string, string>) {
+  for (const [short, long] of Object.entries(map)) {
+    if (target[long] == null && target[short] != null) {
+      target[long] = target[short];
+    }
+  }
+}
+
+export function expandMealJson(raw: unknown): unknown {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return raw;
+  }
+  const out: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+  copyMissing(out, shortToLong);
+  if (Array.isArray(out.items)) {
+    out.items = out.items.map((item) => {
+      if (item == null || typeof item !== "object" || Array.isArray(item)) {
+        return item;
+      }
+      const part: Record<string, unknown> = { ...(item as Record<string, unknown>) };
+      copyMissing(part, shortItemToLong);
+      return part;
+    });
+  }
+  return out;
+}
+
+export function parsePhotoMealEstimate(raw: unknown): PhotoMealEstimate | null {
+  const expanded = expandMealJson(raw);
+  if (expanded == null || typeof expanded !== "object" || Array.isArray(expanded)) {
     return null;
   }
-  const row = raw as Record<string, unknown>;
+  const row = expanded as Record<string, unknown>;
   const dishName = textField(row.dish_name, maxDishNameLength, false);
   const amount = textField(row.amount, maxAmountLength, true);
   const nutrition = nutritionOf(row);
@@ -153,40 +201,31 @@ export const mealEstimateSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    dish_name: { type: "string" },
-    amount: { type: "string" },
-    kcal: { type: "number" },
-    protein_g: { type: "number" },
-    fat_g: { type: "number" },
-    carb_g: { type: "number" },
-    confidence: { type: "number" },
-    items: {
+    n: { type: "string" },
+    a: { type: "string" },
+    k: { type: "number" },
+    p: { type: "number" },
+    f: { type: "number" },
+    c: { type: "number" },
+    u: { type: "number" },
+    i: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
         properties: {
-          name: { type: "string" },
-          amount: { type: "string" },
-          kcal: { type: "number" },
-          protein_g: { type: "number" },
-          fat_g: { type: "number" },
-          carb_g: { type: "number" },
+          n: { type: "string" },
+          a: { type: "string" },
+          k: { type: "number" },
+          p: { type: "number" },
+          f: { type: "number" },
+          c: { type: "number" },
         },
-        required: ["name", "amount", "kcal", "protein_g", "fat_g", "carb_g"],
+        required: ["n", "a", "k", "p", "f", "c"],
       },
     },
   },
-  required: [
-    "dish_name",
-    "amount",
-    "kcal",
-    "protein_g",
-    "fat_g",
-    "carb_g",
-    "confidence",
-    "items",
-  ],
+  required: ["n", "a", "k", "p", "f", "c", "u", "i"],
 } as const;
 
 const maxBase64Chars = 2_000_000;

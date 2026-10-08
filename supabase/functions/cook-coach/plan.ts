@@ -9,6 +9,7 @@ import {
   isEgg,
   isMeatFish,
   isOil,
+  isPlainStarchFood,
   isPotato,
   isRice,
   isSeasoning,
@@ -152,6 +153,34 @@ function hasSeasoningStep(text: string, items: { name: string; grams: number }[]
   return mentions && seasonVerb.test(text);
 }
 
+/// ごはん・パン・麺をそのまま出す品に、塩やこしょうが付いていないか。
+export function plainStarchSeasoningIssue(
+  name: string,
+  steps: string[],
+  items: { name: string }[],
+): string | null {
+  const foods = items.filter((item) => !isSeasoning(item.name) && !isOil(item.name));
+  if (foods.length === 0 || !foods.every((item) => isPlainStarchFood(item.name))) {
+    return null;
+  }
+  const cookedIn = steps.some((step) => /炒|煮|焼|ゆで|茹|蒸|絡め/.test(step));
+  if (cookedIn && name !== "ごはんの温め") {
+    return null;
+  }
+  const bare = items.filter((item) => isBareShake(item.name));
+  if (bare.length === 0) {
+    return null;
+  }
+  return `plain starch seasoning ${bare.map((item) => item.name).join(" ")}`;
+}
+
+function isBareShake(name: string): boolean {
+  if (name.includes("塩鮭") || name.includes("塩さば") || name.includes("塩さけ")) {
+    return false;
+  }
+  return name === "塩" || name.includes("食塩") || name.includes("こしょう") || name.includes("胡椒");
+}
+
 export function assemblyIssues(
   name: string,
   steps: string[],
@@ -169,7 +198,7 @@ export function assemblyIssues(
     issues.push("raw");
   }
   const minutes = totalCookingMinutes(text);
-  if (minutes < 5) {
+  if (minutes < 5 && name !== "ごはんの温め") {
     issues.push("short");
   }
   if (minutes > allowedMinutes(note)) {

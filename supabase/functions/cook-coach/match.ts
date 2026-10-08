@@ -298,7 +298,8 @@ export function realisticGramBounds(name: string, suggested: number): GramWindow
     max = 3;
   } else if (isOil(name)) {
     min = 0;
-    max = 15;
+    // 炒め・焼きはおおむね 8g、揚げ焼きやムニエルのバターでも 10g まで。
+    max = 10;
   } else if (isSugar(name)) {
     min = 0;
     max = 12;
@@ -643,8 +644,8 @@ export function explainGap(target: Macros, dish: MeasuredDish): string {
     parts.push("手元の食材だけではたんぱく質が足りない");
   }
   const oil = dish.ingredients.find((item) => isOil(item.name));
-  if (oil && oil.grams >= 15 && gap.fatG > 0) {
-    parts.push("油は15gまで");
+  if (oil && oil.grams >= 10 && gap.fatG > 0) {
+    parts.push("油は10gまで");
   }
   if (parts.length === 0) {
     parts.push("この食材の現実的な分量では目標にちょうど届かない");
@@ -903,6 +904,10 @@ export function isRice(name: string): boolean {
   }
   const words = ["ごはん", "ご飯", "米飯", "白米", "お米", "米"];
   return words.some((word) => name.includes(word));
+}
+
+export function isPlainStarchFood(name: string): boolean {
+  return isRice(name) || isBread(name) || isNoodle(name) || name.includes("スパゲティ");
 }
 
 function isBread(name: string): boolean {

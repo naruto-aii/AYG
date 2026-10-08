@@ -2,7 +2,7 @@
 // deno run -A supabase/functions/cook-coach/check_recipes.ts
 
 import { isOil, isSeasoning, round1 } from "./match.ts";
-import { assemblyIssues, nameMismatch, totalCookingMinutes } from "./plan.ts";
+import { assemblyIssues, nameMismatch, plainStarchSeasoningIssue, totalCookingMinutes } from "./plan.ts";
 import { cookRecipes } from "./recipes.ts";
 import { expandRecipe, type CookOption, type CookRecipe } from "./select.ts";
 
@@ -74,6 +74,14 @@ function checkRow(row: Row): string[] {
   const craft = assemblyIssues(name, steps, chosen.map((option) => ({ name: option.label, grams: option.grams })));
   if (craft.length > 0) {
     issues.push(craft.join(","));
+  }
+  const plain = plainStarchSeasoningIssue(
+    name,
+    steps,
+    chosen.map((option) => ({ name: option.label })),
+  );
+  if (plain) {
+    issues.push(plain);
   }
   for (const option of chosen) {
     if (!/^[0-9]{5}$/.test(option.foodCode)) {

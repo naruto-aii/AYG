@@ -118,7 +118,7 @@ begin
     ('onion-soup', '炒め玉ねぎのスープ', '洋', '汁物', '煮', 8, '["玉ねぎを薄切りにする。","鍋に水を350mlとコンソメ{g:consomme}gを入れて煮立たせる。","玉ねぎを入れて8分煮る。","塩{g:salt}gとこしょう{g:pepper}gを加えて火を止める。"]'::jsonb),
     ('egg-miso', '卵の味噌汁', '和', '汁物', '煮', 6, '["卵を溶いておく。","鍋に水を300mlと顆粒だし{g:dashi}gを入れて4分煮立たせる。","味噌{g:miso}gとしょうゆ{g:soy}gを溶き入れる。","溶き卵を回し入れて2分加熱し、火を止める。"]'::jsonb),
     ('coleslaw', '{veg}のコールスロー和え', '洋', '副菜', '和え', 5, '["{veg}を細切りにする。","塩{g:salt}gをふって水気をしぼる。","マヨネーズ{g:mayo}gとこしょう{g:pepper}gで和える。","5分置いて味をなじませて出す。"]'::jsonb),
-    ('milk-okayu', '牛乳がゆ', '和', '主食', '煮', 10, '["ごはんを鍋に入れる。","牛乳{g:milk}gと水を100mlを加えて中火にする。","8分煮てごはんをやわらかくする。","塩{g:salt}gと砂糖{g:sugar}gを加えて2分煮て火を止める。"]'::jsonb);
+    ('pork-moyashi', '豚こまともやしの炒め物', '和', '主菜', '炒', 5, '["豚こまをほぐし、もやしを洗う。","フライパンを中火にし、{oil}{g:oil}gを熱して豚こまを3分炒める。","もやしとしょうゆ{g:soy}gとこしょう{g:pepper}gを加えて2分炒め、火を通す。","器に盛る。"]'::jsonb);
 
   insert into public.cook_recipe_options
     (recipe_id, slot_key, role, label, food_code, base_grams, sort_order, match_names, staple)
@@ -433,7 +433,7 @@ begin
     ('mapo-nasu', 'protein', 'protein', '鶏ひき肉', '11230', 130, 1, array['鶏ひき肉','鶏ひき']::text[], false),
     ('mapo-nasu', 'protein', 'protein', '牛ひき肉', '11089', 100, 2, array['牛ひき肉','牛ひき','合いびき']::text[], false),
     ('mapo-nasu', 'veg', 'veg', 'なす', '06191', 120, 100, array['なす','ナス']::text[], false),
-    ('mapo-nasu', 'oil', 'oil', 'サラダ油', '14006', 10, 200, array['サラダ油','油']::text[], true),
+    ('mapo-nasu', 'oil', 'oil', 'サラダ油', '14006', 8, 200, array['サラダ油','油']::text[], true),
     ('mapo-nasu', 'douban', 'seasoning', '豆板醤', '17004', 8, 300, array['豆板醤','トウバンジャン']::text[], true),
     ('mapo-nasu', 'starch', 'other', '片栗粉', '02034', 8, 400, array['片栗粉']::text[], false),
     ('mapo-nasu', 'soy', 'seasoning', 'しょうゆ', '17007', 8, 500, array['しょうゆ','醤油']::text[], true),
@@ -1033,9 +1033,10 @@ begin
     ('coleslaw', 'mayo', 'seasoning', 'マヨネーズ', '17042', 12, 100, array['マヨネーズ','マヨ']::text[], true),
     ('coleslaw', 'salt', 'seasoning', '塩', '17012', 1, 200, array['塩','食塩']::text[], true),
     ('coleslaw', 'pepper', 'seasoning', 'こしょう', '17063', 1, 300, array['こしょう','胡椒','コショウ']::text[], true),
-    ('milk-okayu', 'rice', 'staple', 'ごはん', '01088', 60, 0, array['ごはん','ご飯','白米','お米']::text[], true),
-    ('milk-okayu', 'milk', 'other', '牛乳', '13003', 100, 100, array['牛乳']::text[], false),
-    ('milk-okayu', 'salt', 'seasoning', '塩', '17012', 1, 200, array['塩','食塩']::text[], true),
-    ('milk-okayu', 'sugar', 'seasoning', '砂糖', '03003', 3, 300, array['砂糖']::text[], true);
+    ('pork-moyashi', 'protein', 'protein', '豚こま', '11115', 110, 0, array['豚こま','豚こま切れ','豚コマ','豚肉']::text[], false),
+    ('pork-moyashi', 'veg', 'veg', 'もやし', '06291', 100, 100, array['もやし']::text[], false),
+    ('pork-moyashi', 'oil', 'oil', 'サラダ油', '14006', 6, 200, array['サラダ油','油']::text[], true),
+    ('pork-moyashi', 'soy', 'seasoning', 'しょうゆ', '17007', 8, 300, array['しょうゆ','醤油']::text[], true),
+    ('pork-moyashi', 'pepper', 'seasoning', 'こしょう', '17063', 1, 400, array['こしょう','胡椒','コショウ']::text[], true);
 end $$;
 

@@ -202,9 +202,9 @@ String cookKcalGapLabel(num gapKcal) {
     return '目標どおり';
   }
   if (gap > 0) {
-    return 'あと＋${gap}kcal';
+    return '目標まであと ${gap}kcal';
   }
-  return '目標より${gap.abs()}kcal多い';
+  return '${gap.abs()}kcal 多い';
 }
 
 String cookMacroGapLabel(String name, num gapG) {
@@ -216,9 +216,9 @@ String cookMacroGapLabel(String name, num gapG) {
       ? gap.round().toString()
       : gap.toString();
   if (gap > 0) {
-    return '$name あと＋${amount}g';
+    return '$name あと ${amount}g';
   }
-  return '$name 目標より${amount.replaceFirst('-', '')}g多い';
+  return '$name ${amount.replaceFirst('-', '')}g 多い';
 }
 
 /// チップ、キーボード、音声入力の文を食材名に分ける。

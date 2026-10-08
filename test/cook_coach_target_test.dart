@@ -83,11 +83,11 @@ void main() {
   });
 
   test('gap text and dictated ingredient text', () {
-    expect(cookKcalGapLabel(80), 'あと＋80kcal');
+    expect(cookKcalGapLabel(80), '目標まであと 80kcal');
     expect(cookKcalGapLabel(0), '目標どおり');
-    expect(cookMacroGapLabel('P', -0.6), 'P 目標より0.6g多い');
-    expect(cookMacroGapLabel('F', 0.7), 'F あと＋0.7g');
-    expect(cookKcalGapLabel(-30), '目標より30kcal多い');
+    expect(cookMacroGapLabel('P', -0.6), 'P 0.6g 多い');
+    expect(cookMacroGapLabel('F', 0.7), 'F あと 0.7g');
+    expect(cookKcalGapLabel(-30), '30kcal 多い');
     expect(
       cookIngredientNames('卵、玉ねぎ，豚こま\n卵'),
       ['卵', '玉ねぎ', '豚こま'],
@@ -125,7 +125,7 @@ void main() {
     expect(parsed, isNotNull);
     expect(parsed!.patterns.single.withinTolerance, isTrue);
     expect(parsed.patterns.single.gapKcal, 12);
-    expect(cookKcalGapLabel(parsed.patterns.single.gapKcal), 'あと＋12kcal');
+    expect(cookKcalGapLabel(parsed.patterns.single.gapKcal), '目標まであと 12kcal');
   });
 
   test('displayed gap is target minus the ingredient rows', () {
@@ -187,6 +187,6 @@ void main() {
     expect(shown.gapFatG, closeTo(18 - 2, 0.001));
     expect(shown.gapCarbG, closeTo(75 - 52, 0.001));
     expect(shown.withinTolerance, isFalse);
-    expect(cookKcalGapLabel(shown.gapKcal), 'あと＋253kcal');
+    expect(cookKcalGapLabel(shown.gapKcal), '目標まであと 253kcal');
   });
 }

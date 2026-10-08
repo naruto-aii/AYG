@@ -18,7 +18,7 @@ import {
   type MeasuredDish,
   type MeasuredIngredient,
 } from "./match.ts";
-import { assemblyIssues, nameMismatch, splitIncompatible, totalCookingMinutes } from "./plan.ts";
+import { assemblyIssues, nameMismatch, plainStarchSeasoningIssue, splitIncompatible, totalCookingMinutes } from "./plan.ts";
 
 export type CookOption = {
   label: string;
@@ -193,7 +193,8 @@ function composeMeals(
   const consider = (parts: MeasuredDish[], recipeId: string) => {
     const minutes = parts.reduce((sum, part) => sum + (part.minutes ?? 0), 0);
     const steps = parts.reduce((sum, part) => sum + part.steps.length, 0);
-    if (minutes > limit || steps > 18 || steps < 3) {
+    const platingRice = parts.length === 1 && parts[0].name === "ごはんの温め";
+    if (minutes > limit || steps > 18 || (steps < 3 && !platingRice)) {
       return;
     }
     const meal = combineMeal(parts, target, omitNote);
@@ -216,6 +217,9 @@ function composeMeals(
       return;
     }
     if (nameMismatch(meal.name, meal.ingredients)) {
+      return;
+    }
+    if (plainStarchSeasoningIssue(meal.name, meal.steps, meal.ingredients)) {
       return;
     }
     const craft = assemblyIssues(
@@ -264,6 +268,16 @@ function composeMeals(
   ) {
     for (const grams of riceFit(0, target.kcal)) {
       consider([riceDish(grams, listed)], "rice-warm");
+    }
+  }
+  if (
+    kind === "on_hand" &&
+    listedHits("牛乳", listed) &&
+    !listedHits("牛乳", avoid) &&
+    !listedHits("バター", avoid)
+  ) {
+    for (const grams of [120, 150, 180]) {
+      consider([milkSoup(grams, listed)], "milk-potage");
     }
   }
   if (kind === "extra") {
@@ -417,8 +431,8 @@ function scaledDishes(fill: Fill, target: Macros, omitNote: string, listed: stri
   const hasStaple = fill.chosen.some((option) => option.role === "staple");
   const bodies = hasEgg ? [1, 2] : [0.85, 1, 1.45];
   const staples = hasStaple ? [0.55, 1, 1.35] : [1];
-  const oil = fill.chosen.find((option) => option.role === "oil");
-  const oilScales = oil && oil.grams > 0 && oil.grams < 14 ? [1, Math.min(1.9, 14 / oil.grams)] : [1];
+  // 油はレシピの分量のまま。kcal は主材料とごはんで合わせる。
+  const oilScales = [1];
   const aim = hasStaple ? target.kcal : Math.max(80, target.kcal * 0.48);
   const dishes: MeasuredDish[] = [];
   for (const body of bodies) {
@@ -445,21 +459,11 @@ function scaledDishes(fill: Fill, target: Macros, omitNote: string, listed: stri
 function riceDish(grams: number, listed: string[]): MeasuredDish {
   const food = optionFromFood("rice", grams);
   const macros = macrosAt(food, grams);
-  const salt = optionFromFood("salt", 1);
-  const saltMacros = macrosAt(salt, 1);
   const assumed = !listed.some((name) => namesMatch(name, "ごはん") || namesMatch(name, "ご飯"));
-  const totals = {
-    kcal: macros.kcal + saltMacros.kcal,
-    proteinG: round1(macros.proteinG + saltMacros.proteinG),
-    fatG: round1(macros.fatG + saltMacros.fatG),
-    carbG: round1(macros.carbG + saltMacros.carbG),
-  };
   return {
     name: "ごはんの温め",
     steps: [
-      `ごはん${grams}gを茶碗によそう。`,
-      "塩1gをふって混ぜ、電子レンジで2分温める。",
-      "3分置いてから出す。",
+      `ごはん${grams}gを茶碗によそう（冷やご飯なら電子レンジで温める）。`,
     ],
     extras: [],
     ingredients: [
@@ -477,21 +481,67 @@ function riceDish(grams: number, listed: string[]): MeasuredDish {
         extra: false,
         assumed,
       },
-      {
-        name: salt.label,
-        grams: 1,
-        originalGrams: 1,
-        kcal: saltMacros.kcal,
-        proteinG: saltMacros.proteinG,
-        fatG: saltMacros.fatG,
-        carbG: saltMacros.carbG,
-        source: "db",
-        foodCode: salt.foodCode,
-        officialName: salt.officialName,
-        extra: false,
-        assumed: !listed.some((name) => namesMatch(name, "塩")),
-      },
     ],
+    totals: {
+      kcal: macros.kcal,
+      proteinG: macros.proteinG,
+      fatG: macros.fatG,
+      carbG: macros.carbG,
+    },
+    gap: { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
+    within: false,
+    score: 0,
+    issues: [],
+    gapReason: "",
+    omitNote: "",
+    minutes: 2,
+  };
+}
+
+function milkSoup(grams: number, listed: string[]): MeasuredDish {
+  const parts: Array<{ id: string; grams: number }> = [
+    { id: "milk", grams },
+    { id: "butter", grams: 6 },
+    { id: "consomme", grams: 4 },
+    { id: "salt", grams: 1 },
+    { id: "pepper", grams: 1 },
+  ];
+  const ingredients = parts.map((part) => {
+    const food = optionFromFood(part.id, part.grams);
+    const macros = macrosAt(food, part.grams);
+    const listedHere = listed.some((name) =>
+      food.match.some((key) => namesMatch(name, key)) || namesMatch(name, food.label)
+    );
+    return {
+      name: food.label,
+      grams: part.grams,
+      originalGrams: part.grams,
+      kcal: macros.kcal,
+      proteinG: macros.proteinG,
+      fatG: macros.fatG,
+      carbG: macros.carbG,
+      source: "db" as const,
+      foodCode: food.foodCode,
+      officialName: food.officialName,
+      extra: false,
+      assumed: food.staple && !listedHere,
+    };
+  });
+  const totals = {
+    kcal: ingredients.reduce((sum, item) => sum + item.kcal, 0),
+    proteinG: round1(ingredients.reduce((sum, item) => sum + item.proteinG, 0)),
+    fatG: round1(ingredients.reduce((sum, item) => sum + item.fatG, 0)),
+    carbG: round1(ingredients.reduce((sum, item) => sum + item.carbG, 0)),
+  };
+  return {
+    name: "クリームスープ",
+    steps: [
+      `鍋に牛乳${grams}gと水を150mlとコンソメ4gを入れて中火にする。`,
+      "バター6gを加えて4分煮る。",
+      "塩1gとこしょう1gを加えて1分煮て火を止める。",
+    ],
+    extras: [],
+    ingredients,
     totals,
     gap: { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
     within: false,
@@ -899,11 +949,11 @@ function scaledGrams(option: CookOption, scale: number): number | null {
     }
     return gramsAreRealistic(option.label, grams) ? grams : null;
   }
-  const minScale = option.role === "staple" ? 0.4 : option.role === "oil" ? 0.4 : 0.7;
+  const minScale = option.role === "staple" ? 0.4 : option.role === "oil" ? 0.5 : option.role === "seasoning" ? 1 : 0.7;
   const maxScale = option.role === "staple"
     ? 1.55
-    : option.role === "oil"
-    ? 2
+    : option.role === "oil" || option.role === "seasoning"
+    ? 1
     : option.role === "protein"
     ? 1.85
     : option.role === "veg"

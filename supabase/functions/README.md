@@ -284,6 +284,7 @@ deno run -A supabase/functions/cook-coach/check_recipes.ts
 6. `supabase/migrations/20261008193000_cook_recipes.sql`（表だけ。行は seed）
 7. `supabase/migrations/20261008200000_entitlements_server_only.sql`
 8. `supabase/migrations/20261008210000_ai_data_consent.sql`
+9. `supabase/migrations/20261009010000_fix_search_path.sql`（上で足した関数の search_path を固定する。cook_recipes は関数が無い）
 
 `20261008193000` のあと、`official_foods` があるデータベースで `supabase/seed/cook_recipes.sql` を流す。出し直し方は `docs/release/migrations.md`。この変更では本番に流さない。
 

@@ -84,8 +84,8 @@ void main() {
     expect(sent?['slot'], 'dinner');
     expect(sent?['note'], '20分');
     expect(sent?['target_kcal'], 650);
-    expect(find.text('あと＋508kcal'), findsOneWidget);
-    expect(find.text('あと＋516kcal'), findsOneWidget);
+    expect(find.text('目標まであと 508kcal'), findsOneWidget);
+    expect(find.text('目標まであと 516kcal'), findsOneWidget);
     expect(find.text('142kcal　P 29.0g　F 2.0g　C 2.0g'), findsOneWidget);
     expect(find.text('134kcal　P 27.0g　F 2.0g　C 3.0g'), findsOneWidget);
     expect(find.text('目標の範囲に入っています'), findsNothing);

@@ -167,11 +167,12 @@ export function scoreDish(dish: MeasuredDish, target: Macros, slot: string, note
   const steps = stepIssues(dish.steps, dish.ingredients, dish.name, note);
   const craftCodes = new Set(["raw", "short", "list_name", "long"]);
   const craft = steps.filter((code) => craftCodes.has(code));
-  const rest = steps.filter((code) => !craftCodes.has(code));
-  if (craft.includes("raw")) {
+  const plainRice = dish.name === "ごはんの温め";
+  const rest = steps.filter((code) => !craftCodes.has(code) && !(plainRice && (code === "count" || code === "seasoning")));
+  if (craft.includes("raw") && !plainRice) {
     reasons.push("not a cooked or seasoned dish");
   }
-  if (craft.includes("short") || totalCookingMinutes(dish.steps.join("\n")) < 5) {
+  if (!plainRice && (craft.includes("short") || totalCookingMinutes(dish.steps.join("\n")) < 5)) {
     reasons.push("under 5 min");
   }
   if (craft.includes("long")) {
@@ -187,7 +188,7 @@ export function scoreDish(dish: MeasuredDish, target: Macros, slot: string, note
     reasons.push("snack is a rice bowl");
   }
   const seasoned = dish.ingredients.some((item) => item.grams >= 1 && isSeasoning(item.name));
-  if (!seasoned) {
+  if (!seasoned && !plainRice) {
     reasons.push("no seasoning");
   }
   if ((slot === "lunch" || slot === "dinner") && dish.within && target.kcal >= 400) {

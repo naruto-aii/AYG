@@ -287,13 +287,11 @@ Deno.test("chicken and rice plus pantry oil move to a 650 kcal dinner", () => {
   const rice = finished.ingredients.find((item) => item.name === "ごはん");
   const oil = finished.ingredients.find((item) => item.name.includes("油"));
   assertEquals(rice != null && rice.grams > 150, true);
-  assertEquals(oil != null && oil.grams >= 1, true);
+  assertEquals(oil != null && oil.grams >= 1 && oil.grams <= 10, true);
   assertGapReported(finished, target);
-  assertEquals(finished.within, true, JSON.stringify({
-    totals: finished.totals,
-    gap: finished.gap,
-    grams: finished.ingredients.map((item) => [item.name, item.grams, item.kcal]),
-  }));
+  assertEquals(Math.abs(finished.totals.kcal - target.kcal) <= target.kcal * 0.1 + 0.51, true);
+  assertEquals(finished.within, false);
+  assertEquals(finished.gapReason.includes("油は10gまで"), true);
 });
 
 Deno.test("a dish already inside tolerance is not scaled", () => {
@@ -450,7 +448,7 @@ Deno.test("handler returns db nutrition and does not call the model", async () =
   const oil = first.ingredients.find((item: { name: string }) => item.name.includes("油"));
   const rice = first.ingredients.find((item: { name: string }) => item.name === "ごはん");
   const chicken = first.ingredients.find((item: { name: string }) => item.name.includes("鶏"));
-  assertEquals(oil != null && oil.grams <= 15 && oil.grams >= 1, true);
+  assertEquals(oil != null && oil.grams <= 10 && oil.grams >= 1, true);
   assertEquals(rice != null && rice.grams >= 100 && rice.grams <= 300, true);
   assertEquals(chicken != null && chicken.grams >= 60 && chicken.grams <= 250, true);
 });
@@ -718,9 +716,12 @@ Deno.test("implausible meat calories are replaced, and eggs stay on a 50g grid",
   const oil = dinner.a.ingredients.find((item) => item.name.includes("油"));
   const rice = dinner.a.ingredients.find((item) => item.name === "ごはん");
   const chicken = dinner.a.ingredients.find((item) => item.name.includes("鶏"));
-  assertEquals(oil != null && oil.grams <= 15 && oil.grams >= 1, true);
+  assertEquals(oil != null && oil.grams <= 8 && oil.grams >= 1, true);
+  assertEquals(dinner.a.ingredients.filter((item) => item.name.includes("油")).every((item) => item.grams <= 8), true);
   assertEquals(rice != null && rice.grams >= 100 && rice.grams <= 300, true);
   assertEquals(chicken != null && chicken.grams >= 60 && chicken.grams <= 250, true);
+  assertEquals(dinner.a.steps.some((step) => step.includes("ごはん") && step.includes("塩")), false);
+  assertEquals(dinner.a.steps.some((step) => step.includes("塩") && /炒|焼/.test(step)), true);
 });
 
 Deno.test("zero remaining does not call the model, and 1200 kcal is accepted", async () => {

@@ -12,6 +12,7 @@
 6. `supabase/migrations/20261008193000_cook_recipes.sql`
 7. `supabase/migrations/20261008200000_entitlements_server_only.sql`
 8. `supabase/migrations/20261008210000_ai_data_consent.sql`
+9. `supabase/migrations/20261009010000_fix_search_path.sql`（140000〜210000 で足した関数の search_path を `public, pg_temp` に固定する。cook_recipes のマイグレーションは関数を作っていない）
 
 `20261008193000` はレシピの表だけを作る。行は seed にある。
 

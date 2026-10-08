@@ -241,7 +241,7 @@ export function buildCookRecipes(): CookRecipe[] {
     ], [
       s("protein", groundP),
       s("veg", [["eggplant", 120]]),
-      oil(10),
+      oil(8),
       s("douban", [["douban", 8]]),
       s("starch", [["starch", 8]]),
       soy(8), miso(8),
@@ -997,15 +997,15 @@ export function buildCookRecipes(): CookRecipe[] {
       s("mayo", [["mayo", 12]]),
       salt(), pepper(),
     ]),
-    dish("milk-okayu", "牛乳がゆ", "和", "主食", "煮", [
-      "ごはんを鍋に入れる。",
-      "牛乳{g:milk}gと水を100mlを加えて中火にする。",
-      "8分煮てごはんをやわらかくする。",
-      "塩{g:salt}gと砂糖{g:sugar}gを加えて2分煮て火を止める。",
+    dish("pork-moyashi", "豚こまともやしの炒め物", "和", "主菜", "炒", [
+      "豚こまをほぐし、もやしを洗う。",
+      "フライパンを中火にし、{oil}{g:oil}gを熱して豚こまを3分炒める。",
+      "もやしとしょうゆ{g:soy}gとこしょう{g:pepper}gを加えて2分炒め、火を通す。",
+      "器に盛る。",
     ], [
-      s("rice", [["rice", 60]]),
-      s("milk", [["milk", 100]]),
-      salt(), sugar(3),
+      s("protein", [["pork", 110]]),
+      s("veg", [["moyashi", 100]]),
+      oil(6), soy(8), pepper(),
     ]),
   ];
   return recipes;

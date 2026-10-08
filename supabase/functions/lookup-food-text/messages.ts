@@ -1,5 +1,8 @@
+import { aiDataConsentRequiredMessage } from "../_shared/ai_data_consent.ts";
+
 export const textLookupMessages = {
   not_plus: "こちらはカロナビ+の機能です。手入力で記録できます。",
+  consent_required: aiDataConsentRequiredMessage,
   missing_key: "AIで探すは、いま準備中です。手入力で記録できます。",
   provider_unwired: "AIで探すは、いま準備中です。手入力で記録できます。",
   daily_cap: "本日の上限に達しました",

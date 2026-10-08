@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../utils/meal_slot.dart';
+import 'ai_data_consent.dart';
 import 'cook_coach.dart';
 import 'cook_coach_target.dart';
 
@@ -58,6 +59,9 @@ class CookCoachClient {
   factory CookCoachClient.supabase({SupabaseClient? client}) {
     return CookCoachClient(
       invoke: (body) async {
+        if (!await AiDataConsent.grantedNow()) {
+          throw const CookCoachFailure(aiDataConsentRequiredMessage);
+        }
         final supabase = client ?? Supabase.instance.client;
         try {
           final response = await supabase.functions.invoke(

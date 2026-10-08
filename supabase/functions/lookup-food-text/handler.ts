@@ -6,6 +6,7 @@ import {
   insertFoodCollections,
   type FoodCollectionRow,
 } from "../ai-food-collection.ts";
+import { hasAiDataConsent } from "../_shared/ai_data_consent.ts";
 import {
   cookCoachUsageQuery,
   estimateCostJpy,
@@ -73,6 +74,7 @@ export type LookupDeps = {
   now: () => Date;
   userId: (req: Request) => Promise<string | null>;
   isPlus: (userId: string, now: Date) => Promise<boolean>;
+  hasConsent?: (userId: string) => Promise<boolean>;
   usage: (userId: string, since: Date, now: Date) => Promise<LookupUsage>;
   readCache: (userId: string, queryKey: string) => Promise<CacheRow | null>;
   writeCache: (userId: string, queryKey: string, row: CacheRow) => Promise<void>;
@@ -143,6 +145,9 @@ export async function handleLookupFoodText(
   const plus = await deps.isPlus(userId, deps.now());
   if (!plus) {
     return fail("not_plus", 403);
+  }
+  if (deps.hasConsent && !(await deps.hasConsent(userId))) {
+    return fail("consent_required", 403);
   }
 
   const providerName = deps.env.PHOTO_AI_PROVIDER?.trim() || "anthropic";
@@ -404,6 +409,9 @@ export function liveDeps(
         `&status=eq.active&expires_at=gt.${cutoff}&select=user_id&limit=1`;
       const result = await authedGet(url, serviceKey, fetchImpl);
       return result.ok && Array.isArray(result.body) && result.body.length > 0;
+    },
+    hasConsent(userId) {
+      return hasAiDataConsent({ base, serviceKey, userId, fetchImpl });
     },
     async usage(userId, since, now) {
       if (!base || !serviceKey) {

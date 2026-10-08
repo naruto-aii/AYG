@@ -4,6 +4,7 @@ import 'package:ayg/repositories/coach_intro_store.dart';
 import 'package:ayg/repositories/pending_record_store.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/screens/coach/cook_coach_screen.dart';
+import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
 import 'package:ayg/services/analytics/analytics.dart';
 import 'package:ayg/services/cook_coach.dart';
@@ -35,6 +36,11 @@ void main() {
 
   setUp(() {
     Analytics.onEmitForTest = null;
+    AiDataConsent.override = MemoryAiDataConsent(granted: true);
+  });
+
+  tearDown(() {
+    AiDataConsent.override = null;
   });
 
   testWidgets('input, two patterns, and the gap vs the meal target', (

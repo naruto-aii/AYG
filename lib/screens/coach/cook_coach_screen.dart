@@ -16,6 +16,7 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
+import '../legal/ai_data_consent_dialog.dart';
 import '../subscription/calonavi_plus_flow.dart';
 
 const cookCoachIngredientChoices = [
@@ -182,6 +183,10 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
     final target = _target;
     if (!target.canGenerate) {
       setState(() => _error = 'この食事の目標が少ないため、献立は作れません。');
+      return;
+    }
+    final allowed = await ensureAiDataConsent(context);
+    if (!allowed || !mounted) {
       return;
     }
     final client = widget.client ?? CookCoachClient.supabase();

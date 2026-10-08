@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'ai_data_consent.dart';
 import 'ai_food_lookup.dart';
 import 'photo_meal_client.dart';
 
@@ -18,6 +19,9 @@ class AiFoodLookupClient {
   factory AiFoodLookupClient.supabase({SupabaseClient? client}) {
     return AiFoodLookupClient(
       invoke: (body) async {
+        if (!await AiDataConsent.grantedNow()) {
+          throw const PhotoMealFailure(aiDataConsentRequiredMessage);
+        }
         final supabase = client ?? Supabase.instance.client;
         try {
           final response = await supabase.functions.invoke(

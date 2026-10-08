@@ -100,6 +100,8 @@ Gemini は既定にしません。`PHOTO_AI_PROVIDER=gemini` または `openai` 
 
 推定キャッシュは期限では消しません。`ai_food_estimate_cache` は同じ利用者が同じ検索を再利用するための行で、アカウント削除のときにその利用者の行を消します。`cook_coach_cache` は利用者の識別子を持たないので、アカウントを削除しても消えません。
 
+写真で登録、AIで探す、自炊コーチは、`ai_data_consents` に今の版の同意が無い呼び出しを、モデルを呼ぶ前に `consent_required` で返します。同意の時刻はサーバが付けます。
+
 ### シークレットと環境変数
 
 値は Supabase のシークレットにだけ置き、git や `supabase/config.toml` には書きません。
@@ -238,8 +240,9 @@ deno test --config supabase/functions/deno.json supabase/functions/cook_coach_te
 4. `supabase/migrations/20261008180000_ai_feature_uses.sql`
 5. `supabase/migrations/20261008190000_ai_food_result_collections.sql`
 6. `supabase/migrations/20261008200000_entitlements_server_only.sql`
+7. `supabase/migrations/20261008210000_ai_data_consent.sql`
 
-そのあとで関数をデプロイする。
+そのあとで関数をデプロイする。同意の表より先に関数を出すと、AI機能は同意が無いとして止まります。
 
 1. `analyze-meal-photo`
 2. `lookup-food-text`

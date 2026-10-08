@@ -1,6 +1,10 @@
 // 自炊コーチ。料理の中身だけモデルに聞き、kcal と PFC は成分表で計算する。
 // この変更では関数をデプロイせず、マイグレーションも本番へ適用しない。
 
+import {
+  aiDataConsentRequiredMessage,
+  hasAiDataConsent,
+} from "../_shared/ai_data_consent.ts";
 import { parseModelJson } from "../analyze-meal-photo/validate.ts";
 import {
   combinedDailyLimitFromEnv,
@@ -65,6 +69,7 @@ export type CookDeps = {
   now: () => Date;
   userId: (req: Request) => Promise<string | null>;
   isPlus: (userId: string, now: Date) => Promise<boolean>;
+  hasConsent?: (userId: string) => Promise<boolean>;
   dailyCount: (userId: string, since: Date) => Promise<number>;
   insertUsage: (row: CookUsageInsert) => Promise<string | null>;
   lookupFoods: (names: string[]) => Promise<FoodRow[]>;
@@ -166,6 +171,9 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
   const now = deps.now();
   if (!await deps.isPlus(userId, now)) {
     return fail("not_plus", "こちらはカロナビ+の機能です。", 403);
+  }
+  if (deps.hasConsent && !(await deps.hasConsent(userId))) {
+    return fail("consent_required", aiDataConsentRequiredMessage, 403);
   }
   const cacheKey = await cookCacheKey(cookCacheMaterial(input));
   if (deps.readCache) {
@@ -621,6 +629,9 @@ export function liveDeps(
         `&status=eq.active&expires_at=gt.${cutoff}&select=user_id&limit=1`;
       const result = await authedFetch(url, serviceKey, fetchImpl);
       return result.ok && Array.isArray(result.body) && result.body.length > 0;
+    },
+    hasConsent(userId) {
+      return hasAiDataConsent({ base, serviceKey, userId, fetchImpl });
     },
     async dailyCount(userId, since) {
       if (!base || !serviceKey) {

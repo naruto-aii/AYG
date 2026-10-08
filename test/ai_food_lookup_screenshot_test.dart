@@ -11,6 +11,7 @@ import 'package:ayg/screens/food/ai_food_lookup_screen.dart';
 import 'package:ayg/screens/food/chain_food_lookup_screen.dart';
 import 'package:ayg/screens/food/meal_food_search_screen.dart';
 import 'package:ayg/screens/food/photo_meal_confirm_screen.dart';
+import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/services/ai_food_lookup.dart';
 import 'package:ayg/services/ai_food_lookup_client.dart';
 import 'package:ayg/services/photo_meal.dart';
@@ -66,6 +67,12 @@ Future<void> _loadSymbols() async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadZenMaru);
+  setUp(() {
+    AiDataConsent.override = MemoryAiDataConsent(granted: true);
+  });
+  tearDown(() {
+    AiDataConsent.override = null;
+  });
 
   testWidgets('search row, AI candidates, and confirm', (tester) async {
     final directory = Directory('/opt/cursor/artifacts/screenshots');

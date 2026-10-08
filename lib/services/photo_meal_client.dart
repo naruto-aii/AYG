@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'ai_data_consent.dart';
 import 'photo_meal.dart';
 
 class PhotoMealFailure implements Exception {
@@ -53,6 +54,9 @@ class PhotoMealClient {
   factory PhotoMealClient.supabase({SupabaseClient? client}) {
     return PhotoMealClient(
       invoke: (body) async {
+        if (!await AiDataConsent.grantedNow()) {
+          throw const PhotoMealFailure(aiDataConsentRequiredMessage);
+        }
         final supabase = client ?? Supabase.instance.client;
         try {
           final response = await supabase.functions.invoke(

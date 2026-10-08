@@ -6,6 +6,7 @@ import {
   insertFoodCollections,
   type FoodCollectionRow,
 } from "../ai-food-collection.ts";
+import { hasAiDataConsent } from "../_shared/ai_data_consent.ts";
 import { jpegBase64WithinEdge } from "./image.ts";
 import {
   checkPhotoCaps,
@@ -67,6 +68,7 @@ export type AnalyzeDeps = {
   now: () => Date;
   userId: (req: Request) => Promise<string | null>;
   isPlus: (userId: string, now: Date) => Promise<boolean>;
+  hasConsent?: (userId: string) => Promise<boolean>;
   usageRows: (userId: string, since: Date) => Promise<UsageRow[]>;
   insertUsage: (row: UsageInsert) => Promise<string | null>;
   insertCollections?: (rows: FoodCollectionRow[]) => Promise<Array<string | null>>;
@@ -175,6 +177,9 @@ export async function handleAnalyzeMealPhoto(
   const plus = await deps.isPlus(userId, now);
   if (!plus) {
     return fail("not_plus", 403);
+  }
+  if (deps.hasConsent && !(await deps.hasConsent(userId))) {
+    return fail("consent_required", 403);
   }
 
   const limits = photoLimitsFromEnv(deps.env);
@@ -378,6 +383,9 @@ export function liveDeps(
         `&status=eq.active&expires_at=gt.${cutoff}&select=user_id&limit=1`;
       const result = await authedGet(url, serviceKey, fetchImpl);
       return result.ok && Array.isArray(result.body) && result.body.length > 0;
+    },
+    hasConsent(userId) {
+      return hasAiDataConsent({ base, serviceKey, userId, fetchImpl });
     },
     async usageRows(userId, since) {
       if (!base || !serviceKey) {

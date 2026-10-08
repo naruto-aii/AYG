@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../repositories/plus_funnel_repository.dart';
+import '../../services/ai_data_consent.dart';
 import '../../services/ai_food_lookup.dart';
 import '../../services/ai_food_lookup_client.dart';
 import '../../services/photo_meal.dart';
@@ -11,6 +12,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
+import '../legal/ai_data_consent_dialog.dart';
 import '../subscription/plus_gate.dart';
 import 'photo_meal_confirm_screen.dart';
 
@@ -73,15 +75,39 @@ class AiFoodLookupScreen extends StatefulWidget {
 class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
   AiFoodLookupResult? _result;
   String? _error;
-  bool _loading = true;
+  bool _loading = false;
+  bool _declined = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _load();
+      }
+    });
   }
 
   Future<void> _load() async {
+    final allowed = await ensureAiDataConsent(context);
+    if (!allowed) {
+      if (!mounted) {
+        return;
+      }
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(false);
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _declined = true;
+      });
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _loading = true);
     try {
       final result = await widget.client.lookup(widget.query);
       if (!mounted) {
@@ -146,6 +172,8 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator()),
             )
+          else if (_declined)
+            const Text(aiDataConsentDeclinedMessage, style: AppTypography.bodyM)
           else if (_error != null)
             Text(_error!, style: AppTypography.bodyM)
           else if (result != null)

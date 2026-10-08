@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261008210000 ai data consent
+
+本番には適用していない。AI機能の同意の表と、退会時にその行を消す処理を消す。食事の行は消えない。
+
+`supabase/rollback/20261008210000_ai_data_consent_down.sql`
+
 ## 20261008200000 entitlements server only
 
 本番には適用していない。アプリから `calonavi_plus_entitlements` への INSERT と UPDATE を止め、SELECT だけを残す。戻すと、利用者が自分の加入行を再び書ける。関数 `verify-store-transaction` を出していれば、先にその関数を消す。

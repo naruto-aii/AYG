@@ -45,3 +45,31 @@
 - `lib/config/development_plus_preview.dart` — このフラグが真のとき、常時の有料プレビューは切る。
 - `test/test_purchase_toggle_test.dart` — 上の存在を確かめている。
 - `ios/Flutter/Release.xcconfig` — `CALONAVI_TEST_PURCHASE` を足さない。
+
+## 審査メモ
+
+App Store Connect の審査メモに、日本語と英語の両方を入れる。アプリの画面には出さない。Sandbox の購入で確認する。`tool/run_ios.sh` のテスト切替は Archive に入らない。
+
+日本語:
+
+カロナビ+のAI機能は、写真で登録、外食・コンビニ、AIで探す、自炊コーチです。どれもカロナビ+が必要です。4つあわせて1日15回までです。商品は `calonavi_plus_monthly`（月額980円）、`calonavi_plus_half_year`（半年4,900円）、`calonavi_plus_yearly`（年額8,800円）です。
+
+これらの機能は、食事の写真、料理名、量、補足、店名や食品名、手元の食材と条件のメモを Anthropic, PBC（米国）へ送り、カロリーとPFCの推定に使います。写真はカロナビに保存しません。初めて使う前に同意の画面を出します。同意するまで送りません。「やめる」では何も送りません。
+
+確認手順:
+1. Sandbox の Apple ID でアプリにログインする。
+2. カロナビ+を Sandbox で1つ購入する。
+3. 食事の追加から「写真で登録」、検索の中の「外食・コンビニ」または「AIで探す」、またはパーソナルコーチの「自炊コーチ」を開く。
+4. 初回は「AI機能を使う前に」と出ます。「同意して使う」のあとで推定が動きます。
+
+English:
+
+Calonavi+ AI features are Photo Log, Restaurant and Convenience Store, AI Search, and Cook Coach. Each requires Calonavi+. Together they are limited to 15 uses per day. Product IDs: calonavi_plus_monthly (¥980), calonavi_plus_half_year (¥4,900), and calonavi_plus_yearly (¥8,800).
+
+These features send the meal photo, dish name, amount, note, store or food name, or the ingredients and condition memo to Anthropic, PBC in the United States to estimate calories and protein, fat, and carbohydrate. Photos are not stored by Calonavi. Before the first use, the app shows a consent dialog. Nothing is sent until the user agrees. Decline sends nothing.
+
+How to test:
+1. Sign in with a Sandbox Apple ID.
+2. Buy one Calonavi+ plan in the sandbox.
+3. Open Photo Log, Restaurant and Convenience Store, AI Search, or Cook Coach.
+4. The first time, the consent dialog appears. Estimation runs after 「同意して使う」.

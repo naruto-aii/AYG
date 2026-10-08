@@ -94,7 +94,11 @@ void main() {
       find.textContaining('これはAIの推定です。登録の前に確認して、数値を直せます。'),
       findsOneWidget,
     );
-    expect(find.textContaining('合いやすくなります'), findsWidgets);
+    expect(find.text('任意です。入れると精度が上がります。'), findsOneWidget);
+    expect(
+      find.text('任意です。グラム・個数・杯数など、できるだけ正確に入れると精度が上がります。'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('写真を撮る'));
     await tester.pump();

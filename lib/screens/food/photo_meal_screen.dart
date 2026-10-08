@@ -169,14 +169,8 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
           const DesignTitleBlock(
             title: '写真で登録 (β)',
             subtitle:
-                '食事の写真から、カロリーとPFCを推定します。これはAIの推定です。登録の前に確認して、数値を直せます。',
+                '食事の写真から、カロリーとPFCを推定します。これはAIの推定です。登録の前に確認して、数値を直せます。\n写真は栄養の推定に使い、カロナビには保存しません。',
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '写真は栄養の推定に使い、カロナビには保存しません。',
-            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-          ),
-          const SizedBox(height: AppSpacing.md),
           if (jpeg != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
@@ -214,7 +208,7 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
           Text('料理名', style: AppTypography.titleS),
           const SizedBox(height: 4),
           Text(
-            '任意です。入れると、推定が合いやすくなります。',
+            '任意です。入れると精度が上がります。',
             style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: 6),
@@ -229,7 +223,7 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
           Text('量', style: AppTypography.titleS),
           const SizedBox(height: 4),
           Text(
-            '任意です。グラム、個数、杯など、分かる範囲で入れると、推定が合いやすくなります。',
+            '任意です。グラム・個数・杯数など、できるだけ正確に入れると精度が上がります。',
             style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: 6),

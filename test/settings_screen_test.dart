@@ -201,7 +201,7 @@ void main() {
       );
       expect(find.textContaining('写真で登録 (β)'), findsWidgets);
       expect(
-        find.textContaining('入れると推定が合いやすくなります'),
+        find.textContaining('入れると精度が上がります'),
         findsOneWidget,
       );
       Navigator.of(tester.element(find.byType(HowToUseScreen))).pop();

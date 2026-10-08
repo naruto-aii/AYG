@@ -80,12 +80,16 @@ class AppStrings {
   /// 既存の見出しの下に足す。ウィジェットと Siri の文は置き換えない。
   static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
   static const plusBetaAccessTitle = 'β版機能への先行アクセス';
+  static const coachCookingBody =
+      '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
+  static const plusAiDailyLimit =
+      '写真で登録 (β)、外食・コンビニ (β)、AIで探す (β)、パーソナルコーチ (β) は、あわせて1日15回までです。';
   static const plusBetaAccessBody =
-      'パーソナルコーチ (β)、音声登録 (β)、写真で登録 (β)、AIで探す (β) など、β版として先行公開している機能を使えます。';
+      '音声登録 (β)、写真で登録 (β)、外食・コンビニ (β)、AIで探す (β)、パーソナルコーチ (β) など、β版として先行公開している機能を使えます。$plusAiDailyLimit';
   static const coachBetaNotice =
-      '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。';
+      '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。$coachCookingBody';
   static const coachFeatureBody =
-      '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。登録するまでは記録されません。';
+      '$coachBetaNotice登録するまでは記録されません。$plusAiDailyLimit';
   static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
   static const plusBenefitTemplateBody =
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
@@ -99,9 +103,15 @@ class AppStrings {
   static const plusBenefitPhotoTitle = '写真で登録 (β)';
   static const plusBenefitPhotoBody =
       '食事の写真から、AIがカロリーとPFCの推定を出します。料理名、量、補足は任意で、入れると精度が上がります。登録の前に確認して、数値を直せます。';
+  static const plusBenefitEatingOutTitle = '外食・コンビニ (β)';
+  static const plusBenefitEatingOutBody =
+      '店名と商品名を入れると、AIがカロリーとPFCの推定を出します。セブン サラダチキンのように、新しい商品や詳しいメニューでも出せます。推定だと表示します。';
   static const plusBenefitAiSearchTitle = 'AIで探す (β)';
   static const plusBenefitAiSearchBody =
-      '検索で見つからない食品も、チェーン店のメニューなどから、AIがカロリーとPFCの推定を出します。推定だと表示します。';
+      'いつもの検索で見つからないときは、AIが候補を出します。';
+  static const plusBenefitCoachTitle = 'パーソナルコーチ (β)';
+  static const plusBenefitCoachBody =
+      '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。$coachCookingBody';
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';

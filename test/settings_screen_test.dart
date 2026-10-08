@@ -200,6 +200,9 @@ void main() {
         findsNothing,
       );
       expect(find.textContaining('写真で登録 (β)'), findsWidgets);
+      expect(find.textContaining('外食・コンビニ (β)'), findsWidgets);
+      expect(find.textContaining('自炊コーチ'), findsOneWidget);
+      expect(find.textContaining('あわせて1日15回までです'), findsWidgets);
       expect(
         find.textContaining('入れると精度が上がります'),
         findsOneWidget,
@@ -354,6 +357,7 @@ void main() {
     );
 
     for (final subtitle in const [
+      '食事と自炊の献立を提案',
       'はじめての操作と、無料との違い',
       '名前・体格と、目標カロリー',
       '運動・歩数・ヘルスケア連携の設定',

@@ -93,7 +93,12 @@ void main() {
     );
     expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
     expect(find.text('写真で登録 (β)'), findsOneWidget);
+    expect(find.text('外食・コンビニ (β)'), findsOneWidget);
     expect(find.text('AIで探す (β)'), findsOneWidget);
+    expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
+    expect(find.textContaining('セブン サラダチキン'), findsOneWidget);
+    expect(find.textContaining('自炊コーチ'), findsOneWidget);
+    expect(find.textContaining('あわせて1日15回までです'), findsOneWidget);
     expect(find.text('ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。'), findsOneWidget);
     expect(find.textContaining('精度検証中'), findsNothing);
     expect(find.text('プランを選ぶ'), findsOneWidget);
@@ -148,7 +153,7 @@ Future<void> _captureFull(
   await tester.binding.setSurfaceSize(Size(390, height));
   await tester.pumpAndSettle();
   final bytes = await tester.runAsync(
-    () => pngBytesFromBoundary(key, pixelRatio: 2),
+    () => pngBytesFromBoundary(key, pixelRatio: 3),
   );
   expect(bytes, isNotNull);
   file.writeAsBytesSync(bytes!);

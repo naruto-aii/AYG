@@ -24,6 +24,7 @@ import {
   type MeasuredDish,
 } from "./cook-coach/match.ts";
 import { evalScenarios, planScenario, runLocalEval } from "./cook_coach_eval.ts";
+import { assemblyIssues, needsModelRetry, stepIssues } from "./cook-coach/plan.ts";
 import { explainRejectedTarget } from "./cook-coach/handler.ts";
 import {
   cookOutputSchema,
@@ -365,6 +366,77 @@ Deno.test("frying pan and aburaage stay, deep fry and truffle do not", () => {
   assertEquals(realismIssues(slow, "60分かけて").includes("time"), false);
 });
 
+Deno.test("raw plating is rejected, and seasoned cold tofu or aemono is allowed", () => {
+  const items = [
+    { name: "ごはん", grams: 150 },
+    { name: "木綿豆腐", grams: 150 },
+    { name: "トマト", grams: 80 },
+  ];
+  const raw = assemblyIssues(
+    "ごはん、木綿豆腐、トマト",
+    ["ごはんを盛る", "木綿豆腐を切る", "トマトをスライスしてのせる"],
+    items,
+  );
+  assertEquals(raw.includes("raw"), true);
+  assertEquals(raw.includes("short"), true);
+  assertEquals(raw.includes("list_name"), true);
+  const listed = assemblyIssues("ごはんと木綿豆腐とトマト", ["ごはん", "木綿豆腐", "トマト"], items);
+  assertEquals(listed.includes("list_name"), true);
+  assertEquals(listed.includes("raw"), true);
+  const hiyayakkoSteps = [
+    "木綿豆腐200gを6等分に切る",
+    "しょうゆ8gとねぎとしょうがをのせる",
+    "味がなじむまで5分置く",
+  ];
+  const hiyayakkoItems = [{ name: "木綿豆腐", grams: 200 }, { name: "しょうゆ", grams: 8 }];
+  assertEquals(assemblyIssues("冷奴", hiyayakkoSteps, hiyayakkoItems), []);
+  assertEquals(stepIssues(hiyayakkoSteps, hiyayakkoItems, "冷奴"), []);
+  const plain = assemblyIssues(
+    "冷奴",
+    ["木綿豆腐を切る", "皿に盛る", "すぐ出す"],
+    [{ name: "木綿豆腐", grams: 200 }],
+  );
+  assertEquals(plain.includes("raw"), true);
+  assertEquals(plain.includes("short"), true);
+  assertEquals(assemblyIssues("ほうれん草の和え物", [
+    "ほうれん草80gを3cmに切る",
+    "しょうゆ5gと砂糖3gで和える",
+    "味がなじむまで5分置く",
+  ], [
+    { name: "ほうれん草", grams: 80 },
+    { name: "しょうゆ", grams: 5 },
+    { name: "砂糖", grams: 3 },
+  ]), []);
+  const cookedSteps = [
+    "鶏むね肉113gを一口大に切る",
+    "フライパンを中火にし、サラダ油15gを熱し、鶏むね肉を3分ずつ焼く",
+    "しょうゆ10gとみりん13gを加えて1分絡め、中まで火を通す",
+    "夕食として、ごはん198gを盛ってのせる",
+  ];
+  assertEquals(assemblyIssues("鶏むね肉の照り焼き丼", cookedSteps, [
+    { name: "鶏むね肉", grams: 113 },
+    { name: "ごはん", grams: 198 },
+    { name: "しょうゆ", grams: 10 },
+    { name: "みりん", grams: 13 },
+  ]), []);
+  assertEquals(assemblyIssues("牛乳の温め", [
+    "牛乳150gを注ぐ",
+    "電子レンジで1分温める",
+    "すぐ飲む",
+  ], [{ name: "牛乳", grams: 150 }]).includes("short"), true);
+  const rawMeasured = bestMeasured({
+    name: "ごはん、木綿豆腐、トマト",
+    steps: ["ごはんを盛る", "木綿豆腐を切る", "トマトをスライスしてのせる"],
+    extras: [],
+    ingredients: [
+      { name: "ごはん", grams: 150, kcal: 250, proteinG: 4, fatG: 1, carbG: 55 },
+      { name: "木綿豆腐", grams: 150, kcal: 110, proteinG: 10, fatG: 6, carbG: 3 },
+      { name: "トマト", grams: 80, kcal: 15, proteinG: 1, fatG: 0, carbG: 4 },
+    ],
+  }, [], { kcal: 400, proteinG: 15, fatG: 8, carbG: 60 });
+  assertEquals(needsModelRetry([rawMeasured, rawMeasured]), true);
+});
+
 Deno.test("handler returns db nutrition without a second model call", async () => {
   const harness = deps({ replies: [modelText(999, 0)] });
   const response = await handleCookCoach(request(onTarget), harness.deps);
@@ -443,6 +515,84 @@ Deno.test("handler retries once when the gap stays outside tolerance", async () 
   assertEquals(body.patterns[0].name, "合いびき肉の炒め");
   assertEquals(body.patterns[0].ingredients[0].source, "ai");
   assertEquals(body.patterns[0].kcal, 200);
+});
+
+Deno.test("raw ingredient lists are regenerated once and not returned", async () => {
+  const raw = {
+    a: {
+      n: "ごはん、木綿豆腐、トマト",
+      s: ["ごはんを盛る", "木綿豆腐を切る", "トマトをスライスしてのせる"],
+      i: [
+        { n: "ごはん", g: 150, k: 250, p: 4, f: 1, c: 55 },
+        { n: "木綿豆腐", g: 150, k: 110, p: 10, f: 6, c: 3 },
+        { n: "トマト", g: 80, k: 15, p: 1, f: 0, c: 4 },
+      ],
+    },
+    b: {
+      n: "ごはんと木綿豆腐",
+      s: ["ごはんを盛る", "木綿豆腐をのせる", "そのまま出す"],
+      x: ["卵"],
+      i: [
+        { n: "ごはん", g: 150, k: 250, p: 4, f: 1, c: 55 },
+        { n: "木綿豆腐", g: 100, k: 73, p: 7, f: 4, c: 2 },
+      ],
+    },
+  };
+  const cooked = {
+    a: {
+      n: "木綿豆腐とトマトの炒め丼",
+      s: [
+        "木綿豆腐150gとトマト80gを切る",
+        "フライパンを中火にし、サラダ油5gで5分炒める",
+        "しょうゆ8gを絡めて、ごはん150gにのせる",
+      ],
+      i: [
+        { n: "ごはん", g: 150, k: 252, p: 4, f: 1, c: 56 },
+        { n: "木綿豆腐", g: 150, k: 110, p: 10, f: 6, c: 3 },
+        { n: "トマト", g: 80, k: 15, p: 1, f: 0, c: 4 },
+        { n: "サラダ油", g: 5, k: 46, p: 0, f: 5, c: 0 },
+        { n: "しょうゆ", g: 8, k: 6, p: 1, f: 0, c: 1 },
+      ],
+    },
+    b: {
+      n: "木綿豆腐と卵の炒め",
+      s: [
+        "木綿豆腐100gを切って卵1個を溶く",
+        "フライパンを中火にし、5分炒める",
+        "塩1gを振って火を止める",
+      ],
+      x: ["卵"],
+      i: [
+        { n: "木綿豆腐", g: 100, k: 73, p: 7, f: 4, c: 2 },
+        { n: "卵", g: 50, k: 76, p: 6, f: 5, c: 0 },
+        { n: "塩", g: 1, k: 0, p: 0, f: 0, c: 0 },
+      ],
+    },
+  };
+  const harness = deps({
+    foods: [],
+    replies: [JSON.stringify(raw), JSON.stringify(cooked)],
+  });
+  const response = await handleCookCoach(request({
+    ingredients: ["ごはん", "木綿豆腐", "トマト"],
+    slot: "dinner",
+    target_kcal: 430,
+    target_protein_g: 16,
+    target_fat_g: 12,
+    target_carb_g: 64,
+  }), harness.deps);
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(harness.calls.length, 2);
+  assertEquals(body.retried, true);
+  const names = body.patterns.map((pattern: { name: string; steps: string[] }) => pattern.name);
+  assertEquals(names.some((name: string) => name.includes("、")), false);
+  for (const pattern of body.patterns) {
+    assertEquals(assemblyIssues(pattern.name, pattern.steps, pattern.ingredients.map((item: { name: string; grams: number }) => ({
+      name: item.name,
+      grams: item.grams,
+    }))), []);
+  }
 });
 
 Deno.test("deep frying is regenerated once and not returned", async () => {

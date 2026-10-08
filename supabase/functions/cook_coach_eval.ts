@@ -15,7 +15,7 @@ import {
   type Macros,
   type MeasuredDish,
 } from "./cook-coach/match.ts";
-import { finalizePair, foodKey, nameMismatch, stepIssues } from "./cook-coach/plan.ts";
+import { finalizePair, foodKey, nameMismatch, stepIssues, totalCookingMinutes } from "./cook-coach/plan.ts";
 import type { AiDish } from "./cook-coach/match.ts";
 
 export type EvalScenario = {
@@ -133,7 +133,7 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-export function scoreDish(dish: MeasuredDish, target: Macros, slot: string): string[] {
+export function scoreDish(dish: MeasuredDish, target: Macros, slot: string, note = ""): string[] {
   const reasons: string[] = [];
   const kcal = dish.ingredients.reduce((sum, item) => sum + item.kcal, 0);
   const protein = round1(dish.ingredients.reduce((sum, item) => sum + item.proteinG, 0));
@@ -160,9 +160,24 @@ export function scoreDish(dish: MeasuredDish, target: Macros, slot: string): str
   if (nameMismatch(dish.name, dish.ingredients)) {
     reasons.push(`name mismatch: ${dish.name}`);
   }
-  const steps = stepIssues(dish.steps, dish.ingredients);
-  if (steps.length > 0) {
-    reasons.push(`steps: ${steps.join(",")}`);
+  const steps = stepIssues(dish.steps, dish.ingredients, dish.name, note);
+  const craftCodes = new Set(["raw", "short", "list_name", "long"]);
+  const craft = steps.filter((code) => craftCodes.has(code));
+  const rest = steps.filter((code) => !craftCodes.has(code));
+  if (craft.includes("raw")) {
+    reasons.push("not a cooked or seasoned dish");
+  }
+  if (craft.includes("short") || totalCookingMinutes(dish.steps.join("\n")) < 5) {
+    reasons.push("under 5 min");
+  }
+  if (craft.includes("long")) {
+    reasons.push("over the time limit");
+  }
+  if (craft.includes("list_name")) {
+    reasons.push(`name is an ingredient list: ${dish.name}`);
+  }
+  if (rest.length > 0) {
+    reasons.push(`steps: ${rest.join(",")}`);
   }
   if (slot === "snack" && dish.name.includes("丼")) {
     reasons.push("snack is a rice bowl");
@@ -198,8 +213,8 @@ export function runLocalEval(foods: FoodRow[] = evalFoods()): EvalReport {
   for (const scenario of evalScenarios) {
     const pair = planScenario(scenario, foods);
     const reasons = [
-      ...scoreDish(pair.a, scenario.target, scenario.slot).map((reason) => `A ${reason}`),
-      ...scoreDish(pair.b, scenario.target, scenario.slot).map((reason) => `B ${reason}`),
+      ...scoreDish(pair.a, scenario.target, scenario.slot, scenario.note).map((reason) => `A ${reason}`),
+      ...scoreDish(pair.b, scenario.target, scenario.slot, scenario.note).map((reason) => `B ${reason}`),
     ];
     if (scenario.expectClose && !pair.b.within) {
       reasons.push(`B did not close: ${pair.b.gapReason}`);

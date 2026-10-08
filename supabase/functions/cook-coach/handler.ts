@@ -86,7 +86,7 @@ export function cookCacheMaterial(input: {
   avoid: string[];
 }): string {
   return JSON.stringify({
-    v: 4,
+    v: 5,
     ingredients: [...input.ingredients].map((item) => item.trim()).filter((item) => item.length > 0).sort(),
     slot: input.slot,
     kcal: Math.round(input.targetKcal / 10) * 10,
@@ -241,7 +241,7 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
       };
     }
     let chosen = firstDishes;
-    if (!parsed || (firstDishes && needsModelRetry([firstDishes.a, firstDishes.b]))) {
+    if (!parsed || (firstDishes && needsModelRetry([firstDishes.a, firstDishes.b], input.note))) {
       retried = true;
       const retryText = parsed && firstDishes
         ? cookRetryPrompt({ first: userText, dishes: [firstDishes.a, firstDishes.b] })

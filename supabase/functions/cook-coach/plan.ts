@@ -16,6 +16,7 @@ import {
   matchFood,
   nutritionAtGrams,
   optimizeIngredients,
+  allowedMinutes,
   presentDish,
   realismIssues,
   withGapReason,
@@ -76,20 +77,105 @@ export function nameMismatch(name: string, items: { name: string }[]): boolean {
   return claims.some((claim) => claim.pattern.test(name) && !claim.ok(items));
 }
 
+const dishMethod =
+  /丼|炒|煮|焼|蒸|ゆで|茹|和え|冷奴|冷やっこ|冷ややっこ|サラダ|スープ|汁|鍋|漬|浸し|おひたし|チャーハン|雑炊|粥|おかゆ|オムレツ|目玉|スクランブル|温め|グリル|ソテー|あんかけ|南蛮|竜田|生姜|ムニエル|ホイル|茶碗|卵とじ|玉子|おにぎり|弁当|ステーキ|マリネ|照り/;
+const noHeatDish = /冷奴|冷ややっこ|冷やっこ|和え物|和え|酢の物|おひたし|お浸し/;
+const cookAction = /フライパン|鍋|電子レンジ|炊飯器|焼|煮|炒|蒸|ゆで|茹|加熱|温め|熱し|熱する/;
+const seasonVerb = /かける|和え|あえ|混ぜ|のせる|ふる|振る|絡め|溶く/;
+const seasoningWord =
+  /しょうゆ|醤油|塩|みそ|味噌|酢|みりん|砂糖|ごま|薬味|ねぎ|しょうが|生姜|かつお|ぽん酢|めんつゆ|ドレッシング|たれ|タレ/;
+
+export function totalCookingMinutes(text: string): number {
+  let total = 0;
+  for (const match of text.matchAll(/(\d+(?:\.\d+)?)\s*時間/g)) {
+    total += Number(match[1]) * 60;
+  }
+  for (const match of text.matchAll(/(\d+(?:\.\d+)?)\s*分(ずつ)?/g)) {
+    const minutes = Number(match[1]);
+    total += match[2] ? minutes * 2 : minutes;
+  }
+  for (const match of text.matchAll(/(\d+(?:\.\d+)?)\s*秒/g)) {
+    total += Number(match[1]) / 60;
+  }
+  return total;
+}
+
+export function isIngredientListName(name: string, items: { name: string }[]): boolean {
+  const trimmed = name.replace(/\s/g, "");
+  if (!trimmed || trimmed === "家庭の一品" || trimmed === "一品") {
+    return true;
+  }
+  if (/[、,，・/／]/.test(trimmed) && !dishMethod.test(trimmed)) {
+    return true;
+  }
+  if (/(切った|生の|そのまま|スライスした|並べた)/.test(trimmed) && !dishMethod.test(trimmed)) {
+    return true;
+  }
+  if (dishMethod.test(trimmed) || noHeatDish.test(trimmed)) {
+    return false;
+  }
+  const foods = items
+    .map((item) => item.name)
+    .filter((food) => food.length > 0 && !isSeasoning(food) && !isOil(food))
+    .sort((a, b) => b.length - a.length);
+  let rest = trimmed;
+  for (const food of foods) {
+    rest = rest.replaceAll(food, "");
+  }
+  rest = rest.replace(/[とのやをにへ]+/g, "");
+  return rest.length === 0;
+}
+
+function hasSeasoningStep(text: string, items: { name: string; grams: number }[]): boolean {
+  const mentions = seasoningWord.test(text) ||
+    items.some((item) =>
+      item.grams >= 1 && isSeasoning(item.name) && !isOil(item.name) && text.includes(item.name)
+    );
+  return mentions && seasonVerb.test(text);
+}
+
+export function assemblyIssues(
+  name: string,
+  steps: string[],
+  items: { name: string; grams: number }[],
+  note = "",
+): string[] {
+  const issues: string[] = [];
+  const text = steps.join("\n");
+  const noHeat = noHeatDish.test(name);
+  if (noHeat) {
+    if (!hasSeasoningStep(text, items)) {
+      issues.push("raw");
+    }
+  } else if (!cookAction.test(text)) {
+    issues.push("raw");
+  }
+  const minutes = totalCookingMinutes(text);
+  if (minutes < 5) {
+    issues.push("short");
+  }
+  if (minutes > allowedMinutes(note)) {
+    issues.push("long");
+  }
+  if (isIngredientListName(name, items)) {
+    issues.push("list_name");
+  }
+  return issues;
+}
+
 export function stepIssues(
   steps: string[],
   items: { name: string; grams: number }[],
+  name = "",
+  note = "",
 ): string[] {
   const issues: string[] = [];
   if (steps.length < 3 || steps.length > 6) {
     issues.push("count");
   }
   const text = steps.join("\n");
-  if (!/\d+\s*分/.test(text) && !/\d+\s*秒/.test(text)) {
-    issues.push("time");
-  }
-  if (!/(フライパン|鍋|電子レンジ|炊飯器|焼く|煮る|炒める|蒸す|ゆで|茹で)/.test(text)) {
-    issues.push("heat");
+  for (const code of assemblyIssues(name, steps, items, note)) {
+    issues.push(code);
   }
   const taste = items.filter((item) => item.grams >= 1 && isSeasoning(item.name) && !isOil(item.name));
   if (taste.length > 0 && !taste.some((item) => text.includes(item.name))) {
@@ -101,11 +187,11 @@ export function stepIssues(
   return issues;
 }
 
-export function needsModelRetry(dishes: MeasuredDish[]): boolean {
+export function needsModelRetry(dishes: MeasuredDish[], note = ""): boolean {
   if (dishes.some((dish) =>
     dish.issues.length > 0 ||
     nameMismatch(dish.name, dish.ingredients) ||
-    stepIssues(dish.steps, dish.ingredients).length > 0
+    stepIssues(dish.steps, dish.ingredients, dish.name, note).length > 0
   )) {
     return true;
   }
@@ -160,13 +246,13 @@ export function composeHomeDish(
     );
     const milkSeason = milkTastes.length > 0
       ? `${milkTastes.map((item) => `${item.name}${item.grams}g`).join("と")}を溶かす`
-      : "そのまま飲む";
+      : "そのまま";
     return {
       name: "牛乳の温め",
       steps: [
         `牛乳${milk?.grams ?? 150}gをマグカップに注ぐ`,
-        "電子レンジで600W・1分温める",
-        `${milkSeason}。熱ければ30秒置いてから飲む`,
+        "電子レンジで600W・2分温める",
+        `${milkSeason}。3分置いてから飲む`,
       ],
     };
   }
@@ -252,6 +338,7 @@ export function polishDish(
   slot: string,
   target: Macros,
   variant: 0 | 1,
+  note = "",
 ): MeasuredDish {
   let items = dish.ingredients.filter((item) => item.grams >= 1 && !rareName(item.name));
   if (needsSalt(items)) {
@@ -272,7 +359,7 @@ export function polishDish(
     !dish.steps.some((step) => step.includes("塩"));
   const originalBad = dish.name === "家庭の一品" ||
     nameMismatch(dish.name, items) ||
-    stepIssues(dish.steps, items).length > 0 ||
+    stepIssues(dish.steps, items, dish.name, note).length > 0 ||
     dish.issues.length > 0 ||
     saltMissing;
   const composed = composeHomeDish(items, slot, variant);
@@ -287,7 +374,7 @@ export function polishDish(
     ...next,
     extras: dish.extras.filter((name) => items.some((item) => item.name === name)),
     omitNote: dish.omitNote,
-    issues: realismIssues(shell, ""),
+    issues: realismIssues(shell, note),
   };
 }
 
@@ -574,8 +661,8 @@ export function finalizePair(args: {
     }
   }
   const same = foodKey(a) === foodKey(b);
-  a = polishDish(a, args.slot, args.target, 0);
-  b = polishDish(b, args.slot, args.target, same ? 1 : 0);
+  a = polishDish(a, args.slot, args.target, 0, args.note);
+  b = polishDish(b, args.slot, args.target, same ? 1 : 0, args.note);
   if (a.name === b.name) {
     const alt = composeHomeDish(b.ingredients, args.slot, 1);
     b = { ...b, name: alt.name, steps: alt.steps };

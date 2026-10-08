@@ -25,6 +25,7 @@ import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_colors.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/theme/app_typography.dart';
+import 'package:ayg/widgets/food/ai_food_lookup_row.dart';
 import 'package:ayg/widgets/food/combined_food_search.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -381,7 +382,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(CombinedFoodSearch.emptyMessage), findsOneWidget);
+    expect(find.text(AiFoodLookupEmptySuggestion.message), findsOneWidget);
+    expect(find.text('該当する食品が見つかりませんでした'), findsNothing);
     expect(find.text(CombinedFoodSearch.officialHeading), findsNothing);
     expect(find.text(CombinedFoodSearch.publicHeading), findsNothing);
     expectNoLegacyPublicScreen();

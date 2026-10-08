@@ -6,17 +6,17 @@ import '../../services/ai_food_lookup_client.dart';
 import '../../services/photo_meal.dart';
 import '../../services/photo_meal_client.dart';
 import '../../state/app_controller.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
-import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_page.dart';
+import '../../widgets/design/settings_row.dart';
 import '../subscription/plus_gate.dart';
 import 'photo_meal_confirm_screen.dart';
 
 const aiFoodLookupEstimateTitle = 'AIによる推定';
 const aiFoodLookupEstimateSubtitle = '登録の前に確認して、数値を直せます。';
-const aiFoodLookupKnownProductNote = '店や商品の名前のようです。数値はAIによる推定です。';
+const aiFoodLookupResultTag = 'AIによる推定';
 
 /// カロナビ+のあと、検索語の推定を開く。食事を保存したら true。
 Future<bool> openAiFoodLookup({
@@ -57,12 +57,14 @@ class AiFoodLookupScreen extends StatefulWidget {
     required this.query,
     required this.loggedAt,
     required this.client,
+    this.title = aiFoodLookupEstimateTitle,
   });
 
   final AppController controller;
   final String query;
   final DateTime loggedAt;
   final AiFoodLookupClient client;
+  final String title;
 
   @override
   State<AiFoodLookupScreen> createState() => _AiFoodLookupScreenState();
@@ -133,8 +135,8 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const DesignTitleBlock(
-            title: aiFoodLookupEstimateTitle,
+          DesignTitleBlock(
+            title: widget.title,
             subtitle: '候補は3件までです。選んでから、数値を直せます。',
           ),
           const SizedBox(height: AppSpacing.md),
@@ -147,36 +149,13 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
             Text(_error!, style: AppTypography.bodyM)
           else if (result != null)
             for (final candidate in result.candidates) ...[
-              DesignCard(
+              SettingsRow(
+                icon: AppIcons.meal,
+                title: candidate.name,
+                subtitle:
+                    '${candidate.amount} ・ ${formatPhotoNumber(candidate.kcal)} kcal',
+                tag: aiFoodLookupResultTag,
                 onTap: () => _open(candidate),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(candidate.name, style: AppTypography.titleS),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${candidate.amount} · ${formatPhotoNumber(candidate.kcal)}kcal',
-                      style: AppTypography.bodyS.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                    Text(
-                      'P ${formatPhotoNumber(candidate.proteinG)} · F ${formatPhotoNumber(candidate.fatG)} · C ${formatPhotoNumber(candidate.carbG)}',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                    if (candidate.knownProduct) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        aiFoodLookupKnownProductNote,
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
               ),
               const SizedBox(height: 8),
             ],

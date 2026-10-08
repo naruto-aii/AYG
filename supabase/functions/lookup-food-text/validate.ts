@@ -58,6 +58,34 @@ export function normalizeFoodQuery(raw: string): string {
     .slice(0, maxFoodQueryLength);
 }
 
+const sizeWords = new Set(["大盛", "並盛", "小盛", "特盛", "普通盛", "普通"]);
+
+// 検索語の食品か、量の違いだけを残す。大盛だけの一致では別の料理を通さない。
+export function candidateMatchesQuery(query: string, name: string): boolean {
+  const normalizedQuery = normalizeFoodQuery(query);
+  const normalizedName = normalizeFoodQuery(name);
+  if (!normalizedQuery || !normalizedName) {
+    return false;
+  }
+  if (normalizedName.includes(normalizedQuery) || normalizedQuery.includes(normalizedName)) {
+    return true;
+  }
+  const tokens = normalizedQuery
+    .split(/[\s()（）・、,./]+/)
+    .filter((token) => token.length >= 2);
+  const food = tokens.filter((token) => !sizeWords.has(token));
+  const required = food.length > 0 ? food : tokens;
+  return required.some((token) => normalizedName.includes(token));
+}
+
+export function relevantCandidates(
+  query: string,
+  candidates: LookupCandidate[],
+): LookupCandidate[] | null {
+  const kept = candidates.filter((candidate) => candidateMatchesQuery(query, candidate.name));
+  return kept.length > 0 ? kept : null;
+}
+
 function finiteInRange(value: unknown, max: number): value is number {
   return typeof value === "number" &&
     Number.isFinite(value) &&

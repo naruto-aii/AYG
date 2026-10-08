@@ -60,7 +60,7 @@ class CombinedFoodSearch extends StatefulWidget {
   });
 
   static const hint = '食品名を入れると、保存済み・定番の食品・公開食品から候補が出ます。';
-  static const emptyMessage = '該当する食品が見つかりませんでした';
+  static const emptyMessage = 'この食品の登録がありませんでした。';
   static const savedBrowseEmpty = '保存済み食品はまだありません';
   static const savedHeading = '保存済み';
   static const officialHeading = '定番の食品';
@@ -547,18 +547,19 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
           ],
         ],
         if (!_loading && !hasRows && !hasError) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              CombinedFoodSearch.emptyMessage,
-              key: const Key('combined-food-search-empty'),
-              textAlign: TextAlign.center,
-              style: muted,
-            ),
-          ),
           if (widget.onAiFoodLookup != null)
             AiFoodLookupEmptySuggestion(
               onTap: () => widget.onAiFoodLookup!(widget.query.text.trim()),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                CombinedFoodSearch.emptyMessage,
+                key: const Key('combined-food-search-empty'),
+                textAlign: TextAlign.center,
+                style: muted,
+              ),
             ),
         ] else if (widget.onAiFoodLookup != null) ...[
           const SizedBox(height: 8),

@@ -19,6 +19,7 @@ class SettingsRow extends StatelessWidget {
     this.showChevron = true,
     this.trailing,
     this.leading,
+    this.tag,
   });
 
   /// assets/icons の SVG パス。
@@ -36,6 +37,9 @@ class SettingsRow extends StatelessWidget {
 
   /// アイコンの代わりに置くもの（チェックなど）。
   final Widget? leading;
+
+  /// 名前の横に置く短い印。検索結果の「AIによる推定」など。
+  final String? tag;
 
   @override
   Widget build(BuildContext context) {
@@ -71,15 +75,43 @@ class SettingsRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.titleM.copyWith(
-                          color: danger
-                              ? AppColors.textDanger
-                              : AppColors.textPrimary,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.titleM.copyWith(
+                                color: danger
+                                    ? AppColors.textDanger
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          if (tag != null) ...[
+                            const SizedBox(width: 6),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: AppColors.green50,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1,
+                                ),
+                                child: Text(
+                                  tag!,
+                                  maxLines: 1,
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textBrand,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 3),
                       Text(

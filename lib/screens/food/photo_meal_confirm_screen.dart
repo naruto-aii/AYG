@@ -315,17 +315,12 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
         const SizedBox(height: 6),
         DesignInputBox(
           suffix: unit,
-          child: TextField(
+          child: DesignTextInput(
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
             ],
-            decoration: const InputDecoration(
-              isCollapsed: true,
-              border: InputBorder.none,
-            ),
-            style: AppTypography.bodyL,
           ),
         ),
       ],

@@ -48,7 +48,10 @@ class AiFoodLookupClient {
     if (data is! Map) {
       throw const PhotoMealFailure(photoMealFallbackMessage);
     }
-    final candidates = parseAiFoodCandidates(data['candidates']);
+    final candidates = parseAiFoodCandidates(
+      data['candidates'],
+      query: clipAiFoodQuery(query),
+    );
     if (candidates == null) {
       throw const PhotoMealFailure('推定を確認できませんでした。別の名前で探すか、手入力で記録できます。');
     }

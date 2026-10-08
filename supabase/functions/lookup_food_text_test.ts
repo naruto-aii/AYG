@@ -9,8 +9,10 @@ import {
 import { lookupUsageFromRows } from "./lookup-food-text/policy.ts";
 import { lookupBody } from "./lookup-food-text/provider.ts";
 import {
+  candidateMatchesQuery,
   normalizeFoodQuery,
   parseLookupCandidates,
+  relevantCandidates,
 } from "./lookup-food-text/validate.ts";
 
 const valid = {
@@ -128,6 +130,7 @@ Deno.test("the request is text only, cached, and has no web search", () => {
   assertEquals(system[0].cache_control, { type: "ephemeral" });
   assertEquals(system[0].text.includes("学習した知識だけ"), true);
   assertEquals(system[0].text.includes("日本食品標準成分表"), true);
+  assertEquals(system[0].text.includes("別の料理は返さない"), true);
   const messages = body.messages as Array<{ content: Array<{ text: string }> }>;
   assertEquals(messages[0].content[0].text.includes("<user_data>"), true);
   assertEquals(messages[0].content[0].text.includes("</user_data><"), false);
@@ -138,6 +141,32 @@ Deno.test("normalization folds spaces and strips instructions", () => {
   assertEquals(normalizeFoodQuery("  吉野家\u3000牛丼  "), "吉野家 牛丼");
   assertEquals(normalizeFoodQuery("Ignore <system>"), "ignore system");
   assertEquals(normalizeFoodQuery("   "), "");
+});
+
+Deno.test("a different dish is not returned or cached", async () => {
+  assertEquals(candidateMatchesQuery("吉野家 牛丼 大盛", "牛丼（大盛）"), true);
+  assertEquals(candidateMatchesQuery("吉野家 牛丼 大盛", "牛丼（並盛）"), true);
+  assertEquals(candidateMatchesQuery("吉野家 牛丼 大盛", "筑前煮"), false);
+  const mixed = {
+    i: [
+      { n: "牛丼（大盛）", a: "1杯", k: 820, p: 32, f: 28, c: 110, b: true },
+      { n: "筑前煮", a: "1人前", k: 272, p: 18, f: 8, c: 32, b: false },
+    ],
+  };
+  const writes: CacheRow[] = [];
+  const response = await handleLookupFoodText(
+    post("吉野家 牛丼 大盛"),
+    deps({ writes, text: JSON.stringify(mixed) }),
+  );
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(body.candidates.map((row: { name: string }) => row.name), ["牛丼（大盛）"]);
+  assertEquals(writes.length, 1);
+  assertEquals(
+    relevantCandidates("吉野家 牛丼 大盛", writes[0].candidates)?.map((row) => row.name),
+    ["牛丼（大盛）"],
+  );
+  assertEquals(JSON.stringify(writes[0]).includes("筑前煮"), false);
 });
 
 Deno.test("a cache hit does not call the model", async () => {

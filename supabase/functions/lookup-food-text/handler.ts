@@ -30,6 +30,7 @@ import {
   candidateJson,
   normalizeFoodQuery,
   parseLookupCandidates,
+  relevantCandidates,
   type LookupCandidate,
 } from "./validate.ts";
 
@@ -158,7 +159,10 @@ export async function handleLookupFoodText(
 
   const model = deps.env.PHOTO_AI_LIGHT_MODEL?.trim() || lightModelDefault;
   const cached = await deps.readCache(query);
-  if (cached && freshCache(cached, model, now)) {
+  const cachedRelevant = cached && freshCache(cached, model, now)
+    ? relevantCandidates(query, cached.candidates)
+    : null;
+  if (cached && cachedRelevant) {
     const usageId = await deps.insertUsage({
       userId,
       provider: "anthropic",
@@ -175,7 +179,7 @@ export async function handleLookupFoodText(
       ok: true,
       usage_id: usageId,
       cache_hit: true,
-      candidates: cached.candidates.map(candidateJson),
+      candidates: cachedRelevant.map(candidateJson),
     }, 200);
   }
 
@@ -201,7 +205,8 @@ export async function handleLookupFoodText(
     });
     let candidates: LookupCandidate[] | null = null;
     try {
-      candidates = parseLookupCandidates(parseModelJson(result.text));
+      const parsed = parseLookupCandidates(parseModelJson(result.text));
+      candidates = parsed ? relevantCandidates(query, parsed) : null;
     } catch {
       candidates = null;
     }

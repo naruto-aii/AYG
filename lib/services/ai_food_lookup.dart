@@ -59,7 +59,48 @@ String clipAiFoodQuery(String query) {
   return trimmed.substring(0, aiFoodLookupQueryMaxLength);
 }
 
-List<AiFoodCandidate>? parseAiFoodCandidates(Object? raw) {
+/// 量や大きさの言い方。これだけが一致しても、別の料理とは見ない。
+const aiFoodLookupSizeWords = <String>{
+  '大盛',
+  '並盛',
+  '小盛',
+  '特盛',
+  '普通盛',
+  '普通',
+};
+
+String normalizeAiFoodName(String raw) {
+  return raw
+      .replaceAll(RegExp(r'[\u0000-\u001f]'), ' ')
+      .replaceAll(RegExp(r'[<>]'), '')
+      .replaceAll(RegExp(r'[\s\u3000]+'), ' ')
+      .trim()
+      .toLowerCase();
+}
+
+/// 検索語の食品か、その量の違いだけを残す。別の料理は落とす。
+bool aiFoodCandidateMatchesQuery(String query, String name) {
+  final normalizedQuery = normalizeAiFoodName(query);
+  final normalizedName = normalizeAiFoodName(name);
+  if (normalizedQuery.isEmpty || normalizedName.isEmpty) {
+    return false;
+  }
+  if (normalizedName.contains(normalizedQuery) ||
+      normalizedQuery.contains(normalizedName)) {
+    return true;
+  }
+  final tokens = normalizedQuery
+      .split(RegExp(r'[\s()（）・、,./]+'))
+      .where((token) => token.length >= 2)
+      .toList();
+  final food = tokens
+      .where((token) => !aiFoodLookupSizeWords.contains(token))
+      .toList();
+  final required = food.isEmpty ? tokens : food;
+  return required.any(normalizedName.contains);
+}
+
+List<AiFoodCandidate>? parseAiFoodCandidates(Object? raw, {String? query}) {
   if (raw is! List) {
     return null;
   }
@@ -83,6 +124,10 @@ List<AiFoodCandidate>? parseAiFoodCandidates(Object? raw) {
       continue;
     }
     if (known is! bool || !photoMealNutritionOk(item)) {
+      continue;
+    }
+    if (query != null &&
+        !aiFoodCandidateMatchesQuery(query, name.trim())) {
       continue;
     }
     candidates.add(

@@ -8,6 +8,7 @@ import 'package:ayg/models/public_food_search_match.dart';
 import 'package:ayg/models/saved_food.dart';
 import 'package:ayg/repositories/official_food_repository.dart';
 import 'package:ayg/screens/food/ai_food_lookup_screen.dart';
+import 'package:ayg/screens/food/chain_food_lookup_screen.dart';
 import 'package:ayg/screens/food/meal_food_search_screen.dart';
 import 'package:ayg/screens/food/photo_meal_confirm_screen.dart';
 import 'package:ayg/services/ai_food_lookup.dart';
@@ -19,6 +20,7 @@ import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/widgets/food/ai_food_lookup_row.dart';
 import 'package:ayg/widgets/food/combined_food_search.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -110,20 +112,20 @@ void main() {
     final gyudon = item(
       name: '牛丼（大盛）',
       amount: '1杯',
-      kcal: 872.0,
+      kcal: 820.0,
       protein: 32.0,
       fat: 28.0,
-      carb: 112.0,
+      carb: 110.0,
       known: true,
     );
-    final chikuzen = item(
-      name: '筑前煮',
-      amount: '1人前',
-      kcal: 290.0,
-      protein: 20.0,
-      fat: 10.0,
-      carb: 30.0,
-      known: false,
+    final regular = item(
+      name: '牛丼（並盛）',
+      amount: '1杯',
+      kcal: 570.0,
+      protein: 22.0,
+      fat: 18.0,
+      carb: 80.0,
+      known: true,
     );
 
     await _capture(
@@ -136,49 +138,48 @@ void main() {
           debounce: Duration.zero,
           searchSaved: (_) async => [food('自家製牛丼', id: 'saved-1')],
           searchOfficial: (_) async => const OfficialFoodSearchResult(
-            matches: [
-              OfficialFoodMatch(foodCode: '01083', name: '白米', kcal: 168),
-            ],
+            matches: [],
           ),
-          searchPublic: (_) async => [
-            PublicFoodSearchMatch(
-              food: food('公開牛丼', id: 'public-1'),
-              goodCount: 2,
-              badCount: 0,
-              matchType: PublicFoodSearchMatchType.exactName,
-            ),
-          ],
+          searchPublic: (_) async => const [],
         ),
       ),
-      File('${directory.path}/ai_food_lookup_search.png'),
-      find.text('食品を探す'),
+      File('${directory.path}/search_group_both_entries.png'),
+      find.text(chainFoodLookupTitle),
       prepare: (tester) async {
         await tester.enterText(
           find.byKey(const Key('meal-food-search-field')),
           '吉野家 牛丼 大盛',
         );
         await tester.pumpAndSettle();
-        final scrollable = find
-            .descendant(
-              of: find.byType(MealFoodSearchScreen),
-              matching: find.byType(Scrollable),
-            )
-            .first;
-        for (
-          var i = 0;
-          i < 8 &&
-              find.text(AiFoodLookupRow.label).hitTestable().evaluate().isEmpty;
-          i++
-        ) {
-          await tester.drag(scrollable, const Offset(0, -280));
-          await tester.pumpAndSettle();
-        }
       },
     );
+    expect(find.text(chainFoodLookupTitle), findsOneWidget);
     expect(find.text(AiFoodLookupRow.label), findsOneWidget);
+    expect(find.text(AiFoodLookupRow.subtitle), findsOneWidget);
+    final subtitle = tester.renderObject<RenderParagraph>(
+      find.descendant(
+        of: find.byKey(const Key('ai-food-lookup-row')),
+        matching: find.text(AiFoodLookupRow.subtitle),
+      ),
+    );
+    expect(subtitle.didExceedMaxLines, isFalse);
     expect(find.text('自家製牛丼'), findsOneWidget);
     expect(find.text('公開食品を選ぶ'), findsNothing);
     expect(find.textContaining('公式'), findsNothing);
+    expect(find.text('写真で登録'), findsNothing);
+
+    await _capture(
+      tester,
+      ChainFoodLookupScreen(
+        controller: controller,
+        loggedAt: now,
+        client: AiFoodLookupClient(invoke: (_) async => null),
+      ),
+      File('${directory.path}/chain_food_lookup_input.png'),
+      find.text(chainFoodLookupTitle),
+    );
+    expect(find.text('セブン サラダチキン'), findsOneWidget);
+    expect(find.text('例）吉野家 牛丼 大盛'), findsOneWidget);
 
     await _capture(
       tester,
@@ -186,6 +187,7 @@ void main() {
         controller: controller,
         query: '吉野家 牛丼 大盛',
         loggedAt: now,
+        title: chainFoodLookupTitle,
         client: AiFoodLookupClient(
           invoke: (_) async => {
             'ok': true,
@@ -202,13 +204,13 @@ void main() {
                 'known_product': gyudon.knownProduct,
               },
               {
-                'name': chikuzen.name,
-                'amount': chikuzen.amount,
-                'kcal': chikuzen.kcal,
-                'protein_g': chikuzen.proteinG,
-                'fat_g': chikuzen.fatG,
-                'carb_g': chikuzen.carbG,
-                'known_product': chikuzen.knownProduct,
+                'name': regular.name,
+                'amount': regular.amount,
+                'kcal': regular.kcal,
+                'protein_g': regular.proteinG,
+                'fat_g': regular.fatG,
+                'carb_g': regular.carbG,
+                'known_product': regular.knownProduct,
               },
             ],
           },
@@ -217,8 +219,11 @@ void main() {
       File('${directory.path}/ai_food_lookup_results.png'),
       find.text('牛丼（大盛）'),
     );
-    expect(find.text(aiFoodLookupEstimateTitle), findsOneWidget);
-    expect(find.text(aiFoodLookupKnownProductNote), findsOneWidget);
+    expect(find.text(chainFoodLookupTitle), findsOneWidget);
+    expect(find.text('牛丼（並盛）'), findsOneWidget);
+    expect(find.text('筑前煮'), findsNothing);
+    expect(find.text(aiFoodLookupResultTag), findsNWidgets(2));
+    expect(find.text('1杯 ・ 820 kcal'), findsOneWidget);
     expect(find.textContaining('公式'), findsNothing);
 
     await _capture(
@@ -238,7 +243,13 @@ void main() {
       find.text(aiFoodLookupEstimateTitle),
     );
     expect(find.text(aiFoodLookupEstimateSubtitle), findsOneWidget);
-    expect(find.text('872'), findsOneWidget);
+    expect(find.text('820'), findsOneWidget);
+    final fields = tester.widgetList<TextField>(find.byType(TextField));
+    expect(fields.length, greaterThan(1));
+    for (final field in fields) {
+      expect(field.decoration?.enabledBorder, InputBorder.none);
+      expect(field.decoration?.focusedBorder, InputBorder.none);
+    }
     expect(find.textContaining('公式'), findsNothing);
 
     await _capture(
@@ -264,9 +275,11 @@ void main() {
         await tester.pumpAndSettle();
       },
     );
-    expect(find.text(AiFoodLookupEmptySuggestion.headline), findsOneWidget);
+    expect(find.text(AiFoodLookupEmptySuggestion.message), findsOneWidget);
+    expect(find.text(AiFoodLookupRow.label), findsOneWidget);
+    expect(find.text('該当する食品が見つかりませんでした'), findsNothing);
+    expect(find.text('データベースには見当たりません'), findsNothing);
     expect(find.byKey(const Key('ai-food-lookup-row')), findsNothing);
-    expect(find.text('該当する食品が見つかりませんでした'), findsOneWidget);
   });
 }
 
@@ -286,8 +299,11 @@ Future<void> _capture(
   Future<void> Function(WidgetTester tester)? prepare,
 }) async {
   final key = GlobalKey();
-  await tester.binding.setSurfaceSize(const Size(390, 844));
-  addTearDown(() => tester.binding.setSurfaceSize(null));
+  // iPhone 14 Pro: 393×852 logical, 1179×2556 at 3x.
+  tester.view.physicalSize = const Size(1179, 2556);
+  tester.view.devicePixelRatio = 3;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -309,7 +325,7 @@ Future<void> _write(
   required GlobalKey key,
 }) async {
   final bytes = await tester.runAsync(
-    () => pngBytesFromBoundary(key, pixelRatio: 1),
+    () => pngBytesFromBoundary(key, pixelRatio: 3),
   );
   expect(bytes, isNotNull);
   file.writeAsBytesSync(bytes!);
@@ -318,5 +334,6 @@ Future<void> _write(
     final frame = await codec.getNextFrame();
     return frame.image;
   });
-  expect(image!.width, greaterThan(0));
+  expect(image!.width, 1179);
+  expect(image.height, 2556);
 }

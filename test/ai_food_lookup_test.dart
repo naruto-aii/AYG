@@ -105,16 +105,37 @@ void main() {
     expect(parsed.first.knownProduct, isTrue);
   });
 
+  test('a different dish is dropped for the query', () {
+    expect(aiFoodCandidateMatchesQuery('吉野家 牛丼 大盛', '牛丼（大盛）'), isTrue);
+    expect(aiFoodCandidateMatchesQuery('吉野家 牛丼 大盛', '牛丼（並盛）'), isTrue);
+    expect(aiFoodCandidateMatchesQuery('吉野家 牛丼 大盛', '筑前煮'), isFalse);
+    final parsed = parseAiFoodCandidates(
+      [
+        candidate(name: '牛丼（大盛）', kcal: 290, known: true),
+        candidate(name: '筑前煮', kcal: 290, known: false),
+      ],
+      query: '吉野家 牛丼 大盛',
+    );
+    expect(parsed!.map((item) => item.name), ['牛丼（大盛）']);
+  });
+
   test('lookup sends only the clipped query', () async {
     final sent = <Map<String, Object?>>[];
     final client = AiFoodLookupClient(
       invoke: (body) async {
         sent.add(body);
+        final query = body['query'] as String;
         return {
           'ok': true,
           'usage_id': 'usage-1',
           'cache_hit': false,
-          'candidates': [candidate(name: '牛丼', kcal: 290, known: true)],
+          'candidates': [
+            candidate(
+              name: query.contains('牛丼') ? '牛丼' : query,
+              kcal: 290,
+              known: true,
+            ),
+          ],
         };
       },
     );
@@ -225,8 +246,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('ai-food-lookup-empty')));
-    expect(find.text('該当する食品が見つかりませんでした'), findsOneWidget);
-    expect(find.text(AiFoodLookupEmptySuggestion.headline), findsOneWidget);
+    expect(find.text(AiFoodLookupEmptySuggestion.message), findsOneWidget);
+    expect(find.text('該当する食品が見つかりませんでした'), findsNothing);
+    expect(find.text('データベースには見当たりません'), findsNothing);
     expect(find.byKey(const Key('ai-food-lookup-empty')), findsOneWidget);
     expect(find.byKey(const Key('ai-food-lookup-row')), findsNothing);
     expect(find.text(AiFoodLookupRow.label), findsOneWidget);
@@ -280,7 +302,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('ai-food-lookup-empty')));
     await tester.tap(find.text(AiFoodLookupRow.label));
     await tester.pumpAndSettle();
-    expect(find.text(aiFoodLookupEstimateTitle), findsOneWidget);
+    expect(find.text(aiFoodLookupEstimateTitle), findsWidgets);
     expect(controller.foodEntries, isEmpty);
     await tester.tap(find.text('筑前煮'));
     await tester.pumpAndSettle();
@@ -355,7 +377,8 @@ void main() {
                 'usage_id': 'usage-1',
                 'cache_hit': true,
                 'candidates': [
-                  candidate(name: '牛丼', kcal: 290, known: true),
+                  candidate(name: '牛丼（大盛）', kcal: 290, known: true),
+                  candidate(name: '牛丼（並盛）', kcal: 290, known: true),
                   candidate(name: '筑前煮', kcal: 290, known: false),
                 ],
               };
@@ -379,13 +402,14 @@ void main() {
     expect(sent, [
       {'query': '吉野家 牛丼'},
     ]);
-    expect(find.text(aiFoodLookupEstimateTitle), findsOneWidget);
-    expect(find.text('牛丼'), findsOneWidget);
-    expect(find.text('筑前煮'), findsOneWidget);
+    expect(find.text(aiFoodLookupEstimateTitle), findsWidgets);
+    expect(find.text('牛丼（大盛）'), findsOneWidget);
+    expect(find.text('牛丼（並盛）'), findsOneWidget);
+    expect(find.text('筑前煮'), findsNothing);
     expect(find.textContaining('公式'), findsNothing);
     expect(controller.foodEntries, isEmpty);
 
-    await tester.tap(find.text('牛丼'));
+    await tester.tap(find.text('牛丼（大盛）'));
     await tester.pumpAndSettle();
     expect(find.text(aiFoodLookupEstimateTitle), findsWidgets);
     expect(find.text(aiFoodLookupEstimateSubtitle), findsOneWidget);
@@ -394,7 +418,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.foodEntries, hasLength(1));
-    expect(controller.foodEntries.single.name, '牛丼');
+    expect(controller.foodEntries.single.name, '牛丼（大盛）');
     expect(await pending.preferLocalIds(PendingRecordKind.food), {
       controller.foodEntries.single.id,
     });

@@ -9,6 +9,7 @@ import '../../repositories/coach_nutrition_source.dart';
 import '../../repositories/coach_proposal_log.dart';
 import '../../repositories/coach_slot_store.dart';
 import '../../services/analytics/catalog_actions.dart';
+import 'cook_coach_screen.dart';
 import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
@@ -400,6 +401,31 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             ],
           ),
           const DesignTitleBlock(title: 'パーソナルコーチ (β)', showBack: false),
+          if (!_plusBlocked) ...[
+            DesignButton(
+              key: const Key('cook_coach_entry'),
+              label: '自炊コーチ (β)',
+              height: 48,
+              style: DesignButtonStyle.secondary,
+              showTrailingIcon: false,
+              onPressed: () async {
+                final saved = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute<bool>(
+                    settings: const RouteSettings(name: 'cook_coach'),
+                    builder: (context) => CookCoachScreen(
+                      controller: widget.controller,
+                      now: widget.now,
+                      slotStore: _slotStore,
+                    ),
+                  ),
+                );
+                if (saved == true && context.mounted) {
+                  Navigator.of(context).pop(CoachSavedKind.meal);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
           if (_plusBlocked) ...[
             const DesignCard(
               key: Key('coach_beta_notice'),

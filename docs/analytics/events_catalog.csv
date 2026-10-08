@@ -96,3 +96,8 @@ sync_failure,データの同期に失敗した,app,table / step / error_kind / p
 local_data_cleared,端末内のデータを消した,app,reason(logout/account_deletion/user_switch/auth_error/other) / pending_records_count,AppController.logout は logout、利用者の切り替えは user_switch。pending_records_count は未送信の食事・運動・飲酒・体重の件数,11,依頼済みの「起動時に未送信が消える」修正の確認にも使う
 analytics_queue_health,送信待ちの健康状態（1 日 1 回と起動時）,app,pending_count / oldest_pending_age_seconds / quarantined_count / dropped_overflow_count / native_pending_files / native_dropped_overflow_count / last_success_at,新規 lib/services/analytics/analytics_queue.dart,全指標の欠け検知,この数字で「届いていない」が分かる
 account_deletion_started,アカウント削除画面を開いた・削除を確定した,app,step(open/confirm/cancel),lib/screens/settings/account_deletion_screen.dart,"67, 68",削除すると本人の記録は消えるので、件数は account_deletion_stats 表（個人と結び付かない集計）で数える
+cook_coach_open,自炊コーチを開いた,app,slot,lib/screens/coach/cook_coach_screen.dart の表示,46,
+cook_coach_generate,自炊コーチが献立を作った,app,latency_ms / input_tokens / output_tokens / retried / result,lib/screens/coach/cook_coach_screen.dart の生成完了,46,トークンは関数が返したその回の数。食材と料理名は入れない
+cook_coach_retry,自炊コーチが成分表の値でもう1回だけ作り直した,app,latency_ms / input_tokens / output_tokens,lib/screens/coach/cook_coach_screen.dart の生成完了（retried のとき）,46,
+cook_coach_register,自炊コーチの料理を食事に追加した,app,food_entry_ids / pattern,lib/screens/coach/cook_coach_screen.dart のこれを作る,46,保存できたあとの entry id
+cook_coach_cap,自炊コーチが1日の上限に達した,app,,lib/screens/coach/cook_coach_screen.dart の上限表示,46,

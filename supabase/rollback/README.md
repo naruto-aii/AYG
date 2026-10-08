@@ -8,6 +8,12 @@
 
 `supabase/rollback/20261008190000_ai_food_result_collections_down.sql`
 
+## 20261008180000 ai feature uses
+
+本番には適用していない。自炊コーチの利用記録と推定キャッシュを消す。食事の行は消えない。関数 `cook-coach` を出していれば、先にその関数を消す。`20261008190000` を適用しているときは、そのロールバックを先に流す。
+
+`supabase/rollback/20261008180000_ai_feature_uses_down.sql`
+
 ## 20261008160000 ai food lookup
 
 本番には適用していない。AIで探すの利用記録、退会時の削除、KPI 用ビュー、推定キャッシュ、案内の `ai_food_lookup` を戻す。食事の行と食品データベースは消えない。関数 `lookup-food-text` を出していれば、先にその関数を消す。写真で登録のロールバックより先に流す。

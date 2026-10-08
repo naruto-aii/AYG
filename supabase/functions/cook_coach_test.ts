@@ -23,6 +23,8 @@ import {
   type Macros,
   type MeasuredDish,
 } from "./cook-coach/match.ts";
+import { evalScenarios, planScenario, runLocalEval } from "./cook_coach_eval.ts";
+import { explainRejectedTarget } from "./cook-coach/handler.ts";
 import {
   cookOutputSchema,
   cookRetryPrompt,
@@ -100,12 +102,20 @@ function modelText(aKcal: number, bKcal: number): string {
   const body = {
     a: {
       n: "塩鶏",
-      s: ["肉の中心まで火を通す", "器に盛る"],
+      s: [
+        "鶏むね肉100gを一口大に切る",
+        "フライパンを中火にし、両面を4分ずつ焼く",
+        "塩を振らず、中まで火を通して器に盛る",
+      ],
       i: [{ n: "鶏むね肉", g: 100, k: aKcal, p: 1, f: 1, c: 1 }],
     },
     b: {
       n: "豆腐の塩鶏",
-      s: ["肉と豆腐を火が通るまで加熱する", "器に盛る"],
+      s: [
+        "鶏むね肉100gと豆腐100gを一口大に切る",
+        "フライパンを中火にし、両面を4分ずつ焼く",
+        "中まで火を通してから器に盛る",
+      ],
       x: ["豆腐"],
       i: [
         { n: "鶏むね肉", g: 100, k: aKcal, p: 1, f: 1, c: 1 },
@@ -247,7 +257,7 @@ Deno.test("target profiles hit tolerance or report the remaining gap", () => {
         { name: "ごはん", grams: 140, kcal: 235, proteinG: 3.5, fatG: 0.4, carbG: 52 },
         { name: "卵", grams: 50, kcal: 76, proteinG: 6, fatG: 5, carbG: 0.2 },
       ],
-      expectHit: true,
+      expectHit: false,
     },
     {
       name: "large-remaining",
@@ -371,8 +381,12 @@ Deno.test("handler returns db nutrition without a second model call", async () =
 Deno.test("handler retries once when the gap stays outside tolerance", async () => {
   const fixed = {
     a: {
-      n: "野菜炒め",
-      s: ["肉の中心まで火を通す", "器に盛る"],
+      n: "合いびき肉の炒め",
+      s: [
+        "合いびき肉80gをほぐす",
+        "フライパンを中火にし、4分炒める",
+        "中まで火を通して器に盛る",
+      ],
       i: [{ n: "合いびき肉", g: 80, k: 200, p: 16, f: 14, c: 0 }],
     },
     b: {
@@ -385,9 +399,33 @@ Deno.test("handler retries once when the gap stays outside tolerance", async () 
       ],
     },
   };
+  const off = {
+    a: {
+      n: "塩鶏",
+      s: [
+        "ブロッコリー80gを小房に分ける",
+        "フライパンを中火にし、4分炒める",
+        "器に盛る",
+      ],
+      i: [{ n: "ブロッコリー", g: 80, k: 26, p: 3, f: 0.3, c: 4 }],
+    },
+    b: {
+      n: "豆腐の塩鶏",
+      s: [
+        "ブロッコリー80gと豆腐80gを切る",
+        "フライパンを中火にし、4分炒める",
+        "器に盛る",
+      ],
+      x: ["豆腐"],
+      i: [
+        { n: "ブロッコリー", g: 80, k: 26, p: 3, f: 0.3, c: 4 },
+        { n: "豆腐", g: 80, k: 40, p: 4, f: 2, c: 1 },
+      ],
+    },
+  };
   const harness = deps({
     foods: [],
-    replies: [modelText(10, 10), JSON.stringify(fixed)],
+    replies: [JSON.stringify(off), JSON.stringify(fixed)],
   });
   const response = await handleCookCoach(request({
     ingredients: ["鶏むね肉"],
@@ -402,7 +440,7 @@ Deno.test("handler retries once when the gap stays outside tolerance", async () 
   assertEquals(harness.calls.length, 2);
   assertEquals(body.retried, true);
   assertEquals(body.calls.length, 2);
-  assertEquals(body.patterns[0].name, "野菜炒め");
+  assertEquals(body.patterns[0].name, "合いびき肉の炒め");
   assertEquals(body.patterns[0].ingredients[0].source, "ai");
   assertEquals(body.patterns[0].kcal, 200);
 });
@@ -614,6 +652,87 @@ function jpy(args: {
     (args.cacheWrite * lightCacheWriteUsdPerMillionDefault * rate) / million
   );
 }
+
+Deno.test("local eval scores every scenario without a network call", () => {
+  const report = runLocalEval();
+  assertEquals(report.scenarios >= 30, true);
+  assertEquals(report.failed, []);
+});
+
+Deno.test("adding one or two foods closes a protein gap, and an impossible target says why", () => {
+  const protein = evalScenarios.find((item) => item.id === "dinner-rice-needs-protein");
+  if (!protein) {
+    throw new Error("missing scenario");
+  }
+  const closed = planScenario(protein);
+  assertEquals(closed.a.within, false);
+  assertEquals(closed.a.gapReason.includes("たんぱく質"), true);
+  assertEquals(closed.b.within, true);
+  assertEquals(closed.b.ingredients.filter((item) => item.extra).length <= 2, true);
+  assertGapReported(closed.b, protein.target);
+  const impossible = evalScenarios.find((item) => item.id === "dinner-protein-impossible");
+  if (!impossible) {
+    throw new Error("missing scenario");
+  }
+  const missed = planScenario(impossible);
+  assertEquals(missed.b.within, false);
+  assertEquals(missed.b.gapReason.includes("たんぱく質"), true);
+  assertGapReported(missed.a, impossible.target);
+  assertGapReported(missed.b, impossible.target);
+});
+
+Deno.test("implausible meat calories are replaced, and eggs stay on a 50g grid", () => {
+  const measured = measureIngredients(
+    dish([{ name: "鶏むね肉", grams: 100, kcal: 10, proteinG: 1, fatG: 0, carbG: 0 }]),
+    [],
+  );
+  assertEquals(measured[0].source, "ai");
+  assertEquals(measured[0].kcal, 108);
+  const snack = evalScenarios.find((item) => item.id === "snack-egg");
+  if (!snack) {
+    throw new Error("missing scenario");
+  }
+  const pair = planScenario(snack);
+  const eggs = pair.a.ingredients.filter((item) => item.name.includes("卵"));
+  assertEquals(eggs.length > 0, true);
+  assertEquals(eggs.every((item) => item.grams % 50 === 0 && item.grams >= 50 && item.grams <= 200), true);
+  const dinner = planScenario(evalScenarios.find((item) => item.id === "dinner-chicken-rice")!);
+  const oil = dinner.a.ingredients.find((item) => item.name.includes("油"));
+  const rice = dinner.a.ingredients.find((item) => item.name === "ごはん");
+  const chicken = dinner.a.ingredients.find((item) => item.name.includes("鶏"));
+  assertEquals(oil != null && oil.grams <= 15 && oil.grams >= 1, true);
+  assertEquals(rice != null && rice.grams >= 100 && rice.grams <= 300, true);
+  assertEquals(chicken != null && chicken.grams >= 60 && chicken.grams <= 250, true);
+});
+
+Deno.test("zero remaining does not call the model, and 1200 kcal is accepted", async () => {
+  assertEquals(
+    explainRejectedTarget({ ingredients: ["卵"], slot: "dinner", target_kcal: 0 })?.message,
+    "今日の目標は、もう足りています。",
+  );
+  const blocked = deps({ replies: [] });
+  const none = await handleCookCoach(request({ ...onTarget, target_kcal: 0 }), blocked.deps);
+  const noneBody = await none.json();
+  assertEquals(none.status, 422);
+  assertEquals(noneBody.message, "今日の目標は、もう足りています。");
+  assertEquals(blocked.calls.length, 0);
+  const small = await handleCookCoach(request({ ...onTarget, target_kcal: 20 }), blocked.deps);
+  const smallBody = await small.json();
+  assertEquals(smallBody.message, "この食事の目標が少ないため、献立は作れません。");
+  assertEquals(blocked.calls.length, 0);
+  const harness = deps({ replies: [modelText(108, 0), modelText(108, 0)] });
+  const response = await handleCookCoach(request({
+    ...onTarget,
+    target_kcal: 1200,
+    target_protein_g: 70,
+    target_fat_g: 30,
+    target_carb_g: 140,
+  }), harness.deps);
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(body.target.kcal, 1200);
+  assertEquals(harness.calls.length <= 2, true);
+});
 
 Deno.test("a realistic run stays under 0.3 JPY even with the retry", () => {
   const schema = JSON.stringify(cookOutputSchema);

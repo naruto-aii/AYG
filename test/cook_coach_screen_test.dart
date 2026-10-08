@@ -12,6 +12,7 @@ import 'package:ayg/services/cook_coach_target.dart';
 import 'package:ayg/services/daily_coach_session.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'package:ayg/widgets/design/design_button.dart';
 import 'package:ayg/theme/app_typography.dart';
 import 'package:ayg/utils/meal_slot.dart';
 import 'package:flutter/material.dart';
@@ -245,6 +246,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('カロナビ+を見る'), findsOneWidget);
     expect(find.byKey(const Key('cook_generate')), findsNothing);
+  });
+
+  testWidgets('a day already at the target explains that and does not generate', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        CookCoachScreen(
+          now: now,
+          target: const CookCoachMealTarget(
+            slot: MealSlot.dinner,
+            kcal: 0,
+            proteinG: 0,
+            fatG: 0,
+            carbG: 0,
+            remainingKcal: 0,
+            remainingProteinG: 0,
+            remainingFatG: 0,
+            remainingCarbG: 0,
+          ),
+          client: CookCoachClient(invoke: (_) async => _payload()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('今日の目標は、もう足りています。'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('cook_choice_卵')));
+    await tester.pumpAndSettle();
+    final button = tester.widget<DesignButton>(find.byKey(const Key('cook_generate')));
+    expect(button.onPressed, isNull);
   });
 }
 

@@ -103,9 +103,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
       return cookCoachMealTarget(
         now: _now,
         slot: _slot,
-        remainingKcal: given.remainingKcal > 0
-            ? given.remainingKcal
-            : given.kcal,
+        remainingKcal: given.remainingKcal,
         remainingProteinG: given.remainingProteinG > 0
             ? given.remainingProteinG
             : given.proteinG,
@@ -180,8 +178,9 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
       return;
     }
     final target = _target;
-    if (!target.canGenerate) {
-      setState(() => _error = 'この食事の目標が少ないため、献立は作れません。');
+    final blocked = _blockedMessage(target);
+    if (blocked != null) {
+      setState(() => _error = blocked);
       return;
     }
     final client = widget.client ?? CookCoachClient.supabase();
@@ -296,11 +295,12 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
   @override
   Widget build(BuildContext context) {
     final saved = _saved;
+    final showingResults = _result != null && saved == null;
     return DesignPage(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 14),
+          SizedBox(height: showingResults ? 2 : 14),
           Align(
             alignment: Alignment.centerLeft,
             child: DesignBackButton(
@@ -312,19 +312,30 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
             key: const Key('cook_coach_title'),
             style: AppTypography.headingL,
           ),
-          const SizedBox(height: 8),
-          Text(
-            '手元の食材と、この食事の目標から作る料理を2案出します。',
-            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 16),
+          if (_result == null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '手元の食材と、この食事の目標から作る料理を2案出します。',
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 12),
+          ] else
+            const SizedBox(height: 2),
           if (_plusBlocked)
             _plusGate()
           else if (saved != null)
             _savedBody(saved)
           else ...[
             _targetLine(),
-            const SizedBox(height: 16),
+            if (_blockedMessage(_target) != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _blockedMessage(_target)!,
+                key: const Key('cook_blocked'),
+                style: AppTypography.bodyS,
+              ),
+            ],
+            SizedBox(height: showingResults ? 4 : 12),
             if (_result == null) _form() else _results(_result!),
           ],
         ],
@@ -381,6 +392,16 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
       key: const Key('cook_target'),
       style: AppTypography.titleM,
     );
+  }
+
+  String? _blockedMessage(CookCoachMealTarget target) {
+    if (target.remainingKcal <= 0) {
+      return '今日の目標は、もう足りています。';
+    }
+    if (!target.canGenerate) {
+      return 'この食事の目標が少ないため、献立は作れません。';
+    }
+    return null;
   }
 
   Widget _form() {
@@ -504,7 +525,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
           height: 52,
           showTrailingIcon: false,
           loading: _busy,
-          onPressed: _busy || _ingredients.isEmpty || !target.canGenerate
+          onPressed: _busy || _ingredients.isEmpty || _blockedMessage(target) != null
               ? null
               : _generate,
         ),
@@ -517,11 +538,11 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '成分表の値で計算しています。成分表に無い食品はAIの目安です。',
-          style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+          '合計は成分表の行の和です。無い食品はAIの目安です。',
+          style: AppTypography.caption.copyWith(height: 1.15),
         ),
         for (final dish in result.patterns) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 4),
           _dishCard(dish),
         ],
         if (_error != null) ...[
@@ -543,66 +564,72 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
 
   Widget _dishCard(CookDish dish) {
     final title = dish.kind == 'extra' ? '足す食材あり' : '手元の食材だけ';
+    final line = AppTypography.caption.copyWith(
+      color: AppColors.textPrimary,
+      height: 1.2,
+      fontWeight: FontWeight.w500,
+    );
+    final emphasis = AppTypography.titleS.copyWith(height: 1.15, fontSize: 14);
     return DesignCard(
       key: Key('cook_pattern_${dish.kind}'),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: AppTypography.labelM),
-          const SizedBox(height: 4),
-          Text(dish.name, style: AppTypography.titleM),
-          if (dish.extras.isNotEmpty) ...[
-            const SizedBox(height: 4),
+          Text(title, style: line.copyWith(color: AppColors.textMuted)),
+          Text(dish.name, style: emphasis),
+          if (dish.extras.isNotEmpty)
             Text(
               '足すもの: ${dish.extras.join('、')}',
-              style: AppTypography.bodyS,
+              style: line,
             ),
-          ],
-          const SizedBox(height: 8),
+          if (dish.omitNote.isNotEmpty)
+            Text(dish.omitNote, style: line),
           for (final item in dish.ingredients)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '${item.name} ${item.grams}g　${item.kcal}kcal　${item.fromDatabase ? '成分表' : 'AIの目安'}',
-                key: Key('cook_ingredient_${dish.kind}_${item.name}'),
-                style: AppTypography.bodyS.copyWith(color: AppColors.textPrimary),
-              ),
+            Text(
+              '${cookIngredientAmount(item.name, item.grams)}　${item.kcal}kcal　${item.fromDatabase ? '成分表' : 'AIの目安'}',
+              key: Key('cook_ingredient_${dish.kind}_${item.name}'),
+              style: line,
             ),
-          const SizedBox(height: 8),
           for (var i = 0; i < dish.steps.length; i++)
             Text(
               '${i + 1}. ${dish.steps[i]}',
-              style: AppTypography.bodyS,
+              style: line.copyWith(color: AppColors.textSecondary),
             ),
-          const SizedBox(height: 8),
           Text(
             '${dish.kcal}kcal　P ${dish.proteinG}g　F ${dish.fatG}g　C ${dish.carbG}g',
             key: Key('cook_totals_${dish.kind}'),
-            style: AppTypography.titleS,
+            style: emphasis,
           ),
-          const SizedBox(height: 4),
           if (dish.withinTolerance)
             Text(
               '目標の範囲に入っています',
               key: Key('cook_within_${dish.kind}'),
-              style: AppTypography.bodyS.copyWith(color: AppColors.green800),
+              style: line.copyWith(color: AppColors.green800),
             ),
           Text(
             cookKcalGapLabel(dish.gapKcal),
             key: Key('cook_gap_${dish.kind}'),
-            style: AppTypography.titleM,
+            style: emphasis,
           ),
           Text(
             '${cookMacroGapLabel('P', dish.gapProteinG)}　'
             '${cookMacroGapLabel('F', dish.gapFatG)}　'
             '${cookMacroGapLabel('C', dish.gapCarbG)}',
-            style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            key: Key('cook_macro_gap_${dish.kind}'),
+            style: line.copyWith(color: AppColors.textMuted),
           ),
-          const SizedBox(height: 12),
+          if (!dish.withinTolerance && dish.gapReason.isNotEmpty)
+            Text(
+              dish.gapReason,
+              key: Key('cook_reason_${dish.kind}'),
+              style: line,
+            ),
+          const SizedBox(height: 4),
           DesignButton(
             key: Key('cook_register_${dish.kind}'),
             label: 'これを作る',
-            height: 48,
+            height: 32,
             showTrailingIcon: false,
             loading: _busy,
             onPressed: _busy ? null : () => _register(dish),
@@ -623,7 +650,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
         const SizedBox(height: 8),
         for (final item in dish.ingredients)
           Text(
-            '${item.name} ${item.grams}g　${item.kcal}kcal',
+            '${cookIngredientAmount(item.name, item.grams)}　${item.kcal}kcal',
             key: Key('cook_saved_${item.name}'),
             style: AppTypography.bodyS.copyWith(color: AppColors.textPrimary),
           ),

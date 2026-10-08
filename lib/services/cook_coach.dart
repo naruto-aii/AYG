@@ -52,6 +52,8 @@ class CookDish {
     required this.gapFatG,
     required this.gapCarbG,
     this.withinTolerance = false,
+    this.gapReason = '',
+    this.omitNote = '',
   });
 
   /// on_hand か extra。
@@ -71,6 +73,12 @@ class CookDish {
 
   /// サーバが kcal ±10%、P/F/C は ±15% か ±5g の広い方、に入ったとき true。
   final bool withinTolerance;
+
+  /// 範囲に入らないとき、どの栄養がどれだけ離れているか。
+  final String gapReason;
+
+  /// 一緒にしない食材を外したときの一文。
+  final String omitNote;
 }
 
 class CookModelCallUsage {
@@ -139,6 +147,16 @@ CookDish alignCookDish(CookDish dish, CookCoachMealTarget target) {
   final carb = cookRound1(
     dish.ingredients.fold<double>(0, (sum, item) => sum + item.carbG),
   );
+  final within = cookWithinTolerance(
+    targetKcal: target.kcal,
+    targetProteinG: target.proteinG,
+    targetFatG: target.fatG,
+    targetCarbG: target.carbG,
+    kcal: kcal,
+    proteinG: protein,
+    fatG: fat,
+    carbG: carb,
+  );
   return CookDish(
     kind: dish.kind,
     name: dish.name,
@@ -153,17 +171,19 @@ CookDish alignCookDish(CookDish dish, CookCoachMealTarget target) {
     gapProteinG: cookRound1(target.proteinG - protein),
     gapFatG: cookRound1(target.fatG - fat),
     gapCarbG: cookRound1(target.carbG - carb),
-    withinTolerance: cookWithinTolerance(
-      targetKcal: target.kcal,
-      targetProteinG: target.proteinG,
-      targetFatG: target.fatG,
-      targetCarbG: target.carbG,
-      kcal: kcal,
-      proteinG: protein,
-      fatG: fat,
-      carbG: carb,
-    ),
+    withinTolerance: within,
+    gapReason: within ? '' : dish.gapReason,
+    omitNote: dish.omitNote,
   );
+}
+
+/// 卵は個数、それ以外はグラム。
+String cookIngredientAmount(String name, int grams) {
+  final egg = name.contains('卵') || name.contains('たまご');
+  if (egg && grams >= 50 && grams <= 200 && grams % 50 == 0) {
+    return '$name ${grams ~/ 50}個（${grams}g）';
+  }
+  return '$name ${grams}g';
 }
 
 /// 目標までの差。正はまだ足りない分。
@@ -364,6 +384,8 @@ CookDish? _dish(Object? raw) {
     gapFatG: _double(raw['gap_fat_g']) ?? 0,
     gapCarbG: _double(raw['gap_carb_g']) ?? 0,
     withinTolerance: raw['within_tolerance'] == true,
+    gapReason: raw['gap_reason'] is String ? (raw['gap_reason'] as String).trim() : '',
+    omitNote: raw['omit_note'] is String ? (raw['omit_note'] as String).trim() : '',
   );
 }
 

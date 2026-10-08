@@ -18,10 +18,10 @@ import {
   normalizeFoodName,
   pantryStapleNames,
   preferDish,
-  shouldRetry,
   type FoodRow,
   type MeasuredDish,
 } from "./match.ts";
+import { finalizePair, gapCloserNames, needsModelRetry } from "./plan.ts";
 import { completeCook, PhotoAiCallError, PhotoAiConfigError } from "./model.ts";
 import { cookRetryPrompt, cookUserPrompt, parseCookModel } from "./prompt.ts";
 
@@ -86,7 +86,7 @@ export function cookCacheMaterial(input: {
   avoid: string[];
 }): string {
   return JSON.stringify({
-    v: 3,
+    v: 4,
     ingredients: [...input.ingredients].map((item) => item.trim()).filter((item) => item.length > 0).sort(),
     slot: input.slot,
     kcal: Math.round(input.targetKcal / 10) * 10,
@@ -162,6 +162,10 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
   }
   const input = parseInput(payload);
   if (!input) {
+    const blocked = explainRejectedTarget(payload);
+    if (blocked) {
+      return fail(blocked.code, blocked.message, 422);
+    }
     return fail("bad_request", "食材を入れて、もう一度試してください。", 400);
   }
   const now = deps.now();
@@ -237,7 +241,7 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
       };
     }
     let chosen = firstDishes;
-    if (!parsed || (firstDishes && shouldRetry([firstDishes.a, firstDishes.b]))) {
+    if (!parsed || (firstDishes && needsModelRetry([firstDishes.a, firstDishes.b]))) {
       retried = true;
       const retryText = parsed && firstDishes
         ? cookRetryPrompt({ first: userText, dishes: [firstDishes.a, firstDishes.b] })
@@ -292,10 +296,20 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
       }));
       return fail("invalid_result", "献立を確認できませんでした。食材を変えて、もう一度試してください。", 422);
     }
+    const finished = finalizePair({
+      onHand: chosen.a,
+      extra: chosen.b,
+      foods,
+      target: input.target,
+      avoid: input.avoid,
+      slot: input.slot,
+      note: input.note,
+      userIngredients: input.ingredients,
+    });
     const patterns = (
       [
-        ["on_hand", chosen.a],
-        ["extra", chosen.b],
+        ["on_hand", finished.a],
+        ["extra", finished.b],
       ] as const
     )
       .filter((entry) => entry[1].issues.length === 0)
@@ -417,10 +431,10 @@ function parseInput(payload: unknown): CookInput | null {
   if (!slotLabel) {
     return null;
   }
-  const targetKcal = clampNumber(body.target_kcal, 0, 900);
-  const targetProteinG = clampNumber(body.target_protein_g, 0, 200);
+  const targetKcal = clampNumber(body.target_kcal, 0, 1600);
+  const targetProteinG = clampNumber(body.target_protein_g, 0, 250);
   const targetFatG = clampNumber(body.target_fat_g, 0, 200);
-  const targetCarbG = clampNumber(body.target_carb_g, 0, 300);
+  const targetCarbG = clampNumber(body.target_carb_g, 0, 400);
   if (targetKcal == null || targetProteinG == null || targetFatG == null || targetCarbG == null) {
     return null;
   }
@@ -454,6 +468,35 @@ function parseInput(payload: unknown): CookInput | null {
   };
 }
 
+export function explainRejectedTarget(payload: unknown): { code: string; message: string } | null {
+  if (payload == null || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+  const body = payload as Record<string, unknown>;
+  if (!Array.isArray(body.ingredients) || body.ingredients.length === 0) {
+    return null;
+  }
+  const slot = typeof body.slot === "string" ? body.slot : "";
+  if (!slotLabels[slot]) {
+    return null;
+  }
+  const number = typeof body.target_kcal === "number"
+    ? body.target_kcal
+    : typeof body.target_kcal === "string"
+    ? Number(body.target_kcal)
+    : NaN;
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+  if (number <= 0) {
+    return { code: "already_met", message: "今日の目標は、もう足りています。" };
+  }
+  if (number < 50) {
+    return { code: "target_small", message: "この食事の目標が少ないため、献立は作れません。" };
+  }
+  return null;
+}
+
 function clampNumber(value: unknown, min: number, max: number): number | null {
   const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   if (!Number.isFinite(number)) {
@@ -480,7 +523,7 @@ function ingredientNames(parsed: { a: { ingredients: { name: string }[]; extras:
 }
 
 function lookupNames(parsed: { a: { ingredients: { name: string }[]; extras: string[] }; b: { ingredients: { name: string }[]; extras: string[] } }): string[] {
-  return [...ingredientNames(parsed), ...pantryStapleNames];
+  return [...ingredientNames(parsed), ...pantryStapleNames, ...gapCloserNames];
 }
 
 function mergeFoods(left: FoodRow[], right: FoodRow[]): FoodRow[] {
@@ -503,6 +546,8 @@ function patternJson(kind: "on_hand" | "extra", dish: MeasuredDish) {
     gap_fat_g: dish.gap.fatG,
     gap_carb_g: dish.gap.carbG,
     within_tolerance: dish.within,
+    gap_reason: dish.gapReason,
+    omit_note: dish.omitNote,
     ingredients: dish.ingredients.map((item) => ({
       name: item.name,
       grams: item.grams,

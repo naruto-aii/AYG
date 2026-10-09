@@ -87,7 +87,7 @@ void main() {
     expect(find.text('¥4,900 ・ 月あたり約817円'), findsOneWidget);
     expect(find.text('¥8,800 ・ 月あたり約733円'), findsOneWidget);
     expect(find.text('¥8,800で始める'), findsOneWidget);
-    expect(find.text('お得'), findsOneWidget);
+    expect(find.text('1か月分お得'), findsOneWidget);
     expect(find.text('一番お得'), findsOneWidget);
 
     await _capture(

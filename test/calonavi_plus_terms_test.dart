@@ -29,7 +29,7 @@ void main() {
     expect(find.text('¥8,800で始める'), findsOneWidget);
     expect(AppStrings.plusBenefitSiriBody.contains('β'), isFalse);
     expect(AppStrings.plusBenefitSiriBody.contains('カロナビ+'), isFalse);
-    expect(find.text('お得'), findsOneWidget);
+    expect(find.text('1か月分お得'), findsOneWidget);
     expect(find.text('一番お得'), findsOneWidget);
     expect(
       tester

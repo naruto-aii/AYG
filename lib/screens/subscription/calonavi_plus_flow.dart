@@ -267,7 +267,15 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         best = false;
       }
     }
-    return best ? AppStrings.plusBadgeBestValue : AppStrings.plusBadgeSave;
+    if (best) {
+      return AppStrings.plusBadgeBestValue;
+    }
+    // 半年 ¥4,900 は月額6回 ¥5,880 よりちょうど1か月分安いので「1か月分お得」。
+    final saving = monthly * months - amount;
+    if (saving % monthly == 0) {
+      return '${saving ~/ monthly}か月分お得';
+    }
+    return AppStrings.plusBadgeSave;
   }
 
   int _months(PlusPlan plan) {

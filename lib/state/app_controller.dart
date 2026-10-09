@@ -1023,7 +1023,12 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> deleteWeightEntry(String entryId) async {
+  /// 送信中の同期が終わってから消す。送信中に消すと、その送信が消した行を
+  /// サーバへ書き戻し、次の再インストールで記録が復活する。
+  Future<void> deleteWeightEntry(String entryId) =>
+      _serialRemoteWrite(() => _deleteWeightEntryNow(entryId));
+
+  Future<void> _deleteWeightEntryNow(String entryId) async {
     _usage('weight_entry_updated', {
       'weight_entry_id': entryId,
       'action': 'delete',
@@ -1701,7 +1706,9 @@ class AppController extends ChangeNotifier {
     FoodEntry entry,
   ) async {
     try {
-      await dataSyncRepository.pushFoodEntry(userId: userId, entry: entry);
+      await _serialRemoteWrite(
+        () => dataSyncRepository.pushFoodEntry(userId: userId, entry: entry),
+      );
     } catch (error, stackTrace) {
       _hasUnsentRecords = true;
       debugPrint('[AYG] food entry push failed: $error');
@@ -1913,7 +1920,12 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<void> deleteFood(String id) async {
+  /// 送信中の同期が終わってから消す。送信中に消すと、その送信が消した行を
+  /// サーバへ書き戻し、次の再インストールで記録が復活する。
+  Future<void> deleteFood(String id) =>
+      _serialRemoteWrite(() => _deleteFoodNow(id));
+
+  Future<void> _deleteFoodNow(String id) async {
     _usage('food_entry_deleted', {'food_entry_id': id, 'undo_offered': true});
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
@@ -2027,7 +2039,12 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> deleteExercise(String id) async {
+  /// 送信中の同期が終わってから消す。送信中に消すと、その送信が消した行を
+  /// サーバへ書き戻し、次の再インストールで記録が復活する。
+  Future<void> deleteExercise(String id) =>
+      _serialRemoteWrite(() => _deleteExerciseNow(id));
+
+  Future<void> _deleteExerciseNow(String id) async {
     _usage('exercise_entry_deleted', {
       'exercise_entry_id': id,
       'undo_offered': true,
@@ -2121,7 +2138,12 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> deleteAlcohol(String id) async {
+  /// 送信中の同期が終わってから消す。送信中に消すと、その送信が消した行を
+  /// サーバへ書き戻し、次の再インストールで記録が復活する。
+  Future<void> deleteAlcohol(String id) =>
+      _serialRemoteWrite(() => _deleteAlcoholNow(id));
+
+  Future<void> _deleteAlcoholNow(String id) async {
     _usage('alcohol_entry_changed', {
       'alcohol_entry_id': id,
       'action': 'delete',
@@ -4679,7 +4701,9 @@ class AppController extends ChangeNotifier {
     }
 
     try {
-      await dataSyncRepository.pushLocalToRemote(userId);
+      await _serialRemoteWrite(
+        () => dataSyncRepository.pushLocalToRemote(userId),
+      );
       _hasUnsentRecords = false;
     } on PartialPushException catch (error, stackTrace) {
       _hasUnsentRecords = true;
@@ -4738,6 +4762,39 @@ class AppController extends ChangeNotifier {
   bool _remoteSyncInFlight = false;
   bool _remoteSyncQueued = false;
 
+  /// 端末からサーバへの書き込み（送信と削除）を1本ずつ順に流す。
+  ///
+  /// 送信は端末の全件を読んでから送るので、その途中で削除が割り込むと、
+  /// 読んだ時点の行（消した記録）が削除のあとにサーバへ書き戻される。
+  /// 削除は送信の後ろに並べ、削除の途中で次の送信が端末を読まないようにする。
+  Future<void> _remoteWriteTail = Future<void>.value();
+  int _remoteWritesPending = 0;
+
+  Future<T> _serialRemoteWrite<T>(Future<T> Function() action) {
+    final previous = _remoteWriteTail;
+    final idle = _remoteWritesPending == 0;
+    _remoteWritesPending++;
+    final done = Completer<void>();
+    _remoteWriteTail = done.future;
+    void finish() {
+      _remoteWritesPending--;
+      done.complete();
+    }
+
+    // 何も流れていなければ、その場で始める（待ち時間を足さない）。
+    final run = idle ? Future<T>.sync(action) : previous.then((_) => action());
+    return run.then(
+      (value) {
+        finish();
+        return value;
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        finish();
+        return Future<T>.error(error, stackTrace);
+      },
+    );
+  }
+
   void _scheduleRemoteSync() {
     if (!_hasInitialSyncCompleted || _lastSyncFailed) {
       return;
@@ -4765,7 +4822,9 @@ class AppController extends ChangeNotifier {
       do {
         _remoteSyncQueued = false;
         try {
-          await dataSyncRepository.pushLocalToRemote(userId);
+          await _serialRemoteWrite(
+            () => dataSyncRepository.pushLocalToRemote(userId),
+          );
           _hasUnsentRecords = false;
         } on PartialPushException catch (error, stackTrace) {
           _hasUnsentRecords = true;

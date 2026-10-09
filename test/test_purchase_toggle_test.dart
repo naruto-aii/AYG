@@ -54,8 +54,8 @@ void main() {
     expect(developmentPlusPreview, isTrue);
 
     final script = File('tool/run_ios.sh').readAsStringSync();
-    expect(script, contains('--dart-define=CALONAVI_TEST_PURCHASE=true'));
-    expect('TEST_PURCHASE_DEFINE'.allMatches(script).length, 3);
+    // 実機テストが終わったので、run_ios.sh でもワンタップの有料切替を付けない。
+    expect(script, isNot(contains('CALONAVI_TEST_PURCHASE')));
 
     const storeBuildFiles = [
       'ios/Flutter/Debug.xcconfig',

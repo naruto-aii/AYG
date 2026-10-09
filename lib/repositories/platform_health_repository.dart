@@ -4,6 +4,7 @@ import 'package:isar/isar.dart';
 
 import '../models/health_profile_data.dart';
 import '../models/user_profile.dart';
+import 'health_characteristics.dart';
 import 'health_repository.dart';
 import 'health_workout_local_store.dart';
 import 'weight_repository.dart';
@@ -113,9 +114,7 @@ class PlatformHealthRepository implements HealthRepository {
     if (points.isEmpty) {
       return null;
     }
-
-    points.sort((a, b) => b.dateTo.compareTo(a.dateTo));
-    return points.first.dateFrom;
+    return birthDateFromHealthValue(points.first.value);
   }
 
   Future<Gender?> _fetchGender() async {
@@ -127,16 +126,7 @@ class PlatformHealthRepository implements HealthRepository {
     if (points.isEmpty) {
       return null;
     }
-
-    final raw = points.first.value.toString().toLowerCase();
-    if (raw.contains('female')) {
-      return Gender.female;
-    }
-    if (raw.contains('male')) {
-      return Gender.male;
-    }
-
-    return Gender.other;
+    return genderFromHealthValue(points.first.value);
   }
 
   Future<double?> _fetchHeightCm() async {

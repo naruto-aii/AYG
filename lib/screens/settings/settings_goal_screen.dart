@@ -33,6 +33,7 @@ class SettingsGoalScreen extends StatefulWidget {
 
 class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   late GoalType _goalType;
+  String? _automaticNotice;
   late CalorieTargetMode _calorieMode;
   final _targetWeightController = TextEditingController();
   final _kcalController = TextEditingController();
@@ -52,6 +53,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     _targetWeightController.text = goal.targetWeightKg.toStringAsFixed(1);
     _targetDate = goal.targetDate;
     _targetWeightController.addListener(_onDraftChanged);
+    widget.controller.addListener(_onDraftChanged);
     _showManual(MacroField.kcal, settings?.manualTargetKcal);
     _showManual(MacroField.protein, settings?.manualProteinG);
     _showManual(MacroField.fat, settings?.manualFatG);
@@ -95,22 +97,35 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   /// プログラムからの書き込みは onChanged を通らないので、手入力には切り替わらない。
   void _applyCalculatedTargets() {
     if (_calorieMode != CalorieTargetMode.automatic) {
+      _automaticNotice = null;
       return;
     }
     final goalWeight = double.tryParse(_targetWeightController.text.trim());
-    final summary =
-        goalWeight == null || goalWeight < 30 || goalWeight > 300
+    final goal = goalWeight == null || goalWeight < 30 || goalWeight > 300
+        ? null
+        : Goal(
+            type: _goalType,
+            targetWeightKg: goalWeight,
+            targetDate: _targetDate,
+            goalPace: _goalType == GoalType.maintain
+                ? GoalPace.standard
+                : widget.controller.goal?.goalPace ?? GoalPace.standard,
+          );
+    final summary = goal == null
         ? null
         : widget.controller.previewAutomaticTargets(
-            goal: Goal(
-              type: _goalType,
-              targetWeightKg: goalWeight,
-              targetDate: _targetDate,
-              goalPace: _goalType == GoalType.maintain
-                  ? GoalPace.standard
-                  : widget.controller.goal!.goalPace,
-            ),
+            goal: goal,
             settings: _baseSettings,
+          );
+    _automaticNotice = summary != null
+        ? null
+        : widget.controller.automaticTargetsUnavailableReason(
+            goal: goal,
+            settings: _baseSettings,
+            missingGoalItems: [
+              if (goalWeight == null || goalWeight < 30 || goalWeight > 300)
+                '目標体重（30〜300kg）',
+            ],
           );
     _setTargetText(_kcalController, summary?.targetKcal);
     _setTargetText(_proteinController, summary?.targetProteinG);
@@ -140,6 +155,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onDraftChanged);
     _targetWeightController
       ..removeListener(_onDraftChanged)
       ..dispose();
@@ -185,7 +201,9 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
 
     if (warnings.isNotEmpty) {
       final proceed = await showDialog<bool>(
-      routeSettings: const RouteSettings(name: 'settings_goal_screen_showDialog_0'),
+        routeSettings: const RouteSettings(
+          name: 'settings_goal_screen_showDialog_0',
+        ),
         context: context,
         builder: (context) => AlertDialog(
           title: const Text(AppStrings.goalWarningTitle),
@@ -405,6 +423,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
             proteinController: _proteinController,
             fatController: _fatController,
             carbController: _carbController,
+            automaticNotice: _automaticNotice,
           ),
           const SizedBox(height: 24),
         ],

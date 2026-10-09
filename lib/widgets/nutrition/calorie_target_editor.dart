@@ -20,6 +20,7 @@ class CalorieTargetEditor extends StatefulWidget {
     required this.fatController,
     required this.carbController,
     this.onEdited,
+    this.automaticNotice,
   });
 
   final CalorieTargetMode mode;
@@ -31,6 +32,9 @@ class CalorieTargetEditor extends StatefulWidget {
 
   /// 数字を書き換えたとき。目標設定では、これで手入力に切り替える。
   final VoidCallback? onEdited;
+
+  /// 自動で数字を出せないときの理由。自動のあいだだけ欄の上に出す。
+  final String? automaticNotice;
 
   @override
   State<CalorieTargetEditor> createState() => _CalorieTargetEditorState();
@@ -116,6 +120,16 @@ class _CalorieTargetEditorState extends State<CalorieTargetEditor> {
               '目標体重と目標日から計算した数字です。書き換えると自分で入力になり、自動では上書きしません。たんぱく質・脂質・炭水化物は、カロリーと合わせて入れます。',
               style: AppTypography.caption.copyWith(color: AppColors.textMuted),
             ),
+            if (widget.automaticNotice != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.automaticNotice!,
+                key: const Key('goal-auto-unavailable'),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.orange700,
+                ),
+              ),
+            ],
           ],
           if (manual) ...[
             const SizedBox(height: 16),

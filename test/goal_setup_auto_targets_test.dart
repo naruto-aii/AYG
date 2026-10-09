@@ -71,14 +71,16 @@ AppController _onboardingController() {
   return controller;
 }
 
-String _text(WidgetTester tester, String key) =>
-    tester.widget<EditableText>(
+String _text(WidgetTester tester, String key) => tester
+    .widget<EditableText>(
       find.descendant(
         of: find.byKey(Key(key)),
         matching: find.byType(EditableText),
         matchRoot: true,
       ),
-    ).controller.text;
+    )
+    .controller
+    .text;
 
 ({String kcal, String protein, String fat, String carb}) _fields(
   WidgetTester tester,
@@ -124,6 +126,7 @@ Future<void> _pumpOnboarding(
       controller: controller,
       openFoodFactsService: OpenFoodFactsService(userAgent: 'test'),
       authenticationRepository: auth,
+      healthRepository: MockHealthRepository(isAvailable: false),
     ),
   );
   await tester.pumpWidget(
@@ -154,20 +157,14 @@ void main() {
 
     await tester.tap(find.text('減量'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byType(EditableText).first,
-      '65',
-    );
+    await tester.enterText(find.byType(EditableText).first, '65');
     await tester.pumpAndSettle();
     await _setDate(tester, targetDate);
 
     final shown = _fields(tester);
     expect(int.parse(shown.kcal), lessThan(int.parse(maintain.kcal)));
     expect(find.text('今は自分で入力しています'), findsNothing);
-    expect(
-      find.textContaining('目標体重と目標日から計算した数字です。'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('目標体重と目標日から計算した数字です。'), findsOneWidget);
 
     await tester.ensureVisible(find.text('はじめる'));
     await tester.tap(find.text('はじめる'));
@@ -254,11 +251,7 @@ void main() {
       ),
     );
     controller.setGoal(
-      Goal(
-        type: GoalType.maintain,
-        targetWeightKg: 70,
-        targetDate: targetDate,
-      ),
+      Goal(type: GoalType.maintain, targetWeightKg: 70, targetDate: targetDate),
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -272,10 +265,7 @@ void main() {
 
     await tester.tap(find.text('減量'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byType(EditableText).first,
-      '65',
-    );
+    await tester.enterText(find.byType(EditableText).first, '65');
     await tester.pumpAndSettle();
     final shown = _fields(tester);
     expect(int.parse(shown.kcal), lessThan(int.parse(before.kcal)));
@@ -316,10 +306,7 @@ void main() {
     await _pumpOnboarding(tester, controller, boundary: key);
     await tester.tap(find.text('減量'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byType(EditableText).first,
-      '65',
-    );
+    await tester.enterText(find.byType(EditableText).first, '65');
     await tester.pumpAndSettle();
     await _setDate(tester, targetDate);
     FocusManager.instance.primaryFocus?.unfocus();

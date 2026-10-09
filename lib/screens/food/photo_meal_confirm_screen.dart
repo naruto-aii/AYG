@@ -130,13 +130,32 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
 
   PhotoMealEstimate get _estimate => widget.analysis.estimate;
 
+  /// 量が「数＋単位」のときは、欄に数だけを入れて単位を欄の外に出す。
+  /// 分けられない量（「一人前」など）は、これまでどおり文で入れる。
+  late final PhotoAmountParts? _amountParts;
+
+  /// 保存・計算に使う量の文。数を変えていなければ元の推定のまま。
+  String get _amountText {
+    final parts = _amountParts;
+    if (parts == null) {
+      return _amount.text;
+    }
+    if (_amount.text.trim() == parts.numberText) {
+      return _estimate.amount;
+    }
+    return parts.compose(_amount.text);
+  }
+
   bool get _amountScales => leadingPhotoAmountNumber(_estimate.amount) != null;
 
   @override
   void initState() {
     super.initState();
     _name = TextEditingController(text: _estimate.dishName);
-    _amount = TextEditingController(text: _estimate.amount);
+    _amountParts = splitPhotoAmount(_estimate.amount);
+    _amount = TextEditingController(
+      text: _amountParts?.numberText ?? _estimate.amount,
+    );
     _kcal = TextEditingController(text: formatPhotoNumber(_estimate.kcal));
     _protein = TextEditingController(
       text: formatPhotoNumber(_estimate.proteinG),
@@ -147,7 +166,8 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
   }
 
   /// 量を変えたら、元の推定から 4 つとも計算し直す。表示した値をそのまま保存する。
-  void _onAmountChanged(String text) {
+  void _onAmountChanged(String _) {
+    final text = _amountText;
     final number = leadingPhotoAmountNumber(text);
     if (number == null || number == _lastAmountNumber) {
       return;
@@ -215,7 +235,7 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
         controller: widget.controller,
         loggedAt: widget.loggedAt,
         name: name,
-        amountText: _amount.text,
+        amountText: _amountText,
         kcal: kcal,
         proteinG: protein,
         fatG: fat,
@@ -224,7 +244,7 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
       final edited = photoMealWasEdited(
         original: _estimate,
         name: name,
-        amount: _amount.text,
+        amount: _amountText,
         kcal: kcal,
         proteinG: protein,
         fatG: fat,
@@ -241,7 +261,7 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
           collectionId: collectionId,
           edited: edited,
           name: name,
-          amount: _amount.text,
+          amount: _amountText,
           kcal: kcal,
           proteinG: protein,
           fatG: fat,
@@ -287,13 +307,16 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
           const SizedBox(height: AppSpacing.md),
           _field('料理名', _name, hint: '例）親子丼'),
           const SizedBox(height: AppSpacing.md),
-          _field(
-            '量',
-            _amount,
-            hint: '例）200g',
-            inputKey: const Key('photo-meal-amount'),
-            onChanged: _onAmountChanged,
-          ),
+          if (_amountParts case final parts?)
+            _amountNumberField(parts)
+          else
+            _field(
+              '量',
+              _amount,
+              hint: '例）200g',
+              inputKey: const Key('photo-meal-amount'),
+              onChanged: _onAmountChanged,
+            ),
           if (_amountScales) ...[
             const SizedBox(height: 6),
             Text(
@@ -360,6 +383,31 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
             hintText: hint,
             inputKey: inputKey,
             onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 量の数だけを入れる欄。単位は欄の右に出し、入力には含めない。
+  Widget _amountNumberField(PhotoAmountParts parts) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('量', style: AppTypography.titleS),
+        const SizedBox(height: 6),
+        DesignInputBox(
+          key: const Key('photo-meal-amount-box'),
+          suffix: parts.unit,
+          child: DesignTextInput(
+            controller: _amount,
+            hintText: parts.numberText,
+            inputKey: const Key('photo-meal-amount'),
+            onChanged: _onAmountChanged,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            ],
           ),
         ),
       ],

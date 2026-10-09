@@ -10,6 +10,7 @@ import 'package:ayg/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'mocks/mock_health_repository.dart';
 import 'mocks/mock_authentication_repository.dart';
 
 void main() {
@@ -40,6 +41,7 @@ void main() {
           openFoodFactsService: openFoodFactsService,
           healthPrefill: healthPrefill,
           authenticationRepository: authRepository,
+          healthRepository: MockHealthRepository(isAvailable: false),
         ),
       ),
     );

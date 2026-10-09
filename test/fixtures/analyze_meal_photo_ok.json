@@ -1,0 +1,112 @@
+{
+  "ok": true,
+  "usage_id": "usage-1",
+  "collection_id": "collection-1",
+  "estimate": {
+    "dish_name": "幕の内弁当",
+    "amount": "1個",
+    "kcal": 820,
+    "protein_g": 32,
+    "fat_g": 28,
+    "carb_g": 110,
+    "confidence": 0.62,
+    "items": [
+      {
+        "name": "白ごはん",
+        "amount": "200g",
+        "kcal": 318.2,
+        "protein_g": 4.4,
+        "fat_g": 0.7,
+        "carb_g": 77.2
+      },
+      {
+        "name": "鮭の塩焼き",
+        "amount": "1切れ（約60g）",
+        "kcal": 122.4,
+        "protein_g": 11.3,
+        "fat_g": 7.6,
+        "carb_g": 0.1
+      },
+      {
+        "name": "鶏の唐揚げ",
+        "amount": "2個",
+        "kcal": 163.2,
+        "protein_g": 8.7,
+        "fat_g": 10.8,
+        "carb_g": 6.3
+      },
+      {
+        "name": "玉子焼き",
+        "amount": "1切れ",
+        "kcal": 51,
+        "protein_g": 2.6,
+        "fat_g": 3.2,
+        "carb_g": 2.1
+      },
+      {
+        "name": "煮物（にんじん・れんこん・しいたけ・こんにゃく・里芋）",
+        "amount": "にんじん1切れ、れんこん1切れ、しいたけ1個、こんにゃく1切れ、里芋1個くらい",
+        "kcal": 61.2,
+        "protein_g": 1.7,
+        "fat_g": 0.5,
+        "carb_g": 12.5
+      },
+      {
+        "name": "ポテトサラダ",
+        "amount": "大さじ2",
+        "kcal": 51,
+        "protein_g": 0.9,
+        "fat_g": 3.2,
+        "carb_g": 5.2
+      },
+      {
+        "name": "漬物",
+        "amount": "少し",
+        "kcal": 5.1,
+        "protein_g": 0.2,
+        "fat_g": 0,
+        "carb_g": 1.1
+      },
+      {
+        "name": "ごま",
+        "amount": "少し",
+        "kcal": 6.1,
+        "protein_g": 0.2,
+        "fat_g": 0.5,
+        "carb_g": 0.2
+      },
+      {
+        "name": "きんぴらごぼう",
+        "amount": "小さじ2",
+        "kcal": 20.4,
+        "protein_g": 0.3,
+        "fat_g": 1.1,
+        "carb_g": 3.1
+      },
+      {
+        "name": "かまぼこ",
+        "amount": "1切れ",
+        "kcal": 9.2,
+        "protein_g": 0.9,
+        "fat_g": 0,
+        "carb_g": 1
+      },
+      {
+        "name": "枝豆",
+        "amount": "3さや",
+        "kcal": 8.1,
+        "protein_g": 0.6,
+        "fat_g": 0.4,
+        "carb_g": 0.5
+      },
+      {
+        "name": "その他（2品）",
+        "amount": "",
+        "kcal": 4.1,
+        "protein_g": 0.2,
+        "fat_g": 0,
+        "carb_g": 0.7
+      }
+    ]
+  }
+}

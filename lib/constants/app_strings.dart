@@ -78,14 +78,14 @@ class AppStrings {
   static const plusHeroSubtitle = 'テンプレートの上限をなくし、ウィジェットとSiriで記録をもっと速く。';
 
   /// 既存の見出しの下に足す。ウィジェットと Siri の文は置き換えない。
-  static const plusBetaAccessLead = 'β版機能に先行アクセス出来ます！';
-  static const plusBetaAccessTitle = 'β版機能への先行アクセス';
+  /// 「β版への先行アクセス」とは書かない（審査 2.2 / 3.1.2）。機能名をそのまま出す。
+  static const plusFeatureLead = '写真で登録・AIで探す・パーソナルコーチ';
+  static const plusAiLimitTitle = 'AI機能は1日15回まで';
   static const coachCookingBody =
       '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
   static const plusAiDailyLimit =
       '写真で登録 (β)、外食・コンビニ (β)、AIで探す (β) は、あわせて1日15回までです。';
-  static const plusBetaAccessBody =
-      '音声登録 (β)、写真で登録 (β)、外食・コンビニ (β)、AIで探す (β)、パーソナルコーチ (β) など、β版として先行公開している機能を使えます。$plusAiDailyLimit';
+  static const plusAiLimitBody = plusAiDailyLimit;
   static const coachBetaNotice =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。$coachCookingBody';
   static const coachFeatureBody =

@@ -9,7 +9,7 @@
 
 ## Archive
 
-3. **Release** スキームで Archive する。Profile は `developmentPlusPreview` が真になり、購入せずカロナビ+になる。`CALONAVI_TEST_PURCHASE` は渡さない。`ios/Flutter/Release.xcconfig` にもその定義は無い。
+3. **Release** スキームで Archive する。Release では `developmentPlusPreview` は常に偽（`!testPurchaseEnabled && !kReleaseMode`）で、購入しないとカロナビ+にならない。Debug / Profile ではテスト購入フラグが無いと真になり、購入せずカロナビ+になるので、審査用には使わない。`CALONAVI_TEST_PURCHASE` は渡さない。`ios/Flutter/Release.xcconfig` にもその定義は無い。
 4. App Store Connect の価格は、次の商品 ID に合わせる。表示はストアが返した税込価格を使う。
    - `calonavi_plus_monthly` … ¥980
    - `calonavi_plus_half_year` … ¥4,900（980円×5。1か月分お得。月あたり約817円）

@@ -38,13 +38,13 @@ void main() {
       isNotNull,
     );
     expect(find.text(AppStrings.plusHeroSubtitle), findsOneWidget);
-    expect(find.text(AppStrings.plusBetaAccessLead), findsOneWidget);
+    expect(find.text(AppStrings.plusFeatureLead), findsOneWidget);
     expect(find.text(AppStrings.plusBenefitWidgetTitle), findsOneWidget);
     expect(find.text(AppStrings.plusBenefitWidgetBody), findsOneWidget);
     expect(find.text(AppStrings.plusBenefitSiriTitle), findsOneWidget);
     expect(find.text(AppStrings.plusBenefitSiriBody), findsOneWidget);
-    expect(find.text(AppStrings.plusBetaAccessTitle), findsOneWidget);
-    expect(find.text(AppStrings.plusBetaAccessBody), findsOneWidget);
+    expect(find.text(AppStrings.plusAiLimitTitle), findsOneWidget);
+    expect(find.text(AppStrings.plusAiLimitBody), findsOneWidget);
     expect(find.textContaining('(β)'), findsWidgets);
     expect(find.text(AppStrings.plusBillingPeriod), findsOneWidget);
     expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);
@@ -56,8 +56,11 @@ void main() {
     expect(AppStrings.plusAutoRenew, contains('24時間以上前'));
     expect(AppStrings.plusAutoRenew, contains('24時間以内'));
     expect(AppStrings.plusCancelHow, contains('App Store'));
-    expect(AppStrings.plusBetaAccessLead, 'β版機能に先行アクセス出来ます！');
-    expect(find.text('β版機能への先行アクセスも付きます。'), findsNothing);
+    expect(AppStrings.plusFeatureLead, '写真で登録・AIで探す・パーソナルコーチ');
+    expect(find.textContaining('先行アクセス'), findsNothing);
+    expect(find.textContaining('先行公開'), findsNothing);
+    expect(find.textContaining('β版'), findsNothing);
+    expect(find.textContaining('メモ'), findsNothing);
     expect(find.text('食事・運動の記録にメモを追加'), findsNothing);
     expect(find.textContaining('無料ではメモは使えません'), findsNothing);
     expect(AppStrings.plusBenefitSiriTitle, '音声登録 (β)');
@@ -73,8 +76,8 @@ void main() {
     expect(AppStrings.plusBenefitCoachTitle, 'パーソナルコーチ (β)');
     expect(AppStrings.plusBenefitCoachBody, contains('自炊コーチ'));
     expect(AppStrings.plusAiDailyLimit, contains('あわせて1日15回まで'));
-    expect(AppStrings.plusBetaAccessBody, contains('音声登録 (β)'));
-    expect(AppStrings.plusBetaAccessBody, contains(AppStrings.plusAiDailyLimit));
+    expect(AppStrings.plusAiLimitTitle, 'AI機能は1日15回まで');
+    expect(AppStrings.plusAiLimitBody, AppStrings.plusAiDailyLimit);
     expect(find.textContaining('精度検証中'), findsNothing);
     for (final title in [
       AppStrings.plusBenefitPhotoTitle,

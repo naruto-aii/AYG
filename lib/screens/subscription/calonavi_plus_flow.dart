@@ -479,7 +479,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            AppStrings.plusBetaAccessLead,
+            AppStrings.plusFeatureLead,
             textAlign: TextAlign.center,
             style: AppTypography.bodyM,
           ),
@@ -528,9 +528,9 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _Benefit(
-            icon: Symbols.eco_rounded,
-            title: AppStrings.plusBetaAccessTitle,
-            body: AppStrings.plusBetaAccessBody,
+            icon: Symbols.info_rounded,
+            title: AppStrings.plusAiLimitTitle,
+            body: AppStrings.plusAiLimitBody,
           ),
           const SizedBox(height: AppSpacing.lg),
           if (_loadingPrices)

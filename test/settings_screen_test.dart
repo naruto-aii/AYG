@@ -199,7 +199,7 @@ void main() {
         find.textContaining('β版として先行公開している機能で、カロナビ+で使えます'),
         findsNothing,
       );
-      expect(find.textContaining('β版機能に先行アクセス出来ます！'), findsOneWidget);
+      expect(find.textContaining('先行アクセス'), findsNothing);
       expect(find.textContaining('食事と運動のメモは無料です'), findsOneWidget);
       expect(find.textContaining('食事のメモはカロナビ+です'), findsNothing);
       expect(find.textContaining('写真で登録 (β)'), findsWidgets);

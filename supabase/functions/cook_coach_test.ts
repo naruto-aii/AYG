@@ -448,7 +448,7 @@ Deno.test("handler returns db nutrition and does not call the model", async () =
   const oil = first.ingredients.find((item: { name: string }) => item.name.includes("油"));
   const rice = first.ingredients.find((item: { name: string }) => item.name === "ごはん");
   const chicken = first.ingredients.find((item: { name: string }) => item.name.includes("鶏"));
-  assertEquals(oil != null && oil.grams <= 10 && oil.grams >= 1, true);
+  assertEquals(oil != null && oil.grams <= 12 && oil.grams >= 1, true);
   assertEquals(rice != null && rice.grams >= 100 && rice.grams <= 300, true);
   assertEquals(chicken != null && chicken.grams >= 60 && chicken.grams <= 250, true);
 });

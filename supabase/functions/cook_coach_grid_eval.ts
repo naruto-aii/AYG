@@ -72,6 +72,8 @@ export function runGrid(recipes: CookRecipe[] = cookRecipes) {
     twoDistinct: pct(rows.filter((r) => r.two).length, n),
     plans: plans.length,
     kcal10: pct(plans.filter((p) => p.kcal).length, plans.length),
+    p15only: pct(plans.filter((p) => p.p).length, plans.length),
+    pc15: pct(plans.filter((p) => p.p && p.c).length, plans.length),
     pfc15: pct(plans.filter((p) => p.pfc).length, plans.length),
     p15: pct(plans.filter((p) => p.p).length, plans.length),
     f15: pct(plans.filter((p) => p.f).length, plans.length),

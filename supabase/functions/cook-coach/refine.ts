@@ -27,6 +27,9 @@ type Var = {
   grid?: number[];
 };
 
+// 炒め・焼きの油は 2〜12g（大さじ1）。脂質の過不足はここで寄せる。
+const OIL_MIN = 2;
+const OIL_MAX = 12;
 const starchWord = /うどん|そば|パスタ|スパゲティ|食パン|中華麺|麺|パン/;
 
 function windowFor(item: MeasuredIngredient): Var | null {
@@ -40,8 +43,8 @@ function windowFor(item: MeasuredIngredient): Var | null {
     return grid.length > 1 ? { index: -1, min: grid[0], max: grid.at(-1)!, step: 50, grid } : null;
   }
   if (isOil(name)) {
-    // 炒め・焼きの油は 3〜10g。0 にはしない（手順で油を使うため）。
-    return { index: -1, min: Math.min(orig, 3), max: Math.max(orig, 10), step: 1 };
+    // 0 にはしない（手順で油を使うため）。
+    return { index: -1, min: Math.min(orig, OIL_MIN), max: Math.max(orig, OIL_MAX), step: 1 };
   }
   if (isSeasoning(name)) {
     return null;
@@ -84,7 +87,8 @@ function objective(t: Macros, a: Macros): number {
   const c = (a.carbG - t.carbG) / Math.max(1, t.carbG * 0.15);
   // kcal を最優先にし、P/F/C を同じ重さで寄せる。範囲外は強く罰する。
   const over = (x: number) => (Math.abs(x) > 1 ? (Math.abs(x) - 1) * 4 : 0);
-  return 2 * k * k + p * p + f * f + c * c + over(k) * 6 + over(p) + over(f) + over(c);
+  // kcal > たんぱく質 > 炭水化物 > 脂質 の順に重くする。
+  return 2 * k * k + 3 * p * p + 2 * c * c + f * f + over(k) * 6 + over(p) * 3 + over(c) * 2 + over(f);
 }
 
 export function refineMeal(meal: MeasuredDish, target: Macros): MeasuredDish {

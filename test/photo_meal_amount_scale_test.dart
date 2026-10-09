@@ -181,7 +181,26 @@ void main() {
     expect(scalePhotoMealEstimate(bowl, '2杯')!.kcal, 1200);
   });
 
-  testWidgets('a changed unit (1杯 -> 250g) leaves values for manual edit', (
+  testWidgets('the amount box holds only the number; the unit sits outside', (
+    tester,
+  ) async {
+    await _open(tester);
+    expect(_textOf(tester, 'photo-meal-amount'), '200');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('photo-meal-amount-box')),
+        matching: find.text('g'),
+      ),
+      findsOneWidget,
+    );
+    // 単位を打っても欄には数だけが残り、単位は変わらない。
+    await tester.enterText(find.byKey(const Key('photo-meal-amount')), '300g');
+    await tester.pump();
+    expect(_textOf(tester, 'photo-meal-amount'), '300');
+    expect(_textOf(tester, 'photo-meal-kcal'), '360');
+  });
+
+  testWidgets('a bowl amount (1杯) shows 杯 outside and 2 doubles the values', (
     tester,
   ) async {
     await _open(
@@ -197,15 +216,15 @@ void main() {
         items: [],
       ),
     );
-    await tester.enterText(find.byKey(const Key('photo-meal-amount')), '250g');
-    await tester.pump();
-    expect(_shown(tester), {
-      'kcal': '600',
-      'protein': '20',
-      'fat': '20',
-      'carb': '85',
-    });
-    await tester.enterText(find.byKey(const Key('photo-meal-amount')), '2杯');
+    expect(_textOf(tester, 'photo-meal-amount'), '1');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('photo-meal-amount-box')),
+        matching: find.text('杯'),
+      ),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byKey(const Key('photo-meal-amount')), '2');
     await tester.pump();
     expect(_shown(tester), {
       'kcal': '1200',
@@ -213,6 +232,20 @@ void main() {
       'fat': '40',
       'carb': '170',
     });
+  });
+
+  test('splitPhotoAmount keeps the unit out of the number', () {
+    final grams = splitPhotoAmount('200g')!;
+    expect((grams.prefix, grams.numberText, grams.unit), ('', '200', 'g'));
+    expect(grams.compose('150'), '150g');
+    final about = splitPhotoAmount('約300 g')!;
+    expect((about.prefix, about.numberText, about.unit), ('約', '300', 'g'));
+    expect(about.compose('250'), '約250g');
+    expect(splitPhotoAmount('1/2個')!.numberText, '0.5');
+    expect(splitPhotoAmount('1.5杯')!.numberText, '1.5');
+    expect(splitPhotoAmount('一人前'), isNull);
+    expect(splitPhotoAmount('2'), isNull);
+    expect(splitPhotoAmount('200g（茶碗1杯）'), isNull);
   });
 
   testWidgets('an unparseable amount leaves the values untouched', (

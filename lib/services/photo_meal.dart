@@ -265,6 +265,57 @@ double? leadingPhotoAmountNumber(String raw) {
   return value;
 }
 
+/// 量の文を「前の語・数・単位」に分けたもの。量の欄は数だけを入れ、単位は欄の外に出す。
+class PhotoAmountParts {
+  const PhotoAmountParts({
+    required this.prefix,
+    required this.numberText,
+    required this.unit,
+  });
+
+  /// 数の前の語（「約」「丼」など）。保存する量の文に戻すときだけ使う。
+  final String prefix;
+
+  /// 欄に入れる数（「200」「1.5」「0.5」）。
+  final String numberText;
+
+  /// 欄の外に出す単位（「g」「杯」「個」）。
+  final String unit;
+
+  /// 欄の数から、保存する量の文を作る。数が空なら空。
+  String compose(String number) {
+    final trimmed = number.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    return '$prefix$trimmed$unit';
+  }
+}
+
+/// 量の文を、数だけの欄と単位に分ける。分けられない（数が無い、単位に数や説明が入る）ときは null。
+PhotoAmountParts? splitPhotoAmount(String raw) {
+  final normalized = _normalizePhotoAmount(raw);
+  final match = _photoAmountPattern.firstMatch(normalized);
+  if (match == null) {
+    return null;
+  }
+  final number = leadingPhotoAmountNumber(normalized);
+  if (number == null) {
+    return null;
+  }
+  final unit = match.group(3)!.trim();
+  if (unit.isEmpty || unit.length > 6 || RegExp(r'[\d()（）、,]').hasMatch(unit)) {
+    return null;
+  }
+  final prefix = normalized
+      .substring(0, normalized.indexOf(match.group(1)!))
+      .trim();
+  final numberText = number == number.roundToDouble()
+      ? number.round().toString()
+      : double.parse(number.toStringAsFixed(2)).toString();
+  return PhotoAmountParts(prefix: prefix, numberText: numberText, unit: unit);
+}
+
 /// 数のあとの単位（空白と大文字小文字は無視し、g・ml の言い方はそろえる）。数が無ければ null。
 String? photoAmountUnit(String raw) {
   final match = _photoAmountPattern.firstMatch(_normalizePhotoAmount(raw));

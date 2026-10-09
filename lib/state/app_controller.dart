@@ -1443,6 +1443,59 @@ class AppController extends ChangeNotifier {
     required Goal goal,
     required NutritionSettings settings,
   }) {
+    final result = _previewAutomaticSummary(goal: goal, settings: settings);
+    if (result == null || result.targetKcal <= 0) {
+      return null;
+    }
+    return result;
+  }
+
+  /// 自動の目標が出せないときの理由。出せるときは null。
+  ///
+  /// 入っていない項目（生年月日・性別・身長・体重、画面側の目標体重・目標日）を先に挙げ、
+  /// 全部そろっていて計算できないとき（性別が「その他」、18歳未満など）は計算側の理由を返す。
+  String? automaticTargetsUnavailableReason({
+    required Goal? goal,
+    required NutritionSettings settings,
+    List<String> missingGoalItems = const [],
+  }) {
+    final missing = <String>[];
+    final currentProfile = profile;
+    if (currentProfile == null) {
+      missing.addAll(const ['生年月日', '性別', '身長', '体重']);
+    } else {
+      if (currentProfile.heightCm <= 0) {
+        missing.add('身長');
+      }
+      final weight = currentWeightSelection.kg > 0
+          ? currentWeightSelection.kg
+          : currentProfile.weightKg;
+      if (weight <= 0) {
+        missing.add('体重');
+      }
+    }
+    if (!settings.useHealthIntegration && settings.activityLevel == null) {
+      missing.add('活動量');
+    }
+    missing.addAll(missingGoalItems);
+    if (missing.isNotEmpty) {
+      return '自動計算に必要な項目が入っていません：${missing.join('・')}';
+    }
+    if (goal == null) {
+      return null;
+    }
+    final result = _previewAutomaticSummary(goal: goal, settings: settings);
+    if (result == null || result.targetKcal > 0) {
+      return null;
+    }
+    return result.energyBreakdown?.unavailableReason ??
+        '自動で計算できませんでした。下の欄に自分で入力できます。';
+  }
+
+  DailySummary? _previewAutomaticSummary({
+    required Goal goal,
+    required NutritionSettings settings,
+  }) {
     final currentProfile = profile;
     if (currentProfile == null) {
       return null;
@@ -1474,9 +1527,6 @@ class AppController extends ChangeNotifier {
       referenceDate: now,
       weightSamples: calculationWeightSamples(),
     );
-    if (result.targetKcal <= 0) {
-      return null;
-    }
     return result;
   }
 

@@ -6,6 +6,7 @@ import '../../models/goal.dart';
 import '../../models/nutrition_settings.dart';
 import '../../widgets/nutrition/calorie_target_editor.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../repositories/health_repository.dart';
 import '../../services/daily_calorie_target_planner.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/weight_for_target.dart';
@@ -33,11 +34,13 @@ class GoalSetupScreen extends StatefulWidget {
     required this.controller,
     required this.openFoodFactsService,
     required this.authenticationRepository,
+    required this.healthRepository,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final AuthenticationRepository authenticationRepository;
+  final HealthRepository healthRepository;
 
   @override
   State<GoalSetupScreen> createState() => _GoalSetupScreenState();
@@ -51,6 +54,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   static const Duration _defaultHorizon = Duration(days: 90);
 
   GoalType _goalType = GoalType.maintain;
+  String? _automaticNotice;
   CalorieTargetMode _calorieMode = CalorieTargetMode.automatic;
   final _targetWeightController = TextEditingController();
   final _kcalController = TextEditingController();
@@ -70,11 +74,13 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     }
     _targetDate = DateTime.now().add(_defaultHorizon);
     _targetWeightController.addListener(_onInputChanged);
+    widget.controller.addListener(_onInputChanged);
     _refreshAutomaticTargets();
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onInputChanged);
     _targetWeightController
       ..removeListener(_onInputChanged)
       ..dispose();
@@ -85,7 +91,11 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     super.dispose();
   }
 
+  /// 目標体重の入力と、体重・プロフィール・活動量の変更で計算し直す。
   void _onInputChanged() {
+    if (!mounted) {
+      return;
+    }
     setState(_refreshAutomaticTargets);
   }
 
@@ -105,23 +115,38 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   /// プログラムからの書き込みは onChanged を通らないので、手入力には切り替わらない。
   void _refreshAutomaticTargets() {
     if (_calorieMode != CalorieTargetMode.automatic) {
+      _automaticNotice = null;
       return;
     }
     final goalWeight = double.tryParse(_targetWeightController.text.trim());
     final targetDate = _targetDate;
-    final summary =
+    final goal =
         goalWeight == null ||
             goalWeight < 30 ||
             goalWeight > 300 ||
             targetDate == null
         ? null
+        : Goal(
+            type: _goalType,
+            targetWeightKg: goalWeight,
+            targetDate: targetDate,
+          );
+    final summary = goal == null
+        ? null
         : widget.controller.previewAutomaticTargets(
-            goal: Goal(
-              type: _goalType,
-              targetWeightKg: goalWeight,
-              targetDate: targetDate,
-            ),
+            goal: goal,
             settings: _pendingSettings,
+          );
+    _automaticNotice = summary != null
+        ? null
+        : widget.controller.automaticTargetsUnavailableReason(
+            goal: goal,
+            settings: _pendingSettings,
+            missingGoalItems: [
+              if (goalWeight == null || goalWeight < 30 || goalWeight > 300)
+                '目標体重（30〜300kg）',
+              if (targetDate == null) '目標日',
+            ],
           );
     _setTargetText(_kcalController, summary?.targetKcal);
     _setTargetText(_proteinController, summary?.targetProteinG);
@@ -292,11 +317,14 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
       }
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'goal_setup_screen_MaterialPageRoute_0'),
+          settings: const RouteSettings(
+            name: 'goal_setup_screen_MaterialPageRoute_0',
+          ),
           builder: (context) => ActivityLevelScreen(
             controller: widget.controller,
             openFoodFactsService: widget.openFoodFactsService,
             authenticationRepository: widget.authenticationRepository,
+            healthRepository: widget.healthRepository,
           ),
         ),
       );
@@ -319,11 +347,14 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'goal_setup_screen_MaterialPageRoute_1'),
+        settings: const RouteSettings(
+          name: 'goal_setup_screen_MaterialPageRoute_1',
+        ),
         builder: (context) => MainShellScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
+          healthRepository: widget.healthRepository,
         ),
       ),
       (route) => false,
@@ -497,6 +528,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
             proteinController: _proteinController,
             fatController: _fatController,
             carbController: _carbController,
+            automaticNotice: _automaticNotice,
           ),
           if (_isPaceTooFast) ...[
             const SizedBox(height: 12),

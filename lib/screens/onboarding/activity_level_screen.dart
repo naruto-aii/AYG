@@ -4,6 +4,7 @@ import '../../constants/app_strings.dart';
 import '../../models/activity_level.dart';
 import '../../models/nutrition_settings.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_typography.dart';
@@ -23,11 +24,13 @@ class ActivityLevelScreen extends StatefulWidget {
     required this.controller,
     required this.openFoodFactsService,
     required this.authenticationRepository,
+    required this.healthRepository,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final AuthenticationRepository authenticationRepository;
+  final HealthRepository healthRepository;
 
   @override
   State<ActivityLevelScreen> createState() => _ActivityLevelScreenState();
@@ -57,9 +60,9 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
         return;
       }
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: '保存'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userErrorMessage(error, action: '保存'))),
+      );
       return;
     }
 
@@ -69,11 +72,14 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'activity_level_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'activity_level_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => MainShellScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
+          healthRepository: widget.healthRepository,
         ),
       ),
       (route) => false,

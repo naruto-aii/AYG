@@ -6,6 +6,7 @@ import '../../models/display_name.dart';
 import '../../models/health_profile_data.dart';
 import '../../models/user_profile.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -35,12 +36,14 @@ class BasicInfoScreen extends StatefulWidget {
     required this.openFoodFactsService,
     required this.healthPrefill,
     required this.authenticationRepository,
+    required this.healthRepository,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final HealthProfileData healthPrefill;
   final AuthenticationRepository authenticationRepository;
+  final HealthRepository healthRepository;
 
   @override
   State<BasicInfoScreen> createState() => _BasicInfoScreenState();
@@ -157,6 +160,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
+          healthRepository: widget.healthRepository,
         ),
       ),
     );

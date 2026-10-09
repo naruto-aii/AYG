@@ -160,6 +160,61 @@ void main() {
     expect(_textOf(tester, 'photo-meal-kcal'), '250');
   });
 
+  test('photoAmountUnit normalizes spacing and gram spellings', () {
+    expect(photoAmountUnit('200g'), 'g');
+    expect(photoAmountUnit('200 G'), 'g');
+    expect(photoAmountUnit('２００ｇ'), 'g');
+    expect(photoAmountUnit('200グラム'), 'g');
+    expect(photoAmountUnit('1杯'), '杯');
+    expect(photoAmountUnit('一人前'), isNull);
+    final bowl = const PhotoMealEstimate(
+      dishName: '牛丼',
+      amount: '1杯',
+      kcal: 600,
+      proteinG: 20,
+      fatG: 20,
+      carbG: 85,
+      confidence: 0,
+      items: [],
+    );
+    expect(scalePhotoMealEstimate(bowl, '250g'), isNull);
+    expect(scalePhotoMealEstimate(bowl, '2杯')!.kcal, 1200);
+  });
+
+  testWidgets('a changed unit (1杯 -> 250g) leaves values for manual edit', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      estimate: const PhotoMealEstimate(
+        dishName: '牛丼',
+        amount: '1杯',
+        kcal: 600,
+        proteinG: 20,
+        fatG: 20,
+        carbG: 85,
+        confidence: 0,
+        items: [],
+      ),
+    );
+    await tester.enterText(find.byKey(const Key('photo-meal-amount')), '250g');
+    await tester.pump();
+    expect(_shown(tester), {
+      'kcal': '600',
+      'protein': '20',
+      'fat': '20',
+      'carb': '85',
+    });
+    await tester.enterText(find.byKey(const Key('photo-meal-amount')), '2杯');
+    await tester.pump();
+    expect(_shown(tester), {
+      'kcal': '1200',
+      'protein': '40',
+      'fat': '40',
+      'carb': '170',
+    });
+  });
+
   testWidgets('an unparseable amount leaves the values untouched', (
     tester,
   ) async {

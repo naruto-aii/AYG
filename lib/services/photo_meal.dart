@@ -232,9 +232,8 @@ bool photoMealWasEdited({
       photoMealNumbersDiffer(carbG, original.carbG);
 }
 
-/// 量の文の先頭の数（「200g」「1.5杯」「2個」「1/2個」）。読めなければ null。
-double? leadingPhotoAmountNumber(String raw) {
-  final text = raw
+String _normalizePhotoAmount(String raw) {
+  return raw
       .trim()
       .replaceAllMapped(
         RegExp('[０-９]'),
@@ -242,9 +241,15 @@ double? leadingPhotoAmountNumber(String raw) {
       )
       .replaceAll('．', '.')
       .replaceAll('／', '/');
-  final match = RegExp(
-    r'^[^\d]{0,3}?(\d+(?:\.\d+)?)(?:\s*/\s*(\d+(?:\.\d+)?))?',
-  ).firstMatch(text);
+}
+
+final _photoAmountPattern = RegExp(
+  r'^[^\d]{0,3}?(\d+(?:\.\d+)?)(?:\s*/\s*(\d+(?:\.\d+)?))?(.*)$',
+);
+
+/// 量の文の先頭の数（「200g」「1.5杯」「2個」「1/2個」）。読めなければ null。
+double? leadingPhotoAmountNumber(String raw) {
+  final match = _photoAmountPattern.firstMatch(_normalizePhotoAmount(raw));
   if (match == null) {
     return null;
   }
@@ -258,6 +263,25 @@ double? leadingPhotoAmountNumber(String raw) {
     return null;
   }
   return value;
+}
+
+/// 数のあとの単位（空白と大文字小文字は無視し、g・ml の言い方はそろえる）。数が無ければ null。
+String? photoAmountUnit(String raw) {
+  final match = _photoAmountPattern.firstMatch(_normalizePhotoAmount(raw));
+  if (match == null) {
+    return null;
+  }
+  final unit = match
+      .group(3)!
+      .replaceAll(RegExp(r'[\s\u3000]+'), '')
+      .toLowerCase()
+      .replaceAll('ｇ', 'g')
+      .replaceAll('ｍｌ', 'ml');
+  return switch (unit) {
+    'グラム' => 'g',
+    'ミリリットル' => 'ml',
+    _ => unit,
+  };
 }
 
 class PhotoMealNutrition {
@@ -274,7 +298,8 @@ class PhotoMealNutrition {
   final double carbG;
 }
 
-/// 元の推定を、新しい量と元の量の比で掛け直す。どちらかが読めなければ null。
+/// 元の推定を、新しい量と元の量の比で掛け直す。どちらかが読めないか、
+/// 単位が変わったとき（「1杯」→「250g」など）は掛け直さず null。
 PhotoMealNutrition? scalePhotoMealEstimate(
   PhotoMealEstimate original,
   String amountText,
@@ -282,6 +307,9 @@ PhotoMealNutrition? scalePhotoMealEstimate(
   final base = leadingPhotoAmountNumber(original.amount);
   final next = leadingPhotoAmountNumber(amountText);
   if (base == null || next == null) {
+    return null;
+  }
+  if (photoAmountUnit(original.amount) != photoAmountUnit(amountText)) {
     return null;
   }
   final ratio = next / base;

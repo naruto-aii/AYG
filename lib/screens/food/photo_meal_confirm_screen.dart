@@ -13,7 +13,7 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 
 /// 量の下に出す説明。数値が量に合わせて変わることを伝える。
-const photoMealAmountScaleHint = '量に合わせて、カロリーとPFCも自動で変わります。';
+const photoMealAmountScaleHint = '同じ単位なら、量に合わせてカロリーとPFCも変わります。';
 
 /// 料理名が未入力のとき、記録の前に名前の確認を出す。
 Future<String?> askPhotoMealDishName(BuildContext context, String prefilled) {
@@ -125,6 +125,7 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
   bool _saving = false;
 
   /// 最後に掛け直した量の数。数が同じなら（単位だけ変えても）掛け直さない。
+  /// 単位が元の推定と違うときも掛け直さず、手で直してもらう。
   double? _lastAmountNumber;
 
   PhotoMealEstimate get _estimate => widget.analysis.estimate;

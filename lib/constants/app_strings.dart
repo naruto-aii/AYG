@@ -122,6 +122,17 @@ class AppStrings {
   static const plusFallbackYearlyPrice = '¥8,800';
   static const plusAutoRenew =
       '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
+  /// 無料のお試しがあるプランのボタン。ストアがお試しを返したときだけ使う。
+  static String plusTrialCta(int days) => '$days日間無料ではじめる';
+
+  /// プランの説明。例: 「3日間無料 → そのあと月額¥980で自動更新」。
+  static String plusTrialPlanLine(int days, String periodLabel, String price) =>
+      '$days日間無料 → そのあと$periodLabel$priceで自動更新';
+
+  /// 自動更新の説明に足す1文。お試しを返したときだけ出す。
+  static String plusTrialNotice(int days) =>
+      'はじめてカロナビ+に登録する方は、$days日間無料でお試しいただけます。無料期間中は請求されません。無料期間が終わる24時間以上前に解約しない限り、選んだプランの料金で自動的に有料の定期購入に切り替わり、Apple ID へ請求されます。';
+
   static const plusCancelHow =
       '管理と解約は、App Store のアカウント設定から行えます。アプリを消しても課金は止まりません。';
   static const plusCurrentExpiryPrefix = '現在の有効期限';

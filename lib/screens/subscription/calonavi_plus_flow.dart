@@ -91,12 +91,34 @@ class _PlanOption {
     required this.price,
     required this.note,
     this.badgeLabel,
+    this.freeTrialDays,
   });
 
   final PlusPlan plan;
   final String price;
   final String note;
   final String? badgeLabel;
+
+  /// ストアが無料のお試しを返したときだけ。無いときは価格だけを出す。
+  final int? freeTrialDays;
+
+  bool get hasFreeTrial => (freeTrialDays ?? 0) > 0;
+
+  String get description {
+    final trialDays = freeTrialDays;
+    final head = trialDays != null && trialDays > 0
+        ? AppStrings.plusTrialPlanLine(trialDays, plusPlanLabel(plan), price)
+        : price;
+    return note.isEmpty ? head : '$head ・ $note';
+  }
+
+  String get ctaLabel {
+    final trialDays = freeTrialDays;
+    if (trialDays != null && trialDays > 0) {
+      return AppStrings.plusTrialCta(trialDays);
+    }
+    return '$price${AppStrings.plusCtaPrefix}';
+  }
 }
 
 class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
@@ -302,8 +324,26 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           price: prices[plan]!,
           note: _note(plan, prices[plan]!),
           badgeLabel: _badge(plan, yen),
+          freeTrialDays: _trialDays(offerings?.offerFor(plan)),
         ),
     ];
+  }
+
+  /// ストアの価格とお試しの両方があるときだけ。予備の価格では無料をうたわない。
+  int? _trialDays(SubscriptionProductOffer? offer) {
+    if (!_hasStorePrice(offer) || !offer!.hasFreeTrial) {
+      return null;
+    }
+    return offer.freeTrialDays;
+  }
+
+  int? get _anyTrialDays {
+    for (final plan in _loadingPrices ? const <_PlanOption>[] : _plans) {
+      if (plan.hasFreeTrial) {
+        return plan.freeTrialDays;
+      }
+    }
+    return null;
   }
 
   _PlanOption get _selectedPlan {
@@ -445,7 +485,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           ? null
           : DesignButton(
               key: const Key('plus-purchase'),
-              label: '${selectedPlan!.price}${AppStrings.plusCtaPrefix}',
+              label: selectedPlan!.ctaLabel,
               showTrailingIcon: false,
               loading: _busy,
               onPressed: _busy ? null : _confirm,
@@ -546,9 +586,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
               SelectCard(
                 key: Key('plus-plan-${plans[i].plan.name}'),
                 title: plusPlanLabel(plans[i].plan),
-                description: plans[i].note.isEmpty
-                    ? plans[i].price
-                    : '${plans[i].price} ・ ${plans[i].note}',
+                description: plans[i].description,
                 selected: plans[i].plan == _selected,
                 minHeight: 84,
                 badge: plans[i].badgeLabel == null
@@ -577,6 +615,14 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           Text(AppStrings.plusBillingPeriod, style: AppTypography.bodyS),
           const SizedBox(height: AppSpacing.sm),
           Text(AppStrings.plusAutoRenew, style: AppTypography.bodyS),
+          if (_anyTrialDays case final trialDays?) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              AppStrings.plusTrialNotice(trialDays),
+              key: const Key('plus-trial-notice'),
+              style: AppTypography.bodyS,
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Text(AppStrings.plusCancelHow, style: AppTypography.bodyS),
           if (_activeExpiryLabel case final expiryLabel?) ...[

@@ -112,7 +112,7 @@ void main() {
     expect(find.textContaining('自炊コーチ'), findsOneWidget);
     expect(find.textContaining('あわせて1日15回までです'), findsOneWidget);
     expect(find.text('ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。'), findsOneWidget);
-    expect(find.text('β版機能に先行アクセス出来ます！'), findsOneWidget);
+    expect(find.text('写真で登録・AIで探す・パーソナルコーチ'), findsOneWidget);
     expect(find.text('食事・運動の記録にメモを追加'), findsNothing);
     expect(find.textContaining('精度検証中'), findsNothing);
     expect(find.text('プランを選ぶ'), findsOneWidget);
@@ -276,7 +276,7 @@ void main() {
       File('${directory.path}/asc-review-paywall-features.png'),
     );
     expect(find.text('カロナビ+'), findsOneWidget);
-    expect(find.text('β版機能に先行アクセス出来ます！'), findsOneWidget);
+    expect(find.text('写真で登録・AIで探す・パーソナルコーチ'), findsOneWidget);
     expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
     expect(find.text('写真で登録 (β)'), findsOneWidget);
     _expectAbovePurchase(tester, 'ウィジェットでワンタップ記録');

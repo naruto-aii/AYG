@@ -42,3 +42,6 @@ case ",${defines}," in
 esac
 
 export DART_DEFINES="$defines"
+
+# Google ログインの設定が壊れた Release ビルドを作らない。
+. "${SRCROOT:-ios}/Flutter/check_google_signin.sh"

@@ -54,13 +54,20 @@ EOF
   exit 0
 fi
 
-case "$CLIENT_ID" in
-  *.apps.googleusercontent.com) ;;
-  *)
-    echo "error: GOOGLE_IOS_CLIENT_ID must end with .apps.googleusercontent.com" >&2
-    exit 1
-    ;;
-esac
+# 逆順 ID（com.googleusercontent.apps.…）、バンドル ID、カンマ区切りは不可。
+if ! printf %s "$CLIENT_ID" | grep -Eq '^[0-9]+-[0-9a-z]+\.apps\.googleusercontent\.com$'; then
+  echo "error: GOOGLE_IOS_CLIENT_ID は 123-abc.apps.googleusercontent.com の形にしてください（Google Cloud の iOS クライアントの「クライアント ID」）" >&2
+  exit 1
+fi
+if [ -n "$SERVER_CLIENT_ID" ] &&
+  ! printf %s "$SERVER_CLIENT_ID" | grep -Eq '^[0-9]+-[0-9a-z]+\.apps\.googleusercontent\.com$'; then
+  echo "error: GOOGLE_WEB_CLIENT_ID は 123-abc.apps.googleusercontent.com の形にしてください（Web クライアントの「クライアント ID」）" >&2
+  exit 1
+fi
+if [ -n "$SERVER_CLIENT_ID" ] && [ "${CLIENT_ID%%-*}" != "${SERVER_CLIENT_ID%%-*}" ]; then
+  echo "error: GOOGLE_IOS_CLIENT_ID と GOOGLE_WEB_CLIENT_ID が別の Google Cloud プロジェクトのものです（先頭の数字が違う）。同じプロジェクトの iOS と Web を使ってください" >&2
+  exit 1
+fi
 
 PREFIX="${CLIENT_ID%.apps.googleusercontent.com}"
 REVERSED="com.googleusercontent.apps.${PREFIX}"

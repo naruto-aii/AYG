@@ -7,6 +7,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/google_client_id.dart';
 import '../config/supabase_config.dart';
 import '../config/web_auth_config.dart';
 import '../models/display_name.dart';
@@ -25,9 +26,10 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
            ? null
            : googleSignIn ??
                  GoogleSignIn(
-                   clientId: SupabaseConfig.googleIosClientId.isEmpty
-                       ? null
-                       : SupabaseConfig.googleIosClientId,
+                   clientId:
+                       GoogleClientId.isValid(SupabaseConfig.googleIosClientId)
+                       ? SupabaseConfig.googleIosClientId
+                       : null,
                    serverClientId: SupabaseConfig.googleWebClientId.isEmpty
                        ? null
                        : SupabaseConfig.googleWebClientId,
@@ -114,6 +116,18 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
     final googleSignIn = _googleSignIn;
     if (googleSignIn == null) {
       throw GoogleSignInFailedException('Google Sign-In is not available.');
+    }
+
+    // iOS の SDK は設定が壊れているとエラーを返さずアプリごと落ちる。
+    // 呼ぶ前に確かめて、失敗表示で止める。
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final problem = GoogleClientId.iosProblem(
+        iosClientId: SupabaseConfig.googleIosClientId,
+        webClientId: SupabaseConfig.googleWebClientId,
+      );
+      if (problem != null) {
+        throw GoogleSignInFailedException(problem);
+      }
     }
 
     final googleUser = await googleSignIn.signIn();

@@ -70,6 +70,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     }
     _targetDate = DateTime.now().add(_defaultHorizon);
     _targetWeightController.addListener(_onInputChanged);
+    _refreshAutomaticTargets();
   }
 
   @override
@@ -84,7 +85,56 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     super.dispose();
   }
 
-  void _onInputChanged() => setState(() {});
+  void _onInputChanged() {
+    setState(_refreshAutomaticTargets);
+  }
+
+  /// 保存する予定の食事目標の設定。活動量は連携なしなら次の画面の既定（普通）。
+  NutritionSettings get _pendingSettings {
+    final current = widget.controller.nutritionSettings;
+    return current ??
+        NutritionSettings(
+          useHealthIntegration: widget.controller.useHealthIntegration,
+          activityLevel: widget.controller.useHealthIntegration
+              ? null
+              : ActivityLevel.moderate,
+        );
+  }
+
+  /// 自動のあいだは、目標体重・目標日・方向性から4つの欄を埋める。
+  /// プログラムからの書き込みは onChanged を通らないので、手入力には切り替わらない。
+  void _refreshAutomaticTargets() {
+    if (_calorieMode != CalorieTargetMode.automatic) {
+      return;
+    }
+    final goalWeight = double.tryParse(_targetWeightController.text.trim());
+    final targetDate = _targetDate;
+    final summary =
+        goalWeight == null ||
+            goalWeight < 30 ||
+            goalWeight > 300 ||
+            targetDate == null
+        ? null
+        : widget.controller.previewAutomaticTargets(
+            goal: Goal(
+              type: _goalType,
+              targetWeightKg: goalWeight,
+              targetDate: targetDate,
+            ),
+            settings: _pendingSettings,
+          );
+    _setTargetText(_kcalController, summary?.targetKcal);
+    _setTargetText(_proteinController, summary?.targetProteinG);
+    _setTargetText(_fatController, summary?.targetFatG);
+    _setTargetText(_carbController, summary?.targetCarbG);
+  }
+
+  void _setTargetText(TextEditingController controller, double? value) {
+    final text = value == null ? '' : value.round().toString();
+    if (controller.text != text) {
+      controller.text = text;
+    }
+  }
 
   String? get _arrivalNote {
     final goalWeight = double.tryParse(_targetWeightController.text.trim());
@@ -120,7 +170,10 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     if (picked == null || !mounted) {
       return;
     }
-    setState(() => _targetDate = picked);
+    setState(() {
+      _targetDate = picked;
+      _refreshAutomaticTargets();
+    });
   }
 
   int get _daysLeft {
@@ -209,15 +262,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   }
 
   void _saveCalorieTarget() {
-    final current = widget.controller.nutritionSettings;
-    final base =
-        current ??
-        NutritionSettings(
-          useHealthIntegration: widget.controller.useHealthIntegration,
-          activityLevel: widget.controller.useHealthIntegration
-              ? null
-              : ActivityLevel.moderate,
-        );
+    final base = _pendingSettings;
     if (_calorieMode == CalorieTargetMode.manual) {
       widget.controller.setNutritionSettings(
         base.copyWith(
@@ -350,7 +395,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
                   title: GoalType.lose.label,
                   description: '体重を減らしたい',
                   selected: _goalType == GoalType.lose,
-                  onTap: () => setState(() => _goalType = GoalType.lose),
+                  onTap: () => _selectGoalType(GoalType.lose),
                 ),
               ),
               const SizedBox(width: 10),
@@ -360,7 +405,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
                   title: GoalType.maintain.label,
                   description: '今の体重を\nキープしたい',
                   selected: _goalType == GoalType.maintain,
-                  onTap: () => setState(() => _goalType = GoalType.maintain),
+                  onTap: () => _selectGoalType(GoalType.maintain),
                 ),
               ),
               const SizedBox(width: 10),
@@ -370,7 +415,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
                   title: GoalType.gain.label,
                   description: '体重を増やしたい',
                   selected: _goalType == GoalType.gain,
-                  onTap: () => setState(() => _goalType = GoalType.gain),
+                  onTap: () => _selectGoalType(GoalType.gain),
                 ),
               ),
             ],
@@ -438,7 +483,10 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
           const SizedBox(height: 18),
           CalorieTargetEditor(
             mode: _calorieMode,
-            onModeChanged: (mode) => setState(() => _calorieMode = mode),
+            onModeChanged: (mode) => setState(() {
+              _calorieMode = mode;
+              _refreshAutomaticTargets();
+            }),
             onEdited: () {
               if (_calorieMode == CalorieTargetMode.manual) {
                 return;
@@ -462,6 +510,13 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
         ],
       ),
     );
+  }
+
+  void _selectGoalType(GoalType type) {
+    setState(() {
+      _goalType = type;
+      _refreshAutomaticTargets();
+    });
   }
 
   Widget _goalIcon(String asset, GoalType type) {

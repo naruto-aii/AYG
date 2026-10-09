@@ -80,20 +80,54 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     };
   }
 
+  /// 保存する予定の食事目標の設定（_save と同じ土台）。
+  NutritionSettings get _baseSettings {
+    return widget.controller.nutritionSettings ??
+        NutritionSettings(
+          useHealthIntegration: widget.controller.useHealthIntegration,
+          activityLevel: widget.controller.useHealthIntegration
+              ? null
+              : ActivityLevel.moderate,
+        );
+  }
+
+  /// 自動のあいだは、編集中の目標体重・目標日・方向性で4つの欄を埋め直す。
+  /// プログラムからの書き込みは onChanged を通らないので、手入力には切り替わらない。
   void _applyCalculatedTargets() {
-    final summary = widget.controller.summary;
-    if (summary == null || summary.targetKcal <= 0) {
+    if (_calorieMode != CalorieTargetMode.automatic) {
       return;
     }
-    _kcalController.text = summary.targetKcal.round().toString();
-    _proteinController.text = summary.targetProteinG.round().toString();
-    _fatController.text = summary.targetFatG.round().toString();
-    _carbController.text = summary.targetCarbG.round().toString();
+    final goalWeight = double.tryParse(_targetWeightController.text.trim());
+    final summary =
+        goalWeight == null || goalWeight < 30 || goalWeight > 300
+        ? null
+        : widget.controller.previewAutomaticTargets(
+            goal: Goal(
+              type: _goalType,
+              targetWeightKg: goalWeight,
+              targetDate: _targetDate,
+              goalPace: _goalType == GoalType.maintain
+                  ? GoalPace.standard
+                  : widget.controller.goal!.goalPace,
+            ),
+            settings: _baseSettings,
+          );
+    _setTargetText(_kcalController, summary?.targetKcal);
+    _setTargetText(_proteinController, summary?.targetProteinG);
+    _setTargetText(_fatController, summary?.targetFatG);
+    _setTargetText(_carbController, summary?.targetCarbG);
+  }
+
+  void _setTargetText(TextEditingController controller, double? value) {
+    final text = value == null ? '' : value.round().toString();
+    if (controller.text != text) {
+      controller.text = text;
+    }
   }
 
   void _onDraftChanged() {
     if (mounted) {
-      setState(() {});
+      setState(_applyCalculatedTargets);
     }
   }
 
@@ -125,7 +159,10 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
       lastDate: DateTime(now.year + 5),
     );
     if (picked != null) {
-      setState(() => _targetDate = picked);
+      setState(() {
+        _targetDate = picked;
+        _applyCalculatedTargets();
+      });
     }
   }
 
@@ -193,15 +230,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     }
 
     setState(() => _isSaving = true);
-    final currentSettings = widget.controller.nutritionSettings;
-    final base =
-        currentSettings ??
-        NutritionSettings(
-          useHealthIntegration: widget.controller.useHealthIntegration,
-          activityLevel: widget.controller.useHealthIntegration
-              ? null
-              : ActivityLevel.moderate,
-        );
+    final base = _baseSettings;
     await widget.controller.saveNutritionSettingsSettings(
       _calorieMode == CalorieTargetMode.manual
           ? base.copyWith(
@@ -246,7 +275,10 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
   );
 
   void _selectType(GoalType type) {
-    setState(() => _goalType = type);
+    setState(() {
+      _goalType = type;
+      _applyCalculatedTargets();
+    });
   }
 
   String? _arrivalNote() {
@@ -363,10 +395,10 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
           CalorieTargetEditor(
             mode: _calorieMode,
             onModeChanged: (mode) {
-              setState(() => _calorieMode = mode);
-              if (mode == CalorieTargetMode.automatic) {
+              setState(() {
+                _calorieMode = mode;
                 _applyCalculatedTargets();
-              }
+              });
             },
             onEdited: _editTargets,
             kcalController: _kcalController,

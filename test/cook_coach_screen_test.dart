@@ -61,7 +61,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('自炊コーチ (β)'), findsOneWidget);
-    final title = tester.widget<Text>(find.byKey(const Key('cook_coach_title')));
+    final title = tester.widget<Text>(
+      find.byKey(const Key('cook_coach_title')),
+    );
     expect(title.style?.fontSize, AppTypography.headingL.fontSize);
     expect(find.text('夕食の目標 650kcal（P 32g / F 18g / C 75g）'), findsOneWidget);
     expect(events, contains('cook_coach_open'));
@@ -91,12 +93,51 @@ void main() {
     expect(find.text('目標の範囲に入っています'), findsNothing);
     expect(find.text('手持ちだけで作れます'), findsOneWidget);
     expect(find.text('買い足しで作れます'), findsOneWidget);
-    expect(find.byKey(const Key('cook_ingredient_on_hand_鶏むね肉')), findsOneWidget);
+    expect(
+      find.byKey(const Key('cook_ingredient_on_hand_鶏むね肉')),
+      findsOneWidget,
+    );
     expect(find.text('120g'), findsWidgets);
     expect(find.byKey(const Key('cook_kcal_on_hand_鶏むね肉')), findsOneWidget);
     expect(find.text('成分表に無い食品はAIの目安です。'), findsOneWidget);
     expect(events, contains('cook_coach_generate'));
     expect(events, contains('cook_coach_retry'));
+  });
+
+  testWidgets('two plans of the same kind both show without a key clash', (
+    tester,
+  ) async {
+    final payload = _payload();
+    final patterns = (payload['patterns'] as List)
+        .map(
+          (item) => {
+            ...(item as Map<String, Object?>),
+            'kind': 'extra',
+            'extras': ['トマト'],
+          },
+        )
+        .toList();
+    await tester.pumpWidget(
+      _app(
+        CookCoachScreen(
+          now: now,
+          target: target,
+          client: CookCoachClient(
+            invoke: (body) async => {...payload, 'patterns': patterns},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cook_choice_卵')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('cook_generate')));
+    await tester.tap(find.byKey(const Key('cook_generate')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('買い足しで作れます'), findsNWidgets(2));
+    expect(find.byKey(const Key('cook_pattern_extra')), findsOneWidget);
+    expect(find.byKey(const Key('cook_pattern_extra_2')), findsOneWidget);
   });
 
   testWidgets('register writes the shown grams and nutrition to the outbox', (
@@ -175,10 +216,10 @@ void main() {
       chicken.totalKcal + sauce.totalKcal,
       int.parse(savedTotals.data!.split('kcal').first),
     );
-    expect(
-      await pending.preferLocalIds(PendingRecordKind.food),
-      {chicken.id, sauce.id},
-    );
+    expect(await pending.preferLocalIds(PendingRecordKind.food), {
+      chicken.id,
+      sauce.id,
+    });
     expect(await pending.pendingDeleteIds(PendingRecordKind.food), isEmpty);
     expect(
       events.where((event) => event['name'] == 'food_entry_added'),
@@ -220,9 +261,7 @@ void main() {
   });
 
   testWidgets('plus is required and the coach screen opens it', (tester) async {
-    final controller = AppController(
-      subscriptionRepository: _Plus(false),
-    );
+    final controller = AppController(subscriptionRepository: _Plus(false));
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       _app(
@@ -250,35 +289,38 @@ void main() {
     expect(find.byKey(const Key('cook_generate')), findsNothing);
   });
 
-  testWidgets('a day already at the target explains that and does not generate', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _app(
-        CookCoachScreen(
-          now: now,
-          target: const CookCoachMealTarget(
-            slot: MealSlot.dinner,
-            kcal: 0,
-            proteinG: 0,
-            fatG: 0,
-            carbG: 0,
-            remainingKcal: 0,
-            remainingProteinG: 0,
-            remainingFatG: 0,
-            remainingCarbG: 0,
+  testWidgets(
+    'a day already at the target explains that and does not generate',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          CookCoachScreen(
+            now: now,
+            target: const CookCoachMealTarget(
+              slot: MealSlot.dinner,
+              kcal: 0,
+              proteinG: 0,
+              fatG: 0,
+              carbG: 0,
+              remainingKcal: 0,
+              remainingProteinG: 0,
+              remainingFatG: 0,
+              remainingCarbG: 0,
+            ),
+            client: CookCoachClient(invoke: (_) async => _payload()),
           ),
-          client: CookCoachClient(invoke: (_) async => _payload()),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('今日の目標は、もう足りています。'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('cook_choice_卵')));
-    await tester.pumpAndSettle();
-    final button = tester.widget<DesignButton>(find.byKey(const Key('cook_generate')));
-    expect(button.onPressed, isNull);
-  });
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('今日の目標は、もう足りています。'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('cook_choice_卵')));
+      await tester.pumpAndSettle();
+      final button = tester.widget<DesignButton>(
+        find.byKey(const Key('cook_generate')),
+      );
+      expect(button.onPressed, isNull);
+    },
+  );
 }
 
 Widget _app(Widget home) {

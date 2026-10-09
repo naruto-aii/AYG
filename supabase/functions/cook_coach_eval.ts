@@ -265,11 +265,13 @@ function scoreSelection(scenario: EvalScenario, selection: CookSelection): strin
     for (const reason of scoreDish(dish, scenario.target, scenario.slot, scenario.note)) {
       reasons.push(`${label} ${reason}`);
     }
-    if (label === "A" && dish.extras.length > 0) {
-      reasons.push("A bought food");
+    // 手持ちの案は買わない。買い足しの案は1〜2品だけ買う（片方の種類しか作れないときは2案とも同じ種類）。
+    const kind = label === "A" ? selection.aKind : selection.bKind;
+    if (kind === "on_hand" && dish.extras.length > 0) {
+      reasons.push(`${label} bought food`);
     }
-    if (label === "B" && (dish.extras.length < 1 || dish.extras.length > 2)) {
-      reasons.push(`B extras ${dish.extras.length}`);
+    if (kind === "extra" && (dish.extras.length < 1 || dish.extras.length > 2)) {
+      reasons.push(`${label} extras ${dish.extras.length}`);
     }
   }
   if (selection.a && selection.b) {

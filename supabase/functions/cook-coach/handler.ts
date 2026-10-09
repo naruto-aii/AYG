@@ -215,7 +215,7 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
     avoid: input.avoid,
     recentNames: input.recent,
   });
-  if (selection.a == null && deps.recordZeroHit) {
+  if ((selection.a == null || selection.aKind !== "on_hand") && deps.recordZeroHit) {
     try {
       await deps.recordZeroHit({
         ingredients: zeroHitIngredients(input.ingredients),
@@ -226,8 +226,8 @@ export async function handleCookCoach(req: Request, deps: CookDeps): Promise<Res
     }
   }
   const patterns = [
-    selection.a ? patternJson("on_hand", selection.a) : null,
-    selection.b ? patternJson("extra", selection.b) : null,
+    selection.a ? patternJson(selection.aKind, selection.a) : null,
+    selection.b ? patternJson(selection.bKind, selection.b) : null,
   ].filter((item) => item != null);
   const latencyMs = Math.max(0, Date.now() - started);
   const stored = {

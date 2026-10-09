@@ -58,3 +58,16 @@ Deno.test("cook coach: an unusable ingredient still returns plans and says it wa
   assert(result.omitNote.includes("使っていません"), result.omitNote);
   assert(result.omitNote.includes("パスタ"), result.omitNote);
 });
+
+Deno.test("cook coach: two different plans even when only one kind can be made", () => {
+  for (const ingredients of [["納豆", "ごはん"], ["ごはん"], ["キャベツ"], ["鶏むね肉", "ごはん"]]) {
+    for (const kcal of [465, 780, 1200]) {
+      const result = selectCookPlans(cookRecipes, { ingredients, slot: "dinner", target: targetFor(kcal) });
+      const label = `${ingredients.join("+")}/${kcal}`;
+      assert(result.a !== null && result.b !== null, `one plan: ${label}`);
+      assert(result.a!.name !== result.b!.name, `same plan: ${label}`);
+    }
+  }
+  const rice = selectCookPlans(cookRecipes, { ingredients: ["ごはん"], slot: "dinner", target: targetFor(780) });
+  assertEquals([rice.aKind, rice.bKind], ["extra", "extra"]);
+});

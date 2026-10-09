@@ -107,7 +107,9 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
         remainingProteinG: given.remainingProteinG > 0
             ? given.remainingProteinG
             : given.proteinG,
-        remainingFatG: given.remainingFatG > 0 ? given.remainingFatG : given.fatG,
+        remainingFatG: given.remainingFatG > 0
+            ? given.remainingFatG
+            : given.fatG,
         remainingCarbG: given.remainingCarbG > 0
             ? given.remainingCarbG
             : given.carbG,
@@ -270,10 +272,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
           entryIds: ids,
         );
       }
-      CatalogActions.cookCoachRegister(
-        foodEntryIds: ids,
-        pattern: dish.kind,
-      );
+      CatalogActions.cookCoachRegister(foodEntryIds: ids, pattern: dish.kind);
       if (!mounted) {
         return;
       }
@@ -525,7 +524,8 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
           height: 52,
           showTrailingIcon: false,
           loading: _busy,
-          onPressed: _busy || _ingredients.isEmpty || _blockedMessage(target) != null
+          onPressed:
+              _busy || _ingredients.isEmpty || _blockedMessage(target) != null
               ? null
               : _generate,
         ),
@@ -571,13 +571,23 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
             key: const Key('cook_estimate_note'),
             style: AppTypography.caption.copyWith(height: 1.15),
           ),
-        for (final dish in result.patterns) ...[
+        for (var index = 0; index < result.patterns.length; index++) ...[
           const SizedBox(height: 12),
-          _dishCard(dish),
+          _dishCard(
+            result.patterns[index],
+            // 2案とも同じ種類（手持ち同士・買い足し同士）のときも、キーが重ならないようにする。
+            second: result.patterns
+                .take(index)
+                .any((item) => item.kind == result.patterns[index].kind),
+          ),
         ],
         if (_error != null) ...[
           const SizedBox(height: 12),
-          Text(_error!, key: const Key('cook_error'), style: AppTypography.bodyS),
+          Text(
+            _error!,
+            key: const Key('cook_error'),
+            style: AppTypography.bodyS,
+          ),
         ],
         const SizedBox(height: 12),
         DesignButton(
@@ -592,9 +602,11 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
     );
   }
 
-  Widget _dishCard(CookDish dish) {
+  Widget _dishCard(CookDish dish, {bool second = false}) {
     final onHand = dish.kind != 'extra';
-    final assumesRice = dish.ingredients.any((item) => item.assumed && _isRiceName(item.name));
+    final assumesRice = dish.ingredients.any(
+      (item) => item.assumed && _isRiceName(item.name),
+    );
     final title = !onHand
         ? '買い足しで作れます'
         : assumesRice
@@ -606,12 +618,15 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
     );
     final emphasis = AppTypography.titleM.copyWith(height: 1.2);
     return DesignCard(
-      key: Key('cook_pattern_${dish.kind}'),
+      key: Key('cook_pattern_${dish.kind}${second ? '_2' : ''}'),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
+          Text(
+            title,
+            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+          ),
           const SizedBox(height: 4),
           Text(dish.name, style: AppTypography.headingM),
           if (dish.minutes > 0) ...[
@@ -632,11 +647,19 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
               Expanded(child: Text('材料', style: AppTypography.caption)),
               SizedBox(
                 width: 88,
-                child: Text('量', textAlign: TextAlign.right, style: AppTypography.caption),
+                child: Text(
+                  '量',
+                  textAlign: TextAlign.right,
+                  style: AppTypography.caption,
+                ),
               ),
               SizedBox(
                 width: 64,
-                child: Text('kcal', textAlign: TextAlign.right, style: AppTypography.caption),
+                child: Text(
+                  'kcal',
+                  textAlign: TextAlign.right,
+                  style: AppTypography.caption,
+                ),
               ),
             ],
           ),

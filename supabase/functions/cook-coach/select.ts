@@ -61,9 +61,14 @@ export type CookPlanInput = {
   recentNames?: string[];
 };
 
+export type PlanKind = "on_hand" | "extra";
+
 export type CookSelection = {
   a: MeasuredDish | null;
   b: MeasuredDish | null;
+  /// a/b が手持ちの案か買い足しの案か。片方の種類しか作れないときは、2案とも同じ種類になる。
+  aKind: PlanKind;
+  bKind: PlanKind;
   onHandHits: number;
   extraHits: number;
   emptyMessage: string;
@@ -161,9 +166,28 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
   const run = (names: string[], noteText: string) => {
     const onHand = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "on_hand");
     const extra = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "extra");
-    const a = pick(onHand);
-    const b = pick(extra.filter((item) => !a || item.dish.name !== a.dish.name));
-    return { a, b, onHandHits: onHand.length, extraHits: extra.length };
+    let a = pick(onHand);
+    let b = pick(extra.filter((item) => !a || item.dish.name !== a.dish.name));
+    let aKind: PlanKind = "on_hand";
+    let bKind: PlanKind = "extra";
+    // 案は必ず2つ、別の料理で出す。片方の種類が作れないときは、もう片方の種類から別の主菜の案を足す。
+    const other = (items: Ranked[], first: Ranked) =>
+      pick(items.filter((item) => item.recipeId !== first.recipeId && item.dish.name !== first.dish.name));
+    if (!a && b) {
+      const second = other(extra, b);
+      if (second) {
+        a = b;
+        aKind = "extra";
+        b = second;
+      }
+    } else if (a && !b) {
+      const second = other(onHand, a);
+      if (second) {
+        b = second;
+        bKind = "on_hand";
+      }
+    }
+    return { a, b, aKind, bKind, onHandHits: onHand.length, extraHits: extra.length };
   };
   let found = listed.length > 0 ? run(listed, omitNote) : null;
   if (!found || (!found.a && !found.b)) {
@@ -199,6 +223,8 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
   return {
     a: a?.dish ?? null,
     b: b?.dish ?? null,
+    aKind: found?.aKind ?? "on_hand",
+    bKind: found?.bKind ?? "extra",
     onHandHits: found?.onHandHits ?? 0,
     extraHits: found?.extraHits ?? 0,
     emptyMessage: a || b ? "" : emptyMessage,

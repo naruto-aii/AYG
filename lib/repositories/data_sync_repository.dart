@@ -739,6 +739,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 
   Future<void> _pushAppSettings(String userId) async {
     final settings = await _settingsRepository.loadAppSettings();
+    if (!settings.onboardingComplete) {
+      // 手元が「未完了」なのは、ログアウトで消した直後か新しい端末で、まだ
+      // サーバから取っていないだけ。ここで送ると、取得の前にサーバの「完了」を
+      // false で上書きし、同じアカウントで入り直すたびに初回設定（Health・
+      // プロフィール）からやり直しになる。未完了に戻す操作は無いので送らない。
+      await _pendingRecords?.acknowledgeTable('app_settings');
+      return;
+    }
     await _client.from('app_settings').upsert({
       'user_id': userId,
       'onboarding_complete': settings.onboardingComplete,

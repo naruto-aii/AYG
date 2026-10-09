@@ -83,9 +83,11 @@ void main() {
       File('${directory.path}/paywall_plans_fallback.png'),
       scrollToPlans: true,
     );
-    expect(find.text('¥980 ・ いつでも解約できます'), findsOneWidget);
-    expect(find.text('¥4,900 ・ 月あたり約817円'), findsOneWidget);
-    expect(find.text('¥8,800 ・ 月あたり約733円'), findsOneWidget);
+    expect(find.text('¥980'), findsOneWidget);
+    expect(find.text('¥4,900'), findsOneWidget);
+    expect(find.text('¥8,800'), findsOneWidget);
+    expect(find.text('月あたり約817円'), findsOneWidget);
+    expect(find.text('月あたり約733円'), findsOneWidget);
     expect(find.text('¥8,800で始める'), findsOneWidget);
     expect(find.text('1か月分お得'), findsOneWidget);
     expect(find.text('一番お得'), findsOneWidget);
@@ -105,17 +107,14 @@ void main() {
     );
     expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
     expect(find.text('写真で登録 (β)'), findsOneWidget);
-    expect(find.text('外食・コンビニ (β)'), findsOneWidget);
     expect(find.text('AIで探す (β)'), findsOneWidget);
     expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
-    expect(find.textContaining('セブン サラダチキン'), findsOneWidget);
-    expect(find.textContaining('自炊コーチ'), findsOneWidget);
-    expect(find.textContaining('あわせて1日15回までです'), findsOneWidget);
-    expect(find.text('ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。'), findsOneWidget);
-    expect(find.text('写真で登録・AIで探す・パーソナルコーチ'), findsOneWidget);
+    expect(find.text('その他の機能を見る'), findsOneWidget);
+    // 外食・コンビニなどは「その他の機能を見る」のシートに出す。
+    expect(find.text('外食・コンビニ (β)'), findsNothing);
     expect(find.text('食事・運動の記録にメモを追加'), findsNothing);
     expect(find.textContaining('精度検証中'), findsNothing);
-    expect(find.text('プランを選ぶ'), findsOneWidget);
+    expect(find.byKey(const Key('plus-plans')), findsOneWidget);
 
     await tester.binding.setSurfaceSize(const Size(390, 844));
     final key = GlobalKey();
@@ -276,7 +275,7 @@ void main() {
       File('${directory.path}/asc-review-paywall-features.png'),
     );
     expect(find.text('カロナビ+'), findsOneWidget);
-    expect(find.text('写真で登録・AIで探す・パーソナルコーチ'), findsOneWidget);
+    expect(find.text('その他の機能を見る'), findsOneWidget);
     expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
     expect(find.text('写真で登録 (β)'), findsOneWidget);
     _expectAbovePurchase(tester, 'ウィジェットでワンタップ記録');
@@ -363,7 +362,7 @@ Future<void> _capture(
   );
   await tester.pumpAndSettle();
   if (scrollToPlans) {
-    await tester.scrollUntilVisible(find.text('プランを選ぶ'), 400);
+    await tester.scrollUntilVisible(find.byKey(const Key('plus-plans')), 400);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('年額'));
     await tester.pumpAndSettle();
@@ -400,7 +399,7 @@ Future<void> _writeAsc(WidgetTester tester, GlobalKey key, File file) async {
 }
 
 Future<void> _alignPlans(WidgetTester tester) async {
-  final heading = find.text('プランを選ぶ');
+  final heading = find.byKey(const Key('plus-plans'));
   await tester.scrollUntilVisible(heading, 500);
   await tester.pumpAndSettle();
   await Scrollable.ensureVisible(
@@ -413,7 +412,7 @@ Future<void> _alignPlans(WidgetTester tester) async {
 
 void _expectPlansOnScreen(WidgetTester tester) {
   final buttonTop = tester.getTopLeft(find.byKey(const Key('plus-purchase'))).dy;
-  final headingTop = tester.getTopLeft(find.text('プランを選ぶ')).dy;
+  final headingTop = tester.getTopLeft(find.byKey(const Key('plus-plans'))).dy;
   expect(headingTop, greaterThanOrEqualTo(0));
   expect(headingTop, lessThan(buttonTop));
   for (final label in ['月額', '半年', '年額']) {
@@ -422,9 +421,12 @@ void _expectPlansOnScreen(WidgetTester tester) {
     expect(rect.bottom, lessThan(buttonTop));
   }
   for (final price in [
-    '¥980 ・ いつでも解約できます',
-    '¥4,900 ・ 月あたり約817円',
-    '¥8,800 ・ 月あたり約733円',
+    '¥980',
+    '¥4,900',
+    '¥8,800',
+    '1か月ごと',
+    '月あたり約817円',
+    '月あたり約733円',
   ]) {
     final rect = tester.getRect(find.text(price));
     expect(rect.top, greaterThanOrEqualTo(0));

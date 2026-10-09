@@ -207,7 +207,7 @@ function fingerprint(row: Row): string {
   const totals = macros(row.chosen);
   return `${foods}#${totals.kcal},${totals.proteinG},${totals.fatG},${totals.carbG}`;
 }
-if (recipes.length !== 100) {
+if (recipes.length !== 107) {
   failures.push(`recipe count ${recipes.length}`);
 }
 for (const recipe of recipes) {
@@ -264,6 +264,6 @@ for (const recipe of recipes) {
   console.log(line(canonical(recipe)));
 }
 
-if (failures.length > 0 || recipes.length !== 100) {
+if (failures.length > 0 || recipes.length !== 107) {
   Deno.exit(1);
 }

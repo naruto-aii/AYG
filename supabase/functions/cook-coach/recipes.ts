@@ -1,4 +1,4 @@
-// 家庭料理100品。各スロットの候補は、その調理で成立するものだけ。
+// 家庭料理107品。各スロットの候補は、その調理で成立するものだけ。
 // 料理名の {スロット} は入れ替え後の食品名になる。
 // アプリには埋め込まない。追加は recipes.ts を編集し、seed を出して DB へ入れる。
 
@@ -1007,6 +1007,77 @@ export function buildCookRecipes(): CookRecipe[] {
       s("protein", [["pork", 110]]),
       s("veg", [["moyashi", 100]]),
       oil(6), soy(8), pepper(),
+    ]),
+    // 納豆を手持ちにしたときの家庭料理。どれも火を通す工程がある。
+    dish("natto-omelette", "納豆オムレツ", "和", "主菜", "焼", [
+      "卵を溶き、納豆としょうゆ{g:soy}gとこしょう{g:pepper}gを混ぜる。",
+      "フライパンを中火にし、{oil}{g:oil}gを熱する。",
+      "卵液を流し入れて2分焼く。",
+      "半分に折って3分火を通し、器に盛る。",
+    ], [s("protein", [["natto", 50]]), s("egg", [["egg", 50]]), oil(5), soy(4), pepper()]),
+    dish("natto-jiru", "納豆と{veg}の味噌汁", "和", "汁物", "煮", [
+      "{veg}を食べやすく切る。",
+      "鍋に水を300mlと顆粒だし{g:dashi}gを入れて4分煮立たせる。",
+      "{veg}と納豆を入れて3分煮る。",
+      "味噌{g:miso}gを溶き入れて火を止める。",
+    ], [
+      s("protein", [["natto", 40]]),
+      s("veg", [["negi", 30], ["tofu", 60], ["daikon", 50], ["hakusai", 50], ["komatsuna", 40], ["shimeji", 40]]),
+      dashi(), miso(12),
+    ]),
+    dish("natto-ae", "{veg}の納豆和え", "和", "副菜", "和え", [
+      "{veg}を食べやすく切る。",
+      "鍋に湯を沸かし、{veg}を2分ゆでて水気をしぼる。",
+      "納豆としょうゆ{g:soy}gで和える。",
+      "3分置いて味をなじませ、器に盛る。",
+    ], [
+      s("veg", [["spinach", 70], ["komatsuna", 70], ["broccoli", 70], ["cabbage", 70]]),
+      s("protein", [["natto", 40]]),
+      soy(4),
+    ]),
+    dish("natto-fry", "{veg}と納豆の炒め", "和", "主菜", "炒", [
+      "{veg}を食べやすく切る。",
+      "フライパンを中火にし、{oil}{g:oil}gで{veg}を3分炒める。",
+      "納豆を加えて2分炒め、しょうゆ{g:soy}gとみりん{g:mirin}gで味をつける。",
+      "火を止めて器に盛る。",
+    ], [
+      s("protein", [["natto", 60]]),
+      s("veg", [["cabbage", 80], ["moyashi", 90], ["komatsuna", 80], ["negi", 50], ["piman", 60]]),
+      oil(6), soy(6), mirin(6),
+    ]),
+    dish("natto-pasta", "納豆と{veg}の和風パスタ", "和", "丼麺", "炒", [
+      "鍋に湯を沸かし、スパゲティ{g:rice}gを8分ゆでる。",
+      "{veg}を食べやすく切る。",
+      "フライパンを中火にし、{oil}{g:oil}gで{veg}を2分炒め、パスタと納豆としょうゆ{g:soy}gとこしょう{g:pepper}gを加えて1分絡める。",
+      "器に盛る。",
+    ], [
+      s("protein", [["natto", 50]]),
+      s("veg", [["negi", 30], ["spinach", 50], ["shimeji", 50], ["komatsuna", 50]]),
+      s("rice", [["pasta", 200]]),
+      oil(6), soy(8), pepper(),
+    ]),
+    // うどんを手持ちにしたときの、肉を使わない家庭料理。
+    dish("kakitama-udon", "{veg}のかき玉うどん", "和", "丼麺", "煮", [
+      "{veg}を切り、卵を溶く。",
+      "鍋に水を350mlと顆粒だし{g:dashi}gを入れて煮立たせ、{veg}を3分煮る。",
+      "うどんとしょうゆ{g:soy}gとみりん{g:mirin}gを加えて3分煮る。",
+      "溶き卵を回し入れて1分火を通す。",
+    ], [
+      s("egg", [["egg", 50]]),
+      s("veg", [["negi", 30], ["spinach", 50], ["hakusai", 60], ["shimeji", 50]]),
+      s("rice", [["udon", 220]]),
+      dashi(), soy(8), mirin(6),
+    ]),
+    dish("yaki-udon", "{protein}と{veg}の焼きうどん", "和", "丼麺", "炒", [
+      "{protein}と{veg}を食べやすく切る。",
+      "フライパンを中火にし、{oil}{g:oil}gを熱して{protein}を3分炒める。",
+      "{veg}を加えて2分炒め、うどんを入れて2分炒める。",
+      "しょうゆ{g:soy}gとみりん{g:mirin}gを絡めて器に盛る。",
+    ], [
+      s("protein", [["pork", 70], ["chicken", 80], ["bacon", 40], ["chikuwa", 60], ["egg", 50]]),
+      s("veg", [["cabbage", 80], ["onion", 50], ["moyashi", 80], ["piman", 50], ["carrot", 40]]),
+      s("rice", [["udon", 220]]),
+      oil(8), soy(10), mirin(6),
     ]),
   ];
   return recipes;

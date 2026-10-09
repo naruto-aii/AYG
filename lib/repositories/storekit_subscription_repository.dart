@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart'
+    show SKProductDiscountPaymentMode, SKRequestMaker, SKSubscriptionPeriodUnit;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/subscription_catalog.dart';
@@ -35,9 +37,7 @@ class _InAppPurchaseClient implements StorePurchaseClient {
   Future<bool> isAvailable() => _store.isAvailable();
 
   @override
-  Future<ProductDetailsResponse> queryProductDetails(
-    Set<String> identifiers,
-  ) {
+  Future<ProductDetailsResponse> queryProductDetails(Set<String> identifiers) {
     return _store.queryProductDetails(identifiers);
   }
 
@@ -71,11 +71,27 @@ void emitStoreKitPurchaseResult({
   String? errorCode,
 }) {
   Analytics.emit('purchase_result', {
-    'product_id':
-        SubscriptionCatalog.planKeyForProduct(productId) ?? productId,
+    'product_id': SubscriptionCatalog.planKeyForProduct(productId) ?? productId,
     'status': status,
     if (errorCode != null && errorCode.isNotEmpty) 'error_code': errorCode,
   });
+}
+
+/// お試しの期間を日数にする。日・週だけ数える。月や年のお試しは日数が決まらないので出さない。
+int? freeTrialDaysFor({
+  required SKSubscriptionPeriodUnit unit,
+  required int numberOfUnits,
+  required int numberOfPeriods,
+}) {
+  final periods = numberOfPeriods <= 0 ? 1 : numberOfPeriods;
+  if (numberOfUnits <= 0) {
+    return null;
+  }
+  return switch (unit) {
+    SKSubscriptionPeriodUnit.day => numberOfUnits * periods,
+    SKSubscriptionPeriodUnit.week => numberOfUnits * periods * 7,
+    _ => null,
+  };
 }
 
 /// App Store の自動更新サブスクリプション。
@@ -87,6 +103,8 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     Stream<List<PurchaseDetails>>? purchaseUpdates,
     Future<EntitlementLoad> Function()? loadEntitlements,
     DateTime Function()? clock,
+    Future<Map<String, int>> Function(Set<String> productIds)?
+    loadFreeTrialDays,
     this.developmentPlusPreview = false,
     this.testPurchaseEnabled = false,
   }) : _store = store,
@@ -94,6 +112,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
        _preferences = preferences,
        _purchaseUpdates = purchaseUpdates,
        _loadEntitlements = loadEntitlements,
+       _loadFreeTrialDays = loadFreeTrialDays,
        _clock = clock ?? DateTime.now;
 
   static const expiryKey = 'calonavi_plus_expires_at_ms';
@@ -113,6 +132,8 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   static const _purchaseResultTimeout = Duration(minutes: 2);
   final Stream<List<PurchaseDetails>>? _purchaseUpdates;
   final Future<EntitlementLoad> Function()? _loadEntitlements;
+  final Future<Map<String, int>> Function(Set<String> productIds)?
+  _loadFreeTrialDays;
   final DateTime Function() _clock;
 
   /// 開発用ビルドで、購入せずに有料画面を見る。ストアの購入結果は上書きしない。
@@ -136,11 +157,18 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   bool _plus = false;
   bool _testPlus = false;
   bool _testOverridePresent = false;
+
+  /// サーバの有料に合わせて一時的に有料にしたとき、その相手のユーザー。
+  /// 別のアカウントに切り替えたりログアウトしたら外す。
+  String? _testPlusAdoptedFor;
+  bool _testPlusAdopted = false;
   bool _productsConfirmed = false;
   bool _authoritative = false;
   bool _suppressAuthoritativeSweep = false;
   String? _applicationUserName;
   String? _originalTransactionId;
+  final Map<String, String> _signedByProduct = {};
+  final Map<String, String> _revocationSigned = {};
   Completer<PurchaseStatus>? _purchaseWaiter;
   String? _purchaseWaitProductId;
 
@@ -154,6 +182,9 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   void bindStoreAccountToken(String? userId) {
     final trimmed = userId?.trim().toLowerCase();
     _applicationUserName = trimmed == null || trimmed.isEmpty ? null : trimmed;
+    if (_testPlusAdopted && _applicationUserName != _testPlusAdoptedFor) {
+      forgetServerPlusForTest();
+    }
   }
 
   @override
@@ -163,6 +194,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         SubscriptionEntitlementRecord(
           productId: id,
           expiresAt: _entitlement.expiryByProduct[id],
+          signedTransaction: _signedByProduct[id],
         ),
     ?_testConfirmed,
   ];
@@ -174,6 +206,17 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         SubscriptionEntitlementRecord(
           productId: id,
           expiresAt: _lastExpiry[id],
+          signedTransaction: _revocationSigned[id] ?? _signedByProduct[id],
+          revoked: _revocationSigned.containsKey(id),
+        ),
+    for (final entry in _revocationSigned.entries)
+      if (!_revokedIds.contains(entry.key) &&
+          SubscriptionCatalog.isPlusProduct(entry.key))
+        SubscriptionEntitlementRecord(
+          productId: entry.key,
+          expiresAt: null,
+          signedTransaction: entry.value,
+          revoked: true,
         ),
     ?_testInactive,
   ];
@@ -296,18 +339,22 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       if (response.error != null) {
         return SubscriptionOfferings.failed;
       }
+      final trials = await _freeTrials(response.productDetails);
       return SubscriptionOfferings(
         monthly: _offerFor(
           response.productDetails,
           SubscriptionCatalog.productIdFor(PlusPlan.monthly),
+          trials,
         ),
         halfYear: _offerFor(
           response.productDetails,
           SubscriptionCatalog.productIdFor(PlusPlan.halfYear),
+          trials,
         ),
         yearly: _offerFor(
           response.productDetails,
           SubscriptionCatalog.productIdFor(PlusPlan.yearly),
+          trials,
         ),
         loadFailed: false,
       );
@@ -358,7 +405,39 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     await _setTestPlus(false);
   }
 
+  @override
+  void adoptServerPlusForTest(bool serverPlus) {
+    // 入れ直した直後は切替の記録が無い。サーバが有料ならそれに合わせる。
+    // 端末には書かない（押したときだけ書く）。ストアの加入行にも触れない。
+    if (!testPurchaseEnabled ||
+        _testOverridePresent ||
+        !serverPlus ||
+        _testPlus) {
+      return;
+    }
+    _testPlus = true;
+    _testPlusAdopted = true;
+    _testPlusAdoptedFor = _applicationUserName;
+    _emitPlus();
+  }
+
+  @override
+  void forgetServerPlusForTest() {
+    if (!_testPlusAdopted) {
+      return;
+    }
+    _testPlusAdopted = false;
+    _testPlusAdoptedFor = null;
+    if (_testOverridePresent) {
+      return;
+    }
+    _testPlus = false;
+    _emitPlus();
+  }
+
   Future<void> _setTestPlus(bool active) async {
+    _testPlusAdopted = false;
+    _testPlusAdoptedFor = null;
     _testPlus = active;
     _testOverridePresent = true;
     final prefs = await _prefs();
@@ -451,10 +530,12 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
               purchase.verificationData.localVerificationData,
             ) !=
             null;
-        _applyRecord(
+        _applyIncoming(
           SubscriptionEntitlementRecord(
             productId: purchase.productID,
-            expiresAt: revoked ? null : _expiryOf(purchase),
+            expiresAt: _expiryOf(purchase),
+            signedTransaction: purchase.verificationData.serverVerificationData,
+            revoked: revoked,
           ),
         );
         emitStoreKitPurchaseResult(
@@ -557,7 +638,25 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     final remembered = {
       for (final id in previous) id: _entitlement.expiryByProduct[id],
     };
-    _entitlement.replaceAll(result.records);
+    final selection = selectEntitlementTransactions(result.records);
+    final activeIds = {for (final record in selection.active) record.productId};
+    _signedByProduct.removeWhere((id, _) => !activeIds.contains(id));
+    _revocationSigned
+      ..clear()
+      ..addEntries(
+        selection.revocations
+            .where(
+              (record) => (record.signedTransaction ?? '').trim().isNotEmpty,
+            )
+            .map(
+              (record) =>
+                  MapEntry(record.productId, record.signedTransaction!.trim()),
+            ),
+      );
+    for (final record in selection.active) {
+      _rememberSigned(record.productId, record.signedTransaction);
+    }
+    _entitlement.replaceAll(selection.active);
     _confirmedIds
       ..clear()
       ..addAll(_entitlement.expiryByProduct.keys);
@@ -574,6 +673,13 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
         _lastExpiry[id] = expiry;
       }
       _revokedIds.add(id);
+    }
+    for (final record in result.records) {
+      if (record.expiresAt == null &&
+          SubscriptionCatalog.isPlusProduct(record.productId) &&
+          !_confirmedIds.contains(record.productId)) {
+        _revokedIds.add(record.productId);
+      }
     }
     _productsConfirmed = true;
     await _persist();
@@ -597,6 +703,49 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     });
   }
 
+  /// 古い更新が後から来ても、期限も署名も戻さない。取り消しが今の期限より遅ければ無効にする。
+  void _applyIncoming(SubscriptionEntitlementRecord record) {
+    if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+      return;
+    }
+    final signed = record.signedTransaction?.trim() ?? '';
+    final current = _entitlement.expiryByProduct[record.productId];
+    if (record.revoked) {
+      if (current != null &&
+          record.expiresAt != null &&
+          record.expiresAt!.isBefore(current)) {
+        return;
+      }
+      if (signed.isNotEmpty) {
+        _revocationSigned[record.productId] = signed;
+      }
+      _applyRecord(
+        SubscriptionEntitlementRecord(
+          productId: record.productId,
+          expiresAt: null,
+          revoked: true,
+        ),
+      );
+      return;
+    }
+    if (record.expiresAt != null &&
+        current != null &&
+        !record.expiresAt!.isAfter(current)) {
+      return;
+    }
+    _revocationSigned.remove(record.productId);
+    _rememberSigned(record.productId, signed);
+    _applyRecord(record);
+  }
+
+  void _rememberSigned(String productId, String? signedTransaction) {
+    final signed = signedTransaction?.trim() ?? '';
+    if (signed.isEmpty || !SubscriptionCatalog.isPlusProduct(productId)) {
+      return;
+    }
+    _signedByProduct[productId] = signed;
+  }
+
   void _applyRecord(SubscriptionEntitlementRecord record) {
     if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
       return;
@@ -617,13 +766,13 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     _productsConfirmed = true;
   }
 
-  /// [SK2Transaction.transactions] は Transaction.all。並びは保証されないので
-  /// [SubscriptionEntitlementState.replaceAll] が商品ごとの最新期限を残す。
+  /// [SK2Transaction.transactions] は Transaction.all。並びは保証されない。
+  /// 商品ごとに、取り消されていない取引のうち期限が最も遅いものだけを送る。
   ///
   /// Transaction.currentEntitlements は in_app_purchase_storekit 0.4.13 では
-  /// restorePurchases の中だけで使われ、結果は購入ストリームへ流れる。
-  /// 読み取り専用の API は無い。課金猶予（期限は過ぎているが currentEntitlements
-  /// に残る）は、ここで判定しない。
+  /// restorePurchases の中だけで使われ、読み取り専用の API は無い。
+  /// ここでは Transaction.all から同じ選び方（最新の有効期限、返金は除外）をする。
+  /// 課金猶予（期限は過ぎているが currentEntitlements に残る）は、ここで判定しない。
   Future<EntitlementLoad> _loadStoreEntitlements() async {
     if (kIsWeb ||
         (defaultTargetPlatform != TargetPlatform.iOS &&
@@ -635,12 +784,14 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       return EntitlementLoad(
         records: [
           for (final transaction in transactions)
-            if (parseStoreRevocationDate(transaction.jsonRepresentation) ==
-                null)
-              SubscriptionEntitlementRecord(
-                productId: transaction.productId,
-                expiresAt: parseStoreExpiryMillis(transaction.expirationDate),
-              ),
+            SubscriptionEntitlementRecord(
+              productId: transaction.productId,
+              expiresAt: parseStoreExpiryMillis(transaction.expirationDate),
+              signedTransaction: transaction.receiptData,
+              revoked:
+                  parseStoreRevocationDate(transaction.jsonRepresentation) !=
+                  null,
+            ),
         ],
         authoritative: true,
       );
@@ -649,9 +800,72 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     }
   }
 
+  /// 無料のお試しの日数。読めないときは空にして、価格だけの表示に戻す。
+  Future<Map<String, int>> _freeTrials(List<ProductDetails> products) async {
+    final ids = {for (final product in products) product.id};
+    if (ids.isEmpty) {
+      return const {};
+    }
+    try {
+      final loader = _loadFreeTrialDays;
+      if (loader != null) {
+        return await loader(ids);
+      }
+      if (_purchaseClient != null || _purchaseUpdates != null) {
+        // テストの偽ストアでは、実機の StoreKit を呼ばない。
+        return const {};
+      }
+      return await _loadStoreFreeTrialDays(ids);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// in_app_purchase_storekit 0.4.13 の StoreKit 2 商品はお試しオファーを返さない。
+  /// 商品情報（SKProduct.introductoryPrice）から「無料」のお試しだけを読み、
+  /// StoreKit 2 の isEligibleForIntroOffer で使える人だけに出す。
+  /// どちらかが失敗したら、その商品は価格だけの表示にする。
+  Future<Map<String, int>> _loadStoreFreeTrialDays(Set<String> ids) async {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.macOS)) {
+      return const {};
+    }
+    final response = await SKRequestMaker().startProductRequest(ids.toList());
+    final result = <String, int>{};
+    for (final product in response.products) {
+      final intro = product.introductoryPrice;
+      if (intro == null ||
+          intro.paymentMode != SKProductDiscountPaymentMode.freeTrail) {
+        continue;
+      }
+      final days = freeTrialDaysFor(
+        unit: intro.subscriptionPeriod.unit,
+        numberOfUnits: intro.subscriptionPeriod.numberOfUnits,
+        numberOfPeriods: intro.numberOfPeriods,
+      );
+      if (days == null) {
+        continue;
+      }
+      bool eligible;
+      try {
+        eligible = await SK2Product.isIntroductoryOfferEligible(
+          product.productIdentifier,
+        );
+      } catch (_) {
+        eligible = false;
+      }
+      if (eligible) {
+        result[product.productIdentifier] = days;
+      }
+    }
+    return result;
+  }
+
   SubscriptionProductOffer? _offerFor(
     List<ProductDetails> products,
     String productId,
+    Map<String, int> trials,
   ) {
     for (final product in products) {
       if (product.id != productId || product.price.trim().isEmpty) {
@@ -664,6 +878,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
           storePeriod: _storePeriod(product),
         ),
         localizedPrice: product.price,
+        freeTrialDays: trials[product.id],
       );
     }
     return null;

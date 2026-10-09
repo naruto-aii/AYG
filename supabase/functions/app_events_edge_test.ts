@@ -82,6 +82,66 @@ Deno.test("a deleted user drops identifiers and payloads", async () => {
   assertEquals(rows[0].original_transaction_id, null);
 });
 
+Deno.test("a renewal updates the entitlement before the notification is stored", async () => {
+  const applied: Array<Record<string, unknown>> = [];
+  const rows: Record<string, unknown>[] = [];
+  const response = await handleAppStoreNotification(post("signed"), {
+    verify: () => Promise.resolve({
+      notificationUUID: "uuid-renew",
+      notificationType: "DID_RENEW",
+      originalTransactionId: "300",
+      productId: "calonavi_plus_monthly",
+      bundleId: "com.narutoaii.ayg",
+      environment: "Sandbox",
+      expiresDate: Date.parse("2026-12-01T00:00:00Z"),
+      revocationDate: null,
+      signedPayload: "signed",
+      decoded: {},
+    }),
+    exists: () => Promise.resolve(false),
+    matchUser: () => Promise.resolve({
+      userId: "11111111-1111-4111-8111-111111111111",
+      deleted: false,
+    }),
+    applyEntitlement: (input) => {
+      applied.push(input);
+      return Promise.resolve();
+    },
+    insert: (row) => {
+      rows.push(row);
+      return Promise.resolve();
+    },
+    insertFailed: () => Promise.resolve(),
+  });
+  assertEquals(response.status, 200);
+  assertEquals(applied.length, 1);
+  assertEquals(applied[0].environment, "Sandbox");
+  assertEquals(applied[0].expiresDate, Date.parse("2026-12-01T00:00:00Z"));
+  assertEquals(rows.length, 1);
+});
+
+Deno.test("an entitlement write failure is retried and does not store the notification", async () => {
+  const rows: Record<string, unknown>[] = [];
+  const response = await handleAppStoreNotification(post("signed"), {
+    verify: () => Promise.resolve({
+      notificationUUID: "uuid-retry",
+      notificationType: "DID_RENEW",
+      signedPayload: "signed",
+      decoded: {},
+    }),
+    exists: () => Promise.resolve(false),
+    matchUser: () => Promise.resolve({ userId: "user", deleted: false }),
+    applyEntitlement: () => Promise.reject(new Error("db")),
+    insert: (row) => {
+      rows.push(row);
+      return Promise.resolve();
+    },
+    insertFailed: () => Promise.resolve(),
+  });
+  assertEquals(response.status, 500);
+  assertEquals(rows, []);
+});
+
 Deno.test("a save failure returns 500 so Apple retries", async () => {
   const response = await handleAppStoreNotification(post("signed"), {
     verify: () => Promise.resolve({

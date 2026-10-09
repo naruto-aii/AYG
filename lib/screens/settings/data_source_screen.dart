@@ -51,6 +51,47 @@ class DataSourceScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text('写真で登録 (β) の推定', style: AppTypography.titleS),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '食事の写真と、入力した料理名と量から、AIがカロリーとPFCを推定します。成分表の数値ではありません。登録の前に確認して、直せます。写真はカロナビに保存しません。',
+                  style: body,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('AIで探す (β) の推定', style: AppTypography.titleS),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '入力した食品名から、AIがカロリーとPFCを推定します。成分表の数値ではありません。登録の前に確認して、直せます。食品データベースには追加しません。外食・コンビニ (β) も同じ推定です。',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('自炊コーチ (β) の栄養', style: AppTypography.titleS),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '料理は、確認済みの家庭料理から選びます。食材のグラムに対するカロリーとPFCは、日本食品標準成分表の値で計算します。画面に、この食事の目標との差を出します。',
+                  style: body,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text('パーソナルコーチ (β) の量と区分', style: AppTypography.titleS),
                 const SizedBox(height: AppSpacing.sm),
                 Text(

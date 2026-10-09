@@ -8,9 +8,17 @@ class SubscriptionProductOffer {
     required this.productId,
     required this.period,
     required this.localizedPrice,
+    this.freeTrialDays,
   });
 
   final String productId;
+
+  /// App Store Connect の「お試しオファー（無料）」の日数。
+  /// ストアが無料のお試しを返し、この Apple ID が使えるときだけ入る。無いときは null。
+  /// アプリ側で期間を数えることはしない。購入すれば StoreKit がそのまま適用する。
+  final int? freeTrialDays;
+
+  bool get hasFreeTrial => (freeTrialDays ?? 0) > 0;
   final PlusBillingPeriod period;
 
   /// StoreKit localized price, for example `¥380` or `$2.99`.

@@ -27,6 +27,7 @@
 		A1B702222222222222222051 /* AnalyticsEventWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111050 /* AnalyticsEventWriter.swift */; };
 		A1B702222222222222222052 /* AnalyticsEventWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111052 /* AnalyticsEventWriterTests.swift */; };
 		A1B702222222222222222053 /* AnalyticsEventWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111050 /* AnalyticsEventWriter.swift */; };
+		A1B702222222222222222054 /* LockScreenMealStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111001 /* LockScreenMealStore.swift */; };
 		A1B702222222222222222004 /* LockScreenMealWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111006 /* LockScreenMealWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1B702222222222222222010 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
 		A1B702222222222222222011 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
@@ -520,6 +521,7 @@
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
 				A1B702222222222222222052 /* AnalyticsEventWriterTests.swift in Sources */,
 				A1B702222222222222222053 /* AnalyticsEventWriter.swift in Sources */,
+				A1B702222222222222222054 /* LockScreenMealStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

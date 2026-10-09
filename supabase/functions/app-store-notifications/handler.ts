@@ -5,6 +5,10 @@ export type DecodedStoreNotification = {
   appAccountToken?: string | null;
   originalTransactionId?: string | null;
   productId?: string | null;
+  bundleId?: string | null;
+  environment?: string | null;
+  expiresDate?: number | null;
+  revocationDate?: number | null;
   signedPayload: string;
   decoded: Record<string, unknown>;
 };
@@ -20,6 +24,16 @@ export type NotificationDeps = {
   matchUser: (decoded: DecodedStoreNotification) => Promise<UserMatch>;
   insert: (row: Record<string, unknown>) => Promise<void>;
   insertFailed: (signedPayload: string) => Promise<void>;
+  /// 更新・期限・返金を、検証済みの取引から加入の行へ書く。失敗したら Apple に再送させる。
+  applyEntitlement?: (input: {
+    userId: string;
+    productId: string | null;
+    originalTransactionId: string | null;
+    bundleId: string | null;
+    environment: string | null;
+    expiresDate: number | null;
+    revocationDate: number | null;
+  }) => Promise<void>;
 };
 
 export async function handleAppStoreNotification(
@@ -54,6 +68,21 @@ export async function handleAppStoreNotification(
     return new Response("duplicate", { status: 200 });
   }
   const match = await deps.matchUser(decoded);
+  if (deps.applyEntitlement && match.userId && !match.deleted) {
+    try {
+      await deps.applyEntitlement({
+        userId: match.userId,
+        productId: decoded.productId ?? null,
+        originalTransactionId: decoded.originalTransactionId ?? null,
+        bundleId: decoded.bundleId ?? null,
+        environment: decoded.environment ?? null,
+        expiresDate: decoded.expiresDate ?? null,
+        revocationDate: decoded.revocationDate ?? null,
+      });
+    } catch {
+      return new Response("entitlement failed", { status: 500 });
+    }
+  }
   const row: Record<string, unknown> = {
     notification_uuid: decoded.notificationUUID,
     notification_type: decoded.notificationType,

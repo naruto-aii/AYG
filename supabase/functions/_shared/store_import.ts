@@ -39,12 +39,18 @@ export function parseTsv(text: string): Record<string, string>[] {
   });
 }
 
+function gzipBlob(bytes: Uint8Array): Blob {
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return new Blob([copy]);
+}
+
 export function gunzipBytes(bytes: Uint8Array): string {
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const stream = gzipBlob(bytes).stream().pipeThrough(new DecompressionStream("gzip"));
   return new Response(stream).text() as unknown as string;
 }
 
 export async function gunzipText(bytes: Uint8Array): Promise<string> {
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const stream = gzipBlob(bytes).stream().pipeThrough(new DecompressionStream("gzip"));
   return await new Response(stream).text();
 }

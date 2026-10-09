@@ -861,17 +861,14 @@ String _timeMessage({
   required int recoveredKcal,
   required double overageKcal,
 }) {
-  final needed = math.max(1, neededMinutes);
   final today = math.max(1, todayMinutes);
   final recovered = math.max(0, recoveredKcal);
   final rest = math.max(0, overageKcal.round() - recovered);
-  final todayLine = '$today分で約${recovered}kcal戻ります。';
-  if (needed <= today && rest <= 0) {
-    return '今日やるなら$activityNameで$today分にします。$todayLine';
+  final base = '今日は$activityName${today}分（約${recovered}kcal）がおすすめです。';
+  if (rest <= 0) {
+    return base;
   }
-  final limit = today < needed ? 'までにします' : 'にします';
-  final tail = rest > 0 ? '残りの約${rest}kcalは明日以降の食事で。' : '';
-  return '戻すには$activityNameで約$needed分です。今日やるなら$today分$limit。$todayLine$tail';
+  return '$base残り約${rest}kcalは明日以降の食事で調整しましょう。';
 }
 
 /// kcal の表示。3桁ごとにカンマ（2,438）。

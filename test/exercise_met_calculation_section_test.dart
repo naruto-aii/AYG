@@ -984,27 +984,9 @@ void main() {
       );
       await tester.tap(find.text('詳細設定'));
       await tester.pumpAndSettle();
-      expect(find.text('メモを付ける'), findsOneWidget);
-      expect(find.text('メモ'), findsNothing);
-      expect(
-        find.byWidgetPredicate(
-          (widget) => widget is TextField && widget.maxLines == 3,
-        ),
-        findsNothing,
-      );
-
-      final memoButton = find.text('メモを付ける');
-      await tester.scrollUntilVisible(
-        memoButton,
-        80,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.ensureVisible(memoButton);
-      await tester.pumpAndSettle();
-      await tester.tap(memoButton);
-      await tester.pumpAndSettle();
-      expect(find.text('こちらは有料の機能です'), findsOneWidget);
-      expect(find.text('運動のメモは、カロナビ+です。'), findsOneWidget);
+      expect(find.text('メモを付ける'), findsNothing);
+      expect(find.text('メモ'), findsOneWidget);
+      expect(find.text('こちらは有料の機能です'), findsNothing);
     });
 
     testWidgets('plus form shows the exercise memo field and saves it', (
@@ -1110,8 +1092,8 @@ void main() {
     });
   });
 
-  group('exercise notes plus gate', () {
-    test('free users store neither exercise notes nor food memos', () async {
+  group('exercise notes are free', () {
+    test('free users store exercise notes and food memos', () async {
       final controller = AppController();
       addTearDown(controller.dispose);
 
@@ -1119,34 +1101,31 @@ void main() {
         savedEntry(id: 'ex-free', loggedAt: DateTime(2026, 8, 1), notes: ' 雨 '),
       );
 
-      expect(controller.exerciseEntries.single.notes, isNull);
-      expect(controller.storedExerciseNotes('雨'), isNull);
-      expect(controller.storedFoodMemo('食事メモ'), isNull);
+      expect(controller.exerciseEntries.single.notes, '雨');
+      expect(controller.storedExerciseNotes('雨'), '雨');
+      expect(controller.storedFoodMemo('食事メモ'), '食事メモ');
     });
 
-    test(
-      'editing without plus clears notes that were saved while plus',
-      () async {
-        final plus = _Plus(true);
-        final controller = AppController(subscriptionRepository: plus);
-        addTearDown(controller.dispose);
+    test('editing after Plus lapses keeps the notes', () async {
+      final plus = _Plus(true);
+      final controller = AppController(subscriptionRepository: plus);
+      addTearDown(controller.dispose);
 
-        await controller.addExercise(
-          savedEntry(
-            id: 'ex-plus',
-            loggedAt: DateTime(2026, 8, 1),
-            notes: ' 雨 ',
-          ),
-        );
-        expect(controller.exerciseEntries.single.notes, '雨');
-        expect(controller.storedFoodMemo('食事メモ'), '食事メモ');
+      await controller.addExercise(
+        savedEntry(
+          id: 'ex-plus',
+          loggedAt: DateTime(2026, 8, 1),
+          notes: ' 雨 ',
+        ),
+      );
+      expect(controller.exerciseEntries.single.notes, '雨');
+      expect(controller.storedFoodMemo('食事メモ'), '食事メモ');
 
-        plus.active = false;
-        await controller.updateExercise(controller.exerciseEntries.single);
-        expect(controller.exerciseEntries.single.notes, isNull);
-        expect(controller.storedFoodMemo('食事メモ'), isNull);
-      },
-    );
+      plus.active = false;
+      await controller.updateExercise(controller.exerciseEntries.single);
+      expect(controller.exerciseEntries.single.notes, '雨');
+      expect(controller.storedFoodMemo('食事メモ'), '食事メモ');
+    });
   });
 }
 

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../config/demo_mode.dart';
+import '../../demo/demo_catalog.dart';
 import '../../models/official_food.dart';
 import '../../models/official_food_list_label.dart';
 import '../../models/public_food_search_match.dart';
@@ -16,6 +18,7 @@ import '../../theme/app_typography.dart';
 import '../../utils/nutrition_format.dart';
 import '../design/settings_row.dart';
 import '../official_food/official_food_attribution_line.dart';
+import 'ai_food_lookup_row.dart';
 
 /// テストが検索先だけ差し替える。未指定の項目は本番の検索を使う。
 class CombinedFoodSearchOverrides {
@@ -50,13 +53,14 @@ class CombinedFoodSearch extends StatefulWidget {
     this.onSavedFood,
     this.onOfficialFood,
     this.onPublicFood,
+    this.onAiFoodLookup,
     this.handle,
     this.debounce = const Duration(milliseconds: 250),
     this.browseSavedWhenEmpty = false,
   });
 
   static const hint = '食品名を入れると、保存済み・定番の食品・公開食品から候補が出ます。';
-  static const emptyMessage = '該当する食品が見つかりませんでした';
+  static const emptyMessage = 'この食品の登録がありませんでした。';
   static const savedBrowseEmpty = '保存済み食品はまだありません';
   static const savedHeading = '保存済み';
   static const officialHeading = '定番の食品';
@@ -76,6 +80,9 @@ class CombinedFoodSearch extends StatefulWidget {
   final ValueChanged<SavedFood>? onSavedFood;
   final ValueChanged<OfficialFoodMatch>? onOfficialFood;
   final ValueChanged<PublicFoodSearchMatch>? onPublicFood;
+
+  /// 結果の末尾。検索語を渡すだけで、推定は押したときだけ走る。
+  final ValueChanged<String>? onAiFoodLookup;
 
   /// 公開食品の作成者を結果から外す。
   final CombinedFoodSearchHandle? handle;
@@ -306,7 +313,11 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
       source: FoodSearchSources.officialFood,
       query: query,
     );
-    final repository = widget.officialFoods ?? SupabaseOfficialFoodRepository();
+    final repository =
+        widget.officialFoods ??
+        (calonaviDemoMode
+            ? DemoOfficialFoodRepository()
+            : SupabaseOfficialFoodRepository());
     if (repository is SupabaseOfficialFoodRepository) {
       return repository.searchReporting(query);
     }
@@ -320,6 +331,9 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
   Future<({List<PublicFoodSearchMatch> rows, String? error})> _loadPublic(
     String query,
   ) async {
+    if (calonaviDemoMode && widget.searchPublic == null) {
+      return (rows: const <PublicFoodSearchMatch>[], error: null);
+    }
     try {
       final search = widget.searchPublic;
       final rows = search != null
@@ -532,16 +546,27 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
             const SizedBox(height: 8),
           ],
         ],
-        if (!_loading && !hasRows && !hasError)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              CombinedFoodSearch.emptyMessage,
-              key: const Key('combined-food-search-empty'),
-              textAlign: TextAlign.center,
-              style: muted,
+        if (!_loading && !hasRows && !hasError) ...[
+          if (widget.onAiFoodLookup != null)
+            AiFoodLookupEmptySuggestion(
+              onTap: () => widget.onAiFoodLookup!(widget.query.text.trim()),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                CombinedFoodSearch.emptyMessage,
+                key: const Key('combined-food-search-empty'),
+                textAlign: TextAlign.center,
+                style: muted,
+              ),
             ),
+        ] else if (widget.onAiFoodLookup != null) ...[
+          const SizedBox(height: 8),
+          AiFoodLookupRow(
+            onTap: () => widget.onAiFoodLookup!(widget.query.text.trim()),
           ),
+        ],
       ],
     );
   }

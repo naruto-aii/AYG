@@ -23,6 +23,7 @@ import '../../widgets/design/settings_row.dart';
 import '../../widgets/design/weight_parts.dart';
 import '../../widgets/official_food/official_food_search_section.dart';
 import '../official_food/official_food_detail_screen.dart';
+import '../../utils/user_error_message.dart';
 
 enum _MyFoodVisibilityFilter { all, private, public }
 
@@ -87,7 +88,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
         return;
       }
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = userErrorMessage(error, action: '読み込み');
         _isLoading = false;
       });
     }
@@ -189,7 +190,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: '削除'))));
     }
   }
 

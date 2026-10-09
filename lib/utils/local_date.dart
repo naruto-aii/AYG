@@ -19,6 +19,40 @@ bool isLoggedOnLocalDay(DateTime loggedAt, DateTime referenceDate) {
   return isSameLocalDay(loggedAt, referenceDate);
 }
 
+/// DB の壁時計列（`logged_at` など）を端末の壁時計の [DateTime] に戻す。
+///
+/// 端末はオフセット無しで送り、`timestamptz` はその時計を UTC として返す。
+/// UTC のまま端末 DB（Isar）に入れると、読み出し時に `toLocal()` され
+/// 端末オフセット分（日本なら +9 時間）ずれる。次の同期でその値を送り返すと
+/// サーバーの値も +9 時間ずれ、同期のたびに積み重なる。年月日時刻をそのまま
+/// ローカル時刻として持てば、何度往復しても同じ壁時計になる。
+DateTime wallClockFromDb(String raw) {
+  final parsed = DateTime.parse(raw);
+  return parsed.isUtc ? _asLocalWallClock(parsed) : parsed;
+}
+
+/// 端末の壁時計を、オフセット無しの文字列で DB に送る。
+///
+/// UTC の値は [wallClockFromDb] を通っていない古い経路の値で、年月日時刻が
+/// そのまま壁時計を表す。どちらも同じ年月日時刻の文字列にする。
+String wallClockToDb(DateTime value) {
+  final wall = value.isUtc ? _asLocalWallClock(value) : value;
+  return wall.toIso8601String();
+}
+
+DateTime _asLocalWallClock(DateTime value) {
+  return DateTime(
+    value.year,
+    value.month,
+    value.day,
+    value.hour,
+    value.minute,
+    value.second,
+    value.millisecond,
+    value.microsecond,
+  );
+}
+
 List<T> filterLoggedOnLocalDay<T>({
   required List<T> entries,
   required DateTime referenceDate,

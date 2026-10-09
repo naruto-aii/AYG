@@ -131,3 +131,13 @@ final class AnalyticsEventWriterTests: XCTestCase {
     }
   }
 }
+
+final class RegisterDebounceTests: XCTestCase {
+  func testADoubleTapWithinThreeSecondsIsDropped() {
+    XCTAssertTrue(RegisterDebounce.accepts(lastTapAt: nil, now: 100))
+    XCTAssertFalse(RegisterDebounce.accepts(lastTapAt: 100, now: 100.45))
+    XCTAssertFalse(RegisterDebounce.accepts(lastTapAt: 100, now: 102.9))
+    XCTAssertTrue(RegisterDebounce.accepts(lastTapAt: 100, now: 103))
+    XCTAssertTrue(RegisterDebounce.accepts(lastTapAt: 100, now: 50))
+  }
+}

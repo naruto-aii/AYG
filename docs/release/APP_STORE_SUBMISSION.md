@@ -9,12 +9,13 @@
 
 ## Archive
 
-3. **Release** スキームで Archive する。Profile は `developmentPlusPreview` が真になり、購入せずカロナビ+になる。`CALONAVI_TEST_PURCHASE` は渡さない。`ios/Flutter/Release.xcconfig` にもその定義は無い。
+3. **Release** スキームで Archive する。Release では `developmentPlusPreview` は常に偽（`!testPurchaseEnabled && !kReleaseMode`）で、購入しないとカロナビ+にならない。Debug / Profile ではテスト購入フラグが無いと真になり、購入せずカロナビ+になるので、審査用には使わない。`CALONAVI_TEST_PURCHASE` は渡さない。`ios/Flutter/Release.xcconfig` にもその定義は無い。
 4. App Store Connect の価格は、次の商品 ID に合わせる。表示はストアが返した税込価格を使う。
-   - `calonavi_plus_monthly` … ¥580
-   - `calonavi_plus_half_year` … ¥2,900
-   - `calonavi_plus_yearly` … ¥5,400
-5. ペイウォールには利用規約、プライバシーポリシー、特定商取引法に基づく表記と、自動更新の説明（確認時に Apple ID へ請求、期間終了の 24 時間以上前に解約しない限り更新、更新料は終了前 24 時間以内に請求、管理と解約は App Store のアカウント設定）がある。
+   - `calonavi_plus_monthly` … ¥980
+   - `calonavi_plus_half_year` … ¥4,900（980円×5。1か月分お得。月あたり約817円）
+   - `calonavi_plus_yearly` … ¥8,800（月あたり約733円。月額より約25%お得）
+   - **3日間の無料お試し（1.0.0 ビルド6〜）**: 3商品それぞれで「サブスクリプション価格」→「お試しオファー（Introductory Offers）」→「作成」→ 全地域 / 開始日=今日 / 終了日なし / 種類「無料」/ 期間「3日」。この設定が無いとアプリは価格だけを表示し、無料お試しは出ない。**お試しオファーを作る前に審査へ出さない。**アプリ側に期間のタイマーは無く、購入すると StoreKit がそのまま適用する（`Sk2PurchaseParam` にオファーを外す指定は無い）。
+5. ペイウォールには利用規約、プライバシーポリシー、特定商取引法に基づく表記と、自動更新の説明（確認時に Apple ID へ請求、期間終了の 24 時間以上前に解約しない限り更新、更新料は終了前 24 時間以内に請求、管理と解約は App Store のアカウント設定）がある。AI機能は、写真で登録 (β)、外食・コンビニ (β)、AIで探す (β) の3つです。あわせて1日15回までです。自炊コーチはこの回数に入りません。
 
 ## サーバ
 
@@ -27,3 +28,53 @@
 ## 課金猶予
 
 8. `in_app_purchase_storekit` 0.4.13 には `Transaction.currentEntitlements` の読み取り API が無い。プラグインは `restorePurchases` の中だけでそれを使い、結果を購入ストリームへ流す。課金猶予（期限は過ぎているが currentEntitlements に残る状態）は、今回のビルドでは判定しない。`Transaction.all` の期限だけを見て、商品ごとに最も遅い期限を残す。
+
+## 実機確認のあと外すワンタップ切替
+
+このビルドには、PR #80 のワンタップ切替を残している。実機確認が終わったら、下の箇所を外す。Xcode の Archive は `CALONAVI_TEST_PURCHASE` を渡さないので、提出用ビルドには付かない。`./tool/run_ios.sh` と `./tool/run_ios.sh --release` だけが `--dart-define=CALONAVI_TEST_PURCHASE=true` を付ける。
+
+切替は端末のカロナビ+表示だけを変える。署名付き取引が無いので `verify-store-transaction` は呼ばれず、`calonavi_plus_entitlements` には書かない。サーバの AI 判定は `not_plus` のまま。`supabase/migrations/20261006140000_calonavi_plus_test_product.sql` は商品IDの制約だけで、この切替を外すときに消さない。
+
+- `lib/config/test_purchase.dart` — `testPurchaseEnabled`。`CALONAVI_TEST_PURCHASE`、既定は false。
+- `tool/run_ios.sh` — 上の define を常に付ける。
+- `lib/bootstrap/native_bootstrap.dart` — `StoreKitSubscriptionRepository` へ `testPurchaseEnabled` を渡す。
+- `lib/repositories/storekit_subscription_repository.dart` — 有効なとき購入は StoreKit を開かず、`calonavi_plus_test_override` と商品 `calonavi_plus_test`、期限 `2099-01-01` で端末だけ有料にする。設定の「テスト用: 無料に戻す」は `clearTestPurchase`。
+- `lib/repositories/subscription_repository.dart` — `testPurchaseToggleEnabled`。既定は false。
+- `lib/screens/settings/settings_screen.dart` — 行「テスト用: 無料に戻す」（key `test-purchase-revert`）。
+- `lib/screens/subscription/calonavi_plus_flow.dart` — ストア価格を読まず、成功の文は「テスト用にカロナビ+にしました」。
+- `lib/config/subscription_catalog.dart` — `testPurchaseProductId = calonavi_plus_test`。
+- `lib/config/development_plus_preview.dart` — このフラグが真のとき、常時の有料プレビューは切る。
+- `test/test_purchase_toggle_test.dart` — 上の存在を確かめている。
+- `ios/Flutter/Release.xcconfig` — `CALONAVI_TEST_PURCHASE` を足さない。
+
+## 審査メモ
+
+App Store Connect の審査メモに、日本語と英語の両方を入れる。アプリの画面には出さない。Sandbox の購入で確認する。`tool/run_ios.sh` のテスト切替は Archive に入らない。
+
+日本語:
+
+カロナビ+のAI機能は、写真で登録、外食・コンビニ、AIで探すの3つです。どれもカロナビ+が必要です。3つあわせて1日15回までです。自炊コーチはこの回数に入りません。商品は `calonavi_plus_monthly`（月額980円）、`calonavi_plus_half_year`（半年4,900円）、`calonavi_plus_yearly`（年額8,800円）です。
+
+写真で登録、外食・コンビニ、AIで探すは、食事の写真、料理名、量、補足、店名や食品名を Anthropic, PBC（米国）へ送り、カロリーとPFCの推定に使います。写真はカロナビに保存しません。自炊コーチは Anthropic へ何も送りません。
+
+初回起動時の利用規約・プライバシーポリシーの同意画面で、送信先Anthropicを明示して同意を得ている。同意しないとアプリを使えず、何も送らない。
+
+確認手順:
+1. アプリを初めて開く。ログイン画面に「写真で登録などのAI機能では、入力した内容を推定のためAnthropic, PBC（米国）に送ります。」と出ます。
+2. Sandbox の Apple ID でログインする。ログインしない限り、何も送りません。
+3. カロナビ+を Sandbox で1つ購入する。
+4. 食事の追加から「写真で登録」、検索の中の「外食・コンビニ」または「AIで探す」を開く。
+
+English:
+
+Calonavi+ AI features are Photo Log, Restaurant and Convenience Store, and AI Search. Each requires Calonavi+. Together they are limited to 15 uses per day. Cook Coach is not part of this limit. Product IDs: calonavi_plus_monthly (¥980), calonavi_plus_half_year (¥4,900), and calonavi_plus_yearly (¥8,800).
+
+Photo Log, Restaurant and Convenience Store, and AI Search send the meal photo, dish name, amount, note, or store or food name to Anthropic, PBC in the United States to estimate calories and protein, fat, and carbohydrate. Photos are not stored by Calonavi. Cook Coach sends nothing to Anthropic.
+
+On the first-launch Terms and Privacy Policy agreement screen, the app names Anthropic as the recipient and obtains consent. If the user does not agree, they cannot use the app and nothing is sent.
+
+How to test:
+1. Open the app for the first time. The login screen states that photo log and similar AI features send what you enter to Anthropic, PBC (United States) for estimation.
+2. Sign in with a Sandbox Apple ID. Nothing is sent unless the user logs in.
+3. Buy one Calonavi+ plan in the sandbox.
+4. Open Photo Log, Restaurant and Convenience Store, or AI Search.

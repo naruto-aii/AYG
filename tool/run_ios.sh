@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Configure iOS Google Sign-In URL scheme and run Flutter on a device/simulator.
 #
 # Preferred: create tool/dart_defines.local.json from dart_defines.local.json.example
@@ -10,6 +10,35 @@ set -eu
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 LOCAL_DEFINES="${ROOT_DIR}/tool/dart_defines.local.json"
+
+# 値が空や見本のままだと、アプリは起動しても「supabase isn't configured」になる。
+# 端末に入れる前に止める。値そのものは表示しない（キーの名前だけ）。
+if [ -f "$LOCAL_DEFINES" ]; then
+  BAD_KEYS="$(python3 - "$LOCAL_DEFINES" <<'PY'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as f:
+        data = json.load(f)
+except Exception:
+    print("(JSON として読めません)")
+    sys.exit(0)
+bad = []
+for key in ("SUPABASE_URL", "SUPABASE_ANON_KEY"):
+    value = data.get(key)
+    if not isinstance(value, str) or not value.strip() or "YOUR_" in value:
+        bad.append(key)
+url = data.get("SUPABASE_URL")
+if "SUPABASE_URL" not in bad and not str(url).startswith("https://"):
+    bad.append("SUPABASE_URL")
+print(" ".join(bad))
+PY
+)"
+  if [ -n "$BAD_KEYS" ]; then
+    echo "error: tool/dart_defines.local.json の値が足りません: ${BAD_KEYS}" >&2
+    echo "dart_defines.local.json.example を見て値を入れてください（値はここに表示しません）。" >&2
+    exit 1
+  fi
+fi
 
 chmod +x "${ROOT_DIR}/tool/configure_google_signin_ios.sh"
 "${ROOT_DIR}/tool/configure_google_signin_ios.sh"

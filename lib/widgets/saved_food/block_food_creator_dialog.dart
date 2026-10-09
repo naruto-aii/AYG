@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_controller.dart';
+import '../../utils/user_error_message.dart';
 
 Future<bool> confirmBlockFoodCreator({
   required BuildContext context,
@@ -46,7 +47,7 @@ Future<bool> confirmBlockFoodCreator({
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('ブロックに失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: 'ブロック'))));
     }
     return false;
   }
@@ -69,7 +70,7 @@ Future<bool> confirmUnblockFoodCreator({
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('ブロック解除に失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: 'ブロック解除'))));
     }
     return false;
   }

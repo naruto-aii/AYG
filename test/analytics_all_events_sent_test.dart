@@ -496,6 +496,24 @@ void main() {
                 coachProposalLogId: 'local',
                 foodEntryIds: const ['food-1'],
               ),
+          'cook_coach_open': () async => CatalogActions.cookCoachOpen('lunch'),
+          'cook_coach_generate': () async => CatalogActions.cookCoachGenerate(
+            latencyMs: 1,
+            inputTokens: 1,
+            outputTokens: 1,
+            retried: false,
+            result: 'ok',
+          ),
+          'cook_coach_retry': () async => CatalogActions.cookCoachRetry(
+            latencyMs: 1,
+            inputTokens: 1,
+            outputTokens: 1,
+          ),
+          'cook_coach_register': () async => CatalogActions.cookCoachRegister(
+            foodEntryIds: const ['food-1'],
+            pattern: 'a',
+          ),
+          'cook_coach_cap': () async => CatalogActions.cookCoachCap(),
           'share_tap': () async {
             CatalogActions.shareTap(card: 'meal', result: 'completed');
           },
@@ -760,17 +778,17 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
       monthly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.monthlyProductId,
         period: PlusBillingPeriod.month,
-        localizedPrice: '¥580',
+        localizedPrice: '¥980',
       ),
       halfYear: SubscriptionProductOffer(
         productId: SubscriptionCatalog.halfYearProductId,
         period: PlusBillingPeriod.halfYear,
-        localizedPrice: '¥2,900',
+        localizedPrice: '¥4,900',
       ),
       yearly: SubscriptionProductOffer(
         productId: SubscriptionCatalog.yearlyProductId,
         period: PlusBillingPeriod.year,
-        localizedPrice: '¥5,400',
+        localizedPrice: '¥8,800',
       ),
       loadFailed: false,
     );

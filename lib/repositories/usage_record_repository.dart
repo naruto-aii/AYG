@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../config/subscription_catalog.dart';
 import '../services/subscription_entitlement.dart';
 import '../services/usage_record.dart';
 import 'persistent_event_outbox.dart';
@@ -90,6 +89,7 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
     this.currentUserId,
     this.insertRow,
     this.upsertRow,
+    this.verifyStoreTransactions,
     PersistentEventOutbox? outbox,
   }) : _client = client,
        _clock = clock ?? DateTime.now,
@@ -108,6 +108,8 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   insertRow;
   final Future<void> Function(String table, Map<String, dynamic> row)?
   upsertRow;
+  final Future<void> Function(List<String> signedTransactions)?
+  verifyStoreTransactions;
   final PersistentEventOutbox _outbox;
   final Map<String, Timer> _foodTimers = {};
   final Map<String, _PendingSearch> _foodPending = {};
@@ -344,107 +346,36 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
     required bool authoritative,
     DateTime? now,
   }) async {
-    if (confirmed.isEmpty && inactive.isEmpty && !authoritative) {
+    final signed = <String>{
+      for (final record in [...confirmed, ...inactive])
+        if (record.signedTransaction != null &&
+            record.signedTransaction!.trim().isNotEmpty)
+          record.signedTransaction!.trim(),
+    };
+    if (signed.isEmpty) {
       return;
     }
     final userId = _userId();
     if (userId == null || userId.isEmpty) {
       return;
     }
-    final clock = now ?? _clock();
     try {
-      final currentIds = <String>{};
-      for (final record in confirmed) {
-        if (!SubscriptionCatalog.syncsEntitlement(record.productId)) {
-          continue;
-        }
-        if (record.expiresAt == null) {
-          continue;
-        }
-        currentIds.add(record.productId);
-        await _queueEntitlement(
-          userId: userId,
-          productId: record.productId,
-          expiresAt: record.expiresAt,
-          status: statusForEntitlement(
-            expiresAt: record.expiresAt,
-            now: clock,
-            inactive: false,
-          ),
-        );
-      }
-      for (final record in inactive) {
-        if (!SubscriptionCatalog.syncsEntitlement(record.productId)) {
-          continue;
-        }
-        if (currentIds.contains(record.productId)) {
-          continue;
-        }
-        await _queueEntitlement(
-          userId: userId,
-          productId: record.productId,
-          expiresAt: record.expiresAt,
-          status: UsageEntitlementStatus.inactive,
-        );
-      }
-      if (!authoritative) {
-        return;
-      }
-      final rows = await _supabase
-          .from('calonavi_plus_entitlements')
-          .select('product_id')
-          .eq('user_id', userId);
-      for (final row in rows) {
-        final productId = row['product_id'];
-        if (productId is! String || currentIds.contains(productId)) {
-          continue;
-        }
-        await _queueEntitlement(
-          userId: userId,
-          productId: productId,
-          expiresAt: null,
-          status: UsageEntitlementStatus.inactive,
-          statusOnly: true,
-        );
-      }
+      await _verifyStoreTransactions(signed.toList());
     } catch (error, stackTrace) {
-      debugPrint('[AYG] plus entitlement sync failed: $error');
+      debugPrint('[AYG] plus entitlement verify failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
   }
 
-  Future<void> _queueEntitlement({
-    required String userId,
-    required String productId,
-    required DateTime? expiresAt,
-    required String status,
-    bool statusOnly = false,
-  }) async {
-    final payload = plusEntitlementPayload(
-      userId: userId,
-      productId: productId,
-      expiresAt: expiresAt,
-      status: status,
+  Future<void> _verifyStoreTransactions(List<String> signedTransactions) {
+    final hook = verifyStoreTransactions;
+    if (hook != null) {
+      return hook(signedTransactions);
+    }
+    return _supabase.functions.invoke(
+      'verify-store-transaction',
+      body: {'signedTransactions': signedTransactions},
     );
-    if (expiresAt == null) {
-      payload.remove('expires_at');
-    }
-    final id = '$userId|$productId';
-    await _outbox.append({
-      'id': id,
-      'kind': statusOnly ? 'entitlement_status' : 'entitlement',
-      'user_id': userId,
-      'payload': payload,
-    });
-    final sent = await _deliverQueued({
-      'id': id,
-      'kind': statusOnly ? 'entitlement_status' : 'entitlement',
-      'user_id': userId,
-      'payload': payload,
-    }, userId);
-    if (sent) {
-      await _removeQueued(id);
-    }
   }
 
   Future<bool> _deliverQueued(Map<String, dynamic> row, String userId) async {
@@ -472,13 +403,8 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
       );
     }
     if (kind == 'entitlement' || kind == 'entitlement_status') {
-      return _deliver(
-        table: 'calonavi_plus_entitlements',
-        payload: payload,
-        required: const {'user_id', 'product_id', 'status'},
-        upsert: kind == 'entitlement',
-        onConflict: 'user_id,product_id',
-      );
+      // 以前の端末が残した加入の書き込みは捨てる。サーバは署名付き取引だけを書く。
+      return true;
     }
     return false;
   }

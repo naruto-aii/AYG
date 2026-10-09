@@ -129,6 +129,7 @@ class DesignTextInput extends StatelessWidget {
     this.textAlign = TextAlign.start,
     this.enabled = true,
     this.inputKey,
+    this.focusNode,
   });
 
   final TextEditingController controller;
@@ -140,12 +141,14 @@ class DesignTextInput extends StatelessWidget {
   final TextAlign textAlign;
   final bool enabled;
   final Key? inputKey;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       key: inputKey,
       controller: controller,
+      focusNode: focusNode,
       keyboardType: keyboardType,
       textInputAction: maxLines == 1 ? TextInputAction.done : null,
       inputFormatters: inputFormatters,

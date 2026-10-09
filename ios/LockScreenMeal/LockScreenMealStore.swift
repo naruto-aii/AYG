@@ -159,7 +159,15 @@ enum LockScreenMealStore {
     guard !owner.isEmpty, let button = source.first(where: { $0.slot == slot }), button.canRegister else {
       return "unassigned"
     }
-    let record = button.makePendingRecord(ownerUserId: owner, loggedAt: Date(), surface: surface)
+    let now = Date()
+    // 同じボタンの連打（0.5秒差など）は1件にする。反応を待たずに押し直しても二重にならない。
+    let tapKey = lastTapKey(surface: surface, slot: slot)
+    let last = defaults?.object(forKey: tapKey) as? Double
+    guard RegisterDebounce.accepts(lastTapAt: last, now: now.timeIntervalSince1970) else {
+      return "duplicate"
+    }
+    defaults?.set(now.timeIntervalSince1970, forKey: tapKey)
+    let record = button.makePendingRecord(ownerUserId: owner, loggedAt: now, surface: surface)
     let wrote = PendingRecordFiles.append(
       folder: PendingRecordFiles.lockScreenFolder,
       record: record,
@@ -175,6 +183,10 @@ enum LockScreenMealStore {
     let burn = button.kind == "exercise" ? exerciseKcal(button.exercises) : 0
     applyFigures(intakeDelta: intake, burnDelta: burn)
     return "registered"
+  }
+
+  static func lastTapKey(surface: String, slot: Int) -> String {
+    "lockScreenMealLastTap.\(surface).\(slot)"
   }
 
   /// 押した直後に、残り・摂取・消費・超過の整数を動かす。Dart の `applyMealWidgetFigures` と同じ。
@@ -545,5 +557,22 @@ struct LockScreenMealButton: Identifiable {
       return true
     }
     return false
+  }
+}
+
+/// ウィジェットの同じボタンを続けて押したときの間引き。端末の時計だけで決める。
+enum RegisterDebounce {
+  /// これより短い間隔の2回目は記録しない（秒）。
+  static let window: Double = 3
+
+  static func accepts(lastTapAt: Double?, now: Double) -> Bool {
+    guard let last = lastTapAt else {
+      return true
+    }
+    // 時計が戻ったときは受け付ける。
+    if now < last {
+      return true
+    }
+    return now - last >= window
   }
 }

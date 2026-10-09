@@ -59,11 +59,36 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
 
     try {
       await _client.auth.refreshSession();
-    } catch (_) {
+    } catch (error) {
+      if (!shouldSignOutAfterRefreshFailure(error)) {
+        // 電波が無いだけならログインを保つ。端末の記録はそのまま使え、
+        // 電波が戻れば supabase_flutter が自動でトークンを更新する。
+        return;
+      }
       try {
         await _client.auth.signOut();
       } catch (_) {}
     }
+  }
+
+  /// 起動時のトークン更新に失敗したとき、ログアウトさせるかを決める。
+  ///
+  /// サーバーがトークンを拒んだ（失効・取り消し・ユーザー削除）ときだけ
+  /// ログアウトする。通信エラーや 5xx でログアウトすると、圏外で起動した
+  /// だけで同意画面とログインからやり直しになる。
+  @visibleForTesting
+  static bool shouldSignOutAfterRefreshFailure(Object error) {
+    if (error is AuthRetryableFetchException) {
+      return false;
+    }
+    if (error is AuthException) {
+      final status = int.tryParse(error.statusCode ?? '');
+      if (status == null) {
+        return false;
+      }
+      return status >= 400 && status < 500 && status != 408 && status != 429;
+    }
+    return false;
   }
 
   @override

@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:uuid/uuid.dart';
 
 import '../config/subscription_catalog.dart';
 import '../constants/app_strings.dart';
+import '../services/ai_data_consent.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/catalog_actions.dart';
 import '../repositories/storekit_subscription_repository.dart';
@@ -93,6 +95,7 @@ import '../services/meal_template_apply_service.dart';
 import '../services/meal_template_dependency_service.dart';
 import '../services/meal_template_totals_service.dart';
 import '../services/nutrition_engine.dart';
+import '../services/plus_gate_retry.dart';
 import '../services/official_food_provenance.dart';
 import '../services/public_food_search_service.dart';
 import '../services/public_food_similar_service.dart';
@@ -107,6 +110,7 @@ import '../services/source_food_edit_policy.dart';
 import '../utils/food_name_normalizer.dart';
 import '../utils/food_search_normalizer.dart';
 import '../utils/id_generator.dart';
+import '../utils/user_error_message.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -137,7 +141,9 @@ class AppController extends ChangeNotifier {
     PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
-  }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
+    Future<bool> Function()? termsAgreed,
+  }) : _termsAgreed = termsAgreed ?? AiDataConsent.grantedNow,
+       _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
        _dataSyncRepository = dataSyncRepository,
@@ -174,7 +180,9 @@ class AppController extends ChangeNotifier {
        _mealTemplateTotalsService = const MealTemplateTotalsService(),
        _mealTemplateDependencyService = const MealTemplateDependencyService(),
        _mealTemplateApplyService = const MealTemplateApplyService(),
-       _searchSuggestionService = const SearchSuggestionService();
+       _searchSuggestionService = const SearchSuggestionService() {
+    PlusGateRetry.bind(_syncPlusForAiRetry);
+  }
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
@@ -277,6 +285,16 @@ class AppController extends ChangeNotifier {
   StreamSubscription<AuthUser?>? _authSubscription;
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
+
+  /// この端末で、今の版の規約・プライバシー（AI送信の一文を含む）に
+  /// ログイン画面で同意したか。
+  final Future<bool> Function() _termsAgreed;
+  bool _termsAgreementRequired = false;
+  int _termsCheck = 0;
+
+  /// ログイン済みでも、ログイン画面（同意画面）をもう一度出す必要があるか。
+  /// 再インストールや規約の版上げで端末に同意が無いとき true。
+  bool get requiresTermsAgreement => _termsAgreementRequired;
   bool _lastSyncFailed = false;
   bool _hasUnsentRecords = false;
   bool _isInitializing = false;
@@ -439,6 +457,8 @@ class AppController extends ChangeNotifier {
 
   Future<void> _handleAuthStateChanged(AuthUser? user) async {
     if (user == null) {
+      // 前の人のサーバ有料を、次にログインする人へ持ち越さない（実機テスト用ビルド）。
+      _subscriptionRepository.forgetServerPlusForTest();
       _resetSyncState();
       _clearInMemoryState();
       notifyListeners();
@@ -460,6 +480,26 @@ class AppController extends ChangeNotifier {
 
   Future<void> handleAuthenticatedSession({bool force = false}) async {
     final authUser = _authenticationRepository?.currentUser;
+    if (authUser != null) {
+      // 同意はログイン画面のボタンでだけ記録する。保存済みのログイン状態が
+      // 戻っただけなら、同意の画面をもう一度出し、同期も AI も始めない。
+      final check = ++_termsCheck;
+      final agreed = await _termsAgreed();
+      if (check != _termsCheck) {
+        return;
+      }
+      if (!agreed) {
+        if (!_termsAgreementRequired) {
+          _termsAgreementRequired = true;
+          notifyListeners();
+        }
+        return;
+      }
+      if (_termsAgreementRequired) {
+        _termsAgreementRequired = false;
+        notifyListeners();
+      }
+    }
     final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
       return;
@@ -528,6 +568,7 @@ class AppController extends ChangeNotifier {
       await syncLockScreenMeals();
       await syncSiriVoiceLogs();
       await _syncPlusEntitlement();
+      await _adoptServerPlusForTestBuild(authUser.id);
       _lastSyncFailed = false;
       _syncFailure = null;
     } on SyncStepException catch (error) {
@@ -638,6 +679,8 @@ class AppController extends ChangeNotifier {
   }
 
   void _resetSyncState() {
+    _termsAgreementRequired = false;
+    _termsCheck += 1;
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;
     _hasUnsentRecords = false;
@@ -986,7 +1029,12 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> deleteWeightEntry(String entryId) async {
+  /// 送信中の同期が終わってから消す。送信中に消すと、その送信が消した行を
+  /// サーバへ書き戻し、次の再インストールで記録が復活する。
+  Future<void> deleteWeightEntry(String entryId) =>
+      _serialRemoteWrite(() => _deleteWeightEntryNow(entryId));
+
+  Future<void> _deleteWeightEntryNow(String entryId) async {
     _usage('weight_entry_updated', {
       'weight_entry_id': entryId,
       'action': 'delete',
@@ -1386,6 +1434,102 @@ class AppController extends ChangeNotifier {
     unawaited(publishLockScreenMealSnapshot());
   }
 
+  /// 目標画面の「自動」の数字。保存後に今日の画面が出す目標と同じ計算をする。
+  ///
+  /// [settings] は保存する予定の設定（自動）。保存時と同じく、手入力から自動に
+  /// 戻すときは前回の自動目標を消し、前日以前の自動目標は今日の基準に置き換える。
+  /// 計算できないとき（プロフィールなし・18歳未満・性別その他など）は null。
+  DailySummary? previewAutomaticTargets({
+    required Goal goal,
+    required NutritionSettings settings,
+  }) {
+    final result = _previewAutomaticSummary(goal: goal, settings: settings);
+    if (result == null || result.targetKcal <= 0) {
+      return null;
+    }
+    return result;
+  }
+
+  /// 自動の目標が出せないときの理由。出せるときは null。
+  ///
+  /// 入っていない項目（生年月日・性別・身長・体重、画面側の目標体重・目標日）を先に挙げ、
+  /// 全部そろっていて計算できないとき（性別が「その他」、18歳未満など）は計算側の理由を返す。
+  String? automaticTargetsUnavailableReason({
+    required Goal? goal,
+    required NutritionSettings settings,
+    List<String> missingGoalItems = const [],
+  }) {
+    final missing = <String>[];
+    final currentProfile = profile;
+    if (currentProfile == null) {
+      missing.addAll(const ['生年月日', '性別', '身長', '体重']);
+    } else {
+      if (currentProfile.heightCm <= 0) {
+        missing.add('身長');
+      }
+      final weight = currentWeightSelection.kg > 0
+          ? currentWeightSelection.kg
+          : currentProfile.weightKg;
+      if (weight <= 0) {
+        missing.add('体重');
+      }
+    }
+    if (!settings.useHealthIntegration && settings.activityLevel == null) {
+      missing.add('活動量');
+    }
+    missing.addAll(missingGoalItems);
+    if (missing.isNotEmpty) {
+      return '自動計算に必要な項目が入っていません：${missing.join('・')}';
+    }
+    if (goal == null) {
+      return null;
+    }
+    final result = _previewAutomaticSummary(goal: goal, settings: settings);
+    if (result == null || result.targetKcal > 0) {
+      return null;
+    }
+    return result.energyBreakdown?.unavailableReason ??
+        '自動で計算できませんでした。下の欄に自分で入力できます。';
+  }
+
+  DailySummary? _previewAutomaticSummary({
+    required Goal goal,
+    required NutritionSettings settings,
+  }) {
+    final currentProfile = profile;
+    if (currentProfile == null) {
+      return null;
+    }
+    final now = DateTime.now();
+    var next = _settingsPreservingAutoSwitch(
+      settings.copyWith(calorieTargetMode: CalorieTargetMode.automatic),
+    );
+    final storedOn = next.autoFoodTargetOn;
+    final storedKcal = next.autoFoodTargetKcal;
+    if (this.goal != null &&
+        storedOn != null &&
+        storedKcal != null &&
+        localDayStart(storedOn).isBefore(localDayStart(now))) {
+      // 保存時は先に今の目標で今日の基準が入り、前回の目標が「前日分」になる。
+      next = next.copyWith(
+        autoFoodTargetOn: localDayStart(now),
+        autoFoodTargetPriorKcal: storedKcal,
+      );
+    }
+    final result = _nutritionEngine.calculateDailySummary(
+      profile: currentProfile,
+      goal: goal,
+      settings: next,
+      healthSnapshot: healthSnapshot,
+      goalPace: goal.goalPace,
+      foodEntries: const [],
+      exerciseEntries: List.unmodifiable(exerciseEntries),
+      referenceDate: now,
+      weightSamples: calculationWeightSamples(),
+    );
+    return result;
+  }
+
   void _persistAutoTargetAnchor(DateTime referenceDate) {
     final settings = nutritionSettings;
     final update = summary?.energyBreakdown?.anchorUpdate;
@@ -1501,13 +1645,10 @@ class AppController extends ChangeNotifier {
 
   static const foodMemoMaxLength = 200;
 
-  /// 空と、カロナビ+が無いときのメモは保存しない。
+  /// 空のメモは保存しない。無料でもカロナビ+でも同じ。
   String? storedFoodMemo(String? memo) {
     final trimmed = memo?.trim();
     if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-    if (!_subscriptionRepository.isPlusActive) {
       return null;
     }
     if (trimmed.length <= foodMemoMaxLength) {
@@ -1516,13 +1657,10 @@ class AppController extends ChangeNotifier {
     return trimmed.substring(0, foodMemoMaxLength);
   }
 
-  /// 空と、カロナビ+が無いときの運動メモは保存しない。
+  /// 空の運動メモは保存しない。無料でもカロナビ+でも同じ。
   String? storedExerciseNotes(String? notes) {
     final trimmed = notes?.trim();
     if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-    if (!_subscriptionRepository.isPlusActive) {
       return null;
     }
     return trimmed;
@@ -1578,9 +1716,6 @@ class AppController extends ChangeNotifier {
       'has_memo': memo != null && memo.isNotEmpty,
       'memo_length': memo?.length ?? 0,
     });
-    if (!_subscriptionRepository.isPlusActive) {
-      return false;
-    }
     final stored = storedFoodMemo(memo);
     await updateFood(entry.copyWith(memo: stored, clearMemo: stored == null));
     return true;
@@ -1673,7 +1808,9 @@ class AppController extends ChangeNotifier {
     FoodEntry entry,
   ) async {
     try {
-      await dataSyncRepository.pushFoodEntry(userId: userId, entry: entry);
+      await _serialRemoteWrite(
+        () => dataSyncRepository.pushFoodEntry(userId: userId, entry: entry),
+      );
     } catch (error, stackTrace) {
       _hasUnsentRecords = true;
       debugPrint('[AYG] food entry push failed: $error');
@@ -1885,7 +2022,12 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<void> deleteFood(String id) async {
+  /// 送信中の同期が終わってから消す。送信中に消すと、その送信が消した行を
+  /// サーバへ書き戻し、次の再インストールで記録が復活する。
+  Future<void> deleteFood(String id) =>
+      _serialRemoteWrite(() => _deleteFoodNow(id));
+
+  Future<void> _deleteFoodNow(String id) async {
     _usage('food_entry_deleted', {'food_entry_id': id, 'undo_offered': true});
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
@@ -1999,7 +2141,12 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> deleteExercise(String id) async {
+  /// 送信中の同期が終わってから消す。送信中に消すと、その送信が消した行を
+  /// サーバへ書き戻し、次の再インストールで記録が復活する。
+  Future<void> deleteExercise(String id) =>
+      _serialRemoteWrite(() => _deleteExerciseNow(id));
+
+  Future<void> _deleteExerciseNow(String id) async {
     _usage('exercise_entry_deleted', {
       'exercise_entry_id': id,
       'undo_offered': true,
@@ -2093,7 +2240,12 @@ class AppController extends ChangeNotifier {
     refreshDailySummary();
   }
 
-  Future<void> deleteAlcohol(String id) async {
+  /// 送信中の同期が終わってから消す。送信中に消すと、その送信が消した行を
+  /// サーバへ書き戻し、次の再インストールで記録が復活する。
+  Future<void> deleteAlcohol(String id) =>
+      _serialRemoteWrite(() => _deleteAlcoholNow(id));
+
+  Future<void> _deleteAlcoholNow(String id) async {
     _usage('alcohol_entry_changed', {
       'alcohol_entry_id': id,
       'action': 'delete',
@@ -2764,7 +2916,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodRatingResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userErrorMessage(error, action: '評価'),
       );
     } finally {
       _ratingOperationsInProgress.remove(key);
@@ -2803,7 +2955,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodRatingResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userErrorMessage(error, action: '評価'),
       );
     } finally {
       _ratingOperationsInProgress.remove(key);
@@ -2866,7 +3018,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodReportResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userErrorMessage(error, action: '通報'),
       );
     }
   }
@@ -3611,6 +3763,73 @@ class AppController extends ChangeNotifier {
         });
   }
 
+  Future<bool> _syncPlusForAiRetry() async {
+    if (!_hasUnexpiredStorePlus()) {
+      return false;
+    }
+    try {
+      await _subscriptionRepository.refreshEntitlement();
+    } catch (_) {}
+    if (!_hasUnexpiredStorePlus()) {
+      return false;
+    }
+    await _syncPlusEntitlement();
+    return true;
+  }
+
+  bool _hasUnexpiredStorePlus() {
+    final now = DateTime.now();
+    for (final record in _subscriptionRepository.confirmedEntitlements) {
+      final signed = record.signedTransaction?.trim() ?? '';
+      final expiry = record.expiresAt;
+      if (signed.isNotEmpty &&
+          expiry != null &&
+          expiry.isAfter(now) &&
+          SubscriptionCatalog.isPlusProduct(record.productId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// テストが差し替える。本番の実機テスト用ビルドは Supabase の本人の行を読む。
+  @visibleForTesting
+  Future<bool> Function(String userId)? serverPlusLookupOverride;
+
+  /// 実機テスト用ビルド（CALONAVI_TEST_PURCHASE）だけ。入れ直し直後に、サーバの
+  /// 有料を無料表示で隠さない。審査に出すビルドではこの処理は何もしない。
+  Future<void> _adoptServerPlusForTestBuild(String userId) async {
+    final repository = _subscriptionRepository;
+    if (!repository.testPurchaseToggleEnabled || repository.isPlusActive) {
+      return;
+    }
+    try {
+      final lookup = serverPlusLookupOverride ?? _serverHasActivePlus;
+      final serverPlus = await lookup(userId);
+      repository.adoptServerPlusForTest(serverPlus);
+      if (serverPlus) {
+        await _applyPaidEntitlement();
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint('[AYG] server plus lookup failed: $error');
+    }
+  }
+
+  Future<bool> _serverHasActivePlus(String userId) async {
+    if (!SupabaseConfig.isConfigured) {
+      return false;
+    }
+    final rows = await Supabase.instance.client
+        .from('calonavi_plus_entitlements')
+        .select('product_id')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+        .limit(1);
+    return rows.isNotEmpty;
+  }
+
   Future<void> _syncPlusEntitlement() async {
     final usage = _usageRecordRepository;
     if (usage == null || !isAuthenticated) {
@@ -3784,7 +4003,22 @@ class AppController extends ChangeNotifier {
     await publishLockScreenMealSnapshot();
   }
 
-  Future<void> syncLockScreenMeals() async {
+  Future<void>? _lockScreenImport;
+
+  /// 起動・復帰・ログインが重なっても、取り込みは1本ずつ。後の呼び出しは前の
+  /// 取り込みが終わってから、同じ送信待ちを id で見て足りない分だけ入れる。
+  Future<void> syncLockScreenMeals() {
+    final previous = _lockScreenImport ?? Future<void>.value();
+    final next = previous.then((_) => _syncLockScreenMealsOnce());
+    _lockScreenImport = next;
+    return next.whenComplete(() {
+      if (identical(_lockScreenImport, next)) {
+        _lockScreenImport = null;
+      }
+    });
+  }
+
+  Future<void> _syncLockScreenMealsOnce() async {
     final gateway = _lockScreenMealGateway;
     if (gateway == null) {
       return;
@@ -4370,7 +4604,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return MealTemplateApplyResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userErrorMessage(error, action: 'テンプレートの適用'),
       );
     }
   }
@@ -4449,7 +4683,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return SaveFoodEntryResult(
         foodEntrySaved: false,
-        savedFoodErrorMessage: error.toString(),
+        savedFoodErrorMessage: userErrorMessage(error, action: '保存'),
       );
     }
 
@@ -4494,7 +4728,7 @@ class AppController extends ChangeNotifier {
         errorCode = error.errorCode;
         message = error.userMessage;
       } else {
-        message = error.toString();
+        message = userErrorMessage(error, action: 'マイ食品の保存');
         if (kDebugMode) {
           debugPrint(
             '[AYG SavedFood] saveFoodEntryWithOptionalSavedFood: $error',
@@ -4622,7 +4856,9 @@ class AppController extends ChangeNotifier {
     }
 
     try {
-      await dataSyncRepository.pushLocalToRemote(userId);
+      await _serialRemoteWrite(
+        () => dataSyncRepository.pushLocalToRemote(userId),
+      );
       _hasUnsentRecords = false;
     } on PartialPushException catch (error, stackTrace) {
       _hasUnsentRecords = true;
@@ -4681,6 +4917,39 @@ class AppController extends ChangeNotifier {
   bool _remoteSyncInFlight = false;
   bool _remoteSyncQueued = false;
 
+  /// 端末からサーバへの書き込み（送信と削除）を1本ずつ順に流す。
+  ///
+  /// 送信は端末の全件を読んでから送るので、その途中で削除が割り込むと、
+  /// 読んだ時点の行（消した記録）が削除のあとにサーバへ書き戻される。
+  /// 削除は送信の後ろに並べ、削除の途中で次の送信が端末を読まないようにする。
+  Future<void> _remoteWriteTail = Future<void>.value();
+  int _remoteWritesPending = 0;
+
+  Future<T> _serialRemoteWrite<T>(Future<T> Function() action) {
+    final previous = _remoteWriteTail;
+    final idle = _remoteWritesPending == 0;
+    _remoteWritesPending++;
+    final done = Completer<void>();
+    _remoteWriteTail = done.future;
+    void finish() {
+      _remoteWritesPending--;
+      done.complete();
+    }
+
+    // 何も流れていなければ、その場で始める（待ち時間を足さない）。
+    final run = idle ? Future<T>.sync(action) : previous.then((_) => action());
+    return run.then(
+      (value) {
+        finish();
+        return value;
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        finish();
+        return Future<T>.error(error, stackTrace);
+      },
+    );
+  }
+
   void _scheduleRemoteSync() {
     if (!_hasInitialSyncCompleted || _lastSyncFailed) {
       return;
@@ -4708,7 +4977,9 @@ class AppController extends ChangeNotifier {
       do {
         _remoteSyncQueued = false;
         try {
-          await dataSyncRepository.pushLocalToRemote(userId);
+          await _serialRemoteWrite(
+            () => dataSyncRepository.pushLocalToRemote(userId),
+          );
           _hasUnsentRecords = false;
         } on PartialPushException catch (error, stackTrace) {
           _hasUnsentRecords = true;

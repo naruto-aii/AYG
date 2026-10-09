@@ -99,6 +99,7 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
           openFoodFactsService: widget.openFoodFactsService,
           healthPrefill: prefill,
           authenticationRepository: widget.authenticationRepository,
+          healthRepository: widget.healthRepository,
         ),
       ),
     );

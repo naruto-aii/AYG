@@ -14,6 +14,7 @@ import '../common/app_bottom_sheet.dart';
 import 'block_food_creator_dialog.dart';
 import 'public_food_rating_bar.dart';
 import 'public_food_report_dialog.dart';
+import '../../utils/user_error_message.dart';
 
 Future<SavedFood?> showPublicFoodDetailSheet({
   required BuildContext context,
@@ -113,7 +114,7 @@ class _PublicFoodDetailSheetState extends State<_PublicFoodDetailSheet> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('コピーに失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: 'コピー'))));
     } finally {
       if (mounted) {
         setState(() => _isCopying = false);

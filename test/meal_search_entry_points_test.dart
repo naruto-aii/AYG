@@ -25,6 +25,7 @@ import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_colors.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/theme/app_typography.dart';
+import 'package:ayg/widgets/food/ai_food_lookup_row.dart';
 import 'package:ayg/widgets/food/combined_food_search.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -142,7 +143,7 @@ void main() {
   }
 
   Future<void> openCombinedSearch(WidgetTester tester) async {
-    final searchTab = find.text('食品を探す');
+    final searchTab = find.text('検索');
     await tester.ensureVisible(searchTab);
     await tester.tap(searchTab);
     await tester.pumpAndSettle();
@@ -228,7 +229,9 @@ void main() {
 
     await tester.tap(find.text('食事を追加'));
     await tester.pumpAndSettle();
-    expect(find.text('食品を探す'), findsOneWidget);
+    expect(find.text('写真で登録'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
+    expect(find.text('その他'), findsOneWidget);
     expect(find.text('保存済み'), findsNothing);
     expect(find.text('保存済み食品から選ぶ'), findsNothing);
     expect(find.text('食べたものを記録して、健康な毎日をつくりましょう'), findsNothing);
@@ -238,10 +241,7 @@ void main() {
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('バーコード'), findsOneWidget);
     expect(find.text('テンプレート'), findsOneWidget);
-    expect(
-      find.text('食べたものを記録します。保存済み食品や定番の食品は「食品を探す」から選べます。'),
-      findsOneWidget,
-    );
+    expect(find.text('保存済み、定番の食品、公開食品をまとめて探します。'), findsOneWidget);
     expect(find.text('バーコードから追加'), findsNothing);
     expect(find.text('カメラで読み取る'), findsNothing);
     expectNoLegacyPublicScreen();
@@ -291,7 +291,7 @@ void main() {
     await tester.scrollUntilVisible(add, 200);
     await tester.tap(add);
     await tester.pumpAndSettle();
-    expect(find.text('食品を探す'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
     expectNoLegacyPublicScreen();
 
     await openCombinedSearch(tester);
@@ -317,7 +317,7 @@ void main() {
     await tester.ensureVisible(add);
     await tester.tap(add);
     await tester.pumpAndSettle();
-    expect(find.text('食品を探す'), findsOneWidget);
+    expect(find.text('検索'), findsOneWidget);
     expectNoLegacyPublicScreen();
 
     await openCombinedSearch(tester);
@@ -382,7 +382,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(CombinedFoodSearch.emptyMessage), findsOneWidget);
+    expect(find.text(AiFoodLookupEmptySuggestion.message), findsOneWidget);
+    expect(find.text('該当する食品が見つかりませんでした'), findsNothing);
     expect(find.text(CombinedFoodSearch.officialHeading), findsNothing);
     expect(find.text(CombinedFoodSearch.publicHeading), findsNothing);
     expectNoLegacyPublicScreen();
@@ -524,10 +525,7 @@ void main() {
     await tester.tap(find.text('開く'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('保存済み・定番の食品・公開食品から探せます。'),
-      findsOneWidget,
-    );
+    expect(find.text('保存済み・定番の食品・公開食品から探せます。'), findsOneWidget);
     expect(find.text(CombinedFoodSearch.savedBrowseEmpty), findsNothing);
     expect(find.text(CombinedFoodSearch.officialHeading), findsNothing);
     expect(find.text(CombinedFoodSearch.publicHeading), findsNothing);

@@ -98,6 +98,11 @@ abstract final class AnalyticsEventNames {
     'local_data_cleared',
     'analytics_queue_health',
     'account_deletion_started',
+    'cook_coach_open',
+    'cook_coach_generate',
+    'cook_coach_retry',
+    'cook_coach_register',
+    'cook_coach_cap',
   ];
 
   static const Map<String, Set<String>> allowedProps = {
@@ -321,5 +326,16 @@ abstract final class AnalyticsEventNames {
       'last_success_at',
     },
     'account_deletion_started': {'step'},
+    'cook_coach_open': {'slot'},
+    'cook_coach_generate': {
+      'latency_ms',
+      'input_tokens',
+      'output_tokens',
+      'retried',
+      'result',
+    },
+    'cook_coach_retry': {'latency_ms', 'input_tokens', 'output_tokens'},
+    'cook_coach_register': {'food_entry_ids', 'pattern'},
+    'cook_coach_cap': {},
   };
 }

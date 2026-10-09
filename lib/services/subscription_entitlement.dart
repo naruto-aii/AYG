@@ -6,12 +6,76 @@ class SubscriptionEntitlementRecord {
   const SubscriptionEntitlementRecord({
     required this.productId,
     required this.expiresAt,
+    this.signedTransaction,
+    this.revoked = false,
   });
 
   final String productId;
 
   /// Null when the store did not provide an expiry. That is not an active grant.
   final DateTime? expiresAt;
+
+  /// StoreKit 2 の署名付き取引。端末の有料表示には使わず、サーバ検証にだけ渡す。
+  /// 端末の保存には残さない。
+  final String? signedTransaction;
+
+  /// 返金・取り消し。有料の期限としては使わない。
+  final bool revoked;
+}
+
+/// 商品ごとに、サーバへ送る取引を1件に絞る。
+///
+/// Transaction.all の並びは保証されない。期限が最も遅い、取り消されていない
+/// 取引を送る。それより期限が遅い取り消しがあるときだけ、その取り消しも送る。
+class EntitlementSyncSelection {
+  const EntitlementSyncSelection({
+    required this.active,
+    required this.revocations,
+  });
+
+  final List<SubscriptionEntitlementRecord> active;
+  final List<SubscriptionEntitlementRecord> revocations;
+}
+
+EntitlementSyncSelection selectEntitlementTransactions(
+  Iterable<SubscriptionEntitlementRecord> records,
+) {
+  final groups = <String, List<SubscriptionEntitlementRecord>>{};
+  for (final record in records) {
+    if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+      continue;
+    }
+    groups.putIfAbsent(record.productId, () => []).add(record);
+  }
+  final active = <SubscriptionEntitlementRecord>[];
+  final revocations = <SubscriptionEntitlementRecord>[];
+  for (final group in groups.values) {
+    SubscriptionEntitlementRecord? best;
+    SubscriptionEntitlementRecord? bestRevoked;
+    for (final record in group) {
+      if (record.expiresAt == null) {
+        continue;
+      }
+      if (record.revoked) {
+        if (bestRevoked == null ||
+            record.expiresAt!.isAfter(bestRevoked.expiresAt!)) {
+          bestRevoked = record;
+        }
+        continue;
+      }
+      if (best == null || record.expiresAt!.isAfter(best.expiresAt!)) {
+        best = record;
+      }
+    }
+    if (best != null) {
+      active.add(best);
+    }
+    if (bestRevoked != null &&
+        (best == null || bestRevoked.expiresAt!.isAfter(best.expiresAt!))) {
+      revocations.add(bestRevoked);
+    }
+  }
+  return EntitlementSyncSelection(active: active, revocations: revocations);
 }
 
 /// Plus access follows the latest unexpired subscription, not a sticky flag.
@@ -25,12 +89,11 @@ class SubscriptionEntitlementState {
     if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
       return;
     }
-    final expiry = record.expiresAt;
-    if (expiry == null) {
+    if (record.revoked || record.expiresAt == null) {
       expiryByProduct.remove(record.productId);
       return;
     }
-    expiryByProduct[record.productId] = expiry;
+    expiryByProduct[record.productId] = record.expiresAt!;
   }
 
   /// 同じ商品は最も遅い期限だけを残す。履歴の並びで古い期限が後から来ても、
@@ -39,6 +102,9 @@ class SubscriptionEntitlementState {
     final best = <String, DateTime>{};
     for (final record in records) {
       if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+        continue;
+      }
+      if (record.revoked) {
         continue;
       }
       final expiry = record.expiresAt;

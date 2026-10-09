@@ -27,6 +27,7 @@ import 'contracts/weight_repository_base.dart';
 import '../models/health_profile_data.dart';
 import '../models/sync_failure.dart';
 import '../services/health_workout_sync.dart';
+import '../utils/local_date.dart';
 import 'food_master_repositories.dart';
 import 'health_repository.dart';
 import 'supabase/exercise_entry_row_mapper.dart';
@@ -790,10 +791,27 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       table: 'food_entries',
       kind: PendingRecordKind.food,
     );
-    final foodDirty = await _pendingRecords?.isTableDirty('food_entries') ?? false;
-    if (!foodDirty) {
-      await _pendingRecords?.acknowledgeTable('food_entries');
+    await _acknowledgeTableIfSent('food_entries', PendingRecordKind.food);
+  }
+
+  /// 送信が最後まで通り、未送信の上書きも削除も残っていなければ、表の
+  /// 「送信失敗」印を外す。外さないと、一度でも送信に失敗した表は
+  /// 二度と取得されず、ホームの「未送信の記録があります」も消えない。
+  Future<void> _acknowledgeTableIfSent(
+    String table,
+    PendingRecordKind kind,
+  ) async {
+    final store = _pendingRecords;
+    if (store == null || !await store.isTableDirty(table)) {
+      return;
     }
+    if ((await store.preferLocalIds(kind)).isNotEmpty) {
+      return;
+    }
+    if ((await store.pendingDeleteIds(kind)).isNotEmpty) {
+      return;
+    }
+    await store.acknowledgeTable(table);
   }
 
   Future<void> _upsertFoodEntries(
@@ -1057,6 +1075,11 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   }
 
   Future<void> _pushExerciseEntries(String userId) async {
+    await _pushExerciseEntriesRows(userId);
+    await _acknowledgeTableIfSent('exercise_entries', PendingRecordKind.exercise);
+  }
+
+  Future<void> _pushExerciseEntriesRows(String userId) async {
     final entries = await _exerciseRepository.loadAll();
     if (entries.isEmpty) {
       await _sendPendingDeletes(
@@ -1102,7 +1125,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
                     'name': entry.name,
                     'duration_min': entry.durationMin,
                     'burned_kcal': entry.burnedKcal,
-                    'logged_at': entry.loggedAt.toIso8601String(),
+                    'logged_at': wallClockToDb(entry.loggedAt),
                   },
                 )
                 .toList(),
@@ -1142,6 +1165,11 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   }
 
   Future<void> _pushAlcoholEntries(String userId) async {
+    await _pushAlcoholEntriesRows(userId);
+    await _acknowledgeTableIfSent('alcohol_entries', PendingRecordKind.alcohol);
+  }
+
+  Future<void> _pushAlcoholEntriesRows(String userId) async {
     final entries = await _alcoholRepository.loadAll();
     if (entries.isEmpty) {
       await _sendPendingDeletes(
@@ -1201,7 +1229,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
           (row) => WeightEntry(
             id: row['entry_id'] as String,
             weightKg: (row['weight_kg'] as num).toDouble(),
-            recordedAt: DateTime.parse(row['recorded_at'] as String),
+            recordedAt: wallClockFromDb(row['recorded_at'] as String),
             source: _parseWeightSource(row['source'] as String?),
           ),
         )
@@ -1236,6 +1264,11 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   }
 
   Future<void> _pushWeightEntries(String userId) async {
+    await _pushWeightEntriesRows(userId);
+    await _acknowledgeTableIfSent('weight_entries', PendingRecordKind.weight);
+  }
+
+  Future<void> _pushWeightEntriesRows(String userId) async {
     final entries = await _weightRepository.loadAll();
     if (entries.isEmpty) {
       await _sendPendingDeletes(
@@ -1256,7 +1289,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
                     'user_id': userId,
                     'entry_id': entry.id,
                     'weight_kg': entry.weightKg,
-                    'recorded_at': entry.recordedAt.toIso8601String(),
+                    'recorded_at': wallClockToDb(entry.recordedAt),
                     'source': entry.source.storageValue,
                   },
                 )

@@ -75,39 +75,85 @@ class AppStrings {
   static const accountDeletionAppleRevokeFailedClose = '閉じる';
   static const plusBillingPeriod =
       '月額は1か月、半年は6か月、年額は1年の定期購入です。価格は選んだプランに出る、ストアの税込価格だけを使います。';
-  static const plusHeroSubtitle = 'テンプレートの上限をなくし、ウィジェットとSiriで記録をもっと速く。';
+  static const plusHeroSubtitle = '写真とAIで、記録をもっと速く・ラクに。';
 
-  /// 既存の見出しの下に足す。ウィジェットと Siri の文は置き換えない。
-  static const plusBetaAccessLead = 'β版機能への先行アクセスも付きます。';
-  static const plusBetaAccessTitle = 'β版機能への先行アクセス';
-  static const plusBetaAccessBody =
-      'パーソナルコーチ (β) と音声登録 (β) など、β版として先行公開している機能を使えます。';
+  static const plusAiLimitTitle = 'AI機能は1日15回まで';
+  static const coachCookingBody =
+      '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
+  static const plusAiDailyLimit =
+      '写真で登録 (β)、外食・コンビニ (β)、AIで探す (β) は、あわせて1日15回までです。';
+  static const plusAiLimitBody = plusAiDailyLimit;
   static const coachBetaNotice =
-      '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。';
+      '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。$coachCookingBody';
   static const coachFeatureBody =
-      '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。登録するまでは記録されません。';
+      '$coachBetaNotice登録するまでは記録されません。$plusAiDailyLimit';
   static const plusBenefitTemplateTitle = '食事・運動テンプレートが無制限';
   static const plusBenefitTemplateBody =
       '無料は食事・運動それぞれ4件まで。カロナビ+なら、いくつでも保存できます。';
-  static const plusBenefitNoteTitle = '食事・運動の記録にメモを追加';
-  static const plusBenefitNoteBody = '無料ではメモは使えません。カロナビ+なら、食事にも運動にもメモを残せます。';
-  static const plusBenefitWidgetTitle = 'ホーム画面とロック画面からワンタップ記録';
+  static const plusBenefitWidgetTitle = 'ウィジェットでワンタップ記録';
   static const plusBenefitWidgetBody =
-      'アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
+      'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
   static const plusBenefitSiriTitle = '音声登録 (β)';
   static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
+  static const plusBenefitPhotoTitle = '写真で登録 (β)';
+  static const plusBenefitPhotoBody =
+      '食事の写真から、AIがカロリーとPFCの推定を出します。料理名、量、補足は任意で、入れると精度が上がります。登録の前に確認して、数値を直せます。';
+  static const plusBenefitEatingOutTitle = '外食・コンビニ (β)';
+  static const plusBenefitEatingOutBody =
+      '店名と商品名を入れると、AIがカロリーとPFCの推定を出します。セブン サラダチキンのように、新しい商品や詳しいメニューでも出せます。推定だと表示します。';
+  static const plusBenefitAiSearchTitle = 'AIで探す (β)';
+  static const plusBenefitAiSearchBody =
+      'いつもの検索で見つからないときは、AIが候補を出します。';
+  static const plusBenefitCoachTitle = 'パーソナルコーチ (β)';
+  static const plusBenefitCoachBody =
+      '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。$coachCookingBody';
+
+  // ---- 課金画面（A+B）。「有料」「先行アクセス」とは書かない（審査 2.2 / 3.1.2）。
+  /// 課金画面で大きく出す4つ。タイトルは機能名そのまま。
+  static const plusHeroPhotoBody = '撮るだけで、AIがカロリーとPFCを推定';
+  static const plusHeroAiSearchBody = '見つからない食品も、AIがカロリーとPFCを推定';
+  static const plusHeroCoachBody = '今日の残りに合わせて、献立と量を提案';
+  static const plusHeroWidgetBody = 'アプリを開かずに、ホーム・ロック画面から記録';
+
+  /// 4つの下のリンク。押すと画面内のシートで残りの機能を出す。
+  static const plusMoreFeaturesLink = 'その他の機能を見る';
+  static const plusMoreFeaturesTitle = 'カロナビ+のその他の機能';
+  static const plusMoreFeaturesLead = '写真で登録・AIで探す・コーチ・ウィジェットに加えて';
+  static const plusMoreTemplateTitle = 'テンプレート保存無制限';
+  static const plusMoreTemplateBody = '無料は食事・運動それぞれ4件まで。何件でも保存';
+  static const plusMoreEatingOutBody = '店名と商品名から、AIがカロリーとPFCを推定';
+  static const plusMoreAiLimitBody = '写真・外食・AIで探すをあわせて1日15回';
+  static const plusMoreFeaturesClose = 'とじる';
+
+  /// ボタンの下の2行。例: 「3日間無料。期間終了後は年額¥8,800で自動更新。いつでも解約できます。」
+  static String plusCtaTrialNote(int days, String periodLabel, String price) =>
+      '$days日間無料。期間終了後は$periodLabel$priceで自動更新。\nいつでも解約できます。';
+
+  /// お試しが無いときのボタンの下の2行。
+  static String plusCtaPriceNote(String periodLabel, String price) =>
+      '$periodLabel$priceで自動更新。\nいつでも解約できます。';
+
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';
 
-  static const plusMonthlyNote = 'いつでも解約できます';
+  /// 月額カードの下の小さい文字。半年と年額は「月あたり」を出す。
+  static const plusMonthlyNote = '1か月ごと';
 
   /// ストアが金額を返せないときだけの表示。購入処理では使わない。
-  static const plusFallbackMonthlyPrice = '¥580';
-  static const plusFallbackHalfYearPrice = '¥2,900';
-  static const plusFallbackYearlyPrice = '¥5,400';
+  static const plusFallbackMonthlyPrice = '¥980';
+  static const plusFallbackHalfYearPrice = '¥4,900';
+  static const plusFallbackYearlyPrice = '¥8,800';
   static const plusAutoRenew =
       '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
+
+  /// 無料のお試しがあるプランのボタン。ストアがお試しを返したときだけ使う。
+  static String plusTrialCta(int days) => '$days日間無料ではじめる';
+
+  /// 自動更新の説明に足す1文。お試しを返したときだけ出す。
+  static String plusTrialNotice(int days) =>
+      'はじめてカロナビ+に登録する方は、$days日間無料でお試しいただけます。無料期間中は請求されません。無料期間が終わる24時間以上前に解約しない限り、選んだプランの料金で定期購入が自動で始まり、Apple ID へ請求されます。';
+
   static const plusCancelHow =
       '管理と解約は、App Store のアカウント設定から行えます。アプリを消しても課金は止まりません。';
   static const plusCurrentExpiryPrefix = '現在の有効期限';
@@ -117,6 +163,14 @@ class AppStrings {
   /// 端末ごとに折り返し位置が変わらないよう、改行位置を明示する。
   static const loginLegalAgreementMultiline =
       'ログインにより、利用規約とプライバシーポリシーに\n同意したものとします。';
+
+  /// ログイン画面の同意に足す一文。チェックボックスは増やさない。
+  static const loginAiDisclosure =
+      '写真で登録などのAI機能では、入力した内容を推定のためAnthropic, PBC（米国）に送ります。';
+
+  /// 折り返し位置が端末で変わらないよう、改行位置を明示する。
+  static const loginAiDisclosureMultiline =
+      '写真で登録などのAI機能では、入力した内容を\n推定のためAnthropic, PBC（米国）に送ります。';
 
   static const displayName = 'ユーザー名';
   static const displayNameHint = '表示する名前';

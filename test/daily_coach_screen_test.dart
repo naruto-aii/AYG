@@ -354,7 +354,7 @@ void main() {
     );
 
     expect(find.text(headline), findsNothing);
-    expect(find.textContaining('30分までにします'), findsOneWidget);
+    expect(find.textContaining('ランニング30分'), findsOneWidget);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('coach_exercise_amount')))
@@ -367,6 +367,8 @@ void main() {
       find.byKey(const Key('coach_exercise_amount')),
       '25',
     );
+    await tester.ensureVisible(find.byKey(const Key('coach_register_exercise')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('coach_register_exercise')));
     await tester.pumpAndSettle();
 

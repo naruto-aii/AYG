@@ -48,4 +48,11 @@ abstract class SubscriptionRepository {
 
   /// テスト用の有料を消す。フラグが無いビルドでは何もしない。
   Future<void> clearTestPurchase() async {}
+
+  /// 実機テスト用ビルドだけ。アプリを入れ直して切替がまだ一度も押されていないとき、
+  /// サーバで有料なら有料として表示する。押した後は押した状態を優先する。
+  void adoptServerPlusForTest(bool serverPlus) {}
+
+  /// ログアウトや別アカウントへの切替で、サーバに合わせた有料表示を外す。
+  void forgetServerPlusForTest() {}
 }

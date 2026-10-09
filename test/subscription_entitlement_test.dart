@@ -26,6 +26,31 @@ void main() {
     expect(state.latestExpiry, now.add(const Duration(days: 30)));
   });
 
+  test('the latest unrevoked transaction is the one sent to the server', () {
+    final later = now.add(const Duration(days: 40));
+    final earlier = now.add(const Duration(days: 10));
+    final selection = selectEntitlementTransactions([
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: later,
+        signedTransaction: 'later.payload.signature',
+      ),
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: earlier,
+        signedTransaction: 'earlier.payload.signature',
+      ),
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: later.add(const Duration(days: 5)),
+        signedTransaction: 'revoked.payload.signature',
+        revoked: true,
+      ),
+    ]);
+    expect(selection.active.single.signedTransaction, 'later.payload.signature');
+    expect(selection.revocations.single.signedTransaction, 'revoked.payload.signature');
+  });
+
   test('a revocation date blocks the transaction', () {
     expect(parseStoreRevocationDate(null), isNull);
     expect(parseStoreRevocationDate('not json'), isNull);
@@ -149,10 +174,10 @@ void main() {
     const offer = SubscriptionProductOffer(
       productId: SubscriptionCatalog.monthlyProductId,
       period: PlusBillingPeriod.month,
-      localizedPrice: '¥580',
+      localizedPrice: '¥980',
     );
     expect(offer.canPurchase, isTrue);
-    expect(offer.buttonLabel, '月額 ¥580');
+    expect(offer.buttonLabel, '月額 ¥980');
     const empty = SubscriptionProductOffer(
       productId: SubscriptionCatalog.monthlyProductId,
       period: PlusBillingPeriod.month,

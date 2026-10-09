@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../config/demo_mode.dart';
 import '../../constants/app_strings.dart';
+import '../../demo/demo_authentication_repository.dart';
 import '../../platform/web/in_app_browser_detector.dart';
 import '../../platform/web/web_browser_utils.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../services/ai_data_consent.dart';
 import '../../services/analytics/catalog_actions.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -17,6 +20,7 @@ import '../../widgets/brand/login_background.dart';
 import '../../widgets/layout/design_canvas.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
+import '../../utils/user_error_message.dart';
 
 /// ログイン画面。
 ///
@@ -54,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
   static const double _buttonTop = 518;
   static const double _buttonGap = 13;
 
-  static const double _consentTop = 762;
+  static const double _consentTop = 714;
   static const double _footerTop = 799;
   static const double _footerHeight = 25;
 
@@ -66,6 +70,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signInWithApple() =>
       _signIn(widget.authenticationRepository.loginWithApple, 'Apple');
 
+  Future<void> _signInAsDemo() async {
+    final repository = widget.authenticationRepository;
+    if (repository is DemoAuthenticationRepository) {
+      await _signIn(repository.loginAsDemo, 'デモ');
+    }
+  }
+
   /// Google / Apple 共通のログイン処理。
   /// キャンセルは何も出さず、失敗だけ通知する。
   Future<void> _signIn(Future<void> Function() login, String label) async {
@@ -76,12 +87,18 @@ class _LoginScreenState extends State<LoginScreen> {
     CatalogActions.loginTap(provider);
     setState(() => _isLoading = true);
     try {
+      if (kIsWeb) {
+        // Web は外部ブラウザへ遷移して戻るので、押した時点の同意を先に残す。
+        await AiDataConsent.recordLoginAgreement();
+      }
       await login();
       CatalogActions.loginResult(provider: provider, result: 'success');
       if (kIsWeb) {
         // Web は外部ブラウザへ遷移するので、戻ってきたときに復帰する。
         return;
       }
+      // ボタンを押してログインできたことが、下の同意文への同意。
+      await AiDataConsent.recordLoginAgreement();
       await widget.controller.handleAuthenticatedSession();
     } on SignInCancelledException {
       CatalogActions.loginResult(provider: provider, result: 'cancelled');
@@ -95,12 +112,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) {
         return;
       }
-      final message = error is SignInFailedException
-          ? error.message
-          : error.toString();
+      final detail = error is SignInFailedException
+          ? japaneseDetail(error.message)
+          : null;
+      final message = detail == null
+          ? userErrorMessage(error, action: '${label}ログイン')
+          : '${label}ログインに失敗しました。$detail';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('$labelログインに失敗しました: $message')));
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -255,6 +275,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         glyphSize: 24,
                         onPressed: _isLoading ? null : _signInWithApple,
                       ),
+                      if (calonaviDemoMode) ...[
+                        const SizedBox(height: 4),
+                        TextButton(
+                          key: const Key('demo-sign-in'),
+                          onPressed: _isLoading ? null : _signInAsDemo,
+                          child: Text(
+                            'デモではじめる',
+                            style: AppTypography.labelM.copyWith(
+                              color: AppColors.textBrand,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -263,11 +296,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   top: _consentTop,
                   left: _contentLeft,
                   width: _contentWidth,
-                  child: Text(
-                    AppStrings.loginLegalAgreementMultiline,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    style: AppTypography.caption,
+                  child: const Column(
+                    children: [
+                      Text(
+                        AppStrings.loginLegalAgreementMultiline,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: AppTypography.caption,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        AppStrings.loginAiDisclosureMultiline,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: AppTypography.caption,
+                      ),
+                    ],
                   ),
                 ),
                 // 規約リンク

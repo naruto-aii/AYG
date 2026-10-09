@@ -23,17 +23,19 @@ void main() {
     required String productId,
     String? expirationDate,
     String localVerificationData = 'local',
+    String serverVerificationData = 'server',
+    PurchaseStatus status = PurchaseStatus.purchased,
   }) {
     return SK2PurchaseDetails(
       productID: productId,
       purchaseID: 'tx-$productId',
       verificationData: PurchaseVerificationData(
         localVerificationData: localVerificationData,
-        serverVerificationData: 'server',
+        serverVerificationData: serverVerificationData,
         source: 'app_store',
       ),
       transactionDate: '${now.millisecondsSinceEpoch}',
-      status: PurchaseStatus.purchased,
+      status: status,
       expirationDate: expirationDate,
     );
   }
@@ -134,6 +136,135 @@ void main() {
     expect(stored, isNot(contains('verification')));
     expect(stored, isNot(contains('token')));
     expect(stored, isNot(contains('receipt')));
+    await repository.dispose();
+  });
+
+  test('refresh keeps the latest expiry when an older transaction is read last', () async {
+    final later = now.add(const Duration(days: 40));
+    final earlier = now.add(const Duration(days: 10));
+    final repository = StoreKitSubscriptionRepository(
+      preferences: await prefsWith({}),
+      purchaseUpdates: const Stream.empty(),
+      loadEntitlements: () async => EntitlementLoad(
+        records: [
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: later,
+            signedTransaction: 'later.payload.signature',
+          ),
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: earlier,
+            signedTransaction: 'earlier.payload.signature',
+          ),
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: later.add(const Duration(days: 5)),
+            signedTransaction: 'revoked.payload.signature',
+            revoked: true,
+          ),
+        ],
+        authoritative: true,
+      ),
+      clock: () => now,
+    );
+    await repository.initialize();
+    expect(repository.isPlusActive, isTrue);
+    expect(
+      repository.confirmedEntitlements.single.signedTransaction,
+      'later.payload.signature',
+    );
+    expect(
+      repository.inactiveEntitlements.map((record) => record.signedTransaction),
+      contains('revoked.payload.signature'),
+    );
+    await repository.dispose();
+  });
+
+  test('an older purchase update does not replace a newer signed transaction', () async {
+    final prefs = await prefsWith({});
+    final updates = StreamController<List<PurchaseDetails>>();
+    final repository = StoreKitSubscriptionRepository(
+      preferences: prefs,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => now,
+    );
+    await repository.initialize();
+    final later = now.add(const Duration(days: 40));
+    final earlier = now.add(const Duration(days: 10));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${later.millisecondsSinceEpoch}',
+        serverVerificationData: 'later.payload.signature',
+      ),
+    ]);
+    await repository.plusChanges.first.timeout(const Duration(seconds: 2));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${earlier.millisecondsSinceEpoch}',
+        serverVerificationData: 'earlier.payload.signature',
+      ),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      repository.confirmedEntitlements.single.signedTransaction,
+      'later.payload.signature',
+    );
+    expect(
+      repository.confirmedEntitlements.single.expiresAt?.isAtSameMomentAs(later),
+      isTrue,
+    );
+    await updates.close();
+    await repository.dispose();
+  });
+
+  test('purchase and restore keep Plus locally and hold the signed transaction', () async {
+    final prefs = await prefsWith({});
+    final updates = StreamController<List<PurchaseDetails>>();
+    final repository = StoreKitSubscriptionRepository(
+      preferences: prefs,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => now,
+    );
+    await repository.initialize();
+    const signed = 'header.payload.signature';
+    final expiry = now.add(const Duration(days: 30));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${expiry.millisecondsSinceEpoch}',
+        serverVerificationData: signed,
+      ),
+    ]);
+    await repository.plusChanges.first.timeout(const Duration(seconds: 2));
+    expect(repository.isPlusActive, isTrue);
+    expect(
+      repository.confirmedEntitlements.single.signedTransaction,
+      signed,
+    );
+    expect(prefs.getString(StoreKitSubscriptionRepository.entitlementsKey), isNot(contains(signed)));
+
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.yearlyProductId,
+        expirationDate: '${expiry.millisecondsSinceEpoch}',
+        serverVerificationData: 'restore.payload.signature',
+        status: PurchaseStatus.restored,
+      ),
+    ]);
+    await repository.entitlementChanges.first.timeout(const Duration(seconds: 2));
+    expect(repository.isPlusActive, isTrue);
+    expect(
+      repository.confirmedEntitlements.map((record) => record.signedTransaction),
+      contains('restore.payload.signature'),
+    );
+    await updates.close();
     await repository.dispose();
   });
 
@@ -404,8 +535,8 @@ class _ScriptedStore implements StorePurchaseClient {
           id: identifiers.single,
           title: 'カロナビ+',
           description: 'カロナビ+',
-          price: '¥580',
-          rawPrice: 580,
+          price: '¥980',
+          rawPrice: 980,
           currencyCode: 'JPY',
         ),
       ],

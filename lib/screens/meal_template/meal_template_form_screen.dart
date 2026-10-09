@@ -24,6 +24,7 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../widgets/design/settings_row.dart';
+import '../../utils/user_error_message.dart';
 
 class MealTemplateFormScreen extends StatefulWidget {
   const MealTemplateFormScreen({
@@ -298,7 +299,7 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: '保存'))));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

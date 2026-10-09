@@ -9,6 +9,7 @@ import '../../repositories/coach_nutrition_source.dart';
 import '../../repositories/coach_proposal_log.dart';
 import '../../repositories/coach_slot_store.dart';
 import '../../services/analytics/catalog_actions.dart';
+import 'cook_coach_screen.dart';
 import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
@@ -400,6 +401,27 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             ],
           ),
           const DesignTitleBlock(title: 'パーソナルコーチ (β)', showBack: false),
+          if (!_plusBlocked) ...[
+            CookCoachEntryButton(
+              key: const Key('cook_coach_entry'),
+              onPressed: () async {
+                final saved = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute<bool>(
+                    settings: const RouteSettings(name: 'cook_coach'),
+                    builder: (context) => CookCoachScreen(
+                      controller: widget.controller,
+                      now: widget.now,
+                      slotStore: _slotStore,
+                    ),
+                  ),
+                );
+                if (saved == true && context.mounted) {
+                  Navigator.of(context).pop(CoachSavedKind.meal);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
           if (_plusBlocked) ...[
             const DesignCard(
               key: Key('coach_beta_notice'),
@@ -802,6 +824,83 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// パーソナルコーチの上に置く、自炊コーチへの入口。
+///
+/// すぐ下の「今日の残りの食べ方」（白いカード）の見出しに見えないよう、
+/// 塗りの緑・アイコン・右向きの矢印・影で、押して移る部品だと分かる形にする。
+class CookCoachEntryButton extends StatelessWidget {
+  const CookCoachEntryButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  static const _radius = BorderRadius.all(Radius.circular(18));
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '自炊コーチ (β)',
+      onTap: onPressed,
+      excludeSemantics: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: _radius,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.green900.withValues(alpha: 0.22),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: AppColors.bgPrimary,
+          borderRadius: _radius,
+          child: InkWell(
+            borderRadius: _radius,
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.cream0.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const DesignIcon(
+                      Symbols.skillet_rounded,
+                      size: 26,
+                      color: AppColors.iconOnPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '自炊コーチ (β)',
+                      style: AppTypography.titleM.copyWith(
+                        color: AppColors.textOnPrimary,
+                      ),
+                    ),
+                  ),
+                  const DesignIcon(
+                    Symbols.chevron_right_rounded,
+                    size: 28,
+                    color: AppColors.iconOnPrimary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

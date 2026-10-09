@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
+import '../../config/demo_mode.dart';
 import '../../models/display_name.dart';
 import '../../models/health_profile_data.dart';
 import '../../models/user_profile.dart';
 import '../../repositories/authentication_repository.dart';
+import '../../repositories/health_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -34,12 +36,14 @@ class BasicInfoScreen extends StatefulWidget {
     required this.openFoodFactsService,
     required this.healthPrefill,
     required this.authenticationRepository,
+    required this.healthRepository,
   });
 
   final AppController controller;
   final OpenFoodFactsService openFoodFactsService;
   final HealthProfileData healthPrefill;
   final AuthenticationRepository authenticationRepository;
+  final HealthRepository healthRepository;
 
   @override
   State<BasicInfoScreen> createState() => _BasicInfoScreenState();
@@ -68,6 +72,12 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
     final weight = widget.healthPrefill.weightKg;
     if (weight != null) {
       _weightController.text = weight.toStringAsFixed(1);
+    }
+    if (calonaviDemoMode && _birthDate == null) {
+      _birthDate = DateTime(1996, 4, 12);
+      _gender = Gender.female;
+      _heightController.text = '162';
+      _weightController.text = '54.0';
     }
   }
 
@@ -143,11 +153,14 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'basic_info_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'basic_info_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => GoalSetupScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
           authenticationRepository: widget.authenticationRepository,
+          healthRepository: widget.healthRepository,
         ),
       ),
     );

@@ -152,7 +152,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('食品を探す'));
+    await tester.tap(find.text('検索'));
     await tester.pumpAndSettle();
 
     expect(find.text('食品を探す'), findsOneWidget);

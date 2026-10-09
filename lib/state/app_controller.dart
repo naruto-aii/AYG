@@ -457,6 +457,8 @@ class AppController extends ChangeNotifier {
 
   Future<void> _handleAuthStateChanged(AuthUser? user) async {
     if (user == null) {
+      // 前の人のサーバ有料を、次にログインする人へ持ち越さない（実機テスト用ビルド）。
+      _subscriptionRepository.forgetServerPlusForTest();
       _resetSyncState();
       _clearInMemoryState();
       notifyListeners();

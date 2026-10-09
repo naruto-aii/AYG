@@ -133,6 +133,11 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   bool _plus = false;
   bool _testPlus = false;
   bool _testOverridePresent = false;
+
+  /// サーバの有料に合わせて一時的に有料にしたとき、その相手のユーザー。
+  /// 別のアカウントに切り替えたりログアウトしたら外す。
+  String? _testPlusAdoptedFor;
+  bool _testPlusAdopted = false;
   bool _productsConfirmed = false;
   bool _authoritative = false;
   bool _suppressAuthoritativeSweep = false;
@@ -153,6 +158,9 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   void bindStoreAccountToken(String? userId) {
     final trimmed = userId?.trim().toLowerCase();
     _applicationUserName = trimmed == null || trimmed.isEmpty ? null : trimmed;
+    if (_testPlusAdopted && _applicationUserName != _testPlusAdoptedFor) {
+      forgetServerPlusForTest();
+    }
   }
 
   @override
@@ -380,10 +388,28 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       return;
     }
     _testPlus = true;
+    _testPlusAdopted = true;
+    _testPlusAdoptedFor = _applicationUserName;
+    _emitPlus();
+  }
+
+  @override
+  void forgetServerPlusForTest() {
+    if (!_testPlusAdopted) {
+      return;
+    }
+    _testPlusAdopted = false;
+    _testPlusAdoptedFor = null;
+    if (_testOverridePresent) {
+      return;
+    }
+    _testPlus = false;
     _emitPlus();
   }
 
   Future<void> _setTestPlus(bool active) async {
+    _testPlusAdopted = false;
+    _testPlusAdoptedFor = null;
     _testPlus = active;
     _testOverridePresent = true;
     final prefs = await _prefs();

@@ -60,4 +60,33 @@ void main() {
     repository.adoptServerPlusForTest(true);
     expect(repository.isPlusActive, isFalse);
   });
+
+  test('logging out or switching account drops the adopted server plus', () async {
+    final repository = await open({});
+    repository.bindStoreAccountToken('owner');
+    repository.adoptServerPlusForTest(true);
+    expect(repository.isPlusActive, isTrue);
+    // 同じ人の再同期では外さない。
+    repository.bindStoreAccountToken('OWNER');
+    expect(repository.isPlusActive, isTrue);
+    // 別の人に切り替えたら外す。
+    repository.bindStoreAccountToken('someone-else');
+    expect(repository.isPlusActive, isFalse);
+    expect(repository.confirmedEntitlements, isEmpty);
+
+    repository.bindStoreAccountToken('owner');
+    repository.adoptServerPlusForTest(true);
+    expect(repository.isPlusActive, isTrue);
+    repository.forgetServerPlusForTest();
+    expect(repository.isPlusActive, isFalse);
+  });
+
+  test('a switch the tester turned on survives a logout', () async {
+    final repository = await open({
+      StoreKitSubscriptionRepository.testPlusKey: true,
+    });
+    repository.forgetServerPlusForTest();
+    repository.bindStoreAccountToken('someone-else');
+    expect(repository.isPlusActive, isTrue);
+  });
 }

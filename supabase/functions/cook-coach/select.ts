@@ -453,7 +453,9 @@ function riceFilledGap(dish: MeasuredDish, target: Macros): number {
 function scaledDishes(fill: Fill, target: Macros, omitNote: string, listed: string[]): MeasuredDish[] {
   const hasEgg = fill.chosen.some((option) => isEgg(option.label));
   const hasStaple = fill.chosen.some((option) => option.role === "staple");
-  const bodies = hasEgg ? [0.5, 1, 2] : [0.85, 1, 1.45];
+  // 鶏むね肉のような脂の少ない肉は、140g のままだとごはんで kcal を埋めたときにたんぱく質が多すぎる。
+  // 小さめの量も作り、PFC がいちばん近い量を必ず候補に残す。
+  const bodies = hasEgg ? [0.5, 1, 2] : [0.7, 0.85, 1, 1.45];
   const staples = hasStaple ? [0.55, 1, 1.35] : [1];
   // 油はレシピの分量のまま。kcal は主材料とごはんで合わせる。
   const oilScales = [1];
@@ -476,7 +478,10 @@ function scaledDishes(fill: Fill, target: Macros, omitNote: string, listed: stri
     dishes.reduce((best, dish) =>
       Math.abs(dish.totals.kcal - aimKcal) < Math.abs(best.totals.kcal - aimKcal) ? dish : best
     );
-  const chosen = [closest(aim), closest(target.kcal)];
+  const bestFit = dishes.reduce((best, dish) =>
+    riceFilledGap(dish, target) < riceFilledGap(best, target) ? dish : best
+  );
+  const chosen = [closest(aim), closest(target.kcal), bestFit];
   return chosen.filter((dish, index) => chosen.findIndex((item) => item === dish) === index);
 }
 

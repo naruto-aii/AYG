@@ -859,3 +859,16 @@ Deno.test("consomme uses the solid bouillon code and food values follow the offi
   assertEquals(names.includes("湯豆腐"), true);
   assertEquals(names.some((name) => name.includes("煮込み湯豆腐")), false);
 });
+
+Deno.test("chicken breast with rice: plan A no longer overshoots protein by a third or more", async () => {
+  const { selectCookPlans } = await import("./cook-coach/select.ts");
+  for (const kcal of [550, 700]) {
+    const target = { kcal, proteinG: Math.round(kcal * 0.2 / 4), fatG: Math.round(kcal * 0.25 / 9), carbG: Math.round(kcal * 0.55 / 4) };
+    const plans = selectCookPlans(cookRecipes, { ingredients: ["鶏むね肉", "ごはん"], slot: "dinner", target });
+    const a = plans.a!;
+    assertEquals(a != null, true);
+    assertEquals(Math.abs(a.totals.kcal - kcal) <= kcal * 0.1, true, `${kcal} ${a.name}`);
+    // 以前は鶏むね肉140g固定で +35%（550kcal）と +54%（700kcal）だった。
+    assertEquals(a.totals.proteinG <= target.proteinG * 1.2, true, `${kcal} ${a.name} P${a.totals.proteinG}`);
+  }
+});

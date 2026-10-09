@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../utils/meal_slot.dart';
-import 'ai_data_consent.dart';
 import 'cook_coach.dart';
 import 'cook_coach_target.dart';
 import 'plus_gate_retry.dart';
@@ -60,12 +59,8 @@ class CookCoachClient {
   factory CookCoachClient.supabase({SupabaseClient? client}) {
     return CookCoachClient(
       invoke: (body) async {
-        if (!await AiDataConsent.ensureServerCopy()) {
-          final agreed = await AiDataConsent.grantedNow();
-          throw CookCoachFailure(
-            agreed ? cookCoachFallbackMessage : aiDataConsentRequiredMessage,
-          );
-        }
+        // 自炊コーチはレシピDBから選ぶだけで、外部のAIへは送らない。
+        // サーバ (cook-coach v4) も同意を見ないので、ここでも同意を求めない。
         final supabase = client ?? Supabase.instance.client;
         try {
           return await PlusGateRetry.callOnce(() async {

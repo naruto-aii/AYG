@@ -151,7 +151,7 @@ void main() {
         isA<CookCoachFailure>().having(
           (error) => error.message,
           'message',
-          aiDataConsentRequiredMessage,
+          cookCoachFallbackMessage,
         ),
       ),
     );
@@ -209,7 +209,8 @@ void main() {
         ),
       ),
     );
-    expect(memory.grantCalls, 3);
+    // 自炊コーチは同意を見ないので、再送は写真とAIで探すの2回だけ。
+    expect(memory.grantCalls, 2);
     expect(memory.synced, isFalse);
   });
 

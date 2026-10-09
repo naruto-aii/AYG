@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart'
+    show SKProductDiscountPaymentMode, SKRequestMaker, SKSubscriptionPeriodUnit;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/subscription_catalog.dart';
@@ -75,6 +77,23 @@ void emitStoreKitPurchaseResult({
   });
 }
 
+/// お試しの期間を日数にする。日・週だけ数える。月や年のお試しは日数が決まらないので出さない。
+int? freeTrialDaysFor({
+  required SKSubscriptionPeriodUnit unit,
+  required int numberOfUnits,
+  required int numberOfPeriods,
+}) {
+  final periods = numberOfPeriods <= 0 ? 1 : numberOfPeriods;
+  if (numberOfUnits <= 0) {
+    return null;
+  }
+  return switch (unit) {
+    SKSubscriptionPeriodUnit.day => numberOfUnits * periods,
+    SKSubscriptionPeriodUnit.week => numberOfUnits * periods * 7,
+    _ => null,
+  };
+}
+
 /// App Store の自動更新サブスクリプション。
 class StoreKitSubscriptionRepository extends SubscriptionRepository {
   StoreKitSubscriptionRepository({
@@ -84,6 +103,8 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     Stream<List<PurchaseDetails>>? purchaseUpdates,
     Future<EntitlementLoad> Function()? loadEntitlements,
     DateTime Function()? clock,
+    Future<Map<String, int>> Function(Set<String> productIds)?
+    loadFreeTrialDays,
     this.developmentPlusPreview = false,
     this.testPurchaseEnabled = false,
   }) : _store = store,
@@ -91,6 +112,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
        _preferences = preferences,
        _purchaseUpdates = purchaseUpdates,
        _loadEntitlements = loadEntitlements,
+       _loadFreeTrialDays = loadFreeTrialDays,
        _clock = clock ?? DateTime.now;
 
   static const expiryKey = 'calonavi_plus_expires_at_ms';
@@ -110,6 +132,8 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   static const _purchaseResultTimeout = Duration(minutes: 2);
   final Stream<List<PurchaseDetails>>? _purchaseUpdates;
   final Future<EntitlementLoad> Function()? _loadEntitlements;
+  final Future<Map<String, int>> Function(Set<String> productIds)?
+  _loadFreeTrialDays;
   final DateTime Function() _clock;
 
   /// 開発用ビルドで、購入せずに有料画面を見る。ストアの購入結果は上書きしない。
@@ -315,18 +339,22 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       if (response.error != null) {
         return SubscriptionOfferings.failed;
       }
+      final trials = await _freeTrials(response.productDetails);
       return SubscriptionOfferings(
         monthly: _offerFor(
           response.productDetails,
           SubscriptionCatalog.productIdFor(PlusPlan.monthly),
+          trials,
         ),
         halfYear: _offerFor(
           response.productDetails,
           SubscriptionCatalog.productIdFor(PlusPlan.halfYear),
+          trials,
         ),
         yearly: _offerFor(
           response.productDetails,
           SubscriptionCatalog.productIdFor(PlusPlan.yearly),
+          trials,
         ),
         loadFailed: false,
       );
@@ -772,9 +800,72 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     }
   }
 
+  /// 無料のお試しの日数。読めないときは空にして、価格だけの表示に戻す。
+  Future<Map<String, int>> _freeTrials(List<ProductDetails> products) async {
+    final ids = {for (final product in products) product.id};
+    if (ids.isEmpty) {
+      return const {};
+    }
+    try {
+      final loader = _loadFreeTrialDays;
+      if (loader != null) {
+        return await loader(ids);
+      }
+      if (_purchaseClient != null || _purchaseUpdates != null) {
+        // テストの偽ストアでは、実機の StoreKit を呼ばない。
+        return const {};
+      }
+      return await _loadStoreFreeTrialDays(ids);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// in_app_purchase_storekit 0.4.13 の StoreKit 2 商品はお試しオファーを返さない。
+  /// 商品情報（SKProduct.introductoryPrice）から「無料」のお試しだけを読み、
+  /// StoreKit 2 の isEligibleForIntroOffer で使える人だけに出す。
+  /// どちらかが失敗したら、その商品は価格だけの表示にする。
+  Future<Map<String, int>> _loadStoreFreeTrialDays(Set<String> ids) async {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.macOS)) {
+      return const {};
+    }
+    final response = await SKRequestMaker().startProductRequest(ids.toList());
+    final result = <String, int>{};
+    for (final product in response.products) {
+      final intro = product.introductoryPrice;
+      if (intro == null ||
+          intro.paymentMode != SKProductDiscountPaymentMode.freeTrail) {
+        continue;
+      }
+      final days = freeTrialDaysFor(
+        unit: intro.subscriptionPeriod.unit,
+        numberOfUnits: intro.subscriptionPeriod.numberOfUnits,
+        numberOfPeriods: intro.numberOfPeriods,
+      );
+      if (days == null) {
+        continue;
+      }
+      bool eligible;
+      try {
+        eligible = await SK2Product.isIntroductoryOfferEligible(
+          product.productIdentifier,
+        );
+      } catch (_) {
+        eligible = false;
+      }
+      if (eligible) {
+        result[product.productIdentifier] = days;
+      }
+    }
+    return result;
+  }
+
   SubscriptionProductOffer? _offerFor(
     List<ProductDetails> products,
     String productId,
+    Map<String, int> trials,
   ) {
     for (final product in products) {
       if (product.id != productId || product.price.trim().isEmpty) {
@@ -787,6 +878,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
           storePeriod: _storePeriod(product),
         ),
         localizedPrice: product.price,
+        freeTrialDays: trials[product.id],
       );
     }
     return null;

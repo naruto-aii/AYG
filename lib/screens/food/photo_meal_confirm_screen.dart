@@ -12,6 +12,9 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 
+/// 量の下に出す説明。数値が量に合わせて変わることを伝える。
+const photoMealAmountScaleHint = '量に合わせて、カロリーとPFCも自動で変わります。';
+
 /// 料理名が未入力のとき、記録の前に名前の確認を出す。
 Future<String?> askPhotoMealDishName(BuildContext context, String prefilled) {
   return showDialog<String>(
@@ -121,7 +124,12 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
   late final TextEditingController _carb;
   bool _saving = false;
 
+  /// 最後に掛け直した量の数。数が同じなら（単位だけ変えても）掛け直さない。
+  double? _lastAmountNumber;
+
   PhotoMealEstimate get _estimate => widget.analysis.estimate;
+
+  bool get _amountScales => leadingPhotoAmountNumber(_estimate.amount) != null;
 
   @override
   void initState() {
@@ -134,6 +142,26 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
     );
     _fat = TextEditingController(text: formatPhotoNumber(_estimate.fatG));
     _carb = TextEditingController(text: formatPhotoNumber(_estimate.carbG));
+    _lastAmountNumber = leadingPhotoAmountNumber(_estimate.amount);
+  }
+
+  /// 量を変えたら、元の推定から 4 つとも計算し直す。表示した値をそのまま保存する。
+  void _onAmountChanged(String text) {
+    final number = leadingPhotoAmountNumber(text);
+    if (number == null || number == _lastAmountNumber) {
+      return;
+    }
+    final scaled = scalePhotoMealEstimate(_estimate, text);
+    if (scaled == null) {
+      return;
+    }
+    _lastAmountNumber = number;
+    setState(() {
+      _kcal.text = formatPhotoNumber(scaled.kcal);
+      _protein.text = formatPhotoNumber(scaled.proteinG);
+      _fat.text = formatPhotoNumber(scaled.fatG);
+      _carb.text = formatPhotoNumber(scaled.carbG);
+    });
   }
 
   @override
@@ -258,15 +286,29 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
           const SizedBox(height: AppSpacing.md),
           _field('料理名', _name, hint: '例）親子丼'),
           const SizedBox(height: AppSpacing.md),
-          _field('量', _amount, hint: '例）200g'),
+          _field(
+            '量',
+            _amount,
+            hint: '例）200g',
+            inputKey: const Key('photo-meal-amount'),
+            onChanged: _onAmountChanged,
+          ),
+          if (_amountScales) ...[
+            const SizedBox(height: 6),
+            Text(
+              photoMealAmountScaleHint,
+              key: const Key('photo-meal-amount-hint'),
+              style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
-          _numberField('カロリー', _kcal, 'kcal'),
+          _numberField('カロリー', _kcal, 'kcal', const Key('photo-meal-kcal')),
           const SizedBox(height: AppSpacing.sm),
-          _numberField('たんぱく質', _protein, 'g'),
+          _numberField('たんぱく質', _protein, 'g', const Key('photo-meal-protein')),
           const SizedBox(height: AppSpacing.sm),
-          _numberField('脂質', _fat, 'g'),
+          _numberField('脂質', _fat, 'g', const Key('photo-meal-fat')),
           const SizedBox(height: AppSpacing.sm),
-          _numberField('炭水化物', _carb, 'g'),
+          _numberField('炭水化物', _carb, 'g', const Key('photo-meal-carb')),
           if (items.length > 1) ...[
             const SizedBox(height: AppSpacing.lg),
             Text('品ごとの推定', style: AppTypography.titleS),
@@ -303,6 +345,8 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
     String label,
     TextEditingController controller, {
     String? hint,
+    Key? inputKey,
+    ValueChanged<String>? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -310,7 +354,12 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
         Text(label, style: AppTypography.titleS),
         const SizedBox(height: 6),
         DesignInputBox(
-          child: DesignTextInput(controller: controller, hintText: hint),
+          child: DesignTextInput(
+            controller: controller,
+            hintText: hint,
+            inputKey: inputKey,
+            onChanged: onChanged,
+          ),
         ),
       ],
     );
@@ -320,6 +369,7 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
     String label,
     TextEditingController controller,
     String unit,
+    Key inputKey,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -330,6 +380,7 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
           suffix: unit,
           child: DesignTextInput(
             controller: controller,
+            inputKey: inputKey,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),

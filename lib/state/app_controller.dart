@@ -1434,6 +1434,52 @@ class AppController extends ChangeNotifier {
     unawaited(publishLockScreenMealSnapshot());
   }
 
+  /// 目標画面の「自動」の数字。保存後に今日の画面が出す目標と同じ計算をする。
+  ///
+  /// [settings] は保存する予定の設定（自動）。保存時と同じく、手入力から自動に
+  /// 戻すときは前回の自動目標を消し、前日以前の自動目標は今日の基準に置き換える。
+  /// 計算できないとき（プロフィールなし・18歳未満・性別その他など）は null。
+  DailySummary? previewAutomaticTargets({
+    required Goal goal,
+    required NutritionSettings settings,
+  }) {
+    final currentProfile = profile;
+    if (currentProfile == null) {
+      return null;
+    }
+    final now = DateTime.now();
+    var next = _settingsPreservingAutoSwitch(
+      settings.copyWith(calorieTargetMode: CalorieTargetMode.automatic),
+    );
+    final storedOn = next.autoFoodTargetOn;
+    final storedKcal = next.autoFoodTargetKcal;
+    if (this.goal != null &&
+        storedOn != null &&
+        storedKcal != null &&
+        localDayStart(storedOn).isBefore(localDayStart(now))) {
+      // 保存時は先に今の目標で今日の基準が入り、前回の目標が「前日分」になる。
+      next = next.copyWith(
+        autoFoodTargetOn: localDayStart(now),
+        autoFoodTargetPriorKcal: storedKcal,
+      );
+    }
+    final result = _nutritionEngine.calculateDailySummary(
+      profile: currentProfile,
+      goal: goal,
+      settings: next,
+      healthSnapshot: healthSnapshot,
+      goalPace: goal.goalPace,
+      foodEntries: const [],
+      exerciseEntries: List.unmodifiable(exerciseEntries),
+      referenceDate: now,
+      weightSamples: calculationWeightSamples(),
+    );
+    if (result.targetKcal <= 0) {
+      return null;
+    }
+    return result;
+  }
+
   void _persistAutoTargetAnchor(DateTime referenceDate) {
     final settings = nutritionSettings;
     final update = summary?.energyBreakdown?.anchorUpdate;

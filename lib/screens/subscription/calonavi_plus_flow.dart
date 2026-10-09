@@ -17,7 +17,6 @@ import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
-import '../../widgets/design/select_card.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
 
@@ -34,7 +33,9 @@ Future<void> showCalonaviPlus(
 }) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'calonavi_plus_flow_MaterialPageRoute_0'),
+      settings: const RouteSettings(
+        name: 'calonavi_plus_flow_MaterialPageRoute_0',
+      ),
       fullscreenDialog: true,
       builder: (context) => CalonaviPlusEntryScreen(
         repository: repository,
@@ -104,12 +105,13 @@ class _PlanOption {
 
   bool get hasFreeTrial => (freeTrialDays ?? 0) > 0;
 
-  String get description {
+  /// ボタンの下の2行。お試しがあるときだけ無料の日数を出す。
+  String get ctaNote {
     final trialDays = freeTrialDays;
-    final head = trialDays != null && trialDays > 0
-        ? AppStrings.plusTrialPlanLine(trialDays, plusPlanLabel(plan), price)
-        : price;
-    return note.isEmpty ? head : '$head ・ $note';
+    if (trialDays != null && trialDays > 0) {
+      return AppStrings.plusCtaTrialNote(trialDays, plusPlanLabel(plan), price);
+    }
+    return AppStrings.plusCtaPriceNote(plusPlanLabel(plan), price);
   }
 
   String get ctaLabel {
@@ -160,7 +162,9 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     switch (event) {
       case PlusFunnelEvent.paywallOpen:
         Analytics.emit('paywall_open', {
-          'entry_point': widget.feature == null ? 'settings' : 'gate_$featureName',
+          'entry_point': widget.feature == null
+              ? 'settings'
+              : 'gate_$featureName',
           'products_loaded': !_loadingPrices && _offerings != null,
         });
       case PlusFunnelEvent.planSelect:
@@ -168,7 +172,9 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       case PlusFunnelEvent.purchaseTap:
         Analytics.emit('purchase_tap', {
           'product_id': planId,
-          'entry_point': widget.feature == null ? 'settings' : 'gate_$featureName',
+          'entry_point': widget.feature == null
+              ? 'settings'
+              : 'gate_$featureName',
         });
       case PlusFunnelEvent.purchaseSuccess:
       case PlusFunnelEvent.purchaseCancel:
@@ -453,6 +459,22 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     return '${AppStrings.plusCurrentExpiryPrefix}: ${formatPlusExpiryDate(expiry)}';
   }
 
+  void _openMoreFeatures() {
+    showModalBottomSheet<void>(
+      context: context,
+      routeSettings: const RouteSettings(name: 'calonavi_plus_more_features'),
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: AppColors.bgPage,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => const _MoreFeaturesSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final plans = _loadingPrices ? const <_PlanOption>[] : _plans;
@@ -481,176 +503,194 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         AppSpacing.screenHorizontal,
         6,
       ),
-      bottomBar: plans.isEmpty
+      bottomBar: selectedPlan == null
           ? null
-          : DesignButton(
-              key: const Key('plus-purchase'),
-              label: selectedPlan!.ctaLabel,
-              showTrailingIcon: false,
-              loading: _busy,
-              onPressed: _busy ? null : _confirm,
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DesignButton(
+                  key: const Key('plus-purchase'),
+                  label: selectedPlan.ctaLabel,
+                  showTrailingIcon: false,
+                  height: 58,
+                  loading: _busy,
+                  onPressed: _busy ? null : _confirm,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  selectedPlan.ctaNote,
+                  key: const Key('plus-cta-note'),
+                  textAlign: TextAlign.center,
+                  style: AppTypography.labelS,
+                ),
+              ],
             ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: AppSpacing.sm),
           Center(
             child: IconCircle(
-              size: 72,
+              size: 64,
               tone: IconCircleTone.green,
               child: const DesignIcon(
                 Symbols.workspace_premium_rounded,
-                size: 36,
+                size: 32,
                 color: AppColors.iconPrimary,
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'カロナビ+',
             textAlign: TextAlign.center,
             style: AppTypography.headingL,
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             AppStrings.plusHeroSubtitle,
             textAlign: TextAlign.center,
             style: AppTypography.bodyM,
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            AppStrings.plusFeatureLead,
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyM,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _Benefit(
-            icon: Symbols.bookmark_rounded,
-            title: AppStrings.plusBenefitTemplateTitle,
-            body: AppStrings.plusBenefitTemplateBody,
-          ),
           const SizedBox(height: AppSpacing.md),
-          _Benefit(
-            icon: Symbols.widgets_rounded,
-            title: AppStrings.plusBenefitWidgetTitle,
-            body: AppStrings.plusBenefitWidgetBody,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
-            icon: Symbols.mic_rounded,
-            title: AppStrings.plusBenefitSiriTitle,
-            body: AppStrings.plusBenefitSiriBody,
-            detail: AppStrings.siriVoicePaidGuidance,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
+          const _HeroBenefit(
             icon: Symbols.photo_camera_rounded,
             title: AppStrings.plusBenefitPhotoTitle,
-            body: AppStrings.plusBenefitPhotoBody,
+            body: AppStrings.plusHeroPhotoBody,
           ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
-            icon: Symbols.storefront_rounded,
-            title: AppStrings.plusBenefitEatingOutTitle,
-            body: AppStrings.plusBenefitEatingOutBody,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
+          const _HeroBenefit(
             icon: Symbols.search_rounded,
             title: AppStrings.plusBenefitAiSearchTitle,
-            body: AppStrings.plusBenefitAiSearchBody,
+            body: AppStrings.plusHeroAiSearchBody,
           ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
-            icon: Symbols.nutrition_rounded,
+          const _HeroBenefit(
+            icon: Symbols.person_rounded,
             title: AppStrings.plusBenefitCoachTitle,
-            body: AppStrings.plusBenefitCoachBody,
+            body: AppStrings.plusHeroCoachBody,
           ),
-          const SizedBox(height: AppSpacing.md),
-          _Benefit(
-            icon: Symbols.info_rounded,
-            title: AppStrings.plusAiLimitTitle,
-            body: AppStrings.plusAiLimitBody,
+          const _HeroBenefit(
+            icon: Symbols.widgets_rounded,
+            title: AppStrings.plusBenefitWidgetTitle,
+            body: AppStrings.plusHeroWidgetBody,
           ),
-          const SizedBox(height: AppSpacing.lg),
+          Center(
+            child: TextButton(
+              key: const Key('plus-more-features'),
+              onPressed: _openMoreFeatures,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      AppStrings.plusMoreFeaturesLink,
+                      style: AppTypography.titleS.copyWith(
+                        color: AppColors.textBrand,
+                      ),
+                    ),
+                  ),
+                  const DesignIcon(
+                    Symbols.chevron_right_rounded,
+                    size: 20,
+                    color: AppColors.textBrand,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
           if (_loadingPrices)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
               child: Center(child: CircularProgressIndicator()),
             )
-          else ...[
-            Text('プランを選ぶ', style: AppTypography.titleM),
-            const SizedBox(height: AppSpacing.sm),
-            for (var i = 0; i < plans.length; i++) ...[
-              if (i > 0) const SizedBox(height: AppSpacing.sm),
-              SelectCard(
-                key: Key('plus-plan-${plans[i].plan.name}'),
-                title: plusPlanLabel(plans[i].plan),
-                description: plans[i].description,
-                selected: plans[i].plan == _selected,
-                minHeight: 84,
-                badge: plans[i].badgeLabel == null
-                    ? null
-                    : _PlanBadge(label: plans[i].badgeLabel!),
-                onTap: _busy
-                    ? null
-                    : () {
-                        setState(() => _selected = plans[i].plan);
-                        _record(
-                          PlusFunnelEvent.planSelect,
-                          productId: SubscriptionCatalog.planKeyFor(plans[i].plan),
-                        );
-                      },
+          else
+            IntrinsicHeight(
+              key: const Key('plus-plans'),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < plans.length; i++) ...[
+                    if (i > 0) const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: _PlanCard(
+                        key: Key('plus-plan-${plans[i].plan.name}'),
+                        option: plans[i],
+                        selected: plans[i].plan == _selected,
+                        onTap: _busy
+                            ? null
+                            : () {
+                                setState(() => _selected = plans[i].plan);
+                                _record(
+                                  PlusFunnelEvent.planSelect,
+                                  productId: SubscriptionCatalog.planKeyFor(
+                                    plans[i].plan,
+                                  ),
+                                );
+                              },
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ],
-          const SizedBox(height: AppSpacing.md),
-          DesignButton(
-            label: '購入を復元',
-            style: DesignButtonStyle.outline,
-            showTrailingIcon: false,
-            onPressed: _busy ? null : _restore,
+            ),
+          const SizedBox(height: AppSpacing.xs),
+          Center(
+            child: TextButton(
+              key: const Key('plus-restore'),
+              onPressed: _busy ? null : _restore,
+              child: Text(
+                '購入を復元',
+                style: AppTypography.titleS.copyWith(
+                  color: AppColors.textBrand,
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(AppStrings.plusBillingPeriod, style: AppTypography.bodyS),
-          const SizedBox(height: AppSpacing.sm),
-          Text(AppStrings.plusAutoRenew, style: AppTypography.bodyS),
+          const SizedBox(height: AppSpacing.xs),
+          Text(AppStrings.plusBillingPeriod, style: _legalStyle),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(AppStrings.plusAutoRenew, style: _legalStyle),
           if (_anyTrialDays case final trialDays?) ...[
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
               AppStrings.plusTrialNotice(trialDays),
               key: const Key('plus-trial-notice'),
-              style: AppTypography.bodyS,
+              style: _legalStyle,
             ),
           ],
-          const SizedBox(height: AppSpacing.sm),
-          Text(AppStrings.plusCancelHow, style: AppTypography.bodyS),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(AppStrings.plusCancelHow, style: _legalStyle),
           if (_activeExpiryLabel case final expiryLabel?) ...[
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.xs),
             Text(expiryLabel, style: AppTypography.bodyS),
           ],
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Wrap(
+            alignment: WrapAlignment.center,
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _LegalLink(label: '利用規約', document: LegalDocument.terms),
-              _LegalLink(
-                label: 'プライバシーポリシー',
-                document: LegalDocument.privacy,
-              ),
+              _LegalLink(label: 'プライバシーポリシー', document: LegalDocument.privacy),
               _LegalLink(
                 label: '特定商取引法に基づく表記',
                 document: LegalDocument.tokushoho,
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.md),
         ],
       ),
     );
   }
 }
+
+final TextStyle _legalStyle = AppTypography.labelS.copyWith(
+  fontWeight: FontWeight.w400,
+  height: 1.5,
+  color: AppColors.textMuted,
+);
 
 class _LegalLink extends StatelessWidget {
   const _LegalLink({required this.label, required this.document});
@@ -673,8 +713,9 @@ class _LegalLink extends StatelessWidget {
   }
 }
 
-class _Benefit extends StatelessWidget {
-  const _Benefit({
+/// 課金画面の大きい1行（アイコン・機能名・短い説明）。シートでも使う。
+class _HeroBenefit extends StatelessWidget {
+  const _HeroBenefit({
     required this.icon,
     required this.title,
     required this.body,
@@ -688,38 +729,271 @@ class _Benefit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        IconCircle(
-          size: 40,
-          tone: IconCircleTone.green,
-          child: DesignIcon(icon, size: 20, color: AppColors.iconPrimary),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: AppTypography.titleS),
-              const SizedBox(height: 2),
-              Text(body, style: AppTypography.bodyS),
-              if (detail case final detail?) ...[
-                const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgSurfaceGreenSoft,
-                    borderRadius: AppRadius.input,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: detail == null
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
+        children: [
+          IconCircle(
+            size: 44,
+            tone: IconCircleTone.green,
+            child: DesignIcon(icon, size: 22, color: AppColors.iconPrimary),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTypography.titleM.copyWith(height: 1.4)),
+                Text(body, style: AppTypography.bodyS.copyWith(height: 1.45)),
+                if (detail case final detail?) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSurfaceGreenSoft,
+                      borderRadius: AppRadius.input,
+                    ),
+                    child: Text(detail, style: AppTypography.caption),
                   ),
-                  child: Text(detail, style: AppTypography.caption),
-                ),
+                ],
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 「その他の機能を見る」で開くシート。大きく出した4つ以外の機能。
+class _MoreFeaturesSheet extends StatelessWidget {
+  const _MoreFeaturesSheet();
+
+  static const _rows = [
+    (
+      Symbols.bookmark_rounded,
+      AppStrings.plusMoreTemplateTitle,
+      AppStrings.plusMoreTemplateBody,
+    ),
+    (
+      Symbols.mic_rounded,
+      AppStrings.plusBenefitSiriTitle,
+      AppStrings.plusBenefitSiriBody,
+    ),
+    (
+      Symbols.storefront_rounded,
+      AppStrings.plusBenefitEatingOutTitle,
+      AppStrings.plusMoreEatingOutBody,
+    ),
+    (
+      Symbols.info_rounded,
+      AppStrings.plusAiLimitTitle,
+      AppStrings.plusMoreAiLimitBody,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        key: const Key('plus-more-features-sheet'),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenHorizontal,
+          0,
+          AppSpacing.screenHorizontal,
+          AppSpacing.md,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppStrings.plusMoreFeaturesTitle,
+              textAlign: TextAlign.center,
+              style: AppTypography.headingS,
+            ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              AppStrings.plusMoreFeaturesLead,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyS,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            for (var i = 0; i < _rows.length; i++) ...[
+              if (i > 0)
+                const Divider(
+                  height: 1,
+                  indent: 56,
+                  color: AppColors.borderDefault,
+                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: _HeroBenefit(
+                  icon: _rows[i].$1,
+                  title: _rows[i].$2,
+                  body: _rows[i].$3,
+                  // 音声登録は、登録できる話し方の2文をそのまま添える。
+                  detail: _rows[i].$2 == AppStrings.plusBenefitSiriTitle
+                      ? AppStrings.siriVoicePaidGuidance
+                      : null,
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.lg),
+            DesignButton(
+              key: const Key('plus-more-features-close'),
+              label: AppStrings.plusMoreFeaturesClose,
+              showTrailingIcon: false,
+              height: 56,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 3枚横並びのプラン。期間・大きい金額・月あたり・バッジ・選択の印。
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    super.key,
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _PlanOption option;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected ? AppColors.green900 : AppColors.neutral900;
+    final card = Material(
+      color: selected ? AppColors.bgSurfaceGreenSoft : AppColors.bgSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.input,
+        side: BorderSide(
+          color: selected ? AppColors.borderFocus : AppColors.borderDefault,
+          width: selected ? 2 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 8, 6, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _SelectMark(selected: selected),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                plusPlanLabel(option.plan),
+                textAlign: TextAlign.center,
+                style: AppTypography.titleS.copyWith(color: foreground),
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  option.price,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontFamily,
+                    fontSize: selected ? 27 : 25,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                    color: foreground,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              if (option.note.isNotEmpty)
+                Text(
+                  option.note,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.labelS.copyWith(
+                    color: selected
+                        ? AppColors.textBrand
+                        : AppColors.textSecondary,
+                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                  ),
+                ),
             ],
           ),
         ),
-      ],
+      ),
+    );
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${plusPlanLabel(option.plan)} ${option.price}',
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.none,
+          children: [
+            card,
+            if (option.badgeLabel case final badge?)
+              Positioned(
+                top: -11,
+                left: 4,
+                right: 4,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: _PlanBadge(label: badge),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectMark extends StatelessWidget {
+  const _SelectMark({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (selected) {
+      return Container(
+        width: 20,
+        height: 20,
+        decoration: const BoxDecoration(
+          color: AppColors.bgPrimary,
+          shape: BoxShape.circle,
+        ),
+        child: const DesignIcon(
+          Symbols.check_rounded,
+          size: 14,
+          color: AppColors.iconOnPrimary,
+        ),
+      );
+    }
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.neutral300, width: 1.5),
+      ),
     );
   }
 }
@@ -739,9 +1013,11 @@ class _PlanBadge extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
         style: AppTypography.caption.copyWith(
           color: AppColors.textOnPrimary,
           fontWeight: FontWeight.w700,
+          fontSize: 12,
         ),
       ),
     );

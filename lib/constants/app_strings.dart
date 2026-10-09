@@ -75,11 +75,8 @@ class AppStrings {
   static const accountDeletionAppleRevokeFailedClose = '閉じる';
   static const plusBillingPeriod =
       '月額は1か月、半年は6か月、年額は1年の定期購入です。価格は選んだプランに出る、ストアの税込価格だけを使います。';
-  static const plusHeroSubtitle = 'テンプレートの上限をなくし、ウィジェットとSiriで記録をもっと速く。';
+  static const plusHeroSubtitle = '写真とAIで、記録をもっと速く・ラクに。';
 
-  /// 既存の見出しの下に足す。ウィジェットと Siri の文は置き換えない。
-  /// 「β版への先行アクセス」とは書かない（審査 2.2 / 3.1.2）。機能名をそのまま出す。
-  static const plusFeatureLead = '写真で登録・AIで探す・パーソナルコーチ';
   static const plusAiLimitTitle = 'AI機能は1日15回まで';
   static const coachCookingBody =
       '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
@@ -110,11 +107,38 @@ class AppStrings {
   static const plusBenefitCoachTitle = 'パーソナルコーチ (β)';
   static const plusBenefitCoachBody =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。$coachCookingBody';
+
+  // ---- 課金画面（A+B）。「有料」「先行アクセス」とは書かない（審査 2.2 / 3.1.2）。
+  /// 課金画面で大きく出す4つ。タイトルは機能名そのまま。
+  static const plusHeroPhotoBody = '撮るだけで、AIがカロリーとPFCを推定';
+  static const plusHeroAiSearchBody = '見つからない食品も、AIがカロリーとPFCを推定';
+  static const plusHeroCoachBody = '今日の残りに合わせて、献立と量を提案';
+  static const plusHeroWidgetBody = 'アプリを開かずに、ホーム・ロック画面から記録';
+
+  /// 4つの下のリンク。押すと画面内のシートで残りの機能を出す。
+  static const plusMoreFeaturesLink = 'その他の機能を見る';
+  static const plusMoreFeaturesTitle = 'カロナビ+のその他の機能';
+  static const plusMoreFeaturesLead = '写真で登録・AIで探す・コーチ・ウィジェットに加えて';
+  static const plusMoreTemplateTitle = 'テンプレート保存無制限';
+  static const plusMoreTemplateBody = '無料は食事・運動それぞれ4件まで。何件でも保存';
+  static const plusMoreEatingOutBody = '店名と商品名から、AIがカロリーとPFCを推定';
+  static const plusMoreAiLimitBody = '写真・外食・AIで探すをあわせて1日15回';
+  static const plusMoreFeaturesClose = 'とじる';
+
+  /// ボタンの下の2行。例: 「3日間無料。期間終了後は年額¥8,800で自動更新。いつでも解約できます。」
+  static String plusCtaTrialNote(int days, String periodLabel, String price) =>
+      '$days日間無料。期間終了後は$periodLabel$priceで自動更新。\nいつでも解約できます。';
+
+  /// お試しが無いときのボタンの下の2行。
+  static String plusCtaPriceNote(String periodLabel, String price) =>
+      '$periodLabel$priceで自動更新。\nいつでも解約できます。';
+
   static const plusCtaPrefix = 'で始める';
   static const plusBadgeBestValue = '一番お得';
   static const plusBadgeSave = 'お得';
 
-  static const plusMonthlyNote = 'いつでも解約できます';
+  /// 月額カードの下の小さい文字。半年と年額は「月あたり」を出す。
+  static const plusMonthlyNote = '1か月ごと';
 
   /// ストアが金額を返せないときだけの表示。購入処理では使わない。
   static const plusFallbackMonthlyPrice = '¥980';
@@ -122,16 +146,13 @@ class AppStrings {
   static const plusFallbackYearlyPrice = '¥8,800';
   static const plusAutoRenew =
       '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
+
   /// 無料のお試しがあるプランのボタン。ストアがお試しを返したときだけ使う。
   static String plusTrialCta(int days) => '$days日間無料ではじめる';
 
-  /// プランの説明。例: 「3日間無料 → そのあと月額¥980で自動更新」。
-  static String plusTrialPlanLine(int days, String periodLabel, String price) =>
-      '$days日間無料 → そのあと$periodLabel$priceで自動更新';
-
   /// 自動更新の説明に足す1文。お試しを返したときだけ出す。
   static String plusTrialNotice(int days) =>
-      'はじめてカロナビ+に登録する方は、$days日間無料でお試しいただけます。無料期間中は請求されません。無料期間が終わる24時間以上前に解約しない限り、選んだプランの料金で自動的に有料の定期購入に切り替わり、Apple ID へ請求されます。';
+      'はじめてカロナビ+に登録する方は、$days日間無料でお試しいただけます。無料期間中は請求されません。無料期間が終わる24時間以上前に解約しない限り、選んだプランの料金で定期購入が自動で始まり、Apple ID へ請求されます。';
 
   static const plusCancelHow =
       '管理と解約は、App Store のアカウント設定から行えます。アプリを消しても課金は止まりません。';

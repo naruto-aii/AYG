@@ -78,10 +78,17 @@ void main() {
       await tester.tap(find.text('開く'));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('plus-more-features')));
+      await tester.tap(find.byKey(const Key('plus-more-features')));
+      await tester.pumpAndSettle();
+      expect(find.text('カロナビ+のその他の機能'), findsOneWidget);
       expect(
         find.textContaining(AppStrings.siriVoiceFoodPhrase),
         findsOneWidget,
       );
+      await tester.tap(find.byKey(const Key('plus-more-features-close')));
+      await tester.pumpAndSettle();
+      expect(find.text('カロナビ+のその他の機能'), findsNothing);
       expect(find.textContaining('¥980'), findsWidgets);
       expect(find.text('半年'), findsOneWidget);
       expect(find.text('年額'), findsOneWidget);

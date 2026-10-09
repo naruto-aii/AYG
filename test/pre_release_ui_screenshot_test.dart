@@ -54,7 +54,8 @@ void main() {
     expect(find.text('プライバシーポリシー'), findsOneWidget);
     expect(find.textContaining('Apple ID'), findsOneWidget);
     expect(find.textContaining('24時間以上前'), findsOneWidget);
-    expect(find.text('音声登録 (β)'), findsOneWidget);
+    expect(find.text('写真で登録 (β)'), findsOneWidget);
+    expect(find.text('その他の機能を見る'), findsOneWidget);
 
     expect(find.textContaining('社長確認'), findsNothing);
     expect(find.textContaining('文案'), findsNothing);

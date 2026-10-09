@@ -620,6 +620,7 @@ void main() {
     expect(find.textContaining(r'$'), findsNothing);
     expect(controller.foodEntries, isEmpty);
     expect(controller.exerciseEntries, isEmpty);
+    await _openMoreFeatures(tester);
     expect(
       find.textContaining(
         '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。',
@@ -681,6 +682,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('こちらは有料の機能です'), findsNothing);
+    await _openMoreFeatures(tester);
     expect(
       find.textContaining(
         '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。',
@@ -1560,4 +1562,12 @@ class _MemoryGateway implements LockScreenMealGateway {
   Future<void> setPaid(bool isPaid) async {
     paid = isPaid;
   }
+}
+
+/// 課金画面の「その他の機能を見る」を開く。音声登録の話し方はシートに出る。
+Future<void> _openMoreFeatures(WidgetTester tester) async {
+  await tester.ensureVisible(find.byKey(const Key('plus-more-features')));
+  await tester.tap(find.byKey(const Key('plus-more-features')));
+  await tester.pumpAndSettle();
+  expect(find.text('カロナビ+のその他の機能'), findsOneWidget);
 }

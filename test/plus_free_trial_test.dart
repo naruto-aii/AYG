@@ -151,16 +151,16 @@ Future<void> _pumpPaywall(
     MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: RepaintBoundary(
-        key: key,
-        child: CalonaviPlusEntryScreen(repository: repository),
-      ),
+      // シートも写るように、Navigator ごと囲む。
+      builder: (context, child) => RepaintBoundary(key: key, child: child),
+      home: CalonaviPlusEntryScreen(repository: repository),
     ),
   );
   await tester.pumpAndSettle();
 }
 
 void _expectNoBannedWording() {
+  expect(find.textContaining('有料'), findsNothing);
   expect(find.textContaining('β版'), findsNothing);
   expect(find.textContaining('先行アクセス'), findsNothing);
   expect(find.textContaining('メモ'), findsNothing);
@@ -280,33 +280,53 @@ void main() {
       );
       expect(find.text('3日間無料ではじめる'), findsOneWidget);
       expect(find.text('¥8,800で始める'), findsNothing);
+      // 金額はカードに大きく出す。無料の文はボタンの下だけ。
+      for (final price in ['¥980', '¥4,900', '¥8,800']) {
+        expect(find.text(price), findsOneWidget);
+      }
+      expect(find.text('月あたり約733円'), findsOneWidget);
+      expect(find.textContaining('→ そのあと'), findsNothing);
       expect(
-        find.text('3日間無料 → そのあと月額¥980で自動更新 ・ いつでも解約できます'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('3日間無料 → そのあと年額¥8,800で自動更新 ・ 月あたり約733円'),
+        find.text('3日間無料。期間終了後は年額¥8,800で自動更新。\nいつでも解約できます。'),
         findsOneWidget,
       );
       expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);
       expect(find.text(AppStrings.plusTrialNotice(3)), findsOneWidget);
       expect(
         AppStrings.plusTrialNotice(3),
-        contains('選んだプランの料金で自動的に有料の定期購入に切り替わり'),
+        contains('選んだプランの料金で定期購入が自動で始まり'),
       );
       _expectNoBannedWording();
 
-      // 1290×2796（6.9インチ）。プランと無料お試しの文が見える位置で撮る。
-      await tester.scrollUntilVisible(find.text('プランを選ぶ'), 300);
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('年額'));
-      await tester.pumpAndSettle();
-      final bytes = await tester.runAsync(
+      // 6.9インチ（1290×2796）。年額を選んだ状態の、4つの機能とプランとボタン。
+      final hero = await tester.runAsync(
         () => pngBytesFromBoundary(key, pixelRatio: 3),
       );
       final directory = Directory('/workspace/screenshots');
       if (directory.existsSync()) {
-        File('${directory.path}/paywall_trial.png').writeAsBytesSync(bytes!);
+        File('${directory.path}/paywall_trial.png').writeAsBytesSync(hero!);
+        File('${directory.path}/paywall_ab.png').writeAsBytesSync(hero);
+      }
+
+      await tester.tap(find.byKey(const Key('plus-plan-monthly')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('3日間無料。期間終了後は月額¥980で自動更新。\nいつでも解約できます。'),
+        findsOneWidget,
+      );
+      expect(find.text('3日間無料ではじめる'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('plus-plan-yearly')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('plus-more-features')));
+      await tester.pumpAndSettle();
+      expect(find.text('カロナビ+のその他の機能'), findsOneWidget);
+      _expectNoBannedWording();
+      final sheet = await tester.runAsync(
+        () => pngBytesFromBoundary(key, pixelRatio: 3),
+      );
+      if (directory.existsSync()) {
+        File('${directory.path}/paywall_ab_sheet.png').writeAsBytesSync(sheet!);
       }
       await tester.binding.setSurfaceSize(null);
     });
@@ -316,7 +336,12 @@ void main() {
       expect(find.text('¥8,800で始める'), findsOneWidget);
       expect(find.textContaining('日間無料'), findsNothing);
       expect(find.byKey(const Key('plus-trial-notice')), findsNothing);
-      expect(find.text('¥8,800 ・ 月あたり約733円'), findsOneWidget);
+      expect(find.text('¥8,800'), findsOneWidget);
+      expect(find.text('月あたり約733円'), findsOneWidget);
+      expect(
+        find.text('年額¥8,800で自動更新。\nいつでも解約できます。'),
+        findsOneWidget,
+      );
       expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);
       _expectNoBannedWording();
       await tester.binding.setSurfaceSize(null);

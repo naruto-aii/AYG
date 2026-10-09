@@ -44,6 +44,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('購入を復元'), findsOneWidget);
+
+      // 「その他の機能を見る」のシートも、大きい文字ではみ出さない。
+      await tester.ensureVisible(find.byKey(const Key('plus-more-features')));
+      await tester.tap(find.byKey(const Key('plus-more-features')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('カロナビ+のその他の機能'), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const Key('plus-more-features-close')),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(const Key('plus-more-features-close')));
+      await tester.pumpAndSettle();
+      expect(find.text('カロナビ+のその他の機能'), findsNothing);
     });
 
     testWidgets(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:uuid/uuid.dart';
 
 import '../config/subscription_catalog.dart';
@@ -141,7 +142,8 @@ class AppController extends ChangeNotifier {
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
     Future<bool> Function()? termsAgreed,
-  }) : _termsAgreed = termsAgreed ?? AiDataConsent.grantedNow, _nutritionEngine = nutritionEngine ?? NutritionEngine(),
+  }) : _termsAgreed = termsAgreed ?? AiDataConsent.grantedNow,
+       _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
        _dataSyncRepository = dataSyncRepository,
@@ -564,6 +566,7 @@ class AppController extends ChangeNotifier {
       await syncLockScreenMeals();
       await syncSiriVoiceLogs();
       await _syncPlusEntitlement();
+      await _adoptServerPlusForTestBuild(authUser.id);
       _lastSyncFailed = false;
       _syncFailure = null;
     } on SyncStepException catch (error) {
@@ -3689,6 +3692,44 @@ class AppController extends ChangeNotifier {
       }
     }
     return false;
+  }
+
+  /// テストが差し替える。本番の実機テスト用ビルドは Supabase の本人の行を読む。
+  @visibleForTesting
+  Future<bool> Function(String userId)? serverPlusLookupOverride;
+
+  /// 実機テスト用ビルド（CALONAVI_TEST_PURCHASE）だけ。入れ直し直後に、サーバの
+  /// 有料を無料表示で隠さない。審査に出すビルドではこの処理は何もしない。
+  Future<void> _adoptServerPlusForTestBuild(String userId) async {
+    final repository = _subscriptionRepository;
+    if (!repository.testPurchaseToggleEnabled || repository.isPlusActive) {
+      return;
+    }
+    try {
+      final lookup = serverPlusLookupOverride ?? _serverHasActivePlus;
+      final serverPlus = await lookup(userId);
+      repository.adoptServerPlusForTest(serverPlus);
+      if (serverPlus) {
+        await _applyPaidEntitlement();
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint('[AYG] server plus lookup failed: $error');
+    }
+  }
+
+  Future<bool> _serverHasActivePlus(String userId) async {
+    if (!SupabaseConfig.isConfigured) {
+      return false;
+    }
+    final rows = await Supabase.instance.client
+        .from('calonavi_plus_entitlements')
+        .select('product_id')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+        .limit(1);
+    return rows.isNotEmpty;
   }
 
   Future<void> _syncPlusEntitlement() async {

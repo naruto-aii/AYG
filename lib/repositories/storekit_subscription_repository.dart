@@ -35,9 +35,7 @@ class _InAppPurchaseClient implements StorePurchaseClient {
   Future<bool> isAvailable() => _store.isAvailable();
 
   @override
-  Future<ProductDetailsResponse> queryProductDetails(
-    Set<String> identifiers,
-  ) {
+  Future<ProductDetailsResponse> queryProductDetails(Set<String> identifiers) {
     return _store.queryProductDetails(identifiers);
   }
 
@@ -71,8 +69,7 @@ void emitStoreKitPurchaseResult({
   String? errorCode,
 }) {
   Analytics.emit('purchase_result', {
-    'product_id':
-        SubscriptionCatalog.planKeyForProduct(productId) ?? productId,
+    'product_id': SubscriptionCatalog.planKeyForProduct(productId) ?? productId,
     'status': status,
     if (errorCode != null && errorCode.isNotEmpty) 'error_code': errorCode,
   });
@@ -372,6 +369,20 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     await _setTestPlus(false);
   }
 
+  @override
+  void adoptServerPlusForTest(bool serverPlus) {
+    // 入れ直した直後は切替の記録が無い。サーバが有料ならそれに合わせる。
+    // 端末には書かない（押したときだけ書く）。ストアの加入行にも触れない。
+    if (!testPurchaseEnabled ||
+        _testOverridePresent ||
+        !serverPlus ||
+        _testPlus) {
+      return;
+    }
+    _testPlus = true;
+    _emitPlus();
+  }
+
   Future<void> _setTestPlus(bool active) async {
     _testPlus = active;
     _testOverridePresent = true;
@@ -580,8 +591,13 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       ..clear()
       ..addEntries(
         selection.revocations
-            .where((record) => (record.signedTransaction ?? '').trim().isNotEmpty)
-            .map((record) => MapEntry(record.productId, record.signedTransaction!.trim())),
+            .where(
+              (record) => (record.signedTransaction ?? '').trim().isNotEmpty,
+            )
+            .map(
+              (record) =>
+                  MapEntry(record.productId, record.signedTransaction!.trim()),
+            ),
       );
     for (final record in selection.active) {
       _rememberSigned(record.productId, record.signedTransaction);

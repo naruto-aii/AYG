@@ -232,6 +232,67 @@ bool photoMealWasEdited({
       photoMealNumbersDiffer(carbG, original.carbG);
 }
 
+/// 量の文の先頭の数（「200g」「1.5杯」「2個」「1/2個」）。読めなければ null。
+double? leadingPhotoAmountNumber(String raw) {
+  final text = raw
+      .trim()
+      .replaceAllMapped(
+        RegExp('[０-９]'),
+        (m) => String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0xFEE0),
+      )
+      .replaceAll('．', '.')
+      .replaceAll('／', '/');
+  final match = RegExp(
+    r'^[^\d]{0,3}?(\d+(?:\.\d+)?)(?:\s*/\s*(\d+(?:\.\d+)?))?',
+  ).firstMatch(text);
+  if (match == null) {
+    return null;
+  }
+  var value = double.tryParse(match.group(1)!);
+  final denominator = match.group(2);
+  if (value != null && denominator != null) {
+    final d = double.tryParse(denominator);
+    value = d == null || d <= 0 ? null : value / d;
+  }
+  if (value == null || !value.isFinite || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+class PhotoMealNutrition {
+  const PhotoMealNutrition({
+    required this.kcal,
+    required this.proteinG,
+    required this.fatG,
+    required this.carbG,
+  });
+
+  final double kcal;
+  final double proteinG;
+  final double fatG;
+  final double carbG;
+}
+
+/// 元の推定を、新しい量と元の量の比で掛け直す。どちらかが読めなければ null。
+PhotoMealNutrition? scalePhotoMealEstimate(
+  PhotoMealEstimate original,
+  String amountText,
+) {
+  final base = leadingPhotoAmountNumber(original.amount);
+  final next = leadingPhotoAmountNumber(amountText);
+  if (base == null || next == null) {
+    return null;
+  }
+  final ratio = next / base;
+  return PhotoMealNutrition(
+    kcal: original.kcal * ratio,
+    proteinG: original.proteinG * ratio,
+    fatG: original.fatG * ratio,
+    carbG: original.carbG * ratio,
+  );
+}
+
 class ParsedPhotoAmount {
   const ParsedPhotoAmount({required this.amount, required this.unit});
 
@@ -322,7 +383,9 @@ Uint8List compressMealPhoto(
   if (decoded == null) {
     throw const FormatException('写真を読み取れませんでした');
   }
-  final longest = decoded.width > decoded.height ? decoded.width : decoded.height;
+  final longest = decoded.width > decoded.height
+      ? decoded.width
+      : decoded.height;
   final resized = longest <= longEdge
       ? decoded
       : img.copyResize(

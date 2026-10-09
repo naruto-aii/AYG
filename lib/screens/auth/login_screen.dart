@@ -20,6 +20,7 @@ import '../../widgets/brand/login_background.dart';
 import '../../widgets/layout/design_canvas.dart';
 import '../legal/legal_document.dart';
 import '../legal/legal_document_screen.dart';
+import '../../utils/user_error_message.dart';
 
 /// ログイン画面。
 ///
@@ -111,12 +112,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) {
         return;
       }
-      final message = error is SignInFailedException
-          ? error.message
-          : error.toString();
+      final detail = error is SignInFailedException
+          ? japaneseDetail(error.message)
+          : null;
+      final message = detail == null
+          ? userErrorMessage(error, action: '${label}ログイン')
+          : '${label}ログインに失敗しました。$detail';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('$labelログインに失敗しました: $message')));
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

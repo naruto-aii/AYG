@@ -11,6 +11,7 @@ import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/select_card.dart';
 import '../shell/main_shell_screen.dart';
+import '../../utils/user_error_message.dart';
 
 /// 初回オンボーディング: 活動量の選択。
 ///
@@ -58,7 +59,7 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: '保存'))));
       return;
     }
 

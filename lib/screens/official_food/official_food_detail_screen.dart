@@ -12,6 +12,7 @@ import '../../utils/nutrition_format.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/official_food/official_food_attribution.dart';
+import '../../utils/user_error_message.dart';
 
 /// 検索結果から詳細へ進む。
 void openOfficialFoodDetail(
@@ -96,7 +97,7 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
       ).showSnackBar(const SnackBar(content: Text('食事に記録しました')));
       Navigator.of(context).pop();
     } catch (error) {
-      _showError('記録に失敗しました: $error');
+      _showError(userErrorMessage(error, action: '記録'));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -120,7 +121,7 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('保存済み食品に保存しました')));
     } catch (error) {
-      _showError('保存に失敗しました: $error');
+      _showError(userErrorMessage(error, action: '保存'));
     } finally {
       if (mounted) {
         setState(() => _busy = false);

@@ -12,6 +12,7 @@ import '../../utils/saved_food_base_serving_format.dart';
 import '../common/app_bottom_sheet.dart';
 import '../common/app_text_field.dart';
 import '../common/primary_button.dart';
+import '../../utils/user_error_message.dart';
 
 BuildContext _rootSheetContext(BuildContext context) {
   return Navigator.of(context, rootNavigator: true).context;
@@ -125,7 +126,7 @@ class _SavedFoodMealQuantitySheetState
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('食事の追加に失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: '食事の追加'))));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

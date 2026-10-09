@@ -109,6 +109,7 @@ import '../services/source_food_edit_policy.dart';
 import '../utils/food_name_normalizer.dart';
 import '../utils/food_search_normalizer.dart';
 import '../utils/id_generator.dart';
+import '../utils/user_error_message.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -2814,7 +2815,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodRatingResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userErrorMessage(error, action: '評価'),
       );
     } finally {
       _ratingOperationsInProgress.remove(key);
@@ -2853,7 +2854,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodRatingResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userErrorMessage(error, action: '評価'),
       );
     } finally {
       _ratingOperationsInProgress.remove(key);
@@ -2916,7 +2917,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return PublicFoodReportResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userErrorMessage(error, action: '通報'),
       );
     }
   }
@@ -4449,7 +4450,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return MealTemplateApplyResult(
         success: false,
-        errorMessage: error.toString(),
+        errorMessage: userErrorMessage(error, action: 'テンプレートの適用'),
       );
     }
   }
@@ -4528,7 +4529,7 @@ class AppController extends ChangeNotifier {
     } catch (error) {
       return SaveFoodEntryResult(
         foodEntrySaved: false,
-        savedFoodErrorMessage: error.toString(),
+        savedFoodErrorMessage: userErrorMessage(error, action: '保存'),
       );
     }
 
@@ -4573,7 +4574,7 @@ class AppController extends ChangeNotifier {
         errorCode = error.errorCode;
         message = error.userMessage;
       } else {
-        message = error.toString();
+        message = userErrorMessage(error, action: 'マイ食品の保存');
         if (kDebugMode) {
           debugPrint(
             '[AYG SavedFood] saveFoodEntryWithOptionalSavedFood: $error',

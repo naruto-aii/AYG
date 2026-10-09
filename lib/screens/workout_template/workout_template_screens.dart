@@ -11,6 +11,7 @@ import '../../widgets/common/app_text_field.dart';
 import '../../widgets/layout/app_content_constraint.dart';
 import 'workout_template_item_editor.dart';
 import 'workout_template_plus_gate.dart';
+import '../../utils/user_error_message.dart';
 
 class WorkoutTemplateFormScreen extends StatefulWidget {
   const WorkoutTemplateFormScreen({
@@ -114,7 +115,7 @@ class _WorkoutTemplateFormScreenState extends State<WorkoutTemplateFormScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
+      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: '保存'))));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

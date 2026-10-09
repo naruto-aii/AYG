@@ -22,6 +22,7 @@ import '../../widgets/design/step_indicator.dart';
 import '../../widgets/design/warn_banner.dart';
 import '../shell/main_shell_screen.dart';
 import 'activity_level_screen.dart';
+import '../../utils/user_error_message.dart';
 
 /// 初回オンボーディング: 目標の設定。
 ///
@@ -263,7 +264,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
       if (!mounted) {
         return;
       }
-      _warn('保存に失敗しました: $error');
+      _warn(userErrorMessage(error, action: '保存'));
       return;
     }
 

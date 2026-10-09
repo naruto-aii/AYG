@@ -340,6 +340,58 @@ void main() {
     await auth.dispose();
   });
 
+  test('overlapping imports of one widget exercise tap save one row', () async {
+    var next = 0;
+    final meal = LockScreenMealRegistrar.register(
+      paid: true,
+      button: const LockScreenMealButtonSnapshot(
+        slot: 4,
+        label: 'ウォーキング',
+        kind: WidgetPatternKind.exercise,
+        exercises: [
+          WidgetExercisePattern(
+            itemId: 'old',
+            activityId: 'walk_brisk',
+            name: 'ウォーキング',
+            sortOrder: 1,
+            distanceKm: 3,
+          ),
+        ],
+      ),
+      ownerUserId: 'user-1',
+      loggedAt: loggedAt,
+      newId: () => 'id-${next++}',
+    ).meal!;
+    // 送信待ちの消し込みに失敗して、同じ登録が2回読まれる場合も含める。
+    final gateway = _MemoryGateway(pending: [meal, meal]);
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      lockScreenMealGateway: gateway,
+    );
+    controller.setProfile(
+      UserProfile(
+        birthDate: DateTime(1990, 1, 1),
+        gender: Gender.male,
+        heightCm: 170,
+        weightKg: 60,
+      ),
+    );
+
+    await Future.wait([
+      controller.syncLockScreenMeals(),
+      controller.syncLockScreenMeals(),
+      controller.syncLockScreenMeals(),
+    ]);
+    await controller.syncLockScreenMeals();
+
+    expect(controller.exerciseEntries, hasLength(1));
+    expect(controller.exerciseEntries.single.id, meal.exercises.single.itemId);
+    await auth.dispose();
+  });
+
   testWidgets('settings shows the lock screen row only when enabled', (
     tester,
   ) async {
@@ -569,11 +621,15 @@ void main() {
     expect(controller.foodEntries, isEmpty);
     expect(controller.exerciseEntries, isEmpty);
     expect(
-      find.textContaining('食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。'),
+      find.textContaining(
+        '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。',
+      ),
       findsOneWidget,
     );
     expect(
-      find.textContaining('運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。'),
+      find.textContaining(
+        '運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。',
+      ),
       findsOneWidget,
     );
     expect(find.text('ホーム画面'), findsNothing);
@@ -607,11 +663,15 @@ void main() {
     expect(find.text('こちらは有料の機能です'), findsOneWidget);
     expect(find.textContaining('カロナビ+で使えます'), findsNothing);
     expect(
-      find.textContaining('食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。'),
+      find.textContaining(
+        '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。',
+      ),
       findsOneWidget,
     );
     expect(
-      find.textContaining('運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。'),
+      find.textContaining(
+        '運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。',
+      ),
       findsOneWidget,
     );
     expect(controller.foodEntries, isEmpty);
@@ -622,11 +682,15 @@ void main() {
 
     expect(find.text('こちらは有料の機能です'), findsNothing);
     expect(
-      find.textContaining('食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。'),
+      find.textContaining(
+        '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。',
+      ),
       findsOneWidget,
     );
     expect(
-      find.textContaining('運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。'),
+      find.textContaining(
+        '運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。',
+      ),
       findsOneWidget,
     );
     expect(find.text('購入を復元'), findsOneWidget);
@@ -686,10 +750,7 @@ void main() {
     expect(find.textContaining('Hey Siri、カロナビ登録'), findsOneWidget);
     expect(find.textContaining('Hey Siri、カロナビで食事にささみ'), findsOneWidget);
     expect(find.textContaining('Hey Siri、カロナビで運動にウォーキング'), findsOneWidget);
-    expect(
-      find.textContaining('Hey Siri、カロナビで今登録したやつ消して'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Hey Siri、カロナビで今登録したやつ消して'), findsOneWidget);
     expect(
       find.textContaining('「○○を100g登録」のような言い方は、リマインダーに流れることがあるので非推奨。'),
       findsOneWidget,
@@ -699,7 +760,9 @@ void main() {
       greaterThan(tester.getTopLeft(meal).dy),
     );
     expect(
-      find.textContaining('運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。'),
+      find.textContaining(
+        '運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。',
+      ),
       findsOneWidget,
     );
     expect(find.text('ホーム画面'), findsNothing);
@@ -856,10 +919,7 @@ void main() {
     );
     expect(find.text('枠4・運動'), findsOneWidget);
     expect(find.text('枠5・運動'), findsOneWidget);
-    expect(
-      find.byKey(const Key('lock-screen-meal-preview-2')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('lock-screen-meal-preview-2')), findsOneWidget);
     expect(find.text('枠3 · 食事 · 夜ごはん'), findsOneWidget);
     expect(
       find.byKey(const Key('lock-screen-meal-label-home-5')),
@@ -993,7 +1053,10 @@ void main() {
     for (var slot = 0; slot < 3; slot++) {
       expect(gateway.saved?.lockAt(slot).kind, WidgetPatternKind.exercise);
       expect(gateway.saved?.lockAt(slot).items, isEmpty);
-      expect(gateway.published?.lockButtons[slot].kind, WidgetPatternKind.exercise);
+      expect(
+        gateway.published?.lockButtons[slot].kind,
+        WidgetPatternKind.exercise,
+      );
     }
     await auth.dispose();
   });
@@ -1016,11 +1079,7 @@ void main() {
               : button,
       ],
       lockButtons: [
-        LockScreenMealButtonConfig(
-          slot: 0,
-          label: '朝',
-          items: [rice()],
-        ),
+        LockScreenMealButtonConfig(slot: 0, label: '朝', items: [rice()]),
         for (final button in LockScreenMealConfig.defaults().lockButtons)
           if (button.slot != 0) button,
       ],

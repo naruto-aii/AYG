@@ -3905,7 +3905,22 @@ class AppController extends ChangeNotifier {
     await publishLockScreenMealSnapshot();
   }
 
-  Future<void> syncLockScreenMeals() async {
+  Future<void>? _lockScreenImport;
+
+  /// 起動・復帰・ログインが重なっても、取り込みは1本ずつ。後の呼び出しは前の
+  /// 取り込みが終わってから、同じ送信待ちを id で見て足りない分だけ入れる。
+  Future<void> syncLockScreenMeals() {
+    final previous = _lockScreenImport ?? Future<void>.value();
+    final next = previous.then((_) => _syncLockScreenMealsOnce());
+    _lockScreenImport = next;
+    return next.whenComplete(() {
+      if (identical(_lockScreenImport, next)) {
+        _lockScreenImport = null;
+      }
+    });
+  }
+
+  Future<void> _syncLockScreenMealsOnce() async {
     final gateway = _lockScreenMealGateway;
     if (gateway == null) {
       return;

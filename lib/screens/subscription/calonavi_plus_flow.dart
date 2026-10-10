@@ -111,7 +111,7 @@ class _PlanOption {
 
   bool get hasFreeTrial => (freeTrialDays ?? 0) > 0;
 
-  /// ボタンの下の2行。お試しがあるときだけ無料の日数を出す。
+  /// 価格カードの直下に出す2行。お試しがあるときだけ無料の日数を出す。
   String get ctaNote {
     final trialDays = freeTrialDays;
     if (trialDays != null && trialDays > 0) {
@@ -130,6 +130,15 @@ class _PlanOption {
 }
 
 class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
+  /// 本文の設計高さがこれ未満なら、3つの価格と無料体験の注記を購入ボタンの直上に固定する。
+  ///
+  /// iPad 11/13 の横、iPhone SE、および PR #109 で設計高さが 640 になる iPad 11 横を含む。
+  /// iPhone 15/16 のセーフエリア込み（約 630）は含めず、特典→価格の並びは変えない。
+  static const _pinPricesBelow = 600.0;
+
+  /// 固定しない範囲でも、これ未満は特典の縦余白だけ詰めて価格と注記をボタンより上に収める。
+  static const _tightenBelow = 720.0;
+
   bool _busy = false;
   bool _loadingPrices = true;
   SubscriptionOfferings? _offerings;
@@ -501,6 +510,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     final selectedPlan = plans.isEmpty ? null : _selectedPlan;
 
     return DesignPage(
+      scrollable: false,
       header: Align(
         alignment: Alignment.centerRight,
         child: IconButton(
@@ -525,183 +535,239 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       ),
       bottomBar: selectedPlan == null
           ? null
-          : Column(
-              mainAxisSize: MainAxisSize.min,
+          : SizedBox(
+              width: double.infinity,
+              child: DesignButton(
+                key: const Key('plus-purchase'),
+                label: selectedPlan.ctaLabel,
+                showTrailingIcon: false,
+                height: 58,
+                loading: _busy,
+                onPressed: _busy ? null : _confirm,
+              ),
+            ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final height = constraints.maxHeight;
+          final pinPrices = height < _pinPricesBelow;
+          final tight = height < _tightenBelow;
+          final benefits = _benefitColumn(tight: tight);
+          final planCards = _planCards(plans);
+          final note = selectedPlan == null ? null : _priceNote(selectedPlan);
+          final footer = _legalFooter();
+
+          if (pinPrices) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                DesignButton(
-                  key: const Key('plus-purchase'),
-                  label: selectedPlan.ctaLabel,
-                  showTrailingIcon: false,
-                  height: 58,
-                  loading: _busy,
-                  onPressed: _busy ? null : _confirm,
+                Expanded(
+                  child: SingleChildScrollView(
+                    key: const Key('plus-paywall-scroll'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [benefits, footer],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  selectedPlan.ctaNote,
-                  key: const Key('plus-cta-note'),
-                  textAlign: TextAlign.center,
-                  style: AppTypography.labelS,
+                planCards,
+                ?note,
+              ],
+            );
+          }
+
+          return SingleChildScrollView(
+            key: const Key('plus-paywall-scroll'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [benefits, planCards, ?note, footer],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _benefitColumn({required bool tight}) {
+    final benefitPadding = tight ? AppSpacing.xxs : AppSpacing.xs;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: IconCircle(
+            size: 64,
+            tone: IconCircleTone.green,
+            child: const DesignIcon(
+              Symbols.workspace_premium_rounded,
+              size: 32,
+              color: AppColors.iconPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'カロナビ+',
+          textAlign: TextAlign.center,
+          style: AppTypography.headingL,
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          AppStrings.plusHeroSubtitle,
+          textAlign: TextAlign.center,
+          style: AppTypography.bodyM,
+        ),
+        SizedBox(height: tight ? AppSpacing.sm : AppSpacing.md),
+        _HeroBenefit(
+          icon: Symbols.photo_camera_rounded,
+          title: AppStrings.plusBenefitPhotoTitle,
+          body: AppStrings.plusHeroPhotoBody,
+          verticalPadding: benefitPadding,
+        ),
+        _HeroBenefit(
+          icon: Symbols.search_rounded,
+          title: AppStrings.plusBenefitAiSearchTitle,
+          body: AppStrings.plusHeroAiSearchBody,
+          verticalPadding: benefitPadding,
+        ),
+        _HeroBenefit(
+          icon: Symbols.person_rounded,
+          title: AppStrings.plusBenefitCoachTitle,
+          body: AppStrings.plusHeroCoachBody,
+          verticalPadding: benefitPadding,
+        ),
+        _HeroBenefit(
+          icon: Symbols.widgets_rounded,
+          title: AppStrings.plusBenefitWidgetTitle,
+          body: AppStrings.plusHeroWidgetBody,
+          verticalPadding: benefitPadding,
+        ),
+        Center(
+          child: TextButton(
+            key: const Key('plus-more-features'),
+            onPressed: _openMoreFeatures,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    AppStrings.plusMoreFeaturesLink,
+                    style: AppTypography.titleS.copyWith(
+                      color: AppColors.textBrand,
+                    ),
+                  ),
+                ),
+                const DesignIcon(
+                  Symbols.chevron_right_rounded,
+                  size: 20,
+                  color: AppColors.textBrand,
                 ),
               ],
             ),
-      body: Column(
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _planCards(List<_PlanOption> plans) {
+    if (_loadingPrices) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return IntrinsicHeight(
+      key: const Key('plus-plans'),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: IconCircle(
-              size: 64,
-              tone: IconCircleTone.green,
-              child: const DesignIcon(
-                Symbols.workspace_premium_rounded,
-                size: 32,
-                color: AppColors.iconPrimary,
+          for (var i = 0; i < plans.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: _PlanCard(
+                key: Key('plus-plan-${plans[i].plan.name}'),
+                option: plans[i],
+                selected: plans[i].plan == _selected,
+                onTap: _busy
+                    ? null
+                    : () {
+                        setState(() => _selected = plans[i].plan);
+                        _record(
+                          PlusFunnelEvent.planSelect,
+                          productId: SubscriptionCatalog.planKeyFor(
+                            plans[i].plan,
+                          ),
+                        );
+                      },
               ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'カロナビ+',
-            textAlign: TextAlign.center,
-            style: AppTypography.headingL,
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            AppStrings.plusHeroSubtitle,
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyM,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          const _HeroBenefit(
-            icon: Symbols.photo_camera_rounded,
-            title: AppStrings.plusBenefitPhotoTitle,
-            body: AppStrings.plusHeroPhotoBody,
-          ),
-          const _HeroBenefit(
-            icon: Symbols.search_rounded,
-            title: AppStrings.plusBenefitAiSearchTitle,
-            body: AppStrings.plusHeroAiSearchBody,
-          ),
-          const _HeroBenefit(
-            icon: Symbols.person_rounded,
-            title: AppStrings.plusBenefitCoachTitle,
-            body: AppStrings.plusHeroCoachBody,
-          ),
-          const _HeroBenefit(
-            icon: Symbols.widgets_rounded,
-            title: AppStrings.plusBenefitWidgetTitle,
-            body: AppStrings.plusHeroWidgetBody,
-          ),
-          Center(
-            child: TextButton(
-              key: const Key('plus-more-features'),
-              onPressed: _openMoreFeatures,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      AppStrings.plusMoreFeaturesLink,
-                      style: AppTypography.titleS.copyWith(
-                        color: AppColors.textBrand,
-                      ),
-                    ),
-                  ),
-                  const DesignIcon(
-                    Symbols.chevron_right_rounded,
-                    size: 20,
-                    color: AppColors.textBrand,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          if (_loadingPrices)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else
-            IntrinsicHeight(
-              key: const Key('plus-plans'),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < plans.length; i++) ...[
-                    if (i > 0) const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: _PlanCard(
-                        key: Key('plus-plan-${plans[i].plan.name}'),
-                        option: plans[i],
-                        selected: plans[i].plan == _selected,
-                        onTap: _busy
-                            ? null
-                            : () {
-                                setState(() => _selected = plans[i].plan);
-                                _record(
-                                  PlusFunnelEvent.planSelect,
-                                  productId: SubscriptionCatalog.planKeyFor(
-                                    plans[i].plan,
-                                  ),
-                                );
-                              },
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          const SizedBox(height: AppSpacing.xs),
-          Center(
-            child: TextButton(
-              key: const Key('plus-restore'),
-              onPressed: _busy ? null : _restore,
-              child: Text(
-                '購入を復元',
-                style: AppTypography.titleS.copyWith(
-                  color: AppColors.textBrand,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(AppStrings.plusBillingPeriod, style: _legalStyle),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(AppStrings.plusAutoRenew, style: _legalStyle),
-          if (_anyTrialDays case final trialDays?) ...[
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              AppStrings.plusTrialNotice(trialDays),
-              key: const Key('plus-trial-notice'),
-              style: _legalStyle,
             ),
           ],
-          const SizedBox(height: AppSpacing.xxs),
-          Text(AppStrings.plusCancelHow, style: _legalStyle),
-          if (_activeExpiryLabel case final expiryLabel?) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Text(expiryLabel, style: AppTypography.bodyS),
-          ],
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: AppSpacing.md,
-            runSpacing: AppSpacing.xs,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _LegalLink(label: '利用規約', document: LegalDocument.terms),
-              _LegalLink(label: 'プライバシーポリシー', document: LegalDocument.privacy),
-              _LegalLink(
-                label: '特定商取引法に基づく表記',
-                document: LegalDocument.tokushoho,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
         ],
       ),
+    );
+  }
+
+  Widget _priceNote(_PlanOption plan) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        plan.ctaNote,
+        key: const Key('plus-cta-note'),
+        textAlign: TextAlign.center,
+        style: AppTypography.labelS,
+      ),
+    );
+  }
+
+  Widget _legalFooter() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: AppSpacing.xs),
+        Center(
+          child: TextButton(
+            key: const Key('plus-restore'),
+            onPressed: _busy ? null : _restore,
+            child: Text(
+              '購入を復元',
+              style: AppTypography.titleS.copyWith(color: AppColors.textBrand),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(AppStrings.plusBillingPeriod, style: _legalStyle),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(AppStrings.plusAutoRenew, style: _legalStyle),
+        if (_anyTrialDays case final trialDays?) ...[
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            AppStrings.plusTrialNotice(trialDays),
+            key: const Key('plus-trial-notice'),
+            style: _legalStyle,
+          ),
+        ],
+        const SizedBox(height: AppSpacing.xxs),
+        Text(AppStrings.plusCancelHow, style: _legalStyle),
+        if (_activeExpiryLabel case final expiryLabel?) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(expiryLabel, style: AppTypography.bodyS),
+        ],
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _LegalLink(label: '利用規約', document: LegalDocument.terms),
+            _LegalLink(label: 'プライバシーポリシー', document: LegalDocument.privacy),
+            _LegalLink(
+              label: '特定商取引法に基づく表記',
+              document: LegalDocument.tokushoho,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+      ],
     );
   }
 }
@@ -740,17 +806,19 @@ class _HeroBenefit extends StatelessWidget {
     required this.title,
     required this.body,
     this.detail,
+    this.verticalPadding = AppSpacing.xs,
   });
 
   final IconData icon;
   final String title;
   final String body;
   final String? detail;
+  final double verticalPadding;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      padding: EdgeInsets.symmetric(vertical: verticalPadding),
       child: Row(
         crossAxisAlignment: detail == null
             ? CrossAxisAlignment.center

@@ -140,10 +140,8 @@ class AppController extends ChangeNotifier {
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
     Future<bool> Function(String userId)? termsAgreedFor,
-    Duration? initialSyncBudget,
   }) : _termsAgreedFor =
            termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
-       _initialSyncBudget = initialSyncBudget ?? initialSyncBudgetDefault,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -287,17 +285,12 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
 
-  /// このアカウントが、今の版の規約・プライバシーに同意済みか。
-  /// 初回同期が応答しないとき、再試行画面へ戻すまでの上限。
-  ///
-  /// ログアウトは未送信に3秒、サインアウトに2秒の上限がある。初回同期には無かったので、
-  /// 通信が止まると読み込み中のままになり、再試行もログアウトも出せなかった。
-  static const initialSyncBudgetDefault = Duration(seconds: 25);
+  /// いま画面を担当している同期の世代。再試行で進んだら、古い側はフラグを消さない。
+  int? _runningEpoch;
 
   final Future<bool> Function(String userId) _termsAgreedFor;
-  final Duration _initialSyncBudget;
 
-  /// 制限時間を超えた同期の続きが、あとから成功扱いにしないための番号。
+  /// 再試行とログアウトで進む。遅れた取得は、この番号と一致しないとき手元へ書かない。
   int _syncEpoch = 0;
   bool _termsAgreementRequired = false;
   bool _termsCheckPending = false;
@@ -508,13 +501,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> retryAuthenticatedSync() async {
-    if (_isSyncInProgress) {
-      return;
-    }
-    await handleAuthenticatedSession(force: true);
+    await handleAuthenticatedSession(force: true, replaceInFlight: true);
   }
 
-  Future<void> handleAuthenticatedSession({bool force = false}) async {
+  Future<void> handleAuthenticatedSession({
+    bool force = false,
+    bool replaceInFlight = false,
+  }) async {
     final authUser = _authenticationRepository?.currentUser;
     if (authUser != null) {
       // 同意はアカウントごと。ログインボタンでは記録しない。
@@ -557,14 +550,22 @@ class AppController extends ChangeNotifier {
     await Analytics.service?.setCurrentUser(userId);
     _subscriptionRepository.bindStoreAccountToken(userId);
 
-    if (_isSyncInProgress) {
+    if (_isSyncInProgress && !replaceInFlight) {
       return;
     }
 
+    // 初回が終わるまでは、読み込みのまま操作できないのが元の不具合。
+    // 時刻で失敗にはしない。遅いだけの同期は、そのまま成功として書く。
+    // 再試行とログアウトだけが世代を進め、遅れた書き込みを止める。
+    final blocking = !_hasInitialSyncCompleted;
     _isSyncInProgress = true;
-    _lastSyncFailed = false;
-    _syncFailure = null;
+    if (blocking) {
+      _lastSyncFailed = false;
+      _syncFailure = null;
+    }
     final epoch = ++_syncEpoch;
+    _runningEpoch = epoch;
+    bool mayWrite() => epoch == _syncEpoch;
     notifyListeners();
 
     try {
@@ -573,56 +574,48 @@ class AppController extends ChangeNotifier {
         dataSyncRepository: dataSyncRepository,
         force: force,
         epoch: epoch,
-      ).timeout(_initialSyncBudget);
-    } on TimeoutException catch (error, stackTrace) {
-      // 止まっている取得の続きが、あとから成功にして画面を進めない。
-      _syncEpoch++;
-      _lastSyncFailed = true;
-      _hasInitialSyncCompleted = false;
-      _syncFailure = SyncFailure.from(
-        step: SyncStep.applyRemoteData,
-        error: error,
-        repository: 'AppController',
-        tableName: 'local_cache',
-        operation: 'sync',
-      )..logDebug();
-      _hasUnsentRecords = true;
-      _clearInMemoryState();
-      if (kDebugMode) {
-        debugPrint('[AYG] handleAuthenticatedSession timed out: $error');
-        debugPrintStack(stackTrace: stackTrace);
-      }
+        mayWrite: mayWrite,
+      );
     } on SyncStepException catch (error) {
-      _lastSyncFailed = true;
-      _hasInitialSyncCompleted = false;
-      _syncFailure = error.failure;
-      _hasUnsentRecords = true;
-      _clearInMemoryState();
+      _failBlockingSession(epoch, error.failure);
     } catch (error, stackTrace) {
-      _lastSyncFailed = true;
-      _hasInitialSyncCompleted = false;
-      _syncFailure = SyncFailure.from(
+      final failure = SyncFailure.from(
         step: SyncStep.applyRemoteData,
         error: error,
         repository: 'AppController',
         tableName: 'local_cache',
         operation: 'sync',
       )..logDebug();
-      _hasUnsentRecords = true;
-      _clearInMemoryState();
-      if (kDebugMode) {
+      _failBlockingSession(epoch, failure);
+      if (kDebugMode && epoch == _syncEpoch) {
         debugPrint('[AYG] handleAuthenticatedSession failed: $error');
         debugPrintStack(stackTrace: stackTrace);
       }
     } finally {
-      _isSyncInProgress = false;
-      // 利用記録の再送は、ログアウトと同じく画面を待たせない。
-      // ここで待つと、初回同期の期限のあとも isInitializing が落ちず、読み込み中のままになる。
-      notifyListeners();
-      _forget(_usageRecordRepository?.flushPending());
-      _forget(_plusFunnelRepository?.flushPending());
-      _forget(_coachProposalLog.flushPending());
+      if (_runningEpoch == epoch) {
+        _isSyncInProgress = false;
+        _runningEpoch = null;
+        // 利用記録の再送は、ログアウトと同じく画面を待たせない。
+        notifyListeners();
+        _forget(_usageRecordRepository?.flushPending());
+        _forget(_plusFunnelRepository?.flushPending());
+        _forget(_coachProposalLog.flushPending());
+      }
     }
+  }
+
+  /// 初回が終わっていない失敗だけ、再試行画面にする。
+  ///
+  /// 世代が違う呼び出しと、初回後のトークン更新は、利用中の画面を消さない。
+  void _failBlockingSession(int epoch, SyncFailure failure) {
+    if (epoch != _syncEpoch || _hasInitialSyncCompleted) {
+      return;
+    }
+    _lastSyncFailed = true;
+    _hasInitialSyncCompleted = false;
+    _syncFailure = failure;
+    _hasUnsentRecords = true;
+    _clearInMemoryState();
   }
 
   /// 同意しない。ログインへ戻し、食事などの記録は消さないし、送らない。
@@ -643,12 +636,13 @@ class AppController extends ChangeNotifier {
     return true;
   }
 
-  /// 同意のあとの初回同期。制限時間を超えた呼び出しは、結果を画面へ反映しない。
+  /// 同意のあとの同期。世代が一致する呼び出しだけ、結果を画面と手元へ反映する。
   Future<void> _pullAuthenticatedSession({
     required AuthUser authUser,
     required DataSyncRepository dataSyncRepository,
     required bool force,
     required int epoch,
+    required bool Function() mayWrite,
   }) async {
     if (!_stillCurrent(epoch)) {
       return;
@@ -660,6 +654,12 @@ class AppController extends ChangeNotifier {
     final switched = _isDifferentUser(lastUserId, authUser.id);
     if (switched) {
       await _discardPreviousUserData();
+      if (!_stillCurrent(epoch)) {
+        return;
+      }
+      // 別の人に入れ替わるあいだは、前の人の画面のままにしない。
+      _hasInitialSyncCompleted = false;
+      notifyListeners();
     }
     if (!_stillCurrent(epoch)) {
       return;
@@ -681,6 +681,7 @@ class AppController extends ChangeNotifier {
       final failed = await _pushUnsentBeforePull(
         dataSyncRepository,
         authUser.id,
+        mayWrite: mayWrite,
       );
       if (!_stillCurrent(epoch)) {
         return;
@@ -688,6 +689,7 @@ class AppController extends ChangeNotifier {
       await dataSyncRepository.pullRemoteToLocal(
         authUser.id,
         skipTables: failed,
+        mayWrite: mayWrite,
       );
       if (!_stillCurrent(epoch)) {
         return;
@@ -719,22 +721,11 @@ class AppController extends ChangeNotifier {
     _syncFailure = null;
   }
 
-  /// この同期が、まだ画面を担当しているか。
+  /// この同期の世代が、今の世代と一致するか。
   ///
-  /// 期限で無効にしたあとに [loadPersistedState] がプロフィールを書き戻すことがある。
-  /// そのときは、新しい同期が始まっていなければ、もう一度消す。
-  bool _stillCurrent(int epoch) {
-    if (epoch == _syncEpoch) {
-      return true;
-    }
-    if (!_isSyncInProgress && _syncEpoch == epoch + 1) {
-      _hasInitialSyncCompleted = false;
-      _lastSyncFailed = true;
-      _clearInMemoryState();
-      notifyListeners();
-    }
-    return false;
-  }
+  /// 1つだけ進んだときに限らない。再試行を重ねたあとも、ログアウトのあとも捨てる。
+  /// 一致しないときにメモリを消すと、次の世代の画面まで消える。
+  bool _stillCurrent(int epoch) => epoch == _syncEpoch;
 
   /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。
   static const _unsentLogoutBudget = Duration(seconds: 3);
@@ -749,11 +740,6 @@ class AppController extends ChangeNotifier {
   /// 手元が前のアカウントのままなら送らず消す。ログアウトは止めない。
   Future<bool> logout({bool force = false}) async {
     _usage('logout', {'forced': force});
-    if (_isSyncInProgress && !force) {
-      sessionBlockMessage = '同期中です。しばらくしてから再度ログアウトしてください。';
-      notifyListeners();
-      return false;
-    }
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final lastUserId = await _localSessionStore?.loadLastUserId();
@@ -816,6 +802,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> _finishLogout() async {
+    // 消すより前に世代を進める。遅れた取得は、このあと手元へ書き戻せない。
+    _syncEpoch++;
+    _runningEpoch = null;
     _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
     _forget(_usageRecordRepository?.flushPending());
     _forget(_plusFunnelRepository?.flushPending());
@@ -915,13 +904,20 @@ class AppController extends ChangeNotifier {
   /// 取得で手元の未送信行を消さないよう、先に送る。失敗した表は取得しない。
   Future<Set<String>> _pushUnsentBeforePull(
     DataSyncRepository dataSyncRepository,
-    String userId,
-  ) async {
+    String userId, {
+    bool Function()? mayWrite,
+  }) async {
     try {
-      await dataSyncRepository.pushLocalToRemote(userId);
+      await dataSyncRepository.pushLocalToRemote(userId, mayWrite: mayWrite);
+      if (mayWrite != null && !mayWrite()) {
+        return const {};
+      }
       _hasUnsentRecords = await _pendingRecords.count() > 0;
       return const {};
     } on PartialPushException catch (error, stackTrace) {
+      if (mayWrite != null && !mayWrite()) {
+        return const {};
+      }
       _hasUnsentRecords = true;
       debugPrint('[AYG] push before pull incomplete: $error');
       debugPrintStack(stackTrace: stackTrace);

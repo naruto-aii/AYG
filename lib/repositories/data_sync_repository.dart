@@ -36,6 +36,12 @@ import 'supabase/supabase_workout_template_repository.dart';
 import 'alcohol_repository.dart';
 import 'exercise_repository.dart';
 import 'food_repository.dart';
+import 'local_write_guard.dart';
+import 'meal_template_repository.dart';
+import 'saved_food_repository.dart';
+import 'settings_repository.dart';
+import 'user_repository.dart';
+import 'workout_template_repository.dart';
 import 'pending_record_store.dart';
 import 'postgrest_pages.dart';
 import 'sync_step_runner.dart';
@@ -74,11 +80,12 @@ abstract class DataSyncRepository {
   Future<void> pullRemoteToLocal(
     String userId, {
     Set<String> skipTables = const {},
+    LocalWriteGuard? mayWrite,
   });
 
   Future<void> pullSavedFoodsRemoteToLocal(String userId);
 
-  Future<void> pushLocalToRemote(String userId);
+  Future<void> pushLocalToRemote(String userId, {LocalWriteGuard? mayWrite});
 
   /// 保存した食事1件だけを送る。全表の読み直しは画面を止める。
   Future<void> pushFoodEntry({
@@ -213,10 +220,11 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   Future<void> pullRemoteToLocal(
     String userId, {
     Set<String> skipTables = const {},
+    LocalWriteGuard? mayWrite,
   }) async {
     _skipPull = skipTables;
     try {
-      await _pullRemoteToLocal(userId);
+      await _pullRemoteToLocal(userId, mayWrite);
     } finally {
       _skipPull = const {};
     }
@@ -234,14 +242,17 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     return true;
   }
 
-  Future<void> _pullRemoteToLocal(String userId) async {
+  Future<void> _pullRemoteToLocal(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     if (await _allowPull('profiles')) {
       await runSyncStep(
         step: SyncStep.fetchUserProfile,
         repository: 'SupabaseDataSyncRepository',
         tableName: 'profiles',
         operation: 'select',
-        action: () => _pullProfile(userId),
+        action: () => _pullProfile(userId, mayWrite),
       );
     }
     if (await _allowPull('goals')) {
@@ -250,7 +261,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'goals',
         operation: 'select',
-        action: () => _pullGoal(userId),
+        action: () => _pullGoal(userId, mayWrite),
       );
     }
     if (await _allowPull('nutrition_settings')) {
@@ -259,7 +270,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'nutrition_settings',
         operation: 'select',
-        action: () => _pullNutritionSettings(userId),
+        action: () => _pullNutritionSettings(userId, mayWrite),
       );
     }
     if (await _allowPull('health_snapshots')) {
@@ -268,7 +279,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'health_snapshots',
         operation: 'select',
-        action: () => _pullHealthSnapshot(userId),
+        action: () => _pullHealthSnapshot(userId, mayWrite),
       );
     }
     if (await _allowPull('app_settings')) {
@@ -277,7 +288,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'app_settings',
         operation: 'select',
-        action: () => _pullAppSettings(userId),
+        action: () => _pullAppSettings(userId, mayWrite),
       );
     }
     if (await _allowPull('food_entries')) {
@@ -286,7 +297,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'food_entries',
         operation: 'select',
-        action: () => _pullFoodEntries(userId),
+        action: () => _pullFoodEntries(userId, mayWrite),
       );
     }
     if (await _allowPull('exercise_entries')) {
@@ -295,7 +306,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'exercise_entries',
         operation: 'select',
-        action: () => _pullExerciseEntries(userId),
+        action: () => _pullExerciseEntries(userId, mayWrite),
       );
     }
     if (await _allowPull('alcohol_entries')) {
@@ -304,7 +315,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'alcohol_entries',
         operation: 'select',
-        action: () => _pullAlcoholEntries(userId),
+        action: () => _pullAlcoholEntries(userId, mayWrite),
       );
     }
     if (await _allowPull('weight_entries')) {
@@ -313,7 +324,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'weight_entries',
         operation: 'select',
-        action: () => _pullWeightEntries(userId),
+        action: () => _pullWeightEntries(userId, mayWrite),
       );
     }
     if (await _allowPull('saved_foods')) {
@@ -322,7 +333,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'saved_foods',
         operation: 'select',
-        action: () => _pullSavedFoods(userId),
+        action: () => _pullSavedFoods(userId, mayWrite),
       );
     }
     if (await _allowPull('meal_templates')) {
@@ -331,7 +342,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'meal_templates',
         operation: 'select',
-        action: () => _pullMealTemplates(userId),
+        action: () => _pullMealTemplates(userId, mayWrite),
       );
     }
     if (await _allowPull('workout_templates')) {
@@ -340,7 +351,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'workout_templates',
         operation: 'select',
-        action: () => _pullWorkoutTemplates(userId),
+        action: () => _pullWorkoutTemplates(userId, mayWrite),
       );
     }
     if (await _allowPull('health_workouts')) {
@@ -349,7 +360,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         repository: 'SupabaseDataSyncRepository',
         tableName: 'health_workouts',
         operation: 'select',
-        action: () => _pullHealthWorkouts(userId),
+        action: () => _pullHealthWorkouts(userId, mayWrite),
       );
     }
   }
@@ -360,25 +371,35 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   }
 
   @override
-  Future<void> pushLocalToRemote(String userId) async {
-    await runPushSteps([
-      (table: 'profiles', action: () => _pushProfile(userId)),
-      (table: 'goals', action: () => _pushGoal(userId)),
-      (
-        table: 'nutrition_settings',
-        action: () => _pushNutritionSettings(userId),
-      ),
-      (table: 'health_snapshots', action: () => _pushHealthSnapshot(userId)),
-      (table: 'app_settings', action: () => _pushAppSettings(userId)),
-      (table: 'food_entries', action: () => _pushFoodEntries(userId)),
-      (table: 'exercise_entries', action: () => _pushExerciseEntries(userId)),
-      (table: 'alcohol_entries', action: () => _pushAlcoholEntries(userId)),
-      (table: 'weight_entries', action: () => _pushWeightEntries(userId)),
-      (table: 'saved_foods', action: () => _pushSavedFoods(userId)),
-      (table: 'meal_templates', action: () => _pushMealTemplates(userId)),
-      (table: 'workout_templates', action: () => _pushWorkoutTemplates(userId)),
-      (table: 'health_workouts', action: () => _pushHealthWorkouts(userId)),
-    ], between: _yieldToUi);
+  Future<void> pushLocalToRemote(
+    String userId, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    await runPushSteps(
+      [
+        (table: 'profiles', action: () => _pushProfile(userId)),
+        (table: 'goals', action: () => _pushGoal(userId)),
+        (
+          table: 'nutrition_settings',
+          action: () => _pushNutritionSettings(userId),
+        ),
+        (table: 'health_snapshots', action: () => _pushHealthSnapshot(userId)),
+        (table: 'app_settings', action: () => _pushAppSettings(userId)),
+        (table: 'food_entries', action: () => _pushFoodEntries(userId)),
+        (table: 'exercise_entries', action: () => _pushExerciseEntries(userId)),
+        (table: 'alcohol_entries', action: () => _pushAlcoholEntries(userId)),
+        (table: 'weight_entries', action: () => _pushWeightEntries(userId)),
+        (table: 'saved_foods', action: () => _pushSavedFoods(userId)),
+        (table: 'meal_templates', action: () => _pushMealTemplates(userId)),
+        (
+          table: 'workout_templates',
+          action: () => _pushWorkoutTemplates(userId),
+        ),
+        (table: 'health_workouts', action: () => _pushHealthWorkouts(userId)),
+      ],
+      between: _yieldToUi,
+      stillCurrent: mayWrite,
+    );
   }
 
   Future<List<R>> _mapYielding<T, R>(
@@ -492,7 +513,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     );
   }
 
-  Future<void> _pullProfile(String userId) async {
+  Future<void> _pullProfile(String userId, LocalWriteGuard? mayWrite) async {
     final row = await _client
         .from('profiles')
         .select()
@@ -502,7 +523,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _userRepository.saveProfile(
+    await _savePulledProfile(
       UserProfile(
         birthDate: DateTime.parse(row['birth_date'] as String),
         gender: _parseGender(row['gender'] as String?),
@@ -510,7 +531,22 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         weightKg: (row['weight_kg'] as num).toDouble(),
         displayName: _readDisplayName(row['display_name']),
       ),
+      mayWrite,
     );
+  }
+
+  Future<void> _savePulledProfile(
+    UserProfile profile,
+    LocalWriteGuard? mayWrite,
+  ) {
+    final repo = _userRepository;
+    if (repo is UserRepository) {
+      return repo.saveProfileForSync(profile, mayWrite: mayWrite);
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return Future<void>.value();
+    }
+    return repo.saveProfile(profile);
   }
 
   String _readDisplayName(Object? raw) {
@@ -550,7 +586,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pendingRecords?.acknowledgeTable('profiles');
   }
 
-  Future<void> _pullGoal(String userId) async {
+  Future<void> _pullGoal(String userId, LocalWriteGuard? mayWrite) async {
     final row = await _client
         .from('goals')
         .select()
@@ -560,7 +596,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _userRepository.saveGoal(
+    await _savePulledGoal(
       Goal(
         type: _parseGoalType(row['goal_type'] as String?),
         targetWeightKg: (row['target_weight_kg'] as num).toDouble(),
@@ -569,7 +605,19 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
             ? GoalPace.fromName(row['goal_pace'] as String?)
             : GoalPace.standard,
       ),
+      mayWrite,
     );
+  }
+
+  Future<void> _savePulledGoal(Goal goal, LocalWriteGuard? mayWrite) {
+    final repo = _userRepository;
+    if (repo is UserRepository) {
+      return repo.saveGoalForSync(goal, mayWrite: mayWrite);
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return Future<void>.value();
+    }
+    return repo.saveGoal(goal);
   }
 
   GoalType _parseGoalType(String? raw) {
@@ -602,7 +650,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pendingRecords?.acknowledgeTable('goals');
   }
 
-  Future<void> _pullNutritionSettings(String userId) async {
+  Future<void> _pullNutritionSettings(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final row = await _client
         .from('nutrition_settings')
         .select()
@@ -612,7 +663,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _settingsRepository.saveNutritionSettings(
+    await _savePulledNutrition(
       NutritionSettings(
         useHealthIntegration: row['use_health_integration'] as bool,
         activityLevel: row['activity_level'] == null
@@ -632,7 +683,22 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
           'auto_food_target_prior_kcal',
         ),
       ),
+      mayWrite,
     );
+  }
+
+  Future<void> _savePulledNutrition(
+    NutritionSettings settings,
+    LocalWriteGuard? mayWrite,
+  ) {
+    final repo = _settingsRepository;
+    if (repo is SettingsRepository) {
+      return repo.saveNutritionSettingsForSync(settings, mayWrite: mayWrite);
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return Future<void>.value();
+    }
+    return repo.saveNutritionSettings(settings);
   }
 
   ActivityLevel _parseActivityLevel(String? raw) {
@@ -686,7 +752,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     return DateTime.parse(row[key] as String);
   }
 
-  Future<void> _pullHealthSnapshot(String userId) async {
+  Future<void> _pullHealthSnapshot(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final row = await _client
         .from('health_snapshots')
         .select()
@@ -696,14 +765,29 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _settingsRepository.saveHealthSnapshot(
+    await _savePulledHealthSnapshot(
       HealthSnapshot(
         activeEnergyBurnedKcal: (row['active_energy_burned_kcal'] as num?)
             ?.toDouble(),
         weightKg: (row['weight_kg'] as num?)?.toDouble(),
         weightMeasuredAt: _optionalDate(row, 'weight_measured_at'),
       ),
+      mayWrite,
     );
+  }
+
+  Future<void> _savePulledHealthSnapshot(
+    HealthSnapshot snapshot,
+    LocalWriteGuard? mayWrite,
+  ) {
+    final repo = _settingsRepository;
+    if (repo is SettingsRepository) {
+      return repo.saveHealthSnapshotForSync(snapshot, mayWrite: mayWrite);
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return Future<void>.value();
+    }
+    return repo.saveHealthSnapshot(snapshot);
   }
 
   Future<void> _pushHealthSnapshot(String userId) async {
@@ -722,7 +806,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pendingRecords?.acknowledgeTable('health_snapshots');
   }
 
-  Future<void> _pullAppSettings(String userId) async {
+  Future<void> _pullAppSettings(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final row = await _client
         .from('app_settings')
         .select()
@@ -732,9 +819,18 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       return;
     }
 
-    await _settingsRepository.saveAppSettings(
-      AppSettings(onboardingComplete: row['onboarding_complete'] as bool),
+    final settings = AppSettings(
+      onboardingComplete: row['onboarding_complete'] as bool,
     );
+    final repo = _settingsRepository;
+    if (repo is SettingsRepository) {
+      await repo.saveAppSettingsForSync(settings, mayWrite: mayWrite);
+      return;
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    await repo.saveAppSettings(settings);
   }
 
   Future<void> _pushAppSettings(String userId) async {
@@ -754,7 +850,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await _pendingRecords?.acknowledgeTable('app_settings');
   }
 
-  Future<void> _pullFoodEntries(String userId) async {
+  Future<void> _pullFoodEntries(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final rows = await fetchAllUserRows(
       _client,
       table: 'food_entries',
@@ -769,7 +868,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       idOf: (FoodEntry entry) => entry.id,
       clearAll: _foodRepository.clearAll,
       saveAll: _foodRepository.saveAll,
-      replaceAll: _replaceFoods,
+      replaceAll: (entries) => _replaceFoods(entries, mayWrite),
       preferLocalIds: await _preferLocal(PendingRecordKind.food),
       pendingDeleteIds: await _pendingDeletes(PendingRecordKind.food),
     );
@@ -844,7 +943,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
             .upsert(current, onConflict: 'user_id,entry_id'),
       );
     } catch (error) {
-      await _keepUnsynced(PendingRecordKind.food, entries.map((entry) => entry.id));
+      await _keepUnsynced(
+        PendingRecordKind.food,
+        entries.map((entry) => entry.id),
+      );
       await _pendingRecords?.markTableDirty('food_entries');
       rethrow;
     }
@@ -877,43 +979,63 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     return null;
   }
 
-  Future<void> _replaceFoods(List<FoodEntry> entries) {
+  Future<void> _replaceFoods(
+    List<FoodEntry> entries,
+    LocalWriteGuard? mayWrite,
+  ) {
     final repo = _foodRepository;
     if (repo is FoodRepository) {
-      return repo.replaceAll(entries);
+      return repo.replaceAll(entries, mayWrite: mayWrite);
     }
-    return _replaceByClear(repo.clearAll, repo.saveAll, entries);
+    return _replaceByClear(repo.clearAll, repo.saveAll, entries, mayWrite);
   }
 
-  Future<void> _replaceExercises(List<ExerciseEntry> entries) {
+  Future<void> _replaceExercises(
+    List<ExerciseEntry> entries,
+    LocalWriteGuard? mayWrite,
+  ) {
     final repo = _exerciseRepository;
     if (repo is ExerciseRepository) {
-      return repo.replaceAll(entries);
+      return repo.replaceAll(entries, mayWrite: mayWrite);
     }
-    return _replaceByClear(repo.clearAll, repo.saveAll, entries);
+    return _replaceByClear(repo.clearAll, repo.saveAll, entries, mayWrite);
   }
 
-  Future<void> _replaceAlcohol(List<AlcoholEntry> entries) {
+  Future<void> _replaceAlcohol(
+    List<AlcoholEntry> entries,
+    LocalWriteGuard? mayWrite,
+  ) {
     final repo = _alcoholRepository;
     if (repo is AlcoholRepository) {
-      return repo.replaceAll(entries);
+      return repo.replaceAll(entries, mayWrite: mayWrite);
     }
-    return _replaceByClear(repo.clearAll, repo.saveAll, entries);
+    return _replaceByClear(repo.clearAll, repo.saveAll, entries, mayWrite);
   }
 
-  Future<void> _replaceWeights(List<WeightEntry> entries) {
+  Future<void> _replaceWeights(
+    List<WeightEntry> entries,
+    LocalWriteGuard? mayWrite,
+  ) {
     final repo = _weightRepository;
     if (repo is WeightRepository) {
-      return repo.replaceAll(entries);
+      return repo.replaceAll(entries, mayWrite: mayWrite);
     }
-    return _replaceByClear(repo.clearAll, (merged) async {
-      for (final entry in merged) {
-        await repo.save(entry);
-      }
-    }, entries);
+    return _replaceByClear(
+      repo.clearAll,
+      (merged) async {
+        for (final entry in merged) {
+          await repo.save(entry);
+        }
+      },
+      entries,
+      mayWrite,
+    );
   }
 
-  Future<void> _keepUnsynced(PendingRecordKind kind, Iterable<String> ids) async {
+  Future<void> _keepUnsynced(
+    PendingRecordKind kind,
+    Iterable<String> ids,
+  ) async {
     final store = _pendingRecords;
     if (store == null) {
       return;
@@ -923,12 +1045,27 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }
   }
 
-  Future<void> _pullSavedFoods(String userId) async {
+  Future<void> _pullSavedFoods(
+    String userId, [
+    LocalWriteGuard? mayWrite,
+  ]) async {
     final foodMaster = _foodMaster;
     if (foodMaster?.remoteSavedFoods == null) {
       return;
     }
     final remoteFoods = await foodMaster!.savedFoods.pullAllOwnRemote(userId);
+    final local = foodMaster.localSavedFoods;
+    if (local is IsarSavedFoodRepository) {
+      await local.replaceAllOwnLocalIfCurrent(
+        userId,
+        remoteFoods,
+        mayWrite: mayWrite,
+      );
+      return;
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await foodMaster.savedFoods.replaceAllOwnLocal(userId, remoteFoods);
   }
 
@@ -950,7 +1087,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }
   }
 
-  Future<void> _pullMealTemplates(String userId) async {
+  Future<void> _pullMealTemplates(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final foodMaster = _foodMaster;
     final remote = foodMaster?.remoteMealTemplates;
     if (remote == null) {
@@ -959,15 +1099,28 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 
     final templates = await remote.pullAllOwn(userId);
     final itemsByTemplate = await remote.pullAllItems(userId);
+    final local = foodMaster!.mealTemplates;
+    if (local is MealTemplateRepository) {
+      await local.applyRemoteForSync(
+        ownerUserId: userId,
+        templates: templates,
+        itemsByTemplate: itemsByTemplate,
+        mayWrite: mayWrite,
+      );
+      return;
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
 
-    await foodMaster!.mealTemplates.clearForOwner(userId);
+    await local.clearForOwner(userId);
     if (templates.isEmpty) {
       return;
     }
 
-    await foodMaster.mealTemplates.saveAll(templates);
+    await local.saveAll(templates);
     for (final template in templates) {
-      await foodMaster.mealTemplates.replaceItems(
+      await local.replaceItems(
         ownerUserId: userId,
         templateId: template.templateId,
         items: itemsByTemplate[template.templateId] ?? const [],
@@ -1005,7 +1158,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }
   }
 
-  Future<void> _pullWorkoutTemplates(String userId) async {
+  Future<void> _pullWorkoutTemplates(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final foodMaster = _foodMaster;
     final local = foodMaster?.workoutTemplates;
     final remote = foodMaster?.remoteWorkoutTemplates;
@@ -1015,6 +1171,18 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 
     final templates = await remote.pullAllOwn(userId);
     final itemsByTemplate = await remote.pullAllItems(userId);
+    if (local is WorkoutTemplateRepository) {
+      await local.applyRemoteForSync(
+        ownerUserId: userId,
+        templates: templates,
+        itemsByTemplate: itemsByTemplate,
+        mayWrite: mayWrite,
+      );
+      return;
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
 
     await local.clearForOwner(userId);
     if (templates.isEmpty) {
@@ -1061,7 +1229,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }
   }
 
-  Future<void> _pullExerciseEntries(String userId) async {
+  Future<void> _pullExerciseEntries(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final rows = await fetchAllUserRows(
       _client,
       table: 'exercise_entries',
@@ -1076,7 +1247,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       idOf: (ExerciseEntry entry) => entry.id,
       clearAll: _exerciseRepository.clearAll,
       saveAll: _exerciseRepository.saveAll,
-      replaceAll: _replaceExercises,
+      replaceAll: (entries) => _replaceExercises(entries, mayWrite),
       preferLocalIds: await _preferLocal(PendingRecordKind.exercise),
       pendingDeleteIds: await _pendingDeletes(PendingRecordKind.exercise),
     );
@@ -1084,7 +1255,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 
   Future<void> _pushExerciseEntries(String userId) async {
     await _pushExerciseEntriesRows(userId);
-    await _acknowledgeTableIfSent('exercise_entries', PendingRecordKind.exercise);
+    await _acknowledgeTableIfSent(
+      'exercise_entries',
+      PendingRecordKind.exercise,
+    );
   }
 
   Future<void> _pushExerciseEntriesRows(String userId) async {
@@ -1151,7 +1325,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     );
   }
 
-  Future<void> _pullAlcoholEntries(String userId) async {
+  Future<void> _pullAlcoholEntries(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final rows = await fetchAllUserRows(
       _client,
       table: 'alcohol_entries',
@@ -1166,7 +1343,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       idOf: (AlcoholEntry entry) => entry.id,
       clearAll: _alcoholRepository.clearAll,
       saveAll: _alcoholRepository.saveAll,
-      replaceAll: _replaceAlcohol,
+      replaceAll: (entries) => _replaceAlcohol(entries, mayWrite),
       preferLocalIds: await _preferLocal(PendingRecordKind.alcohol),
       pendingDeleteIds: await _pendingDeletes(PendingRecordKind.alcohol),
     );
@@ -1224,7 +1401,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     );
   }
 
-  Future<void> _pullWeightEntries(String userId) async {
+  Future<void> _pullWeightEntries(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final rows = await fetchAllUserRows(
       _client,
       table: 'weight_entries',
@@ -1253,7 +1433,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
           await _weightRepository.save(entry);
         }
       },
-      replaceAll: _replaceWeights,
+      replaceAll: (entries) => _replaceWeights(entries, mayWrite),
       preferLocalIds: await _preferLocal(PendingRecordKind.weight),
       pendingDeleteIds: await _pendingDeletes(PendingRecordKind.weight),
     );
@@ -1364,7 +1544,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }
   }
 
-  Future<void> _pullHealthWorkouts(String userId) async {
+  Future<void> _pullHealthWorkouts(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final store = _healthWorkouts;
     if (store == null) {
       return;
@@ -1385,7 +1568,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     if (incoming.isEmpty) {
       return;
     }
-    await store.saveWorkoutRecords(incoming);
+    await store.saveWorkoutRecords(incoming, mayWrite: mayWrite);
   }
 
   Future<void> _pushHealthWorkouts(String userId) async {
@@ -1420,9 +1603,14 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 Future<void> runPushSteps(
   List<({String table, Future<void> Function() action})> steps, {
   Future<void> Function()? between,
+  LocalWriteGuard? stillCurrent,
 }) async {
   final failures = <({String table, Object error})>[];
   for (final step in steps) {
+    // 世代が変わったあとの表は送らない。送りかけの1回は戻せない。
+    if (!localWriteAllowed(stillCurrent)) {
+      return;
+    }
     try {
       await step.action();
     } catch (error, stackTrace) {
@@ -1525,7 +1713,11 @@ Future<void> _replaceByClear<T>(
   Future<void> Function() clearAll,
   Future<void> Function(List<T> entries) saveAll,
   List<T> entries,
+  LocalWriteGuard? mayWrite,
 ) async {
+  if (!localWriteAllowed(mayWrite)) {
+    return;
+  }
   await clearAll();
   if (entries.isNotEmpty) {
     await saveAll(entries);
@@ -1640,7 +1832,9 @@ bool isClientRejection(Object error) {
       code == 'PGRST205') {
     return false;
   }
-  if (code.startsWith('PGRST') || code.startsWith('22') || code.startsWith('23')) {
+  if (code.startsWith('PGRST') ||
+      code.startsWith('22') ||
+      code.startsWith('23')) {
     return true;
   }
   final http = int.tryParse(code);
@@ -1697,13 +1891,17 @@ class NoOpDataSyncRepository implements DataSyncRepository {
   Future<void> pullRemoteToLocal(
     String userId, {
     Set<String> skipTables = const {},
+    LocalWriteGuard? mayWrite,
   }) async {}
 
   @override
   Future<void> pullSavedFoodsRemoteToLocal(String userId) async {}
 
   @override
-  Future<void> pushLocalToRemote(String userId) async {}
+  Future<void> pushLocalToRemote(
+    String userId, {
+    LocalWriteGuard? mayWrite,
+  }) async {}
 
   @override
   Future<void> pushFoodEntry({

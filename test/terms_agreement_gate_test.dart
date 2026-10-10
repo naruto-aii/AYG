@@ -2,6 +2,7 @@ import 'package:ayg/app.dart';
 import 'package:ayg/config/open_food_facts_config.dart';
 import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/repositories/local_write_guard.dart';
 import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/services/local_user_data_clearer_base.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
@@ -434,7 +435,10 @@ class _Clearer implements LocalUserDataClearerBase {
 
 class _OfflineSync extends MockDataSyncRepository {
   @override
-  Future<void> pushLocalToRemote(String userId) async {
+  Future<void> pushLocalToRemote(
+    String userId, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     pushLocalToRemoteCalled = true;
     lastUserId = userId;
     throw StateError('offline');

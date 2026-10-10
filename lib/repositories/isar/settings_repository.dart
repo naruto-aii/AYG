@@ -6,6 +6,7 @@ import '../../models/app_settings.dart';
 import '../../models/health_snapshot.dart';
 import '../../models/nutrition_settings.dart';
 import '../contracts/settings_repository_base.dart';
+import '../local_write_guard.dart';
 
 class SettingsRepository implements SettingsRepositoryBase {
   SettingsRepository(this._isar);
@@ -14,6 +15,20 @@ class SettingsRepository implements SettingsRepositoryBase {
 
   Future<void> saveNutritionSettings(NutritionSettings settings) async {
     await _isar.writeTxn(() async {
+      await _isar.nutritionSettingsEntitys.put(
+        EntityMapper.toNutritionSettingsEntity(settings),
+      );
+    });
+  }
+
+  Future<void> saveNutritionSettingsForSync(
+    NutritionSettings settings, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _isar.nutritionSettingsEntitys.put(
         EntityMapper.toNutritionSettingsEntity(settings),
       );
@@ -36,6 +51,20 @@ class SettingsRepository implements SettingsRepositoryBase {
     });
   }
 
+  Future<void> saveHealthSnapshotForSync(
+    HealthSnapshot snapshot, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
+      await _isar.healthSnapshotEntitys.put(
+        EntityMapper.toHealthSnapshotEntity(snapshot),
+      );
+    });
+  }
+
   Future<HealthSnapshot?> loadHealthSnapshot() async {
     final entity = await _isar.healthSnapshotEntitys.get(1);
     if (entity == null) {
@@ -46,6 +75,20 @@ class SettingsRepository implements SettingsRepositoryBase {
 
   Future<void> saveAppSettings(AppSettings settings) async {
     await _isar.writeTxn(() async {
+      await _isar.appSettingsEntitys.put(
+        EntityMapper.toAppSettingsEntity(settings),
+      );
+    });
+  }
+
+  Future<void> saveAppSettingsForSync(
+    AppSettings settings, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _isar.appSettingsEntitys.put(
         EntityMapper.toAppSettingsEntity(settings),
       );

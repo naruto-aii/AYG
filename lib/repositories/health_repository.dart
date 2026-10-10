@@ -1,4 +1,5 @@
 import '../models/health_profile_data.dart';
+import 'local_write_guard.dart';
 
 /// Health データ取得とローカル保存の抽象 Repository。
 ///
@@ -12,7 +13,10 @@ abstract class HealthRepository {
 
   Future<void> saveWeightRecord(WeightRecord record);
 
-  Future<void> saveWorkoutRecords(List<HealthWorkoutRecord> records);
+  Future<void> saveWorkoutRecords(
+    List<HealthWorkoutRecord> records, {
+    LocalWriteGuard? mayWrite,
+  });
 
   Future<List<WeightRecord>> loadWeightRecords();
 

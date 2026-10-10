@@ -83,8 +83,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(AppStrings.loginLegalAgreementMultiline), findsOneWidget);
-    expect(find.text(AppStrings.loginAiDisclosureMultiline), findsOneWidget);
+    expect(find.text(AppStrings.loginTermsNextMultiline), findsOneWidget);
     expect(find.text('利用規約'), findsOneWidget);
     expect(find.text('プライバシーポリシー'), findsOneWidget);
 

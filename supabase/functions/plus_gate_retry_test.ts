@@ -100,7 +100,20 @@ Deno.test("consent lookup throws on a failed query and returns false only for a 
   await assertRejects(() => hasAiDataConsent({ ...base, fetchImpl: respond(503, {}) }), GateCheckError);
   await assertRejects(() => hasAiDataConsent({ ...base, base: "", fetchImpl: respond(200, []) }), GateCheckError);
   assertEquals(await hasAiDataConsent({ ...base, fetchImpl: respond(200, []) }), false);
-  assertEquals(await hasAiDataConsent({ ...base, fetchImpl: respond(200, [{ user_id: "user-1" }]) }), true);
+  let consentUrl = "";
+  assertEquals(
+    await hasAiDataConsent({
+      ...base,
+      fetchImpl: (input) => {
+        consentUrl = String(input);
+        return Promise.resolve(new Response(JSON.stringify([{ user_id: "user-1" }]), { status: 200 }));
+      },
+    }),
+    true,
+  );
+  assertEquals(consentUrl.includes("2026-10-08"), true);
+  assertEquals(consentUrl.includes("2026-10-10"), true);
+  assertEquals(consentUrl.includes("policy_version=in."), true);
 });
 
 Deno.test("live Plus checks of all three functions throw on 401 or 5xx and answer false only for an empty result", async () => {

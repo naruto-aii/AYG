@@ -141,8 +141,9 @@ class AppController extends ChangeNotifier {
     PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
-    Future<bool> Function()? termsAgreed,
-  }) : _termsAgreed = termsAgreed ?? AiDataConsent.grantedNow,
+    Future<bool> Function(String userId)? termsAgreedFor,
+  }) : _termsAgreedFor =
+           termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -286,15 +287,37 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
 
-  /// この端末で、今の版の規約・プライバシー（AI送信の一文を含む）に
-  /// ログイン画面で同意したか。
-  final Future<bool> Function() _termsAgreed;
+  /// このアカウントが、今の版の規約・プライバシーに同意済みか。
+  final Future<bool> Function(String userId) _termsAgreedFor;
   bool _termsAgreementRequired = false;
+  bool _termsCheckPending = false;
+  String? _termsSatisfiedUserId;
   int _termsCheck = 0;
 
-  /// ログイン済みでも、ログイン画面（同意画面）をもう一度出す必要があるか。
-  /// 再インストールや規約の版上げで端末に同意が無いとき true。
+  /// サインイン済みで、今の版への同意がまだのとき true。
+  /// 同意済みのアカウントでは false のままにし、画面を繰り返さない。
   bool get requiresTermsAgreement => _termsAgreementRequired;
+
+  /// サーバの同意を確認しているあいだ。確認が終わるまでアプリ本体は出さない。
+  bool get termsCheckPending => _termsCheckPending;
+
+  /// 同意が済んだ今のアカウントのときだけ、ウィジェットと Siri の待ち行列を取り込む。
+  ///
+  /// 同意の前に取り込むと、待ち行列を消したあと手元の記録になる。別アカウントの
+  /// 未送信と混ざり、次の同期で違う人の食事になる。待ち行列には残し、同意のあとに取り込む。
+  bool get mayImportNativeMealQueues {
+    final userId = _authenticationRepository?.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      return false;
+    }
+    return _termsKnownFor(userId);
+  }
+
+  bool _termsKnownFor(String userId) {
+    final known = _termsSatisfiedUserId;
+    return known != null && known.toLowerCase() == userId.toLowerCase();
+  }
+
   bool _lastSyncFailed = false;
   bool _hasUnsentRecords = false;
   bool _isInitializing = false;
@@ -465,6 +488,11 @@ class AppController extends ChangeNotifier {
       return;
     }
 
+    if (!_termsKnownFor(user.id)) {
+      _termsCheckPending = true;
+      notifyListeners();
+    }
+
     if (!_isSyncInProgress) {
       await handleAuthenticatedSession();
     }
@@ -481,27 +509,40 @@ class AppController extends ChangeNotifier {
   Future<void> handleAuthenticatedSession({bool force = false}) async {
     final authUser = _authenticationRepository?.currentUser;
     if (authUser != null) {
-      // 同意はログイン画面のボタンでだけ記録する。保存済みのログイン状態が
-      // 戻っただけなら、同意の画面をもう一度出し、同期も AI も始めない。
+      // 同意はアカウントごと。ログインボタンでは記録しない。
+      // 今の版の行がサーバに無いあいだは、同期も AI も始めない。
+      final known = _termsKnownFor(authUser.id);
+      if (!known && !_termsCheckPending) {
+        _termsCheckPending = true;
+        notifyListeners();
+      }
       final check = ++_termsCheck;
-      final agreed = await _termsAgreed();
+      var agreed = known;
+      if (!known) {
+        try {
+          agreed = await _termsAgreedFor(authUser.id);
+        } catch (_) {
+          agreed = false;
+        }
+      }
       if (check != _termsCheck) {
         return;
       }
+      _termsCheckPending = false;
       if (!agreed) {
+        _termsSatisfiedUserId = null;
         if (!_termsAgreementRequired) {
           _termsAgreementRequired = true;
-          notifyListeners();
         }
+        notifyListeners();
         return;
       }
-      if (_termsAgreementRequired) {
-        _termsAgreementRequired = false;
-        notifyListeners();
-      }
+      _termsSatisfiedUserId = authUser.id;
+      _termsAgreementRequired = false;
     }
     final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
+      notifyListeners();
       return;
     }
     final userId = authUser.id.toLowerCase();
@@ -598,6 +639,24 @@ class AppController extends ChangeNotifier {
       await _flushBehaviorQueues();
       notifyListeners();
     }
+  }
+
+  /// 同意しない。ログインへ戻し、食事などの記録は消さないし、送らない。
+  ///
+  /// 通常の [logout] は未送信を送ってから手元を消す。送れないときは画面に残る。
+  /// 同意の前にそれを使うと、戻れないか、前のアカウントの記録が消える。
+  Future<bool> declineTermsAgreement() async {
+    _termsCheck += 1;
+    await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
+    if (_authenticationRepository?.isAuthenticated ?? false) {
+      notifyListeners();
+      return false;
+    }
+    _resetSyncState();
+    _clearInMemoryState();
+    sessionBlockMessage = null;
+    notifyListeners();
+    return true;
   }
 
   /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。
@@ -726,6 +785,8 @@ class AppController extends ChangeNotifier {
 
   void _resetSyncState() {
     _termsAgreementRequired = false;
+    _termsCheckPending = false;
+    _termsSatisfiedUserId = null;
     _termsCheck += 1;
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;

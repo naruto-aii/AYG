@@ -84,9 +84,14 @@ void main() {
     expect(find.byType(LegalDocumentScreen), findsOneWidget);
     expect(find.text('利用規約'), findsWidgets);
     expect(find.byTooltip('閉じる'), findsOneWidget);
-    expect(find.textContaining('ログインした時点で'), findsOneWidget);
+    expect(find.textContaining('同意画面で同意した時点で'), findsOneWidget);
     expect(find.textContaining('麹池成'), findsWidgets);
     expect(find.textContaining('24歳'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.textContaining('一切認めません'),
+      400,
+    );
+    expect(find.textContaining('一切認めません'), findsOneWidget);
 
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();

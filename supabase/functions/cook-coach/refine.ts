@@ -27,6 +27,9 @@ type Var = {
   grid?: number[];
 };
 
+// 炒め・焼きの油は 2〜12g（大さじ1弱）。脂質の過不足はここで寄せる。
+const OIL_MIN = 2;
+const OIL_MAX = 12;
 const starchWord = /うどん|そば|パスタ|スパゲティ|食パン|中華麺|麺|パン/;
 
 function windowFor(item: MeasuredIngredient): Var | null {
@@ -40,8 +43,14 @@ function windowFor(item: MeasuredIngredient): Var | null {
     return grid.length > 1 ? { index: -1, min: grid[0], max: grid.at(-1)!, step: 50, grid } : null;
   }
   if (isOil(name)) {
-    // 炒め・焼きの油は 3〜10g。0 にはしない（手順で油を使うため）。
-    return { index: -1, min: Math.min(orig, 3), max: Math.max(orig, 10), step: 1 };
+    // 0 にはしない（手順で油を使うため）。現実的な上限は match の分量と同じ。
+    const real = realisticGramBounds(name, orig);
+    return {
+      index: -1,
+      min: Math.max(real.min, Math.min(orig, OIL_MIN)),
+      max: Math.min(real.max, Math.max(orig, OIL_MAX)),
+      step: 1,
+    };
   }
   if (isSeasoning(name)) {
     return null;
@@ -77,14 +86,50 @@ function rate(item: MeasuredIngredient): Macros {
   };
 }
 
-function objective(t: Macros, a: Macros): number {
-  const k = (a.kcal - t.kcal) / Math.max(1, t.kcal * 0.1);
-  const p = (a.proteinG - t.proteinG) / Math.max(1, t.proteinG * 0.15);
-  const f = (a.fatG - t.fatG) / Math.max(1, t.fatG * 0.15);
-  const c = (a.carbG - t.carbG) / Math.max(1, t.carbG * 0.15);
-  // kcal を最優先にし、P/F/C を同じ重さで寄せる。範囲外は強く罰する。
-  const over = (x: number) => (Math.abs(x) > 1 ? (Math.abs(x) - 1) * 4 : 0);
-  return 2 * k * k + p * p + f * f + c * c + over(k) * 6 + over(p) + over(f) + over(c);
+function axis(actual: number, goal: number, ratio: number): number {
+  return (actual - goal) / Math.max(1, Math.abs(goal) * ratio);
+}
+
+function excess(x: number): number {
+  const ax = Math.abs(x);
+  return ax > 1 ? ax - 1 : 0;
+}
+
+function closeness(x: number): number {
+  const ax = Math.abs(x);
+  return ax <= 1 ? ax : 0;
+}
+
+// 小さいほどよい。並びは kcal、たんぱく質、炭水化物、脂質のバンド外超過、そのあと各項目のバンド内の近さ。
+// 超過が 0 ならその項目は許容内（kcal は ±10%、P/C/F は ±15%）。
+// 上位の超過は下位のどれよりも先に比べるので、下位を合わせるために上位をバンドの外へ出さない。
+// バンド内の近さは、すべての超過が同じときだけ使う。
+export function portionRank(target: Macros, actual: Macros): number[] {
+  const axes = [
+    axis(actual.kcal, target.kcal, 0.1),
+    axis(actual.proteinG, target.proteinG, 0.15),
+    axis(actual.carbG, target.carbG, 0.15),
+    axis(actual.fatG, target.fatG, 0.15),
+  ];
+  return [...axes.map(excess), ...axes.map(closeness)];
+}
+
+export function portionPrefers(target: Macros, left: Macros, right: Macros): boolean {
+  return rankBetter(portionRank(target, left), portionRank(target, right));
+}
+
+function rankBetter(left: number[], right: number[]): boolean {
+  const n = Math.max(left.length, right.length);
+  for (let i = 0; i < n; i++) {
+    const delta = (left[i] ?? 0) - (right[i] ?? 0);
+    if (delta < -1e-9) {
+      return true;
+    }
+    if (delta > 1e-9) {
+      return false;
+    }
+  }
+  return false;
 }
 
 export function refineMeal(meal: MeasuredDish, target: Macros): MeasuredDish {
@@ -117,7 +162,7 @@ export function refineMeal(meal: MeasuredDish, target: Macros): MeasuredDish {
       const d = (gs[v.index] - items[v.index].grams) / Math.max(1, items[v.index].grams);
       return sum + d * d * 0.05;
     }, 0);
-  const score = (gs: number[]) => objective(target, totals(gs)) + drift(gs);
+  const score = (gs: number[]) => [...portionRank(target, totals(gs)), drift(gs)];
   let best = score(grams);
   for (let pass = 0; pass < 25; pass++) {
     let improved = false;
@@ -137,7 +182,7 @@ export function refineMeal(meal: MeasuredDish, target: Macros): MeasuredDish {
         }
         grams[v.index] = value;
         const s = score(grams);
-        if (s < best - 1e-9) {
+        if (rankBetter(s, best)) {
           best = s;
           improved = true;
           break;

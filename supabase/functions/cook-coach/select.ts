@@ -144,6 +144,9 @@ type Ranked = {
   used: number;
 };
 
+// 副菜・汁物の候補数。多いほど PFC が目標に入る組み合わせを見つけやすい。
+const X_SIDES = 8;
+const X_SOUPS = 6;
 const unusableFood = /トリュフ|チョコ|チョコレート/;
 
 export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): CookSelection {
@@ -170,6 +173,19 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
     let b = pick(extra.filter((item) => !a || item.dish.name !== a.dish.name));
     let aKind: PlanKind = "on_hand";
     let bKind: PlanKind = "extra";
+    if (a && b) {
+      // 2案で同じ副菜・汁物を使わない（別の組み合わせがあるときだけ）。
+      const fresh = pick(extra.filter((item) => item.dish.name !== a!.dish.name && !sharesPart(item.dish, a!.dish)));
+      if (fresh && tierOf(fresh) === tierOf(b)) {
+        b = fresh;
+      }
+      // 入力した肉・魚・主食を全部使う案を A にする（手持ちの案で使い切れないときは買い足しの案を先に出す）。
+      if (missOf(a) > missOf(b)) {
+        [a, b] = [b, a];
+        aKind = "extra";
+        bKind = "on_hand";
+      }
+    }
     // 案は必ず2つ、別の料理で出す。片方の種類が作れないときは、もう片方の種類から別の主菜の案を足す。
     const other = (items: Ranked[], first: Ranked) =>
       pick(items.filter((item) => item.recipeId !== first.recipeId && item.dish.name !== first.dish.name));
@@ -214,6 +230,39 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
       const next = run(usable, noteText);
       if (next.a || next.b) {
         found = next;
+        break;
+      }
+    }
+  }
+  if (found && (!found.a || !found.b)) {
+    // まだ1案しかないときは、家にある卵・ごはん・豆腐などで別の料理をもう1案作る。
+    const first = (found.a ?? found.b)!;
+    for (const pantry of [["卵", "ごはん"], ["卵"], ["ごはん"], ["豆腐"], ["キャベツ", "卵"]]) {
+      const usable = [...new Set([...listed, ...pantry])].filter((name) => !avoid.some((item) => namesMatch(item, name)));
+      const next = run(usable, omitNote);
+      const other = [next.a, next.b].find((item) =>
+        item && item.recipeId !== first.recipeId && item.dish.name !== first.dish.name
+      );
+      if (other) {
+        // 入力に無い食材は買い足し（または家にあれば使う）として示す。
+        const added = other.dish.ingredients
+          .filter((item) => !item.assumed && !listed.some((name) => namesMatch(name, item.name)) && pantry.some((name) => namesMatch(name, item.name)))
+          .map((item) => item.name);
+        const extras = [...new Set([...other.dish.extras, ...added])];
+        if (extras.length > 2) {
+          continue;
+        }
+        other.dish = {
+          ...other.dish,
+          extras,
+          ingredients: other.dish.ingredients.map((item) => added.includes(item.name) ? { ...item, extra: true } : item),
+        };
+        const kind: PlanKind = extras.length > 0 ? "extra" : (other === next.a ? next.aKind : next.bKind);
+        if (found.a) {
+          found = { ...found, b: other, bKind: kind };
+        } else {
+          found = { ...found, a: first, aKind: found.bKind, b: other, bKind: kind };
+        }
         break;
       }
     }
@@ -295,14 +344,19 @@ function composeMeals(
       return;
     }
     const hardMiss = missedHard(meal, listed);
-    const within = meal.within ? 0 : 1;
     const used = usedCount(meal, listed);
-    // P/F/C が目標の ±15% に入る案を先にし、近さは kcal ±10% と P/F/C ±15% を1として測る。
+    // 優先順位は kcal（±10%、ここまでで必須）> たんぱく質 > 炭水化物 > 脂質。
+    // 上の項目が許容内の案を、下の項目より必ず先にする（下の項目のために上を崩さない）。
+    const ok = (actual: number, goal: number) => Math.abs(actual - goal) <= Math.abs(goal) * 0.15 + 0.05;
+    const pMiss = ok(meal.totals.proteinG, target.proteinG) ? 0 : 1;
+    const cMiss = ok(meal.totals.carbG, target.carbG) ? 0 : 1;
+    const fMiss = ok(meal.totals.fatG, target.fatG) ? 0 : 1;
     const norm = normalizedGap(target, meal.totals);
-    const strict = strictWithin(target, meal.totals) ? 0 : 1;
     // 同じくらい近い案では、入力した食材を多く使う方を先にする。
-    const band = Math.floor(norm / 1.5);
-    const score = hardMiss * 1e12 + strict * 1e10 + within * 1e9 + band * 1e6 - used * 1000 + norm +
+    // 連続の近さは段の内側に収め、下位のずれで上位のミスをひっくり返さない。
+    const band = Math.min(89, Math.floor(norm / 1.5));
+    const tie = Math.min(norm, 100);
+    const score = hardMiss * 1e12 + pMiss * 1e10 + cMiss * 1e9 + fMiss * 1e8 + band * 1e6 - used * 1000 + tie +
       (recent.has(meal.name) ? 0.5 : 0);
     found.push({ dish: meal, recipeId, score, used: used - hardMiss * 100 });
     if (found.length > 500) {
@@ -356,18 +410,28 @@ function composeMeals(
   return found;
 }
 
-function normalizedGap(target: Macros, actual: Macros): number {
-  const k = (actual.kcal - target.kcal) / Math.max(1, target.kcal * 0.1);
-  const p = (actual.proteinG - target.proteinG) / Math.max(1, target.proteinG * 0.15);
-  const f = (actual.fatG - target.fatG) / Math.max(1, target.fatG * 0.15);
-  const c = (actual.carbG - target.carbG) / Math.max(1, target.carbG * 0.15);
-  return k * k + p * p + f * f + c * c;
+function missOf(item: Ranked): number {
+  return Math.floor((item.score + 1e7) / 1e12);
 }
 
-function strictWithin(target: Macros, actual: Macros): boolean {
-  const ok = (a: number, t: number) => Math.abs(a - t) <= Math.abs(t) * 0.15 + 0.05;
-  return kcalOk(actual.kcal, target.kcal) && ok(actual.proteinG, target.proteinG) &&
-    ok(actual.fatG, target.fatG) && ok(actual.carbG, target.carbG);
+// 入力食材の使い残し・P・C・F の段（細かい近さは含めない）。
+function tierOf(item: Ranked): number {
+  return Math.floor((item.score + 1e7) / 1e8);
+}
+
+function sharesPart(left: MeasuredDish, right: MeasuredDish): boolean {
+  const parts = (dish: MeasuredDish) => dish.name.split("、").filter((name) => name !== "ごはんの温め");
+  const mine = new Set(parts(left));
+  return parts(right).some((name) => mine.has(name));
+}
+
+function normalizedGap(target: Macros, actual: Macros): number {
+  // portionRank と同じ順の近さ。ミスの段は別の桁で先に比べる。
+  const k = (actual.kcal - target.kcal) / Math.max(1, target.kcal * 0.1);
+  const p = (actual.proteinG - target.proteinG) / Math.max(1, target.proteinG * 0.15);
+  const c = (actual.carbG - target.carbG) / Math.max(1, target.carbG * 0.15);
+  const f = (actual.fatG - target.fatG) / Math.max(1, target.fatG * 0.15);
+  return k * k + 3 * p * p + 2 * c * c + f * f;
 }
 
 function overlaps(have: MeasuredDish[], extra: MeasuredDish[]): boolean {
@@ -480,9 +544,9 @@ function collect(
   return {
     mains: diversify(mains, listed, target, kind === "extra" ? 40 : 16, 2),
     onHandMains: diversify(onHandMains, listed, target, 10, 2),
-    sides: diversify(sides, listed, null, 4, 1),
-    extraSides: diversify(extraSides, listed, null, 4, 1),
-    soups: diversify(soups, listed, null, 4, 2),
+    sides: diversify(sides, listed, null, X_SIDES, 1),
+    extraSides: diversify(extraSides, listed, null, X_SIDES, 1),
+    soups: diversify(soups, listed, null, X_SOUPS, 2),
   };
 }
 

@@ -24,6 +24,7 @@ import { evalScenarios, planScenario, runLocalEval } from "./cook_coach_eval.ts"
 import { cookRecipes } from "./cook-coach/recipes.ts";
 import { assemblyIssues, needsModelRetry, stepIssues } from "./cook-coach/plan.ts";
 import { explainRejectedTarget } from "./cook-coach/handler.ts";
+import { portionPrefers, refineMeal } from "./cook-coach/refine.ts";
 
 function food(code: string, name: string, kcal: number, proteinG: number, fatG: number, carbG: number): FoodRow {
   return {
@@ -287,11 +288,20 @@ Deno.test("chicken and rice plus pantry oil move to a 650 kcal dinner", () => {
   const rice = finished.ingredients.find((item) => item.name === "ごはん");
   const oil = finished.ingredients.find((item) => item.name.includes("油"));
   assertEquals(rice != null && rice.grams > 150, true);
-  assertEquals(oil != null && oil.grams >= 1 && oil.grams <= 10, true);
+  assertEquals(oil != null && oil.grams >= 1 && oil.grams <= 12, true);
   assertGapReported(finished, target);
   assertEquals(Math.abs(finished.totals.kcal - target.kcal) <= target.kcal * 0.1 + 0.51, true);
-  assertEquals(finished.within, false);
-  assertEquals(finished.gapReason.includes("油は10gまで"), true);
+  assertEquals(finished.within, true);
+  const fatty = bestMeasured(
+    dish([
+      { name: "鶏むね肉", grams: 100, kcal: 999, proteinG: 1, fatG: 1, carbG: 1 },
+      { name: "ごはん", grams: 150, kcal: 999, proteinG: 1, fatG: 1, carbG: 1 },
+    ]),
+    pantry,
+    { ...target, fatG: 40 },
+  );
+  assertEquals(fatty.within, false);
+  assertEquals(fatty.gapReason.includes("油は12gまで"), true);
 });
 
 Deno.test("a dish already inside tolerance is not scaled", () => {
@@ -448,7 +458,7 @@ Deno.test("handler returns db nutrition and does not call the model", async () =
   const oil = first.ingredients.find((item: { name: string }) => item.name.includes("油"));
   const rice = first.ingredients.find((item: { name: string }) => item.name === "ごはん");
   const chicken = first.ingredients.find((item: { name: string }) => item.name.includes("鶏"));
-  assertEquals(oil != null && oil.grams <= 10 && oil.grams >= 1, true);
+  assertEquals(oil != null && oil.grams <= 12 && oil.grams >= 1, true);
   assertEquals(rice != null && rice.grams >= 100 && rice.grams <= 300, true);
   assertEquals(chicken != null && chicken.grams >= 60 && chicken.grams <= 250, true);
 });
@@ -606,6 +616,15 @@ Deno.test("a missing recipe table returns 503 and does not call the model", asyn
   assertEquals(response.status, 503);
   assertEquals(body.code, "recipes_unavailable");
   assertEquals(harness.calls.length, 0);
+  const empty = deps({ replies: [modelText(108, 0)] });
+  empty.deps.loadRecipes = () => Promise.resolve([]);
+  const emptyResponse = await handleCookCoach(request(onTarget), empty.deps);
+  const emptyBody = await emptyResponse.json();
+  assertEquals(emptyResponse.status, 503);
+  assertEquals(emptyBody.ok, false);
+  assertEquals(emptyBody.code, "recipes_unavailable");
+  assertEquals(emptyBody.patterns, undefined);
+  assertEquals(empty.calls.length, 0);
 });
 
 Deno.test("kcal stays inside 10 percent and a protein miss is explained", async () => {
@@ -716,12 +735,12 @@ Deno.test("implausible meat calories are replaced, and eggs stay on a 50g grid",
   const oil = dinner.a.ingredients.find((item) => item.name.includes("油"));
   const rice = dinner.a.ingredients.find((item) => item.name === "ごはん");
   const chicken = dinner.a.ingredients.find((item) => item.name.includes("鶏"));
-  assertEquals(oil != null && oil.grams <= 8 && oil.grams >= 1, true);
-  assertEquals(dinner.a.ingredients.filter((item) => item.name.includes("油")).every((item) => item.grams <= 8), true);
+  assertEquals(oil != null && oil.grams <= 12 && oil.grams >= 1, true);
+  assertEquals(dinner.a.ingredients.filter((item) => item.name.includes("油")).every((item) => item.grams <= 12), true);
   assertEquals(rice != null && rice.grams >= 100 && rice.grams <= 300, true);
   assertEquals(chicken != null && chicken.grams >= 60 && chicken.grams <= 250, true);
   assertEquals(dinner.a.steps.some((step) => step.includes("ごはん") && step.includes("塩")), false);
-  assertEquals(dinner.a.steps.some((step) => step.includes("塩") && /炒|焼/.test(step)), true);
+  assertEquals(dinner.a.steps.some((step) => /しょうゆ|塩/.test(step) && /炒|焼/.test(step)), true);
 });
 
 Deno.test("zero remaining does not call the model, and 1200 kcal is accepted", async () => {
@@ -871,4 +890,90 @@ Deno.test("chicken breast with rice: plan A no longer overshoots protein by a th
     // 以前は鶏むね肉140g固定で +35%（550kcal）と +54%（700kcal）だった。
     assertEquals(a.totals.proteinG <= target.proteinG * 1.2, true, `${kcal} ${a.name} P${a.totals.proteinG}`);
   }
+});
+
+Deno.test("portion rank never trades a higher miss for a lower hit", () => {
+  const target: Macros = { kcal: 600, proteinG: 30, fatG: 16, carbG: 75 };
+  const meal = (kcal: number, proteinG: number, fatG: number, carbG: number): Macros =>
+    ({ kcal, proteinG, fatG, carbG });
+  // 重み付きの二乗和だと、kcal をわずかに外して PFC を全部合わせた案が勝つ。辞書順では勝たない。
+  assertEquals(
+    portionPrefers(target, meal(600, 0, 80, 0), meal(666, 30, 16, 75)),
+    true,
+  );
+  // 同じ kcal ミスでも、超過が小さい方を、下位が完璧な大きいミスより先にする。
+  assertEquals(
+    portionPrefers(target, meal(672, 0, 80, 0), meal(1080, 30, 16, 75)),
+    true,
+  );
+  // kcal が両方とも ±10% の中なら、たんぱく質のミスを炭水化物と脂質では取り返せない。
+  assertEquals(
+    portionPrefers(target, meal(640, 30, 40, 20), meal(600, 10, 16, 75)),
+    true,
+  );
+  // たんぱく質まで同じなら、炭水化物のミスを脂質では取り返せない。
+  assertEquals(
+    portionPrefers(target, meal(600, 30, 40, 75), meal(600, 30, 16, 20)),
+    true,
+  );
+  // kcal を中央に寄せるために、たんぱく質をバンドの外へ出さない。
+  assertEquals(
+    portionPrefers(target, meal(650, 30, 16, 75), meal(600, 10, 16, 75)),
+    true,
+  );
+  // すべての項目がバンド内なら、kcal が近い方を先にする。
+  assertEquals(
+    portionPrefers(target, meal(600, 30, 16, 75), meal(640, 30, 16, 75)),
+    true,
+  );
+});
+
+Deno.test("refineMeal keeps kcal in band instead of spending oil on fat", () => {
+  const target: Macros = { kcal: 470, proteinG: 25, fatG: 14, carbG: 55 };
+  const refined = refineMeal({
+    name: "塩と油",
+    steps: ["サラダ油3gを熱する。", "塩1gをふる。", "器に盛る。"],
+    extras: [],
+    ingredients: [
+      {
+        name: "塩",
+        grams: 1,
+        originalGrams: 1,
+        kcal: 450,
+        proteinG: 25,
+        fatG: 2,
+        carbG: 55,
+        source: "db",
+        foodCode: "17001",
+        officialName: "食塩",
+        extra: false,
+      },
+      {
+        name: "サラダ油",
+        grams: 3,
+        originalGrams: 3,
+        kcal: 27,
+        proteinG: 0,
+        fatG: 3,
+        carbG: 0,
+        source: "db",
+        foodCode: "14006",
+        officialName: "調合油",
+        extra: false,
+      },
+    ],
+    totals: { kcal: 477, proteinG: 25, fatG: 5, carbG: 55 },
+    gap: { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
+    within: false,
+    score: 0,
+    issues: [],
+    gapReason: "",
+    omitNote: "",
+  }, target);
+  const oilItem = refined.ingredients.find((item) => item.name.includes("油"));
+  assertEquals(oilItem != null, true);
+  // 油を 8g 以上にすると kcal が ±10% を外れて脂質だけ近づく。外さない。
+  assertEquals(oilItem!.grams, 7);
+  assertEquals(Math.abs(refined.totals.kcal - target.kcal) <= target.kcal * 0.1 + 0.51, true);
+  assertEquals(Math.abs(refined.totals.fatG - target.fatG) <= target.fatG * 0.15 + 0.05, false);
 });

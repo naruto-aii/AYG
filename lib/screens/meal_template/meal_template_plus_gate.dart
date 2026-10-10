@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
@@ -23,7 +24,7 @@ Future<bool> allowMealTemplateCreate(
   );
   final openPlus = await showAppConfirmDialog(
     context: context,
-    title: 'こちらは有料の機能です',
+    title: AppStrings.plusGateTitle,
     message: SubscriptionLimitExceededException(
       SubscriptionLimitKind.mealTemplate,
     ).toString(),
@@ -44,8 +45,12 @@ Future<bool> allowMealTemplateCreate(
         repository: controller.subscriptionRepository,
         feature: PlusFunnelFeature.mealTemplateLimit,
         funnel: controller.plusFunnelRepository,
+        onPlusActive: controller.syncPlusEntitlementToServer,
       );
     }
   }
-  return false;
+  if (!context.mounted) {
+    return false;
+  }
+  return controller.canCreateMealTemplate();
 }

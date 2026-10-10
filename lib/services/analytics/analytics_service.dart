@@ -280,6 +280,9 @@ class AnalyticsService {
     }
     _flushing = true;
     final started = _clock();
+    // 開始時のユーザーに固定する。ログアウト後のサインインで、
+    // 空のユーザーIDが次の人に付かない。
+    final boundUser = currentUserId;
     var sent = 0;
     try {
       await _uploadConsent();
@@ -287,7 +290,7 @@ class AnalyticsService {
         if (budget != null && _clock().difference(started) > budget) {
           break;
         }
-        final batch = await _nextBatch();
+        final batch = await _nextBatch(audience: boundUser);
         if (batch.isEmpty) {
           break;
         }
@@ -307,7 +310,7 @@ class AnalyticsService {
         if (fresh.isEmpty) {
           continue;
         }
-        final sentNow = await _sendBatch(fresh);
+        final sentNow = await _sendBatch(fresh, audience: boundUser);
         if (sentNow < 0) {
           break;
         }
@@ -319,11 +322,14 @@ class AnalyticsService {
     return FlushReport(sent: sent);
   }
 
-  Future<int> _sendBatch(List<PendingAnalyticsEvent> batch) async {
+  Future<int> _sendBatch(
+    List<PendingAnalyticsEvent> batch, {
+    String? audience,
+  }) async {
+    final userId = audience ?? currentUserId;
     for (final row in batch) {
-      if ((row.userId == null || row.userId!.isEmpty) &&
-          currentUserId != null) {
-        await _queue.assignUser(row, currentUserId!);
+      if ((row.userId == null || row.userId!.isEmpty) && userId != null) {
+        await _queue.assignUser(row, userId);
       }
     }
     final ready = <PendingAnalyticsEvent>[];
@@ -332,7 +338,7 @@ class AnalyticsService {
       if (owner == null || owner.isEmpty) {
         continue;
       }
-      if (currentUserId != null && owner != currentUserId) {
+      if (userId != null && owner != userId) {
         continue;
       }
       ready.add(row);
@@ -399,8 +405,8 @@ class AnalyticsService {
         return 0;
       }
       final mid = ready.length ~/ 2;
-      final first = await _sendBatch(ready.sublist(0, mid));
-      final second = await _sendBatch(ready.sublist(mid));
+      final first = await _sendBatch(ready.sublist(0, mid), audience: audience);
+      final second = await _sendBatch(ready.sublist(mid), audience: audience);
       return first + second;
     }
     final attempts = ready
@@ -415,8 +421,9 @@ class AnalyticsService {
     return 0;
   }
 
-  Future<List<PendingAnalyticsEvent>> _nextBatch() async {
+  Future<List<PendingAnalyticsEvent>> _nextBatch({String? audience}) async {
     final now = _clock().toUtc();
+    final userId = audience ?? currentUserId;
     final rows = await _queue.all();
     final ready = rows.where((row) {
       if (row.quarantined) {
@@ -428,11 +435,11 @@ class AnalyticsService {
       final owner = row.userId;
       if (owner != null &&
           owner.isNotEmpty &&
-          currentUserId != null &&
-          owner != currentUserId) {
+          userId != null &&
+          owner != userId) {
         return false;
       }
-      if ((owner == null || owner.isEmpty) && currentUserId == null) {
+      if ((owner == null || owner.isEmpty) && userId == null) {
         return false;
       }
       return true;

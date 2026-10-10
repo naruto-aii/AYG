@@ -567,7 +567,7 @@ class AppController extends ChangeNotifier {
       );
       await syncLockScreenMeals();
       await syncSiriVoiceLogs();
-      await _syncPlusEntitlement();
+      await syncPlusEntitlementToServer();
       await _adoptServerPlusForTestBuild(authUser.id);
       _lastSyncFailed = false;
       _syncFailure = null;
@@ -600,7 +600,16 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。
+  static const _unsentLogoutBudget = Duration(seconds: 3);
+
+  /// サインアウトの上限。Supabase のローカルを先に切り、ここを超えたら画面は戻す。
+  static const _signOutBudget = Duration(seconds: 2);
+
   /// 未送信を送れたとき true。送れないときは消さずに false。
+  ///
+  /// スタート画面へ戻るまでの最悪は、未送信の3秒とサインアウトの2秒で5秒。
+  /// 解析などの送信は待たない。
   Future<bool> logout({bool force = false}) async {
     _usage('logout', {'forced': force});
     if (_isSyncInProgress && !force) {
@@ -611,31 +620,68 @@ class AppController extends ChangeNotifier {
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     if (!force && userId != null && dataSyncRepository != null) {
-      final delivered = await _pushBeforeWipe(dataSyncRepository, userId);
+      var delivered = false;
+      try {
+        delivered = await _pushBeforeWipe(
+          dataSyncRepository,
+          userId,
+        ).timeout(_unsentLogoutBudget);
+      } catch (_) {
+        delivered = false;
+      }
       if (!delivered) {
         _blockSession('未送信の記録を送れなかったため、ログアウトを中止しました。通信できるときに再度お試しください。');
         return false;
       }
     }
-    await Analytics.service?.flush();
-    await _usageRecordRepository?.flushPending();
-    await _plusFunnelRepository?.flushPending();
-    await _coachProposalLog.flushPending();
-    _resetSyncState();
-    _clearInMemoryState();
-    final pendingCount = await _pendingRecords.count();
-    _usage('local_data_cleared', {
-      'reason': 'logout',
-      'pending_records_count': pendingCount,
-    });
-    await _pendingRecords.clear();
-    await _localUserDataClearer?.clearAll();
-    await _localSessionStore?.clearLastUserId();
-    await _authenticationRepository?.logout();
-    await Analytics.service?.setCurrentUser(null);
-    sessionBlockMessage = null;
-    notifyListeners();
-    return true;
+    _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
+    _forget(_usageRecordRepository?.flushPending());
+    _forget(_plusFunnelRepository?.flushPending());
+    _forget(_coachProposalLog.flushPending());
+    try {
+      _resetSyncState();
+      _clearInMemoryState();
+      final pendingCount = await _pendingRecords.count();
+      _usage('local_data_cleared', {
+        'reason': 'logout',
+        'pending_records_count': pendingCount,
+      });
+      await _pendingRecords.clear();
+      await _localUserDataClearer?.clearAll();
+      await _localSessionStore?.clearLastUserId();
+      await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
+      _forget(Analytics.service?.setCurrentUser(null));
+      sessionBlockMessage = null;
+      notifyListeners();
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] logout cleanup failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      sessionBlockMessage = null;
+      notifyListeners();
+      return true;
+    }
+  }
+
+  /// 通信が止まっても、ログアウトの後始末は続ける。
+  Future<void> _bestEffort(Future<void>? pending, Duration limit) async {
+    if (pending == null) {
+      return;
+    }
+    try {
+      await pending.timeout(limit);
+    } catch (_) {}
+  }
+
+  /// 解析などの送信。失敗しても、終わらなくても、ログアウトは待たない。
+  ///
+  /// `flush` は `Future<FlushReport>`。`catchError` の戻りが型と違うと、
+  /// 失敗したあとに未処理のエラーになる。
+  void _forget(Future<void>? pending) {
+    if (pending == null) {
+      return;
+    }
+    unawaited(pending.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
   }
 
   String? sessionBlockMessage;
@@ -3717,14 +3763,13 @@ class AppController extends ChangeNotifier {
 
   /// ウィジェットと Siri を開いてよいか。
   ///
-  /// 開発ビルドのプレビューを含むカロナビ+なら、App Group の有料フラグを
-  /// true にしてから通す。リリースで未加入のときは、そのフラグだけを見る。
+  /// カロナビ+のときだけ通す。未加入のときは、以前の有料フラグが残っていても通さない。
   Future<bool> ensurePaidShortcutsReady() async {
     if (_subscriptionRepository.isPlusActive) {
       await setLockScreenMealPaid(true);
       return true;
     }
-    return isMealWidgetPaid();
+    return false;
   }
 
   /// ストアの加入をフラグへ写す。設定画面からは呼ばない。
@@ -3764,17 +3809,24 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> _syncPlusForAiRetry() async {
-    if (!_hasUnexpiredStorePlus()) {
-      return false;
-    }
-    try {
-      await _subscriptionRepository.refreshEntitlement();
-    } catch (_) {}
+    await _recoverStoreSignedTransactions();
     if (!_hasUnexpiredStorePlus()) {
       return false;
     }
     await _syncPlusEntitlement();
     return true;
+  }
+
+  /// 署名が無い有料は復元で JWS を取り、サーバの加入行へ送る。
+  Future<void> syncPlusEntitlementToServer() async {
+    await _recoverStoreSignedTransactions();
+    await _syncPlusEntitlement();
+  }
+
+  Future<void> _recoverStoreSignedTransactions() async {
+    try {
+      await _subscriptionRepository.recoverMissingSignedTransactions();
+    } catch (_) {}
   }
 
   bool _hasUnexpiredStorePlus() {

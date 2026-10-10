@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../services/analytics/analytics.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import 'calonavi_plus_flow.dart';
+
+/// サーバが購入を確認できなかったとき。行き止まりにせず、同じ確認から課金画面へ進む。
+const plusPurchaseUnconfirmedMessage =
+    'カロナビ+の購入を確認できませんでした。購入済みの場合は次の画面で「購入を復元」を押してください。';
 
 /// カロナビ+が無い機能を止める。Siri とウィジェットの判定は呼ばない。
 ///
@@ -18,8 +23,43 @@ Future<bool> ensureCalonaviPlus(
   if (controller.subscriptionRepository.isPlusActive) {
     return true;
   }
+  await presentCalonaviPlusDialog(
+    context,
+    controller,
+    message: message,
+    feature: feature,
+  );
+  return controller.subscriptionRepository.isPlusActive;
+}
+
+/// 端末が有料でも、サーバが `not_plus` のときは確認ダイアログから課金画面を開く。
+Future<void> promptServerPlusRejected(
+  BuildContext context,
+  AppController controller, {
+  PlusFunnelFeature? feature,
+}) {
+  return presentCalonaviPlusDialog(
+    context,
+    controller,
+    message: plusPurchaseUnconfirmedMessage,
+    feature: feature,
+    ignoreCurrentPlus: true,
+  );
+}
+
+/// 「カロナビ+限定機能」の確認。進むと購入画面（購入を復元あり）を開く。
+Future<void> presentCalonaviPlusDialog(
+  BuildContext context,
+  AppController controller, {
+  required String message,
+  PlusFunnelFeature? feature,
+  bool ignoreCurrentPlus = false,
+}) async {
+  if (!ignoreCurrentPlus && controller.subscriptionRepository.isPlusActive) {
+    return;
+  }
   if (!context.mounted) {
-    return false;
+    return;
   }
   controller.recordPlusFunnel(
     event: PlusFunnelEvent.gateShown,
@@ -27,7 +67,7 @@ Future<bool> ensureCalonaviPlus(
   );
   final openPlus = await showAppConfirmDialog(
     context: context,
-    title: 'こちらは有料の機能です',
+    title: AppStrings.plusGateTitle,
     message: message,
     confirmLabel: 'カロナビ+を見る',
     cancelLabel: '閉じる',
@@ -46,6 +86,7 @@ Future<bool> ensureCalonaviPlus(
         repository: controller.subscriptionRepository,
         feature: feature,
         funnel: controller.plusFunnelRepository,
+        onPlusActive: controller.syncPlusEntitlementToServer,
       );
     }
   } else if (openPlus != true) {
@@ -58,5 +99,4 @@ Future<bool> ensureCalonaviPlus(
       'choice': 'close',
     });
   }
-  return controller.subscriptionRepository.isPlusActive;
 }

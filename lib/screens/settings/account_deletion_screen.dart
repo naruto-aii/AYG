@@ -84,7 +84,12 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
         setState(() => _isDeleting = false);
         await _showAppleRevokeFailed();
       }
-      await widget.controller.logout(force: true);
+      try {
+        await widget.controller.logout(force: true);
+      } catch (_) {}
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } on AccountDeletionUnavailableException {
       if (!mounted) {
         return;

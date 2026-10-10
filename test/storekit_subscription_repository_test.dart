@@ -511,6 +511,97 @@ void main() {
     await updates.close();
     await repository.dispose();
   });
+
+  test('restore fills a missing JWS when the store still says Plus', () async {
+    final updates = StreamController<List<PurchaseDetails>>();
+    final store = _RestoreStore(updates);
+    final expiry = now.add(const Duration(days: 30));
+    final repository = StoreKitSubscriptionRepository(
+      preferences: await prefsWith({}),
+      purchaseClient: store,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async => EntitlementLoad(
+        records: [
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: expiry,
+          ),
+        ],
+        authoritative: true,
+      ),
+      clock: () => now,
+    );
+    await repository.initialize();
+    expect(repository.isPlusActive, isTrue);
+    expect(repository.confirmedEntitlements.single.signedTransaction, isNull);
+
+    await repository.recoverMissingSignedTransactions();
+
+    expect(store.restores, 1);
+    expect(
+      repository.confirmedEntitlements.single.signedTransaction,
+      'header.payload.sig',
+    );
+    await updates.close();
+    await repository.dispose();
+  });
+
+  test('a signed entitlement is not restored again', () async {
+    final updates = StreamController<List<PurchaseDetails>>();
+    final store = _RestoreStore(updates);
+    final repository = StoreKitSubscriptionRepository(
+      preferences: await prefsWith({}),
+      purchaseClient: store,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async => EntitlementLoad(
+        records: [
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: now.add(const Duration(days: 30)),
+            signedTransaction: 'already.payload.sig',
+          ),
+        ],
+        authoritative: true,
+      ),
+      clock: () => now,
+    );
+    await repository.initialize();
+    await repository.recoverMissingSignedTransactions();
+    expect(store.restores, 0);
+    await updates.close();
+    await repository.dispose();
+  });
+
+  test('a hung restore does not block JWS recovery', () async {
+    final updates = StreamController<List<PurchaseDetails>>();
+    final store = _RestoreStore(updates)..hang = true;
+    final repository = StoreKitSubscriptionRepository(
+      preferences: await prefsWith({}),
+      purchaseClient: store,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async => EntitlementLoad(
+        records: [
+          SubscriptionEntitlementRecord(
+            productId: SubscriptionCatalog.monthlyProductId,
+            expiresAt: now.add(const Duration(days: 30)),
+          ),
+        ],
+        authoritative: true,
+      ),
+      clock: () => now,
+    );
+    await repository.initialize();
+    final started = DateTime.now();
+    await repository.recoverMissingSignedTransactions(
+      timeout: const Duration(milliseconds: 80),
+    );
+    expect(
+      DateTime.now().difference(started),
+      lessThan(const Duration(seconds: 2)),
+    );
+    await updates.close();
+    await repository.dispose();
+  });
 }
 
 class _ScriptedStore implements StorePurchaseClient {
@@ -584,4 +675,55 @@ class _ScriptedStore implements StorePurchaseClient {
 
   @override
   Future<void> restorePurchases() async {}
+}
+
+class _RestoreStore implements StorePurchaseClient {
+  _RestoreStore(this.updates);
+
+  final StreamController<List<PurchaseDetails>> updates;
+  int restores = 0;
+  bool hang = false;
+
+  @override
+  Future<bool> isAvailable() async => true;
+
+  @override
+  Future<ProductDetailsResponse> queryProductDetails(
+    Set<String> identifiers,
+  ) async {
+    return ProductDetailsResponse(
+      productDetails: const [],
+      notFoundIDs: identifiers.toList(),
+    );
+  }
+
+  @override
+  Future<bool> buyNonConsumable({required PurchaseParam purchaseParam}) async {
+    return false;
+  }
+
+  @override
+  Future<void> completePurchase(PurchaseDetails purchase) async {}
+
+  @override
+  Future<void> restorePurchases() async {
+    restores += 1;
+    if (hang) {
+      await Completer<void>().future;
+    }
+    updates.add([
+      SK2PurchaseDetails(
+        productID: SubscriptionCatalog.monthlyProductId,
+        purchaseID: 'restored',
+        verificationData: PurchaseVerificationData(
+          localVerificationData: '{}',
+          serverVerificationData: 'header.payload.sig',
+          source: 'app_store',
+        ),
+        transactionDate: '1',
+        status: PurchaseStatus.restored,
+        expirationDate: '${DateTime.utc(2026, 10, 27).millisecondsSinceEpoch}',
+      ),
+    ]);
+  }
 }

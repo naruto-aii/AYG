@@ -371,6 +371,46 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   }
 
   @override
+  Future<void> recoverMissingSignedTransactions({
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    if (!_storePlusMissingJws()) {
+      return;
+    }
+    final started = DateTime.now();
+    try {
+      await restore().timeout(timeout);
+    } catch (_) {}
+    while (_storePlusMissingJws() &&
+        DateTime.now().difference(started) < timeout) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  /// 期限キャッシュや Transaction.all で有料だが、サーバへ送る JWS が無い。
+  /// テスト切替と開発プレビューだけの有料は、ストアの署名が無いので対象にしない。
+  bool _storePlusMissingJws() {
+    if (!_plus) {
+      return false;
+    }
+    if (testPurchaseEnabled && _testPlus && _confirmedIds.isEmpty) {
+      return false;
+    }
+    for (final record in confirmedEntitlements) {
+      if (record.productId == SubscriptionCatalog.testPurchaseProductId) {
+        continue;
+      }
+      if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+        continue;
+      }
+      if ((record.signedTransaction ?? '').trim().isNotEmpty) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
   Future<void> refreshEntitlement() async {
     try {
       await _refreshEntitlement();
@@ -731,6 +771,10 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     if (record.expiresAt != null &&
         current != null &&
         !record.expiresAt!.isAfter(current)) {
+      // 期限も、すでにある署名も戻さない。署名が空のときだけ補う。
+      if ((_signedByProduct[record.productId] ?? '').isEmpty) {
+        _rememberSigned(record.productId, signed);
+      }
       return;
     }
     _revocationSigned.remove(record.productId);

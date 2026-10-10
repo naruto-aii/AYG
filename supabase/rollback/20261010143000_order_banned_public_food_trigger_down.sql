@@ -1,5 +1,7 @@
 -- 20261010143000 を戻す。禁止語の関数は残し、トリガー名だけ先の形に戻す。
--- 先にこれを流し、そのあと 20261010045607 のロールバックを流す。
+-- 必須の順序: 禁止語を全部戻すときは、このファイルを先に流す。
+-- そのあと supabase/rollback/20261010045607_reject_banned_public_food_text_down.sql。
+-- このファイルだけなら、禁止語の関数は残り、トリガー名だけ戻る。
 
 drop trigger if exists saved_foods_reject_banned_public_text on public.saved_foods;
 

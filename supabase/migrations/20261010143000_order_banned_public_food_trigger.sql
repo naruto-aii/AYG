@@ -2,6 +2,9 @@
 -- saved_foods_fill_voice の次になる名前にする。
 -- 公式の食品名と出典も、公開面の自由文として見る。
 -- 既存の公開行は書き換えない。
+-- 戻すときは、先に
+-- supabase/rollback/20261010143000_order_banned_public_food_trigger_down.sql
+-- を流し、そのあと 20261010045607 の down を流す。
 
 create or replace function moderation.reject_banned_public_food_text()
 returns trigger

@@ -7,8 +7,11 @@
 -- 関数は API に出さない schema moderation に置く。search_path は空。
 -- coalesce、greatest、NFKC の第2引数は SQL の構文なので修飾しない。
 -- pg_catalog.normalize の第2引数は文字列 'NFKC'。
--- 本番にはこのファイルを適用しない。戻し方は
--- supabase/rollback/20261010045607_reject_banned_public_food_text_down.sql。
+-- 本番にはこのファイルを適用しない。戻すときは、先に
+-- supabase/rollback/20261010143000_order_banned_public_food_trigger_down.sql
+-- を流し、そのあと
+-- supabase/rollback/20261010045607_reject_banned_public_food_text_down.sql
+-- を流す。先にこちらを戻すと関数が消え、トリガー名を戻す SQL が失敗する。
 
 create schema if not exists moderation;
 
@@ -320,7 +323,11 @@ as $$
        or pg_catalog.left(p_compact, pg_catalog.char_length(p_term)) = p_term
        or pg_catalog.right(p_compact, pg_catalog.char_length(p_term)) = p_term
      )
-     and not (p_term = 'まんこ' and p_compact = 'さんまんこ');
+     and not (p_term = 'まんこ' and p_compact = 'さんまんこ')
+     and not (
+       p_term = 'しね'
+       and pg_catalog.left(p_compact, 4) = 'しねもん'
+     );
 $$;
 
 create or replace function moderation.text_is_banned(p_name text)
@@ -388,7 +395,11 @@ begin
       'kuso', 'unko', 'chinko', 'manko'
     ) and moderation.term_is_affixed(v_compact, v_norm) then
       return true;
-    elsif v_norm = 'fuck' and moderation.latin_one_gap(v_spaced, v_norm) then
+    elsif v_norm = 'fuck' and (
+      moderation.latin_one_gap(v_spaced, v_norm)
+      or moderation.contains_term(v_spaced, 'fsck')
+      or moderation.contains_term(v_spaced, 'fick')
+    ) then
       return true;
     end if;
   end loop;

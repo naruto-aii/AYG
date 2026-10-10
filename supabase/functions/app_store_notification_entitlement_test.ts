@@ -266,6 +266,14 @@ Deno.test("fixtures for expiry, billing failure, refund, revoke, and renewal sta
   assertEquals(notificationSkipsOlderExpiry({
     notificationType: "REVOKE",
     revoked: true,
+    currentExpiresAt: "2026-11-08T00:00:00.000Z",
+    nextExpiresAt: "2026-11-08T00:00:00.000Z",
+    transactionExpiresAt: paidEnd,
+    now,
+  }), false);
+  assertEquals(notificationSkipsOlderExpiry({
+    notificationType: "REVOKE",
+    revoked: true,
     currentExpiresAt: "2026-12-01T00:00:00.000Z",
     nextExpiresAt: "2026-10-08T00:00:00.000Z",
     now,

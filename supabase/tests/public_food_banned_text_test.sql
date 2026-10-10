@@ -21,7 +21,7 @@ exception
 end;
 $$;
 
-select plan(95);
+select plan(99);
 
 select ok(
   position(
@@ -82,8 +82,12 @@ select ok(moderation.text_is_banned('しね'), 'hiragana shine is rejected');
 select ok(moderation.text_is_banned('なかだし'), 'hiragana nakadashi is rejected');
 select ok(moderation.text_is_banned('ころす'), 'hiragana korosu is rejected');
 select ok(moderation.text_is_banned('しねラーメン'), 'prefixed shine is rejected');
+select ok(not moderation.text_is_banned('シネモン'), 'cinnamon reading stays');
+select ok(not moderation.text_is_banned('シネモンロール'), 'cinnamon roll reading stays');
 select ok(moderation.text_is_banned('f*ck'), 'star inside fuck is rejected');
 select ok(moderation.text_is_banned('f@ck'), 'at inside fuck is rejected');
+select ok(moderation.text_is_banned('f$ck'), 'dollar inside fuck is rejected');
+select ok(moderation.text_is_banned('f!ck'), 'exclamation inside fuck is rejected');
 select ok(not moderation.text_is_banned('Cock tail'), 'spaced cocktail phrase stays');
 select ok(not moderation.text_is_banned('rape seed oil'), 'rape seed oil stays');
 select ok(not moderation.text_is_banned('ブラックソース'), 'black sauce stays');

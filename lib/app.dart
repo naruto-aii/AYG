@@ -4,9 +4,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'config/demo_mode.dart';
 import 'constants/app_strings.dart';
-import 'theme/app_colors.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/health_repository.dart';
 import 'screens/auth/login_screen.dart';
@@ -20,7 +18,7 @@ import 'services/open_food_facts_service.dart';
 import 'state/app_controller.dart';
 import 'screens/splash/splash_screen.dart';
 import 'theme/app_theme.dart';
-import 'widgets/common/keyboard_done_bar.dart';
+import 'widgets/layout/app_frame.dart';
 import 'widgets/startup/app_startup_gate.dart';
 
 class AygApp extends StatefulWidget {
@@ -178,33 +176,7 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
       navigatorObservers: [
         if (AnalyticsRuntime.routes != null) AnalyticsRuntime.routes!,
       ],
-      builder: (context, child) {
-        final stack = Stack(
-          children: [if (child != null) child, const KeyboardDoneBar()],
-        );
-        if (!calonaviDemoMode) {
-          return stack;
-        }
-        final size = MediaQuery.sizeOf(context);
-        if (size.width < 900) {
-          return stack;
-        }
-        return ColoredBox(
-          color: AppColors.bgPage,
-          child: Center(
-            child: SizedBox(
-              width: 390,
-              height: size.height,
-              child: MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(size: Size(390, size.height)),
-                child: stack,
-              ),
-            ),
-          ),
-        );
-      },
+      builder: buildCalonaviFrame,
       home: _buildHome(),
     );
   }

@@ -32,6 +32,8 @@ class ImagePickerMealPhotoSource implements MealPhotoSource {
 
   final ImagePicker _picker;
 
+  /// カメラは全画面、カメラロールは PHPicker。iPad で写真ライブラリが
+  /// ポップオーバーになる経路は、AppDelegate が起点を足す。
   Future<Uint8List?> _pick(ImageSource source) async {
     final file = await _picker.pickImage(
       source: source,

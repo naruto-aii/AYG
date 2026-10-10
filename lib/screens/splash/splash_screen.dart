@@ -31,6 +31,7 @@ class _SplashScreenState extends State<SplashScreen>
   /// ブランドマークの実描画サイズと中心。
   static const double _markWidth = 150;
   static const double _markHeight = 152;
+
   /// Figma はマーク単体の中心を画面の縦中央(422)に置いているが、その下に
   /// 文字が来るぶん「マーク＋文字」のかたまりで見ると 32 px 下寄りになる。
   /// かたまりの中心が画面中央に来るよう、全体を上へずらす。
@@ -62,6 +63,7 @@ class _SplashScreenState extends State<SplashScreen>
   static const _DotState _dotFallen = _DotState(260.7, 387.3, 18.3, 28);
   static const _DotState _dotSquashed = _DotState(260.7, 394.6, 31.2, 13.3);
   static const _DotState _dotBounced = _DotState(268.7, 338.6, 21.5, 21.5);
+
   /// 拡大後の直径。実際の画面を覆いきる大きさを実行時に計算するため、
   /// ここでは中心だけ使う（Figma の 1200 は 390x844 専用の値）。
   static const double _expandedMinDiameter = 1200;
@@ -72,15 +74,16 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: _totalMs),
-    )..addStatusListener((status) {
-      if (status == AnimationStatus.completed && !_notified) {
-        _notified = true;
-        widget.onCompleted();
-      }
-    });
+    _controller =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: _totalMs),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed && !_notified) {
+            _notified = true;
+            widget.onCompleted();
+          }
+        });
     _controller.forward();
   }
 
@@ -105,9 +108,13 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: AppColors.bgPage,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          // iPhone の倍率は 1.5 未満。iPad の縦長だけ、マークを画面いっぱいにしない。
           final scale = math.min(
-            constraints.maxWidth / _designWidth,
-            constraints.maxHeight / _designHeight,
+            1.5,
+            math.min(
+              constraints.maxWidth / _designWidth,
+              constraints.maxHeight / _designHeight,
+            ),
           );
           final offsetX = (constraints.maxWidth - _designWidth * scale) / 2;
           final offsetY = (constraints.maxHeight - _designHeight * scale) / 2;

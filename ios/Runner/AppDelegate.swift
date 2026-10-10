@@ -1,6 +1,8 @@
 import AdServices
 import AppIntents
+import AuthenticationServices
 import Flutter
+import ObjectiveC
 import StoreKit
 import UIKit
 import WidgetKit
@@ -11,7 +13,14 @@ import WidgetKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    IpadSystemPresentation.install()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
+    // StoreKit の購入シートは前面シーンのキー窓に出る。
+    IpadSystemPresentation.makeForegroundWindowKeyIfNeeded()
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -288,5 +297,143 @@ private func presentShareCard(call: FlutterMethodCall, result: @escaping Flutter
       popover.permittedArrowDirections = []
     }
     presenter.present(controller, animated: true)
+  }
+}
+
+/// iPad でシステム画面（写真・共有・Apple ログイン・Google ログイン・StoreKit）が
+/// アンカー無しのポップオーバーや、シーンの無い窓で落ちないようにする。
+enum IpadSystemPresentation {
+  private static var installed = false
+
+  static func install() {
+    if installed {
+      return
+    }
+    installed = true
+    exchange(
+      UIApplication.self,
+      NSSelectorFromString("keyWindow"),
+      #selector(UIApplication.ayg_keyWindow)
+    )
+    exchange(
+      UIViewController.self,
+      #selector(UIViewController.present(_:animated:completion:)),
+      #selector(UIViewController.ayg_present(_:animated:completion:))
+    )
+    exchange(
+      ASAuthorizationController.self,
+      #selector(ASAuthorizationController.performRequests),
+      #selector(ASAuthorizationController.ayg_performRequests)
+    )
+  }
+
+  /// 前面のシーンのキー窓。Split View でもそのシーンの窓を返す。
+  static func foregroundKeyWindow() -> UIWindow? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    return scene?.windows.first { $0.isKeyWindow } ?? scene?.windows.first
+  }
+
+  static func makeForegroundWindowKeyIfNeeded() {
+    guard let window = foregroundKeyWindow(), !window.isKeyWindow else {
+      return
+    }
+    window.makeKey()
+  }
+
+  /// ポップオーバーなのに起点が無いと iPad は例外で落ちる。カメラの全画面表示は変えない。
+  static func anchorPopoverIfNeeded(
+    presenting controller: UIViewController,
+    on presenter: UIViewController
+  ) {
+    guard UIDevice.current.userInterfaceIdiom == .pad else {
+      return
+    }
+    // カメラをポップオーバーにすると iPad で起点が要る。全画面のまま出す。
+    if let picker = controller as? UIImagePickerController, picker.sourceType == .camera {
+      picker.modalPresentationStyle = .fullScreen
+    }
+    guard needsPopoverAnchor(controller) else {
+      return
+    }
+    guard let popover = controller.popoverPresentationController,
+          popover.sourceView == nil,
+          popover.barButtonItem == nil,
+          let view = presenter.viewIfLoaded else {
+      return
+    }
+    popover.sourceView = view
+    popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+    popover.permittedArrowDirections = []
+  }
+
+  private static func needsPopoverAnchor(_ controller: UIViewController) -> Bool {
+    if controller.modalPresentationStyle == .popover {
+      return true
+    }
+    if controller is UIActivityViewController {
+      return true
+    }
+    if let alert = controller as? UIAlertController, alert.preferredStyle == .actionSheet {
+      return true
+    }
+    if let picker = controller as? UIImagePickerController {
+      return picker.sourceType == .photoLibrary || picker.sourceType == .savedPhotosAlbum
+    }
+    return false
+  }
+
+  private static func exchange(_ type: AnyClass, _ original: Selector, _ swizzled: Selector) {
+    guard
+      let originalMethod = class_getInstanceMethod(type, original),
+      let swizzledMethod = class_getInstanceMethod(type, swizzled)
+    else {
+      return
+    }
+    method_exchangeImplementations(originalMethod, swizzledMethod)
+  }
+}
+
+private final class AygAuthorizationAnchor: NSObject, ASAuthorizationControllerPresentationContextProviding {
+  static let shared = AygAuthorizationAnchor()
+
+  func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+    IpadSystemPresentation.foregroundKeyWindow() ?? ASPresentationAnchor()
+  }
+}
+
+extension UIApplication {
+  /// シーン利用時に deprecated の keyWindow が nil だと、Google ログインが
+  /// 表示元を失う。前面シーンの窓を返す。
+  @objc func ayg_keyWindow() -> UIWindow? {
+    let window = ayg_keyWindow()
+    if let window, window.isKeyWindow {
+      return window
+    }
+    return IpadSystemPresentation.foregroundKeyWindow() ?? window
+  }
+}
+
+extension UIViewController {
+  @objc func ayg_present(
+    _ viewControllerToPresent: UIViewController,
+    animated flag: Bool,
+    completion: (() -> Void)?
+  ) {
+    IpadSystemPresentation.anchorPopoverIfNeeded(
+      presenting: viewControllerToPresent,
+      on: self
+    )
+    ayg_present(viewControllerToPresent, animated: flag, completion: completion)
+  }
+}
+
+extension ASAuthorizationController {
+  /// プラグインが presentationContextProvider を置かない。iPad では必須。
+  @objc func ayg_performRequests() {
+    if presentationContextProvider == nil {
+      presentationContextProvider = AygAuthorizationAnchor.shared
+    }
+    ayg_performRequests()
   }
 }

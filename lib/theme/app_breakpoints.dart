@@ -1,5 +1,8 @@
 /// レスポンシブレイアウトのブレークポイントと最大幅。
 abstract final class AppBreakpoints {
+  /// iPad（regular 幅）の短い辺。iPhone の縦横はここまで届かない。
+  static const double tabletShortestSide = 600;
+
   /// [ResponsiveSummaryGrid] と同じ2カラム切替幅。
   static const double summaryGrid = 480;
 

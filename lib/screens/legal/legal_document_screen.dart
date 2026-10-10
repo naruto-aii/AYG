@@ -5,17 +5,17 @@ import '../../services/analytics/catalog_actions.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_icon.dart';
+import '../../widgets/layout/tablet_surface.dart';
 import 'legal_document.dart';
 import 'legal_html_view.dart';
 
-Future<void> showLegalDocument(
-  BuildContext context,
-  LegalDocument document,
-) {
+Future<void> showLegalDocument(BuildContext context, LegalDocument document) {
   CatalogActions.legalDocumentView(document.name);
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'legal_document_screen_MaterialPageRoute_0'),
+      settings: const RouteSettings(
+        name: 'legal_document_screen_MaterialPageRoute_0',
+      ),
       fullscreenDialog: true,
       builder: (_) => LegalDocumentScreen(document: document),
     ),
@@ -53,29 +53,33 @@ class LegalDocumentScreen extends StatelessWidget {
           child: Divider(height: 1, color: AppColors.borderSubtle),
         ),
       ),
-      body: SafeArea(
-        child: FutureBuilder<String>(
-          future: rootBundle.loadString(document.assetPath),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return const Center(child: Text('書類を読み込めませんでした'));
-            }
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return LegalHtmlView(
-              html: snapshot.data!,
-              onOpenDocument: (next) {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'legal_document_screen_MaterialPageRoute_1'),
-                    fullscreenDialog: true,
-                    builder: (_) => LegalDocumentScreen(document: next),
-                  ),
-                );
-              },
-            );
-          },
+      body: TabletReadableWidth(
+        child: SafeArea(
+          child: FutureBuilder<String>(
+            future: rootBundle.loadString(document.assetPath),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(child: Text('書類を読み込めませんでした'));
+              }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return LegalHtmlView(
+                html: snapshot.data!,
+                onOpenDocument: (next) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      settings: const RouteSettings(
+                        name: 'legal_document_screen_MaterialPageRoute_1',
+                      ),
+                      fullscreenDialog: true,
+                      builder: (_) => LegalDocumentScreen(document: next),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

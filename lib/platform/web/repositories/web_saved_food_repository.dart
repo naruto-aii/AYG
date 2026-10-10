@@ -3,6 +3,7 @@ import '../../../models/food_unit_type.dart';
 import '../../../models/saved_food.dart';
 import '../../../repositories/contracts/saved_food_local_store.dart';
 import '../../../repositories/contracts/saved_food_repository_base.dart';
+import '../../../repositories/local_write_guard.dart';
 import '../../../utils/food_name_normalizer.dart';
 
 /// Web向けインメモリ saved_foods ローカルストア。
@@ -155,6 +156,18 @@ class IsarSavedFoodRepository extends SavedFoodRepositoryBase
   ) async {
     _foods.removeWhere((food) => food.ownerUserId == ownerUserId);
     await saveAllPrivate(foods);
+  }
+
+  Future<void> replaceAllOwnLocalIfCurrent(
+    String ownerUserId,
+    List<SavedFood> foods, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    _foods.removeWhere((food) => food.ownerUserId == ownerUserId);
+    _foods.addAll(foods);
   }
 
   @override

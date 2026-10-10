@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -122,7 +124,8 @@ class SyncFailure {
       errorCode = 'AUTH_SESSION_INVALID';
       userMessage = 'ログイン状態を確認できませんでした';
       message = error.message;
-    } else if (error.toString().contains('SocketException') ||
+    } else if (error is TimeoutException ||
+        error.toString().contains('SocketException') ||
         error.toString().contains('Failed host lookup') ||
         error.toString().contains('ClientException')) {
       userMessage = '通信に失敗しました';

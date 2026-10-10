@@ -285,8 +285,13 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
 
-  /// このアカウントが、今の版の規約・プライバシーに同意済みか。
+  /// いま画面を担当している同期の世代。再試行で進んだら、古い側はフラグを消さない。
+  int? _runningEpoch;
+
   final Future<bool> Function(String userId) _termsAgreedFor;
+
+  /// 再試行とログアウトで進む。遅れた取得は、この番号と一致しないとき手元へ書かない。
+  int _syncEpoch = 0;
   bool _termsAgreementRequired = false;
   bool _termsCheckPending = false;
   String? _termsSatisfiedUserId;
@@ -496,13 +501,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> retryAuthenticatedSync() async {
-    if (_isSyncInProgress) {
-      return;
-    }
-    await handleAuthenticatedSession(force: true);
+    await handleAuthenticatedSession(force: true, replaceInFlight: true);
   }
 
-  Future<void> handleAuthenticatedSession({bool force = false}) async {
+  Future<void> handleAuthenticatedSession({
+    bool force = false,
+    bool replaceInFlight = false,
+  }) async {
     final authUser = _authenticationRepository?.currentUser;
     if (authUser != null) {
       // 同意はアカウントごと。ログインボタンでは記録しない。
@@ -545,80 +550,73 @@ class AppController extends ChangeNotifier {
     await Analytics.service?.setCurrentUser(userId);
     _subscriptionRepository.bindStoreAccountToken(userId);
 
-    if (_isSyncInProgress) {
+    if (_isSyncInProgress && !replaceInFlight) {
       return;
     }
 
+    // 初回が終わるまでは、読み込みのまま操作できないのが元の不具合。
+    // 時刻で失敗にはしない。遅いだけの同期は、そのまま成功として書く。
+    // 再試行とログアウトだけが世代を進め、遅れた書き込みを止める。
+    final blocking = !_hasInitialSyncCompleted;
     _isSyncInProgress = true;
-    _lastSyncFailed = false;
-    _syncFailure = null;
+    if (blocking) {
+      _lastSyncFailed = false;
+      _syncFailure = null;
+    }
+    final epoch = ++_syncEpoch;
+    _runningEpoch = epoch;
+    final sessionUserId = authUser.id;
+    bool mayWrite() => _pushStillOwned(epoch, sessionUserId);
     notifyListeners();
 
     try {
-      final lastUserId = await _localSessionStore?.loadLastUserId();
-      final switched = _isDifferentUser(lastUserId, authUser.id);
-      if (switched) {
-        await _discardPreviousUserData();
-      }
-
-      await dataSyncRepository.ensureUserProfile(
-        userId: authUser.id,
-        email: authUser.email,
+      await _pullAuthenticatedSession(
+        authUser: authUser,
+        dataSyncRepository: dataSyncRepository,
+        force: force,
+        epoch: epoch,
+        mayWrite: mayWrite,
       );
-
-      if (force || switched || !_hasInitialSyncCompleted) {
-        await _migrateLocalOwnerData(toUserId: authUser.id);
-        final failed = await _pushUnsentBeforePull(
-          dataSyncRepository,
-          authUser.id,
-        );
-        await dataSyncRepository.pullRemoteToLocal(
-          authUser.id,
-          skipTables: failed,
-        );
-        _hasInitialSyncCompleted = true;
-        await _localSessionStore?.saveLastUserId(authUser.id);
-      }
-
-      await runSyncStep(
-        step: SyncStep.applyRemoteData,
-        repository: 'AppController',
-        tableName: 'local_cache',
-        operation: 'load',
-        action: () => loadPersistedState(),
-      );
-      await syncLockScreenMeals();
-      await syncSiriVoiceLogs();
-      await syncPlusEntitlementToServer();
-      _lastSyncFailed = false;
-      _syncFailure = null;
     } on SyncStepException catch (error) {
-      _lastSyncFailed = true;
-      _hasInitialSyncCompleted = false;
-      _syncFailure = error.failure;
-      _hasUnsentRecords = true;
-      _clearInMemoryState();
+      _failBlockingSession(epoch, error.failure);
     } catch (error, stackTrace) {
-      _lastSyncFailed = true;
-      _hasInitialSyncCompleted = false;
-      _syncFailure = SyncFailure.from(
+      final failure = SyncFailure.from(
         step: SyncStep.applyRemoteData,
         error: error,
         repository: 'AppController',
         tableName: 'local_cache',
         operation: 'sync',
       )..logDebug();
-      _hasUnsentRecords = true;
-      _clearInMemoryState();
-      if (kDebugMode) {
+      _failBlockingSession(epoch, failure);
+      if (kDebugMode && epoch == _syncEpoch) {
         debugPrint('[AYG] handleAuthenticatedSession failed: $error');
         debugPrintStack(stackTrace: stackTrace);
       }
     } finally {
-      _isSyncInProgress = false;
-      await _flushBehaviorQueues();
-      notifyListeners();
+      if (_runningEpoch == epoch) {
+        _isSyncInProgress = false;
+        _runningEpoch = null;
+        // 利用記録の再送は、ログアウトと同じく画面を待たせない。
+        notifyListeners();
+        _forget(_usageRecordRepository?.flushPending());
+        _forget(_plusFunnelRepository?.flushPending());
+        _forget(_coachProposalLog.flushPending());
+      }
     }
+  }
+
+  /// 初回が終わっていない失敗だけ、再試行画面にする。
+  ///
+  /// 世代が違う呼び出しと、初回後のトークン更新は、利用中の画面を消さない。
+  void _failBlockingSession(int epoch, SyncFailure failure) {
+    if (epoch != _syncEpoch || _hasInitialSyncCompleted) {
+      return;
+    }
+    _lastSyncFailed = true;
+    _hasInitialSyncCompleted = false;
+    _syncFailure = failure;
+    _hasUnsentRecords = true;
+    _clearInMemoryState();
   }
 
   /// 同意しない。ログインへ戻し、食事などの記録は消さないし、送らない。
@@ -639,6 +637,121 @@ class AppController extends ChangeNotifier {
     return true;
   }
 
+  /// 同意のあとの同期。世代が一致する呼び出しだけ、結果を画面と手元へ反映する。
+  Future<void> _pullAuthenticatedSession({
+    required AuthUser authUser,
+    required DataSyncRepository dataSyncRepository,
+    required bool force,
+    required int epoch,
+    required bool Function() mayWrite,
+  }) async {
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+    final lastUserId = await _localSessionStore?.loadLastUserId();
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+    final switched = _isDifferentUser(lastUserId, authUser.id);
+    if (switched) {
+      await _discardPreviousUserData();
+      if (!_stillCurrent(epoch)) {
+        return;
+      }
+      // 別の人に入れ替わるあいだは、前の人の画面のままにしない。
+      _hasInitialSyncCompleted = false;
+      notifyListeners();
+    }
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+
+    await dataSyncRepository.ensureUserProfile(
+      userId: authUser.id,
+      email: authUser.email,
+    );
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+
+    if (force || switched || !_hasInitialSyncCompleted) {
+      await _migrateLocalOwnerData(toUserId: authUser.id);
+      if (!_stillCurrent(epoch)) {
+        return;
+      }
+      final failed = await _pushUnsentBeforePull(
+        dataSyncRepository,
+        authUser.id,
+        mayWrite: mayWrite,
+      );
+      if (!_stillCurrent(epoch)) {
+        return;
+      }
+      await dataSyncRepository.pullRemoteToLocal(
+        authUser.id,
+        skipTables: failed,
+        mayWrite: mayWrite,
+      );
+      if (!_stillCurrent(epoch)) {
+        return;
+      }
+      _hasInitialSyncCompleted = true;
+      await _localSessionStore?.saveLastUserId(authUser.id);
+    }
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+
+    await runSyncStep(
+      step: SyncStep.applyRemoteData,
+      repository: 'AppController',
+      tableName: 'local_cache',
+      operation: 'load',
+      action: () => loadPersistedState(),
+    );
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+    await syncLockScreenMeals();
+    await syncSiriVoiceLogs();
+    await syncPlusEntitlementToServer();
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+    _lastSyncFailed = false;
+    _syncFailure = null;
+  }
+
+  /// この同期の世代が、今の世代と一致するか。
+  ///
+  /// 1つだけ進んだときに限らない。再試行を重ねたあとも、ログアウトのあとも捨てる。
+  /// 一致しないときにメモリを消すと、次の世代の画面まで消える。
+  bool _stillCurrent(int epoch) => epoch == _syncEpoch;
+
+  /// 送信を始めた人と、いまログインしている人が同じか。
+  bool _accountStill(String userId) {
+    final current = _authenticationRepository?.currentUser?.id;
+    if (current == null || current.isEmpty || userId.isEmpty) {
+      return false;
+    }
+    return current.toLowerCase() == userId.toLowerCase();
+  }
+
+  /// 読み取った行の持ち主と、送信に使う ID が同じときだけ true。
+  bool _pushStillOwned(int epoch, String userId) =>
+      epoch == _syncEpoch && _accountStill(userId);
+
+  /// 世代が変わって送信を捨てたあと、同じ人がまだいるなら送り直す。
+  void _resumeUnsent(String userId) {
+    if (!_accountStill(userId) ||
+        !_hasInitialSyncCompleted ||
+        _lastSyncFailed) {
+      return;
+    }
+    _hasUnsentRecords = true;
+    _scheduleRemoteSync();
+  }
+
   /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。
   static const _unsentLogoutBudget = Duration(seconds: 3);
 
@@ -652,11 +765,6 @@ class AppController extends ChangeNotifier {
   /// 手元が前のアカウントのままなら送らず消す。ログアウトは止めない。
   Future<bool> logout({bool force = false}) async {
     _usage('logout', {'forced': force});
-    if (_isSyncInProgress && !force) {
-      sessionBlockMessage = '同期中です。しばらくしてから再度ログアウトしてください。';
-      notifyListeners();
-      return false;
-    }
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     final lastUserId = await _localSessionStore?.loadLastUserId();
@@ -719,6 +827,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> _finishLogout() async {
+    // 消すより前に世代を進める。遅れた取得は、このあと手元へ書き戻せない。
+    _syncEpoch++;
+    _runningEpoch = null;
     _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
     _forget(_usageRecordRepository?.flushPending());
     _forget(_plusFunnelRepository?.flushPending());
@@ -786,10 +897,15 @@ class AppController extends ChangeNotifier {
     DataSyncRepository dataSyncRepository,
     String userId,
   ) async {
+    final epoch = _syncEpoch;
+    bool mayWrite() => _pushStillOwned(epoch, userId);
     try {
-      await dataSyncRepository.pushLocalToRemote(userId);
-      return true;
+      await dataSyncRepository.pushLocalToRemote(userId, mayWrite: mayWrite);
+      return mayWrite();
     } on PartialPushException catch (error, stackTrace) {
+      if (!mayWrite()) {
+        return false;
+      }
       debugPrint('[AYG] push before wipe incomplete: $error');
       debugPrintStack(stackTrace: stackTrace);
       for (final failure in error.failures) {
@@ -818,13 +934,20 @@ class AppController extends ChangeNotifier {
   /// 取得で手元の未送信行を消さないよう、先に送る。失敗した表は取得しない。
   Future<Set<String>> _pushUnsentBeforePull(
     DataSyncRepository dataSyncRepository,
-    String userId,
-  ) async {
+    String userId, {
+    bool Function()? mayWrite,
+  }) async {
     try {
-      await dataSyncRepository.pushLocalToRemote(userId);
+      await dataSyncRepository.pushLocalToRemote(userId, mayWrite: mayWrite);
+      if (mayWrite != null && !mayWrite()) {
+        return const {};
+      }
       _hasUnsentRecords = await _pendingRecords.count() > 0;
       return const {};
     } on PartialPushException catch (error, stackTrace) {
+      if (mayWrite != null && !mayWrite()) {
+        return const {};
+      }
       _hasUnsentRecords = true;
       debugPrint('[AYG] push before pull incomplete: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -1934,10 +2057,19 @@ class AppController extends ChangeNotifier {
     String userId,
     FoodEntry entry,
   ) async {
+    final epoch = _syncEpoch;
+    bool mayWrite() => _pushStillOwned(epoch, userId);
     try {
       await _serialRemoteWrite(
-        () => dataSyncRepository.pushFoodEntry(userId: userId, entry: entry),
+        () => dataSyncRepository.pushFoodEntry(
+          userId: userId,
+          entry: entry,
+          mayWrite: mayWrite,
+        ),
       );
+      if (!mayWrite()) {
+        _resumeUnsent(userId);
+      }
     } catch (error, stackTrace) {
       _hasUnsentRecords = true;
       debugPrint('[AYG] food entry push failed: $error');
@@ -4954,12 +5086,22 @@ class AppController extends ChangeNotifier {
       throw StateError('Cannot persist without authenticated remote sync.');
     }
 
+    final epoch = _syncEpoch;
+    bool mayWrite() => _pushStillOwned(epoch, userId);
     try {
       await _serialRemoteWrite(
-        () => dataSyncRepository.pushLocalToRemote(userId),
+        () => dataSyncRepository.pushLocalToRemote(userId, mayWrite: mayWrite),
       );
+      if (!mayWrite()) {
+        _resumeUnsent(userId);
+        return;
+      }
       _hasUnsentRecords = false;
     } on PartialPushException catch (error, stackTrace) {
+      if (!mayWrite()) {
+        _resumeUnsent(userId);
+        return;
+      }
       _hasUnsentRecords = true;
       debugPrint('[AYG] persist incomplete: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -5072,28 +5214,54 @@ class AppController extends ChangeNotifier {
     DataSyncRepository dataSyncRepository,
     String userId,
   ) async {
+    var resumeSameAccount = false;
     try {
       do {
         _remoteSyncQueued = false;
+        final epoch = _syncEpoch;
+        bool mayWrite() => _pushStillOwned(epoch, userId);
+        if (!mayWrite()) {
+          resumeSameAccount = _accountStill(userId);
+          break;
+        }
         try {
           await _serialRemoteWrite(
-            () => dataSyncRepository.pushLocalToRemote(userId),
+            () => dataSyncRepository.pushLocalToRemote(
+              userId,
+              mayWrite: mayWrite,
+            ),
           );
+          if (!mayWrite()) {
+            _hasUnsentRecords = true;
+            resumeSameAccount = _accountStill(userId);
+            break;
+          }
           _hasUnsentRecords = false;
         } on PartialPushException catch (error, stackTrace) {
+          if (!mayWrite()) {
+            _hasUnsentRecords = true;
+            resumeSameAccount = _accountStill(userId);
+            break;
+          }
           _hasUnsentRecords = true;
           debugPrint('[AYG] remote sync incomplete: $error');
           debugPrintStack(stackTrace: stackTrace);
         }
       } while (_remoteSyncQueued &&
           _hasInitialSyncCompleted &&
-          !_lastSyncFailed);
+          !_lastSyncFailed &&
+          _accountStill(userId));
     } catch (error, stackTrace) {
-      _hasUnsentRecords = true;
+      if (_accountStill(userId)) {
+        _hasUnsentRecords = true;
+      }
       debugPrint('[AYG] remote sync failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     } finally {
       _remoteSyncInFlight = false;
+      if (resumeSameAccount) {
+        _resumeUnsent(userId);
+      }
       notifyListeners();
     }
   }

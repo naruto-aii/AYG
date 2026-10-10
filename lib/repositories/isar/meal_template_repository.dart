@@ -6,6 +6,7 @@ import '../../database/schemas.dart';
 import '../../models/meal_template.dart';
 import '../../utils/food_name_normalizer.dart';
 import '../contracts/meal_template_repository_base.dart';
+import '../local_write_guard.dart';
 
 class MealTemplateRepository implements MealTemplateRepositoryBase {
   MealTemplateRepository(this._isar);
@@ -268,6 +269,59 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
       for (final entity in items) {
         entity.ownerUserId = toOwnerUserId;
         await _isar.mealTemplateItemEntitys.put(entity);
+      }
+    });
+  }
+
+  /// 取得したテンプレートを、1つのトランザクションで入れ替える。
+  /// 世代が違えば、消す前に戻る。
+  Future<void> applyRemoteForSync({
+    required String ownerUserId,
+    required List<MealTemplate> templates,
+    required Map<String, List<MealTemplateItem>> itemsByTemplate,
+    LocalWriteGuard? mayWrite,
+  }) async {
+    await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
+      final existingItems = await _isar.mealTemplateItemEntitys
+          .filter()
+          .ownerUserIdEqualTo(ownerUserId)
+          .findAll();
+      if (existingItems.isNotEmpty) {
+        await _isar.mealTemplateItemEntitys.deleteAll(
+          existingItems.map((entity) => entity.id).toList(),
+        );
+      }
+      final existing = await _isar.mealTemplateEntitys
+          .filter()
+          .ownerUserIdEqualTo(ownerUserId)
+          .findAll();
+      if (existing.isNotEmpty) {
+        await _isar.mealTemplateEntitys.deleteAll(
+          existing.map((entity) => entity.id).toList(),
+        );
+      }
+      if (templates.isEmpty) {
+        return;
+      }
+      await _isar.mealTemplateEntitys.putAll(
+        templates.map(EntityMapper.toMealTemplateEntity).toList(),
+      );
+      final itemEntities = [
+        for (final template in templates)
+          for (final item
+              in itemsByTemplate[template.templateId] ??
+                  const <MealTemplateItem>[])
+            EntityMapper.toMealTemplateItemEntity(
+              item: item,
+              templateId: template.templateId,
+              ownerUserId: ownerUserId,
+            ),
+      ];
+      if (itemEntities.isNotEmpty) {
+        await _isar.mealTemplateItemEntitys.putAll(itemEntities);
       }
     });
   }

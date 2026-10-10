@@ -1,6 +1,7 @@
 import 'package:ayg/models/health_profile_data.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/health_repository.dart';
+import 'package:ayg/repositories/local_write_guard.dart';
 
 class MockHealthRepository implements HealthRepository {
   MockHealthRepository({
@@ -49,7 +50,10 @@ class MockHealthRepository implements HealthRepository {
   }
 
   @override
-  Future<void> saveWorkoutRecords(List<HealthWorkoutRecord> records) async {
+  Future<void> saveWorkoutRecords(
+    List<HealthWorkoutRecord> records, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     savedWorkouts.addAll(records);
   }
 }

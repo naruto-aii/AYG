@@ -9,6 +9,7 @@ import '../../models/saved_food.dart';
 import '../../utils/food_name_normalizer.dart';
 import '../contracts/saved_food_local_store.dart';
 import '../contracts/saved_food_repository_base.dart';
+import '../local_write_guard.dart';
 
 /// Isar 上の saved_foods（Local First）。
 class IsarSavedFoodRepository extends SavedFoodRepositoryBase
@@ -171,6 +172,26 @@ class IsarSavedFoodRepository extends SavedFoodRepositoryBase
   ) async {
     await clearAllLocal();
     await saveAllPrivate(foods);
+  }
+
+  /// 同期の取得用。消す前に世代を見る。画面の保存はここを通さない。
+  Future<void> replaceAllOwnLocalIfCurrent(
+    String ownerUserId,
+    List<SavedFood> foods, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
+      await _isar.savedFoodEntitys.clear();
+      if (foods.isEmpty) {
+        return;
+      }
+      await _isar.savedFoodEntitys.putAll(
+        foods.map(EntityMapper.toSavedFoodEntity).toList(),
+      );
+    });
   }
 
   @override

@@ -5,6 +5,7 @@ import '../../database/schemas.dart';
 import '../../models/health_profile_data.dart';
 import '../../models/weight_entry.dart';
 import '../contracts/weight_repository_base.dart';
+import '../local_write_guard.dart';
 
 class WeightRepository implements WeightRepositoryBase {
   WeightRepository(this._isar);
@@ -66,8 +67,14 @@ class WeightRepository implements WeightRepositoryBase {
     });
   }
 
-  Future<void> replaceAll(List<WeightEntry> entries) async {
+  Future<void> replaceAll(
+    List<WeightEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _isar.weightEntryEntitys.clear();
       if (entries.isEmpty) {
         return;

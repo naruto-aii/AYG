@@ -142,7 +142,8 @@ class AppController extends ChangeNotifier {
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
     Future<bool> Function(String userId)? termsAgreedFor,
-  }) : _termsAgreedFor = termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
+  }) : _termsAgreedFor =
+           termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -300,10 +301,23 @@ class AppController extends ChangeNotifier {
   /// サーバの同意を確認しているあいだ。確認が終わるまでアプリ本体は出さない。
   bool get termsCheckPending => _termsCheckPending;
 
+  /// 同意が済んだ今のアカウントのときだけ、ウィジェットと Siri の待ち行列を取り込む。
+  ///
+  /// 同意の前に取り込むと、待ち行列を消したあと手元の記録になる。別アカウントの
+  /// 未送信と混ざり、次の同期で違う人の食事になる。待ち行列には残し、同意のあとに取り込む。
+  bool get mayImportNativeMealQueues {
+    final userId = _authenticationRepository?.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      return false;
+    }
+    return _termsKnownFor(userId);
+  }
+
   bool _termsKnownFor(String userId) {
     final known = _termsSatisfiedUserId;
     return known != null && known.toLowerCase() == userId.toLowerCase();
   }
+
   bool _lastSyncFailed = false;
   bool _hasUnsentRecords = false;
   bool _isInitializing = false;
@@ -679,9 +693,7 @@ class AppController extends ChangeNotifier {
         return false;
       }
     }
-    _forget(
-      Analytics.service?.flush(budget: const Duration(seconds: 2)),
-    );
+    _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
     _forget(_usageRecordRepository?.flushPending());
     _forget(_plusFunnelRepository?.flushPending());
     _forget(_coachProposalLog.flushPending());
@@ -696,10 +708,7 @@ class AppController extends ChangeNotifier {
       await _pendingRecords.clear();
       await _localUserDataClearer?.clearAll();
       await _localSessionStore?.clearLastUserId();
-      await _bestEffort(
-        _authenticationRepository?.logout(),
-        _signOutBudget,
-      );
+      await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
       _forget(Analytics.service?.setCurrentUser(null));
       sessionBlockMessage = null;
       notifyListeners();

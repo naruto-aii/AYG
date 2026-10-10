@@ -148,8 +148,11 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   Future<void> _resumePaidFeatures() async {
     await Analytics.service?.importNativePending();
     await widget.controller.refreshPaidEntitlement();
-    await widget.controller.syncLockScreenMeals();
-    await widget.controller.syncSiriVoiceLogs();
+    // 同意の前は待ち行列を消さない。同意のあとの同期が、アカウントを切り分けてから取り込む。
+    if (widget.controller.mayImportNativeMealQueues) {
+      await widget.controller.syncLockScreenMeals();
+      await widget.controller.syncSiriVoiceLogs();
+    }
     await widget.controller.flushUnsentRecords();
     await Analytics.service?.flush();
   }

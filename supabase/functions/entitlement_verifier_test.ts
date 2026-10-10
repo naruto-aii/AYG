@@ -208,11 +208,14 @@ Deno.test("isPlus reads any product row that is active and still in the future",
       path,
     );
   }
+  // 端末の有料表示は StoreKit。以前 app_controller にあった
+  // status=active かつ expires_at が未来、の読み取りは PR #80 の
+  // ワンタップ切替だけが使い、1.0.0+11 でコードから外した。
   const app = await Deno.readTextFile(
     new URL("../../lib/state/app_controller.dart", import.meta.url),
   );
-  assert(app.includes(".eq('status', 'active')"));
-  assert(app.includes(".gt('expires_at'"));
+  assert(!app.includes("CALONAVI_TEST_PURCHASE"));
+  assert(!app.includes("adoptServerPlusForTest"));
   const caller = await Deno.readTextFile(
     new URL("../../lib/repositories/usage_record_repository.dart", import.meta.url),
   );

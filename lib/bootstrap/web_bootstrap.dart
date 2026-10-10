@@ -40,6 +40,7 @@ import '../repositories/supabase/supabase_food_report_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../platform/web/resilient_auth_local_storage.dart';
 import '../services/open_food_facts_service.dart';
+import '../services/owned_local_record_shelf.dart';
 import '../state/app_controller.dart';
 import '../widgets/startup/startup_error_app.dart';
 import 'web_init_error.dart';
@@ -218,6 +219,7 @@ Future<void> bootstrapWebApp() async {
       workoutTemplateRepository: workoutTemplateRepository,
       firstMealGuideStore: const FirstMealGuideStore(),
       pendingRecords: pendingRecords,
+      ownedLocalRecords: OwnedLocalRecordShelf(preferences: preferences),
       usageRecordRepository: SupabaseConfig.isConfigured
           ? SupabaseUsageRecordRepository()
           : const NoOpUsageRecordRepository(),

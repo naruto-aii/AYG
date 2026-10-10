@@ -87,6 +87,7 @@ import '../repositories/usage_record_repository.dart';
 import '../services/usage_record.dart';
 import '../repositories/review_prompt_store.dart';
 import '../services/lock_screen_meal.dart';
+import '../services/owned_local_record_shelf.dart';
 import '../services/review_prompt.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
@@ -141,6 +142,7 @@ class AppController extends ChangeNotifier {
     PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
+    OwnedLocalRecordShelf? ownedLocalRecords,
     Future<bool> Function(String userId)? termsAgreedFor,
   }) : _termsAgreedFor =
            termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
@@ -172,6 +174,7 @@ class AppController extends ChangeNotifier {
        _plusFunnelRepository = plusFunnelRepository,
        _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
        _pendingRecords = pendingRecords ?? PendingRecordStore(),
+       _ownedRecords = ownedLocalRecords ?? OwnedLocalRecordShelf(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -212,6 +215,7 @@ class AppController extends ChangeNotifier {
   final PlusFunnelRepository? _plusFunnelRepository;
   final ReviewPromptStore _reviewPromptStore;
   final PendingRecordStore _pendingRecords;
+  final OwnedLocalRecordShelf _ownedRecords;
 
   PendingRecordStore get pendingRecords => _pendingRecords;
 
@@ -559,33 +563,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final lastUserId = await _localSessionStore?.loadLastUserId();
-      final switching =
-          lastUserId != null &&
-          lastUserId.toLowerCase() != authUser.id.toLowerCase();
-      if (switching) {
-        final delivered = await _pushBeforeWipe(dataSyncRepository, lastUserId);
-        if (!delivered) {
-          _blockSession(
-            '前のアカウントの未送信の記録を送れなかったため、アカウントの切り替えを中止しました。通信できるときに再度開いてください。',
-          );
-          return;
-        }
-        final pendingCount = await _pendingRecords.count();
-        _usage('local_data_cleared', {
-          'reason': 'user_switch',
-          'pending_records_count': pendingCount,
-        });
-        await _pendingRecords.clear();
-        await _localUserDataClearer?.clearAll();
-      }
+      final switched = await _handSlotToSessionUser(authUser.id);
 
       await dataSyncRepository.ensureUserProfile(
         userId: authUser.id,
         email: authUser.email,
       );
 
-      if (force || switching || !_hasInitialSyncCompleted) {
+      if (force || switched || !_hasInitialSyncCompleted) {
         await _migrateLocalOwnerData(toUserId: authUser.id);
         final failed = await _pushUnsentBeforePull(
           dataSyncRepository,
@@ -643,8 +628,8 @@ class AppController extends ChangeNotifier {
 
   /// 同意しない。ログインへ戻し、食事などの記録は消さないし、送らない。
   ///
-  /// 通常の [logout] は未送信を送ってから手元を消す。送れないときは画面に残る。
-  /// 同意の前にそれを使うと、戻れないか、前のアカウントの記録が消える。
+  /// 通常の [logout] は、今のアカウントの未送信を送ってからその人の手元を消す。
+  /// 同意の前はまだ送っていない。ここでも送らないし、消さない。
   Future<bool> declineTermsAgreement() async {
     _termsCheck += 1;
     await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
@@ -669,6 +654,7 @@ class AppController extends ChangeNotifier {
   ///
   /// スタート画面へ戻るまでの最悪は、未送信の3秒とサインアウトの2秒で5秒。
   /// 解析などの送信は待たない。
+  /// 枠が前のアカウントのままなら、その記録は送らず消さず、ログアウトは止めない。
   Future<bool> logout({bool force = false}) async {
     _usage('logout', {'forced': force});
     if (_isSyncInProgress && !force) {
@@ -678,7 +664,18 @@ class AppController extends ChangeNotifier {
     }
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
-    if (!force && userId != null && dataSyncRepository != null) {
+    final sessionUserId = userId?.toLowerCase();
+    final slotOwner = await _activeSlotOwner();
+    final foreign =
+        sessionUserId != null &&
+        slotOwner != null &&
+        slotOwner != sessionUserId;
+
+    if (foreign) {
+      await _parkActiveSlot(slotOwner);
+      await _clearActiveSlot();
+      await _ownedRecords.setActiveOwner(null);
+    } else if (!force && userId != null && dataSyncRepository != null) {
       var delivered = false;
       try {
         delivered = await _pushBeforeWipe(
@@ -693,33 +690,11 @@ class AppController extends ChangeNotifier {
         return false;
       }
     }
-    _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
-    _forget(_usageRecordRepository?.flushPending());
-    _forget(_plusFunnelRepository?.flushPending());
-    _forget(_coachProposalLog.flushPending());
-    try {
-      _resetSyncState();
-      _clearInMemoryState();
-      final pendingCount = await _pendingRecords.count();
-      _usage('local_data_cleared', {
-        'reason': 'logout',
-        'pending_records_count': pendingCount,
-      });
-      await _pendingRecords.clear();
-      await _localUserDataClearer?.clearAll();
-      await _localSessionStore?.clearLastUserId();
-      await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
-      _forget(Analytics.service?.setCurrentUser(null));
-      sessionBlockMessage = null;
-      notifyListeners();
-      return true;
-    } catch (error, stackTrace) {
-      debugPrint('[AYG] logout cleanup failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      sessionBlockMessage = null;
-      notifyListeners();
-      return true;
+
+    if (sessionUserId != null && (force || !foreign)) {
+      await _ownedRecords.drop(sessionUserId);
     }
+    return _finishLogout(wipeWithClearer: force || !foreign);
   }
 
   /// 通信が止まっても、ログアウトの後始末は続ける。
@@ -756,6 +731,191 @@ class AppController extends ChangeNotifier {
       operation: 'push',
     );
     notifyListeners();
+  }
+
+  Future<bool> _finishLogout({required bool wipeWithClearer}) async {
+    _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
+    _forget(_usageRecordRepository?.flushPending());
+    _forget(_plusFunnelRepository?.flushPending());
+    _forget(_coachProposalLog.flushPending());
+    try {
+      _resetSyncState();
+      _clearInMemoryState();
+      final pendingCount = await _pendingRecords.count();
+      _usage('local_data_cleared', {
+        'reason': 'logout',
+        'pending_records_count': pendingCount,
+      });
+      await _pendingRecords.clear();
+      if (wipeWithClearer) {
+        await _localUserDataClearer?.clearAll();
+      }
+      await _ownedRecords.setActiveOwner(null);
+      await _localSessionStore?.clearLastUserId();
+      await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
+      _forget(Analytics.service?.setCurrentUser(null));
+      sessionBlockMessage = null;
+      notifyListeners();
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] logout cleanup failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      sessionBlockMessage = null;
+      notifyListeners();
+      return true;
+    }
+  }
+
+  /// 端末の枠を、今サインインしている人のものにする。
+  ///
+  /// 前の人の未送信は棚へ移し、今の JWT では送らない。今の人の同期は止めない。
+  /// 別の人の枠をしまったとき true。
+  Future<bool> _handSlotToSessionUser(String sessionUserId) async {
+    final session = sessionUserId.toLowerCase();
+    final slotOwner = await _activeSlotOwner();
+    final switched = slotOwner != null && slotOwner != session;
+    if (switched) {
+      final pendingCount = await _pendingRecords.count();
+      await _parkActiveSlot(slotOwner);
+      _usage('local_data_cleared', {
+        'reason': 'user_switch',
+        'pending_records_count': pendingCount,
+      });
+      await _clearActiveSlot();
+    }
+    await _ownedRecords.setActiveOwner(session);
+    await _restoreOwnedSlot(session);
+    return switched;
+  }
+
+  /// 枠の持ち主。切り替えたあとは [lastUserId] よりこちらを優先する。
+  /// 送る前に失敗しても、今の人の行を前の人の棚へ入れない。
+  Future<String?> _activeSlotOwner() async {
+    final active = await _ownedRecords.activeOwner();
+    if (active != null && active.isNotEmpty) {
+      return active.toLowerCase();
+    }
+    final last = await _localSessionStore?.loadLastUserId();
+    if (last == null || last.isEmpty) {
+      return null;
+    }
+    return last.toLowerCase();
+  }
+
+  Future<void> _parkActiveSlot(String ownerId) async {
+    await _ownedRecords.put(ownerId, await _readActiveSlot());
+  }
+
+  Future<OwnedLocalRecords> _readActiveSlot() async {
+    final settings = _settingsRepository;
+    final app = settings == null ? null : await settings.loadAppSettings();
+    return OwnedLocalRecords(
+      foods: List<FoodEntry>.of(await _foodRepository?.loadAll() ?? const []),
+      exercises: List<ExerciseEntry>.of(
+        await _exerciseRepository?.loadAll() ?? const [],
+      ),
+      alcohols: List<AlcoholEntry>.of(
+        await _alcoholRepository?.loadAll() ?? const [],
+      ),
+      weights: List<WeightEntry>.of(
+        await _weightRepository?.loadAll() ?? const [],
+      ),
+      profile: await _userRepository?.loadProfile(),
+      goal: await _userRepository?.loadGoal(),
+      nutrition: await settings?.loadNutritionSettings(),
+      health: await settings?.loadHealthSnapshot(),
+      appSettings: app != null && app.onboardingComplete ? app : null,
+      pending: await _pendingRecords.snapshot(),
+    );
+  }
+
+  Future<void> _clearActiveSlot() async {
+    await _foodRepository?.clearAll();
+    await _exerciseRepository?.clearAll();
+    await _alcoholRepository?.clearAll();
+    await _weightRepository?.clearAll();
+    await _userRepository?.clearAll();
+    await _settingsRepository?.clearAll();
+    await _pendingRecords.clear();
+    _clearInMemoryState();
+  }
+
+  /// 本人の棚を枠へ戻す。戻したあとは棚から外し、削除した記録を蘇生しない。
+  Future<void> _restoreOwnedSlot(String userId) async {
+    final records = await _ownedRecords.peek(userId);
+    if (records == null || !records.hasRecords) {
+      return;
+    }
+    final foods = _foodRepository;
+    if (foods != null && records.foods.isNotEmpty) {
+      final ids = (await foods.loadAll()).map((entry) => entry.id).toSet();
+      final missing = [
+        for (final entry in records.foods)
+          if (!ids.contains(entry.id)) entry,
+      ];
+      if (missing.isNotEmpty) {
+        await foods.saveAll(missing);
+      }
+    }
+    final exercises = _exerciseRepository;
+    if (exercises != null && records.exercises.isNotEmpty) {
+      final ids = (await exercises.loadAll()).map((entry) => entry.id).toSet();
+      final missing = [
+        for (final entry in records.exercises)
+          if (!ids.contains(entry.id)) entry,
+      ];
+      if (missing.isNotEmpty) {
+        await exercises.saveAll(missing);
+      }
+    }
+    final alcohols = _alcoholRepository;
+    if (alcohols != null && records.alcohols.isNotEmpty) {
+      final ids = (await alcohols.loadAll()).map((entry) => entry.id).toSet();
+      final missing = [
+        for (final entry in records.alcohols)
+          if (!ids.contains(entry.id)) entry,
+      ];
+      if (missing.isNotEmpty) {
+        await alcohols.saveAll(missing);
+      }
+    }
+    final weights = _weightRepository;
+    if (weights != null && records.weights.isNotEmpty) {
+      final ids = (await weights.loadAll()).map((entry) => entry.id).toSet();
+      for (final entry in records.weights) {
+        if (!ids.contains(entry.id)) {
+          await weights.save(entry);
+        }
+      }
+    }
+    final users = _userRepository;
+    if (users != null) {
+      if (records.profile != null && await users.loadProfile() == null) {
+        await users.saveProfile(records.profile!);
+      }
+      if (records.goal != null && await users.loadGoal() == null) {
+        await users.saveGoal(records.goal!);
+      }
+    }
+    final settings = _settingsRepository;
+    if (settings != null) {
+      if (records.nutrition != null &&
+          await settings.loadNutritionSettings() == null) {
+        await settings.saveNutritionSettings(records.nutrition!);
+      }
+      if (records.hasHealthData &&
+          await settings.loadHealthSnapshot() == null) {
+        await settings.saveHealthSnapshot(records.health!);
+      }
+      if (records.appSettings?.onboardingComplete == true &&
+          !(await settings.loadAppSettings()).onboardingComplete) {
+        await settings.saveAppSettings(records.appSettings!);
+      }
+    }
+    if ((await _pendingRecords.count()) == 0 && !records.pending.isEmpty) {
+      await _pendingRecords.restoreSnapshot(records.pending);
+    }
+    await _ownedRecords.drop(userId);
   }
 
   /// 消す前に未送信を送る。一部でも失敗したら false。手元は残す。

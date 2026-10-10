@@ -115,11 +115,22 @@ void main() {
     auth.setCurrentUser(const AuthUser(id: 'user-b', email: 'b@example.com'));
     await controller.handleAuthenticatedSession();
 
-    expect(sync.pushes.map((push) => push.userId), ['user-a', 'user-b']);
-    expect(sync.pushes.first.foodIds, ['meal-a']);
-    expect(sync.pushes.last.foodIds, isEmpty);
+    expect(sync.pushes.map((push) => push.userId), ['user-b']);
+    expect(sync.pushes.single.foodIds, isEmpty);
     expect(foods.entries, isEmpty);
-    expect(clearer.calls, 1);
+    expect(clearer.calls, 0);
+    expect(controller.foodEntries, isEmpty);
+    expect(controller.requiresSyncRetry, isFalse);
+
+    auth.setCurrentUser(const AuthUser(id: 'user-a', email: 'a@example.com'));
+    await controller.handleAuthenticatedSession();
+
+    expect(sync.pushes.map((push) => push.userId), ['user-b', 'user-a']);
+    expect(sync.pushes.last.foodIds, ['meal-a']);
+    expect(foods.entries.map((entry) => entry.id), ['meal-a']);
+    expect(foods.entries.single.name, '朝食');
+    expect(foods.entries.single.kcalPerBase, 180);
+    expect(foods.entries.single.loggedAt, DateTime.utc(2026, 10, 8, 8));
   });
 
   test('同じアカウントで入り直すと食事が残り、未完了の初回設定は送られない', () async {

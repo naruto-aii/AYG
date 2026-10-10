@@ -5,6 +5,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 食事・運動・飲酒・体重の、まだ本番へ届いていない変更。
 enum PendingRecordKind { food, exercise, alcohol, weight }
 
+/// 未送信の印。食事・運動・飲酒・体重の行そのものとは別に持つ。
+class PendingRecordSnapshot {
+  const PendingRecordSnapshot({
+    this.upserts = const [],
+    this.deletes = const [],
+    this.tables = const [],
+  });
+
+  final List<String> upserts;
+  final List<String> deletes;
+  final List<String> tables;
+
+  bool get isEmpty => upserts.isEmpty && deletes.isEmpty && tables.isEmpty;
+
+  PendingRecordSnapshot copy() {
+    return PendingRecordSnapshot(
+      upserts: List<String>.of(upserts),
+      deletes: List<String>.of(deletes),
+      tables: List<String>.of(tables),
+    );
+  }
+}
+
 /// 未送信の上書きと削除。取り込みは、この印が付いた行を手元優先にする。
 class PendingRecordStore {
   PendingRecordStore({this._preferences});
@@ -39,7 +62,10 @@ class PendingRecordStore {
     if (raw is! List) {
       return const [];
     }
-    return [for (final item in raw) if (item is String) item];
+    return [
+      for (final item in raw)
+        if (item is String) item,
+    ];
   }
 
   String _token(PendingRecordKind kind, String id) => '${kind.name}:$id';
@@ -125,6 +151,31 @@ class PendingRecordStore {
   Future<int> count() async {
     await _ensure();
     return _upserts.length + _deletes.length + _tables.length;
+  }
+
+  /// 持ち主の棚へ移すときの写し。端末の未送信印は、このあと空にしてよい。
+  Future<PendingRecordSnapshot> snapshot() async {
+    await _ensure();
+    return PendingRecordSnapshot(
+      upserts: _upserts.toList()..sort(),
+      deletes: _deletes.toList()..sort(),
+      tables: _tables.toList()..sort(),
+    );
+  }
+
+  /// 本人が入り直したとき、棚の未送信印を戻す。
+  Future<void> restoreSnapshot(PendingRecordSnapshot snapshot) async {
+    await _ensure();
+    _upserts
+      ..clear()
+      ..addAll(snapshot.upserts);
+    _deletes
+      ..clear()
+      ..addAll(snapshot.deletes);
+    _tables
+      ..clear()
+      ..addAll(snapshot.tables);
+    await _persist();
   }
 
   Future<void> clear() async {

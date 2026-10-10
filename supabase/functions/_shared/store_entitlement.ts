@@ -169,9 +169,13 @@ export function decideNotificationEntitlement(
       revocationDate = null;
     }
   } else if (type === "GRACE_PERIOD_EXPIRED") {
-    expiresDate = input.gracePeriodExpiresDate ?? input.expiresDate;
+    expiresDate = clampToPast(
+      input.now,
+      input.gracePeriodExpiresDate ?? input.expiresDate,
+    );
     revocationDate = null;
   } else if (type === "EXPIRED" || (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD")) {
+    expiresDate = clampToPast(input.now, expiresDate);
     revocationDate = null;
   } else if (type === "DID_CHANGE_RENEWAL_STATUS") {
     revocationDate = input.revocationDate;
@@ -191,18 +195,79 @@ export function decideNotificationEntitlement(
   });
 }
 
-/// 古い更新で期限を短くしない。返金と取り消しだけは、期限が前でも権利を止める。
-/// 遅れて届いた EXPIRED や猶予切れで、その後の更新を消さない。
+function epochMillis(value: string | number | null | undefined): number | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/// この失効が終わらせる期間の終わり。
+/// 猶予切れは猶予の終わり。それ以外は取引の expiresDate だけを見る。
+/// 更新情報に残った古い猶予日で、その後の加入を失効扱いしない。
+function noticePeriodEnd(input: {
+  notificationType: string;
+  transactionExpiresAt?: string | number | null;
+  gracePeriodExpiresAt?: string | number | null;
+}): number | null {
+  const transaction = epochMillis(input.transactionExpiresAt);
+  const grace = epochMillis(input.gracePeriodExpiresAt);
+  if (input.notificationType === "GRACE_PERIOD_EXPIRED") {
+    return grace ?? transaction;
+  }
+  return transaction;
+}
+
+/// 失効通知の期間より先の加入が残っているか。
+/// 同じ期間の失効は false。期限の無い失効は、未来の加入を消さない。
+function storedPeriodOutlivesNotice(input: {
+  notificationType: string;
+  currentExpiresAt: string | null;
+  transactionExpiresAt?: string | number | null;
+  gracePeriodExpiresAt?: string | number | null;
+  now?: Date;
+}): boolean {
+  const stored = epochMillis(input.currentExpiresAt);
+  const now = (input.now ?? new Date()).getTime();
+  if (stored == null || stored <= now) {
+    return false;
+  }
+  const periodEnd = noticePeriodEnd(input);
+  if (periodEnd == null) {
+    return true;
+  }
+  return stored > periodEnd;
+}
+
+/// 古い更新で期限を短くしない。
+/// 返金と取り消しは、期限が前でも反映する。
+/// EXPIRED、猶予切れ、猶予なしの更新失敗は、今の加入がその通知の期間より新しいときだけ飛ばす。
 export function notificationSkipsOlderExpiry(input: {
   notificationType: string;
   subtype?: string | null;
   revoked: boolean;
   currentExpiresAt: string | null;
   nextExpiresAt: string | null;
+  /// 署名済み取引の expiresDate。クランプする前の値。
+  transactionExpiresAt?: string | number | null;
+  gracePeriodExpiresAt?: string | number | null;
+  now?: Date;
 }): boolean {
   const type = input.notificationType;
+  const subtype = input.subtype ?? "";
   if (input.revoked || type === "REFUND" || type === "REVOKE") {
     return false;
+  }
+  if (
+    type === "EXPIRED" ||
+    type === "GRACE_PERIOD_EXPIRED" ||
+    (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD")
+  ) {
+    return storedPeriodOutlivesNotice(input);
   }
   return shouldSkipOlderExpiry({
     revoked: false,

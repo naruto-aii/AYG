@@ -26,7 +26,7 @@ void main() {
     expect(state.latestExpiry, now.add(const Duration(days: 30)));
   });
 
-  test('the latest unrevoked transaction is the one sent to the server', () {
+  test('the current transaction is sent without an older revoked one', () {
     final later = now.add(const Duration(days: 40));
     final earlier = now.add(const Duration(days: 10));
     final selection = selectEntitlementTransactions([
@@ -48,7 +48,70 @@ void main() {
       ),
     ]);
     expect(selection.active.single.signedTransaction, 'later.payload.signature');
-    expect(selection.revocations.single.signedTransaction, 'revoked.payload.signature');
+    expect(selection.revocations, isEmpty);
+  });
+
+  test('a refund of the current transaction is sent when nothing replaced it', () {
+    final expiry = now.add(const Duration(days: 30));
+    final selection = selectEntitlementTransactions([
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: expiry,
+        signedTransaction: 'revoked.payload.signature',
+        revoked: true,
+      ),
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: now.add(const Duration(days: 5)),
+        signedTransaction: 'older-revoked.payload.signature',
+        revoked: true,
+      ),
+    ]);
+    expect(selection.active, isEmpty);
+    expect(
+      selection.revocations.single.signedTransaction,
+      'revoked.payload.signature',
+    );
+  });
+
+  test('an upgraded transaction is not sent while a current grant exists', () {
+    final current = now.add(const Duration(days: 3));
+    final selection = selectEntitlementTransactions([
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: current,
+        signedTransaction: 'current.payload.signature',
+      ),
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: now.add(const Duration(days: 40)),
+        signedTransaction: 'upgraded.payload.signature',
+        upgraded: true,
+      ),
+    ]);
+    expect(selection.active.single.signedTransaction, 'current.payload.signature');
+    expect(selection.revocations, isEmpty);
+  });
+
+  test('an upgraded product is sent when that product has no current grant', () {
+    final selection = selectEntitlementTransactions([
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: now.add(const Duration(days: 20)),
+        signedTransaction: 'upgraded.payload.signature',
+        upgraded: true,
+      ),
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.yearlyProductId,
+        expiresAt: now.add(const Duration(days: 300)),
+        signedTransaction: 'yearly.payload.signature',
+      ),
+    ]);
+    expect(selection.active.single.signedTransaction, 'yearly.payload.signature');
+    expect(
+      selection.revocations.single.signedTransaction,
+      'upgraded.payload.signature',
+    );
   });
 
   test('a revocation date blocks the transaction', () {
@@ -77,6 +140,10 @@ void main() {
       '{"revocationDate":"2026-01-01T00:00:00Z"}',
     );
     expect(iso, DateTime.utc(2026, 1, 1));
+    expect(parseStoreTransactionUpgraded(null), isFalse);
+    expect(parseStoreTransactionUpgraded('not json'), isFalse);
+    expect(parseStoreTransactionUpgraded('{"isUpgraded":false}'), isFalse);
+    expect(parseStoreTransactionUpgraded('{"isUpgraded":true}'), isTrue);
   });
 
   test('a missing expiry does not keep a product active', () {
@@ -116,6 +183,18 @@ void main() {
       latest,
     );
     expect(state.isActive(now), isTrue);
+  });
+
+  test('replaceAll does not keep an upgraded transaction as Plus', () {
+    final state = SubscriptionEntitlementState();
+    state.replaceAll([
+      SubscriptionEntitlementRecord(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expiresAt: now.add(const Duration(days: 20)),
+        upgraded: true,
+      ),
+    ]);
+    expect(state.isActive(now), isFalse);
   });
 
   test('replaceAll drops products the store no longer returns', () {

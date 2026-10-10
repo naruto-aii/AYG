@@ -8,6 +8,7 @@ class SubscriptionEntitlementRecord {
     required this.expiresAt,
     this.signedTransaction,
     this.revoked = false,
+    this.upgraded = false,
   });
 
   final String productId;
@@ -21,12 +22,17 @@ class SubscriptionEntitlementRecord {
 
   /// 返金・取り消し。有料の期限としては使わない。
   final bool revoked;
+
+  /// 上位プランへ移ったあとの古い取引。今の加入としては送らない。
+  final bool upgraded;
 }
 
-/// 商品ごとに、サーバへ送る取引を1件に絞る。
+/// 商品ごとに、今有効な取引を1件だけ選ぶ。
 ///
-/// Transaction.all の並びは保証されない。期限が最も遅い、取り消されていない
-/// 取引を送る。それより期限が遅い取り消しがあるときだけ、その取り消しも送る。
+/// Transaction.currentEntitlements に相当する。Transaction.all の並びは保証されない。
+/// 取り消されていない、isUpgraded でもない取引のうち、期限が最も遅いものを送る。
+/// 取り消し済みや isUpgraded は、その商品に今有効な取引があるあいだは送らない。
+/// 今有効な取引が無く、一番新しい取引が取り消しまたはアップグレードなら、その1件だけを送る。
 class EntitlementSyncSelection {
   const EntitlementSyncSelection({
     required this.active,
@@ -50,29 +56,26 @@ EntitlementSyncSelection selectEntitlementTransactions(
   final active = <SubscriptionEntitlementRecord>[];
   final revocations = <SubscriptionEntitlementRecord>[];
   for (final group in groups.values) {
-    SubscriptionEntitlementRecord? best;
-    SubscriptionEntitlementRecord? bestRevoked;
+    SubscriptionEntitlementRecord? current;
+    SubscriptionEntitlementRecord? ended;
     for (final record in group) {
       if (record.expiresAt == null) {
         continue;
       }
-      if (record.revoked) {
-        if (bestRevoked == null ||
-            record.expiresAt!.isAfter(bestRevoked.expiresAt!)) {
-          bestRevoked = record;
+      if (!record.revoked && !record.upgraded) {
+        if (current == null || record.expiresAt!.isAfter(current.expiresAt!)) {
+          current = record;
         }
         continue;
       }
-      if (best == null || record.expiresAt!.isAfter(best.expiresAt!)) {
-        best = record;
+      if (ended == null || record.expiresAt!.isAfter(ended.expiresAt!)) {
+        ended = record;
       }
     }
-    if (best != null) {
-      active.add(best);
-    }
-    if (bestRevoked != null &&
-        (best == null || bestRevoked.expiresAt!.isAfter(best.expiresAt!))) {
-      revocations.add(bestRevoked);
+    if (current != null) {
+      active.add(current);
+    } else if (ended != null) {
+      revocations.add(ended);
     }
   }
   return EntitlementSyncSelection(active: active, revocations: revocations);
@@ -89,7 +92,7 @@ class SubscriptionEntitlementState {
     if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
       return;
     }
-    if (record.revoked || record.expiresAt == null) {
+    if (record.revoked || record.upgraded || record.expiresAt == null) {
       expiryByProduct.remove(record.productId);
       return;
     }
@@ -104,7 +107,7 @@ class SubscriptionEntitlementState {
       if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
         continue;
       }
-      if (record.revoked) {
+      if (record.revoked || record.upgraded) {
         continue;
       }
       final expiry = record.expiresAt;
@@ -178,6 +181,24 @@ DateTime? parseStoreRevocationDate(String? jsonRepresentation) {
     return DateTime.tryParse(raw);
   }
   return null;
+}
+
+/// Apple's Transaction.jsonRepresentation `isUpgraded`.
+/// 上位プランへ移った古い取引で、今の加入にはしない。
+bool parseStoreTransactionUpgraded(String? jsonRepresentation) {
+  if (jsonRepresentation == null || jsonRepresentation.isEmpty) {
+    return false;
+  }
+  Object? decoded;
+  try {
+    decoded = jsonDecode(jsonRepresentation);
+  } catch (_) {
+    return false;
+  }
+  if (decoded is! Map) {
+    return false;
+  }
+  return decoded['isUpgraded'] == true;
 }
 
 /// 購入通知の利用者照合に使う。レシート本文は残さない。

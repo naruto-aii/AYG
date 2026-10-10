@@ -634,9 +634,7 @@ class AppController extends ChangeNotifier {
         return false;
       }
     }
-    _forget(
-      Analytics.service?.flush(budget: const Duration(seconds: 2)),
-    );
+    _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
     _forget(_usageRecordRepository?.flushPending());
     _forget(_plusFunnelRepository?.flushPending());
     _forget(_coachProposalLog.flushPending());
@@ -651,10 +649,7 @@ class AppController extends ChangeNotifier {
       await _pendingRecords.clear();
       await _localUserDataClearer?.clearAll();
       await _localSessionStore?.clearLastUserId();
-      await _bestEffort(
-        _authenticationRepository?.logout(),
-        _signOutBudget,
-      );
+      await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
       _forget(Analytics.service?.setCurrentUser(null));
       sessionBlockMessage = null;
       notifyListeners();
@@ -679,11 +674,14 @@ class AppController extends ChangeNotifier {
   }
 
   /// 解析などの送信。失敗しても、終わらなくても、ログアウトは待たない。
+  ///
+  /// `flush` は `Future<FlushReport>`。`catchError` の戻りが型と違うと、
+  /// 失敗したあとに未処理のエラーになる。
   void _forget(Future<void>? pending) {
     if (pending == null) {
       return;
     }
-    unawaited(pending.catchError((_) {}));
+    unawaited(pending.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
   }
 
   String? sessionBlockMessage;

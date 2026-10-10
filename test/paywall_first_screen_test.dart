@@ -190,6 +190,31 @@ void _expectPricesAndNote(WidgetTester tester, _Surface surface) {
       null;
   expect(plansInScroll, isNot(surface.pinPrices), reason: surface.name);
 
+  for (final label in ['購入を復元', '利用規約', 'プライバシーポリシー']) {
+    expect(find.text(label), findsOneWidget, reason: surface.name);
+  }
+  if (surface.pinPrices) {
+    for (final label in ['購入を復元', '利用規約', 'プライバシーポリシー']) {
+      final rect = tester.getRect(find.text(label));
+      expect(
+        rect.top,
+        greaterThanOrEqualTo(0),
+        reason: '${surface.name} $label',
+      );
+      expect(
+        rect.bottom,
+        lessThanOrEqualTo(button.top + 0.5),
+        reason: '${surface.name} $label',
+      );
+      expect(rect.left, greaterThanOrEqualTo(0), reason: label);
+      expect(
+        rect.right,
+        lessThanOrEqualTo(screen.width + 0.5),
+        reason: '${surface.name} $label',
+      );
+    }
+  }
+
   if (surface.keepBenefitOrder) {
     for (final title in [
       AppStrings.plusBenefitPhotoTitle,

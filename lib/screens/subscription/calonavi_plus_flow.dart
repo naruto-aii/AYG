@@ -554,9 +554,10 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           final benefits = _benefitColumn(tight: tight);
           final planCards = _planCards(plans);
           final note = selectedPlan == null ? null : _priceNote(selectedPlan);
-          final footer = _legalFooter();
 
           if (pinPrices) {
+            // 価格と注記はボタン直上のまま。復元と規約・プライバシーは
+            // 同じ固定域に出す。長い説明は特典と一緒にスクロールする。
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -565,12 +566,14 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
                     key: const Key('plus-paywall-scroll'),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [benefits, footer],
+                      children: [benefits, _legalCopy()],
                     ),
                   ),
                 ),
+                const SizedBox(height: AppSpacing.xs),
                 planCards,
                 ?note,
+                _legalActions(),
               ],
             );
           }
@@ -579,7 +582,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
             key: const Key('plus-paywall-scroll'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [benefits, planCards, ?note, footer],
+              children: [benefits, planCards, ?note, _legalFooter()],
             ),
           );
         },
@@ -721,18 +724,38 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   Widget _legalFooter() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: AppSpacing.xs),
-        Center(
-          child: TextButton(
-            key: const Key('plus-restore'),
-            onPressed: _busy ? null : _restore,
-            child: Text(
-              '購入を復元',
-              style: AppTypography.titleS.copyWith(color: AppColors.textBrand),
-            ),
+      children: [..._restoreBlock(), _legalCopy(), ..._legalLinkBlock()],
+    );
+  }
+
+  /// 短い画面で、価格と購入ボタンのあいだに残す操作。
+  Widget _legalActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [..._restoreBlock(), ..._legalLinkBlock()],
+    );
+  }
+
+  List<Widget> _restoreBlock() {
+    return [
+      const SizedBox(height: AppSpacing.xs),
+      Center(
+        child: TextButton(
+          key: const Key('plus-restore'),
+          onPressed: _busy ? null : _restore,
+          child: Text(
+            '購入を復元',
+            style: AppTypography.titleS.copyWith(color: AppColors.textBrand),
           ),
         ),
+      ),
+    ];
+  }
+
+  Widget _legalCopy() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         const SizedBox(height: AppSpacing.xs),
         Text(AppStrings.plusBillingPeriod, style: _legalStyle),
         const SizedBox(height: AppSpacing.xxs),
@@ -751,24 +774,26 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           const SizedBox(height: AppSpacing.xs),
           Text(expiryLabel, style: AppTypography.bodyS),
         ],
-        const SizedBox(height: AppSpacing.sm),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.xs,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _LegalLink(label: '利用規約', document: LegalDocument.terms),
-            _LegalLink(label: 'プライバシーポリシー', document: LegalDocument.privacy),
-            _LegalLink(
-              label: '特定商取引法に基づく表記',
-              document: LegalDocument.tokushoho,
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
       ],
     );
+  }
+
+  List<Widget> _legalLinkBlock() {
+    return [
+      const SizedBox(height: AppSpacing.sm),
+      Wrap(
+        alignment: WrapAlignment.center,
+        spacing: AppSpacing.md,
+        runSpacing: AppSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _LegalLink(label: '利用規約', document: LegalDocument.terms),
+          _LegalLink(label: 'プライバシーポリシー', document: LegalDocument.privacy),
+          _LegalLink(label: '特定商取引法に基づく表記', document: LegalDocument.tokushoho),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.md),
+    ];
   }
 }
 

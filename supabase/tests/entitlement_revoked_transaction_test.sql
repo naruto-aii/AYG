@@ -59,7 +59,13 @@ select ok(
 select ok(
   (
     select count(*) = 1
-      and reason = 'revoke'
+    from public.calonavi_plus_revoked_transactions
+    where user_id = '33333333-3333-4333-8333-333333333333'
+      and product_id = 'calonavi_plus_monthly'
+      and transaction_id = 'tx-renewal'
+  )
+  and (
+    select reason = 'revoke'
       and revoked_at = '2026-10-10T00:00:00Z'::timestamptz
     from public.calonavi_plus_revoked_transactions
     where user_id = '33333333-3333-4333-8333-333333333333'

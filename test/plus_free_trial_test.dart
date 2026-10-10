@@ -388,7 +388,7 @@ void main() {
     testWidgets('free users see the paid prompt every time', (tester) async {
       for (var i = 0; i < 2; i++) {
         await runGate(tester, false);
-        expect(find.text('こちらは有料の機能です'), findsOneWidget);
+        expect(find.text('カロナビ+限定機能'), findsOneWidget);
         await tester.tap(find.text('閉じる'));
         await tester.pumpAndSettle();
       }
@@ -426,7 +426,7 @@ void main() {
     testWidgets('plus users go straight through', (tester) async {
       final result = await runGate(tester, true);
       expect(result, isTrue);
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
     });
   });
 }

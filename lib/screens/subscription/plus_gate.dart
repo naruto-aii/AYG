@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../services/analytics/analytics.dart';
 import '../../state/app_controller.dart';
@@ -46,7 +47,7 @@ Future<void> promptServerPlusRejected(
   );
 }
 
-/// 「こちらは有料の機能です」の確認。進むと課金画面（購入を復元あり）を開く。
+/// 「カロナビ+限定機能」の確認。進むと購入画面（購入を復元あり）を開く。
 Future<void> presentCalonaviPlusDialog(
   BuildContext context,
   AppController controller, {
@@ -66,7 +67,7 @@ Future<void> presentCalonaviPlusDialog(
   );
   final openPlus = await showAppConfirmDialog(
     context: context,
-    title: 'こちらは有料の機能です',
+    title: AppStrings.plusGateTitle,
     message: message,
     confirmLabel: 'カロナビ+を見る',
     cancelLabel: '閉じる',

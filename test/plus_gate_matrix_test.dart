@@ -69,7 +69,9 @@ void main() {
   }
 
   Future<void> expectDialogThenPaywall(WidgetTester tester) async {
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    expect(find.textContaining('有料'), findsNothing);
+    expect(find.textContaining('課金'), findsNothing);
     expect(find.text(deadEnd), findsNothing);
     expect(find.text(deadEndShort), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
@@ -295,7 +297,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('ai-food-lookup-empty')), findsOneWidget);
       await tapLabel(tester, find.text(AiFoodLookupRow.label));
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.text('牛丼'), findsWidgets);
     });
 
@@ -303,7 +305,7 @@ void main() {
       final controller = plus();
       await show(tester, MealFoodSearchScreen(controller: controller));
       await tapLabel(tester, find.byKey(const Key('chain-food-lookup-row')));
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.byKey(const Key('chain-food-lookup-field')), findsOneWidget);
     });
 
@@ -317,7 +319,7 @@ void main() {
         ),
       );
       await tapLabel(tester, find.text('写真で登録'));
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.text('写真で登録 (β)'), findsOneWidget);
     });
 
@@ -331,7 +333,7 @@ void main() {
           introStore: _SeenIntro(),
         ),
       );
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.byKey(const Key('cook_coach_entry')), findsOneWidget);
       await tapLabel(tester, find.byKey(const Key('cook_coach_entry')));
       expect(find.text('自炊コーチ (β)'), findsOneWidget);
@@ -349,7 +351,7 @@ void main() {
         ),
       );
       await tapLabel(tester, find.text('直近3日の食品'));
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.text('直近3日に登録した食品はありません'), findsOneWidget);
     });
 
@@ -363,7 +365,7 @@ void main() {
       addTearDown(controller.dispose);
       await show(tester, MealTemplateListScreen(controller: controller));
       await tapLabel(tester, find.text('テンプレートを作成'));
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.text('登録する食品'), findsOneWidget);
     });
 
@@ -377,7 +379,7 @@ void main() {
       addTearDown(controller.dispose);
       await show(tester, WorkoutTemplateListScreen(controller: controller));
       await tapLabel(tester, find.byIcon(Icons.add));
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.text('テンプレート作成'), findsOneWidget);
     });
 
@@ -399,12 +401,12 @@ void main() {
         ),
       );
       await tapLabel(tester, find.text('ウィジェット'));
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.textContaining('ウィジェットでワンタップ記録です'), findsOneWidget);
       tester.state<NavigatorState>(find.byType(Navigator)).pop();
       await tester.pumpAndSettle();
       await tapLabel(tester, find.text('音声登録 (β)'));
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.textContaining('Siriをオンにする'), findsOneWidget);
     });
   });

@@ -22,7 +22,7 @@ class SubscriptionLimitExceededException implements Exception {
 
 class SubscriptionPurchaseUnavailableException implements Exception {
   @override
-  String toString() => 'この環境ではアプリ内課金を使えません。';
+  String toString() => 'この環境ではカロナビ+を購入できません。';
 }
 
 class SubscriptionPurchaseFailedException implements Exception {

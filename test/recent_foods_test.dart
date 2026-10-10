@@ -247,7 +247,7 @@ void main() {
     await tester.tap(find.text('メモ'));
     await tester.pumpAndSettle();
     expect(find.text('食品のメモは、カロナビ+です。'), findsNothing);
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('保存'), findsOneWidget);
   });
 }

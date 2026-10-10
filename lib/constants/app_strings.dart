@@ -8,6 +8,9 @@ class AppStrings {
 
   static const appTitle = 'カロナビ';
 
+  /// 限定機能の確認。ポップアップの題に「有料」とは書かない。
+  static const plusGateTitle = 'カロナビ+限定機能';
+
   /// 有料案内に出す Siri の話し方。登録できる言い方だけ。この2文だけ。
   static const siriVoiceFoodPhrase =
       '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。';

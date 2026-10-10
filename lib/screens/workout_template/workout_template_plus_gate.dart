@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/app_strings.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
@@ -23,7 +24,7 @@ Future<bool> allowWorkoutTemplateCreate(
   );
   final openPlus = await showAppConfirmDialog(
     context: context,
-    title: 'こちらは有料の機能です',
+    title: AppStrings.plusGateTitle,
     message: SubscriptionLimitExceededException(
       SubscriptionLimitKind.workoutTemplate,
     ).toString(),

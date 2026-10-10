@@ -986,7 +986,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('メモを付ける'), findsNothing);
       expect(find.text('メモ'), findsOneWidget);
-      expect(find.text('こちらは有料の機能です'), findsNothing);
+      expect(find.text('カロナビ+限定機能'), findsNothing);
     });
 
     testWidgets('plus form shows the exercise memo field and saves it', (

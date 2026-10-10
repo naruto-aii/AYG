@@ -446,7 +446,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       if (!mounted) {
         return;
       }
-      _showMessage('この環境ではアプリ内課金を使えません');
+      _showMessage('この環境ではカロナビ+を購入できません');
     } catch (_) {
       if (recordPurchaseFailure) {
         _record(PlusFunnelEvent.purchaseFailed, productId: productId);

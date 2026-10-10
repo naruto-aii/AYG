@@ -603,7 +603,7 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
     expect(
       find.text(
         'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
@@ -661,7 +661,7 @@ void main() {
     await tester.tap(find.text('音声登録 (β)'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
     expect(find.textContaining('カロナビ+で使えます'), findsNothing);
     expect(
       find.textContaining(
@@ -681,7 +681,7 @@ void main() {
     await tester.tap(find.text('カロナビ+を見る'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     await _openMoreFeatures(tester);
     expect(
       find.textContaining(
@@ -733,7 +733,7 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
     await tester.pumpAndSettle();
     expect(find.text('購入を復元'), findsOneWidget);
@@ -745,7 +745,7 @@ void main() {
     await tester.tap(find.text('音声登録 (β)'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
     await tester.pumpAndSettle();
     expect(find.text('購入を復元'), findsOneWidget);
@@ -782,7 +782,7 @@ void main() {
     await tester.tap(find.text('音声登録 (β)'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
     expect(find.text('使い始める前'), findsOneWidget);
@@ -853,7 +853,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(gateway.paid, isTrue);
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
     expect(find.text('使い始める前'), findsOneWidget);
@@ -866,7 +866,7 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ウィジェットの置き方'), findsWidgets);
     expect(find.textContaining('自動では付きません'), findsWidgets);
@@ -902,7 +902,7 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.textContaining('元のテンプレートは変わらず'), findsOneWidget);
     expect(find.text('ホーム画面'), findsWidgets);
     expect(find.text('ロック画面'), findsWidgets);

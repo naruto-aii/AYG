@@ -90,7 +90,7 @@ class SettingsScreen extends StatelessWidget {
       );
       final openPlus = await showAppConfirmDialog(
         context: context,
-        title: 'こちらは有料の機能です',
+        title: AppStrings.plusGateTitle,
         message:
             'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
         confirmLabel: 'カロナビ+を見る',
@@ -121,7 +121,7 @@ class SettingsScreen extends StatelessWidget {
       );
       final openPlus = await showAppConfirmDialog(
         context: context,
-        title: 'こちらは有料の機能です',
+        title: AppStrings.plusGateTitle,
         message:
             AppStrings.siriVoicePaidGuidance,
         confirmLabel: 'カロナビ+を見る',
@@ -207,7 +207,7 @@ class SettingsScreen extends StatelessWidget {
               title: 'テスト用: 無料に戻す',
               subtitle: controller.subscriptionRepository.isPlusActive
                   ? '今はカロナビ+です。押すとすぐに無料になります'
-                  : '今は無料です。カロナビ+の購入ボタンで有料に戻します',
+                  : '今は無料です。カロナビ+の購入ボタンでカロナビ+に戻します',
               onTap: () => _clearTestPurchase(context),
             ),
           ],

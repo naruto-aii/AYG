@@ -1,8 +1,7 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import 'design_scale.dart';
 
 /// Figma の設計幅（390pt）で組んだ画面を、どの端末でも同じ配置バランスで
 /// 見せるための土台。
@@ -56,7 +55,12 @@ class DesignScreen extends StatelessWidget {
       color: backgroundColor ?? AppColors.bgPage,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final scale = math.min(constraints.maxWidth / designWidth, maxScale);
+          final scale = designScreenScale(
+            maxWidth: constraints.maxWidth,
+            maxHeight: constraints.maxHeight,
+            shortestSide: mediaQuery.size.shortestSide,
+            maxScale: maxScale,
+          );
           final innerHeight = constraints.maxHeight / scale;
 
           return Stack(

@@ -1,6 +1,8 @@
 import AdServices
 import AppIntents
+import AuthenticationServices
 import Flutter
+import ObjectiveC
 import StoreKit
 import UIKit
 import WidgetKit
@@ -11,6 +13,7 @@ import WidgetKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    IpadSystemPresentation.install()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -288,5 +291,83 @@ private func presentShareCard(call: FlutterMethodCall, result: @escaping Flutter
       popover.permittedArrowDirections = []
     }
     presenter.present(controller, animated: true)
+  }
+}
+
+/// iPad の Sign in with Apple だけ、プラグインが付けない表示元を足す。
+///
+/// sign_in_with_apple 8.2.0 の `performRequests` は delegate だけ置いて
+/// `presentationContextProvider` を置かない。iPhone はキー窓に戻って動く。
+/// iPad はシートを出せず error 1000 になる。Google ログイン・写真・共有・
+/// StoreKit は、この差し替えが無くても落ちる経路がアプリの使い方に無いので触らない。
+enum IpadSystemPresentation {
+  private static var installed = false
+
+  static func install() {
+    if installed {
+      return
+    }
+    installed = true
+    exchange(
+      ASAuthorizationController.self,
+      #selector(ASAuthorizationController.performRequests),
+      #selector(ASAuthorizationController.ayg_performRequests)
+    )
+  }
+
+  /// 前面シーンのキー窓。Split View でもそのシーンの窓を返す。
+  static func foregroundKeyWindow() -> UIWindow? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    return scene?.windows.first { $0.isKeyWindow } ?? scene?.windows.first
+  }
+
+  private static func exchange(_ type: AnyClass, _ original: Selector, _ swizzled: Selector) {
+    guard
+      let originalMethod = class_getInstanceMethod(type, original),
+      let swizzledMethod = class_getInstanceMethod(type, swizzled)
+    else {
+      return
+    }
+    method_exchangeImplementations(originalMethod, swizzledMethod)
+  }
+}
+
+private final class AygAuthorizationAnchor: NSObject, ASAuthorizationControllerPresentationContextProviding {
+  static let shared = AygAuthorizationAnchor()
+
+  /// 呼び出す前に、その時点の前面の窓を入れておく。
+  var held: UIWindow?
+
+  func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+    if let window = IpadSystemPresentation.foregroundKeyWindow() ?? held {
+      return window
+    }
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    if let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first {
+      // シーンに入っていない窓は iOS 13 以降で例外になる。
+      let window = UIWindow(windowScene: scene)
+      window.frame = scene.coordinateSpace.bounds
+      held = window
+      return window
+    }
+    if let held {
+      return held
+    }
+    // 窓もシーンも無い。プロバイダは窓があるときだけ付けるので、ここは来ない。
+    // 未接続の窓を返すと落ちるので作らない。
+    fatalError("Sign in with Apple requires a window scene")
+  }
+}
+
+extension ASAuthorizationController {
+  /// `dynamic` が無いと、Release がこの自己呼び出しを直接呼び出しに変えて無限再帰になる。
+  @objc dynamic func ayg_performRequests() {
+    if presentationContextProvider == nil,
+       let window = IpadSystemPresentation.foregroundKeyWindow() {
+      AygAuthorizationAnchor.shared.held = window
+      presentationContextProvider = AygAuthorizationAnchor.shared
+    }
+    ayg_performRequests()
   }
 }

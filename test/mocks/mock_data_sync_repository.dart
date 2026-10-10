@@ -102,6 +102,7 @@ class MockDataSyncRepository implements DataSyncRepository {
   Future<void> pushFoodEntry({
     required String userId,
     required FoodEntry entry,
+    LocalWriteGuard? mayWrite,
   }) async {
     lastUserId = userId;
     pushedFoodEntryIds.add(entry.id);

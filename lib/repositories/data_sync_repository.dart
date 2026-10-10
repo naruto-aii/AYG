@@ -91,6 +91,7 @@ abstract class DataSyncRepository {
   Future<void> pushFoodEntry({
     required String userId,
     required FoodEntry entry,
+    LocalWriteGuard? mayWrite,
   });
 
   Future<void> deleteFoodEntry({
@@ -377,25 +378,49 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   }) async {
     await runPushSteps(
       [
-        (table: 'profiles', action: () => _pushProfile(userId)),
-        (table: 'goals', action: () => _pushGoal(userId)),
+        (table: 'profiles', action: () => _pushProfile(userId, mayWrite)),
+        (table: 'goals', action: () => _pushGoal(userId, mayWrite)),
         (
           table: 'nutrition_settings',
-          action: () => _pushNutritionSettings(userId),
+          action: () => _pushNutritionSettings(userId, mayWrite),
         ),
-        (table: 'health_snapshots', action: () => _pushHealthSnapshot(userId)),
-        (table: 'app_settings', action: () => _pushAppSettings(userId)),
-        (table: 'food_entries', action: () => _pushFoodEntries(userId)),
-        (table: 'exercise_entries', action: () => _pushExerciseEntries(userId)),
-        (table: 'alcohol_entries', action: () => _pushAlcoholEntries(userId)),
-        (table: 'weight_entries', action: () => _pushWeightEntries(userId)),
-        (table: 'saved_foods', action: () => _pushSavedFoods(userId)),
-        (table: 'meal_templates', action: () => _pushMealTemplates(userId)),
+        (
+          table: 'health_snapshots',
+          action: () => _pushHealthSnapshot(userId, mayWrite),
+        ),
+        (
+          table: 'app_settings',
+          action: () => _pushAppSettings(userId, mayWrite),
+        ),
+        (
+          table: 'food_entries',
+          action: () => _pushFoodEntries(userId, mayWrite),
+        ),
+        (
+          table: 'exercise_entries',
+          action: () => _pushExerciseEntries(userId, mayWrite),
+        ),
+        (
+          table: 'alcohol_entries',
+          action: () => _pushAlcoholEntries(userId, mayWrite),
+        ),
+        (
+          table: 'weight_entries',
+          action: () => _pushWeightEntries(userId, mayWrite),
+        ),
+        (table: 'saved_foods', action: () => _pushSavedFoods(userId, mayWrite)),
+        (
+          table: 'meal_templates',
+          action: () => _pushMealTemplates(userId, mayWrite),
+        ),
         (
           table: 'workout_templates',
-          action: () => _pushWorkoutTemplates(userId),
+          action: () => _pushWorkoutTemplates(userId, mayWrite),
         ),
-        (table: 'health_workouts', action: () => _pushHealthWorkouts(userId)),
+        (
+          table: 'health_workouts',
+          action: () => _pushHealthWorkouts(userId, mayWrite),
+        ),
       ],
       between: _yieldToUi,
       stillCurrent: mayWrite,
@@ -568,9 +593,30 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     throw FormatException('unknown gender: $raw');
   }
 
-  Future<void> _pushProfile(String userId) async {
-    final profile = await _userRepository.loadProfile();
-    if (profile == null) {
+  /// 表を読む前と、読み終わったあとに世代を見る。
+  ///
+  /// null は世代が違って捨てた印。value が null なのは、その表に行が無いとき。
+  Future<({T value})?> _owned<T>(
+    LocalWriteGuard? mayWrite,
+    Future<T> Function() read,
+  ) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return null;
+    }
+    final value = await read();
+    if (!localWriteAllowed(mayWrite)) {
+      return null;
+    }
+    return (value: value);
+  }
+
+  Future<void> _pushProfile(String userId, LocalWriteGuard? mayWrite) async {
+    final read = await _owned(mayWrite, _userRepository.loadProfile);
+    if (read == null) {
+      return;
+    }
+    final profile = read.value;
+    if (profile == null || !localWriteAllowed(mayWrite)) {
       return;
     }
 
@@ -583,6 +629,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       'weight_kg': profile.weightKg,
       'display_name': displayName.isEmpty ? null : displayName,
     }, onConflict: 'user_id');
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _pendingRecords?.acknowledgeTable('profiles');
   }
 
@@ -632,9 +681,13 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     throw FormatException('unknown goal_type: $raw');
   }
 
-  Future<void> _pushGoal(String userId) async {
-    final goal = await _userRepository.loadGoal();
-    if (goal == null) {
+  Future<void> _pushGoal(String userId, LocalWriteGuard? mayWrite) async {
+    final read = await _owned(mayWrite, _userRepository.loadGoal);
+    if (read == null) {
+      return;
+    }
+    final goal = read.value;
+    if (goal == null || !localWriteAllowed(mayWrite)) {
       return;
     }
 
@@ -647,6 +700,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     };
 
     await _client.from('goals').upsert(payload, onConflict: 'user_id');
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _pendingRecords?.acknowledgeTable('goals');
   }
 
@@ -713,9 +769,19 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     throw FormatException('unknown activity_level: $raw');
   }
 
-  Future<void> _pushNutritionSettings(String userId) async {
-    final settings = await _settingsRepository.loadNutritionSettings();
-    if (settings == null) {
+  Future<void> _pushNutritionSettings(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    final read = await _owned(
+      mayWrite,
+      _settingsRepository.loadNutritionSettings,
+    );
+    if (read == null) {
+      return;
+    }
+    final settings = read.value;
+    if (settings == null || !localWriteAllowed(mayWrite)) {
       return;
     }
 
@@ -735,6 +801,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
           .first,
       'auto_food_target_prior_kcal': settings.autoFoodTargetPriorKcal,
     }, onConflict: 'user_id');
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _pendingRecords?.acknowledgeTable('nutrition_settings');
   }
 
@@ -790,9 +859,16 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     return repo.saveHealthSnapshot(snapshot);
   }
 
-  Future<void> _pushHealthSnapshot(String userId) async {
-    final snapshot = await _settingsRepository.loadHealthSnapshot();
-    if (snapshot == null) {
+  Future<void> _pushHealthSnapshot(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    final read = await _owned(mayWrite, _settingsRepository.loadHealthSnapshot);
+    if (read == null) {
+      return;
+    }
+    final snapshot = read.value;
+    if (snapshot == null || !localWriteAllowed(mayWrite)) {
       return;
     }
 
@@ -803,6 +879,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       'weight_measured_at': snapshot.weightMeasuredAt?.toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
     }, onConflict: 'user_id');
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _pendingRecords?.acknowledgeTable('health_snapshots');
   }
 
@@ -833,8 +912,15 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await repo.saveAppSettings(settings);
   }
 
-  Future<void> _pushAppSettings(String userId) async {
-    final settings = await _settingsRepository.loadAppSettings();
+  Future<void> _pushAppSettings(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    final read = await _owned(mayWrite, _settingsRepository.loadAppSettings);
+    if (read == null || !localWriteAllowed(mayWrite)) {
+      return;
+    }
+    final settings = read.value;
     if (!settings.onboardingComplete) {
       // 手元が「未完了」なのは、ログアウトで消した直後か新しい端末で、まだ
       // サーバから取っていないだけ。ここで送ると、取得の前にサーバの「完了」を
@@ -843,10 +929,16 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       await _pendingRecords?.acknowledgeTable('app_settings');
       return;
     }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _client.from('app_settings').upsert({
       'user_id': userId,
       'onboarding_complete': settings.onboardingComplete,
     }, onConflict: 'user_id');
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _pendingRecords?.acknowledgeTable('app_settings');
   }
 
@@ -878,26 +970,50 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
   Future<void> pushFoodEntry({
     required String userId,
     required FoodEntry entry,
+    LocalWriteGuard? mayWrite,
   }) {
-    return _upsertFoodEntries(userId, [entry]);
+    return _upsertFoodEntries(userId, [entry], mayWrite: mayWrite);
   }
 
-  Future<void> _pushFoodEntries(String userId) async {
-    final entries = await _foodRepository.loadAll();
+  Future<void> _pushFoodEntries(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    final read = await _owned(mayWrite, _foodRepository.loadAll);
+    if (read == null) {
+      return;
+    }
+    final entries = read.value;
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _yieldToUi();
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     final pending = await _preferLocal(PendingRecordKind.food);
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     if (entries.isEmpty && pending.isNotEmpty) {
       await _pendingRecords?.markTableDirty('food_entries');
       throw StateError('pending food rows are not readable');
     }
     if (entries.isNotEmpty) {
-      await _upsertFoodEntries(userId, entries);
+      await _upsertFoodEntries(userId, entries, mayWrite: mayWrite);
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
     }
     await _sendPendingDeletes(
       userId: userId,
       table: 'food_entries',
       kind: PendingRecordKind.food,
+      mayWrite: mayWrite,
     );
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _acknowledgeTableIfSent('food_entries', PendingRecordKind.food);
   }
 
@@ -923,9 +1039,10 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
 
   Future<void> _upsertFoodEntries(
     String userId,
-    List<FoodEntry> entries,
-  ) async {
-    if (entries.isEmpty) {
+    List<FoodEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (entries.isEmpty || !localWriteAllowed(mayWrite)) {
       return;
     }
 
@@ -933,6 +1050,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       entries,
       (entry) => FoodMasterRowMapper.foodEntryToRow(entry, userId: userId),
     );
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     try {
       await upsertDroppingUnknownColumns(
         table: 'food_entries',
@@ -943,6 +1063,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
             .upsert(current, onConflict: 'user_id,entry_id'),
       );
     } catch (error) {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _keepUnsynced(
         PendingRecordKind.food,
         entries.map((entry) => entry.id),
@@ -950,12 +1073,21 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       await _pendingRecords?.markTableDirty('food_entries');
       rethrow;
     }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     final currentIds = <String>[];
     for (final entry in entries) {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       final current = await _currentFood(entry.id);
       if (current != null && foodEntryPayloadEquals(current, entry)) {
         currentIds.add(entry.id);
       }
+    }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
     }
     await _pendingRecords?.acknowledgeUpserts(
       PendingRecordKind.food,
@@ -1069,15 +1201,24 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await foodMaster.savedFoods.replaceAllOwnLocal(userId, remoteFoods);
   }
 
-  Future<void> _pushSavedFoods(String userId) async {
+  Future<void> _pushSavedFoods(String userId, LocalWriteGuard? mayWrite) async {
     final foodMaster = _foodMaster;
     if (foodMaster?.remoteSavedFoods == null) {
+      return;
+    }
+    if (!localWriteAllowed(mayWrite)) {
       return;
     }
     try {
       final localFoods = await foodMaster!.localSavedFoods
           .loadAllOwnIncludingDeleted(userId);
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await foodMaster.savedFoods.pushAllOwnRemote(userId, localFoods);
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _pendingRecords?.acknowledgeTable('saved_foods');
     } catch (error) {
       if (isOptionalTableMissingError(error)) {
@@ -1128,20 +1269,32 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }
   }
 
-  Future<void> _pushMealTemplates(String userId) async {
+  Future<void> _pushMealTemplates(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final foodMaster = _foodMaster;
     final remote = foodMaster?.remoteMealTemplates;
-    if (remote == null) {
+    if (remote == null || !localWriteAllowed(mayWrite)) {
       return;
     }
 
     try {
       final templates = await foodMaster!.mealTemplates
           .loadAllOwnIncludingDeleted(userId);
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       final itemsByTemplate = <String, List<MealTemplateItem>>{};
       for (final template in templates) {
+        if (!localWriteAllowed(mayWrite)) {
+          return;
+        }
         itemsByTemplate[template.templateId] = await foodMaster.mealTemplates
             .getItems(ownerUserId: userId, templateId: template.templateId);
+      }
+      if (!localWriteAllowed(mayWrite)) {
+        return;
       }
 
       await remote.pushAllOwn(
@@ -1149,6 +1302,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         templates: templates,
         itemsByTemplateId: itemsByTemplate,
       );
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _pendingRecords?.acknowledgeTable('meal_templates');
     } catch (error) {
       if (isOptionalTableMissingError(error)) {
@@ -1197,22 +1353,34 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     }
   }
 
-  Future<void> _pushWorkoutTemplates(String userId) async {
+  Future<void> _pushWorkoutTemplates(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final foodMaster = _foodMaster;
     final local = foodMaster?.workoutTemplates;
     final remote = foodMaster?.remoteWorkoutTemplates;
-    if (local == null || remote == null) {
+    if (local == null || remote == null || !localWriteAllowed(mayWrite)) {
       return;
     }
 
     try {
       final templates = await local.loadAllOwnIncludingDeleted(userId);
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       final itemsByTemplate = <String, List<WorkoutTemplateItem>>{};
       for (final template in templates) {
+        if (!localWriteAllowed(mayWrite)) {
+          return;
+        }
         itemsByTemplate[template.templateId] = await local.getItems(
           ownerUserId: userId,
           templateId: template.templateId,
         );
+      }
+      if (!localWriteAllowed(mayWrite)) {
+        return;
       }
 
       await remote.pushAllOwn(
@@ -1220,6 +1388,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         templates: templates,
         itemsByTemplateId: itemsByTemplate,
       );
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _pendingRecords?.acknowledgeTable('workout_templates');
     } catch (error) {
       if (isOptionalTableMissingError(error)) {
@@ -1253,21 +1424,38 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     );
   }
 
-  Future<void> _pushExerciseEntries(String userId) async {
-    await _pushExerciseEntriesRows(userId);
+  Future<void> _pushExerciseEntries(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    await _pushExerciseEntriesRows(userId, mayWrite);
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _acknowledgeTableIfSent(
       'exercise_entries',
       PendingRecordKind.exercise,
     );
   }
 
-  Future<void> _pushExerciseEntriesRows(String userId) async {
-    final entries = await _exerciseRepository.loadAll();
+  Future<void> _pushExerciseEntriesRows(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    final read = await _owned(mayWrite, _exerciseRepository.loadAll);
+    if (read == null) {
+      return;
+    }
+    final entries = read.value;
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     if (entries.isEmpty) {
       await _sendPendingDeletes(
         userId: userId,
         table: 'exercise_entries',
         kind: PendingRecordKind.exercise,
+        mayWrite: mayWrite,
       );
       return;
     }
@@ -1275,6 +1463,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     final rows = entries
         .map((entry) => ExerciseEntryRowMapper.toRow(entry, userId: userId))
         .toList();
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     try {
       await upsertDroppingUnknownColumns(
         table: 'exercise_entries',
@@ -1285,7 +1476,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
             .upsert(current, onConflict: 'user_id,entry_id'),
       );
     } catch (error) {
-      if (isOptionalTableMissingError(error)) {
+      if (!localWriteAllowed(mayWrite) || isOptionalTableMissingError(error)) {
         return;
       }
       if (isClientRejection(error)) {
@@ -1295,6 +1486,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
         );
         await _pendingRecords?.markTableDirty('exercise_entries');
         rethrow;
+      }
+      if (!localWriteAllowed(mayWrite)) {
+        return;
       }
       await _client
           .from('exercise_entries')
@@ -1314,14 +1508,21 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
             onConflict: 'user_id,entry_id',
           );
     }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _pendingRecords?.acknowledgeUpserts(
       PendingRecordKind.exercise,
       entries.map((entry) => entry.id),
     );
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _sendPendingDeletes(
       userId: userId,
       table: 'exercise_entries',
       kind: PendingRecordKind.exercise,
+      mayWrite: mayWrite,
     );
   }
 
@@ -1349,22 +1550,42 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     );
   }
 
-  Future<void> _pushAlcoholEntries(String userId) async {
-    await _pushAlcoholEntriesRows(userId);
+  Future<void> _pushAlcoholEntries(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    await _pushAlcoholEntriesRows(userId, mayWrite);
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _acknowledgeTableIfSent('alcohol_entries', PendingRecordKind.alcohol);
   }
 
-  Future<void> _pushAlcoholEntriesRows(String userId) async {
-    final entries = await _alcoholRepository.loadAll();
+  Future<void> _pushAlcoholEntriesRows(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    final read = await _owned(mayWrite, _alcoholRepository.loadAll);
+    if (read == null) {
+      return;
+    }
+    final entries = read.value;
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     if (entries.isEmpty) {
       await _sendPendingDeletes(
         userId: userId,
         table: 'alcohol_entries',
         kind: PendingRecordKind.alcohol,
+        mayWrite: mayWrite,
       );
       return;
     }
 
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     try {
       await _client
           .from('alcohol_entries')
@@ -1380,7 +1601,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
             onConflict: 'user_id,entry_id',
           );
     } catch (error) {
-      if (isOptionalTableMissingError(error)) {
+      if (!localWriteAllowed(mayWrite) || isOptionalTableMissingError(error)) {
         return;
       }
       await _keepUnsynced(
@@ -1390,14 +1611,21 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       await _pendingRecords?.markTableDirty('alcohol_entries');
       rethrow;
     }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _pendingRecords?.acknowledgeUpserts(
       PendingRecordKind.alcohol,
       entries.map((entry) => entry.id),
     );
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _sendPendingDeletes(
       userId: userId,
       table: 'alcohol_entries',
       kind: PendingRecordKind.alcohol,
+      mayWrite: mayWrite,
     );
   }
 
@@ -1451,22 +1679,42 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     throw FormatException('unknown weight source: $raw');
   }
 
-  Future<void> _pushWeightEntries(String userId) async {
-    await _pushWeightEntriesRows(userId);
+  Future<void> _pushWeightEntries(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    await _pushWeightEntriesRows(userId, mayWrite);
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _acknowledgeTableIfSent('weight_entries', PendingRecordKind.weight);
   }
 
-  Future<void> _pushWeightEntriesRows(String userId) async {
-    final entries = await _weightRepository.loadAll();
+  Future<void> _pushWeightEntriesRows(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
+    final read = await _owned(mayWrite, _weightRepository.loadAll);
+    if (read == null) {
+      return;
+    }
+    final entries = read.value;
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     if (entries.isEmpty) {
       await _sendPendingDeletes(
         userId: userId,
         table: 'weight_entries',
         kind: PendingRecordKind.weight,
+        mayWrite: mayWrite,
       );
       return;
     }
 
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     try {
       await _client
           .from('weight_entries')
@@ -1485,6 +1733,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
             onConflict: 'user_id,entry_id',
           );
     } catch (error) {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _keepUnsynced(
         PendingRecordKind.weight,
         entries.map((entry) => entry.id),
@@ -1492,14 +1743,21 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       await _pendingRecords?.markTableDirty('weight_entries');
       rethrow;
     }
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _pendingRecords?.acknowledgeUpserts(
       PendingRecordKind.weight,
       entries.map((entry) => entry.id),
     );
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     await _sendPendingDeletes(
       userId: userId,
       table: 'weight_entries',
       kind: PendingRecordKind.weight,
+      mayWrite: mayWrite,
     );
   }
 
@@ -1516,17 +1774,24 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     required String userId,
     required String table,
     required PendingRecordKind kind,
+    LocalWriteGuard? mayWrite,
   }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     final store = _pendingRecords;
     if (store == null) {
       return;
     }
     final ids = await store.pendingDeleteIds(kind);
-    if (ids.isEmpty) {
+    if (ids.isEmpty || !localWriteAllowed(mayWrite)) {
       return;
     }
     Object? failure;
     for (final id in ids) {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       try {
         await _client
             .from(table)
@@ -1571,19 +1836,26 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
     await store.saveWorkoutRecords(incoming, mayWrite: mayWrite);
   }
 
-  Future<void> _pushHealthWorkouts(String userId) async {
+  Future<void> _pushHealthWorkouts(
+    String userId,
+    LocalWriteGuard? mayWrite,
+  ) async {
     final store = _healthWorkouts;
-    if (store == null) {
+    if (store == null || !localWriteAllowed(mayWrite)) {
+      return;
+    }
+    final loaded = await store.loadWorkoutRecords();
+    if (!localWriteAllowed(mayWrite)) {
       return;
     }
     final rows = <Map<String, dynamic>>[];
-    for (final record in await store.loadWorkoutRecords()) {
+    for (final record in loaded) {
       final row = healthWorkoutRow(userId: userId, record: record);
       if (row != null) {
         rows.add(row);
       }
     }
-    if (rows.isEmpty) {
+    if (rows.isEmpty || !localWriteAllowed(mayWrite)) {
       return;
     }
     try {
@@ -1907,6 +2179,7 @@ class NoOpDataSyncRepository implements DataSyncRepository {
   Future<void> pushFoodEntry({
     required String userId,
     required FoodEntry entry,
+    LocalWriteGuard? mayWrite,
   }) async {}
 
   @override

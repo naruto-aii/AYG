@@ -565,7 +565,8 @@ class AppController extends ChangeNotifier {
     }
     final epoch = ++_syncEpoch;
     _runningEpoch = epoch;
-    bool mayWrite() => epoch == _syncEpoch;
+    final sessionUserId = authUser.id;
+    bool mayWrite() => _pushStillOwned(epoch, sessionUserId);
     notifyListeners();
 
     try {
@@ -727,6 +728,30 @@ class AppController extends ChangeNotifier {
   /// 一致しないときにメモリを消すと、次の世代の画面まで消える。
   bool _stillCurrent(int epoch) => epoch == _syncEpoch;
 
+  /// 送信を始めた人と、いまログインしている人が同じか。
+  bool _accountStill(String userId) {
+    final current = _authenticationRepository?.currentUser?.id;
+    if (current == null || current.isEmpty || userId.isEmpty) {
+      return false;
+    }
+    return current.toLowerCase() == userId.toLowerCase();
+  }
+
+  /// 読み取った行の持ち主と、送信に使う ID が同じときだけ true。
+  bool _pushStillOwned(int epoch, String userId) =>
+      epoch == _syncEpoch && _accountStill(userId);
+
+  /// 世代が変わって送信を捨てたあと、同じ人がまだいるなら送り直す。
+  void _resumeUnsent(String userId) {
+    if (!_accountStill(userId) ||
+        !_hasInitialSyncCompleted ||
+        _lastSyncFailed) {
+      return;
+    }
+    _hasUnsentRecords = true;
+    _scheduleRemoteSync();
+  }
+
   /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。
   static const _unsentLogoutBudget = Duration(seconds: 3);
 
@@ -872,10 +897,15 @@ class AppController extends ChangeNotifier {
     DataSyncRepository dataSyncRepository,
     String userId,
   ) async {
+    final epoch = _syncEpoch;
+    bool mayWrite() => _pushStillOwned(epoch, userId);
     try {
-      await dataSyncRepository.pushLocalToRemote(userId);
-      return true;
+      await dataSyncRepository.pushLocalToRemote(userId, mayWrite: mayWrite);
+      return mayWrite();
     } on PartialPushException catch (error, stackTrace) {
+      if (!mayWrite()) {
+        return false;
+      }
       debugPrint('[AYG] push before wipe incomplete: $error');
       debugPrintStack(stackTrace: stackTrace);
       for (final failure in error.failures) {
@@ -2027,10 +2057,19 @@ class AppController extends ChangeNotifier {
     String userId,
     FoodEntry entry,
   ) async {
+    final epoch = _syncEpoch;
+    bool mayWrite() => _pushStillOwned(epoch, userId);
     try {
       await _serialRemoteWrite(
-        () => dataSyncRepository.pushFoodEntry(userId: userId, entry: entry),
+        () => dataSyncRepository.pushFoodEntry(
+          userId: userId,
+          entry: entry,
+          mayWrite: mayWrite,
+        ),
       );
+      if (!mayWrite()) {
+        _resumeUnsent(userId);
+      }
     } catch (error, stackTrace) {
       _hasUnsentRecords = true;
       debugPrint('[AYG] food entry push failed: $error');
@@ -5047,12 +5086,22 @@ class AppController extends ChangeNotifier {
       throw StateError('Cannot persist without authenticated remote sync.');
     }
 
+    final epoch = _syncEpoch;
+    bool mayWrite() => _pushStillOwned(epoch, userId);
     try {
       await _serialRemoteWrite(
-        () => dataSyncRepository.pushLocalToRemote(userId),
+        () => dataSyncRepository.pushLocalToRemote(userId, mayWrite: mayWrite),
       );
+      if (!mayWrite()) {
+        _resumeUnsent(userId);
+        return;
+      }
       _hasUnsentRecords = false;
     } on PartialPushException catch (error, stackTrace) {
+      if (!mayWrite()) {
+        _resumeUnsent(userId);
+        return;
+      }
       _hasUnsentRecords = true;
       debugPrint('[AYG] persist incomplete: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -5165,28 +5214,54 @@ class AppController extends ChangeNotifier {
     DataSyncRepository dataSyncRepository,
     String userId,
   ) async {
+    var resumeSameAccount = false;
     try {
       do {
         _remoteSyncQueued = false;
+        final epoch = _syncEpoch;
+        bool mayWrite() => _pushStillOwned(epoch, userId);
+        if (!mayWrite()) {
+          resumeSameAccount = _accountStill(userId);
+          break;
+        }
         try {
           await _serialRemoteWrite(
-            () => dataSyncRepository.pushLocalToRemote(userId),
+            () => dataSyncRepository.pushLocalToRemote(
+              userId,
+              mayWrite: mayWrite,
+            ),
           );
+          if (!mayWrite()) {
+            _hasUnsentRecords = true;
+            resumeSameAccount = _accountStill(userId);
+            break;
+          }
           _hasUnsentRecords = false;
         } on PartialPushException catch (error, stackTrace) {
+          if (!mayWrite()) {
+            _hasUnsentRecords = true;
+            resumeSameAccount = _accountStill(userId);
+            break;
+          }
           _hasUnsentRecords = true;
           debugPrint('[AYG] remote sync incomplete: $error');
           debugPrintStack(stackTrace: stackTrace);
         }
       } while (_remoteSyncQueued &&
           _hasInitialSyncCompleted &&
-          !_lastSyncFailed);
+          !_lastSyncFailed &&
+          _accountStill(userId));
     } catch (error, stackTrace) {
-      _hasUnsentRecords = true;
+      if (_accountStill(userId)) {
+        _hasUnsentRecords = true;
+      }
       debugPrint('[AYG] remote sync failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     } finally {
       _remoteSyncInFlight = false;
+      if (resumeSameAccount) {
+        _resumeUnsent(userId);
+      }
       notifyListeners();
     }
   }

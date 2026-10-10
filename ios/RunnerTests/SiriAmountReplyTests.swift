@@ -333,6 +333,58 @@ final class SiriAmountReplyTests: XCTestCase {
     XCTAssertEqual(SiriAmountReply.prepare("1時間です"), "1時間")
   }
 
+  /// 数値の 1 は 1分。時間の言葉が残っているときだけ 60 と 90 になる。
+  func testHourPhrasesBecomeMinutesAndBareOneDoesNot() {
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間"), 60)
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間です"), 60)
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間半"), 90)
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間30分"), 90)
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間30分間"), 90)
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "30"), 30)
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "30分"), 30)
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1"), 1)
+    XCTAssertEqual(
+      SiriAmountReply.followUp(number: 1, suffix: "分"),
+      .recorded(SiriAmountReply.Parsed(amount: 1, unit: "minutes"))
+    )
+    XCTAssertNil(SiriAmountReply.minutes(fromSpoken: "5キロ"))
+    XCTAssertTrue(SiriAmountSlot.minutes.keepsSpokenWords)
+    XCTAssertFalse(SiriAmountSlot.grams.keepsSpokenWords)
+  }
+
+  /// 戻った数値は倍率を掛けない。150 は 150 のまま。0.15 を 150 にもしない。
+  func testReturnedNumberIsNotScaled() {
+    XCTAssertEqual(
+      SiriAmountReply.followUp(number: 150, suffix: "g"),
+      .recorded(SiriAmountReply.Parsed(amount: 150, unit: "grams"))
+    )
+    XCTAssertEqual(
+      SiriAmountReply.followUp(number: 0.15, suffix: "g"),
+      .recorded(SiriAmountReply.Parsed(amount: 0.15, unit: "grams"))
+    )
+    XCTAssertEqual(SiriAmountReply.canonical(150), "150")
+    XCTAssertEqual(SiriAmountReply.canonical(0.15), "0.15")
+    XCTAssertNotEqual(SiriAmountReply.canonical(150), "0.15")
+    XCTAssertNotEqual(SiriAmountReply.canonical(150), "150000")
+  }
+
+  func testStoredHourPhraseDoesNotAskAgain() async throws {
+    let defaults = freshDefaults("siri-stored-hour")
+    var calls = 0
+    let outcome = try await SiriAmountAsk.takeText(
+      stored: "1時間半",
+      question: "何分ですか？",
+      defaults: defaults,
+      now: 1
+    ) {
+      calls += 1
+      return "1"
+    }
+    XCTAssertEqual(outcome, .spoken("1時間半"))
+    XCTAssertEqual(calls, 0)
+    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間半"), 90)
+  }
+
   func testOtherUnitsUseTheQuestionSuffix() {
     XCTAssertEqual(
       SiriAmountReply.build11Amount(text: "200", suffix: "ml")?.unit,

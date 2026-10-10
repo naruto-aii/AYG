@@ -2,9 +2,12 @@ import Foundation
 
 /// 「何gですか？」への答え。
 ///
-/// 聞き返しは `Double`。単位はパラメータに固定し、届いた数値にその単位を足す。
-/// 数値だけでも単位付きでも、システムが同じ `Double` を返せば、この関数は1回で登録にする。
+/// グラムなどの聞き返しは、単位を持たない `Double`。届いた数値はそのまま使う。
+/// 150 を 0.15 にも 150000 にもしない。換算は、単位つきの測定値パラメータがすること。
 /// ここからは質問を返さない。
+///
+/// 何分の「1時間」「1時間半」「1時間30分」は数値にしない。`1` では時間の言葉が消える。
+/// 言葉を `hoursAsMinutes` に渡す。これはビルド11で動いていた経路。
 ///
 /// ビルド11の `String` は、届いた「150」を 150g にできる。同じ質問が残るのは、
 /// その文字列が `requestValue` から戻らなかったときだけ。
@@ -344,6 +347,11 @@ enum SiriAmountSlot: String, Equatable {
     return suffix
   }
 
+  /// 何分だけは言葉で受ける。`1` と「1時間」を区別するため。
+  var keepsSpokenWords: Bool {
+    self == .minutes
+  }
+
   static func from(unit: String?) -> SiriAmountSlot {
     switch unit {
     case "ml": return .milliliters
@@ -356,7 +364,8 @@ enum SiriAmountSlot: String, Equatable {
 }
 
 extension SiriAmountReply {
-  /// `Double` が戻ったあとの1手。質問の単位を足して登録にする。同じ質問には戻さない。
+  /// `Double` が戻ったあとの1手。届いた数値を、質問の単位のまま登録する。
+  /// 1000 倍もしない。0.001 倍もしない。同じ質問には戻さない。
   static func followUp(number: Double, suffix: String) -> Turn {
     guard number > 0, number < 100_000 else {
       return .stop(unheardSpeech)
@@ -365,6 +374,42 @@ extension SiriAmountReply {
       return .stop(unheardSpeech)
     }
     return .recorded(parsed)
+  }
+
+  /// 何分への言葉。「1時間」は 60、「1」は 1、「30分」は 30。単位が分でない答えは nil。
+  static func minutes(fromSpoken text: String) -> Double? {
+    let prepared = prepare(text)
+    if let minutes = hoursAsMinutes(prepared) {
+      return minutes
+    }
+    guard let parsed = parsePrepared(prepared, assumedSuffix: "分"), parsed.unit == "minutes" else {
+      return nil
+    }
+    return parsed.amount
+  }
+
+  /// 運動の時間の答え「1時間」「1時間半」「1時間30分」を分にする。
+  static func hoursAsMinutes(_ text: String) -> Double? {
+    let compact = text
+      .replacingOccurrences(of: "[\\s。、,]", with: "", options: .regularExpression)
+      .replacingOccurrences(of: "(です|くらい|ぐらい|ほど)$", with: "", options: .regularExpression)
+    guard let regex = try? NSRegularExpression(
+      pattern: #"^(\d+(?:\.\d+)?)時間(?:(半)|(\d+)分間?)?$"#
+    ),
+      let found = regex.firstMatch(in: compact, range: NSRange(compact.startIndex..., in: compact)),
+      let hoursRange = Range(found.range(at: 1), in: compact),
+      let hours = Double(compact[hoursRange])
+    else {
+      return nil
+    }
+    var minutes = hours * 60
+    if Range(found.range(at: 2), in: compact) != nil {
+      minutes += 30
+    }
+    if let extraRange = Range(found.range(at: 3), in: compact), let extra = Double(compact[extraRange]) {
+      minutes += extra
+    }
+    return minutes > 0 ? minutes : nil
   }
 
   /// 150 は "150"。150.5 はそのまま。
@@ -454,6 +499,8 @@ enum SiriQuestionLimit {
 enum SiriAmountAsk {
   enum Outcome: Equatable {
     case number(Double)
+    /// 何分の言葉。「1時間」を数値の 1 にしない。
+    case spoken(String)
     case stopRepeat
   }
 
@@ -471,5 +518,25 @@ enum SiriAmountAsk {
       return .stopRepeat
     }
     return .number(try await request())
+  }
+
+  /// 何分の答え。言葉が既にあれば質問しない。3回目は request を呼ばない。
+  static func takeText(
+    stored: String?,
+    question: String,
+    defaults: UserDefaults,
+    now: TimeInterval,
+    request: () async throws -> String
+  ) async throws -> Outcome {
+    if let stored {
+      let text = stored.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !text.isEmpty {
+        return .spoken(text)
+      }
+    }
+    guard SiriQuestionLimit.allowAsk(question: question, defaults: defaults, now: now) else {
+      return .stopRepeat
+    }
+    return .spoken(try await request())
   }
 }

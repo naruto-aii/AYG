@@ -1,5 +1,6 @@
 import '../../../models/exercise_entry.dart';
 import '../../../repositories/contracts/exercise_repository_base.dart';
+import '../../../repositories/local_write_guard.dart';
 
 /// Web向けインメモリ ExerciseRepository。
 class ExerciseRepository implements ExerciseRepositoryBase {
@@ -33,5 +34,17 @@ class ExerciseRepository implements ExerciseRepositoryBase {
   @override
   Future<void> clearAll() async {
     _entries.clear();
+  }
+
+  Future<void> replaceAll(
+    List<ExerciseEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    _entries
+      ..clear()
+      ..addAll(entries);
   }
 }

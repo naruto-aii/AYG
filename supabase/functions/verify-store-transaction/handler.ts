@@ -3,6 +3,7 @@
 
 import {
   decideEntitlement,
+  plusAccessFromEntitlement,
   settlePlusEntitlement,
   skipsOlderEntitlement,
   type EntitlementRow,
@@ -133,6 +134,7 @@ export async function handleVerifyStoreTransaction(
   }
   const now = deps.now();
   let conflict = false;
+  const afterWrite = new Map<string, { status: string; expiresAt: string | null }>();
   for (const jws of signed) {
     let verified: VerifiedTransaction;
     try {
@@ -189,13 +191,14 @@ export async function handleVerifyStoreTransaction(
     if (knownRevoked) {
       decision.row.status = "inactive";
     }
-    await settlePlusEntitlement({
+    const productId = decision.row.product_id;
+    const settled = await settlePlusEntitlement({
       row: decision.row,
       load: async () => {
         if (!deps.current) {
           return null;
         }
-        const stored = await deps.current(userId, decision.row.product_id);
+        const stored = await deps.current(userId, productId);
         if (!stored) {
           return null;
         }
@@ -224,9 +227,56 @@ export async function handleVerifyStoreTransaction(
       },
       save: (row, expected) => deps.write(row, expected),
     });
+    if (settled === "saved") {
+      afterWrite.set(productId, {
+        status: decision.row.status,
+        expiresAt: decision.row.expires_at,
+      });
+    } else if (deps.current) {
+      const kept = await deps.current(userId, productId);
+      const status = kept?.status;
+      if (typeof status === "string" && status.length > 0) {
+        afterWrite.set(productId, {
+          status,
+          expiresAt: kept?.expiresAt ?? null,
+        });
+      }
+    }
   }
   if (conflict) {
     return json({ ok: false, code: "bound_to_other_user" }, 409);
   }
-  return json({ ok: true }, 200);
+  const access = plusAccessAfterWrite([...afterWrite.values()], now);
+  // `ok` の意味は変えない。審査中の build 11 は HTTP 成功だけを見る。
+  // `plus` と `expiresAt` は足した項目で、今加入しているかを表す。
+  return json({ ok: true, plus: access.plus, expiresAt: access.expiresAt }, 200);
+}
+
+/// 書き込んだあとの加入。`status = active` かつ `expires_at` が今よりあと。
+/// 複数商品があるときは、その条件を満たす期限のうち一番遅いものを返す。
+export function plusAccessAfterWrite(
+  rows: Array<{ status: string; expiresAt: string | null }>,
+  now: Date,
+): { plus: boolean; expiresAt: string | null } {
+  let plus = false;
+  let expiresAt: string | null = null;
+  for (const row of rows) {
+    if (!plusAccessFromEntitlement({
+      status: row.status,
+      expiresAt: row.expiresAt,
+      now,
+    })) {
+      continue;
+    }
+    plus = true;
+    if (row.expiresAt == null) {
+      continue;
+    }
+    const candidate = Date.parse(row.expiresAt);
+    const selected = expiresAt == null ? Number.NaN : Date.parse(expiresAt);
+    if (Number.isFinite(candidate) && !(candidate <= selected)) {
+      expiresAt = row.expiresAt;
+    }
+  }
+  return { plus, expiresAt };
 }

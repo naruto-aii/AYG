@@ -2,6 +2,7 @@ import '../../../models/health_profile_data.dart';
 import '../../../models/weight_entry.dart';
 import '../../../repositories/contracts/weight_repository_base.dart';
 import '../../../repositories/health_repository_support.dart';
+import '../../../repositories/local_write_guard.dart';
 
 /// Web向けインメモリ WeightRepository。
 class WeightRepository implements WeightRepositoryBase {
@@ -55,5 +56,17 @@ class WeightRepository implements WeightRepositoryBase {
   @override
   Future<void> clearAll() async {
     _entries.clear();
+  }
+
+  Future<void> replaceAll(
+    List<WeightEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    _entries
+      ..clear()
+      ..addAll(entries);
   }
 }

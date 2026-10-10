@@ -190,11 +190,10 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     final app = ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
-        if (controller.isInitializing || controller.termsCheckPending) {
-          return const AppStartupLoadingScreen();
-        }
-
         if (!controller.isAuthenticated) {
+          if (controller.isInitializing) {
+            return const AppStartupLoadingScreen();
+          }
           return LoginScreen(
             controller: controller,
             authenticationRepository: widget.authenticationRepository,
@@ -211,7 +210,18 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
           );
         }
 
-        if (controller.isSyncInProgress) {
+        // 初回同期は止めない。止まって見える通信でも、再試行とログアウトは押せる。
+        // 初回が終わったあとのトークン更新では、利用中の画面をこの読み込みに戻さない。
+        if (controller.isSyncInProgress &&
+            !controller.hasInitialSyncCompleted) {
+          return AppInitialSyncScreen(
+            message: controller.sessionBlockMessage,
+            onRetry: () => controller.retryAuthenticatedSync(),
+            onLogout: () => controller.logout(),
+          );
+        }
+
+        if (controller.isInitializing || controller.termsCheckPending) {
           return const AppStartupLoadingScreen();
         }
 

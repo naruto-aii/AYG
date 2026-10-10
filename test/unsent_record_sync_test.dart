@@ -13,6 +13,7 @@ import 'package:ayg/repositories/contracts/exercise_repository_base.dart';
 import 'package:ayg/repositories/contracts/food_repository_base.dart';
 import 'package:ayg/repositories/contracts/weight_repository_base.dart';
 import 'package:ayg/repositories/data_sync_repository.dart';
+import 'package:ayg/repositories/local_write_guard.dart';
 import 'package:ayg/repositories/local_session_store.dart';
 import 'package:ayg/repositories/plus_funnel_repository.dart';
 import 'package:ayg/repositories/subscription_repository.dart';
@@ -627,7 +628,10 @@ class _RecordingSync extends MockDataSyncRepository {
   final pushed = <String, List<String>>{};
 
   @override
-  Future<void> pushLocalToRemote(String userId) async {
+  Future<void> pushLocalToRemote(
+    String userId, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     order.add('push');
     pushLocalToRemoteCalled = true;
     lastUserId = userId;
@@ -648,6 +652,7 @@ class _RecordingSync extends MockDataSyncRepository {
   Future<void> pullRemoteToLocal(
     String userId, {
     Set<String> skipTables = const {},
+    LocalWriteGuard? mayWrite,
   }) async {
     order.add('pull');
     pullRemoteToLocalCalled = true;

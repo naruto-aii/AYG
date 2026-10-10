@@ -2,16 +2,22 @@ import 'dart:async';
 
 import 'package:ayg/config/subscription_catalog.dart';
 import 'package:ayg/constants/app_strings.dart';
+import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
+import 'package:ayg/repositories/usage_record_repository.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
 import 'package:ayg/services/lock_screen_meal.dart';
 import 'package:ayg/services/lock_screen_meal_gateway.dart';
+import 'package:ayg/services/server_plus_store.dart';
+import 'package:ayg/services/subscription_entitlement.dart';
 import 'package:ayg/services/subscription_offer.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/widgets/design/design_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'mocks/mock_authentication_repository.dart';
 
 void main() {
   test(
@@ -51,6 +57,47 @@ void main() {
       controller.dispose();
     },
   );
+
+  test('widgets follow the server, not a StoreKit purchase on another account', () async {
+    final gateway = _FlagGateway();
+    final plus = _Plus(true);
+    final usage = _ServerUsage(StoreEntitlementVerification.notSent);
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'reviewer', email: 'reviewer@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      lockScreenMealGateway: gateway,
+      subscriptionRepository: plus,
+      usageRecordRepository: usage,
+      serverPlusStore: ServerPlusStore.memory(),
+    );
+
+    await controller.refreshPaidEntitlement();
+    expect(gateway.paid, isFalse);
+    expect(await controller.ensurePaidShortcutsReady(), isFalse);
+
+    usage.verification = StoreEntitlementVerification(
+      outcome: StoreVerifyOutcome.accepted,
+      plus: true,
+      expiresAt: DateTime.utc(2099),
+    );
+    expect(await controller.ensurePaidShortcutsReady(), isTrue);
+    expect(gateway.paid, isTrue);
+
+    usage.verification = StoreEntitlementVerification.boundToOtherAccount;
+    expect(await controller.ensurePaidShortcutsReady(), isFalse);
+    expect(gateway.paid, isFalse);
+
+    usage.verification = StoreEntitlementVerification.rejected;
+    plus.active = true;
+    await controller.syncPlusEntitlementToServer();
+    expect(gateway.paid, isFalse);
+
+    await plus.changes.close();
+    await auth.dispose();
+    controller.dispose();
+  });
 
   testWidgets(
     'the purchase screen uses the store price and does not set the flag',
@@ -112,6 +159,25 @@ void main() {
       controller.dispose();
     },
   );
+}
+
+class _ServerUsage extends NoOpUsageRecordRepository {
+  _ServerUsage(this.verification);
+
+  StoreEntitlementVerification verification;
+
+  @override
+  bool get syncsStoreEntitlements => true;
+
+  @override
+  Future<StoreEntitlementVerification> syncPlusEntitlements({
+    required List<SubscriptionEntitlementRecord> confirmed,
+    required List<SubscriptionEntitlementRecord> inactive,
+    required bool authoritative,
+    DateTime? now,
+  }) async {
+    return verification;
+  }
 }
 
 class _Plus extends UnavailableSubscriptionRepository {

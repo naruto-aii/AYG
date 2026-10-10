@@ -208,6 +208,9 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   bool get isPlusActive => _plus || developmentPlusPreview;
 
   @override
+  bool get previewsPaidLocally => developmentPlusPreview;
+
+  @override
   Stream<bool> get plusChanges => _plusController.stream;
 
   Future<void> initialize() async {

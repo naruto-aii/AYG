@@ -21,6 +21,34 @@ const aiDataConsentAtKey = 'terms_agreement_server_at';
 
 const aiDataConsentRequiredMessage = 'AI機能を使うには、同意が必要です。';
 
+/// 同意の読み取りが止まっても、同意画面か手元の控えへ戻すまでの上限。
+///
+/// 失敗した読み取りは手元の控えに戻る。応答が無い通信は例外にならないので、
+/// この上限が無いと読み込み中のままになり、同意もログイン画面にも戻れない。
+const termsLookupBudget = Duration(seconds: 8);
+
+/// サーバの同意の版。読めなかったときは [failed]。
+class TermsServerRead {
+  const TermsServerRead.ok(this.serverVersion) : failed = false;
+
+  const TermsServerRead.failed() : failed = true, serverVersion = null;
+
+  final bool failed;
+  final String? serverVersion;
+}
+
+/// [pending] が制限時間を超えても、例外でも、失敗として返す。
+Future<TermsServerRead> readTermsServerVersion(
+  Future<String?> pending, {
+  Duration budget = termsLookupBudget,
+}) async {
+  try {
+    return TermsServerRead.ok(await pending.timeout(budget));
+  } catch (_) {
+    return const TermsServerRead.failed();
+  }
+}
+
 /// 今の版に同意済みか。
 ///
 /// サーバを読めたときは、そのアカウントの `ai_data_consents.policy_version`
@@ -240,6 +268,16 @@ class PrefsAiDataConsent extends AiDataConsent {
         at.isNotEmpty;
   }
 
+  Future<String?> _policyVersion(SupabaseClient supabase, String userId) async {
+    final row = await supabase
+        .from('ai_data_consents')
+        .select('policy_version')
+        .eq('user_id', userId)
+        .maybeSingle();
+    final version = row?['policy_version'];
+    return version is String ? version : null;
+  }
+
   bool _cachedFor(String userId) {
     return hasCurrentTermsAgreement(
       userId: userId,
@@ -271,20 +309,19 @@ class PrefsAiDataConsent extends AiDataConsent {
           sessionUser.toLowerCase() != userId.toLowerCase()) {
         return _cachedFor(userId);
       }
-      final row = await supabase
-          .from('ai_data_consents')
-          .select('policy_version')
-          .eq('user_id', userId)
-          .maybeSingle();
-      final version = row?['policy_version'];
-      final serverVersion = version is String ? version : null;
+      final read = await readTermsServerVersion(
+        _policyVersion(supabase, userId),
+      );
       final agreed = hasCurrentTermsAgreement(
         userId: userId,
         cachedUserId: _preferences.getString(termsAgreementUserKey),
         cachedVersion: _preferences.getString(aiDataConsentVersionKey),
-        serverVersion: serverVersion,
-        serverReadFailed: false,
+        serverVersion: read.serverVersion,
+        serverReadFailed: read.failed,
       );
+      if (read.failed) {
+        return agreed;
+      }
       if (agreed) {
         await _preferences.setString(termsAgreementUserKey, userId);
         await _preferences.setString(

@@ -1,6 +1,12 @@
 # ロールバック
 
-新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
+新しいものほど上に書く。本番への適用は手動。
+
+## 20261010045607 reject banned public food text
+
+本番には適用していない。公開・限定公開の食品の禁止語トリガーと、schema `moderation` の関数を消す。食品の行は消えない。
+
+`supabase/rollback/20261010045607_reject_banned_public_food_text_down.sql`
 
 ## 20261008210000 ai data consent
 

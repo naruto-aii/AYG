@@ -32,3 +32,11 @@ psql "$DATABASE_URL" -f supabase/seed/cook_recipes.sql
 ```
 
 本番のデータベースには、この変更では流さない。
+
+## 公開食品の禁止語（20261010045607）
+
+この変更では本番に適用しない。適用するときは、上の 1〜9 のあと、次の 1 ファイルだけを足す。`20261008090100` と `20261008090300`（pg_cron）は、この禁止語にも App Store の通知にも要らない。
+
+10. `supabase/migrations/20261010045607_reject_banned_public_food_text.sql`
+
+戻すときは `supabase/rollback/20261010045607_reject_banned_public_food_text_down.sql`。既存の公開行はどちらも書き換えない。

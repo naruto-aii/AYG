@@ -66,8 +66,8 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 公開前の順番:
 
 1. `20261007094059_app_events.sql` と `20261007094142_app_events_retention.sql` は本番に適用済み。アプリは `public.insert_app_events` で追加する。表への直接 INSERT は渡していない。
-2. `app-store-notifications` を配備し、App Store Connect の通知先（本番とサンドボックス、バージョン 2）を `https://vdzzusqisymtejcjnikb.supabase.co/functions/v1/app-store-notifications` にする。
-3. 上の秘密を入れる。
+2. `app-store-notifications` を配備し、App Store Connect の通知先（本番とサンドボックス、どちらもバージョン 2）を `https://vdzzusqisymtejcjnikb.supabase.co/functions/v1/app-store-notifications` にする。通知の処理に `20261008090100` と `20261008090300`（pg_cron）は要らない。
+3. 上の秘密を入れる。`APP_BUNDLE_ID` は `com.narutoaii.ayg`、`ASC_APP_APPLE_ID` は `6814054275`。ルート証明書は関数に Apple Root CA - G3 / G2 / Apple Inc Root を同梱している。`APPLE_ROOT_CA_BASE64` は追加の DER を足すときだけ。
 4. `store-analytics-setup` を 1 回だけ実行する。そのあと管理者鍵を無効化し、`ASC_ADMIN_KEY_ID` と `ASC_ADMIN_PRIVATE_KEY` を消す。
 5. pg_cron と pg_net を有効にする承認のあと、Vault に `project_url`（`https://vdzzusqisymtejcjnikb.supabase.co`）と `store_import_secret` を入れ、`20261008090100_store_import_schedule.sql` を適用する。
 6. `store-analytics-import` と `store-sales-import` を配備する。
@@ -304,4 +304,4 @@ deno run -A supabase/functions/cook-coach/check_recipes.ts
 - `ASC_APP_APPLE_ID`（App Store Connect の Apple ID。数字）
 - `APPLE_ROOT_CA_BASE64`（または `APPLE_ROOT_CA`）
 
-App Store Server Notifications の URL は、これまでどおり `app-store-notifications` です。更新と期限切れは、その通知が検証済みの取引から加入の行を更新します。
+App Store Server Notifications の URL は、これまでどおり `app-store-notifications` です。`SUBSCRIBED`（3日間の無料トライアルを含む）、`DID_RENEW`（トライアル後の更新を含む）、`DID_FAIL_TO_RENEW` の `GRACE_PERIOD` は、検証済みの取引の期限が未来なら `calonavi_plus_entitlements.status = active` のままです。`EXPIRED`、猶予なしの `DID_FAIL_TO_RENEW`、`GRACE_PERIOD_EXPIRED` は `expired` です。`REFUND` と `REVOKE` は `inactive` です。`DID_CHANGE_RENEWAL_STATUS` は自動更新のオンオフだけでは期限を切らしません。利用者は、`store_original_transactions` に元の購入があればその行、無ければ取引の `appAccountToken`（購入時の Supabase の user id）です。同じ `notification_uuid` は 1 回だけ処理します。アプリの購入同期は、これまでどおり `verify-store-transaction` に署名付き取引を渡します。

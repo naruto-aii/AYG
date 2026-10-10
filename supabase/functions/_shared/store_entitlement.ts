@@ -110,3 +110,111 @@ export function decideEntitlement(input: {
     },
   };
 }
+
+/// 加入を必ず書き換える通知。取引が欠けていたら Apple に再送させる。
+export const entitlementNotificationTypes = new Set([
+  "SUBSCRIBED",
+  "DID_RENEW",
+  "EXPIRED",
+  "DID_FAIL_TO_RENEW",
+  "GRACE_PERIOD_EXPIRED",
+  "REFUND",
+  "REVOKE",
+]);
+
+export type NotificationEntitlementInput = {
+  notificationType: string;
+  subtype?: string | null;
+  userId: string;
+  expectedBundleId: string;
+  bundleId: string;
+  productId: string;
+  environment: string;
+  originalTransactionId: string;
+  boundUserId: string | null;
+  expiresDate: number | null;
+  revocationDate: number | null;
+  gracePeriodExpiresDate?: number | null;
+  now: Date;
+};
+
+function clampToPast(now: Date, expiresDate: number | null): number | null {
+  if (expiresDate == null || expiresDate > now.getTime()) {
+    return now.getTime() - 1;
+  }
+  return expiresDate;
+}
+
+/// 通知の種類で、期限と取り消しを決めてから decideEntitlement に渡す。
+/// 3日間の無料トライアル（offerType 1）も、その後の DID_RENEW も、未来の期限なら active。
+export function decideNotificationEntitlement(
+  input: NotificationEntitlementInput,
+): EntitlementDecision {
+  const type = input.notificationType;
+  const subtype = input.subtype ?? "";
+  let expiresDate = input.expiresDate;
+  let revocationDate = input.revocationDate;
+
+  if (type === "REFUND" || type === "REVOKE") {
+    revocationDate = input.revocationDate ?? input.now.getTime();
+  } else if (type === "DID_FAIL_TO_RENEW" && subtype === "GRACE_PERIOD") {
+    const grace = input.gracePeriodExpiresDate ?? null;
+    if (grace != null && grace > input.now.getTime()) {
+      expiresDate = grace;
+      revocationDate = null;
+    } else if (expiresDate != null && expiresDate > input.now.getTime()) {
+      revocationDate = null;
+    } else {
+      expiresDate = clampToPast(input.now, grace ?? expiresDate);
+      revocationDate = null;
+    }
+  } else if (
+    type === "EXPIRED" ||
+    type === "GRACE_PERIOD_EXPIRED" ||
+    (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD")
+  ) {
+    expiresDate = clampToPast(input.now, expiresDate);
+    revocationDate = null;
+  } else if (type === "DID_CHANGE_RENEWAL_STATUS") {
+    revocationDate = input.revocationDate;
+  }
+
+  return decideEntitlement({
+    userId: input.userId,
+    expectedBundleId: input.expectedBundleId,
+    bundleId: input.bundleId,
+    productId: input.productId,
+    environment: input.environment,
+    originalTransactionId: input.originalTransactionId,
+    boundUserId: input.boundUserId,
+    expiresDate,
+    revocationDate,
+    now: input.now,
+  });
+}
+
+/// 古い更新で期限を短くしない。返金・失効・猶予切れは、期限が前でも反映する。
+export function notificationSkipsOlderExpiry(input: {
+  notificationType: string;
+  subtype?: string | null;
+  revoked: boolean;
+  currentExpiresAt: string | null;
+  nextExpiresAt: string | null;
+}): boolean {
+  const type = input.notificationType;
+  const subtype = input.subtype ?? "";
+  if (input.revoked || type === "REFUND" || type === "REVOKE") {
+    return false;
+  }
+  if (type === "EXPIRED" || type === "GRACE_PERIOD_EXPIRED") {
+    return false;
+  }
+  if (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD") {
+    return false;
+  }
+  return shouldSkipOlderExpiry({
+    revoked: false,
+    currentExpiresAt: input.currentExpiresAt,
+    nextExpiresAt: input.nextExpiresAt,
+  });
+}

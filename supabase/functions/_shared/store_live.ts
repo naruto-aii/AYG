@@ -263,6 +263,45 @@ async function accountClosed(userId: string): Promise<boolean> {
   return accountIsClosed(row?.deleted_at);
 }
 
+export type StoreUserChoice = {
+  userId: string | null;
+  deleted: boolean;
+  source: "original_transaction" | "app_account_token" | "none";
+};
+
+/// 購入の対応表があるときはその利用者。無いときだけ appAccountToken を見る。
+/// 対応表の利用者が退会済みなら、別のトークンへ付け替えない。
+export function chooseStoreUser(input: {
+  originalUserId: string | null;
+  originalExists: boolean;
+  originalDeleted: boolean;
+  appAccountToken: string | null;
+  tokenExists: boolean;
+  tokenDeleted: boolean;
+}): StoreUserChoice {
+  if (isUuid(input.originalUserId)) {
+    if (input.originalExists && !input.originalDeleted) {
+      return {
+        userId: input.originalUserId.toLowerCase(),
+        deleted: false,
+        source: "original_transaction",
+      };
+    }
+    return { userId: null, deleted: true, source: "original_transaction" };
+  }
+  if (isUuid(input.appAccountToken)) {
+    if (input.tokenExists && !input.tokenDeleted) {
+      return {
+        userId: input.appAccountToken.toLowerCase(),
+        deleted: false,
+        source: "app_account_token",
+      };
+    }
+    return { userId: null, deleted: true, source: "app_account_token" };
+  }
+  return { userId: null, deleted: false, source: "none" };
+}
+
 export async function matchStoreUser(input: {
   appAccountToken?: string | null;
   originalTransactionId?: string | null;
@@ -270,31 +309,35 @@ export async function matchStoreUser(input: {
 }): Promise<{ userId: string | null; deleted: boolean }> {
   const token = input.appAccountToken ?? null;
   const original = input.originalTransactionId?.trim() ?? "";
-  if (isUuid(token)) {
-    if (await userExists(token) && !(await accountClosed(token))) {
-      const userId = token.toLowerCase();
-      await rememberOriginalTransaction(original, userId, input.productId);
-      return { userId, deleted: false };
+  let originalUserId: string | null = null;
+  if (original) {
+    const response = await rest(storeOriginalTransactionPath(original));
+    if (!response.ok) {
+      throw new Error(`transaction lookup ${response.status}`);
     }
-    return { userId: null, deleted: true };
+    const rows = await response.json();
+    const mapped = Array.isArray(rows) ? rows[0]?.user_id : null;
+    originalUserId = isUuid(mapped) ? mapped : null;
   }
-  if (!original) {
-    return { userId: null, deleted: false };
+  const originalExists = originalUserId != null && await userExists(originalUserId);
+  const originalDeleted = originalUserId != null &&
+    (!originalExists || await accountClosed(originalUserId));
+  const tokenIsUser = isUuid(token);
+  const tokenExists = tokenIsUser && originalUserId == null && await userExists(token);
+  const tokenDeleted = tokenIsUser && originalUserId == null &&
+    (!tokenExists || await accountClosed(token));
+  const choice = chooseStoreUser({
+    originalUserId,
+    originalExists,
+    originalDeleted,
+    appAccountToken: originalUserId == null ? token : null,
+    tokenExists,
+    tokenDeleted,
+  });
+  if (choice.userId) {
+    await rememberOriginalTransaction(original, choice.userId, input.productId);
   }
-  const response = await rest(storeOriginalTransactionPath(original));
-  if (!response.ok) {
-    throw new Error(`transaction lookup ${response.status}`);
-  }
-  const rows = await response.json();
-  const userId = Array.isArray(rows) ? rows[0]?.user_id : null;
-  if (!isUuid(userId)) {
-    return { userId: null, deleted: false };
-  }
-  if (await userExists(userId) && !(await accountClosed(userId))) {
-    await rememberOriginalTransaction(original, userId, input.productId);
-    return { userId: userId.toLowerCase(), deleted: false };
-  }
-  return { userId: null, deleted: true };
+  return { userId: choice.userId, deleted: choice.deleted };
 }
 
 export async function insertNotification(row: Record<string, unknown>): Promise<void> {

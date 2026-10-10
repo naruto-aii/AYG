@@ -241,6 +241,71 @@ export async function savePlusEntitlement(
   return body === true;
 }
 
+export async function rememberRevokedStoreTransaction(input: {
+  userId: string;
+  productId: string;
+  transactionId: string;
+  reason: "refund" | "revoke";
+  revokedAt: Date;
+}): Promise<void> {
+  const response = await rest("rpc/remember_revoked_store_transaction", {
+    method: "POST",
+    body: JSON.stringify({
+      p_user_id: input.userId,
+      p_product_id: input.productId,
+      p_transaction_id: input.transactionId,
+      p_reason: input.reason,
+      p_revoked_at: input.revokedAt.toISOString(),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`remember revoked ${response.status}`);
+  }
+  if (await response.json() !== true) {
+    throw new Error("remember revoked rejected");
+  }
+}
+
+export async function forgetRevokedStoreTransaction(input: {
+  userId: string;
+  productId: string;
+  transactionId: string;
+}): Promise<void> {
+  const response = await rest("rpc/forget_revoked_store_transaction", {
+    method: "POST",
+    body: JSON.stringify({
+      p_user_id: input.userId,
+      p_product_id: input.productId,
+      p_transaction_id: input.transactionId,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`forget revoked ${response.status}`);
+  }
+  if (await response.json() !== true) {
+    throw new Error("forget revoked rejected");
+  }
+}
+
+export async function storeTransactionRevoked(input: {
+  userId: string;
+  productId: string;
+  transactionId: string;
+}): Promise<boolean> {
+  const response = await rest("rpc/store_transaction_revoked", {
+    method: "POST",
+    body: JSON.stringify({
+      p_user_id: input.userId,
+      p_product_id: input.productId,
+      p_transaction_id: input.transactionId,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`revoked lookup ${response.status}`);
+  }
+  return await response.json() === true;
+}
+
 export async function rememberOriginalTransaction(
   originalTransactionId: string,
   userId: string,

@@ -38,6 +38,20 @@ export type VerifyStoreDeps = {
     status?: string | null;
     transactionId?: string | null;
   } | null>;
+  /// 返金・取り消しされた transactionId を記録する。行の更新より先に呼ぶ。
+  rememberRevoked?: (input: {
+    userId: string;
+    productId: string;
+    transactionId: string;
+    reason: "refund" | "revoke";
+    revokedAt: Date;
+  }) => Promise<void>;
+  /// 記録済みなら true。取り消し日が無くても有料に戻さない。
+  transactionRevoked?: (input: {
+    userId: string;
+    productId: string;
+    transactionId: string;
+  }) => Promise<boolean>;
 };
 
 const maxTransactions = 8;
@@ -134,6 +148,26 @@ export async function handleVerifyStoreTransaction(
       userId,
       verified.productId,
     );
+    const transactionId = decision.row.source_transaction_id;
+    if (transactionId && verified.revocationDate != null && deps.rememberRevoked) {
+      await deps.rememberRevoked({
+        userId,
+        productId: decision.row.product_id,
+        transactionId,
+        reason: "revoke",
+        revokedAt: new Date(verified.revocationDate),
+      });
+    }
+    const knownRevoked = transactionId != null && deps.transactionRevoked
+      ? verified.revocationDate != null || await deps.transactionRevoked({
+        userId,
+        productId: decision.row.product_id,
+        transactionId,
+      })
+      : false;
+    if (knownRevoked) {
+      decision.row.status = "inactive";
+    }
     await settlePlusEntitlement({
       row: decision.row,
       load: async () => {
@@ -163,6 +197,7 @@ export async function handleVerifyStoreTransaction(
           nextExpiresAt: decision.row.expires_at,
           transactionExpiresAt: verified.expiresDate,
           transactionId: verified.transactionId,
+          knownRevoked,
           now,
         });
       },

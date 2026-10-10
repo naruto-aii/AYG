@@ -7,6 +7,7 @@ import {
 import {
   decideNotificationEntitlement,
   entitlementNotificationTypes,
+  revocationJournalPlan,
   settlePlusEntitlement,
   skipsOlderEntitlement,
   storeTransactionId,
@@ -18,8 +19,11 @@ import {
   matchStoreUser,
   notificationExists,
   rememberOriginalTransaction,
+  forgetRevokedStoreTransaction,
   readPlusEntitlement,
+  rememberRevokedStoreTransaction,
   savePlusEntitlement,
+  storeTransactionRevoked,
 } from "../_shared/store_live.ts";
 import { handleAppStoreNotification, type DecodedStoreNotification } from "./handler.ts";
 
@@ -97,6 +101,7 @@ Deno.serve((request) =>
         return;
       }
       const now = new Date();
+      const boundUserId = await boundStoreUser(input.originalTransactionId);
       const decision = decideNotificationEntitlement({
         notificationType,
         subtype: input.subtype,
@@ -106,7 +111,7 @@ Deno.serve((request) =>
         productId: input.productId,
         environment: input.environment,
         originalTransactionId: input.originalTransactionId,
-        boundUserId: await boundStoreUser(input.originalTransactionId),
+        boundUserId,
         expiresDate: input.expiresDate,
         revocationDate: input.revocationDate,
         gracePeriodExpiresDate: input.gracePeriodExpiresDate,
@@ -119,6 +124,38 @@ Deno.serve((request) =>
           return;
         }
         throw new Error(decision.code);
+      }
+      const plan = revocationJournalPlan({
+        notificationType,
+        transactionId: input.transactionId,
+        revocationDate: input.revocationDate,
+        now,
+      });
+      let knownRevoked = false;
+      if (plan.action === "forget") {
+        await forgetRevokedStoreTransaction({
+          userId: input.userId,
+          productId: input.productId,
+          transactionId: plan.transactionId,
+        });
+      } else if (plan.action === "remember") {
+        await rememberRevokedStoreTransaction({
+          userId: input.userId,
+          productId: input.productId,
+          transactionId: plan.transactionId,
+          reason: plan.reason,
+          revokedAt: plan.revokedAt,
+        });
+        knownRevoked = true;
+      } else if (plan.action === "lookup") {
+        knownRevoked = await storeTransactionRevoked({
+          userId: input.userId,
+          productId: input.productId,
+          transactionId: plan.transactionId,
+        });
+      }
+      if (knownRevoked) {
+        decision.row.status = "inactive";
       }
       await rememberOriginalTransaction(
         input.originalTransactionId,
@@ -154,6 +191,7 @@ Deno.serve((request) =>
           transactionExpiresAt: input.expiresDate,
           transactionId: input.transactionId,
           gracePeriodExpiresAt: input.gracePeriodExpiresDate,
+          knownRevoked,
           now,
         }),
         save: (row, expected) => savePlusEntitlement(row, expected),

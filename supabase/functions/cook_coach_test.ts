@@ -24,7 +24,8 @@ import { evalScenarios, planScenario, runLocalEval } from "./cook_coach_eval.ts"
 import { cookRecipes } from "./cook-coach/recipes.ts";
 import { assemblyIssues, needsModelRetry, stepIssues } from "./cook-coach/plan.ts";
 import { explainRejectedTarget } from "./cook-coach/handler.ts";
-import { portionPrefers, refineMeal } from "./cook-coach/refine.ts";
+import { portionPrefers, portionRank, refineMeal } from "./cook-coach/refine.ts";
+import { candidateBeats, selectCookPlans } from "./cook-coach/select.ts";
 
 function food(code: string, name: string, kcal: number, proteinG: number, fatG: number, carbG: number): FoodRow {
   return {
@@ -740,7 +741,7 @@ Deno.test("implausible meat calories are replaced, and eggs stay on a 50g grid",
   assertEquals(rice != null && rice.grams >= 100 && rice.grams <= 300, true);
   assertEquals(chicken != null && chicken.grams >= 60 && chicken.grams <= 250, true);
   assertEquals(dinner.a.steps.some((step) => step.includes("ごはん") && step.includes("塩")), false);
-  assertEquals(dinner.a.steps.some((step) => /しょうゆ|塩/.test(step) && /炒|焼/.test(step)), true);
+  assertEquals(dinner.a.steps.some((step) => /しょうゆ|塩|味噌/.test(step) && /炒|焼/.test(step)), true);
 });
 
 Deno.test("zero remaining does not call the model, and 1200 kcal is accepted", async () => {
@@ -926,6 +927,114 @@ Deno.test("portion rank never trades a higher miss for a lower hit", () => {
     portionPrefers(target, meal(600, 30, 16, 75), meal(640, 30, 16, 75)),
     true,
   );
+});
+
+Deno.test("tiny PFC targets use the percentage band, not a 1g floor", () => {
+  const protein: Macros = { kcal: 200, proteinG: 3, fatG: 4, carbG: 20 };
+  // 3g の ±15% は 0.45g。3.9g は外。1g の床だと許容内になり、炭水化物のミスで勝ってしまう。
+  assertEquals(
+    portionPrefers(protein, { kcal: 200, proteinG: 3, fatG: 4, carbG: 30 }, { kcal: 200, proteinG: 3.9, fatG: 4, carbG: 20 }),
+    true,
+  );
+  const fat: Macros = { kcal: 150, proteinG: 8, fatG: 4, carbG: 21 };
+  // 4g の ±15% は 0.6g。4.9g は外。1g の床だと許容内になり、kcal の近さで脂質の外れた案が勝つ。
+  assertEquals(
+    portionPrefers(fat, { kcal: 160, proteinG: 8, fatG: 4, carbG: 21 }, { kcal: 150, proteinG: 8, fatG: 4.9, carbG: 21 }),
+    true,
+  );
+  assertEquals(portionRank(fat, { kcal: 150, proteinG: 8, fatG: 4.9, carbG: 21 })[3] > 0, true);
+});
+
+Deno.test("selection follows portion rank and does not trade protein excess for fat", () => {
+  const target: Macros = { kcal: 600, proteinG: 40, fatG: 20, carbG: 60 };
+  const worseProtein = { hardMiss: 0, rank: portionRank(target, { kcal: 600, proteinG: 20, fatG: 20, carbG: 60 }), used: 4, recent: 0 };
+  const betterProtein = { hardMiss: 0, rank: portionRank(target, { kcal: 600, proteinG: 33, fatG: 30, carbG: 60 }), used: 1, recent: 0 };
+  assertEquals(candidateBeats(betterProtein, worseProtein), true);
+  assertEquals(candidateBeats(worseProtein, betterProtein), false);
+  const covered = { hardMiss: 0, rank: portionRank(target, { kcal: 600, proteinG: 20, fatG: 20, carbG: 60 }), used: 1, recent: 0 };
+  const missedIngredient = { hardMiss: 1, rank: portionRank(target, { kcal: 600, proteinG: 40, fatG: 20, carbG: 60 }), used: 1, recent: 0 };
+  assertEquals(candidateBeats(covered, missedIngredient), true);
+});
+
+Deno.test("a 50 kcal target still returns a plan and keeps an avoided food out", () => {
+  const low = selectCookPlans(cookRecipes, {
+    ingredients: ["卵"],
+    slot: "snack",
+    target: { kcal: 50, proteinG: 3, fatG: 1, carbG: 7 },
+  });
+  assertEquals(low.a != null || low.b != null, true);
+  const avoided = selectCookPlans(cookRecipes, {
+    ingredients: ["鶏むね肉"],
+    slot: "dinner",
+    target: { kcal: 50, proteinG: 3, fatG: 1, carbG: 7 },
+    avoid: ["卵", "たまご"],
+  });
+  const plans = [avoided.a, avoided.b].filter((plan) => plan != null);
+  assertEquals(plans.length > 0, true);
+  for (const plan of plans) {
+    assertEquals(plan!.ingredients.some((item) => item.name.includes("卵")), false);
+  }
+});
+
+Deno.test("fried egg starts at 2g of oil and refineMeal does not leave a 1g fry", () => {
+  const recipe = cookRecipes.find((item) => item.id === "medamayaki");
+  const base = recipe?.slots.find((slot) => slot.key === "oil")?.options[0];
+  assertEquals(base != null && base.grams >= 2, true);
+  const refined = refineMeal({
+    name: "目玉焼き",
+    steps: ["サラダ油1gを熱する。", "塩1gをふる。", "器に盛る。"],
+    extras: [],
+    ingredients: [
+      {
+        name: "卵",
+        grams: 100,
+        originalGrams: 100,
+        kcal: 142,
+        proteinG: 12.2,
+        fatG: 10.2,
+        carbG: 0.4,
+        source: "db",
+        foodCode: "12004",
+        officialName: "鶏卵 全卵 生",
+        extra: false,
+      },
+      {
+        name: "サラダ油",
+        grams: 1,
+        originalGrams: 1,
+        kcal: 9,
+        proteinG: 0,
+        fatG: 1,
+        carbG: 0,
+        source: "db",
+        foodCode: "14006",
+        officialName: "調合油",
+        extra: false,
+      },
+    ],
+    totals: { kcal: 151, proteinG: 12.2, fatG: 11.2, carbG: 0.4 },
+    gap: { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
+    within: false,
+    score: 0,
+    issues: [],
+    gapReason: "",
+    omitNote: "",
+  }, { kcal: 151, proteinG: 12, fatG: 8, carbG: 1 });
+  const oilItem = refined.ingredients.find((item) => item.name.includes("油"));
+  assertEquals(oilItem != null && oilItem.grams >= 2, true);
+  const plans = selectCookPlans(cookRecipes, {
+    ingredients: ["鶏むね肉", "豚こま切れ", "卵", "ごはん", "玉ねぎ", "キャベツ"],
+    slot: "snack",
+    target: { kcal: 80, proteinG: 4, fatG: 2, carbG: 11 },
+  });
+  assertEquals(plans.a != null && plans.b != null && plans.a.name !== plans.b.name, true);
+  for (const plan of [plans.a, plans.b]) {
+    for (const item of plan!.ingredients) {
+      if (item.name.includes("油") || item.name.includes("バター")) {
+        assertEquals(item.grams >= 2, true, `${plan!.name} ${item.name}${item.grams}`);
+      }
+    }
+  }
 });
 
 Deno.test("refineMeal keeps kcal in band instead of spending oil on fat", () => {

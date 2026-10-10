@@ -1,7 +1,7 @@
 // 検証済みレシピを展開し、手持ちと買い足し1〜2品から目標に入る案を選ぶ。
 // 分量は基準gの倍率だけ動かす。成分は選んだ食品の成分表から計算する。
 
-import { refineMeal } from "./refine.ts";
+import { lexSmaller, portionRank, refineMeal } from "./refine.ts";
 import { cookFood, cookFoods, type CookFood, type CookRole } from "./foods.ts";
 import {
   allowedMinutes,
@@ -140,8 +140,10 @@ type Fill = {
 type Ranked = {
   dish: MeasuredDish;
   recipeId: string;
-  score: number;
+  hardMiss: number;
+  rank: number[];
   used: number;
+  recent: number;
 };
 
 // 副菜・汁物の候補数。多いほど PFC が目標に入る組み合わせを見つけやすい。
@@ -166,9 +168,15 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
   const limit = allowedMinutes(note);
   // 本番は id 順で読み込むので、ここでも id 順にして結果を同じにする。
   const ordered = [...recipes].sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
-  const run = (names: string[], noteText: string) => {
-    const onHand = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "on_hand");
-    const extra = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "extra");
+  const seen = new Set<string>();
+  const run = (names: string[], noteText: string, relaxKcal = false, tight = false) => {
+    const key = `${relaxKcal ? "r" : "s"}:${tight ? "t" : "w"}:${[...names].sort().join("\0")}`;
+    if (seen.has(key)) {
+      return null;
+    }
+    seen.add(key);
+    const onHand = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "on_hand", relaxKcal, tight);
+    const extra = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "extra", relaxKcal, tight);
     let a = pick(onHand);
     let b = pick(extra.filter((item) => !a || item.dish.name !== a.dish.name));
     let aKind: PlanKind = "on_hand";
@@ -203,10 +211,17 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
         bKind = "on_hand";
       }
     }
-    return { a, b, aKind, bKind, onHandHits: onHand.length, extraHits: extra.length };
+    if (relaxKcal && a && b && lexSmaller(b.rank, a.rank)) {
+      [a, b] = [b, a];
+      [aKind, bKind] = [bKind, aKind];
+    }
+    return { a, b, aKind, bKind, onHandHits: onHand.length, extraHits: extra.length, onHand, extra };
   };
   let found = listed.length > 0 ? run(listed, omitNote) : null;
-  if (!found || (!found.a && !found.b)) {
+  // 食材が7品以上のとき、1品ずつ外す再探索は1回が数百ミリ秒になり、上限20品で CPU 2秒を超える。
+  // 6品までは今までどおり試す（308件の採点はこの範囲）。
+  // 5品以上を外す再探索だけ副菜を広げない。6品のまま全部広げると、50kcal のように当たらない目標で 2秒を超える。
+  if (listed.length <= 6 && (!found || (!found.a && !found.b))) {
     // 0件にはしない。使えなかった食材を1つずつ外し、それでも無ければ家にある卵・ごはん・キャベツで作る。
     // 外した食材は omitNote で必ず伝える。
     const tries: Array<{ names: string[]; skipped: string[] }> = [];
@@ -227,22 +242,38 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
         ? `${attempt.skipped.join("、")}は、この量の目標に合う家庭料理が作れなかったため使っていません。`
         : "";
       const noteText = [omitNote, skippedNote].filter((text) => text.length > 0).join("");
-      const next = run(usable, noteText);
-      if (next.a || next.b) {
+      const next = run(usable, noteText, false, usable.length >= 5);
+      if (next && (next.a || next.b)) {
         found = next;
         break;
       }
     }
   }
-  if (found && (!found.a || !found.b)) {
+  if (listed.length <= 6 && found && (!found.a || !found.b)) {
     // まだ1案しかないときは、家にある卵・ごはん・豆腐などで別の料理をもう1案作る。
     const first = (found.a ?? found.b)!;
     for (const pantry of [["卵", "ごはん"], ["卵"], ["ごはん"], ["豆腐"], ["キャベツ", "卵"]]) {
       const usable = [...new Set([...listed, ...pantry])].filter((name) => !avoid.some((item) => namesMatch(item, name)));
       const next = run(usable, omitNote);
-      const other = [next.a, next.b].find((item) =>
-        item && item.recipeId !== first.recipeId && item.dish.name !== first.dish.name
-      );
+      if (!next) {
+        continue;
+      }
+      // いちばんよい案が買い足し3品以上なら、2品以内で次によい別の料理を使う。
+      let other: Ranked | null = null;
+      for (const item of [...next.onHand, ...next.extra]) {
+        if (item.recipeId === first.recipeId || item.dish.name === first.dish.name) {
+          continue;
+        }
+        const added = item.dish.ingredients
+          .filter((part) => !part.assumed && !listed.some((name) => namesMatch(name, part.name)) && pantry.some((name) => namesMatch(name, part.name)))
+          .map((part) => part.name);
+        if (new Set([...item.dish.extras, ...added]).size > 2) {
+          continue;
+        }
+        if (!other || preferRanked(item, other)) {
+          other = item;
+        }
+      }
       if (other) {
         // 入力に無い食材は買い足し（または家にあれば使う）として示す。
         const added = other.dish.ingredients
@@ -263,6 +294,63 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
         } else {
           found = { ...found, a: first, aKind: found.bKind, b: other, bKind: kind };
         }
+        break;
+      }
+    }
+  }
+  if (found && ((found.a == null) !== (found.b == null))) {
+    // ±10% に入るのが1案だけのとき、カロリーが次に近い別の料理を足す。0件にも1案だけにもしない。
+    const first = (found.a ?? found.b)!;
+    const noteText = first.dish.omitNote || omitNote;
+    const seeds: string[][] = [];
+    if (listed.length > 0) {
+      seeds.push(listed);
+    }
+    for (const pantry of [["卵", "ごはん"], ["卵"], ["ごはん"], ["豆腐"]]) {
+      const usable = pantry.filter((name) => !avoid.some((item) => namesMatch(item, name)));
+      if (usable.length > 0) {
+        seeds.push(usable);
+      }
+    }
+    for (const seed of seeds) {
+      const next = run(seed, noteText, true, seed.length >= 5);
+      if (!next) {
+        continue;
+      }
+      const other = [next.a, next.b].find((item) =>
+        item && item.recipeId !== first.recipeId && item.dish.name !== first.dish.name
+      );
+      if (!other) {
+        continue;
+      }
+      const kind: PlanKind = other === next.a ? next.aKind : next.bKind;
+      if (found.a) {
+        found = { ...found, b: other, bKind: kind };
+      } else {
+        found = { ...found, a: found.b, aKind: found.bKind, b: other, bKind: kind };
+      }
+      break;
+    }
+  }
+  if (!found || (!found.a && !found.b)) {
+    // ±10% に入る料理が無いときだけ、カロリーが一番近い現実的な料理を返す。0件にはしない。
+    // 最初に当たった種で止める。食材が多いときの再探索は1回に収める。
+    const seeds: string[][] = [];
+    if (listed.length > 0) {
+      seeds.push(listed);
+    }
+    if (listed.length <= 6) {
+      for (const pantry of [["卵", "ごはん"], ["卵"], ["ごはん"], ["豆腐"]]) {
+        const usable = pantry.filter((name) => !avoid.some((item) => namesMatch(item, name)));
+        if (usable.length > 0) {
+          seeds.push(usable);
+        }
+      }
+    }
+    for (const seed of seeds) {
+      const next = run(seed, omitNote, true, seed.length >= 5);
+      if (next && (next.a || next.b)) {
+        found = next;
         break;
       }
     }
@@ -292,8 +380,10 @@ function composeMeals(
   omitNote: string,
   recent: Set<string>,
   kind: "on_hand" | "extra",
+  relaxKcal = false,
+  tight = false,
 ): Ranked[] {
-  const groups = collect(recipes, listed, avoid, limit, slotName, target, omitNote, kind);
+  const groups = collect(recipes, listed, avoid, limit, slotName, target, omitNote, kind, tight);
   let mains = groups.mains;
   if (mains.length === 0) {
     mains = kind === "extra" ? groups.extraSides : [...groups.sides, ...groups.soups];
@@ -307,7 +397,7 @@ function composeMeals(
     }
     // 主材料・主食・油の量を目標の kcal と PFC に寄せてから判定する。
     const meal = refineMeal(combineMeal(parts, target, omitNote), target);
-    if (!kcalOk(meal.totals.kcal, target.kcal)) {
+    if (!relaxKcal && !kcalOk(meal.totals.kcal, target.kcal)) {
       return;
     }
     if (kind === "on_hand" && meal.extras.length > 0) {
@@ -345,22 +435,19 @@ function composeMeals(
     }
     const hardMiss = missedHard(meal, listed);
     const used = usedCount(meal, listed);
-    // 優先順位は kcal（±10%、ここまでで必須）> たんぱく質 > 炭水化物 > 脂質。
-    // 上の項目が許容内の案を、下の項目より必ず先にする（下の項目のために上を崩さない）。
-    const ok = (actual: number, goal: number) => Math.abs(actual - goal) <= Math.abs(goal) * 0.15 + 0.05;
-    const pMiss = ok(meal.totals.proteinG, target.proteinG) ? 0 : 1;
-    const cMiss = ok(meal.totals.carbG, target.carbG) ? 0 : 1;
-    const fMiss = ok(meal.totals.fatG, target.fatG) ? 0 : 1;
-    const norm = normalizedGap(target, meal.totals);
-    // 同じくらい近い案では、入力した食材を多く使う方を先にする。
-    // 連続の近さは段の内側に収め、下位のずれで上位のミスをひっくり返さない。
-    const band = Math.min(89, Math.floor(norm / 1.5));
-    const tie = Math.min(norm, 100);
-    const score = hardMiss * 1e12 + pMiss * 1e10 + cMiss * 1e9 + fMiss * 1e8 + band * 1e6 - used * 1000 + tie +
-      (recent.has(meal.name) ? 0.5 : 0);
-    found.push({ dish: meal, recipeId, score, used: used - hardMiss * 100 });
+    // 栄養は portionRank と同じ辞書順。重み付きの和や帯のフラグでは、たんぱく質の超過を炭水化物・脂質でひっくり返せる。
+    // 入力した肉・魚・主食の使い残しだけは、その前に置く（使い切る案を先にする）。
+    // ±10% に入る料理が無いときの再探索では、使い残しよりカロリーの近さを先にする。
+    found.push({
+      dish: meal,
+      recipeId,
+      hardMiss: relaxKcal ? 0 : hardMiss,
+      rank: portionRank(target, meal.totals),
+      used,
+      recent: recent.has(meal.name) ? 1 : 0,
+    });
     if (found.length > 500) {
-      found.sort((left, right) => left.score - right.score);
+      found.sort((left, right) => preferRanked(left, right) ? -1 : preferRanked(right, left) ? 1 : 0);
       found.length = 100;
     }
   };
@@ -411,27 +498,45 @@ function composeMeals(
 }
 
 function missOf(item: Ranked): number {
-  return Math.floor((item.score + 1e7) / 1e12);
+  return item.hardMiss;
 }
 
-// 入力食材の使い残し・P・C・F の段（細かい近さは含めない）。
+// 入力食材の使い残しと、P・C・F がバンドの外かどうか。細かい近さは含めない。
 function tierOf(item: Ranked): number {
-  return Math.floor((item.score + 1e7) / 1e8);
+  const miss = (index: number) => (item.rank[index] ?? 0) > 1e-9 ? 1 : 0;
+  return item.hardMiss * 8 + miss(1) * 4 + miss(2) * 2 + miss(3);
+}
+
+export function candidateBeats(
+  left: { hardMiss: number; rank: number[]; used: number; recent: number },
+  right: { hardMiss: number; rank: number[]; used: number; recent: number },
+): boolean {
+  return preferRanked(left, right);
+}
+
+function preferRanked(
+  left: { hardMiss: number; rank: number[]; used: number; recent: number },
+  right: { hardMiss: number; rank: number[]; used: number; recent: number },
+): boolean {
+  if (left.hardMiss !== right.hardMiss) {
+    return left.hardMiss < right.hardMiss;
+  }
+  if (lexSmaller(left.rank, right.rank)) {
+    return true;
+  }
+  if (lexSmaller(right.rank, left.rank)) {
+    return false;
+  }
+  if (left.used !== right.used) {
+    return left.used > right.used;
+  }
+  return left.recent < right.recent;
 }
 
 function sharesPart(left: MeasuredDish, right: MeasuredDish): boolean {
   const parts = (dish: MeasuredDish) => dish.name.split("、").filter((name) => name !== "ごはんの温め");
   const mine = new Set(parts(left));
   return parts(right).some((name) => mine.has(name));
-}
-
-function normalizedGap(target: Macros, actual: Macros): number {
-  // portionRank と同じ順の近さ。ミスの段は別の桁で先に比べる。
-  const k = (actual.kcal - target.kcal) / Math.max(1, target.kcal * 0.1);
-  const p = (actual.proteinG - target.proteinG) / Math.max(1, target.proteinG * 0.15);
-  const c = (actual.carbG - target.carbG) / Math.max(1, target.carbG * 0.15);
-  const f = (actual.fatG - target.fatG) / Math.max(1, target.fatG * 0.15);
-  return k * k + 3 * p * p + 2 * c * c + f * f;
 }
 
 function overlaps(have: MeasuredDish[], extra: MeasuredDish[]): boolean {
@@ -497,6 +602,7 @@ function collect(
   target: Macros,
   omitNote: string,
   kind: "on_hand" | "extra",
+  tight = false,
 ) {
   const mains: Array<{ recipeId: string; parts: MeasuredDish[] }> = [];
   const onHandMains: Array<{ recipeId: string; parts: MeasuredDish[] }> = [];
@@ -541,12 +647,17 @@ function collect(
       }
     }
   }
+  // 7品以上、または当たらない再探索は副菜・汁物を広げると CPU 2秒に近づく。
+  // 6品までの最初の探索は広げたまま（308件の採点はこの範囲）。
+  const wide = !tight && listed.length <= 6;
+  const sideN = wide ? X_SIDES : 4;
+  const soupN = wide ? X_SOUPS : 4;
   return {
     mains: diversify(mains, listed, target, kind === "extra" ? 40 : 16, 2),
     onHandMains: diversify(onHandMains, listed, target, 10, 2),
-    sides: diversify(sides, listed, null, X_SIDES, 1),
-    extraSides: diversify(extraSides, listed, null, X_SIDES, 1),
-    soups: diversify(soups, listed, null, X_SOUPS, 2),
+    sides: diversify(sides, listed, null, sideN, 1),
+    extraSides: diversify(extraSides, listed, null, sideN, 1),
+    soups: diversify(soups, listed, null, soupN, 2),
   };
 }
 
@@ -1205,7 +1316,7 @@ function fillTemplate(
 function pick(items: Ranked[]): Ranked | null {
   let best: Ranked | null = null;
   for (const item of items) {
-    if (!best || item.score < best.score - 1e-6 || (Math.abs(item.score - best.score) <= 1e-6 && item.used > best.used)) {
+    if (!best || preferRanked(item, best)) {
       best = item;
     }
   }

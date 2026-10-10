@@ -172,7 +172,7 @@ class AppController extends ChangeNotifier {
        _plusFunnelRepository = plusFunnelRepository,
        _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
        _pendingRecords = pendingRecords ?? PendingRecordStore(),
-       _serverPlusStore = serverPlusStore ?? ServerPlusStore(),
+       _serverPlusStore = serverPlusStore ?? ServerPlusStore.memory(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -239,6 +239,7 @@ class AppController extends ChangeNotifier {
   /// メモリに読んだユーザー。別のユーザーの保存は使わない。
   String? _serverPlusLoadedFor;
 
+  /// アプリは端末の保存を渡す。渡さないときは、プラグインを開かずメモリだけにする。
   final ServerPlusStore _serverPlusStore;
 
   SubscriptionRepository get subscriptionRepository => _subscriptionRepository;

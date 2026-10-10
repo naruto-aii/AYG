@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -36,7 +34,7 @@ class AiFoodLookupClient {
             return response.data;
           });
         } on FunctionException catch (error) {
-          throw PhotoMealFailure(photoMealMessageFromBody(error.details));
+          throw photoMealFailureFromBody(error.details);
         }
       },
     );
@@ -53,7 +51,7 @@ class AiFoodLookupClient {
       throw const PhotoMealFailure(photoMealFallbackMessage);
     }
     if (data is Map && data['ok'] == false) {
-      throw PhotoMealFailure(photoMealMessageFromBody(data));
+      throw photoMealFailureFromBody(data);
     }
     if (data is! Map) {
       throw const PhotoMealFailure(photoMealFallbackMessage);

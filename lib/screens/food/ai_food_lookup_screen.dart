@@ -9,6 +9,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/settings_row.dart';
 import '../subscription/plus_gate.dart';
@@ -74,6 +75,7 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
   AiFoodLookupResult? _result;
   String? _error;
   bool _loading = true;
+  bool _plusRejected = false;
 
   @override
   void initState() {
@@ -93,6 +95,19 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
       });
     } on PhotoMealFailure catch (error) {
       if (!mounted) {
+        return;
+      }
+      if (error.plusRequired) {
+        setState(() {
+          _plusRejected = true;
+          _error = null;
+          _loading = false;
+        });
+        await promptServerPlusRejected(
+          context,
+          widget.controller,
+          feature: PlusFunnelFeature.aiFoodLookup,
+        );
         return;
       }
       setState(() {
@@ -145,6 +160,16 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_plusRejected)
+            DesignButton(
+              label: 'カロナビ+を見る',
+              showTrailingIcon: false,
+              onPressed: () => promptServerPlusRejected(
+                context,
+                widget.controller,
+                feature: PlusFunnelFeature.aiFoodLookup,
+              ),
             )
           else if (_error != null)
             Text(_error!, style: AppTypography.bodyM)

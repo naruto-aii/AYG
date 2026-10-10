@@ -6,6 +6,10 @@ import '../../state/app_controller.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import 'calonavi_plus_flow.dart';
 
+/// サーバが購入を確認できなかったとき。行き止まりにせず、同じ確認から課金画面へ進む。
+const plusPurchaseUnconfirmedMessage =
+    'カロナビ+の購入を確認できませんでした。購入済みの場合は次の画面で「購入を復元」を押してください。';
+
 /// カロナビ+が無い機能を止める。Siri とウィジェットの判定は呼ばない。
 ///
 /// 案内の表示と「カロナビ+を見る」は記録する。送信に失敗しても操作は止めない。
@@ -18,8 +22,43 @@ Future<bool> ensureCalonaviPlus(
   if (controller.subscriptionRepository.isPlusActive) {
     return true;
   }
+  await presentCalonaviPlusDialog(
+    context,
+    controller,
+    message: message,
+    feature: feature,
+  );
+  return controller.subscriptionRepository.isPlusActive;
+}
+
+/// 端末が有料でも、サーバが `not_plus` のときは確認ダイアログから課金画面を開く。
+Future<void> promptServerPlusRejected(
+  BuildContext context,
+  AppController controller, {
+  PlusFunnelFeature? feature,
+}) {
+  return presentCalonaviPlusDialog(
+    context,
+    controller,
+    message: plusPurchaseUnconfirmedMessage,
+    feature: feature,
+    ignoreCurrentPlus: true,
+  );
+}
+
+/// 「こちらは有料の機能です」の確認。進むと課金画面（購入を復元あり）を開く。
+Future<void> presentCalonaviPlusDialog(
+  BuildContext context,
+  AppController controller, {
+  required String message,
+  PlusFunnelFeature? feature,
+  bool ignoreCurrentPlus = false,
+}) async {
+  if (!ignoreCurrentPlus && controller.subscriptionRepository.isPlusActive) {
+    return;
+  }
   if (!context.mounted) {
-    return false;
+    return;
   }
   controller.recordPlusFunnel(
     event: PlusFunnelEvent.gateShown,
@@ -46,6 +85,7 @@ Future<bool> ensureCalonaviPlus(
         repository: controller.subscriptionRepository,
         feature: feature,
         funnel: controller.plusFunnelRepository,
+        onPlusActive: controller.syncPlusEntitlementToServer,
       );
     }
   } else if (openPlus != true) {
@@ -58,5 +98,4 @@ Future<bool> ensureCalonaviPlus(
       'choice': 'close',
     });
   }
-  return controller.subscriptionRepository.isPlusActive;
 }

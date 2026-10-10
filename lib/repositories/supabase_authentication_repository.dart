@@ -16,6 +16,26 @@ import 'apple_refresh_token.dart';
 import 'auth_exceptions.dart';
 import 'authentication_repository.dart';
 
+/// 端末のセッションを先に消す。Google のサインアウトが失敗しても、待っても、戻さない。
+///
+/// Google を先に待つと、その失敗で Supabase のサインアウトまで届かない。
+Future<void> signOutLocalSessionThenGoogle({
+  required Future<void> Function() supabaseSignOut,
+  Future<void> Function()? googleSignOut,
+  Duration googleTimeout = const Duration(seconds: 3),
+}) async {
+  try {
+    await supabaseSignOut();
+  } catch (_) {}
+  final google = googleSignOut;
+  if (google == null) {
+    return;
+  }
+  try {
+    await google().timeout(googleTimeout);
+  } catch (_) {}
+}
+
 /// Supabase Auth + Google Sign-In 実装。
 class SupabaseAuthenticationRepository extends AuthenticationRepository {
   SupabaseAuthenticationRepository({
@@ -264,8 +284,10 @@ class SupabaseAuthenticationRepository extends AuthenticationRepository {
   @override
   Future<void> logout() async {
     _sessionSuggestedName = null;
-    await _googleSignIn?.signOut();
-    await _client.auth.signOut();
+    await signOutLocalSessionThenGoogle(
+      supabaseSignOut: () => _client.auth.signOut(scope: SignOutScope.local),
+      googleSignOut: _googleSignIn == null ? null : () => _googleSignIn.signOut(),
+    );
   }
 
   @override

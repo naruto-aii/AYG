@@ -21,7 +21,11 @@ export type EntitlementRow = {
 
 export type EntitlementDecision =
   | { ok: true; row: EntitlementRow }
-  | { ok: false; code: "invalid_transaction" | "bound_to_other_user" };
+  | {
+    ok: false;
+    code: "invalid_transaction" | "bound_to_other_user";
+    reason: string;
+  };
 
 export function entitlementTiming(input: {
   expiresDate: number | null;
@@ -80,19 +84,26 @@ export function decideEntitlement(input: {
 }): EntitlementDecision {
   const original = input.originalTransactionId.trim();
   const bundle = input.expectedBundleId.trim();
-  if (
-    !input.userId ||
-    !bundle ||
-    input.bundleId !== bundle ||
-    !plusProductIds.has(input.productId) ||
-    !acceptedStoreEnvironments.has(input.environment) ||
-    original.length === 0 ||
-    original.length > 128
-  ) {
-    return { ok: false, code: "invalid_transaction" };
+  const reason = !input.userId
+    ? "missing_user"
+    : !bundle
+    ? "missing_expected_bundle"
+    : input.bundleId !== bundle
+    ? "bundle_mismatch"
+    : !plusProductIds.has(input.productId)
+    ? "unknown_product"
+    : !acceptedStoreEnvironments.has(input.environment)
+    ? "environment"
+    : original.length === 0
+    ? "missing_original_transaction_id"
+    : original.length > 128
+    ? "original_transaction_id_too_long"
+    : null;
+  if (reason != null) {
+    return { ok: false, code: "invalid_transaction", reason };
   }
   if (input.boundUserId != null && input.boundUserId !== input.userId) {
-    return { ok: false, code: "bound_to_other_user" };
+    return { ok: false, code: "bound_to_other_user", reason: "bound_to_other_user" };
   }
   const timing = entitlementTiming({
     expiresDate: input.expiresDate,

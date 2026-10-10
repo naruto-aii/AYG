@@ -186,6 +186,22 @@ Deno.test("a revocation still clears a later expiry", async () => {
   assertEquals(writes[0].status, "inactive");
 });
 
+Deno.test("rejection reasons are logged and the JWS is not", async () => {
+  const logs: Array<{ code: string; reason: string }> = [];
+  const secret = "jws-secret-do-not-log";
+  const { deps } = harness({
+    verify: () => Promise.resolve(verified({ bundleId: "com.example.other" })),
+  });
+  deps.log = (entry) => logs.push(entry);
+  const response = await handleVerifyStoreTransaction(
+    post({ signedTransaction: `aaa.${secret}.bbb` }),
+    deps,
+  );
+  assertEquals(response.status, 400);
+  assertEquals(logs, [{ code: "invalid_transaction", reason: "bundle_mismatch" }]);
+  assertEquals(JSON.stringify(logs).includes(secret), false);
+});
+
 Deno.test("decideEntitlement keeps a revoked transaction inactive", () => {
   const decision = decideEntitlement({
     userId: user,

@@ -16,7 +16,7 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
-import '../subscription/calonavi_plus_flow.dart';
+import '../subscription/plus_gate.dart';
 
 const cookCoachIngredientChoices = [
   '卵',
@@ -225,6 +225,28 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
       if (!mounted) {
         return;
       }
+      if (error.code == 'not_plus') {
+        CatalogActions.cookCoachGenerate(
+          latencyMs: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          retried: false,
+          result: error.code ?? 'failed',
+        );
+        setState(() {
+          _busy = false;
+          _error = null;
+        });
+        final controller = widget.controller;
+        if (controller != null) {
+          await promptServerPlusRejected(
+            context,
+            controller,
+            feature: PlusFunnelFeature.coach,
+          );
+        }
+        return;
+      }
       if (error.code == 'daily_cap' || error.message == cookCoachCapMessage) {
         CatalogActions.cookCoachCap();
       }
@@ -361,20 +383,12 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
             if (controller == null) {
               return;
             }
-            controller.recordPlusFunnel(
-              event: PlusFunnelEvent.gateTap,
-              feature: PlusFunnelFeature.coach,
-            );
-            final custom = controller.openCalonaviPlusFlow;
-            if (custom != null) {
-              custom(context);
-              return;
-            }
-            showCalonaviPlus(
+            ensureCalonaviPlus(
               context,
-              repository: controller.subscriptionRepository,
+              controller,
+              message:
+                  '自炊コーチ (β) は、カロナビ+です。手元の食材から、この食事の目標に近い料理を出します。',
               feature: PlusFunnelFeature.coach,
-              funnel: controller.plusFunnelRepository,
             );
           },
         ),

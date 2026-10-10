@@ -705,6 +705,54 @@ void main() {
     await auth.dispose();
   });
 
+  testWidgets('a leftover paid flag still confirms before the paywall', (
+    tester,
+  ) async {
+    final gateway = _MemoryGateway()..paid = true;
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      lockScreenMealGateway: gateway,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: auth,
+          hideHealthSettings: true,
+          showLockScreenMeal: true,
+          supportEmail: '',
+        ),
+      ),
+    );
+    await tester.scrollUntilVisible(find.text('ウィジェット'), 200);
+    await tester.tap(find.text('ウィジェット'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
+    await tester.pumpAndSettle();
+    expect(find.text('購入を復元'), findsOneWidget);
+    expect(find.text('ホーム画面'), findsNothing);
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
+    await tester.tap(find.text('音声登録 (β)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
+    await tester.pumpAndSettle();
+    expect(find.text('購入を復元'), findsOneWidget);
+    expect(find.text('ショートカットを開く'), findsNothing);
+    await auth.dispose();
+  });
+
   testWidgets('a paid account reads the voice note without the unpaid dialog', (
     tester,
   ) async {
@@ -715,6 +763,7 @@ void main() {
     final controller = AppController(
       authenticationRepository: auth,
       lockScreenMealGateway: gateway,
+      subscriptionRepository: _PreviewPlus(),
     );
 
     await tester.pumpWidget(
@@ -834,6 +883,7 @@ void main() {
     final controller = AppController(
       authenticationRepository: auth,
       lockScreenMealGateway: gateway,
+      subscriptionRepository: _PreviewPlus(),
     );
 
     await tester.pumpWidget(

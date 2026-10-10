@@ -46,14 +46,19 @@ class SettingsAccountScreen extends StatelessWidget {
             danger: true,
             onTap: () async {
               final left = await controller.logout();
-              if (!left && context.mounted) {
+              if (!context.mounted) {
+                return;
+              }
+              if (!left) {
                 final message = controller.sessionBlockMessage;
                 if (message != null) {
                   ScaffoldMessenger.of(
                     context,
                   ).showSnackBar(SnackBar(content: Text(message)));
                 }
+                return;
               }
+              Navigator.of(context).popUntil((route) => route.isFirst);
             },
           ),
           const SizedBox(height: 8),

@@ -26,7 +26,22 @@ export type VerifyStoreDeps = {
   write: (row: EntitlementRow) => Promise<void>;
   /// 今の加入。無いときは null。古い期限で上書きしないために読む。
   current?: (userId: string, productId: string) => Promise<{ expiresAt: string | null } | null>;
+  /// 拒否理由。JWS 本体は渡さない。
+  log?: (entry: { code: string; reason: string }) => void;
 };
+
+function logRejection(
+  deps: VerifyStoreDeps,
+  code: string,
+  reason: string,
+): void {
+  const entry = { code, reason };
+  if (deps.log) {
+    deps.log(entry);
+    return;
+  }
+  console.error("[verify-store-transaction] rejected", entry);
+}
 
 const maxTransactions = 8;
 const maxJwsLength = 32000;
@@ -74,16 +89,19 @@ export async function handleVerifyStoreTransaction(
   }
   const userId = await deps.userId(req);
   if (!userId) {
+    logRejection(deps, "unauthenticated", "missing_user");
     return json({ ok: false, code: "unauthenticated" }, 401);
   }
   let payload: unknown;
   try {
     payload = await req.json();
   } catch {
+    logRejection(deps, "invalid_transaction", "malformed_body");
     return json({ ok: false, code: "invalid_transaction" }, 400);
   }
   const signed = signedTransactionsFromBody(payload);
   if (!signed) {
+    logRejection(deps, "invalid_transaction", "malformed_jws");
     return json({ ok: false, code: "invalid_transaction" }, 400);
   }
   const now = deps.now();
@@ -93,6 +111,7 @@ export async function handleVerifyStoreTransaction(
     try {
       verified = await deps.verify(jws);
     } catch {
+      logRejection(deps, "invalid_transaction", "verify_failed");
       return json({ ok: false, code: "invalid_transaction" }, 400);
     }
     const boundUserId = await deps.boundUser(verified.originalTransactionId);
@@ -109,6 +128,7 @@ export async function handleVerifyStoreTransaction(
       now,
     });
     if (!decision.ok) {
+      logRejection(deps, decision.code, decision.reason);
       if (decision.code === "bound_to_other_user") {
         conflict = true;
         continue;

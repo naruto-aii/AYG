@@ -30,6 +30,7 @@ Future<void> showCalonaviPlus(
   required SubscriptionRepository repository,
   PlusFunnelFeature? feature,
   PlusFunnelRepository? funnel,
+  Future<void> Function()? onPlusActive,
 }) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
@@ -41,6 +42,7 @@ Future<void> showCalonaviPlus(
         repository: repository,
         feature: feature,
         funnel: funnel,
+        onPlusActive: onPlusActive,
       ),
     ),
   );
@@ -75,11 +77,15 @@ class CalonaviPlusEntryScreen extends StatefulWidget {
     required this.repository,
     this.feature,
     this.funnel,
+    this.onPlusActive,
   });
 
   final SubscriptionRepository repository;
   final PlusFunnelFeature? feature;
   final PlusFunnelRepository? funnel;
+
+  /// 購入または復元で有料になったあと、署名付き取引をサーバへ送る。
+  final Future<void> Function()? onPlusActive;
 
   @override
   State<CalonaviPlusEntryScreen> createState() =>
@@ -378,6 +384,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       if (widget.repository.isPlusActive) {
         _purchased = true;
         _record(PlusFunnelEvent.purchaseSuccess, productId: productId);
+        try {
+          await widget.onPlusActive?.call();
+        } catch (_) {}
+        if (!mounted) {
+          return;
+        }
         _showMessage(
           widget.repository.testPurchaseToggleEnabled
               ? 'テスト用にカロナビ+にしました'
@@ -405,6 +417,14 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       Analytics.emit('restore_result', {
         'result': widget.repository.isPlusActive ? 'restored' : 'none_found',
       });
+      if (widget.repository.isPlusActive) {
+        try {
+          await widget.onPlusActive?.call();
+        } catch (_) {}
+      }
+      if (!mounted) {
+        return;
+      }
       _showMessage(
         widget.repository.isPlusActive ? '購入を復元しました' : '有効な購入は見つかりませんでした',
       );

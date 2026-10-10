@@ -567,7 +567,7 @@ class AppController extends ChangeNotifier {
       );
       await syncLockScreenMeals();
       await syncSiriVoiceLogs();
-      await _syncPlusEntitlement();
+      await syncPlusEntitlementToServer();
       await _adoptServerPlusForTestBuild(authUser.id);
       _lastSyncFailed = false;
       _syncFailure = null;
@@ -611,31 +611,75 @@ class AppController extends ChangeNotifier {
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
     if (!force && userId != null && dataSyncRepository != null) {
-      final delivered = await _pushBeforeWipe(dataSyncRepository, userId);
+      var delivered = false;
+      try {
+        delivered = await _pushBeforeWipe(
+          dataSyncRepository,
+          userId,
+        ).timeout(const Duration(seconds: 8));
+      } catch (_) {
+        delivered = false;
+      }
       if (!delivered) {
         _blockSession('未送信の記録を送れなかったため、ログアウトを中止しました。通信できるときに再度お試しください。');
         return false;
       }
     }
-    await Analytics.service?.flush();
-    await _usageRecordRepository?.flushPending();
-    await _plusFunnelRepository?.flushPending();
-    await _coachProposalLog.flushPending();
-    _resetSyncState();
-    _clearInMemoryState();
-    final pendingCount = await _pendingRecords.count();
-    _usage('local_data_cleared', {
-      'reason': 'logout',
-      'pending_records_count': pendingCount,
-    });
-    await _pendingRecords.clear();
-    await _localUserDataClearer?.clearAll();
-    await _localSessionStore?.clearLastUserId();
-    await _authenticationRepository?.logout();
-    await Analytics.service?.setCurrentUser(null);
-    sessionBlockMessage = null;
-    notifyListeners();
-    return true;
+    await _bestEffort(
+      Analytics.service?.flush(budget: const Duration(seconds: 2)),
+      const Duration(seconds: 3),
+    );
+    await _bestEffort(
+      _usageRecordRepository?.flushPending(),
+      const Duration(seconds: 3),
+    );
+    await _bestEffort(
+      _plusFunnelRepository?.flushPending(),
+      const Duration(seconds: 3),
+    );
+    await _bestEffort(
+      _coachProposalLog.flushPending(),
+      const Duration(seconds: 3),
+    );
+    try {
+      _resetSyncState();
+      _clearInMemoryState();
+      final pendingCount = await _pendingRecords.count();
+      _usage('local_data_cleared', {
+        'reason': 'logout',
+        'pending_records_count': pendingCount,
+      });
+      await _pendingRecords.clear();
+      await _localUserDataClearer?.clearAll();
+      await _localSessionStore?.clearLastUserId();
+      await _bestEffort(
+        _authenticationRepository?.logout(),
+        const Duration(seconds: 8),
+      );
+      await _bestEffort(
+        Analytics.service?.setCurrentUser(null),
+        const Duration(seconds: 2),
+      );
+      sessionBlockMessage = null;
+      notifyListeners();
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] logout cleanup failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      sessionBlockMessage = null;
+      notifyListeners();
+      return true;
+    }
+  }
+
+  /// 通信が止まっても、ログアウトの後始末は続ける。
+  Future<void> _bestEffort(Future<void>? pending, Duration limit) async {
+    if (pending == null) {
+      return;
+    }
+    try {
+      await pending.timeout(limit);
+    } catch (_) {}
   }
 
   String? sessionBlockMessage;
@@ -3717,14 +3761,13 @@ class AppController extends ChangeNotifier {
 
   /// ウィジェットと Siri を開いてよいか。
   ///
-  /// 開発ビルドのプレビューを含むカロナビ+なら、App Group の有料フラグを
-  /// true にしてから通す。リリースで未加入のときは、そのフラグだけを見る。
+  /// カロナビ+のときだけ通す。未加入のときは、以前の有料フラグが残っていても通さない。
   Future<bool> ensurePaidShortcutsReady() async {
     if (_subscriptionRepository.isPlusActive) {
       await setLockScreenMealPaid(true);
       return true;
     }
-    return isMealWidgetPaid();
+    return false;
   }
 
   /// ストアの加入をフラグへ写す。設定画面からは呼ばない。
@@ -3764,17 +3807,24 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> _syncPlusForAiRetry() async {
-    if (!_hasUnexpiredStorePlus()) {
-      return false;
-    }
-    try {
-      await _subscriptionRepository.refreshEntitlement();
-    } catch (_) {}
+    await _recoverStoreSignedTransactions();
     if (!_hasUnexpiredStorePlus()) {
       return false;
     }
     await _syncPlusEntitlement();
     return true;
+  }
+
+  /// 署名が無い有料は復元で JWS を取り、サーバの加入行へ送る。
+  Future<void> syncPlusEntitlementToServer() async {
+    await _recoverStoreSignedTransactions();
+    await _syncPlusEntitlement();
+  }
+
+  Future<void> _recoverStoreSignedTransactions() async {
+    try {
+      await _subscriptionRepository.recoverMissingSignedTransactions();
+    } catch (_) {}
   }
 
   bool _hasUnexpiredStorePlus() {

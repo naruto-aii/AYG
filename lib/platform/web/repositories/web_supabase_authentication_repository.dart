@@ -55,7 +55,9 @@ class WebSupabaseAuthenticationRepository extends AuthenticationRepository {
 
   @override
   Future<void> logout() async {
-    await _client.auth.signOut();
+    try {
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {}
   }
 
   @override

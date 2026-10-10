@@ -44,6 +44,7 @@ Future<bool> allowMealTemplateCreate(
         repository: controller.subscriptionRepository,
         feature: PlusFunnelFeature.mealTemplateLimit,
         funnel: controller.plusFunnelRepository,
+        onPlusActive: controller.syncPlusEntitlementToServer,
       );
     }
   }

@@ -164,6 +164,7 @@ class SettingsScreen extends StatelessWidget {
       repository: controller.subscriptionRepository,
       feature: feature,
       funnel: controller.plusFunnelRepository,
+      onPlusActive: controller.syncPlusEntitlementToServer,
     );
   }
 

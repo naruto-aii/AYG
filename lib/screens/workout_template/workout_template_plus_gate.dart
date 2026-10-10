@@ -44,6 +44,7 @@ Future<bool> allowWorkoutTemplateCreate(
         repository: controller.subscriptionRepository,
         feature: PlusFunnelFeature.workoutTemplateLimit,
         funnel: controller.plusFunnelRepository,
+        onPlusActive: controller.syncPlusEntitlementToServer,
       );
     }
   }

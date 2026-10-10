@@ -168,9 +168,15 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
   const limit = allowedMinutes(note);
   // 本番は id 順で読み込むので、ここでも id 順にして結果を同じにする。
   const ordered = [...recipes].sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
-  const run = (names: string[], noteText: string, relaxKcal = false) => {
-    const onHand = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "on_hand", relaxKcal);
-    const extra = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "extra", relaxKcal);
+  const seen = new Set<string>();
+  const run = (names: string[], noteText: string, relaxKcal = false, tight = false) => {
+    const key = `${relaxKcal ? "r" : "s"}:${tight ? "t" : "w"}:${[...names].sort().join("\0")}`;
+    if (seen.has(key)) {
+      return null;
+    }
+    seen.add(key);
+    const onHand = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "on_hand", relaxKcal, tight);
+    const extra = composeMeals(ordered, names, avoid, input.target, limit, input.slot, note, noteText, recent, "extra", relaxKcal, tight);
     let a = pick(onHand);
     let b = pick(extra.filter((item) => !a || item.dish.name !== a.dish.name));
     let aKind: PlanKind = "on_hand";
@@ -209,11 +215,12 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
       [a, b] = [b, a];
       [aKind, bKind] = [bKind, aKind];
     }
-    return { a, b, aKind, bKind, onHandHits: onHand.length, extraHits: extra.length };
+    return { a, b, aKind, bKind, onHandHits: onHand.length, extraHits: extra.length, onHand, extra };
   };
   let found = listed.length > 0 ? run(listed, omitNote) : null;
   // 食材が7品以上のとき、1品ずつ外す再探索は1回が数百ミリ秒になり、上限20品で CPU 2秒を超える。
   // 6品までは今までどおり試す（308件の採点はこの範囲）。
+  // 5品以上を外す再探索だけ副菜を広げない。6品のまま全部広げると、50kcal のように当たらない目標で 2秒を超える。
   if (listed.length <= 6 && (!found || (!found.a && !found.b))) {
     // 0件にはしない。使えなかった食材を1つずつ外し、それでも無ければ家にある卵・ごはん・キャベツで作る。
     // 外した食材は omitNote で必ず伝える。
@@ -235,8 +242,8 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
         ? `${attempt.skipped.join("、")}は、この量の目標に合う家庭料理が作れなかったため使っていません。`
         : "";
       const noteText = [omitNote, skippedNote].filter((text) => text.length > 0).join("");
-      const next = run(usable, noteText);
-      if (next.a || next.b) {
+      const next = run(usable, noteText, false, usable.length >= 5);
+      if (next && (next.a || next.b)) {
         found = next;
         break;
       }
@@ -248,9 +255,25 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
     for (const pantry of [["卵", "ごはん"], ["卵"], ["ごはん"], ["豆腐"], ["キャベツ", "卵"]]) {
       const usable = [...new Set([...listed, ...pantry])].filter((name) => !avoid.some((item) => namesMatch(item, name)));
       const next = run(usable, omitNote);
-      const other = [next.a, next.b].find((item) =>
-        item && item.recipeId !== first.recipeId && item.dish.name !== first.dish.name
-      );
+      if (!next) {
+        continue;
+      }
+      // いちばんよい案が買い足し3品以上なら、2品以内で次によい別の料理を使う。
+      let other: Ranked | null = null;
+      for (const item of [...next.onHand, ...next.extra]) {
+        if (item.recipeId === first.recipeId || item.dish.name === first.dish.name) {
+          continue;
+        }
+        const added = item.dish.ingredients
+          .filter((part) => !part.assumed && !listed.some((name) => namesMatch(name, part.name)) && pantry.some((name) => namesMatch(name, part.name)))
+          .map((part) => part.name);
+        if (new Set([...item.dish.extras, ...added]).size > 2) {
+          continue;
+        }
+        if (!other || preferRanked(item, other)) {
+          other = item;
+        }
+      }
       if (other) {
         // 入力に無い食材は買い足し（または家にあれば使う）として示す。
         const added = other.dish.ingredients
@@ -275,6 +298,40 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
       }
     }
   }
+  if (found && ((found.a == null) !== (found.b == null))) {
+    // ±10% に入るのが1案だけのとき、カロリーが次に近い別の料理を足す。0件にも1案だけにもしない。
+    const first = (found.a ?? found.b)!;
+    const noteText = first.dish.omitNote || omitNote;
+    const seeds: string[][] = [];
+    if (listed.length > 0) {
+      seeds.push(listed);
+    }
+    for (const pantry of [["卵", "ごはん"], ["卵"], ["ごはん"], ["豆腐"]]) {
+      const usable = pantry.filter((name) => !avoid.some((item) => namesMatch(item, name)));
+      if (usable.length > 0) {
+        seeds.push(usable);
+      }
+    }
+    for (const seed of seeds) {
+      const next = run(seed, noteText, true, seed.length >= 5);
+      if (!next) {
+        continue;
+      }
+      const other = [next.a, next.b].find((item) =>
+        item && item.recipeId !== first.recipeId && item.dish.name !== first.dish.name
+      );
+      if (!other) {
+        continue;
+      }
+      const kind: PlanKind = other === next.a ? next.aKind : next.bKind;
+      if (found.a) {
+        found = { ...found, b: other, bKind: kind };
+      } else {
+        found = { ...found, a: found.b, aKind: found.bKind, b: other, bKind: kind };
+      }
+      break;
+    }
+  }
   if (!found || (!found.a && !found.b)) {
     // ±10% に入る料理が無いときだけ、カロリーが一番近い現実的な料理を返す。0件にはしない。
     // 最初に当たった種で止める。食材が多いときの再探索は1回に収める。
@@ -291,8 +348,8 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
       }
     }
     for (const seed of seeds) {
-      const next = run(seed, omitNote, true);
-      if (next.a || next.b) {
+      const next = run(seed, omitNote, true, seed.length >= 5);
+      if (next && (next.a || next.b)) {
         found = next;
         break;
       }
@@ -324,8 +381,9 @@ function composeMeals(
   recent: Set<string>,
   kind: "on_hand" | "extra",
   relaxKcal = false,
+  tight = false,
 ): Ranked[] {
-  const groups = collect(recipes, listed, avoid, limit, slotName, target, omitNote, kind);
+  const groups = collect(recipes, listed, avoid, limit, slotName, target, omitNote, kind, tight);
   let mains = groups.mains;
   if (mains.length === 0) {
     mains = kind === "extra" ? groups.extraSides : [...groups.sides, ...groups.soups];
@@ -544,6 +602,7 @@ function collect(
   target: Macros,
   omitNote: string,
   kind: "on_hand" | "extra",
+  tight = false,
 ) {
   const mains: Array<{ recipeId: string; parts: MeasuredDish[] }> = [];
   const onHandMains: Array<{ recipeId: string; parts: MeasuredDish[] }> = [];
@@ -588,9 +647,9 @@ function collect(
       }
     }
   }
-  // 7品以上は副菜・汁物を広げると、1リクエストが Edge Function の CPU 2秒に近づく。
-  // 6品までは広げたまま（308件の採点はこの範囲）。
-  const wide = listed.length <= 6;
+  // 7品以上、または当たらない再探索は副菜・汁物を広げると CPU 2秒に近づく。
+  // 6品までの最初の探索は広げたまま（308件の採点はこの範囲）。
+  const wide = !tight && listed.length <= 6;
   const sideN = wide ? X_SIDES : 4;
   const soupN = wide ? X_SOUPS : 4;
   return {

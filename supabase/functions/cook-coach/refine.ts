@@ -43,14 +43,11 @@ function windowFor(item: MeasuredIngredient): Var | null {
     return grid.length > 1 ? { index: -1, min: grid[0], max: grid.at(-1)!, step: 50, grid } : null;
   }
   if (isOil(name)) {
-    // 0 にはしない（手順で油を使うため）。現実的な上限は match の分量と同じ。
+    // 炒め・焼きの油は 2〜12g。レシピが 1g でも、手順で使う油を 1g のままにしない。
     const real = realisticGramBounds(name, orig);
-    return {
-      index: -1,
-      min: Math.max(real.min, Math.min(orig, OIL_MIN)),
-      max: Math.min(real.max, Math.max(orig, OIL_MAX)),
-      step: 1,
-    };
+    const min = Math.max(real.min, OIL_MIN);
+    const max = Math.max(min, Math.min(real.max, Math.max(orig, OIL_MAX)));
+    return { index: -1, min, max, step: 1 };
   }
   if (isSeasoning(name)) {
     return null;
@@ -87,7 +84,9 @@ function rate(item: MeasuredIngredient): Macros {
 }
 
 function axis(actual: number, goal: number, ratio: number): number {
-  return (actual - goal) / Math.max(1, Math.abs(goal) * ratio);
+  // 幅の床を 1 にすると、小さい PFC は ±1g が許容内になる。±15% の外を下位の項目でひっくり返せる。
+  const width = Math.abs(goal) * ratio;
+  return (actual - goal) / Math.max(width, 1e-9);
 }
 
 function excess(x: number): number {
@@ -150,6 +149,10 @@ export function refineMeal(meal: MeasuredDish, target: Macros): MeasuredDish {
   });
   if (vars.length === 0) {
     return meal;
+  }
+  // 油の下限など、窓の外から始まる分量は探す前に窓へ入れる。
+  for (const v of vars) {
+    grams[v.index] = Math.min(v.max, Math.max(v.min, grams[v.index]));
   }
   const totals = (gs: number[]): Macros => {
     const out = { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 };

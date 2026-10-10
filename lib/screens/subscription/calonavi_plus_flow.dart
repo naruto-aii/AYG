@@ -139,6 +139,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   /// 固定しない範囲でも、これ未満は特典の縦余白だけ詰めて価格と注記をボタンより上に収める。
   static const _tightenBelow = 720.0;
 
+  /// これ以上の短い画面だけ、復元と規約を価格の下へ固定する。
+  ///
+  /// 幅 1.5 倍のテスト画面（高さ 600）は本文が約 280 で、ここへ足すと
+  /// 特典のリンクが押せなくなる。iPhone SE と iPad の横は本文が 400 を超える。
+  static const _pinLegalAt = 380.0;
+
   bool _busy = false;
   bool _loadingPrices = true;
   SubscriptionOfferings? _offerings;
@@ -550,14 +556,15 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         builder: (context, constraints) {
           final height = constraints.maxHeight;
           final pinPrices = height < _pinPricesBelow;
+          final pinLegal = pinPrices && height >= _pinLegalAt;
           final tight = height < _tightenBelow;
           final benefits = _benefitColumn(tight: tight);
           final planCards = _planCards(plans);
           final note = selectedPlan == null ? null : _priceNote(selectedPlan);
 
           if (pinPrices) {
-            // 価格と注記はボタン直上のまま。復元と規約・プライバシーは
-            // 同じ固定域に出す。長い説明は特典と一緒にスクロールする。
+            // 価格と注記はボタン直上のまま。背の低い実機では復元と規約も固定する。
+            // 長い説明は特典と一緒にスクロールする。
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -566,14 +573,16 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
                     key: const Key('plus-paywall-scroll'),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [benefits, _legalCopy()],
+                      children: [
+                        benefits,
+                        if (pinLegal) _legalCopy() else _legalFooter(),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
                 planCards,
                 ?note,
-                _legalActions(),
+                if (pinLegal) _legalActions(),
               ],
             );
           }
@@ -729,10 +738,43 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   }
 
   /// 短い画面で、価格と購入ボタンのあいだに残す操作。
+  ///
+  /// 本文が 300pt を切るテスト画面でもはみ出さないよう、ボタンの最低高は付けない。
   Widget _legalActions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [..._restoreBlock(), ..._legalLinkBlock()],
+      children: [
+        Center(
+          child: TextButton(
+            key: const Key('plus-restore'),
+            onPressed: _busy ? null : _restore,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              '購入を復元',
+              style: AppTypography.titleS.copyWith(color: AppColors.textBrand),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.xxs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _LegalLink(label: '利用規約', document: LegalDocument.terms),
+            _LegalLink(label: 'プライバシーポリシー', document: LegalDocument.privacy),
+            _LegalLink(
+              label: '特定商取引法に基づく表記',
+              document: LegalDocument.tokushoho,
+            ),
+          ],
+        ),
+      ],
     );
   }
 

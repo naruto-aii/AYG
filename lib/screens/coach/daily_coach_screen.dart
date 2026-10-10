@@ -14,7 +14,7 @@ import '../../services/daily_coach.dart';
 import '../../services/daily_coach_session.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
-import '../subscription/calonavi_plus_flow.dart';
+import '../subscription/plus_gate.dart';
 import '../weight/weight_record_screen.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_button.dart';
@@ -439,20 +439,11 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
                 if (controller == null) {
                   return;
                 }
-                controller.recordPlusFunnel(
-                  event: PlusFunnelEvent.gateTap,
-                  feature: PlusFunnelFeature.coach,
-                );
-                final custom = controller.openCalonaviPlusFlow;
-                if (custom != null) {
-                  custom(context);
-                  return;
-                }
-                showCalonaviPlus(
+                ensureCalonaviPlus(
                   context,
-                  repository: controller.subscriptionRepository,
+                  controller,
+                  message: AppStrings.coachBetaNotice,
                   feature: PlusFunnelFeature.coach,
-                  funnel: controller.plusFunnelRepository,
                 );
               },
             ),

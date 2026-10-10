@@ -90,7 +90,7 @@ class SettingsScreen extends StatelessWidget {
       );
       final openPlus = await showAppConfirmDialog(
         context: context,
-        title: 'こちらは有料の機能です',
+        title: AppStrings.plusGateTitle,
         message:
             'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
         confirmLabel: 'カロナビ+を見る',
@@ -121,7 +121,7 @@ class SettingsScreen extends StatelessWidget {
       );
       final openPlus = await showAppConfirmDialog(
         context: context,
-        title: 'こちらは有料の機能です',
+        title: AppStrings.plusGateTitle,
         message:
             AppStrings.siriVoicePaidGuidance,
         confirmLabel: 'カロナビ+を見る',
@@ -140,16 +140,6 @@ class SettingsScreen extends StatelessWidget {
     _push(context, const SiriVoiceSetupScreen());
   }
 
-  Future<void> _clearTestPurchase(BuildContext context) async {
-    await controller.subscriptionRepository.clearTestPurchase();
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('無料に戻しました')));
-  }
-
   Future<void> _openCalonaviPlus(
     BuildContext context, {
     PlusFunnelFeature? feature,
@@ -164,6 +154,7 @@ class SettingsScreen extends StatelessWidget {
       repository: controller.subscriptionRepository,
       feature: feature,
       funnel: controller.plusFunnelRepository,
+      onPlusActive: controller.syncPlusEntitlementToServer,
     );
   }
 
@@ -198,18 +189,6 @@ class SettingsScreen extends StatelessWidget {
             subtitle: email ?? 'アカウント情報の確認・変更',
             showChevron: false,
           ),
-          if (controller.subscriptionRepository.testPurchaseToggleEnabled) ...[
-            const SizedBox(height: _rowGap),
-            SettingsRow(
-              key: const Key('test-purchase-revert'),
-              icon: AppIcons.information,
-              title: 'テスト用: 無料に戻す',
-              subtitle: controller.subscriptionRepository.isPlusActive
-                  ? '今はカロナビ+です。押すとすぐに無料になります'
-                  : '今は無料です。カロナビ+の購入ボタンで有料に戻します',
-              onTap: () => _clearTestPurchase(context),
-            ),
-          ],
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.information,

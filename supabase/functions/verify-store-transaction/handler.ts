@@ -3,8 +3,10 @@
 
 import {
   decideEntitlement,
-  shouldSkipOlderExpiry,
+  settlePlusEntitlement,
+  skipsOlderEntitlement,
   type EntitlementRow,
+  type StoredEntitlement,
 } from "../_shared/store_entitlement.ts";
 
 export type VerifiedTransaction = {
@@ -12,8 +14,10 @@ export type VerifiedTransaction = {
   productId: string;
   environment: string;
   originalTransactionId: string;
+  transactionId: string;
   expiresDate: number | null;
   revocationDate: number | null;
+  upgraded: boolean;
 };
 
 export type VerifyStoreDeps = {
@@ -23,10 +27,48 @@ export type VerifyStoreDeps = {
   verify: (jws: string) => Promise<VerifiedTransaction>;
   boundUser: (originalTransactionId: string) => Promise<string | null>;
   bind: (originalTransactionId: string, userId: string, productId: string) => Promise<void>;
-  write: (row: EntitlementRow) => Promise<void>;
+  /// 読み取った行と一致するときだけ書く。食い違ったら false。
+  write: (row: EntitlementRow, expected: StoredEntitlement | null) => Promise<boolean>;
   /// 今の加入。無いときは null。古い期限で上書きしないために読む。
-  current?: (userId: string, productId: string) => Promise<{ expiresAt: string | null } | null>;
+  /// status と transactionId は、別の取引の返金・失効で新しい加入を消さないために使う。
+  current?: (
+    userId: string,
+    productId: string,
+  ) => Promise<{
+    expiresAt: string | null;
+    status?: string | null;
+    transactionId?: string | null;
+  } | null>;
+  /// 返金・取り消しされた transactionId を記録する。行の更新より先に呼ぶ。
+  rememberRevoked?: (input: {
+    userId: string;
+    productId: string;
+    transactionId: string;
+    reason: "refund" | "revoke";
+    revokedAt: Date;
+  }) => Promise<void>;
+  /// 記録済みなら true。取り消し日が無くても有料に戻さない。
+  transactionRevoked?: (input: {
+    userId: string;
+    productId: string;
+    transactionId: string;
+  }) => Promise<boolean>;
+  /// 拒否理由。JWS 本体は渡さない。
+  log?: (entry: { code: string; reason: string }) => void;
 };
+
+function logRejection(
+  deps: VerifyStoreDeps,
+  code: string,
+  reason: string,
+): void {
+  const entry = { code, reason };
+  if (deps.log) {
+    deps.log(entry);
+    return;
+  }
+  console.error("[verify-store-transaction] rejected", entry);
+}
 
 const maxTransactions = 8;
 const maxJwsLength = 32000;
@@ -74,16 +116,19 @@ export async function handleVerifyStoreTransaction(
   }
   const userId = await deps.userId(req);
   if (!userId) {
+    logRejection(deps, "unauthenticated", "missing_user");
     return json({ ok: false, code: "unauthenticated" }, 401);
   }
   let payload: unknown;
   try {
     payload = await req.json();
   } catch {
+    logRejection(deps, "invalid_transaction", "malformed_body");
     return json({ ok: false, code: "invalid_transaction" }, 400);
   }
   const signed = signedTransactionsFromBody(payload);
   if (!signed) {
+    logRejection(deps, "invalid_transaction", "malformed_jws");
     return json({ ok: false, code: "invalid_transaction" }, 400);
   }
   const now = deps.now();
@@ -93,6 +138,7 @@ export async function handleVerifyStoreTransaction(
     try {
       verified = await deps.verify(jws);
     } catch {
+      logRejection(deps, "invalid_transaction", "verify_failed");
       return json({ ok: false, code: "invalid_transaction" }, 400);
     }
     const boundUserId = await deps.boundUser(verified.originalTransactionId);
@@ -106,9 +152,12 @@ export async function handleVerifyStoreTransaction(
       boundUserId,
       expiresDate: verified.expiresDate,
       revocationDate: verified.revocationDate,
+      transactionId: verified.transactionId,
+      upgraded: verified.upgraded,
       now,
     });
     if (!decision.ok) {
+      logRejection(deps, decision.code, decision.reason);
       if (decision.code === "bound_to_other_user") {
         conflict = true;
         continue;
@@ -120,17 +169,61 @@ export async function handleVerifyStoreTransaction(
       userId,
       verified.productId,
     );
-    if (deps.current) {
-      const stored = await deps.current(userId, decision.row.product_id);
-      if (shouldSkipOlderExpiry({
-        revoked: verified.revocationDate != null,
-        currentExpiresAt: stored?.expiresAt ?? null,
-        nextExpiresAt: decision.row.expires_at,
-      })) {
-        continue;
-      }
+    const transactionId = decision.row.source_transaction_id;
+    if (transactionId && verified.revocationDate != null && deps.rememberRevoked) {
+      await deps.rememberRevoked({
+        userId,
+        productId: decision.row.product_id,
+        transactionId,
+        reason: "revoke",
+        revokedAt: new Date(verified.revocationDate),
+      });
     }
-    await deps.write(decision.row);
+    const knownRevoked = transactionId != null && deps.transactionRevoked
+      ? verified.revocationDate != null || await deps.transactionRevoked({
+        userId,
+        productId: decision.row.product_id,
+        transactionId,
+      })
+      : false;
+    if (knownRevoked) {
+      decision.row.status = "inactive";
+    }
+    await settlePlusEntitlement({
+      row: decision.row,
+      load: async () => {
+        if (!deps.current) {
+          return null;
+        }
+        const stored = await deps.current(userId, decision.row.product_id);
+        if (!stored) {
+          return null;
+        }
+        return {
+          expiresAt: stored.expiresAt,
+          status: stored.status ?? "",
+          transactionId: stored.transactionId ?? null,
+        };
+      },
+      skip: (current) => {
+        if (!deps.current) {
+          return false;
+        }
+        return skipsOlderEntitlement({
+          revoked: verified.revocationDate != null,
+          upgraded: verified.upgraded,
+          currentExpiresAt: current?.expiresAt ?? null,
+          currentStatus: current?.status ?? null,
+          currentTransactionId: current?.transactionId ?? null,
+          nextExpiresAt: decision.row.expires_at,
+          transactionExpiresAt: verified.expiresDate,
+          transactionId: verified.transactionId,
+          knownRevoked,
+          now,
+        });
+      },
+      save: (row, expected) => deps.write(row, expected),
+    });
   }
   if (conflict) {
     return json({ ok: false, code: "bound_to_other_user" }, 409);

@@ -38,6 +38,8 @@ class PublishErrorMessages {
       PublishFailureKind.invalidState => 'この食品は現在公開できません',
       PublishFailureKind.validation => '公開前の入力内容を確認してください',
       PublishFailureKind.alreadyPublic => 'すでに公開されています',
+      PublishFailureKind.bannedText =>
+        'この内容は公開できません。食品名、読み、ブランド、単位、補足、バーコード、出典を変えてください',
       PublishFailureKind.moderationBlocked => 'モデレーション状態により公開できません',
       PublishFailureKind.notAuthenticated => 'ログインが必要です',
       PublishFailureKind.network => '通信に失敗しました。時間をおいて再度お試しください',

@@ -8,6 +8,9 @@ class AppStrings {
 
   static const appTitle = 'カロナビ';
 
+  /// 限定機能の確認。ポップアップの題に「有料」とは書かない。
+  static const plusGateTitle = 'カロナビ+限定機能';
+
   /// 有料案内に出す Siri の話し方。登録できる言い方だけ。この2文だけ。
   static const siriVoiceFoodPhrase =
       '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。';
@@ -157,20 +160,26 @@ class AppStrings {
   static const plusCancelHow =
       '管理と解約は、App Store のアカウント設定から行えます。アプリを消しても課金は止まりません。';
   static const plusCurrentExpiryPrefix = '現在の有効期限';
-  static const loginLegalAgreement = 'ログインにより、利用規約とプライバシーポリシーに同意したものとします。';
+  /// ログイン画面の予告。同意そのものは次の画面で取る。
+  static const loginTermsNextMultiline =
+      'ログインのあと、利用規約とプライバシーポリシーに\n同意してから使い始めます。';
 
-  /// ログイン画面の同意文言（Figma のとおり2行で固定表示）。
-  /// 端末ごとに折り返し位置が変わらないよう、改行位置を明示する。
-  static const loginLegalAgreementMultiline =
-      'ログインにより、利用規約とプライバシーポリシーに\n同意したものとします。';
+  static const termsConsentTitle = '利用規約とプライバシーポリシー';
+  static const termsConsentLead =
+      'はじめる前に、利用規約とプライバシーポリシーへの同意が必要です。';
 
-  /// ログイン画面の同意に足す一文。チェックボックスは増やさない。
-  static const loginAiDisclosure =
-      '写真で登録などのAI機能では、入力した内容を推定のためAnthropic, PBC（米国）に送ります。';
+  /// オーナー指定の一文。AIだけの同意画面は作らない。
+  static const termsConsentAi = 'AI機能では入力内容をAnthropic, PBC（米国）に送ります。';
 
-  /// 折り返し位置が端末で変わらないよう、改行位置を明示する。
-  static const loginAiDisclosureMultiline =
-      '写真で登録などのAI機能では、入力した内容を\n推定のためAnthropic, PBC（米国）に送ります。';
+  /// Guideline 1.2。不適切な内容と嫌がらせを認めない。
+  static const termsConsentUgc =
+      '公開される内容への不適切な投稿や、他の利用者への嫌がらせは一切認めません。';
+  static const termsConsentAgree = '同意してはじめる';
+  static const termsConsentDecline = '同意しない';
+  static const termsConsentSaveFailed =
+      '同意を保存できませんでした。通信できるときに、もう一度押してください。';
+  static const termsConsentDeclineFailed =
+      'ログイン画面に戻れませんでした。もう一度押してください。';
 
   static const displayName = 'ユーザー名';
   static const displayNameHint = '表示する名前';

@@ -94,7 +94,7 @@ class ExternalTransmissionScreen extends StatelessWidget {
           _SendRow(
             what: '操作の記録、端末の機種と版、ランダムな番号',
             who: 'Supabase, Inc.（データの保管を委託。保存先はシンガポール）',
-            why: '使いにくい所を見つけて直すため、有料機能の設計のため',
+            why: '使いにくい所を見つけて直すため、カロナビ+の設計のため',
           ),
           _SendRow(
             what: '広告から入れたかを確かめるための一時的な札',

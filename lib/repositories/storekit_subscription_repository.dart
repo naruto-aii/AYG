@@ -106,7 +106,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     Future<Map<String, int>> Function(Set<String> productIds)?
     loadFreeTrialDays,
     this.developmentPlusPreview = false,
-    this.testPurchaseEnabled = false,
   }) : _store = store,
        _purchaseClient = purchaseClient,
        _preferences = preferences,
@@ -119,12 +118,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   static const legacyPlusKey = 'calonavi_plus_active';
   static const entitlementsKey = 'calonavi_plus_entitlements_v1';
 
-  /// ストアの加入とは別キー。フラグの無いビルドは読まない。
-  static const testPlusKey = 'calonavi_plus_test_override';
-
-  /// テスト加入の期限。本番の期限キーには書かない。
-  static final testPurchaseExpiry = DateTime.utc(2099, 1, 1);
-
   final InAppPurchase? _store;
   final StorePurchaseClient? _purchaseClient;
   final SharedPreferences? _preferences;
@@ -136,12 +129,9 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   _loadFreeTrialDays;
   final DateTime Function() _clock;
 
-  /// 開発用ビルドで、購入せずに有料画面を見る。ストアの購入結果は上書きしない。
-  /// テスト購入フラグがあるときは false にして、購入ボタンと無料化で切り替える。
+  /// debug / profile で、購入せずに有料画面を見る。ストアの購入結果は上書きしない。
+  /// release では false。
   final bool developmentPlusPreview;
-
-  /// 実機テスト用。true のとき購入ボタンは StoreKit を開かず、即時に有料へする。
-  final bool testPurchaseEnabled;
 
   final StreamController<bool> _plusController =
       StreamController<bool>.broadcast();
@@ -155,16 +145,8 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Timer? _expiryTimer;
   bool _plus = false;
-  bool _testPlus = false;
-  bool _testOverridePresent = false;
-
-  /// サーバの有料に合わせて一時的に有料にしたとき、その相手のユーザー。
-  /// 別のアカウントに切り替えたりログアウトしたら外す。
-  String? _testPlusAdoptedFor;
-  bool _testPlusAdopted = false;
   bool _productsConfirmed = false;
   bool _authoritative = false;
-  bool _suppressAuthoritativeSweep = false;
   String? _applicationUserName;
   String? _originalTransactionId;
   final Map<String, String> _signedByProduct = {};
@@ -182,9 +164,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   void bindStoreAccountToken(String? userId) {
     final trimmed = userId?.trim().toLowerCase();
     _applicationUserName = trimmed == null || trimmed.isEmpty ? null : trimmed;
-    if (_testPlusAdopted && _applicationUserName != _testPlusAdoptedFor) {
-      forgetServerPlusForTest();
-    }
   }
 
   @override
@@ -196,7 +175,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
           expiresAt: _entitlement.expiryByProduct[id],
           signedTransaction: _signedByProduct[id],
         ),
-    ?_testConfirmed,
   ];
 
   @override
@@ -218,42 +196,16 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
           signedTransaction: entry.value,
           revoked: true,
         ),
-    ?_testInactive,
   ];
 
-  SubscriptionEntitlementRecord? get _testConfirmed {
-    if (!testPurchaseEnabled || !_testPlus) {
-      return null;
-    }
-    return SubscriptionEntitlementRecord(
-      productId: SubscriptionCatalog.testPurchaseProductId,
-      expiresAt: testPurchaseExpiry,
-    );
-  }
-
-  SubscriptionEntitlementRecord? get _testInactive {
-    if (!testPurchaseEnabled || !_testOverridePresent || _testPlus) {
-      return null;
-    }
-    return const SubscriptionEntitlementRecord(
-      productId: SubscriptionCatalog.testPurchaseProductId,
-      expiresAt: null,
-    );
-  }
-
   @override
-  bool get entitlementAuthoritative =>
-      _suppressAuthoritativeSweep ? false : _authoritative;
+  bool get entitlementAuthoritative => _authoritative;
 
   @override
   Stream<void> get entitlementChanges => _entitlementSignals.stream;
 
   @override
-  bool get testPurchaseToggleEnabled => testPurchaseEnabled;
-
-  @override
-  bool get isPlusActive =>
-      _plus || developmentPlusPreview || (testPurchaseEnabled && _testPlus);
+  bool get isPlusActive => _plus || developmentPlusPreview;
 
   @override
   Stream<bool> get plusChanges => _plusController.stream;
@@ -288,11 +240,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       _confirmedIds.clear();
     }
     _plus = _entitlement.isActive(_clock());
-    if (testPurchaseEnabled) {
-      final stored = prefs.getBool(testPlusKey);
-      _testOverridePresent = stored != null;
-      _testPlus = stored ?? false;
-    }
     _purchaseSubscription ??= _updates.listen(_onPurchases);
     try {
       await _refreshEntitlement();
@@ -324,9 +271,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   @override
   Future<SubscriptionOfferings> loadOfferings() async {
-    if (testPurchaseEnabled) {
-      return SubscriptionOfferings.failed;
-    }
     final store = _purchases ?? _InAppPurchaseClient(InAppPurchase.instance);
     try {
       final available = await store.isAvailable();
@@ -371,6 +315,39 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   }
 
   @override
+  Future<void> recoverMissingSignedTransactions({
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    if (!_storePlusMissingJws()) {
+      return;
+    }
+    final started = DateTime.now();
+    try {
+      await restore().timeout(timeout);
+    } catch (_) {}
+    while (_storePlusMissingJws() &&
+        DateTime.now().difference(started) < timeout) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  /// 期限キャッシュや Transaction.all で有料だが、サーバへ送る JWS が無い。
+  bool _storePlusMissingJws() {
+    if (!_plus) {
+      return false;
+    }
+    for (final record in confirmedEntitlements) {
+      if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
+        continue;
+      }
+      if ((record.signedTransaction ?? '').trim().isNotEmpty) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
   Future<void> refreshEntitlement() async {
     try {
       await _refreshEntitlement();
@@ -391,75 +368,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
 
   @override
   Future<void> purchasePlan(PlusPlan plan) {
-    if (testPurchaseEnabled) {
-      return _setTestPlus(true);
-    }
     return _buy(SubscriptionCatalog.productIdFor(plan));
-  }
-
-  @override
-  Future<void> clearTestPurchase() async {
-    if (!testPurchaseEnabled || !_testPlus) {
-      return;
-    }
-    await _setTestPlus(false);
-  }
-
-  @override
-  void adoptServerPlusForTest(bool serverPlus) {
-    // 入れ直した直後は切替の記録が無い。サーバが有料ならそれに合わせる。
-    // 端末には書かない（押したときだけ書く）。ストアの加入行にも触れない。
-    if (!testPurchaseEnabled ||
-        _testOverridePresent ||
-        !serverPlus ||
-        _testPlus) {
-      return;
-    }
-    _testPlus = true;
-    _testPlusAdopted = true;
-    _testPlusAdoptedFor = _applicationUserName;
-    _emitPlus();
-  }
-
-  @override
-  void forgetServerPlusForTest() {
-    if (!_testPlusAdopted) {
-      return;
-    }
-    _testPlusAdopted = false;
-    _testPlusAdoptedFor = null;
-    if (_testOverridePresent) {
-      return;
-    }
-    _testPlus = false;
-    _emitPlus();
-  }
-
-  Future<void> _setTestPlus(bool active) async {
-    _testPlusAdopted = false;
-    _testPlusAdoptedFor = null;
-    _testPlus = active;
-    _testOverridePresent = true;
-    final prefs = await _prefs();
-    await prefs.setBool(testPlusKey, active);
-    _emitPlus();
-    if (_entitlementSignals.isClosed) {
-      return;
-    }
-    // テスト切替では、ストアが空でも本物の加入行を消さない。
-    // 通知は次のマイクロタスクで届くので、フラグはその後に戻す。
-    _suppressAuthoritativeSweep = true;
-    _entitlementSignals.add(null);
-    scheduleMicrotask(() {
-      _suppressAuthoritativeSweep = false;
-    });
-  }
-
-  void _emitPlus() {
-    if (_plusController.isClosed) {
-      return;
-    }
-    _plusController.add(isPlusActive);
   }
 
   Future<void> _buy(String productId) async {
@@ -525,17 +434,16 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       }
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        final revoked =
-            parseStoreRevocationDate(
-              purchase.verificationData.localVerificationData,
-            ) !=
-            null;
+        final payload = purchase.verificationData.localVerificationData;
+        final revoked = parseStoreRevocationDate(payload) != null;
+        final upgraded = parseStoreTransactionUpgraded(payload);
         _applyIncoming(
           SubscriptionEntitlementRecord(
             productId: purchase.productID,
             expiresAt: _expiryOf(purchase),
             signedTransaction: purchase.verificationData.serverVerificationData,
             revoked: revoked,
+            upgraded: upgraded,
           ),
         );
         emitStoreKitPurchaseResult(
@@ -703,17 +611,18 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     });
   }
 
-  /// 古い更新が後から来ても、期限も署名も戻さない。取り消しが今の期限より遅ければ無効にする。
+  /// 古い更新が後から来ても、期限も署名も戻さない。
+  /// 返金とアップグレードは、今持っている期限と同じ取引のときだけ無効にする。
   void _applyIncoming(SubscriptionEntitlementRecord record) {
     if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
       return;
     }
     final signed = record.signedTransaction?.trim() ?? '';
     final current = _entitlement.expiryByProduct[record.productId];
-    if (record.revoked) {
+    if (record.revoked || record.upgraded) {
       if (current != null &&
           record.expiresAt != null &&
-          record.expiresAt!.isBefore(current)) {
+          !record.expiresAt!.isAtSameMomentAs(current)) {
         return;
       }
       if (signed.isNotEmpty) {
@@ -731,6 +640,10 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     if (record.expiresAt != null &&
         current != null &&
         !record.expiresAt!.isAfter(current)) {
+      // 期限も、すでにある署名も戻さない。署名が空のときだけ補う。
+      if ((_signedByProduct[record.productId] ?? '').isEmpty) {
+        _rememberSigned(record.productId, signed);
+      }
       return;
     }
     _revocationSigned.remove(record.productId);
@@ -767,11 +680,11 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   }
 
   /// [SK2Transaction.transactions] は Transaction.all。並びは保証されない。
-  /// 商品ごとに、取り消されていない取引のうち期限が最も遅いものだけを送る。
+  /// 商品ごとに、今有効な取引（取り消されておらず、isUpgraded でもないもの）だけを送る。
   ///
   /// Transaction.currentEntitlements は in_app_purchase_storekit 0.4.13 では
   /// restorePurchases の中だけで使われ、読み取り専用の API は無い。
-  /// ここでは Transaction.all から同じ選び方（最新の有効期限、返金は除外）をする。
+  /// ここでは Transaction.all から同じ選び方をする。
   /// 課金猶予（期限は過ぎているが currentEntitlements に残る）は、ここで判定しない。
   Future<EntitlementLoad> _loadStoreEntitlements() async {
     if (kIsWeb ||
@@ -791,6 +704,9 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
               revoked:
                   parseStoreRevocationDate(transaction.jsonRepresentation) !=
                   null,
+              upgraded: parseStoreTransactionUpgraded(
+                transaction.jsonRepresentation,
+              ),
             ),
         ],
         authoritative: true,
@@ -824,6 +740,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   /// in_app_purchase_storekit 0.4.13 の StoreKit 2 商品はお試しオファーを返さない。
   /// 商品情報（SKProduct.introductoryPrice）から「無料」のお試しだけを読み、
   /// StoreKit 2 の isEligibleForIntroOffer で使える人だけに出す。
+  /// 無料トライアルは Apple が Apple ID ごとに1回だけ付ける。ここでは2回目を作らない。
   /// どちらかが失敗したら、その商品は価格だけの表示にする。
   Future<Map<String, int>> _loadStoreFreeTrialDays(Set<String> ids) async {
     if (kIsWeb ||

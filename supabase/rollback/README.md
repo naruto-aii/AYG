@@ -1,6 +1,27 @@
 # ロールバック
 
-新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
+新しいものほど上に書く。本番への適用は手動。
+
+## 20261010143000 と 20261010045607（禁止語）の戻し順
+
+本番には適用していない。食品の行は消えない。両方適用したあとに全部戻すときは、この順だけ。
+
+1. `supabase/rollback/20261010143000_order_banned_public_food_trigger_down.sql`
+2. `supabase/rollback/20261010045607_reject_banned_public_food_text_down.sql`
+
+1 はトリガー名を戻し、禁止語の関数は残す。2 はトリガーと schema `moderation` の関数を消す。2 を先に流すと関数が先に消え、1 がトリガーを作れずに失敗する。1 だけ流すと、禁止語の判定は残る。
+
+## 20261010143000 order banned public food trigger
+
+本番には適用していない。禁止語のトリガーを、読みの生成のあとへ移す。食品の行は消えない。
+
+`supabase/rollback/20261010143000_order_banned_public_food_trigger_down.sql`
+
+## 20261010045607 reject banned public food text
+
+本番には適用していない。公開・限定公開の食品の禁止語トリガーと、schema `moderation` の関数を消す。食品の行は消えない。`20261010143000` を適用しているときは、その down のあとで流す。
+
+`supabase/rollback/20261010045607_reject_banned_public_food_text_down.sql`
 
 ## 20261008210000 ai data consent
 

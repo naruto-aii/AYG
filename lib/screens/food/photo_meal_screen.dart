@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart' show Symbols;
 import '../../constants/app_strings.dart';
 import '../../services/photo_meal.dart';
 import '../../services/photo_meal_client.dart';
+import '../../repositories/plus_funnel_repository.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -18,6 +19,7 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
+import '../subscription/plus_gate.dart';
 import 'photo_meal_confirm_screen.dart';
 
 /// カメラかカメラロールから JPEG を渡す。テストは差し替える。
@@ -32,6 +34,9 @@ class ImagePickerMealPhotoSource implements MealPhotoSource {
 
   final ImagePicker _picker;
 
+  /// カメラロールは iOS 14 以降の PHPicker（シート）。requestFullMetadata は
+  /// false なので、iPad でポップオーバー起点が要る UIImagePicker の
+  /// 写真ライブラリは使わない。カメラはプラグインが全画面で出す。
   Future<Uint8List?> _pick(ImageSource source) async {
     final file = await _picker.pickImage(
       source: source,
@@ -167,6 +172,18 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
         Navigator.of(context).pop(true);
       }
     } on PhotoMealFailure catch (error) {
+      if (error.plusRequired) {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _busy = false);
+        await promptServerPlusRejected(
+          context,
+          widget.controller,
+          feature: PlusFunnelFeature.photoMeal,
+        );
+        return;
+      }
       _message(error.message);
     } catch (error) {
       debugPrint('[AYG] photo meal analyze failed: $error');
@@ -207,10 +224,7 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
             MealPhotoPreview(jpeg: jpeg)
           else
             DesignCard(
-              child: Text(
-                '写真を1枚選んでください。',
-                style: AppTypography.bodyM,
-              ),
+              child: Text('写真を1枚選んでください。', style: AppTypography.bodyM),
             ),
           const SizedBox(height: AppSpacing.sm),
           DesignButton(

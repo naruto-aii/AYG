@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
+import '../layout/tablet_surface.dart';
 
 /// Figma: TabBar の 1 件分。
 class DesignTabItem {
@@ -99,12 +100,53 @@ class _DesignTabBarState extends State<DesignTabBar>
 
   @override
   Widget build(BuildContext context) {
-    final items = widget.items;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     // Figma のバーは 80pt の中にホームインジケータ領域まで含んでいる。
     // 端末側の逃げがそれより大きいときだけ足りない分を伸ばす。
     final height = DesignTabBar.barHeight + math.max(0.0, bottomInset - 34);
+    final bar = _buildBar(height);
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final window = MediaQuery.sizeOf(context);
+        final wide =
+            width.isFinite &&
+            isTabletLayout(window) &&
+            width >= 480 &&
+            width < 900 &&
+            window.height >= 700;
+        final compact = width.isFinite && isCompactTabletWindow(window);
+        // iPhone は Figma の 390pt 配置のまま。左端に寄せたまま全幅に塗る。
+        if (!wide && !compact) {
+          return bar;
+        }
+        const designWidth = 390.0;
+        final scale = compact
+            ? math.min(1.0, width / designWidth)
+            : math.min(width / designWidth, 1.5);
+        return SizedBox(
+          width: width,
+          height: height * scale,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              width: designWidth * scale,
+              height: height * scale,
+              child: FittedBox(
+                fit: BoxFit.fill,
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(width: designWidth, height: height, child: bar),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBar(double height) {
+    final items = widget.items;
     return SizedBox(
       height: height,
       child: AnimatedBuilder(

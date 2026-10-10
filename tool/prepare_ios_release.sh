@@ -3,7 +3,10 @@
 #   1. tool/dart_defines.local.json の値を確かめる（値は表示しない）
 #   2. Google ログイン用の URL スキーム（GoogleSignIn.generated.xcconfig）を作る
 #   3. flutter build ios --config-only で Generated.xcconfig を作る
+#      --dart-define-from-file=tool/dart_defines.local.json は必須。外すと
+#      Generated.xcconfig から SUPABASE が消え、Apple / Google ログインが壊れる。
 # この後 Xcode で Product → Archive。
+# config-only をこのスクリプトの外で単体実行しない。
 
 set -eu
 

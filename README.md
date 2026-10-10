@@ -8,13 +8,13 @@
 tool/run_ios.sh
 ```
 
-release で実機に入れるときも同じスクリプトを使う。どちらもテスト用の有料／無料切替が付く。
+release で実機に入れるときも同じスクリプトを使う。
 
 ```bash
 tool/run_ios.sh --release
 ```
 
-App Store 提出用の Archive はこのスクリプトを通さない。切替は付かない。
+App Store 提出用の Archive は、先に `tool/prepare_ios_release.sh` を実行する。そのスクリプトが `flutter build ios --config-only` に `--dart-define-from-file=tool/dart_defines.local.json` を付ける。この指定を外して config-only を実行しない。
 
 ## ウェブサイト
 

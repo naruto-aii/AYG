@@ -3,8 +3,10 @@ import { handleAnalyzeMealPhoto } from "./analyze-meal-photo/handler.ts";
 import { handleCookCoach } from "./cook-coach/handler.ts";
 import { handleLookupFoodText } from "./lookup-food-text/handler.ts";
 import {
+  acceptedAiDataConsentVersions,
   aiDataConsentRequiredMessage,
   aiDataConsentVersion,
+  hasAiDataConsent,
 } from "./_shared/ai_data_consent.ts";
 
 function post(body: unknown): Request {
@@ -127,5 +129,51 @@ Deno.test("photo and lookup do not call the model without consent; cook needs on
   assertEquals(lookupCache, 0);
   assertEquals(cookModel, 0);
   assertEquals(cookCache, 0); // レシピが無いので、キャッシュも読まない
-  assertEquals(aiDataConsentVersion, "2026-10-08");
+  assertEquals(aiDataConsentVersion, "2026-10-10");
+  assertEquals(acceptedAiDataConsentVersions, ["2026-10-08", "2026-10-10"]);
+});
+
+Deno.test("functions accept both 2026-10-08 and 2026-10-10 consent rows", async () => {
+  const urls: string[] = [];
+  const fetchImpl = (input: string) => {
+    urls.push(input);
+    return Promise.resolve(new Response(JSON.stringify([{ user_id: "user-1" }]), { status: 200 }));
+  };
+  const args = {
+    base: "https://example.test",
+    serviceKey: "service-test",
+    userId: "user-1",
+    fetchImpl,
+  };
+  assertEquals(await hasAiDataConsent(args), true);
+  assertEquals(urls.length, 1);
+  const url = urls[0];
+  assertEquals(url.includes("2026-10-08"), true);
+  assertEquals(url.includes("2026-10-10"), true);
+  assertEquals(url.includes("policy_version=in."), true);
+  assertEquals(url.includes("policy_version=eq."), false);
+
+  assertEquals(
+    await hasAiDataConsent({
+      ...args,
+      fetchImpl: () => Promise.resolve(new Response("[]", { status: 200 })),
+    }),
+    false,
+  );
+  // 行があれば版は問い合わせ側で両方に絞ってある。どちらの版の行でも送る。
+  for (const version of acceptedAiDataConsentVersions) {
+    assertEquals(
+      await hasAiDataConsent({
+        ...args,
+        fetchImpl: () =>
+          Promise.resolve(
+            new Response(JSON.stringify([{ user_id: "user-1", policy_version: version }]), {
+              status: 200,
+            }),
+          ),
+      }),
+      true,
+      version,
+    );
+  }
 });

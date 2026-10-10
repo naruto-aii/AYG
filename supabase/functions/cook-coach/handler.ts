@@ -76,7 +76,7 @@ export function cookCacheMaterial(input: {
   recent?: string[];
 }): string {
   return JSON.stringify({
-    v: 6,
+    v: 9,
     ingredients: [...input.ingredients].map((item) => item.trim()).filter((item) => item.length > 0).sort(),
     slot: input.slot,
     kcal: Math.round(input.targetKcal / 10) * 10,

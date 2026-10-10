@@ -206,7 +206,7 @@ void main() {
     );
     await tester.tap(find.text('メモ'));
     await tester.pumpAndSettle();
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     await tester.enterText(find.byType(TextField), '少し多かったから明日は150');
     await tester.pumpAndSettle();
     final bytes = await tester.runAsync(

@@ -165,7 +165,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsNothing);
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
     expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
     expect(find.text('カロナビ+を見る'), findsOneWidget);
     expect(find.text('2回目以降はカロナビ+です。'), findsNothing);

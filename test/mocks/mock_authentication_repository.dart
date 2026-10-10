@@ -26,6 +26,9 @@ class MockAuthenticationRepository extends AuthenticationRepository {
   bool simulateAppleSignInFailure = false;
   String appleSignInFailureMessage = 'Apple sign-in failed.';
 
+  /// 次の Apple / Google ログインで入れるユーザー。
+  String nextSignedInUserId = 'test-user-id';
+
   void setCurrentUser(AuthUser? user) {
     _currentUser = user;
     _controller.add(_currentUser);
@@ -51,8 +54,8 @@ class MockAuthenticationRepository extends AuthenticationRepository {
     if (simulateGoogleSignInFailure) {
       throw GoogleSignInFailedException(googleSignInFailureMessage);
     }
-    _currentUser = const AuthUser(
-      id: 'test-user-id',
+    _currentUser = AuthUser(
+      id: nextSignedInUserId,
       email: 'test@example.com',
     );
     _controller.add(_currentUser);
@@ -67,8 +70,8 @@ class MockAuthenticationRepository extends AuthenticationRepository {
     if (simulateAppleSignInFailure) {
       throw AppleSignInFailedException(appleSignInFailureMessage);
     }
-    _currentUser = const AuthUser(
-      id: 'test-user-id',
+    _currentUser = AuthUser(
+      id: nextSignedInUserId,
       email: 'test@example.com',
     );
     _controller.add(_currentUser);

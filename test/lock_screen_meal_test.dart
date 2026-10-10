@@ -603,7 +603,7 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
     expect(
       find.text(
         'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
@@ -661,7 +661,7 @@ void main() {
     await tester.tap(find.text('音声登録 (β)'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
     expect(find.textContaining('カロナビ+で使えます'), findsNothing);
     expect(
       find.textContaining(
@@ -681,7 +681,7 @@ void main() {
     await tester.tap(find.text('カロナビ+を見る'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     await _openMoreFeatures(tester);
     expect(
       find.textContaining(
@@ -705,7 +705,7 @@ void main() {
     await auth.dispose();
   });
 
-  testWidgets('a paid account reads the voice note without the unpaid dialog', (
+  testWidgets('a leftover paid flag still confirms before the paywall', (
     tester,
   ) async {
     final gateway = _MemoryGateway()..paid = true;
@@ -729,11 +729,60 @@ void main() {
         ),
       ),
     );
+    await tester.scrollUntilVisible(find.text('ウィジェット'), 200);
+    await tester.tap(find.text('ウィジェット'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
+    await tester.pumpAndSettle();
+    expect(find.text('購入を復元'), findsOneWidget);
+    expect(find.text('ホーム画面'), findsNothing);
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
     await tester.tap(find.text('音声登録 (β)'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
+    await tester.pumpAndSettle();
+    expect(find.text('購入を復元'), findsOneWidget);
+    expect(find.text('ショートカットを開く'), findsNothing);
+    await auth.dispose();
+  });
+
+  testWidgets('a paid account reads the voice note without the unpaid dialog', (
+    tester,
+  ) async {
+    final gateway = _MemoryGateway()..paid = true;
+    final auth = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+    );
+    final controller = AppController(
+      authenticationRepository: auth,
+      lockScreenMealGateway: gateway,
+      subscriptionRepository: _PreviewPlus(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(
+          controller: controller,
+          authenticationRepository: auth,
+          hideHealthSettings: true,
+          showLockScreenMeal: true,
+          supportEmail: '',
+        ),
+      ),
+    );
+    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
+    await tester.tap(find.text('音声登録 (β)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
     expect(find.text('使い始める前'), findsOneWidget);
@@ -804,7 +853,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(gateway.paid, isTrue);
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
     expect(find.text('使い始める前'), findsOneWidget);
@@ -817,7 +866,7 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ウィジェットの置き方'), findsWidgets);
     expect(find.textContaining('自動では付きません'), findsWidgets);
@@ -834,6 +883,7 @@ void main() {
     final controller = AppController(
       authenticationRepository: auth,
       lockScreenMealGateway: gateway,
+      subscriptionRepository: _PreviewPlus(),
     );
 
     await tester.pumpWidget(
@@ -852,7 +902,7 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('こちらは有料の機能です'), findsNothing);
+    expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.textContaining('元のテンプレートは変わらず'), findsOneWidget);
     expect(find.text('ホーム画面'), findsWidgets);
     expect(find.text('ロック画面'), findsWidgets);

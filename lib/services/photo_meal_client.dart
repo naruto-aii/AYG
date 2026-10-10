@@ -9,9 +9,19 @@ import 'photo_meal.dart';
 import 'plus_gate_retry.dart';
 
 class PhotoMealFailure implements Exception {
-  const PhotoMealFailure(this.message);
+  const PhotoMealFailure(this.message, {this.plusRequired = false});
 
   final String message;
+
+  /// サーバが `not_plus`。行き止まりの文面だけを出さず、確認から課金画面へ進む。
+  final bool plusRequired;
+}
+
+PhotoMealFailure photoMealFailureFromBody(Object? body) {
+  return PhotoMealFailure(
+    photoMealMessageFromBody(body),
+    plusRequired: PlusGateRetry.isNotPlus(body),
+  );
 }
 
 const photoMealFallbackMessage =
@@ -71,7 +81,7 @@ class PhotoMealClient {
             return response.data;
           });
         } on FunctionException catch (error) {
-          throw PhotoMealFailure(photoMealMessageFromBody(error.details));
+          throw photoMealFailureFromBody(error.details);
         }
       },
     );
@@ -98,7 +108,7 @@ class PhotoMealClient {
       throw const PhotoMealFailure(photoMealFallbackMessage);
     }
     if (data is Map && data['ok'] == false) {
-      throw PhotoMealFailure(photoMealMessageFromBody(data));
+      throw photoMealFailureFromBody(data);
     }
     if (data is! Map || data['estimate'] is! Map) {
       throw const PhotoMealFailure(photoMealFallbackMessage);

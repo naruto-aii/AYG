@@ -23,7 +23,7 @@ void main() {
       expect(mapped.kind, PublishFailureKind.bannedText);
       expect(
         PublishErrorMessages.messageFor(mapped),
-        'この内容は公開できません。食品名、ブランド、単位、補足を変えてください',
+        'この内容は公開できません。食品名、読み、ブランド、単位、補足、バーコード、出典を変えてください',
       );
     });
 

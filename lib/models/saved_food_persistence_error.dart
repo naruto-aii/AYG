@@ -12,6 +12,7 @@ enum SavedFoodErrorCode {
   networkFailed('SAVED_FOOD_NETWORK_FAILED'),
   conflict('SAVED_FOOD_CONFLICT'),
   tableMissing('SAVED_FOOD_TABLE_MISSING'),
+  bannedText('SAVED_FOOD_BANNED_TEXT'),
   insertFailed('SAVED_FOOD_INSERT_FAILED');
 
   const SavedFoodErrorCode(this.code);
@@ -33,6 +34,8 @@ enum SavedFoodErrorCode {
       SavedFoodErrorCode.conflict =>
         '同じ内容の公開食品がすでに登録されています。非公開で保存するか、食品名・基準量・単位を変えてお試しください。',
       SavedFoodErrorCode.tableMissing => '食品保存機能は現在利用できません。しばらく待ってからお試しください。',
+      SavedFoodErrorCode.bannedText =>
+        'この内容は公開できません。食品名、読み、ブランド、単位、補足、バーコード、出典を変えてください',
       SavedFoodErrorCode.insertFailed => '食品の保存に失敗しました。しばらく待ってからお試しください。',
     };
   }
@@ -112,6 +115,8 @@ class SavedFoodPersistenceException implements Exception {
         error.code == 'PGRST205' ||
         combined.contains('does not exist')) {
       errorCode = SavedFoodErrorCode.tableMissing;
+    } else if (combined.contains('banned public food text')) {
+      errorCode = SavedFoodErrorCode.bannedText;
     } else if (error.code == '23514' ||
         combined.contains('check constraint') ||
         combined.contains('base_amount') ||
@@ -147,6 +152,9 @@ class SavedFoodPersistenceException implements Exception {
       FoodMasterConflictException() => SavedFoodErrorCode.conflict,
       FoodMasterTableMissingException() => SavedFoodErrorCode.tableMissing,
       FoodMasterNetworkException() => SavedFoodErrorCode.networkFailed,
+      PublishSavedFoodException(:final kind)
+          when kind == PublishFailureKind.bannedText =>
+        SavedFoodErrorCode.bannedText,
       _ => SavedFoodErrorCode.insertFailed,
     };
 

@@ -4727,6 +4727,10 @@ class AppController extends ChangeNotifier {
         error.logDebug();
         errorCode = error.errorCode;
         message = error.userMessage;
+      } else if (error is PublishSavedFoodException &&
+          error.kind == PublishFailureKind.bannedText) {
+        errorCode = SavedFoodErrorCode.bannedText;
+        message = PublishErrorMessages.messageFor(error);
       } else {
         message = userErrorMessage(error, action: 'マイ食品の保存');
         if (kDebugMode) {

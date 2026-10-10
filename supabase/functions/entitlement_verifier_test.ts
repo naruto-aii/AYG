@@ -839,3 +839,104 @@ Deno.test("verify responses stay 200, 401, 400, and 409", async () => {
   assertEquals(conflict.status, 409);
   assertEquals((await conflict.json()).code, "bound_to_other_user");
 });
+
+Deno.test("a free trial is the one period Apple signed, and the server does not grant another", async () => {
+  const trialEnd = Date.parse("2026-10-11T00:00:00.000Z");
+  const paidEnd = Date.parse("2026-11-08T00:00:00.000Z");
+  const book = ledger();
+  await applyNotice(book, {
+    notificationType: "SUBSCRIBED",
+    subtype: "INITIAL_BUY",
+    transactionId: "tx-trial",
+    expiresDate: trialEnd,
+  });
+  assertEquals(book.current(monthly)?.status, "active");
+  assertEquals(book.current(monthly)?.transactionId, "tx-trial");
+  assertEquals(book.current(monthly)?.expiresAt, "2026-10-11T00:00:00.000Z");
+  assertEquals(book.plus(), true);
+  assertEquals(book.plus(new Date("2026-10-11T00:00:00.000Z")), false);
+
+  await applyNotice(book, {
+    notificationType: "EXPIRED",
+    transactionId: "tx-trial",
+    expiresDate: trialEnd,
+  });
+  assertEquals(book.current(monthly)?.status, "expired");
+  assertEquals(book.plus(), false);
+
+  await applyNotice(book, {
+    notificationType: "DID_RENEW",
+    transactionId: "tx-paid",
+    expiresDate: paidEnd,
+  });
+  assertEquals(book.current(monthly)?.transactionId, "tx-paid");
+  assertEquals(book.current(monthly)?.expiresAt, "2026-11-08T00:00:00.000Z");
+  assertEquals(book.plus(), true);
+});
+
+Deno.test("canceling auto-renew keeps Plus until the paid period ends", async () => {
+  const paidEnd = Date.parse("2026-11-08T00:00:00.000Z");
+  const book = ledger();
+  await applyNotice(book, {
+    notificationType: "SUBSCRIBED",
+    subtype: "INITIAL_BUY",
+    transactionId: "tx-month",
+    expiresDate: paidEnd,
+  });
+  await applyNotice(book, {
+    notificationType: "DID_CHANGE_RENEWAL_STATUS",
+    subtype: "AUTO_RENEW_DISABLED",
+    transactionId: "tx-month",
+    expiresDate: paidEnd,
+  });
+  assertEquals(book.current(monthly)?.status, "active");
+  assertEquals(book.current(monthly)?.transactionId, "tx-month");
+  assertEquals(book.current(monthly)?.expiresAt, "2026-11-08T00:00:00.000Z");
+  assertEquals(book.plus(), true);
+  assertEquals(book.plus(new Date("2026-11-07T23:59:59.000Z")), true);
+  assertEquals(book.plus(new Date("2026-11-08T00:00:00.000Z")), false);
+
+  await applyNotice(book, {
+    notificationType: "EXPIRED",
+    subtype: "VOLUNTARY",
+    transactionId: "tx-month",
+    expiresDate: paidEnd,
+  });
+  assertEquals(book.current(monthly)?.status, "expired");
+  assertEquals(book.plus(), false);
+});
+
+Deno.test("a refund of that transaction stops Plus immediately", async () => {
+  const paidEnd = Date.parse("2026-11-08T00:00:00.000Z");
+  const notice = ledger();
+  await applyNotice(notice, {
+    notificationType: "SUBSCRIBED",
+    subtype: "INITIAL_BUY",
+    transactionId: "tx-month",
+    expiresDate: paidEnd,
+  });
+  assertEquals(notice.plus(), true);
+  await applyNotice(notice, {
+    notificationType: "REFUND",
+    transactionId: "tx-month",
+    expiresDate: paidEnd,
+    revocationDate: Date.parse("2026-10-09T00:00:00.000Z"),
+  });
+  assertEquals(notice.current(monthly)?.status, "inactive");
+  assertEquals(notice.current(monthly)?.transactionId, "tx-month");
+  assertEquals(notice.plus(), false);
+
+  const app = ledger();
+  await applyVerify(app, verified({
+    transactionId: "tx-month",
+    expiresDate: paidEnd,
+  }));
+  const refund = await applyVerify(app, verified({
+    transactionId: "tx-month",
+    expiresDate: paidEnd,
+    revocationDate: Date.parse("2026-10-09T00:00:00.000Z"),
+  }));
+  assertEquals(refund.status, 200);
+  assertEquals(app.current(monthly)?.status, "inactive");
+  assertEquals(app.plus(), false);
+});

@@ -434,17 +434,16 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
       }
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        final revoked =
-            parseStoreRevocationDate(
-              purchase.verificationData.localVerificationData,
-            ) !=
-            null;
+        final payload = purchase.verificationData.localVerificationData;
+        final revoked = parseStoreRevocationDate(payload) != null;
+        final upgraded = parseStoreTransactionUpgraded(payload);
         _applyIncoming(
           SubscriptionEntitlementRecord(
             productId: purchase.productID,
             expiresAt: _expiryOf(purchase),
             signedTransaction: purchase.verificationData.serverVerificationData,
             revoked: revoked,
+            upgraded: upgraded,
           ),
         );
         emitStoreKitPurchaseResult(
@@ -612,17 +611,18 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     });
   }
 
-  /// 古い更新が後から来ても、期限も署名も戻さない。取り消しが今の期限より遅ければ無効にする。
+  /// 古い更新が後から来ても、期限も署名も戻さない。
+  /// 返金とアップグレードは、今持っている期限と同じ取引のときだけ無効にする。
   void _applyIncoming(SubscriptionEntitlementRecord record) {
     if (!SubscriptionCatalog.isPlusProduct(record.productId)) {
       return;
     }
     final signed = record.signedTransaction?.trim() ?? '';
     final current = _entitlement.expiryByProduct[record.productId];
-    if (record.revoked) {
+    if (record.revoked || record.upgraded) {
       if (current != null &&
           record.expiresAt != null &&
-          record.expiresAt!.isBefore(current)) {
+          !record.expiresAt!.isAtSameMomentAs(current)) {
         return;
       }
       if (signed.isNotEmpty) {
@@ -680,11 +680,11 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   }
 
   /// [SK2Transaction.transactions] は Transaction.all。並びは保証されない。
-  /// 商品ごとに、取り消されていない取引のうち期限が最も遅いものだけを送る。
+  /// 商品ごとに、今有効な取引（取り消されておらず、isUpgraded でもないもの）だけを送る。
   ///
   /// Transaction.currentEntitlements は in_app_purchase_storekit 0.4.13 では
   /// restorePurchases の中だけで使われ、読み取り専用の API は無い。
-  /// ここでは Transaction.all から同じ選び方（最新の有効期限、返金は除外）をする。
+  /// ここでは Transaction.all から同じ選び方をする。
   /// 課金猶予（期限は過ぎているが currentEntitlements に残る）は、ここで判定しない。
   Future<EntitlementLoad> _loadStoreEntitlements() async {
     if (kIsWeb ||
@@ -704,6 +704,9 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
               revoked:
                   parseStoreRevocationDate(transaction.jsonRepresentation) !=
                   null,
+              upgraded: parseStoreTransactionUpgraded(
+                transaction.jsonRepresentation,
+              ),
             ),
         ],
         authoritative: true,
@@ -737,6 +740,7 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
   /// in_app_purchase_storekit 0.4.13 の StoreKit 2 商品はお試しオファーを返さない。
   /// 商品情報（SKProduct.introductoryPrice）から「無料」のお試しだけを読み、
   /// StoreKit 2 の isEligibleForIntroOffer で使える人だけに出す。
+  /// 無料トライアルは Apple が Apple ID ごとに1回だけ付ける。ここでは2回目を作らない。
   /// どちらかが失敗したら、その商品は価格だけの表示にする。
   Future<Map<String, int>> _loadStoreFreeTrialDays(Set<String> ids) async {
     if (kIsWeb ||

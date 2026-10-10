@@ -176,7 +176,7 @@ void main() {
     );
     expect(
       repository.inactiveEntitlements.map((record) => record.signedTransaction),
-      contains('revoked.payload.signature'),
+      isNot(contains('revoked.payload.signature')),
     );
     await repository.dispose();
   });
@@ -378,6 +378,49 @@ void main() {
     ]);
     expect(await revoked.timeout(const Duration(seconds: 2)), isFalse);
     expect(repository.isPlusActive, isFalse);
+
+    await updates.close();
+    await repository.dispose();
+  });
+
+  test('a longer revoked transaction does not clear a different current period', () async {
+    final prefs = await prefsWith({});
+    final updates = StreamController<List<PurchaseDetails>>();
+    final repository = StoreKitSubscriptionRepository(
+      preferences: prefs,
+      purchaseUpdates: updates.stream,
+      loadEntitlements: () async =>
+          const EntitlementLoad(records: [], authoritative: false),
+      clock: () => now,
+    );
+    await repository.initialize();
+    final current = now.add(const Duration(days: 3));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${current.millisecondsSinceEpoch}',
+        serverVerificationData: 'current.payload.signature',
+      ),
+    ]);
+    await repository.plusChanges.first.timeout(const Duration(seconds: 2));
+    updates.add([
+      purchase(
+        productId: SubscriptionCatalog.monthlyProductId,
+        expirationDate: '${now.add(const Duration(days: 40)).millisecondsSinceEpoch}',
+        serverVerificationData: 'revoked.payload.signature',
+        localVerificationData: '{"revocationDate":1700000000000}',
+      ),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.isPlusActive, isTrue);
+    expect(
+      repository.confirmedEntitlements.single.signedTransaction,
+      'current.payload.signature',
+    );
+    expect(
+      repository.inactiveEntitlements.map((record) => record.signedTransaction),
+      isNot(contains('revoked.payload.signature')),
+    );
 
     await updates.close();
     await repository.dispose();

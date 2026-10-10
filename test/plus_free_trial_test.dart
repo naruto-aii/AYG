@@ -221,6 +221,26 @@ void main() {
       await repository.dispose();
     });
 
+    test('an Apple ID that is not eligible is not offered another free trial', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final repository = StoreKitSubscriptionRepository(
+        purchaseClient: _Store(),
+        preferences: prefs,
+        purchaseUpdates: const Stream<List<PurchaseDetails>>.empty(),
+        loadEntitlements: () async =>
+            const EntitlementLoad(records: [], authoritative: false),
+        loadFreeTrialDays: (ids) async => const {},
+      );
+      final offerings = await repository.loadOfferings();
+      expect(offerings.loadFailed, isFalse);
+      for (final plan in PlusPlan.values) {
+        expect(offerings.offerFor(plan)!.hasFreeTrial, isFalse);
+        expect(offerings.offerFor(plan)!.canPurchase, isTrue);
+      }
+      await repository.dispose();
+    });
+
     test('a failing trial lookup falls back to price only', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();

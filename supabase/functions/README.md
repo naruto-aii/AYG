@@ -67,7 +67,7 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 1. `20261007094059_app_events.sql` と `20261007094142_app_events_retention.sql` は本番に適用済み。アプリは `public.insert_app_events` で追加する。表への直接 INSERT は渡していない。
 2. `app-store-notifications` を配備し、App Store Connect の通知先（本番とサンドボックス、どちらもバージョン 2）を `https://vdzzusqisymtejcjnikb.supabase.co/functions/v1/app-store-notifications` にする。通知の処理に `20261008090100` と `20261008090300`（pg_cron）は要らない。
-3. 上の秘密を入れる。`APP_BUNDLE_ID` は `com.narutoaii.ayg`、`ASC_APP_APPLE_ID` は `6814054275`。ルート証明書は関数に Apple Root CA - G3 / G2 / Apple Inc Root を同梱している。`APPLE_ROOT_CA_BASE64` は追加の DER を足すときだけ。
+3. 上の秘密を入れる。`APP_BUNDLE_ID` は `com.narutoaii.ayg`、`ASC_APP_APPLE_ID` は `6814054275`。ルート証明書は関数に Apple Root CA - G3 / G2 / Apple Inc Root を同梱している。`APPLE_ROOT_CA_BASE64` は追加の DER を足すときだけ。`APPLE_SIGNED_DATA_ONLINE_CHECKS` は本番に置かない。未設定なら失効確認はオン。`false` はテスト専用。
 4. `store-analytics-setup` を 1 回だけ実行する。そのあと管理者鍵を無効化し、`ASC_ADMIN_KEY_ID` と `ASC_ADMIN_PRIVATE_KEY` を消す。
 5. pg_cron と pg_net を有効にする承認のあと、Vault に `project_url`（`https://vdzzusqisymtejcjnikb.supabase.co`）と `store_import_secret` を入れ、`20261008090100_store_import_schedule.sql` を適用する。
 6. `store-analytics-import` と `store-sales-import` を配備する。

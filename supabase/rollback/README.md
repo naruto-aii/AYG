@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。
 
+## 20261010143000 order banned public food trigger
+
+本番には適用していない。禁止語のトリガーを、読みの生成のあとへ移す。食品の行は消えない。先に戻してから `20261010045607` を戻す。
+
+`supabase/rollback/20261010143000_order_banned_public_food_trigger_down.sql`
+
 ## 20261010045607 reject banned public food text
 
 本番には適用していない。公開・限定公開の食品の禁止語トリガーと、schema `moderation` の関数を消す。食品の行は消えない。

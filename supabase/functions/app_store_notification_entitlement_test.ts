@@ -3,7 +3,6 @@ import { Environment } from "npm:@apple/app-store-server-library";
 import { handleAppStoreNotification } from "./app-store-notifications/handler.ts";
 import {
   appleRootCertificates,
-  appleSignedDataOnlineChecks,
   calonaviAppAppleId,
   calonaviBundleId,
   expectedAppAppleId,
@@ -68,7 +67,6 @@ Deno.test("signed notifications trust the Apple root chain for this bundle", () 
   const roots = appleRootCertificates();
   assertEquals(roots.length >= 3, true);
   assertEquals(roots.every((cert) => cert[0] === 0x30), true);
-  assertEquals(appleSignedDataOnlineChecks, true);
   const configuredBundle = Deno.env.get("APP_BUNDLE_ID")?.trim() ?? "";
   const configuredApp = Deno.env.get("ASC_APP_APPLE_ID")?.trim() ?? "";
   assertEquals(expectedBundleId(), configuredBundle || calonaviBundleId);
@@ -127,7 +125,11 @@ Deno.test("fixtures keep a renewing subscriber on Plus, including after the free
 });
 
 Deno.test("fixtures for expiry, billing failure, refund, revoke, and renewal status", () => {
-  assertEquals(row({ notificationType: "EXPIRED", subtype: "VOLUNTARY", expiresDate: trialEnd }).status, "expired");
+  assertEquals(row({
+    notificationType: "EXPIRED",
+    subtype: "VOLUNTARY",
+    expiresDate: Date.parse("2026-10-07T00:00:00Z"),
+  }).status, "expired");
   assertEquals(row({
     notificationType: "DID_FAIL_TO_RENEW",
     subtype: "GRACE_PERIOD",
@@ -142,12 +144,22 @@ Deno.test("fixtures for expiry, billing failure, refund, revoke, and renewal sta
   }).expires_at, "2026-10-24T00:00:00.000Z");
   assertEquals(row({
     notificationType: "DID_FAIL_TO_RENEW",
+    expiresDate: Date.parse("2026-10-07T00:00:00Z"),
+  }).status, "expired");
+  assertEquals(row({
+    notificationType: "DID_FAIL_TO_RENEW",
     expiresDate: paidEnd,
+  }).status, "active");
+  assertEquals(row({
+    notificationType: "GRACE_PERIOD_EXPIRED",
+    expiresDate: Date.parse("2026-10-01T00:00:00Z"),
+    gracePeriodExpiresDate: Date.parse("2026-10-07T00:00:00Z"),
   }).status, "expired");
   assertEquals(row({
     notificationType: "GRACE_PERIOD_EXPIRED",
-    expiresDate: graceEnd,
-  }).status, "expired");
+    expiresDate: Date.parse("2026-10-01T00:00:00Z"),
+    gracePeriodExpiresDate: Date.parse("2026-10-07T00:00:00Z"),
+  }).expires_at, "2026-10-07T00:00:00.000Z");
   assertEquals(row({
     notificationType: "REFUND",
     expiresDate: paidEnd,
@@ -165,6 +177,18 @@ Deno.test("fixtures for expiry, billing failure, refund, revoke, and renewal sta
   assertEquals(notificationSkipsOlderExpiry({
     notificationType: "EXPIRED",
     revoked: false,
+    currentExpiresAt: "2026-12-01T00:00:00.000Z",
+    nextExpiresAt: "2026-10-08T00:00:00.000Z",
+  }), true);
+  assertEquals(notificationSkipsOlderExpiry({
+    notificationType: "GRACE_PERIOD_EXPIRED",
+    revoked: false,
+    currentExpiresAt: "2026-12-01T00:00:00.000Z",
+    nextExpiresAt: "2026-10-07T00:00:00.000Z",
+  }), true);
+  assertEquals(notificationSkipsOlderExpiry({
+    notificationType: "REFUND",
+    revoked: true,
     currentExpiresAt: "2026-12-01T00:00:00.000Z",
     nextExpiresAt: "2026-10-08T00:00:00.000Z",
   }), false);
@@ -210,6 +234,18 @@ Deno.test("the original purchase row wins over appAccountToken", () => {
   });
   assertEquals(closed.deleted, true);
   assertEquals(closed.userId, null);
+
+  const unknownToken = chooseStoreUser({
+    originalUserId: null,
+    originalExists: false,
+    originalDeleted: false,
+    appAccountToken: "33333333-3333-4333-8333-333333333333",
+    tokenExists: false,
+    tokenDeleted: true,
+  });
+  assertEquals(unknownToken.userId, null);
+  assertEquals(unknownToken.deleted, false);
+  assertEquals(unknownToken.source, "none");
 });
 
 Deno.test("a duplicate notification does not apply the entitlement again", async () => {

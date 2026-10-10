@@ -21,7 +21,7 @@ exception
 end;
 $$;
 
-select plan(67);
+select plan(69);
 
 select ok(
   position(
@@ -269,14 +269,40 @@ select is(
 do $$
 begin
   perform ayg_test.set_service_role();
-  alter table public.saved_foods disable trigger reject_banned_public_food_text;
+  insert into public.saved_foods (
+    user_id, food_id, name, normalized_name, base_amount, unit_type, visibility, voice_reading
+  ) values (
+    '66666666-6666-6666-6666-666666666666',
+    'voice-replaced', 'にんじん', 'にんじん', 80, 'g', 'public', 'くそ'
+  );
+  perform ayg_test.reset_role();
+end;
+$$;
+
+select ok(
+  (select voice_reading from public.saved_foods where food_id = 'voice-replaced')
+    is distinct from 'くそ',
+  'a client banned reading is replaced from the name before the ban check'
+);
+
+select ok(
+  not moderation.text_is_banned(
+    '出典：日本食品標準成分表（八訂）増補2023年（文部科学省）を加工して作成'
+  ),
+  'the composition-table attribution is not banned'
+);
+
+do $$
+begin
+  perform ayg_test.set_service_role();
+  alter table public.saved_foods disable trigger saved_foods_reject_banned_public_text;
   insert into public.saved_foods (
     user_id, food_id, name, normalized_name, base_amount, unit_type, visibility
   ) values (
     '66666666-6666-6666-6666-666666666666',
     'legacy-banned', 'fuck', 'fuck', 50, 'g', 'public'
   );
-  alter table public.saved_foods enable trigger reject_banned_public_food_text;
+  alter table public.saved_foods enable trigger saved_foods_reject_banned_public_text;
   perform ayg_test.reset_role();
 end;
 $$;

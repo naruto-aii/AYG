@@ -168,12 +168,10 @@ export function decideNotificationEntitlement(
       expiresDate = clampToPast(input.now, grace ?? expiresDate);
       revocationDate = null;
     }
-  } else if (
-    type === "EXPIRED" ||
-    type === "GRACE_PERIOD_EXPIRED" ||
-    (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD")
-  ) {
-    expiresDate = clampToPast(input.now, expiresDate);
+  } else if (type === "GRACE_PERIOD_EXPIRED") {
+    expiresDate = input.gracePeriodExpiresDate ?? input.expiresDate;
+    revocationDate = null;
+  } else if (type === "EXPIRED" || (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD")) {
     revocationDate = null;
   } else if (type === "DID_CHANGE_RENEWAL_STATUS") {
     revocationDate = input.revocationDate;
@@ -193,7 +191,8 @@ export function decideNotificationEntitlement(
   });
 }
 
-/// 古い更新で期限を短くしない。返金・失効・猶予切れは、期限が前でも反映する。
+/// 古い更新で期限を短くしない。返金と取り消しだけは、期限が前でも権利を止める。
+/// 遅れて届いた EXPIRED や猶予切れで、その後の更新を消さない。
 export function notificationSkipsOlderExpiry(input: {
   notificationType: string;
   subtype?: string | null;
@@ -202,14 +201,7 @@ export function notificationSkipsOlderExpiry(input: {
   nextExpiresAt: string | null;
 }): boolean {
   const type = input.notificationType;
-  const subtype = input.subtype ?? "";
   if (input.revoked || type === "REFUND" || type === "REVOKE") {
-    return false;
-  }
-  if (type === "EXPIRED" || type === "GRACE_PERIOD_EXPIRED") {
-    return false;
-  }
-  if (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD") {
     return false;
   }
   return shouldSkipOlderExpiry({

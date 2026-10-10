@@ -6,8 +6,14 @@ import { appleIncRoot, appleRootCaG2, appleRootCaG3 } from "./apple_root_cas.ts"
 export const calonaviBundleId = "com.narutoaii.ayg";
 export const calonaviAppAppleId = 6814054275;
 
-/// 署名のオンライン失効確認はオン。Apple の OCSP を見る。有料 API ではない。
-export const appleSignedDataOnlineChecks = true;
+/// 本番は失効確認をオンのままにする。テストだけ `false` にして、Apple の OCSP を呼ばない。
+export function appleSignedDataOnlineChecks(): boolean {
+  const raw = Deno.env.get("APPLE_SIGNED_DATA_ONLINE_CHECKS");
+  if (raw == null || raw.trim() === "") {
+    return true;
+  }
+  return raw.trim().toLowerCase() !== "false";
+}
 
 const bundledRootCertificates = [appleRootCaG3, appleRootCaG2, appleIncRoot];
 
@@ -63,7 +69,7 @@ export function expectedAppAppleId(): number {
 export function signedDataVerifier(environment: Environment): SignedDataVerifier {
   return new SignedDataVerifier(
     appleRootCertificates(),
-    appleSignedDataOnlineChecks,
+    appleSignedDataOnlineChecks(),
     environment,
     expectedBundleId(),
     expectedAppAppleId(),

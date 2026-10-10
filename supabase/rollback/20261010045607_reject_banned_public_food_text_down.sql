@@ -2,6 +2,7 @@
 -- 公開食品の禁止語チェックが無くなる。既存の行は変えない。本番では手で流す。
 
 drop trigger if exists reject_banned_public_food_text on public.saved_foods;
+drop trigger if exists saved_foods_reject_banned_public_text on public.saved_foods;
 
 drop function if exists moderation.reject_banned_public_food_text();
 drop function if exists moderation.text_is_banned(text);

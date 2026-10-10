@@ -297,6 +297,10 @@ export function chooseStoreUser(input: {
         source: "app_account_token",
       };
     }
+    // 利用者の行がまだ無い。退会とは違うので、通知の本文は残す。
+    if (!input.tokenExists) {
+      return { userId: null, deleted: false, source: "none" };
+    }
     return { userId: null, deleted: true, source: "app_account_token" };
   }
   return { userId: null, deleted: false, source: "none" };

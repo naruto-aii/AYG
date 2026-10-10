@@ -3,7 +3,7 @@
 
 import {
   decideEntitlement,
-  shouldSkipOlderExpiry,
+  skipsOlderEntitlement,
   type EntitlementRow,
 } from "../_shared/store_entitlement.ts";
 
@@ -122,10 +122,12 @@ export async function handleVerifyStoreTransaction(
     );
     if (deps.current) {
       const stored = await deps.current(userId, decision.row.product_id);
-      if (shouldSkipOlderExpiry({
+      if (skipsOlderEntitlement({
         revoked: verified.revocationDate != null,
         currentExpiresAt: stored?.expiresAt ?? null,
         nextExpiresAt: decision.row.expires_at,
+        transactionExpiresAt: verified.expiresDate,
+        now,
       })) {
         continue;
       }

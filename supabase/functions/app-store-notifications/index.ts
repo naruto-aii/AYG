@@ -7,7 +7,7 @@ import {
 import {
   decideNotificationEntitlement,
   entitlementNotificationTypes,
-  notificationSkipsOlderExpiry,
+  skipsOlderEntitlement,
 } from "../_shared/store_entitlement.ts";
 import {
   boundStoreUser,
@@ -124,7 +124,7 @@ Deno.serve((request) =>
       const revoked = input.revocationDate != null ||
         notificationType === "REFUND" ||
         notificationType === "REVOKE";
-      if (notificationSkipsOlderExpiry({
+      if (skipsOlderEntitlement({
         notificationType,
         subtype: input.subtype,
         revoked,

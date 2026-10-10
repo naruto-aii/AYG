@@ -42,7 +42,7 @@ export function entitlementTiming(input: {
 }
 
 /// 届いた期限が今の期限より前なら、加入の行を上書きしない。
-/// 返金・取り消し（revocationDate）は、期限が前でも権利を無効にする。
+/// 返金・取り消しはここを直接使わない。skipsOlderEntitlement が期間を見る。
 export function shouldSkipOlderExpiry(input: {
   revoked: boolean;
   currentExpiresAt: string | null;
@@ -269,12 +269,12 @@ function storedPeriodOutlivesNotice(input: {
   return stored > periodEnd;
 }
 
-/// 古い更新で期限を短くしない。
+/// 古い更新で期限を短くしない。verify-store-transaction と通知の両方がこれを使う。
 /// EXPIRED、猶予切れ、猶予なしの更新失敗は、今の加入がその通知の期間より新しいときだけ飛ばす。
 /// 返金と取り消しは、その取引より先の加入が残っているときだけ飛ばす。
 /// 同じ期間の返金と、猶予日そのものまで延ばした加入は無効にする。
-export function notificationSkipsOlderExpiry(input: {
-  notificationType: string;
+export function skipsOlderEntitlement(input: {
+  notificationType?: string | null;
   subtype?: string | null;
   revoked: boolean;
   currentExpiresAt: string | null;
@@ -284,7 +284,7 @@ export function notificationSkipsOlderExpiry(input: {
   gracePeriodExpiresAt?: string | number | null;
   now?: Date;
 }): boolean {
-  const type = input.notificationType;
+  const type = input.notificationType ?? "";
   const subtype = input.subtype ?? "";
   if (input.revoked || type === "REFUND" || type === "REVOKE") {
     return storedPeriodOutlivesRevocation(input);
@@ -294,11 +294,23 @@ export function notificationSkipsOlderExpiry(input: {
     type === "GRACE_PERIOD_EXPIRED" ||
     (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD")
   ) {
-    return storedPeriodOutlivesNotice(input);
+    return storedPeriodOutlivesNotice({
+      notificationType: type,
+      currentExpiresAt: input.currentExpiresAt,
+      transactionExpiresAt: input.transactionExpiresAt,
+      gracePeriodExpiresAt: input.gracePeriodExpiresAt,
+      now: input.now,
+    });
   }
   return shouldSkipOlderExpiry({
     revoked: false,
     currentExpiresAt: input.currentExpiresAt,
     nextExpiresAt: input.nextExpiresAt,
   });
+}
+
+export function notificationSkipsOlderExpiry(
+  input: Parameters<typeof skipsOlderEntitlement>[0] & { notificationType: string },
+): boolean {
+  return skipsOlderEntitlement(input);
 }

@@ -1,5 +1,11 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { decideEntitlement, shouldSkipOlderExpiry } from "./_shared/store_entitlement.ts";
+import {
+  decideEntitlement,
+  decideNotificationEntitlement,
+  notificationSkipsOlderExpiry,
+  shouldSkipOlderExpiry,
+  skipsOlderEntitlement,
+} from "./_shared/store_entitlement.ts";
 import {
   handleVerifyStoreTransaction,
   type VerifiedTransaction,
@@ -172,7 +178,7 @@ Deno.test("a later renewal replaces the stored expiry", async () => {
   assertEquals(writes[0].status, "active");
 });
 
-Deno.test("a revocation still clears a later expiry", async () => {
+Deno.test("an older revoked transaction does not clear a later paid period", async () => {
   const { deps, writes } = harness({
     verify: () => Promise.resolve(verified({
       expiresDate: Date.parse("2026-10-20T00:00:00Z"),
@@ -182,8 +188,153 @@ Deno.test("a revocation still clears a later expiry", async () => {
   });
   const response = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), deps);
   assertEquals(response.status, 200);
+  assertEquals(writes, []);
+});
+
+Deno.test("a same-period refund revokes Plus immediately", async () => {
+  const { deps, writes } = harness({
+    verify: () => Promise.resolve(verified({
+      expiresDate: future,
+      revocationDate: Date.parse("2026-10-09T00:00:00Z"),
+    })),
+    current: () => Promise.resolve({ expiresAt: "2026-11-08T00:00:00.000Z" }),
+  });
+  const response = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), deps);
+  assertEquals(response.status, 200);
   assertEquals(writes.length, 1);
   assertEquals(writes[0].status, "inactive");
+  assertEquals(writes[0].expires_at, "2026-11-08T00:00:00.000Z");
+});
+
+Deno.test("a newer signed transaction survives an older revoked one in the same request", async () => {
+  let stored: string | null = null;
+  const newer = "header.newer.payload";
+  const older = "header.older.payload";
+  const { deps, writes } = harness({
+    verify: (token) => {
+      if (token === newer) {
+        return Promise.resolve(verified({
+          expiresDate: Date.parse("2026-12-01T00:00:00Z"),
+          originalTransactionId: "200",
+        }));
+      }
+      return Promise.resolve(verified({
+        expiresDate: Date.parse("2026-11-01T00:00:00Z"),
+        revocationDate: Date.parse("2026-10-09T00:00:00Z"),
+        originalTransactionId: "100",
+      }));
+    },
+    current: () => Promise.resolve(stored == null ? null : { expiresAt: stored }),
+  });
+  const write = deps.write;
+  deps.write = (row) => {
+    stored = row.expires_at;
+    return write(row);
+  };
+  const response = await handleVerifyStoreTransaction(
+    post({ signedTransactions: [newer, older] }),
+    deps,
+  );
+  assertEquals(response.status, 200);
+  assertEquals(writes.length, 1);
+  assertEquals(writes[0].status, "active");
+  assertEquals(writes[0].expires_at, "2026-12-01T00:00:00.000Z");
+});
+
+Deno.test("verify and notifications skip the same revocation periods", () => {
+  const graceEnd = Date.parse("2026-10-24T00:00:00Z");
+  const cases = [
+    {
+      name: "older revocation keeps a later paid period",
+      stored: "2026-12-01T00:00:00.000Z",
+      expiresDate: Date.parse("2026-11-01T00:00:00Z"),
+      grace: Date.parse("2026-12-15T00:00:00Z"),
+      skip: true,
+    },
+    {
+      name: "same-period refund revokes",
+      stored: "2026-11-08T00:00:00.000Z",
+      expiresDate: future,
+      grace: null,
+      skip: false,
+    },
+    {
+      name: "stored grace date is revoked",
+      stored: "2026-10-24T00:00:00.000Z",
+      expiresDate: Date.parse("2026-10-07T00:00:00Z"),
+      grace: graceEnd,
+      skip: false,
+    },
+    {
+      name: "a past stored expiry is revoked",
+      stored: "2026-10-01T00:00:00.000Z",
+      expiresDate: Date.parse("2026-10-01T00:00:00Z"),
+      grace: null,
+      skip: false,
+    },
+  ];
+  for (const row of cases) {
+    const verifyDecision = decideEntitlement({
+      userId: user,
+      expectedBundleId: bundle,
+      bundleId: bundle,
+      productId: "calonavi_plus_monthly",
+      environment: "Production",
+      originalTransactionId: "1000001",
+      boundUserId: user,
+      expiresDate: row.expiresDate,
+      revocationDate: Date.parse("2026-10-09T00:00:00Z"),
+      now,
+    });
+    const notificationDecision = decideNotificationEntitlement({
+      notificationType: "REFUND",
+      userId: user,
+      expectedBundleId: bundle,
+      bundleId: bundle,
+      productId: "calonavi_plus_monthly",
+      environment: "Production",
+      originalTransactionId: "1000001",
+      boundUserId: user,
+      expiresDate: row.expiresDate,
+      revocationDate: Date.parse("2026-10-09T00:00:00Z"),
+      gracePeriodExpiresDate: row.grace,
+      now,
+    });
+    if (!verifyDecision.ok || !notificationDecision.ok) {
+      throw new Error(row.name);
+    }
+    const verifySkip = skipsOlderEntitlement({
+      revoked: true,
+      currentExpiresAt: row.stored,
+      nextExpiresAt: verifyDecision.row.expires_at,
+      transactionExpiresAt: row.expiresDate,
+      gracePeriodExpiresAt: row.grace,
+      now,
+    });
+    const notificationSkip = notificationSkipsOlderExpiry({
+      notificationType: "REFUND",
+      revoked: true,
+      currentExpiresAt: row.stored,
+      nextExpiresAt: notificationDecision.row.expires_at,
+      transactionExpiresAt: row.expiresDate,
+      gracePeriodExpiresAt: row.grace,
+      now,
+    });
+    const revokeSkip = notificationSkipsOlderExpiry({
+      notificationType: "REVOKE",
+      revoked: true,
+      currentExpiresAt: row.stored,
+      nextExpiresAt: notificationDecision.row.expires_at,
+      transactionExpiresAt: row.expiresDate,
+      gracePeriodExpiresAt: row.grace,
+      now,
+    });
+    assertEquals(verifySkip, notificationSkip, row.name);
+    assertEquals(verifySkip, revokeSkip, row.name);
+    assertEquals(verifySkip, row.skip, row.name);
+    assertEquals(verifyDecision.row.status, "inactive", row.name);
+    assertEquals(notificationDecision.row.status, "inactive", row.name);
+  }
 });
 
 Deno.test("decideEntitlement keeps a revoked transaction inactive", () => {

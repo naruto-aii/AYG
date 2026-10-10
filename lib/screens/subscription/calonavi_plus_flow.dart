@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../config/subscription_catalog.dart';
 import '../../constants/app_strings.dart';
@@ -145,9 +146,19 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   /// 特典のリンクが押せなくなる。iPhone SE と iPad の横は本文がこれを超える。
   static const _pinLegalAt = 380.0;
 
+  /// 価格バッジはカードの上にはみ出す。短い画面で特典がそこで切れると、
+  /// 最終行がバッジに接する。この分だけ特典の領域を短くし、価格は動かさない。
+  static const _badgeClearance = 16.0;
+
   bool _busy = false;
   bool _loadingPrices = true;
   SubscriptionOfferings? _offerings;
+
+  /// 見えている特典の行が途中で切れてバッジに接しないよう、追加で空ける量。
+  double _foldClearance = 0;
+  double? _snapHeight;
+  int? _snapPlans;
+  BuildContext? _benefitScrollContext;
 
   /// 開いたときは年額。月額か半年を押したときだけ、そのプランに変わる。
   PlusPlan _selected = PlusPlan.yearly;
@@ -171,6 +182,56 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       'purchased': _purchased,
     });
     super.dispose();
+  }
+
+  /// 短い画面で、ビューポートの下端を横切る行は丸ごと次のスクロールへ送る。
+  ///
+  /// 固定の余白だけだと、機種によって最終行の上半分がバッジの直前に残る。
+  void _scheduleFoldSnap() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final scrollContext = _benefitScrollContext;
+      if (scrollContext == null || !scrollContext.mounted) {
+        return;
+      }
+      final scroll = scrollContext.findRenderObject();
+      if (scroll is! RenderBox || !scroll.hasSize || !scroll.attached) {
+        return;
+      }
+      final viewportBottom = scroll
+          .localToGlobal(Offset(0, scroll.size.height))
+          .dy;
+      double? cutScreen;
+      var scale = 1.0;
+      void visit(RenderObject node) {
+        if (node is RenderParagraph && node.hasSize && node.size.height > 0) {
+          final top = node.localToGlobal(Offset.zero).dy;
+          final bottom = node.localToGlobal(Offset(0, node.size.height)).dy;
+          final localScale = (bottom - top) / node.size.height;
+          if (localScale.isFinite && localScale > 0) {
+            scale = localScale;
+          }
+          if (top < viewportBottom - 1 && bottom > viewportBottom + 1) {
+            if (cutScreen == null || top < cutScreen!) {
+              cutScreen = top;
+            }
+          }
+        }
+        node.visitChildren(visit);
+      }
+
+      visit(scroll);
+      if (cutScreen == null) {
+        return;
+      }
+      final extra = (viewportBottom - cutScreen!) / scale;
+      final next = (_foldClearance + extra).clamp(0.0, 48.0);
+      if (next > _foldClearance + 0.5) {
+        setState(() => _foldClearance = next);
+      }
+    });
   }
 
   void _record(PlusFunnelEvent event, {String? productId}) {
@@ -565,21 +626,33 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           if (pinPrices) {
             // 価格と注記はボタン直上のまま。背の低い実機では復元と規約も固定する。
             // 長い説明は特典と一緒にスクロールする。
+            if (_snapHeight != height || _snapPlans != plans.length) {
+              _snapHeight = height;
+              _snapPlans = plans.length;
+              _foldClearance = 0;
+            }
+            _scheduleFoldSnap();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    key: const Key('plus-paywall-scroll'),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        benefits,
-                        if (pinLegal) _legalCopy() else _legalFooter(),
-                      ],
-                    ),
+                  child: Builder(
+                    builder: (scrollContext) {
+                      _benefitScrollContext = scrollContext;
+                      return SingleChildScrollView(
+                        key: const Key('plus-paywall-scroll'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            benefits,
+                            if (pinLegal) _legalCopy() else _legalFooter(),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
+                SizedBox(height: _badgeClearance + _foldClearance),
                 planCards,
                 ?note,
                 if (pinLegal) _legalActions(),

@@ -215,6 +215,8 @@ void _expectPricesAndNote(WidgetTester tester, _Surface surface) {
     }
   }
 
+  _expectBadgeClearance(tester, surface);
+
   if (surface.keepBenefitOrder) {
     for (final title in [
       AppStrings.plusBenefitPhotoTitle,
@@ -227,6 +229,44 @@ void _expectPricesAndNote(WidgetTester tester, _Surface surface) {
       expect(rect.bottom, lessThan(plans.top), reason: title);
       expect(rect.bottom, lessThan(button.top), reason: title);
     }
+  }
+}
+
+/// 見えている特典の行が、価格バッジの 8pt 以内に入らないこと。
+void _expectBadgeClearance(WidgetTester tester, _Surface surface) {
+  final badgeTops = [
+    tester.getRect(find.text('一番お得')).top,
+    tester.getRect(find.text('1か月分お得')).top,
+  ];
+  final badgeTop = badgeTops.reduce((a, b) => a < b ? a : b);
+  final scroll = tester.getRect(find.byKey(const Key('plus-paywall-scroll')));
+  const lines = [
+    AppStrings.plusHeroSubtitle,
+    AppStrings.plusBenefitPhotoTitle,
+    AppStrings.plusHeroPhotoBody,
+    AppStrings.plusBenefitAiSearchTitle,
+    AppStrings.plusHeroAiSearchBody,
+    AppStrings.plusBenefitCoachTitle,
+    AppStrings.plusHeroCoachBody,
+    AppStrings.plusBenefitWidgetTitle,
+    AppStrings.plusHeroWidgetBody,
+    AppStrings.plusMoreFeaturesLink,
+  ];
+  for (final line in lines) {
+    final finder = find.text(line);
+    if (finder.evaluate().isEmpty) {
+      continue;
+    }
+    final rect = tester.getRect(finder);
+    final visible = rect.intersect(scroll);
+    if (visible.height < 1 || visible.width < 1) {
+      continue;
+    }
+    expect(
+      badgeTop - visible.bottom,
+      greaterThanOrEqualTo(8),
+      reason: '${surface.name} $line',
+    );
   }
 }
 

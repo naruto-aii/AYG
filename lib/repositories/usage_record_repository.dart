@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,39 @@ import 'package:uuid/uuid.dart';
 import '../services/subscription_entitlement.dart';
 import '../services/usage_record.dart';
 import 'persistent_event_outbox.dart';
+
+/// `verify-store-transaction` の結果。ウィジェットは accepted のときだけ開く。
+enum StoreVerifyOutcome {
+  /// 署名が通り、このアカウントの加入を書いた。
+  accepted,
+
+  /// 同じ購入が別のアカウントに付いている。
+  boundToOtherAccount,
+
+  /// 署名が通らなかった、または通信に失敗した。
+  rejected,
+
+  /// 送る署名が無い、または未ログイン。
+  notSent,
+}
+
+/// FunctionException の本文から `code` を読む。JWS は見ない。
+String? storeVerifyErrorCode(Object? details) {
+  if (details is Map) {
+    final code = details['code'];
+    if (code is String && code.isNotEmpty) {
+      return code;
+    }
+  }
+  if (details is String && details.trim().isNotEmpty) {
+    try {
+      return storeVerifyErrorCode(jsonDecode(details));
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
 
 /// 用途別の利用記録。失敗しても食事の保存や購入判定は止めない。
 abstract class UsageRecordRepository {
@@ -31,7 +65,10 @@ abstract class UsageRecordRepository {
     String? eventId,
   });
 
-  Future<void> syncPlusEntitlements({
+  /// サーバへ購入を送るか。無い実装は端末の有料表示のままにする。
+  bool get syncsStoreEntitlements => true;
+
+  Future<StoreVerifyOutcome> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
@@ -69,12 +106,17 @@ class NoOpUsageRecordRepository implements UsageRecordRepository {
   }) async {}
 
   @override
-  Future<void> syncPlusEntitlements({
+  bool get syncsStoreEntitlements => false;
+
+  @override
+  Future<StoreVerifyOutcome> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
     DateTime? now,
-  }) async {}
+  }) async {
+    return StoreVerifyOutcome.notSent;
+  }
 
   @override
   Future<void> flushPending() async {}
@@ -108,7 +150,7 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   insertRow;
   final Future<void> Function(String table, Map<String, dynamic> row)?
   upsertRow;
-  final Future<void> Function(List<String> signedTransactions)?
+  final Future<StoreVerifyOutcome> Function(List<String> signedTransactions)?
   verifyStoreTransactions;
   final PersistentEventOutbox _outbox;
   final Map<String, Timer> _foodTimers = {};
@@ -117,6 +159,9 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   final Map<String, _PendingSearch> _exercisePending = {};
 
   SupabaseClient get _supabase => _client ?? Supabase.instance.client;
+
+  @override
+  bool get syncsStoreEntitlements => true;
 
   String? _userId() {
     final override = currentUserId;
@@ -340,7 +385,7 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   }
 
   @override
-  Future<void> syncPlusEntitlements({
+  Future<StoreVerifyOutcome> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
@@ -353,29 +398,35 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
           record.signedTransaction!.trim(),
     };
     if (signed.isEmpty) {
-      return;
+      return StoreVerifyOutcome.notSent;
     }
     final userId = _userId();
     if (userId == null || userId.isEmpty) {
-      return;
+      return StoreVerifyOutcome.notSent;
     }
     try {
-      await _verifyStoreTransactions(signed.toList());
+      final hook = verifyStoreTransactions;
+      if (hook != null) {
+        return await hook(signed.toList());
+      }
+      await _supabase.functions.invoke(
+        'verify-store-transaction',
+        body: {'signedTransactions': signed.toList()},
+      );
+      return StoreVerifyOutcome.accepted;
+    } on FunctionException catch (error, stackTrace) {
+      debugPrint('[AYG] plus entitlement verify failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      final code = storeVerifyErrorCode(error.details);
+      if (error.status == 409 || code == 'bound_to_other_user') {
+        return StoreVerifyOutcome.boundToOtherAccount;
+      }
+      return StoreVerifyOutcome.rejected;
     } catch (error, stackTrace) {
       debugPrint('[AYG] plus entitlement verify failed: $error');
       debugPrintStack(stackTrace: stackTrace);
+      return StoreVerifyOutcome.rejected;
     }
-  }
-
-  Future<void> _verifyStoreTransactions(List<String> signedTransactions) {
-    final hook = verifyStoreTransactions;
-    if (hook != null) {
-      return hook(signedTransactions);
-    }
-    return _supabase.functions.invoke(
-      'verify-store-transaction',
-      body: {'signedTransactions': signedTransactions},
-    );
   }
 
   Future<bool> _deliverQueued(Map<String, dynamic> row, String userId) async {

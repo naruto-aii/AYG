@@ -1,4 +1,4 @@
-import { verifySignedTransaction } from "../_shared/apple_signed_data.ts";
+import { expectedBundleId, verifySignedTransaction } from "../_shared/apple_signed_data.ts";
 import { storeTransactionId } from "../_shared/store_entitlement.ts";
 import {
   boundStoreUser,
@@ -54,7 +54,7 @@ Deno.serve((req) =>
   handleVerifyStoreTransaction(req, {
     userId,
     now: () => new Date(),
-    expectedBundleId: Deno.env.get("APP_BUNDLE_ID") ?? "",
+    expectedBundleId: expectedBundleId(),
     verify: async (jws) => verifiedFromApple(await verifySignedTransaction(jws)),
     boundUser: (originalTransactionId) => boundStoreUser(originalTransactionId),
     bind: (originalTransactionId, owner, productId) =>

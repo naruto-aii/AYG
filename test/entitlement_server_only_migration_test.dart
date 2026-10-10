@@ -43,4 +43,19 @@ void main() {
     expect(source, isNot(contains("from('calonavi_plus_entitlements')")));
     expect(source, isNot(contains("table: 'calonavi_plus_entitlements'")));
   });
+
+  test('analytics events do not claim a store transaction', () {
+    final sql = File(
+      'supabase/migrations/20261010220000_stop_unverified_transaction_binding.sql',
+    ).readAsStringSync();
+    final down = File(
+      'supabase/rollback/20261010220000_stop_unverified_transaction_binding_down.sql',
+    ).readAsStringSync();
+
+    expect(sql, contains('return new;'));
+    expect(sql, isNot(contains('remember_store_original_transaction')));
+    expect(sql, contains('delete from public.store_original_transactions'));
+    expect(sql, contains('calonavi_plus_entitlements'));
+    expect(down, contains('remember_store_original_transaction'));
+  });
 }

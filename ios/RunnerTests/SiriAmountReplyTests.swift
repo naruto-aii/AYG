@@ -333,7 +333,7 @@ final class SiriAmountReplyTests: XCTestCase {
     XCTAssertEqual(SiriAmountReply.prepare("1時間です"), "1時間")
   }
 
-  /// 数値の 1 は 1分。時間の言葉が残っているときだけ 60 と 90 になる。
+  /// 最初の発話に時間の言葉があるとき。数値の 1 は 1分のまま。
   func testHourPhrasesBecomeMinutesAndBareOneDoesNot() {
     XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間"), 60)
     XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間です"), 60)
@@ -348,8 +348,38 @@ final class SiriAmountReplyTests: XCTestCase {
       .recorded(SiriAmountReply.Parsed(amount: 1, unit: "minutes"))
     )
     XCTAssertNil(SiriAmountReply.minutes(fromSpoken: "5キロ"))
-    XCTAssertTrue(SiriAmountSlot.minutes.keepsSpokenWords)
-    XCTAssertFalse(SiriAmountSlot.grams.keepsSpokenWords)
+  }
+
+  /// 聞き返しの測定値。秒で戻っても分になる。範囲外は登録しない。
+  func testDurationMeasurementConvertsToMinutesBeforeTheRangeCheck() {
+    XCTAssertEqual(
+      SiriAmountReply.minutes(from: Measurement(value: 30, unit: .minutes)),
+      30
+    )
+    XCTAssertEqual(
+      SiriAmountReply.minutes(from: Measurement(value: 1, unit: .hours)),
+      60
+    )
+    XCTAssertEqual(
+      SiriAmountReply.minutes(from: Measurement(value: 1.5, unit: .hours)),
+      90
+    )
+    XCTAssertEqual(
+      SiriAmountReply.minutes(from: Measurement(value: 1800, unit: .seconds)),
+      30
+    )
+    XCTAssertEqual(
+      SiriAmountReply.minutes(from: Measurement(value: 3600, unit: .seconds)),
+      60
+    )
+    XCTAssertEqual(SiriAmountReply.durationUnitLabel(.hours), "hr")
+    XCTAssertEqual(SiriAmountReply.durationUnitLabel(.minutes), "min")
+    XCTAssertEqual(SiriAmountReply.durationUnitLabel(.seconds), "s")
+    XCTAssertNil(SiriAmountReply.minutes(from: Measurement(value: 0, unit: .minutes)))
+    XCTAssertNil(SiriAmountReply.minutes(from: Measurement(value: -1, unit: .hours)))
+    XCTAssertNil(SiriAmountReply.minutes(from: Measurement(value: 100_000, unit: .minutes)))
+    XCTAssertNil(SiriAmountReply.minutes(from: Measurement(value: .infinity, unit: .seconds)))
+    XCTAssertNil(SiriAmountReply.minutes(from: Measurement(value: 6_000_000, unit: .seconds)))
   }
 
   /// 戻った数値は倍率を掛けない。150 は 150 のまま。0.15 を 150 にもしない。
@@ -368,21 +398,25 @@ final class SiriAmountReplyTests: XCTestCase {
     XCTAssertNotEqual(SiriAmountReply.canonical(150), "150000")
   }
 
-  func testStoredHourPhraseDoesNotAskAgain() async throws {
-    let defaults = freshDefaults("siri-stored-hour")
+  func testStoredDurationDoesNotAskAgain() async throws {
+    let defaults = freshDefaults("siri-stored-duration")
     var calls = 0
-    let outcome = try await SiriAmountAsk.takeText(
-      stored: "1時間半",
+    let outcome = try await SiriAmountAsk.takeDuration(
+      stored: Measurement(value: 1, unit: .hours),
       question: "何分ですか？",
       defaults: defaults,
       now: 1
     ) {
       calls += 1
-      return "1"
+      return Measurement(value: 30, unit: .minutes)
     }
-    XCTAssertEqual(outcome, .spoken("1時間半"))
+    guard case .duration(let measurement) = outcome else {
+      return XCTFail("測定値が戻らなかった: \(outcome)")
+    }
     XCTAssertEqual(calls, 0)
-    XCTAssertEqual(SiriAmountReply.minutes(fromSpoken: "1時間半"), 90)
+    XCTAssertEqual(measurement.value, 1)
+    XCTAssertEqual(SiriAmountReply.durationUnitLabel(measurement.unit), "hr")
+    XCTAssertEqual(SiriAmountReply.minutes(from: measurement), 60)
   }
 
   func testOtherUnitsUseTheQuestionSuffix() {

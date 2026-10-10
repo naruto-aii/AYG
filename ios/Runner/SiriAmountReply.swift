@@ -6,8 +6,9 @@ import Foundation
 /// 150 を 0.15 にも 150000 にもしない。換算は、単位つきの測定値パラメータがすること。
 /// ここからは質問を返さない。
 ///
-/// 何分の「1時間」「1時間半」「1時間30分」は数値にしない。`1` では時間の言葉が消える。
-/// 言葉を `hoursAsMinutes` に渡す。これはビルド11で動いていた経路。
+/// 何分の聞き返しは `Measurement<UnitDuration>`。単位が無ければ分。
+/// 届いた測定値は `converted(to: .minutes)` で分にしてから、範囲を見る。
+/// 最初の発話に「1時間」が含まれるときは、これまでどおり `hoursAsMinutes` を使う。
 ///
 /// ビルド11の `String` は、届いた「150」を 150g にできる。同じ質問が残るのは、
 /// その文字列が `requestValue` から戻らなかったときだけ。
@@ -347,11 +348,6 @@ enum SiriAmountSlot: String, Equatable {
     return suffix
   }
 
-  /// 何分だけは言葉で受ける。`1` と「1時間」を区別するため。
-  var keepsSpokenWords: Bool {
-    self == .minutes
-  }
-
   static func from(unit: String?) -> SiriAmountSlot {
     switch unit {
     case "ml": return .milliliters
@@ -376,7 +372,28 @@ extension SiriAmountReply {
     return .recorded(parsed)
   }
 
-  /// 何分への言葉。「1時間」は 60、「1」は 1、「30分」は 30。単位が分でない答えは nil。
+  /// 聞き返しの測定値を分にする。秒で戻っても、時間で戻っても、分に換算してから範囲を見る。
+  /// 0 以下、有限でない値、10万分以上は登録しない。
+  static func minutes(from measurement: Measurement<UnitDuration>) -> Double? {
+    let minutes = measurement.converted(to: .minutes).value
+    guard minutes.isFinite, minutes > 0, minutes < 100_000 else {
+      return nil
+    }
+    return minutes
+  }
+
+  /// ログに出す単位。食品名や種目名は含まない。
+  static func durationUnitLabel(_ unit: UnitDuration) -> String {
+    if unit == .hours { return "hr" }
+    if unit == .minutes { return "min" }
+    if unit == .seconds { return "s" }
+    if unit == .milliseconds { return "ms" }
+    if unit == .microseconds { return "us" }
+    if unit == .nanoseconds { return "ns" }
+    return unit.symbol
+  }
+
+  /// 最初の発話に時間の言葉があるとき。「1時間」は 60、「1」は 1、「30分」は 30。
   static func minutes(fromSpoken text: String) -> Double? {
     let prepared = prepare(text)
     if let minutes = hoursAsMinutes(prepared) {
@@ -499,8 +516,8 @@ enum SiriQuestionLimit {
 enum SiriAmountAsk {
   enum Outcome: Equatable {
     case number(Double)
-    /// 何分の言葉。「1時間」を数値の 1 にしない。
-    case spoken(String)
+    /// 何分の測定値。値と単位が両方入っている。
+    case duration(Measurement<UnitDuration>)
     case stopRepeat
   }
 
@@ -520,23 +537,20 @@ enum SiriAmountAsk {
     return .number(try await request())
   }
 
-  /// 何分の答え。言葉が既にあれば質問しない。3回目は request を呼ばない。
-  static func takeText(
-    stored: String?,
+  /// 何分の測定値。すでに入っていれば質問しない。3回目は request を呼ばない。
+  static func takeDuration(
+    stored: Measurement<UnitDuration>?,
     question: String,
     defaults: UserDefaults,
     now: TimeInterval,
-    request: () async throws -> String
+    request: () async throws -> Measurement<UnitDuration>
   ) async throws -> Outcome {
     if let stored {
-      let text = stored.trimmingCharacters(in: .whitespacesAndNewlines)
-      if !text.isEmpty {
-        return .spoken(text)
-      }
+      return .duration(stored)
     }
     guard SiriQuestionLimit.allowAsk(question: question, defaults: defaults, now: now) else {
       return .stopRepeat
     }
-    return .spoken(try await request())
+    return .duration(try await request())
   }
 }

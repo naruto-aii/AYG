@@ -36,13 +36,15 @@ export function entitlementTiming(input: {
   revocationDate: number | null;
   /// 上位プランへ移ったあとの古い取引。期限が未来でも、この商品の加入にはしない。
   upgraded?: boolean;
+  /// 返金・取り消し済みとして記録された transactionId。期限が未来でも有料にしない。
+  knownRevoked?: boolean;
   now: Date;
 }): { status: EntitlementStatus; expiresAt: string | null } {
   const expires = input.expiresDate == null ? null : new Date(input.expiresDate);
   const expiresAt = expires != null && !Number.isNaN(expires.getTime())
     ? expires.toISOString()
     : null;
-  if (input.revocationDate != null || expiresAt == null) {
+  if (input.knownRevoked === true || input.revocationDate != null || expiresAt == null) {
     return { status: "inactive", expiresAt };
   }
   if (input.upgraded) {
@@ -72,6 +74,46 @@ export function sourceTransactionId(value: string | null | undefined): string | 
     return null;
   }
   return id;
+}
+
+export type RevocationJournalPlan =
+  | { action: "forget"; transactionId: string }
+  | {
+    action: "remember";
+    transactionId: string;
+    reason: "refund" | "revoke";
+    revokedAt: Date;
+  }
+  | { action: "lookup"; transactionId: string }
+  | { action: "none" };
+
+/// 返金・取り消しは、保存行がその取引かどうかと関係なく記録する。
+/// 記録を外すのは REFUND_REVERSED だけ。それ以外は、記録済みなら有料にしない。
+export function revocationJournalPlan(input: {
+  notificationType: string;
+  transactionId?: string | null;
+  revocationDate?: number | null;
+  now: Date;
+}): RevocationJournalPlan {
+  const transactionId = sourceTransactionId(input.transactionId);
+  if (transactionId == null) {
+    return { action: "none" };
+  }
+  if (input.notificationType === "REFUND_REVERSED") {
+    return { action: "forget", transactionId };
+  }
+  const revocation = input.revocationDate != null ||
+    input.notificationType === "REFUND" ||
+    input.notificationType === "REVOKE";
+  if (revocation) {
+    return {
+      action: "remember",
+      transactionId,
+      reason: input.notificationType === "REFUND" ? "refund" : "revoke",
+      revokedAt: input.revocationDate != null ? new Date(input.revocationDate) : input.now,
+    };
+  }
+  return { action: "lookup", transactionId };
 }
 
 /// 届いた期限が今の期限より前なら、加入の行を上書きしない。
@@ -111,6 +153,7 @@ export function decideEntitlement(input: {
   revocationDate: number | null;
   transactionId?: string | null;
   upgraded?: boolean;
+  knownRevoked?: boolean;
   now: Date;
 }): EntitlementDecision {
   const original = input.originalTransactionId.trim();
@@ -133,6 +176,7 @@ export function decideEntitlement(input: {
     expiresDate: input.expiresDate,
     revocationDate: input.revocationDate,
     upgraded: input.upgraded,
+    knownRevoked: input.knownRevoked,
     now: input.now,
   });
   return {
@@ -157,6 +201,7 @@ export const entitlementNotificationTypes = new Set([
   "GRACE_PERIOD_EXPIRED",
   "REFUND",
   "REVOKE",
+  "REFUND_REVERSED",
 ]);
 
 export type NotificationEntitlementInput = {
@@ -174,6 +219,7 @@ export type NotificationEntitlementInput = {
   gracePeriodExpiresDate?: number | null;
   transactionId?: string | null;
   upgraded?: boolean;
+  knownRevoked?: boolean;
   now: Date;
 };
 
@@ -196,6 +242,8 @@ export function decideNotificationEntitlement(
 
   if (type === "REFUND" || type === "REVOKE") {
     revocationDate = input.revocationDate ?? input.now.getTime();
+  } else if (type === "REFUND_REVERSED") {
+    revocationDate = null;
   } else if (type === "DID_FAIL_TO_RENEW" && subtype === "GRACE_PERIOD") {
     const grace = input.gracePeriodExpiresDate ?? null;
     if (grace != null && grace > input.now.getTime()) {
@@ -232,6 +280,7 @@ export function decideNotificationEntitlement(
     revocationDate,
     transactionId: input.transactionId,
     upgraded: input.upgraded,
+    knownRevoked: input.knownRevoked,
     now: input.now,
   });
 }
@@ -263,31 +312,10 @@ function noticePeriodEnd(input: {
   return transaction;
 }
 
-/// 別の transactionId で、まだ未来の加入が残っているか。
-/// 通知の猶予日が保存済みの期限とたまたま同じでも、その別の取引は消さない。
-/// 届いた取引に期限が無いときは、未来の別取引を消さない。
-function differentTransactionKeepsStoredPeriod(input: {
-  currentExpiresAt: string | null;
-  transactionExpiresAt?: string | number | null;
-  now?: Date;
-}): boolean {
-  const stored = epochMillis(input.currentExpiresAt);
-  const now = (input.now ?? new Date()).getTime();
-  if (stored == null || stored <= now) {
-    return false;
-  }
-  const transaction = epochMillis(input.transactionExpiresAt);
-  if (transaction == null) {
-    return true;
-  }
-  return stored > transaction;
-}
-
-/// 返金・取り消しの取引より先の加入が残っているか。
+/// 取引IDの無い古い行にだけ使う。返金・取り消しより先の加入が残っているか。
 /// 取引の期限が無いときは、猶予より先の加入だけ残す。期限も猶予も無ければ消す。
 /// 保存済みの期限がこの通知の猶予日と同じなら、払っていない延長なので消す。
-/// 取引IDが両方分かっていて違うときは、この猶予日の一致は使わない。
-/// それより長い猶予日が残っていても、取引の期限より先の加入は消さない。
+/// 取引の期限より先の加入は消さない。
 function storedPeriodOutlivesRevocation(input: {
   currentExpiresAt: string | null;
   transactionExpiresAt?: string | number | null;
@@ -332,13 +360,12 @@ function storedPeriodOutlivesNotice(input: {
 }
 
 /// 古い更新で期限を短くしない。verify-store-transaction と通知の両方がこれを使う。
-/// 同じ transactionId の返金・失効・アップグレードは、猶予で延ばした期限でも上書きする。
-/// 別の transactionId で、保存してある期限の方が先でまだ未来なら上書きしない。
-/// その比較に、別の取引の通知に付いた猶予日は使わない。
-/// EXPIRED、猶予切れ、猶予なしの更新失敗は、今の加入がその通知の期間より新しいときだけ飛ばす。
-/// 返金と取り消しは、その取引より先の加入が残っているときだけ飛ばす。
-/// 同じ期間の返金と、取引IDが無い行の猶予日そのものは無効にする。
-/// 無効・期限切れの行は、別の取引の未来の加入（お試しや買い直し）を止めない。
+/// 返金・取り消し・失効・isUpgraded は、保存行の source_transaction_id が
+/// 届いた transactionId と一致するときだけ、その行を落とす。
+/// IDが違えば、期限の長短や猶予日が同じでも落とさない。
+/// source_transaction_id が null の古い行だけは、同じ期限か猶予日の一致で無効にする。
+/// アプリが猶予中の同じ取引を、取り消しなしで送り直したときは、猶予の期限を短くしない。
+/// 無効・期限切れの行は、別の取引の未来の加入を止めない。
 export function skipsOlderEntitlement(input: {
   notificationType?: string | null;
   subtype?: string | null;
@@ -356,38 +383,46 @@ export function skipsOlderEntitlement(input: {
   upgraded?: boolean;
   /// 保存してある行の状態。無効・期限切れは、別の取引の未来の加入を止めない。
   currentStatus?: string | null;
+  /// この transactionId は返金・取り消し済み。有料には書かない。
+  knownRevoked?: boolean;
   now?: Date;
 }): boolean {
   const type = input.notificationType ?? "";
   const subtype = input.subtype ?? "";
   const currentId = sourceTransactionId(input.currentTransactionId);
   const incomingId = sourceTransactionId(input.transactionId);
+  // 記録済みの返金は、取り消し日が無い再送でも有料に戻さない。
+  // 保存行がそのIDなら inactive に上書きする。別のIDの加入は消さない。
+  if (input.knownRevoked === true) {
+    if (currentId != null && currentId === incomingId) {
+      return false;
+    }
+    if (currentId != null && currentId !== incomingId) {
+      return true;
+    }
+    if (input.currentExpiresAt != null) {
+      return storedPeriodOutlivesRevocation(input);
+    }
+    return false;
+  }
   const expiryNotice = type === "EXPIRED" ||
     type === "GRACE_PERIOD_EXPIRED" ||
     (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD");
-  // 猶予で延ばした期限は、取引の expiresDate より先になる。
-  // 同じ取引の返金・失効・アップグレードは、その差では飛ばさない。
-  // アプリが猶予中の取引を取り消しなしで送り直したときは、ここを通さず期限の比較に任せる。
-  if (
-    currentId != null &&
-    currentId === incomingId &&
-    (input.revoked || input.upgraded === true || type === "REFUND" || type === "REVOKE" || expiryNotice)
-  ) {
-    return false;
+  const destructive = input.revoked ||
+    input.upgraded === true ||
+    type === "REFUND" ||
+    type === "REVOKE" ||
+    expiryNotice;
+  // 取引IDが分かっている行は、そのIDの返金・失効・アップグレードだけを受ける。
+  // 届いたIDが空でも、保存してあるIDとは一致しないので落とさない。
+  if (currentId != null && destructive) {
+    return currentId !== incomingId;
   }
-  const idsDiffer = currentId != null && incomingId != null && currentId !== incomingId;
-  if (input.revoked || type === "REFUND" || type === "REVOKE") {
-    // 別の取引の返金は、猶予日が同じというだけでは消さない。
-    if (idsDiffer) {
-      return differentTransactionKeepsStoredPeriod(input);
-    }
+  // 取引IDの無い古い行だけ、期限と猶予日で判断する。
+  if (currentId == null && (input.revoked || type === "REFUND" || type === "REVOKE")) {
     return storedPeriodOutlivesRevocation(input);
   }
-  if (
-    type === "EXPIRED" ||
-    type === "GRACE_PERIOD_EXPIRED" ||
-    (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD")
-  ) {
+  if (currentId == null && expiryNotice) {
     return storedPeriodOutlivesNotice({
       notificationType: type,
       currentExpiresAt: input.currentExpiresAt,

@@ -4,7 +4,9 @@ import {
   boundStoreUser,
   readPlusEntitlement,
   rememberOriginalTransaction,
+  rememberRevokedStoreTransaction,
   savePlusEntitlement,
+  storeTransactionRevoked,
 } from "../_shared/store_live.ts";
 import { handleVerifyStoreTransaction, type VerifiedTransaction } from "./handler.ts";
 
@@ -64,5 +66,7 @@ Deno.serve((req) =>
         ? { expiresAt: row.expiresAt, status: row.status, transactionId: row.transactionId }
         : null;
     },
+    rememberRevoked: (input) => rememberRevokedStoreTransaction(input),
+    transactionRevoked: (input) => storeTransactionRevoked(input),
   })
 );

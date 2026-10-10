@@ -481,19 +481,20 @@ export function notificationSkipsOlderExpiry(
 
 /// 読み取った行と書く行が食い違っていたら false。呼び出し側は読み直す。
 /// 判定そのものは skipsOlderEntitlement に残し、ここでは同時更新だけを弾く。
+/// `skipped` は今の行を残した。`saved` は渡した行を書いた。
 export async function settlePlusEntitlement(input: {
   row: EntitlementRow;
   load: () => Promise<StoredEntitlement | null>;
   skip: (current: StoredEntitlement | null) => boolean;
   save: (row: EntitlementRow, expected: StoredEntitlement | null) => Promise<boolean>;
-}): Promise<void> {
+}): Promise<"saved" | "skipped"> {
   for (let attempt = 0; attempt < 4; attempt++) {
     const current = await input.load();
     if (input.skip(current)) {
-      return;
+      return "skipped";
     }
     if (await input.save(input.row, current)) {
-      return;
+      return "saved";
     }
   }
   throw new Error("entitlement conflict");

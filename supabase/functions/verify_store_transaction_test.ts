@@ -108,6 +108,12 @@ Deno.test("a verified transaction writes the server row, not the client expiry",
   assertEquals(writes[0].expires_at, "2026-11-08T00:00:00.000Z");
   assertEquals(writes[0].product_id, "calonavi_plus_monthly");
   assertEquals(writes[0].advertising_use, false);
+  const body = await response.json();
+  assertEquals(body.ok, true);
+  assertEquals(body.code, undefined);
+  assertEquals(body.plus, true);
+  assertEquals(body.expiresAt, "2026-11-08T00:00:00.000Z");
+  assertEquals(build11ClientAccepts(response.status, body), true);
 });
 
 Deno.test("a new sandbox purchase unlocks Plus and another account cannot reuse it", async () => {
@@ -257,6 +263,11 @@ Deno.test("a same-period refund revokes Plus immediately", async () => {
   assertEquals(writes.length, 1);
   assertEquals(writes[0].status, "inactive");
   assertEquals(writes[0].expires_at, "2026-11-08T00:00:00.000Z");
+  const body = await response.json();
+  assertEquals(body.ok, true);
+  assertEquals(body.plus, false);
+  assertEquals(body.expiresAt, null);
+  assertEquals(body.code, undefined);
 });
 
 Deno.test("a newer signed transaction survives an older revoked one in the same request", async () => {
@@ -294,6 +305,10 @@ Deno.test("a newer signed transaction survives an older revoked one in the same 
   assertEquals(writes.length, 1);
   assertEquals(writes[0].status, "active");
   assertEquals(writes[0].expires_at, "2026-12-01T00:00:00.000Z");
+  const body = await response.json();
+  assertEquals(body.ok, true);
+  assertEquals(body.plus, true);
+  assertEquals(body.expiresAt, "2026-12-01T00:00:00.000Z");
 });
 
 Deno.test("verify and notifications skip the same revocation periods", () => {
@@ -602,6 +617,46 @@ Deno.test("rejection reasons are logged and the JWS is not", async () => {
   assertEquals(logs, [{ code: "invalid_transaction", reason: "bundle_mismatch" }]);
   assertEquals(JSON.stringify(logs).includes(secret), false);
 });
+
+Deno.test("a skipped older renewal keeps the later active period in the response", async () => {
+  const keptUntil = "2026-12-08T00:00:00.000Z";
+  const { deps, writes } = harness({
+    verify: () => Promise.resolve(verified({ expiresDate: Date.parse("2026-10-20T00:00:00Z") })),
+    current: () => Promise.resolve({
+      expiresAt: keptUntil,
+      status: "active",
+      transactionId: "tx-later",
+    }),
+  });
+  const response = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), deps);
+  const body = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(writes, []);
+  assertEquals(body.ok, true);
+  assertEquals(body.plus, true);
+  assertEquals(body.expiresAt, keptUntil);
+  assertEquals(build11ClientAccepts(response.status, body), true);
+});
+
+Deno.test("error bodies stay ok false and a code, with no plus field", async () => {
+  const bound = harness({ bound: { "1000001": other } });
+  const conflict = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), bound.deps);
+  assertEquals(conflict.status, 409);
+  assertEquals(await conflict.json(), { ok: false, code: "bound_to_other_user" });
+
+  const missing = harness({ userId: null });
+  const unsigned = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), missing.deps);
+  assertEquals(unsigned.status, 401);
+  assertEquals(await unsigned.json(), { ok: false, code: "unauthenticated" });
+});
+
+function build11ClientAccepts(
+  status: number,
+  body: { ok?: boolean; code?: string },
+): boolean {
+  // 審査中の build 11 は invoke が成功したことだけを見る。本文の新しい項目は読まない。
+  return status === 200 && body.ok === true && body.code == null;
+}
 
 Deno.test("decideEntitlement keeps a revoked transaction inactive", () => {
   const decision = decideEntitlement({

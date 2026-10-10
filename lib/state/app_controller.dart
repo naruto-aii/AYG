@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../config/subscription_catalog.dart';
 import '../constants/app_strings.dart';
 import '../services/ai_data_consent.dart';
+import '../services/server_plus_store.dart';
 import '../services/analytics/analytics.dart';
 import '../services/analytics/catalog_actions.dart';
 import '../models/alcohol_entry.dart';
@@ -140,6 +141,7 @@ class AppController extends ChangeNotifier {
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
     Future<bool> Function(String userId)? termsAgreedFor,
+    ServerPlusStore? serverPlusStore,
   }) : _termsAgreedFor =
            termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
@@ -170,6 +172,7 @@ class AppController extends ChangeNotifier {
        _plusFunnelRepository = plusFunnelRepository,
        _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
        _pendingRecords = pendingRecords ?? PendingRecordStore(),
+       _serverPlusStore = serverPlusStore ?? ServerPlusStore(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -224,11 +227,19 @@ class AppController extends ChangeNotifier {
   StreamSubscription<bool>? _plusSubscription;
   StreamSubscription<void>? _entitlementSyncSubscription;
 
-  /// このアカウントで、サーバが署名付きの購入を受け取った。
+  /// このアカウントで、サーバが今加入していると確認した。
   bool _serverPlusForAccount = false;
 
   /// 同じ購入が別のアカウントに付いている。端末の StoreKit が有料でも使わせない。
   bool _serverPlusBlocked = false;
+
+  /// サーバが確認した期限。過ぎていれば開かない。
+  DateTime? _serverPlusExpiresAt;
+
+  /// メモリに読んだユーザー。別のユーザーの保存は使わない。
+  String? _serverPlusLoadedFor;
+
+  final ServerPlusStore _serverPlusStore;
 
   SubscriptionRepository get subscriptionRepository => _subscriptionRepository;
   bool _firstMealGuideSeen = false;
@@ -456,11 +467,11 @@ class AppController extends ChangeNotifier {
     _isInitializing = true;
     notifyListeners();
     _listenForPaidEntitlement();
-    await _applyPaidEntitlement();
     _firstMealGuideSeen = await _firstMealGuideStore?.isSeen() ?? false;
 
     final authRepository = _authenticationRepository;
     if (authRepository == null) {
+      await _applyPaidEntitlement();
       await loadPersistedState();
       _isInitializing = false;
       notifyListeners();
@@ -472,6 +483,10 @@ class AppController extends ChangeNotifier {
     } catch (_) {
       // セッション復元失敗時は未ログインとして続行する。
     }
+
+    // ユーザーが分かるまで旗を false に戻さない。保存した加入を先に読む。
+    await _loadServerPlusForCurrentUser();
+    await _applyPaidEntitlement();
 
     _authSubscription ??= authRepository.authStateChanges.listen((user) {
       unawaited(_handleAuthStateChanged(user));
@@ -575,6 +590,10 @@ class AppController extends ChangeNotifier {
     _runningEpoch = epoch;
     final sessionUserId = authUser.id;
     bool mayWrite() => _pushStillOwned(epoch, sessionUserId);
+    await _loadServerPlusForCurrentUser();
+    if (mayWrite()) {
+      await _applyPaidEntitlement();
+    }
     notifyListeners();
 
     try {
@@ -665,6 +684,10 @@ class AppController extends ChangeNotifier {
       await _discardPreviousUserData();
       if (!_stillCurrent(epoch)) {
         return;
+      }
+      await _loadServerPlusForCurrentUser();
+      if (mayWrite()) {
+        await _applyPaidEntitlement();
       }
       // 別の人に入れ替わるあいだは、前の人の画面のままにしない。
       _hasInitialSyncCompleted = false;
@@ -838,6 +861,8 @@ class AppController extends ChangeNotifier {
     // 消すより前に世代を進める。遅れた取得は、このあと手元へ書き戻せない。
     _syncEpoch++;
     _runningEpoch = null;
+    _clearServerPlus();
+    unawaited(setLockScreenMealPaid(false));
     _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
     _forget(_usageRecordRepository?.flushPending());
     _forget(_plusFunnelRepository?.flushPending());
@@ -4000,6 +4025,8 @@ class AppController extends ChangeNotifier {
 
   /// ストアの加入をフラグへ写す。設定画面からは呼ばない。
   ///
+  /// 起動と復帰は `app.dart` の `_resumePaidFeatures` からここへ来る。
+  /// サーバへ送るアカウントは、そのとき署名を確かめ、返金ならすぐ閉じる。
   /// Health の数値は送らない。書くのは有料かどうかだけ。
   Future<void> refreshPaidEntitlement() async {
     final before = _subscriptionRepository.isPlusActive;
@@ -4021,6 +4048,9 @@ class AppController extends ChangeNotifier {
       });
     }
     await _applyPaidEntitlement();
+    if (_shortcutsUseServer && isAuthenticated) {
+      await syncPlusEntitlementToServer();
+    }
   }
 
   void _listenForPaidEntitlement() {
@@ -4039,11 +4069,15 @@ class AppController extends ChangeNotifier {
     if (!_hasUnexpiredStorePlus()) {
       return false;
     }
-    final outcome = await _syncPlusEntitlement();
+    final verification = await _syncPlusEntitlement();
     // 別アカウントの購入と、署名が通らなかったときは聞き直さない。
-    // 送る先が無いときは、これまでどおり1回だけ聞き直してから確認を出す。
-    return outcome == StoreVerifyOutcome.accepted ||
-        outcome == StoreVerifyOutcome.notSent;
+    // サーバが未加入と返したときも聞き直さない。
+    // 送る先が無いときと、加入の項目が無い古い応答は、1回だけ聞き直す。
+    if (verification.outcome == StoreVerifyOutcome.notSent) {
+      return true;
+    }
+    return verification.outcome == StoreVerifyOutcome.accepted &&
+        verification.plus != false;
   }
 
   /// 署名が無い有料は復元で JWS を取り、サーバの加入行へ送る。
@@ -4057,18 +4091,23 @@ class AppController extends ChangeNotifier {
 
   bool get _localPreviewPlus => _subscriptionRepository.previewsPaidLocally;
 
-  /// ウィジェットと Siri。サーバがこのアカウントを確認し、端末の期限も残っているとき。
+  /// ウィジェットと Siri。
+  ///
+  /// サーバへ送るときは、そのアカウントの確定結果だけを見る。
+  /// 返金や期限切れは端末が有料でも閉じ、解約後でも期限内なら開いたままにする。
+  /// 送る先が無いテストだけ、端末の有料表示のままにする。
   bool get _widgetPaid {
     if (_localPreviewPlus) {
       return true;
     }
-    if (!_subscriptionRepository.isPlusActive || _serverPlusBlocked) {
-      return false;
-    }
     if (!_shortcutsUseServer) {
-      return true;
+      return _subscriptionRepository.isPlusActive;
     }
-    return _serverPlusForAccount;
+    final expiry = _serverPlusExpiresAt;
+    return !_serverPlusBlocked &&
+        _serverPlusForAccount &&
+        expiry != null &&
+        expiry.isAfter(DateTime.now());
   }
 
   Future<void> _recoverStoreSignedTransactions() async {
@@ -4092,25 +4131,90 @@ class AppController extends ChangeNotifier {
     return false;
   }
 
-  Future<StoreVerifyOutcome> _syncPlusEntitlement() async {
+  Future<StoreEntitlementVerification> _syncPlusEntitlement() async {
     final usage = _usageRecordRepository;
     if (usage == null || !isAuthenticated) {
-      return StoreVerifyOutcome.notSent;
+      return StoreEntitlementVerification.notSent;
     }
-    final outcome = await usage.syncPlusEntitlements(
+    final userId = _authenticationRepository?.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      return StoreEntitlementVerification.notSent;
+    }
+    // 応答が戻る前の世代とユーザー。遅れた accepted は、あとの拒否を取り消さない。
+    final epoch = _syncEpoch;
+    final verification = await usage.syncPlusEntitlements(
       confirmed: _subscriptionRepository.confirmedEntitlements,
       inactive: _subscriptionRepository.inactiveEntitlements,
       authoritative: _subscriptionRepository.entitlementAuthoritative,
     );
-    if (outcome == StoreVerifyOutcome.accepted) {
-      _serverPlusForAccount = _subscriptionRepository.isPlusActive;
-      _serverPlusBlocked = false;
-    } else if (outcome == StoreVerifyOutcome.boundToOtherAccount) {
-      _serverPlusForAccount = false;
-      _serverPlusBlocked = true;
+    if (!_pushStillOwned(epoch, userId)) {
+      return verification;
+    }
+    await _rememberServerVerification(epoch, userId, verification);
+    if (!_pushStillOwned(epoch, userId)) {
+      return verification;
     }
     await _applyPaidEntitlement();
-    return outcome;
+    return verification;
+  }
+
+  /// 確定した加入だけを、このユーザーの保存へ残す。
+  ///
+  /// `rejected` と `notSent` は直前の確定を消さない。
+  /// サーバが未加入、または別アカウントの購入なら、その場で閉じる。
+  Future<void> _rememberServerVerification(
+    int epoch,
+    String userId,
+    StoreEntitlementVerification verification,
+  ) async {
+    final ServerPlusSnapshot snapshot;
+    if (verification.outcome == StoreVerifyOutcome.accepted) {
+      final plus = verification.plus;
+      if (plus == null) {
+        return;
+      }
+      snapshot = plus
+          ? ServerPlusSnapshot(
+              plus: true,
+              blocked: false,
+              expiresAt: verification.expiresAt,
+            )
+          : const ServerPlusSnapshot(plus: false, blocked: false);
+    } else if (verification.outcome == StoreVerifyOutcome.boundToOtherAccount) {
+      snapshot = const ServerPlusSnapshot(plus: false, blocked: true);
+    } else {
+      return;
+    }
+    if (!_pushStillOwned(epoch, userId)) {
+      return;
+    }
+    await _serverPlusStore.write(userId, snapshot);
+    if (!_pushStillOwned(epoch, userId)) {
+      return;
+    }
+    _serverPlusForAccount = snapshot.plus;
+    _serverPlusBlocked = snapshot.blocked;
+    _serverPlusExpiresAt = snapshot.expiresAt;
+    _serverPlusLoadedFor = userId;
+  }
+
+  Future<void> _loadServerPlusForCurrentUser() async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      return;
+    }
+    if (_serverPlusLoadedFor != null &&
+        _serverPlusLoadedFor!.toLowerCase() == userId.toLowerCase()) {
+      return;
+    }
+    final snapshot = await _serverPlusStore.read(userId);
+    if (!_accountStill(userId)) {
+      return;
+    }
+    _serverPlusLoadedFor = userId;
+    _serverPlusForAccount = snapshot?.plus ?? false;
+    _serverPlusBlocked = snapshot?.blocked ?? false;
+    _serverPlusExpiresAt = snapshot?.expiresAt;
   }
 
   void recordFoodSearch({required String source, required String query}) {
@@ -4265,6 +4369,8 @@ class AppController extends ChangeNotifier {
   void _clearServerPlus() {
     _serverPlusForAccount = false;
     _serverPlusBlocked = false;
+    _serverPlusExpiresAt = null;
+    _serverPlusLoadedFor = null;
   }
 
   /// 有料フラグの入口。設定画面のスイッチからは呼ばない。

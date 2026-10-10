@@ -8,6 +8,7 @@ import 'package:ayg/repositories/usage_record_repository.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
 import 'package:ayg/services/lock_screen_meal.dart';
 import 'package:ayg/services/lock_screen_meal_gateway.dart';
+import 'package:ayg/services/server_plus_store.dart';
 import 'package:ayg/services/subscription_entitlement.dart';
 import 'package:ayg/services/subscription_offer.dart';
 import 'package:ayg/state/app_controller.dart';
@@ -60,7 +61,7 @@ void main() {
   test('widgets follow the server, not a StoreKit purchase on another account', () async {
     final gateway = _FlagGateway();
     final plus = _Plus(true);
-    final usage = _ServerUsage(StoreVerifyOutcome.notSent);
+    final usage = _ServerUsage(StoreEntitlementVerification.notSent);
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'reviewer', email: 'reviewer@example.com'),
     );
@@ -69,21 +70,26 @@ void main() {
       lockScreenMealGateway: gateway,
       subscriptionRepository: plus,
       usageRecordRepository: usage,
+      serverPlusStore: ServerPlusStore.memory(),
     );
 
     await controller.refreshPaidEntitlement();
     expect(gateway.paid, isFalse);
     expect(await controller.ensurePaidShortcutsReady(), isFalse);
 
-    usage.outcome = StoreVerifyOutcome.accepted;
+    usage.verification = StoreEntitlementVerification(
+      outcome: StoreVerifyOutcome.accepted,
+      plus: true,
+      expiresAt: DateTime.utc(2099),
+    );
     expect(await controller.ensurePaidShortcutsReady(), isTrue);
     expect(gateway.paid, isTrue);
 
-    usage.outcome = StoreVerifyOutcome.boundToOtherAccount;
+    usage.verification = StoreEntitlementVerification.boundToOtherAccount;
     expect(await controller.ensurePaidShortcutsReady(), isFalse);
     expect(gateway.paid, isFalse);
 
-    usage.outcome = StoreVerifyOutcome.rejected;
+    usage.verification = StoreEntitlementVerification.rejected;
     plus.active = true;
     await controller.syncPlusEntitlementToServer();
     expect(gateway.paid, isFalse);
@@ -156,21 +162,21 @@ void main() {
 }
 
 class _ServerUsage extends NoOpUsageRecordRepository {
-  _ServerUsage(this.outcome);
+  _ServerUsage(this.verification);
 
-  StoreVerifyOutcome outcome;
+  StoreEntitlementVerification verification;
 
   @override
   bool get syncsStoreEntitlements => true;
 
   @override
-  Future<StoreVerifyOutcome> syncPlusEntitlements({
+  Future<StoreEntitlementVerification> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
     DateTime? now,
   }) async {
-    return outcome;
+    return verification;
   }
 }
 

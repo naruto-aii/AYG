@@ -10,9 +10,9 @@ import '../services/subscription_entitlement.dart';
 import '../services/usage_record.dart';
 import 'persistent_event_outbox.dart';
 
-/// `verify-store-transaction` の結果。ウィジェットは accepted のときだけ開く。
+/// `verify-store-transaction` の結果。
 enum StoreVerifyOutcome {
-  /// 署名が通り、このアカウントの加入を書いた。
+  /// HTTP は成功した。今加入しているかは [StoreEntitlementVerification.plus]。
   accepted,
 
   /// 同じ購入が別のアカウントに付いている。
@@ -23,6 +23,69 @@ enum StoreVerifyOutcome {
 
   /// 送る署名が無い、または未ログイン。
   notSent,
+}
+
+/// 署名の結果と、書き込んだあとの加入。`plus` が null の応答は確定ではない。
+class StoreEntitlementVerification {
+  const StoreEntitlementVerification({
+    required this.outcome,
+    this.plus,
+    this.expiresAt,
+  });
+
+  final StoreVerifyOutcome outcome;
+
+  /// サーバが今の加入と返した値。項目が無い古い応答では null。
+  final bool? plus;
+
+  final DateTime? expiresAt;
+
+  static const notSent = StoreEntitlementVerification(
+    outcome: StoreVerifyOutcome.notSent,
+  );
+
+  static const rejected = StoreEntitlementVerification(
+    outcome: StoreVerifyOutcome.rejected,
+  );
+
+  static const boundToOtherAccount = StoreEntitlementVerification(
+    outcome: StoreVerifyOutcome.boundToOtherAccount,
+  );
+}
+
+/// 成功応答を読む。`plus` が無い `{ok:true}` は、加入の確定にしない。
+///
+/// 審査中の build 11 は本文を読まず、`ok: true` のまま成功とする。
+/// `plus` と `expiresAt` は足した項目で、`ok` の意味は変えない。
+StoreEntitlementVerification storeVerificationFromResponse(Object? data) {
+  if (data is! Map) {
+    return const StoreEntitlementVerification(
+      outcome: StoreVerifyOutcome.accepted,
+    );
+  }
+  final plus = data['plus'];
+  if (plus is! bool) {
+    return const StoreEntitlementVerification(
+      outcome: StoreVerifyOutcome.accepted,
+    );
+  }
+  final expiresAt = data['expiresAt'];
+  return StoreEntitlementVerification(
+    outcome: StoreVerifyOutcome.accepted,
+    plus: plus,
+    expiresAt: expiresAt is String ? DateTime.tryParse(expiresAt) : null,
+  );
+}
+
+/// 審査中の build 11 が見る成功。例外が無く、`ok` が false でなければ通す。
+bool build11VerifySucceeded({required bool invokeThrew, Object? data}) {
+  if (invokeThrew) {
+    return false;
+  }
+  if (data is Map && data['ok'] == false) {
+    return false;
+  }
+  return true;
 }
 
 /// FunctionException の本文から `code` を読む。JWS は見ない。
@@ -68,7 +131,7 @@ abstract class UsageRecordRepository {
   /// サーバへ購入を送るか。無い実装は端末の有料表示のままにする。
   bool get syncsStoreEntitlements => true;
 
-  Future<StoreVerifyOutcome> syncPlusEntitlements({
+  Future<StoreEntitlementVerification> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
@@ -109,13 +172,13 @@ class NoOpUsageRecordRepository implements UsageRecordRepository {
   bool get syncsStoreEntitlements => false;
 
   @override
-  Future<StoreVerifyOutcome> syncPlusEntitlements({
+  Future<StoreEntitlementVerification> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
     DateTime? now,
   }) async {
-    return StoreVerifyOutcome.notSent;
+    return StoreEntitlementVerification.notSent;
   }
 
   @override
@@ -150,7 +213,9 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   insertRow;
   final Future<void> Function(String table, Map<String, dynamic> row)?
   upsertRow;
-  final Future<StoreVerifyOutcome> Function(List<String> signedTransactions)?
+  final Future<StoreEntitlementVerification> Function(
+    List<String> signedTransactions,
+  )?
   verifyStoreTransactions;
   final PersistentEventOutbox _outbox;
   final Map<String, Timer> _foodTimers = {};
@@ -385,7 +450,7 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
   }
 
   @override
-  Future<StoreVerifyOutcome> syncPlusEntitlements({
+  Future<StoreEntitlementVerification> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
@@ -398,34 +463,34 @@ class SupabaseUsageRecordRepository implements UsageRecordRepository {
           record.signedTransaction!.trim(),
     };
     if (signed.isEmpty) {
-      return StoreVerifyOutcome.notSent;
+      return StoreEntitlementVerification.notSent;
     }
     final userId = _userId();
     if (userId == null || userId.isEmpty) {
-      return StoreVerifyOutcome.notSent;
+      return StoreEntitlementVerification.notSent;
     }
     try {
       final hook = verifyStoreTransactions;
       if (hook != null) {
         return await hook(signed.toList());
       }
-      await _supabase.functions.invoke(
+      final response = await _supabase.functions.invoke(
         'verify-store-transaction',
         body: {'signedTransactions': signed.toList()},
       );
-      return StoreVerifyOutcome.accepted;
+      return storeVerificationFromResponse(response.data);
     } on FunctionException catch (error, stackTrace) {
       debugPrint('[AYG] plus entitlement verify failed: $error');
       debugPrintStack(stackTrace: stackTrace);
       final code = storeVerifyErrorCode(error.details);
       if (error.status == 409 || code == 'bound_to_other_user') {
-        return StoreVerifyOutcome.boundToOtherAccount;
+        return StoreEntitlementVerification.boundToOtherAccount;
       }
-      return StoreVerifyOutcome.rejected;
+      return StoreEntitlementVerification.rejected;
     } catch (error, stackTrace) {
       debugPrint('[AYG] plus entitlement verify failed: $error');
       debugPrintStack(stackTrace: stackTrace);
-      return StoreVerifyOutcome.rejected;
+      return StoreEntitlementVerification.rejected;
     }
   }
 

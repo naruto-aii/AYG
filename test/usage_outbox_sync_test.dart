@@ -255,7 +255,10 @@ void main() {
       },
       verifyStoreTransactions: (signed) async {
         verified.add(signed);
-        return StoreVerifyOutcome.accepted;
+        return const StoreEntitlementVerification(
+          outcome: StoreVerifyOutcome.accepted,
+          plus: true,
+        );
       },
     );
     const signed = 'header.payload.signature';
@@ -298,6 +301,42 @@ void main() {
     expect(verified, hasLength(1));
     expect(writes, isEmpty);
   });
+
+  test('a build 11 reader still accepts a body that gained plus', () {
+    const added = {
+      'ok': true,
+      'plus': false,
+      'expiresAt': null,
+    };
+    expect(build11VerifySucceeded(invokeThrew: false, data: added), isTrue);
+    expect(added['ok'], isTrue);
+    expect(added.containsKey('code'), isFalse);
+
+    final closed = storeVerificationFromResponse(added);
+    expect(closed.outcome, StoreVerifyOutcome.accepted);
+    expect(closed.plus, isFalse);
+    expect(closed.expiresAt, isNull);
+
+    final previous = storeVerificationFromResponse(const {'ok': true});
+    expect(previous.outcome, StoreVerifyOutcome.accepted);
+    expect(previous.plus, isNull);
+
+    final open = storeVerificationFromResponse(const {
+      'ok': true,
+      'plus': true,
+      'expiresAt': '2099-01-01T00:00:00.000Z',
+    });
+    expect(open.plus, isTrue);
+    expect(open.expiresAt, DateTime.utc(2099));
+
+    expect(
+      build11VerifySucceeded(
+        invokeThrew: true,
+        data: const {'ok': false, 'code': 'bound_to_other_user'},
+      ),
+      isFalse,
+    );
+  });
 }
 
 class _CountingUsage implements UsageRecordRepository {
@@ -335,13 +374,13 @@ class _CountingUsage implements UsageRecordRepository {
   }) async {}
 
   @override
-  Future<StoreVerifyOutcome> syncPlusEntitlements({
+  Future<StoreEntitlementVerification> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
     DateTime? now,
   }) async {
-    return StoreVerifyOutcome.notSent;
+    return StoreEntitlementVerification.notSent;
   }
 }
 

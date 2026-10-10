@@ -3,6 +3,7 @@ import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/repositories/usage_record_repository.dart';
 import 'package:ayg/services/cook_coach_client.dart';
+import 'package:ayg/services/server_plus_store.dart';
 import 'package:ayg/services/photo_meal_client.dart';
 import 'package:ayg/services/plus_gate_retry.dart';
 import 'package:ayg/services/subscription_entitlement.dart';
@@ -88,7 +89,7 @@ void main() {
 
   test('a recovered receipt is retried unless the server refuses it', () async {
     final plus = _ReceiptPlus();
-    final usage = _OutcomeUsage(StoreVerifyOutcome.notSent);
+    final usage = _OutcomeUsage(StoreEntitlementVerification.notSent);
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
     );
@@ -96,6 +97,7 @@ void main() {
       authenticationRepository: auth,
       subscriptionRepository: plus,
       usageRecordRepository: usage,
+      serverPlusStore: ServerPlusStore.memory(),
     );
     addTearDown(() async {
       PlusGateRetry.bind(null);
@@ -119,11 +121,18 @@ void main() {
     }
 
     await expectCalls(2);
-    usage.outcome = StoreVerifyOutcome.accepted;
+    usage.verification = const StoreEntitlementVerification(
+      outcome: StoreVerifyOutcome.accepted,
+    );
     await expectCalls(2);
-    usage.outcome = StoreVerifyOutcome.rejected;
+    usage.verification = const StoreEntitlementVerification(
+      outcome: StoreVerifyOutcome.accepted,
+      plus: false,
+    );
     await expectCalls(1);
-    usage.outcome = StoreVerifyOutcome.boundToOtherAccount;
+    usage.verification = StoreEntitlementVerification.rejected;
+    await expectCalls(1);
+    usage.verification = StoreEntitlementVerification.boundToOtherAccount;
     await expectCalls(1);
   });
 }
@@ -152,20 +161,20 @@ class _ReceiptPlus extends UnavailableSubscriptionRepository {
 }
 
 class _OutcomeUsage extends NoOpUsageRecordRepository {
-  _OutcomeUsage(this.outcome);
+  _OutcomeUsage(this.verification);
 
-  StoreVerifyOutcome outcome;
+  StoreEntitlementVerification verification;
 
   @override
   bool get syncsStoreEntitlements => true;
 
   @override
-  Future<StoreVerifyOutcome> syncPlusEntitlements({
+  Future<StoreEntitlementVerification> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
     DateTime? now,
   }) async {
-    return outcome;
+    return verification;
   }
 }

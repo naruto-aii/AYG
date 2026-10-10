@@ -3,6 +3,7 @@ import {
   decideEntitlement,
   decideNotificationEntitlement,
   notificationSkipsOlderExpiry,
+  plusAccessFromEntitlement,
   shouldSkipOlderExpiry,
   skipsOlderEntitlement,
 } from "./_shared/store_entitlement.ts";
@@ -107,6 +108,56 @@ Deno.test("a verified transaction writes the server row, not the client expiry",
   assertEquals(writes[0].expires_at, "2026-11-08T00:00:00.000Z");
   assertEquals(writes[0].product_id, "calonavi_plus_monthly");
   assertEquals(writes[0].advertising_use, false);
+});
+
+Deno.test("a new sandbox purchase unlocks Plus and another account cannot reuse it", async () => {
+  const review = verified({
+    environment: "Sandbox",
+    productId: "calonavi_plus_yearly",
+    originalTransactionId: "sandbox-review-1",
+    transactionId: "sandbox-review-tx",
+    expiresDate: Date.parse("2026-11-11T00:00:00Z"),
+  });
+  const first = harness({
+    verify: () => Promise.resolve(review),
+  });
+  const bought = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), first.deps);
+  assertEquals(bought.status, 200);
+  assertEquals(first.writes[0].status, "active");
+  assertEquals(first.writes[0].product_id, "calonavi_plus_yearly");
+  assertEquals(plusAccessFromEntitlement({
+    status: String(first.writes[0].status),
+    expiresAt: String(first.writes[0].expires_at),
+    now,
+  }), true);
+
+  const second = harness({
+    userId: other,
+    bound: { "sandbox-review-1": user },
+    verify: () => Promise.resolve(review),
+  });
+  const reused = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), second.deps);
+  assertEquals(reused.status, 409);
+  assertEquals((await reused.json()).code, "bound_to_other_user");
+  assertEquals(second.writes, []);
+
+  const refunded = harness({
+    verify: () => Promise.resolve(verified({
+      environment: "Sandbox",
+      originalTransactionId: "sandbox-review-2",
+      revocationDate: now.getTime(),
+    })),
+  });
+  const refund = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), refunded.deps);
+  assertEquals(refund.status, 200);
+  assertEquals(refunded.writes[0].status, "inactive");
+  assertEquals(plusAccessFromEntitlement({
+    status: String(refunded.writes[0].status),
+    expiresAt: refunded.writes[0].expires_at == null
+      ? null
+      : String(refunded.writes[0].expires_at),
+    now,
+  }), false);
 });
 
 Deno.test("sandbox transactions are accepted for review and TestFlight", async () => {

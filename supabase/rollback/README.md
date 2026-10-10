@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。
 
+## 20261010220000 stop unverified transaction binding
+
+本番には適用していない。`entitlement_observed` が `store_original_transactions` を書かなくなる。加入の行が無い対応は消える。検証済みの加入と、その対応は残る。戻すと自己申告で対応表を再び書く。消した行は戻らない。
+
+`supabase/rollback/20261010220000_stop_unverified_transaction_binding_down.sql`
+
 ## 20261010213000 ai data consent auth user
 
 本番には適用していない。同意の `user_id` を `public.users` に戻す。`public.users` が無い同意行は消える。食事の行は消えない。戻すと、新規アカウントは再び同意を保存できない。

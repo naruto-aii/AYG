@@ -255,6 +255,7 @@ void main() {
       },
       verifyStoreTransactions: (signed) async {
         verified.add(signed);
+        return StoreVerifyOutcome.accepted;
       },
     );
     const signed = 'header.payload.signature';
@@ -303,6 +304,9 @@ class _CountingUsage implements UsageRecordRepository {
   var flushes = 0;
 
   @override
+  bool get syncsStoreEntitlements => true;
+
+  @override
   Future<void> flushPending() async {
     flushes += 1;
   }
@@ -331,12 +335,14 @@ class _CountingUsage implements UsageRecordRepository {
   }) async {}
 
   @override
-  Future<void> syncPlusEntitlements({
+  Future<StoreVerifyOutcome> syncPlusEntitlements({
     required List<SubscriptionEntitlementRecord> confirmed,
     required List<SubscriptionEntitlementRecord> inactive,
     required bool authoritative,
     DateTime? now,
-  }) async {}
+  }) async {
+    return StoreVerifyOutcome.notSent;
+  }
 }
 
 class _CountingCoach implements CoachProposalLog {

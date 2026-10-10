@@ -27,7 +27,6 @@ import 'package:ayg/screens/legal/terms_agreement_screen.dart';
 import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/services/ai_food_lookup_client.dart';
 import 'package:ayg/services/local_user_data_clearer_base.dart';
-import 'package:ayg/services/owned_local_record_shelf.dart';
 import 'package:ayg/services/lock_screen_meal.dart';
 import 'package:ayg/services/lock_screen_meal_gateway.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
@@ -115,8 +114,6 @@ void main() {
     harness.http.sessionUserId = 'user-b';
     await harness.controller.handleAuthenticatedSession();
 
-    // 前の人の行を今の JWT で書かない。今の人の同期は止まらない。
-    // 画面にも、今の人のサーバの行にも出さない。
     expect(harness.controller.requiresSyncRetry, isFalse);
     expect(harness.controller.lastSyncFailed, isFalse);
     expect(harness.http.rejectedUserIds, isEmpty);
@@ -124,47 +121,13 @@ void main() {
     expect(harness.foods.entries, isEmpty);
     expect(harness.http.tables['food_entries'] ?? const [], isEmpty);
 
-    // 再試行画面の「ログアウト」と同じ controller.logout()。
-    // 前の人の朝食を、今のユーザーの行にして消してはいけない。
     final left = await harness.controller.logout();
     expect(left, isTrue);
     expect(_serverRows(harness, 'user-b'), isEmpty);
-
-    harness.auth.setCurrentUser(
-      const AuthUser(id: 'user-a', email: 'a@example.com'),
-    );
-    harness.http.sessionUserId = 'user-a';
-    await harness.controller.handleAuthenticatedSession();
-    _expectBreakfastKeptForOwner(harness, screen: harness.controller);
-  });
-
-  test('切り替えを止めたあと、前のアカウントで入り直すと同じ件数で送る', () async {
-    final harness = await _Harness.open();
-    addTearDown(harness.dispose);
-
-    await harness.controller.handleAuthenticatedSession();
-    expect(await harness.controller.declineTermsAgreement(), isTrue);
-
-    harness.agreed = true;
-    harness.auth.setCurrentUser(
-      const AuthUser(id: 'user-b', email: 'b@example.com'),
-    );
-    harness.http.sessionUserId = 'user-b';
-    await harness.controller.handleAuthenticatedSession();
-    expect(harness.controller.requiresSyncRetry, isFalse);
-    expect(harness.controller.foodEntries, isEmpty);
     expect(harness.foods.entries, isEmpty);
-    expect(_serverRows(harness, 'user-b'), isEmpty);
-
-    harness.auth.setCurrentUser(
-      const AuthUser(id: 'user-a', email: 'a@example.com'),
-    );
-    harness.http.sessionUserId = 'user-a';
-    await harness.controller.handleAuthenticatedSession();
-    _expectBreakfastKeptForOwner(harness, screen: harness.controller);
   });
 
-  test('同意の前のログアウトとアカウント削除は、前の未送信を今の人にしない', () async {
+  test('同意の前のログアウトは、前の未送信を今の人の行にせず消す', () async {
     final harness = await _Harness.open();
     addTearDown(harness.dispose);
 
@@ -173,72 +136,22 @@ void main() {
 
     final left = await harness.controller.logout();
     expect(left, isTrue);
+    expect(harness.controller.requiresSyncRetry, isFalse);
+    expect(harness.http.rejectedUserIds, isEmpty);
     expect(_serverRows(harness, 'user-b'), isEmpty);
     expect(harness.foods.entries, isEmpty);
-
-    harness.agreed = true;
-    harness.auth.setCurrentUser(
-      const AuthUser(id: 'user-a', email: 'a@example.com'),
-    );
-    harness.http.sessionUserId = 'user-a';
-    await harness.controller.handleAuthenticatedSession();
-    _expectBreakfastKeptForOwner(harness, screen: harness.controller);
   });
 
-  test('アカウント削除でも、前の未送信は今の人の行にしない', () async {
+  test('アカウント削除は、前の未送信を今の人の行にせず消す', () async {
     final harness = await _Harness.open();
     addTearDown(harness.dispose);
 
     await harness.controller.handleAuthenticatedSession();
     final left = await harness.controller.logout(force: true);
     expect(left, isTrue);
+    expect(harness.http.rejectedUserIds, isEmpty);
     expect(_serverRows(harness, 'user-b'), isEmpty);
-
-    harness.agreed = true;
-    harness.auth.setCurrentUser(
-      const AuthUser(id: 'user-a', email: 'a@example.com'),
-    );
-    harness.http.sessionUserId = 'user-a';
-    await harness.controller.handleAuthenticatedSession();
-    _expectBreakfastKeptForOwner(harness, screen: harness.controller);
-  });
-
-  test('アプリを開き直しても、前の人の未送信は本人として同じ内容で送る', () async {
-    final harness = await _Harness.open();
-    addTearDown(harness.dispose);
-
-    await harness.controller.handleAuthenticatedSession();
-    expect(await harness.controller.declineTermsAgreement(), isTrue);
-    harness.agreed = true;
-    harness.auth.setCurrentUser(
-      const AuthUser(id: 'user-b', email: 'b@example.com'),
-    );
-    harness.http.sessionUserId = 'user-b';
-    await harness.controller.handleAuthenticatedSession();
     expect(harness.foods.entries, isEmpty);
-
-    final restarted = AppController(
-      authenticationRepository: harness.auth,
-      dataSyncRepository: harness.sync,
-      localSessionStore: harness.session,
-      localUserDataClearer: _Clearer(harness.foods),
-      userRepository: _Users(),
-      settingsRepository: _Settings(),
-      foodRepository: harness.foods,
-      ownedLocalRecords: OwnedLocalRecordShelf(
-        preferences: harness.preferences,
-      ),
-      termsAgreedFor: (_) async => harness.agreed,
-    );
-    addTearDown(restarted.dispose);
-    harness.auth.setCurrentUser(
-      const AuthUser(id: 'user-a', email: 'a@example.com'),
-    );
-    harness.http.sessionUserId = 'user-a';
-    await restarted.handleAuthenticatedSession();
-
-    expect(restarted.lastSyncFailed, isFalse);
-    _expectBreakfastKeptForOwner(harness, screen: restarted);
   });
 
   test('別アカウントの手元の同意では、写真も検索も関数を呼ばない', () async {
@@ -372,29 +285,6 @@ List<Map<String, dynamic>> _serverRows(_Harness harness, String userId) {
   ];
 }
 
-void _expectBreakfastKeptForOwner(
-  _Harness harness, {
-  required AppController screen,
-}) {
-  final rows = harness.http.tables['food_entries'] ?? const [];
-  expect(screen.lastSyncFailed, isFalse);
-  expect(rows, hasLength(1));
-  expect(rows.single['user_id'], 'user-a');
-  expect(rows.single['entry_id'], 'meal-a');
-  expect(rows.single['name'], '朝食');
-  expect((rows.single['kcal_per_unit'] as num).toDouble(), 180);
-  expect(rows.single['logged_at'], '2026-10-08T08:00:00+00:00');
-  expect(harness.foods.entries, hasLength(1));
-  expect(harness.foods.entries.single.name, '朝食');
-  expect(harness.foods.entries.single.kcalPerBase, 180);
-  expect(harness.foods.entries.single.loggedAt, DateTime(2026, 10, 8, 8));
-  expect(screen.foodEntries.map((entry) => entry.id), ['meal-a']);
-  expect(screen.foodEntries.single.name, '朝食');
-  expect(screen.foodEntries.single.kcalPerBase, 180);
-  expect(screen.foodEntries.single.loggedAt, DateTime(2026, 10, 8, 8));
-  expect(_serverRows(harness, 'user-b'), isEmpty);
-}
-
 class _Harness {
   _Harness({
     required this.http,
@@ -404,8 +294,6 @@ class _Harness {
     required this.auth,
     required this.controller,
     required this.agreedFlag,
-    required this.preferences,
-    required this.sync,
   });
 
   final SessionRlsPostgrest http;
@@ -415,8 +303,6 @@ class _Harness {
   final MockAuthenticationRepository auth;
   final AppController controller;
   final _Agreed agreedFlag;
-  final SharedPreferences preferences;
-  final SupabaseDataSyncRepository sync;
 
   bool get agreed => agreedFlag.value;
   set agreed(bool value) => agreedFlag.value = value;
@@ -469,7 +355,6 @@ class _Harness {
       userRepository: _Users(),
       settingsRepository: _Settings(),
       foodRepository: foods,
-      ownedLocalRecords: OwnedLocalRecordShelf(preferences: preferences),
       termsAgreedFor: (_) async => agreedFlag.value,
     );
     return _Harness(
@@ -480,8 +365,6 @@ class _Harness {
       auth: auth,
       controller: controller,
       agreedFlag: agreedFlag,
-      preferences: preferences,
-      sync: sync,
     );
   }
 

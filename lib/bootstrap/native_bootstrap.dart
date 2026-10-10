@@ -45,7 +45,6 @@ import '../repositories/review_prompt_store.dart';
 import '../repositories/usage_record_repository.dart';
 import '../repositories/weight_repository.dart';
 import '../services/local_user_data_clearer.dart';
-import '../services/owned_local_record_shelf.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
 import '../services/analytics/analytics.dart';
@@ -231,7 +230,6 @@ Future<void> bootstrapApp() async {
     lockScreenMealGateway: LockScreenMealGatewayImpl(),
     siriVoiceGateway: SiriVoiceGatewayImpl(),
     pendingRecords: pendingRecords,
-    ownedLocalRecords: OwnedLocalRecordShelf(preferences: preferences),
     subscriptionRepository: subscriptionRepository,
     usageRecordRepository: remote
         ? SupabaseUsageRecordRepository()

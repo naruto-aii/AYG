@@ -4040,7 +4040,10 @@ class AppController extends ChangeNotifier {
       return false;
     }
     final outcome = await _syncPlusEntitlement();
-    return outcome == StoreVerifyOutcome.accepted;
+    // 別アカウントの購入と、署名が通らなかったときは聞き直さない。
+    // 送る先が無いときは、これまでどおり1回だけ聞き直してから確認を出す。
+    return outcome == StoreVerifyOutcome.accepted ||
+        outcome == StoreVerifyOutcome.notSent;
   }
 
   /// 署名が無い有料は復元で JWS を取り、サーバの加入行へ送る。

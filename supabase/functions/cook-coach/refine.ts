@@ -118,6 +118,11 @@ export function portionPrefers(target: Macros, left: Macros, right: Macros): boo
   return rankBetter(portionRank(target, left), portionRank(target, right));
 }
 
+// 小さい方がよい。先頭の差だけで決め、後ろの項目ではひっくり返さない。
+export function lexSmaller(left: number[], right: number[]): boolean {
+  return rankBetter(left, right);
+}
+
 function rankBetter(left: number[], right: number[]): boolean {
   const n = Math.max(left.length, right.length);
   for (let i = 0; i < n; i++) {

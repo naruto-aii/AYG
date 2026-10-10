@@ -16,6 +16,7 @@ import '../../services/share_sheet_client.dart';
 import '../../services/usage_record.dart';
 import '../../repositories/plus_funnel_repository.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/health/health_estimate_notice.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
@@ -123,6 +124,8 @@ class HomeScreen extends StatelessWidget {
               _weightUsage(controller),
               const SizedBox(height: 4),
               _calculationLink(context, summary),
+              const SizedBox(height: 4),
+              const HealthEstimateNotice(textAlign: TextAlign.center),
               if (summary.energyBreakdown?.guidance != null) ...[
                 const SizedBox(height: 8),
                 _guidanceCard(context, summary.energyBreakdown!.guidance!),

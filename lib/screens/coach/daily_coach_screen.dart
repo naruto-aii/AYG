@@ -22,6 +22,7 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
+import '../../widgets/health/health_estimate_notice.dart';
 
 /// ホームへ戻したときに、食事と運動のどちらを登録したか。
 enum CoachSavedKind { meal, exercise }
@@ -401,6 +402,8 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
             ],
           ),
           const DesignTitleBlock(title: 'パーソナルコーチ (β)', showBack: false),
+          const SizedBox(height: 8),
+          const HealthEstimateNotice(),
           if (!_plusBlocked) ...[
             CookCoachEntryButton(
               key: const Key('cook_coach_entry'),

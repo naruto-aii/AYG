@@ -120,6 +120,7 @@ void main() {
     expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
     expect(find.text(AppStrings.coachBetaNotice), findsNothing);
     expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
+    expect(find.text(AppStrings.healthEstimateDisclaimer), findsOneWidget);
     final mealBottom = tester.getBottomLeft(find.text(headline)).dy;
     final noteTop = tester
         .getTopLeft(find.byKey(const Key('coach_beta_notice')))
@@ -191,6 +192,7 @@ void main() {
     expect(find.text(headline), findsNothing);
     expect(find.text('この量で登録'), findsNothing);
     expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text(AppStrings.healthEstimateDisclaimer), findsOneWidget);
     expect(find.text('カロナビ+を見る'), findsOneWidget);
   });
 

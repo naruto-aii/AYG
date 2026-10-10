@@ -140,8 +140,10 @@ class AppController extends ChangeNotifier {
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
     Future<bool> Function(String userId)? termsAgreedFor,
+    Duration? initialSyncBudget,
   }) : _termsAgreedFor =
            termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
+       _initialSyncBudget = initialSyncBudget ?? initialSyncBudgetDefault,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -286,7 +288,17 @@ class AppController extends ChangeNotifier {
   bool _isSyncInProgress = false;
 
   /// このアカウントが、今の版の規約・プライバシーに同意済みか。
+  /// 初回同期が応答しないとき、再試行画面へ戻すまでの上限。
+  ///
+  /// ログアウトは未送信に3秒、サインアウトに2秒の上限がある。初回同期には無かったので、
+  /// 通信が止まると読み込み中のままになり、再試行もログアウトも出せなかった。
+  static const initialSyncBudgetDefault = Duration(seconds: 25);
+
   final Future<bool> Function(String userId) _termsAgreedFor;
+  final Duration _initialSyncBudget;
+
+  /// 制限時間を超えた同期の続きが、あとから成功扱いにしないための番号。
+  int _syncEpoch = 0;
   bool _termsAgreementRequired = false;
   bool _termsCheckPending = false;
   String? _termsSatisfiedUserId;
@@ -552,46 +564,34 @@ class AppController extends ChangeNotifier {
     _isSyncInProgress = true;
     _lastSyncFailed = false;
     _syncFailure = null;
+    final epoch = ++_syncEpoch;
     notifyListeners();
 
     try {
-      final lastUserId = await _localSessionStore?.loadLastUserId();
-      final switched = _isDifferentUser(lastUserId, authUser.id);
-      if (switched) {
-        await _discardPreviousUserData();
-      }
-
-      await dataSyncRepository.ensureUserProfile(
-        userId: authUser.id,
-        email: authUser.email,
-      );
-
-      if (force || switched || !_hasInitialSyncCompleted) {
-        await _migrateLocalOwnerData(toUserId: authUser.id);
-        final failed = await _pushUnsentBeforePull(
-          dataSyncRepository,
-          authUser.id,
-        );
-        await dataSyncRepository.pullRemoteToLocal(
-          authUser.id,
-          skipTables: failed,
-        );
-        _hasInitialSyncCompleted = true;
-        await _localSessionStore?.saveLastUserId(authUser.id);
-      }
-
-      await runSyncStep(
+      await _pullAuthenticatedSession(
+        authUser: authUser,
+        dataSyncRepository: dataSyncRepository,
+        force: force,
+        epoch: epoch,
+      ).timeout(_initialSyncBudget);
+    } on TimeoutException catch (error, stackTrace) {
+      // 止まっている取得の続きが、あとから成功にして画面を進めない。
+      _syncEpoch++;
+      _lastSyncFailed = true;
+      _hasInitialSyncCompleted = false;
+      _syncFailure = SyncFailure.from(
         step: SyncStep.applyRemoteData,
+        error: error,
         repository: 'AppController',
         tableName: 'local_cache',
-        operation: 'load',
-        action: () => loadPersistedState(),
-      );
-      await syncLockScreenMeals();
-      await syncSiriVoiceLogs();
-      await syncPlusEntitlementToServer();
-      _lastSyncFailed = false;
-      _syncFailure = null;
+        operation: 'sync',
+      )..logDebug();
+      _hasUnsentRecords = true;
+      _clearInMemoryState();
+      if (kDebugMode) {
+        debugPrint('[AYG] handleAuthenticatedSession timed out: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
     } on SyncStepException catch (error) {
       _lastSyncFailed = true;
       _hasInitialSyncCompleted = false;
@@ -616,8 +616,12 @@ class AppController extends ChangeNotifier {
       }
     } finally {
       _isSyncInProgress = false;
-      await _flushBehaviorQueues();
+      // 利用記録の再送は、ログアウトと同じく画面を待たせない。
+      // ここで待つと、初回同期の期限のあとも isInitializing が落ちず、読み込み中のままになる。
       notifyListeners();
+      _forget(_usageRecordRepository?.flushPending());
+      _forget(_plusFunnelRepository?.flushPending());
+      _forget(_coachProposalLog.flushPending());
     }
   }
 
@@ -637,6 +641,99 @@ class AppController extends ChangeNotifier {
     sessionBlockMessage = null;
     notifyListeners();
     return true;
+  }
+
+  /// 同意のあとの初回同期。制限時間を超えた呼び出しは、結果を画面へ反映しない。
+  Future<void> _pullAuthenticatedSession({
+    required AuthUser authUser,
+    required DataSyncRepository dataSyncRepository,
+    required bool force,
+    required int epoch,
+  }) async {
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+    final lastUserId = await _localSessionStore?.loadLastUserId();
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+    final switched = _isDifferentUser(lastUserId, authUser.id);
+    if (switched) {
+      await _discardPreviousUserData();
+    }
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+
+    await dataSyncRepository.ensureUserProfile(
+      userId: authUser.id,
+      email: authUser.email,
+    );
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+
+    if (force || switched || !_hasInitialSyncCompleted) {
+      await _migrateLocalOwnerData(toUserId: authUser.id);
+      if (!_stillCurrent(epoch)) {
+        return;
+      }
+      final failed = await _pushUnsentBeforePull(
+        dataSyncRepository,
+        authUser.id,
+      );
+      if (!_stillCurrent(epoch)) {
+        return;
+      }
+      await dataSyncRepository.pullRemoteToLocal(
+        authUser.id,
+        skipTables: failed,
+      );
+      if (!_stillCurrent(epoch)) {
+        return;
+      }
+      _hasInitialSyncCompleted = true;
+      await _localSessionStore?.saveLastUserId(authUser.id);
+    }
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+
+    await runSyncStep(
+      step: SyncStep.applyRemoteData,
+      repository: 'AppController',
+      tableName: 'local_cache',
+      operation: 'load',
+      action: () => loadPersistedState(),
+    );
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+    await syncLockScreenMeals();
+    await syncSiriVoiceLogs();
+    await syncPlusEntitlementToServer();
+    if (!_stillCurrent(epoch)) {
+      return;
+    }
+    _lastSyncFailed = false;
+    _syncFailure = null;
+  }
+
+  /// この同期が、まだ画面を担当しているか。
+  ///
+  /// 期限で無効にしたあとに [loadPersistedState] がプロフィールを書き戻すことがある。
+  /// そのときは、新しい同期が始まっていなければ、もう一度消す。
+  bool _stillCurrent(int epoch) {
+    if (epoch == _syncEpoch) {
+      return true;
+    }
+    if (!_isSyncInProgress && _syncEpoch == epoch + 1) {
+      _hasInitialSyncCompleted = false;
+      _lastSyncFailed = true;
+      _clearInMemoryState();
+      notifyListeners();
+    }
+    return false;
   }
 
   /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。

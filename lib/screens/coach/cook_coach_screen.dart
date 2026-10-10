@@ -17,6 +17,7 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../subscription/plus_gate.dart';
+import '../../widgets/health/health_estimate_notice.dart';
 
 const cookCoachIngredientChoices = [
   '卵',
@@ -333,6 +334,8 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
             key: const Key('cook_coach_title'),
             style: AppTypography.headingL,
           ),
+          const SizedBox(height: 8),
+          const HealthEstimateNotice(),
           if (_result == null) ...[
             const SizedBox(height: 8),
             Text(

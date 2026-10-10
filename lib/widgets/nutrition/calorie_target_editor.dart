@@ -8,6 +8,7 @@ import '../../theme/app_radius.dart';
 import '../../theme/app_typography.dart';
 import '../design/design_card.dart';
 import '../design/design_field.dart';
+import '../health/health_estimate_notice.dart';
 
 /// 自動計算と手入力の切り替え。数字欄は常に出す。単位は kcal と g/日。
 class CalorieTargetEditor extends StatefulWidget {
@@ -211,6 +212,8 @@ class _CalorieTargetEditorState extends State<CalorieTargetEditor> {
                 child: Text(otherMode.labelJa),
               ),
             ),
+          const SizedBox(height: 8),
+          const HealthEstimateNotice(),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../constants/app_strings.dart';
 import '../../content/daily_calorie_target_explanation.dart';
 import '../../data/met_activity_catalog.dart';
 import '../../models/calculation/calculation_versions.dart';
@@ -46,8 +47,8 @@ class CalculationReferencesScreen extends StatelessWidget {
                 Text('推定値について', style: titleStyle),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
-                  '医療上の診断や治療を目的としたものではありません。',
+                  AppStrings.healthEstimateDisclaimer,
+                  key: const Key('health-estimate-disclaimer'),
                   style: bodyStyle,
                 ),
               ],

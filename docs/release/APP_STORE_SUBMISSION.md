@@ -17,7 +17,7 @@
      --dart-define=officialFoodsEnabled=true
    ```
 
-   `flutter build ios --config-only` を、`--dart-define-from-file=tool/dart_defines.local.json` なしで実行しない。外すと `ios/Flutter/Generated.xcconfig` から SUPABASE の定義が消え、Apple ログインと Google ログインが両方壊れる。鍵の値は手順にもログにも書かない。出力に `FLUTTER_BUILD_NUMBER`（pubspec の `+` の後ろ。この提出は 11）、`DART_DEFINES: OK`、`Google URL スキーム: OK`、`準備完了` が出てから Archive する。`flutter clean` と `flutter pub get` を Archive の直前に挟まない。
+   `flutter build ios --config-only` を、`--dart-define-from-file=tool/dart_defines.local.json` なしで実行しない。外すと `ios/Flutter/Generated.xcconfig` から SUPABASE の定義が消え、Apple ログインと Google ログインが両方壊れる。鍵の値は手順にもログにも書かない。出力に `FLUTTER_BUILD_NUMBER`（pubspec の `+` の後ろ。次の提出は 12）、`DART_DEFINES: OK`、`Google URL スキーム: OK`、`準備完了` が出てから Archive する。`flutter clean` と `flutter pub get` を Archive の直前に挟まない。
 
    Release では `developmentPlusPreview` は常に偽（`!kReleaseMode`）で、購入しないとカロナビ+にならない。Debug / Profile の `flutter run` では真になり、購入せずカロナビ+になるので、審査用には使わない。
 4. App Store Connect の価格は、次の商品 ID に合わせる。表示はストアが返した税込価格を使う。

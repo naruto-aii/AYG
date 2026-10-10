@@ -193,24 +193,64 @@ export function decideNotificationEntitlement(
   });
 }
 
-/// 古い更新で期限を短くしない。返金・失効・猶予切れは、期限が前でも反映する。
+function epochMillis(value: string | number | null | undefined): number | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/// 失効通知の取引より先の加入が残っているか。
+/// 同じ期間の失効（猶予の終わりを含む）は false。期限の無い失効は、未来の加入を消さない。
+function storedPeriodOutlivesNotice(input: {
+  currentExpiresAt: string | null;
+  transactionExpiresAt?: string | number | null;
+  gracePeriodExpiresAt?: string | number | null;
+  now?: Date;
+}): boolean {
+  const stored = epochMillis(input.currentExpiresAt);
+  const now = (input.now ?? new Date()).getTime();
+  if (stored == null || stored <= now) {
+    return false;
+  }
+  const bounds = [input.transactionExpiresAt, input.gracePeriodExpiresAt]
+    .map((value) => epochMillis(value))
+    .filter((value): value is number => value != null);
+  if (bounds.length === 0) {
+    return true;
+  }
+  return stored > Math.max(...bounds);
+}
+
+/// 古い更新で期限を短くしない。
+/// 返金と取り消しは、期限が前でも反映する。
+/// EXPIRED、猶予切れ、猶予なしの更新失敗は、今の加入がその通知の期間より新しいときだけ飛ばす。
 export function notificationSkipsOlderExpiry(input: {
   notificationType: string;
   subtype?: string | null;
   revoked: boolean;
   currentExpiresAt: string | null;
   nextExpiresAt: string | null;
+  /// 署名済み取引の expiresDate。クランプする前の値。
+  transactionExpiresAt?: string | number | null;
+  gracePeriodExpiresAt?: string | number | null;
+  now?: Date;
 }): boolean {
   const type = input.notificationType;
   const subtype = input.subtype ?? "";
   if (input.revoked || type === "REFUND" || type === "REVOKE") {
     return false;
   }
-  if (type === "EXPIRED" || type === "GRACE_PERIOD_EXPIRED") {
-    return false;
-  }
-  if (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD") {
-    return false;
+  if (
+    type === "EXPIRED" ||
+    type === "GRACE_PERIOD_EXPIRED" ||
+    (type === "DID_FAIL_TO_RENEW" && subtype !== "GRACE_PERIOD")
+  ) {
+    return storedPeriodOutlivesNotice(input);
   }
   return shouldSkipOlderExpiry({
     revoked: false,

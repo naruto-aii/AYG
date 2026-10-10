@@ -93,6 +93,7 @@ Deno.serve((request) =>
         }
         return;
       }
+      const now = new Date();
       const decision = decideNotificationEntitlement({
         notificationType,
         subtype: input.subtype,
@@ -106,7 +107,7 @@ Deno.serve((request) =>
         expiresDate: input.expiresDate,
         revocationDate: input.revocationDate,
         gracePeriodExpiresDate: input.gracePeriodExpiresDate,
-        now: new Date(),
+        now,
       });
       if (!decision.ok) {
         if (decision.code === "bound_to_other_user") {
@@ -129,6 +130,9 @@ Deno.serve((request) =>
         revoked,
         currentExpiresAt: stored?.expiresAt ?? null,
         nextExpiresAt: decision.row.expires_at,
+        transactionExpiresAt: input.expiresDate,
+        gracePeriodExpiresAt: input.gracePeriodExpiresDate,
+        now,
       })) {
         return;
       }

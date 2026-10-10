@@ -224,6 +224,12 @@ class AppController extends ChangeNotifier {
   StreamSubscription<bool>? _plusSubscription;
   StreamSubscription<void>? _entitlementSyncSubscription;
 
+  /// このアカウントで、サーバが署名付きの購入を受け取った。
+  bool _serverPlusForAccount = false;
+
+  /// 同じ購入が別のアカウントに付いている。端末の StoreKit が有料でも使わせない。
+  bool _serverPlusBlocked = false;
+
   SubscriptionRepository get subscriptionRepository => _subscriptionRepository;
   bool _firstMealGuideSeen = false;
   bool _offerFirstMealGuide = false;
@@ -479,6 +485,8 @@ class AppController extends ChangeNotifier {
   Future<void> _handleAuthStateChanged(AuthUser? user) async {
     if (user == null) {
       _resetSyncState();
+      _clearServerPlus();
+      unawaited(setLockScreenMealPaid(false));
       _clearInMemoryState();
       notifyListeners();
       return;
@@ -769,6 +777,8 @@ class AppController extends ChangeNotifier {
     await _pendingRecords.clear();
     await _localUserDataClearer?.clearAll();
     await _clearUnscopedRepositories();
+    _clearServerPlus();
+    await setLockScreenMealPaid(false);
     _clearInMemoryState();
   }
 
@@ -3844,13 +3854,16 @@ class AppController extends ChangeNotifier {
 
   /// ウィジェットと Siri を開いてよいか。
   ///
-  /// カロナビ+のときだけ通す。未加入のときは、以前の有料フラグが残っていても通さない。
+  /// サーバがこのアカウントの購入を確認したときだけ通す。
+  /// 同じ購入が別のアカウントに付いているときは、端末が有料でも通さない。
+  /// 購入の送信が無いテストだけ、端末の有料表示のままにする。
   Future<bool> ensurePaidShortcutsReady() async {
-    if (_subscriptionRepository.isPlusActive) {
-      await setLockScreenMealPaid(true);
-      return true;
+    if (_shortcutsUseServer) {
+      await syncPlusEntitlementToServer();
     }
-    return false;
+    final paid = _widgetPaid;
+    await setLockScreenMealPaid(paid);
+    return paid;
   }
 
   /// ストアの加入をフラグへ写す。設定画面からは呼ばない。
@@ -3894,14 +3907,33 @@ class AppController extends ChangeNotifier {
     if (!_hasUnexpiredStorePlus()) {
       return false;
     }
-    await _syncPlusEntitlement();
-    return true;
+    final outcome = await _syncPlusEntitlement();
+    return outcome == StoreVerifyOutcome.accepted;
   }
 
   /// 署名が無い有料は復元で JWS を取り、サーバの加入行へ送る。
   Future<void> syncPlusEntitlementToServer() async {
     await _recoverStoreSignedTransactions();
     await _syncPlusEntitlement();
+  }
+
+  bool get _shortcutsUseServer =>
+      _usageRecordRepository?.syncsStoreEntitlements ?? false;
+
+  bool get _localPreviewPlus => _subscriptionRepository.previewsPaidLocally;
+
+  /// ウィジェットと Siri。サーバがこのアカウントを確認し、端末の期限も残っているとき。
+  bool get _widgetPaid {
+    if (_localPreviewPlus) {
+      return true;
+    }
+    if (!_subscriptionRepository.isPlusActive || _serverPlusBlocked) {
+      return false;
+    }
+    if (!_shortcutsUseServer) {
+      return true;
+    }
+    return _serverPlusForAccount;
   }
 
   Future<void> _recoverStoreSignedTransactions() async {
@@ -3925,16 +3957,25 @@ class AppController extends ChangeNotifier {
     return false;
   }
 
-  Future<void> _syncPlusEntitlement() async {
+  Future<StoreVerifyOutcome> _syncPlusEntitlement() async {
     final usage = _usageRecordRepository;
     if (usage == null || !isAuthenticated) {
-      return;
+      return StoreVerifyOutcome.notSent;
     }
-    await usage.syncPlusEntitlements(
+    final outcome = await usage.syncPlusEntitlements(
       confirmed: _subscriptionRepository.confirmedEntitlements,
       inactive: _subscriptionRepository.inactiveEntitlements,
       authoritative: _subscriptionRepository.entitlementAuthoritative,
     );
+    if (outcome == StoreVerifyOutcome.accepted) {
+      _serverPlusForAccount = _subscriptionRepository.isPlusActive;
+      _serverPlusBlocked = false;
+    } else if (outcome == StoreVerifyOutcome.boundToOtherAccount) {
+      _serverPlusForAccount = false;
+      _serverPlusBlocked = true;
+    }
+    await _applyPaidEntitlement();
+    return outcome;
   }
 
   void recordFoodSearch({required String source, required String query}) {
@@ -4083,7 +4124,12 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _applyPaidEntitlement() async {
-    await setLockScreenMealPaid(_subscriptionRepository.isPlusActive);
+    await setLockScreenMealPaid(_widgetPaid);
+  }
+
+  void _clearServerPlus() {
+    _serverPlusForAccount = false;
+    _serverPlusBlocked = false;
   }
 
   /// 有料フラグの入口。設定画面のスイッチからは呼ばない。

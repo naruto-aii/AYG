@@ -3,7 +3,7 @@
 
 import { GateCheckError, gateRowsExist } from "./gate_check.ts";
 
-export const aiDataConsentVersion = "2026-10-08";
+export const aiDataConsentVersion = "2026-10-10";
 
 export const aiDataConsentRequiredMessage = "AI機能を使うには、同意が必要です。";
 

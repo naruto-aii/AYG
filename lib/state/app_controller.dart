@@ -141,8 +141,8 @@ class AppController extends ChangeNotifier {
     PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
-    Future<bool> Function()? termsAgreed,
-  }) : _termsAgreed = termsAgreed ?? AiDataConsent.grantedNow,
+    Future<bool> Function(String userId)? termsAgreedFor,
+  }) : _termsAgreedFor = termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -286,15 +286,24 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
 
-  /// この端末で、今の版の規約・プライバシー（AI送信の一文を含む）に
-  /// ログイン画面で同意したか。
-  final Future<bool> Function() _termsAgreed;
+  /// このアカウントが、今の版の規約・プライバシーに同意済みか。
+  final Future<bool> Function(String userId) _termsAgreedFor;
   bool _termsAgreementRequired = false;
+  bool _termsCheckPending = false;
+  String? _termsSatisfiedUserId;
   int _termsCheck = 0;
 
-  /// ログイン済みでも、ログイン画面（同意画面）をもう一度出す必要があるか。
-  /// 再インストールや規約の版上げで端末に同意が無いとき true。
+  /// サインイン済みで、今の版への同意がまだのとき true。
+  /// 同意済みのアカウントでは false のままにし、画面を繰り返さない。
   bool get requiresTermsAgreement => _termsAgreementRequired;
+
+  /// サーバの同意を確認しているあいだ。確認が終わるまでアプリ本体は出さない。
+  bool get termsCheckPending => _termsCheckPending;
+
+  bool _termsKnownFor(String userId) {
+    final known = _termsSatisfiedUserId;
+    return known != null && known.toLowerCase() == userId.toLowerCase();
+  }
   bool _lastSyncFailed = false;
   bool _hasUnsentRecords = false;
   bool _isInitializing = false;
@@ -465,6 +474,11 @@ class AppController extends ChangeNotifier {
       return;
     }
 
+    if (!_termsKnownFor(user.id)) {
+      _termsCheckPending = true;
+      notifyListeners();
+    }
+
     if (!_isSyncInProgress) {
       await handleAuthenticatedSession();
     }
@@ -481,27 +495,40 @@ class AppController extends ChangeNotifier {
   Future<void> handleAuthenticatedSession({bool force = false}) async {
     final authUser = _authenticationRepository?.currentUser;
     if (authUser != null) {
-      // 同意はログイン画面のボタンでだけ記録する。保存済みのログイン状態が
-      // 戻っただけなら、同意の画面をもう一度出し、同期も AI も始めない。
+      // 同意はアカウントごと。ログインボタンでは記録しない。
+      // 今の版の行がサーバに無いあいだは、同期も AI も始めない。
+      final known = _termsKnownFor(authUser.id);
+      if (!known && !_termsCheckPending) {
+        _termsCheckPending = true;
+        notifyListeners();
+      }
       final check = ++_termsCheck;
-      final agreed = await _termsAgreed();
+      var agreed = known;
+      if (!known) {
+        try {
+          agreed = await _termsAgreedFor(authUser.id);
+        } catch (_) {
+          agreed = false;
+        }
+      }
       if (check != _termsCheck) {
         return;
       }
+      _termsCheckPending = false;
       if (!agreed) {
+        _termsSatisfiedUserId = null;
         if (!_termsAgreementRequired) {
           _termsAgreementRequired = true;
-          notifyListeners();
         }
+        notifyListeners();
         return;
       }
-      if (_termsAgreementRequired) {
-        _termsAgreementRequired = false;
-        notifyListeners();
-      }
+      _termsSatisfiedUserId = authUser.id;
+      _termsAgreementRequired = false;
     }
     final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
+      notifyListeners();
       return;
     }
     final userId = authUser.id.toLowerCase();
@@ -728,6 +755,8 @@ class AppController extends ChangeNotifier {
 
   void _resetSyncState() {
     _termsAgreementRequired = false;
+    _termsCheckPending = false;
+    _termsSatisfiedUserId = null;
     _termsCheck += 1;
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;

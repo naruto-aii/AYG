@@ -57,11 +57,11 @@ App Store Connect の審査メモに、日本語と英語の両方を入れる�
 
 写真で登録、外食・コンビニ、AIで探すは、食事の写真、料理名、量、補足、店名や食品名を Anthropic, PBC（米国）へ送り、カロリーとPFCの推定に使います。写真はカロナビに保存しません。自炊コーチは Anthropic へ何も送りません。
 
-初回起動時の利用規約・プライバシーポリシーの同意画面で、送信先Anthropicを明示して同意を得ている。同意しないとアプリを使えず、何も送らない。
+サインインのあとの利用規約・プライバシーポリシーの同意画面で、送信先Anthropicと、不適切な内容を認めないことを明示して同意を得ている。同意しないとアプリを使えず、何も送らない。同意はアカウントごと（`ai_data_consents`）で、今の版に同意済みの人には出さない。
 
 確認手順:
-1. アプリを初めて開く。ログイン画面に「写真で登録などのAI機能では、入力した内容を推定のためAnthropic, PBC（米国）に送ります。」と出ます。
-2. Sandbox の Apple ID でログインする。ログインしない限り、何も送りません。
+1. アプリを初めて開く。Apple または Google でログインする。
+2. ログインの直後に「利用規約とプライバシーポリシー」の画面が出る。「AI機能では入力内容をAnthropic, PBC（米国）に送ります。」と、不適切な投稿や嫌がらせを認めない一文がある。「同意してはじめる」を押すまで、何も送らない。
 3. カロナビ+を Sandbox で1つ購入する。
 4. 食事の追加から「写真で登録」、検索の中の「外食・コンビニ」または「AIで探す」を開く。
 
@@ -71,10 +71,10 @@ Calonavi+ AI features are Photo Log, Restaurant and Convenience Store, and AI Se
 
 Photo Log, Restaurant and Convenience Store, and AI Search send the meal photo, dish name, amount, note, or store or food name to Anthropic, PBC in the United States to estimate calories and protein, fat, and carbohydrate. Photos are not stored by Calonavi. Cook Coach sends nothing to Anthropic.
 
-On the first-launch Terms and Privacy Policy agreement screen, the app names Anthropic as the recipient and obtains consent. If the user does not agree, they cannot use the app and nothing is sent.
+After sign-in, the Terms and Privacy Policy agreement screen names Anthropic as the recipient and states that objectionable content and abusive behavior are not allowed. If the user does not agree, they cannot use the app and nothing is sent. Agreement is stored per account. Users who already agreed to the current version do not see the screen again.
 
 How to test:
-1. Open the app for the first time. The login screen states that photo log and similar AI features send what you enter to Anthropic, PBC (United States) for estimation.
-2. Sign in with a Sandbox Apple ID. Nothing is sent unless the user logs in.
+1. Open the app for the first time and sign in with Apple or Google.
+2. The Terms and Privacy Policy screen appears immediately after sign-in. It states that AI features send what you enter to Anthropic, PBC (United States). Nothing is sent until the user taps the agree button.
 3. Buy one Calonavi+ plan in the sandbox.
 4. Open Photo Log, Restaurant and Convenience Store, or AI Search.

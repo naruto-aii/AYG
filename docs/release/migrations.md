@@ -14,6 +14,14 @@
 8. `supabase/migrations/20261008210000_ai_data_consent.sql`
 9. `supabase/migrations/20261009010000_fix_search_path.sql`（140000〜210000 で足した関数の search_path を `public, pg_temp` に固定する。cook_recipes のマイグレーションは関数を作っていない）
 
+## 利用規約の同意（2026-10-10）
+
+新しいマイグレーションは無い。同意は既存の `public.ai_data_consents`（`user_id`、`policy_version`、`consented_at`）にアカウントごとに残す。版は `2026-10-10`。`2026-10-08` の行は、次の起動で同意画面をもう一度出す。
+
+本番に `supabase/migrations/20261008210000_ai_data_consent.sql` がまだ無いときは、このビルドの前に手で適用する。適用済みなら、版の文字列を変えただけでは SQL は要らない。アカウント削除で行が消えるトリガーも、そのマイグレーションに入っている。
+
+エッジ関数 `analyze-meal-photo` と `lookup-food-text` は、同じ版の行があるときだけ AI を呼ぶ。アプリと一緒にデプロイする。この変更では本番に適用もデプロイもしない。
+
 `20261008193000` はレシピの表だけを作る。行は seed にある。
 
 ## seed の出し方と流し方

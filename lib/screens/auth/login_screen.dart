@@ -8,7 +8,6 @@ import '../../platform/web/in_app_browser_detector.dart';
 import '../../platform/web/web_browser_utils.dart';
 import '../../repositories/auth_exceptions.dart';
 import '../../repositories/authentication_repository.dart';
-import '../../services/ai_data_consent.dart';
 import '../../services/analytics/catalog_actions.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -87,19 +86,13 @@ class _LoginScreenState extends State<LoginScreen> {
     CatalogActions.loginTap(provider);
     setState(() => _isLoading = true);
     try {
-      if (kIsWeb) {
-        // Web は外部ブラウザへ遷移して戻るので、押した時点の同意を先に残す。
-        await AiDataConsent.recordLoginAgreement();
-      }
       await login();
       CatalogActions.loginResult(provider: provider, result: 'success');
       if (kIsWeb) {
         // Web は外部ブラウザへ遷移するので、戻ってきたときに復帰する。
+        // 同意はサインイン後の画面で取る。ここでは残さない。
         return;
       }
-      // ボタンを押してログインできたことが、下の同意文への同意。
-      await AiDataConsent.recordLoginAgreement();
-      await widget.controller.handleAuthenticatedSession();
     } on SignInCancelledException {
       CatalogActions.loginResult(provider: provider, result: 'cancelled');
       return;
@@ -291,27 +284,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                // 同意文言（Figma には無いが法務表示として残す）
+                // 同意はサインインのあと。ここでは予告だけ出す。
                 Positioned(
                   top: _consentTop,
                   left: _contentLeft,
                   width: _contentWidth,
-                  child: const Column(
-                    children: [
-                      Text(
-                        AppStrings.loginLegalAgreementMultiline,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: AppTypography.caption,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        AppStrings.loginAiDisclosureMultiline,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: AppTypography.caption,
-                      ),
-                    ],
+                  child: const Text(
+                    AppStrings.loginTermsNextMultiline,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: AppTypography.caption,
                   ),
                 ),
                 // 規約リンク

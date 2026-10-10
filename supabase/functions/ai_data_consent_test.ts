@@ -127,5 +127,5 @@ Deno.test("photo and lookup do not call the model without consent; cook needs on
   assertEquals(lookupCache, 0);
   assertEquals(cookModel, 0);
   assertEquals(cookCache, 0); // レシピが無いので、キャッシュも読まない
-  assertEquals(aiDataConsentVersion, "2026-10-08");
+  assertEquals(aiDataConsentVersion, "2026-10-10");
 });

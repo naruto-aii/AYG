@@ -2,7 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ayg/constants/app_strings.dart';
-import 'package:ayg/screens/auth/login_screen.dart';
+import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/screens/legal/terms_agreement_screen.dart';
 import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/services/ai_food_lookup_client.dart';
 import 'package:ayg/services/cook_coach_client.dart';
@@ -56,21 +57,26 @@ void main() {
     );
   });
 
-  test('the login agreement is the AI consent and has no extra checkbox', () {
-    final screen = File('lib/screens/auth/login_screen.dart').readAsStringSync();
-    expect(screen, contains('AppStrings.loginAiDisclosureMultiline'));
-    expect(screen, contains('AppTypography.caption'));
+  test('the terms screen is the AI consent and has no extra checkbox', () {
+    final screen = File(
+      'lib/screens/legal/terms_agreement_screen.dart',
+    ).readAsStringSync();
+    final login = File('lib/screens/auth/login_screen.dart').readAsStringSync();
+    expect(screen, contains('AppStrings.termsConsentAi'));
+    expect(screen, contains('AppStrings.termsConsentUgc'));
     expect(screen, isNot(contains('Checkbox')));
-    expect(File('lib/screens/legal/ai_data_consent_dialog.dart').existsSync(), isFalse);
+    expect(login, isNot(contains('recordLoginAgreement')));
+    expect(login, isNot(contains('Checkbox')));
     expect(
-      AppStrings.loginAiDisclosure.replaceAll('\n', ''),
-      '写真で登録などのAI機能では、入力した内容を推定のためAnthropic, PBC（米国）に送ります。',
+      File('lib/screens/legal/ai_data_consent_dialog.dart').existsSync(),
+      isFalse,
     );
     expect(
-      AppStrings.loginAiDisclosureMultiline.replaceAll('\n', ''),
-      AppStrings.loginAiDisclosure,
+      AppStrings.termsConsentAi,
+      'AI機能では入力内容をAnthropic, PBC（米国）に送ります。',
     );
-    expect(AppStrings.loginLegalAgreement, contains('利用規約とプライバシーポリシー'));
+    expect(AppStrings.termsConsentTitle, contains('利用規約とプライバシーポリシー'));
+    expect(AppStrings.termsConsentUgc, contains('一切認めません'));
     for (final path in [
       'lib/screens/food/photo_meal_screen.dart',
       'lib/screens/food/ai_food_lookup_screen.dart',
@@ -214,17 +220,19 @@ void main() {
     expect(memory.synced, isFalse);
   });
 
-  testWidgets('the login screen shows the Anthropic sentence in caption size', (
+  testWidgets('the terms screen shows the Anthropic sentence without a checkbox', (
     tester,
   ) async {
     final controller = AppController();
     addTearDown(controller.dispose);
-    final repository = MockAuthenticationRepository();
+    final repository = MockAuthenticationRepository(
+      currentUser: const AuthUser(id: 'new-user', email: 'a@example.com'),
+    );
     addTearDown(repository.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: LoginScreen(
+        home: TermsAgreementScreen(
           controller: controller,
           authenticationRepository: repository,
         ),
@@ -232,20 +240,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(AppStrings.loginLegalAgreementMultiline), findsOneWidget);
-    expect(find.text(AppStrings.loginAiDisclosureMultiline), findsOneWidget);
+    expect(find.text(AppStrings.termsConsentAi), findsOneWidget);
+    expect(find.text(AppStrings.termsConsentUgc), findsOneWidget);
     expect(find.text('AI機能を使う前に'), findsNothing);
     expect(find.text('同意して使う'), findsNothing);
     expect(find.byType(Checkbox), findsNothing);
 
-    final disclosure = tester.widget<Text>(
-      find.text(AppStrings.loginAiDisclosureMultiline),
-    );
-    final agreement = tester.widget<Text>(
-      find.text(AppStrings.loginLegalAgreementMultiline),
-    );
-    expect(disclosure.style?.fontSize, AppTypography.caption.fontSize);
-    expect(disclosure.style?.fontSize, agreement.style?.fontSize);
+    final disclosure = tester.widget<Text>(find.text(AppStrings.termsConsentAi));
+    expect(disclosure.style?.fontSize, AppTypography.bodyM.fontSize);
+    expect(disclosure.style?.fontSize, greaterThan(11));
     expect(find.text('利用規約'), findsOneWidget);
     expect(find.text('プライバシーポリシー'), findsOneWidget);
   });

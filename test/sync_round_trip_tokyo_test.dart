@@ -209,7 +209,7 @@ class _Device {
       lockScreenMealGateway: LockScreenMealGatewayImpl(preferences: preferences),
       siriVoiceGateway: SiriVoiceGatewayImpl(),
       pendingRecords: pending,
-      termsAgreed: () async => true,
+      termsAgreedFor: (_) async => true,
     );
     if (online) {
       await controller.handleAuthenticatedSession();

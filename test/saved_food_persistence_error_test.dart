@@ -1,4 +1,5 @@
 import 'package:ayg/models/saved_food_persistence_error.dart';
+import 'package:ayg/repositories/exceptions/food_master_exceptions.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:postgrest/postgrest.dart';
 
@@ -31,6 +32,51 @@ void main() {
       );
 
       expect(mapped.errorCode, SavedFoodErrorCode.permissionDenied);
+    });
+
+    test('banned public food text wins over the generic check failure', () {
+      final mapped = SavedFoodPersistenceException.fromPostgrest(
+        error: const PostgrestException(
+          message: 'moderation banned public food text',
+          code: '23514',
+        ),
+        repositoryStep: 'SupabaseSavedFoodRepository.publish',
+        operation: 'publish',
+      );
+
+      expect(mapped.errorCode, SavedFoodErrorCode.bannedText);
+      expect(
+        mapped.userMessage,
+        'この内容は公開できません。食品名、読み、ブランド、単位、補足、バーコード、出典を変えてください',
+      );
+    });
+
+    test('a publish exception for banned text keeps that message', () {
+      final mapped = SavedFoodPersistenceException.fromFoodMaster(
+        error: const PublishSavedFoodException(
+          kind: PublishFailureKind.bannedText,
+          message: 'moderation banned public food text',
+        ),
+        repositoryStep: 'AppController.createSavedFood',
+        operation: 'publish',
+      );
+
+      expect(mapped.errorCode, SavedFoodErrorCode.bannedText);
+      expect(mapped.userMessage, contains('食品名、読み、ブランド'));
+    });
+
+    test('other moderation failures stay on the generic save message', () {
+      final mapped = SavedFoodPersistenceException.fromFoodMaster(
+        error: const PublishSavedFoodException(
+          kind: PublishFailureKind.moderationBlocked,
+          message: 'moderation status blocks publish',
+        ),
+        repositoryStep: 'AppController.createSavedFood',
+        operation: 'publish',
+      );
+
+      expect(mapped.errorCode, SavedFoodErrorCode.insertFailed);
+      expect(mapped.userMessage, '食品の保存に失敗しました。しばらく待ってからお試しください。');
     });
   });
 }

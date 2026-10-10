@@ -1,4 +1,5 @@
 import { gunzipText, parseTsv } from "./store_import.ts";
+import type { EntitlementRow, StoredEntitlement } from "./store_entitlement.ts";
 import type { AnalyticsDeps, AnalyticsSegment } from "../store-analytics-import/import.ts";
 import type { SalesDeps } from "../store-sales-import/import.ts";
 
@@ -186,12 +187,12 @@ export async function boundStoreUser(originalTransactionId: string): Promise<str
 export async function readPlusEntitlement(
   userId: string,
   productId: string,
-): Promise<{ expiresAt: string | null; status: string } | null> {
+): Promise<{ expiresAt: string | null; status: string; transactionId: string | null } | null> {
   if (!isUuid(userId) || !productId) {
     return null;
   }
   const response = await rest(
-    `calonavi_plus_entitlements?user_id=eq.${encodeURIComponent(userId)}&product_id=eq.${encodeURIComponent(productId)}&select=expires_at,status&limit=1`,
+    `calonavi_plus_entitlements?user_id=eq.${encodeURIComponent(userId)}&product_id=eq.${encodeURIComponent(productId)}&select=expires_at,status,source_transaction_id&limit=1`,
   );
   if (!response.ok) {
     throw new Error(`entitlement read ${response.status}`);
@@ -203,30 +204,41 @@ export async function readPlusEntitlement(
   }
   const expires = (row as { expires_at?: unknown }).expires_at;
   const status = (row as { status?: unknown }).status;
+  const transactionId = (row as { source_transaction_id?: unknown }).source_transaction_id;
   return {
     expiresAt: typeof expires === "string" ? expires : null,
     status: typeof status === "string" ? status : "",
+    transactionId: typeof transactionId === "string" && transactionId.length > 0
+      ? transactionId
+      : null,
   };
 }
 
-export async function upsertPlusEntitlement(row: {
-  user_id: string;
-  product_id: string;
-  expires_at: string | null;
-  status: string;
-  advertising_use: false;
-}): Promise<void> {
-  const response = await rest(
-    "calonavi_plus_entitlements?on_conflict=user_id,product_id",
-    {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates" },
-      body: JSON.stringify(row),
-    },
-  );
+/// 読み取った期限・状態・取引IDと一致するときだけ書く。同時に別の更新が入ったら false。
+export async function savePlusEntitlement(
+  row: EntitlementRow,
+  expected: StoredEntitlement | null,
+): Promise<boolean> {
+  const response = await rest("rpc/save_plus_entitlement", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      p_user_id: row.user_id,
+      p_product_id: row.product_id,
+      p_expires_at: row.expires_at,
+      p_status: row.status,
+      p_source_transaction_id: row.source_transaction_id,
+      p_expect_row: expected != null,
+      p_expected_expires_at: expected?.expiresAt ?? null,
+      p_expected_status: expected?.status ?? null,
+      p_expected_source_transaction_id: expected?.transactionId ?? null,
+    }),
+  });
   if (!response.ok) {
     throw new Error(`entitlement write ${response.status}`);
   }
+  const body = await response.json();
+  return body === true;
 }
 
 export async function rememberOriginalTransaction(
@@ -263,6 +275,49 @@ async function accountClosed(userId: string): Promise<boolean> {
   return accountIsClosed(row?.deleted_at);
 }
 
+export type StoreUserChoice = {
+  userId: string | null;
+  deleted: boolean;
+  source: "original_transaction" | "app_account_token" | "none";
+};
+
+/// 購入の対応表があるときはその利用者。無いときだけ appAccountToken を見る。
+/// 対応表の利用者が退会済みなら、別のトークンへ付け替えない。
+export function chooseStoreUser(input: {
+  originalUserId: string | null;
+  originalExists: boolean;
+  originalDeleted: boolean;
+  appAccountToken: string | null;
+  tokenExists: boolean;
+  tokenDeleted: boolean;
+}): StoreUserChoice {
+  if (isUuid(input.originalUserId)) {
+    if (input.originalExists && !input.originalDeleted) {
+      return {
+        userId: input.originalUserId.toLowerCase(),
+        deleted: false,
+        source: "original_transaction",
+      };
+    }
+    return { userId: null, deleted: true, source: "original_transaction" };
+  }
+  if (isUuid(input.appAccountToken)) {
+    if (input.tokenExists && !input.tokenDeleted) {
+      return {
+        userId: input.appAccountToken.toLowerCase(),
+        deleted: false,
+        source: "app_account_token",
+      };
+    }
+    // 利用者の行がまだ無い。退会とは違うので、通知の本文は残す。
+    if (!input.tokenExists) {
+      return { userId: null, deleted: false, source: "none" };
+    }
+    return { userId: null, deleted: true, source: "app_account_token" };
+  }
+  return { userId: null, deleted: false, source: "none" };
+}
+
 export async function matchStoreUser(input: {
   appAccountToken?: string | null;
   originalTransactionId?: string | null;
@@ -270,31 +325,35 @@ export async function matchStoreUser(input: {
 }): Promise<{ userId: string | null; deleted: boolean }> {
   const token = input.appAccountToken ?? null;
   const original = input.originalTransactionId?.trim() ?? "";
-  if (isUuid(token)) {
-    if (await userExists(token) && !(await accountClosed(token))) {
-      const userId = token.toLowerCase();
-      await rememberOriginalTransaction(original, userId, input.productId);
-      return { userId, deleted: false };
+  let originalUserId: string | null = null;
+  if (original) {
+    const response = await rest(storeOriginalTransactionPath(original));
+    if (!response.ok) {
+      throw new Error(`transaction lookup ${response.status}`);
     }
-    return { userId: null, deleted: true };
+    const rows = await response.json();
+    const mapped = Array.isArray(rows) ? rows[0]?.user_id : null;
+    originalUserId = isUuid(mapped) ? mapped : null;
   }
-  if (!original) {
-    return { userId: null, deleted: false };
+  const originalExists = originalUserId != null && await userExists(originalUserId);
+  const originalDeleted = originalUserId != null &&
+    (!originalExists || await accountClosed(originalUserId));
+  const tokenIsUser = isUuid(token);
+  const tokenExists = tokenIsUser && originalUserId == null && await userExists(token);
+  const tokenDeleted = tokenIsUser && originalUserId == null &&
+    (!tokenExists || await accountClosed(token));
+  const choice = chooseStoreUser({
+    originalUserId,
+    originalExists,
+    originalDeleted,
+    appAccountToken: originalUserId == null ? token : null,
+    tokenExists,
+    tokenDeleted,
+  });
+  if (choice.userId) {
+    await rememberOriginalTransaction(original, choice.userId, input.productId);
   }
-  const response = await rest(storeOriginalTransactionPath(original));
-  if (!response.ok) {
-    throw new Error(`transaction lookup ${response.status}`);
-  }
-  const rows = await response.json();
-  const userId = Array.isArray(rows) ? rows[0]?.user_id : null;
-  if (!isUuid(userId)) {
-    return { userId: null, deleted: false };
-  }
-  if (await userExists(userId) && !(await accountClosed(userId))) {
-    await rememberOriginalTransaction(original, userId, input.productId);
-    return { userId: userId.toLowerCase(), deleted: false };
-  }
-  return { userId: null, deleted: true };
+  return { userId: choice.userId, deleted: choice.deleted };
 }
 
 export async function insertNotification(row: Record<string, unknown>): Promise<void> {

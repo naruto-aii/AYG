@@ -1,5 +1,6 @@
 import 'package:ayg/repositories/exceptions/food_master_exceptions.dart';
 import 'package:ayg/repositories/supabase/supabase_error_mapper.dart';
+import 'package:ayg/services/publish_error_messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,6 +11,42 @@ void main() {
         const PostgrestException(message: 'duplicate public food exists'),
       );
       expect(mapped.kind, PublishFailureKind.duplicate);
+    });
+
+    test('maps banned public food text before generic moderation', () {
+      final mapped = SupabaseErrorMapper.mapPublishFailure(
+        const PostgrestException(
+          message: 'moderation banned public food text',
+          code: '23514',
+        ),
+      );
+      expect(mapped.kind, PublishFailureKind.bannedText);
+      expect(
+        PublishErrorMessages.messageFor(mapped),
+        'この内容は公開できません。食品名、読み、ブランド、単位、補足、バーコード、出典を変えてください',
+      );
+    });
+
+    test('maps a moderation state that is not banned text', () {
+      final mapped = SupabaseErrorMapper.mapPublishFailure(
+        const PostgrestException(message: 'moderation status blocks publish'),
+      );
+      expect(mapped.kind, PublishFailureKind.moderationBlocked);
+    });
+
+    test('maps an update of public food text the same way', () {
+      final mapped = SupabaseErrorMapper.map(
+        const PostgrestException(
+          message: 'moderation banned public food text',
+          code: '23514',
+        ),
+        context: 'saved_foods update',
+      );
+      expect(mapped, isA<PublishSavedFoodException>());
+      expect(
+        (mapped as PublishSavedFoodException).kind,
+        PublishFailureKind.bannedText,
+      );
     });
 
     test('maps hourly rate limit', () {

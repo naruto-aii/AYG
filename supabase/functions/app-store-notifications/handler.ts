@@ -9,6 +9,14 @@ export type DecodedStoreNotification = {
   environment?: string | null;
   expiresDate?: number | null;
   revocationDate?: number | null;
+  revocationReason?: number | null;
+  gracePeriodExpiresDate?: number | null;
+  transactionId?: string | null;
+  upgraded?: boolean;
+  signedDate?: number | null;
+  offerType?: number | null;
+  offerDiscountType?: string | null;
+  autoRenewStatus?: number | null;
   signedPayload: string;
   decoded: Record<string, unknown>;
 };
@@ -33,8 +41,21 @@ export type NotificationDeps = {
     environment: string | null;
     expiresDate: number | null;
     revocationDate: number | null;
+    notificationType: string;
+    subtype: string | null;
+    gracePeriodExpiresDate: number | null;
+    transactionId: string | null;
+    upgraded: boolean;
   }) => Promise<void>;
 };
+
+function isoOrNull(value: number | null | undefined): string | null {
+  if (value == null || !Number.isFinite(value)) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 export async function handleAppStoreNotification(
   request: Request,
@@ -78,6 +99,11 @@ export async function handleAppStoreNotification(
         environment: decoded.environment ?? null,
         expiresDate: decoded.expiresDate ?? null,
         revocationDate: decoded.revocationDate ?? null,
+        notificationType: decoded.notificationType,
+        subtype: decoded.subtype ?? null,
+        gracePeriodExpiresDate: decoded.gracePeriodExpiresDate ?? null,
+        transactionId: decoded.transactionId ?? null,
+        upgraded: decoded.upgraded === true,
       });
     } catch {
       return new Response("entitlement failed", { status: 500 });
@@ -87,11 +113,20 @@ export async function handleAppStoreNotification(
     notification_uuid: decoded.notificationUUID,
     notification_type: decoded.notificationType,
     subtype: decoded.subtype ?? null,
-    verification_status: "verified",
-    user_id: match.deleted ? null : match.userId,
-    app_account_token: match.deleted ? null : decoded.appAccountToken ?? null,
-    original_transaction_id: match.deleted ? null : decoded.originalTransactionId ?? null,
+    environment: decoded.environment ?? null,
+    signed_date: isoOrNull(decoded.signedDate),
+    bundle_id: decoded.bundleId ?? null,
     product_id: decoded.productId ?? null,
+    original_transaction_id: match.deleted ? null : decoded.originalTransactionId ?? null,
+    transaction_id: match.deleted ? null : decoded.transactionId ?? null,
+    app_account_token: match.deleted ? null : decoded.appAccountToken ?? null,
+    user_id: match.deleted ? null : match.userId,
+    expires_date: isoOrNull(decoded.expiresDate),
+    offer_type: decoded.offerType ?? null,
+    offer_discount_type: decoded.offerDiscountType ?? null,
+    revocation_reason: decoded.revocationReason ?? null,
+    auto_renew_status: decoded.autoRenewStatus ?? null,
+    verification_status: "verified",
     signed_payload: match.deleted ? null : decoded.signedPayload,
     decoded_payload: match.deleted ? null : decoded.decoded,
   };

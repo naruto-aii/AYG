@@ -3,8 +3,10 @@
 
 import {
   decideEntitlement,
-  shouldSkipOlderExpiry,
+  settlePlusEntitlement,
+  skipsOlderEntitlement,
   type EntitlementRow,
+  type StoredEntitlement,
 } from "../_shared/store_entitlement.ts";
 
 export type VerifiedTransaction = {
@@ -12,8 +14,10 @@ export type VerifiedTransaction = {
   productId: string;
   environment: string;
   originalTransactionId: string;
+  transactionId: string;
   expiresDate: number | null;
   revocationDate: number | null;
+  upgraded: boolean;
 };
 
 export type VerifyStoreDeps = {
@@ -23,9 +27,18 @@ export type VerifyStoreDeps = {
   verify: (jws: string) => Promise<VerifiedTransaction>;
   boundUser: (originalTransactionId: string) => Promise<string | null>;
   bind: (originalTransactionId: string, userId: string, productId: string) => Promise<void>;
-  write: (row: EntitlementRow) => Promise<void>;
+  /// 読み取った行と一致するときだけ書く。食い違ったら false。
+  write: (row: EntitlementRow, expected: StoredEntitlement | null) => Promise<boolean>;
   /// 今の加入。無いときは null。古い期限で上書きしないために読む。
-  current?: (userId: string, productId: string) => Promise<{ expiresAt: string | null } | null>;
+  /// status と transactionId は、別の取引の返金・失効で新しい加入を消さないために使う。
+  current?: (
+    userId: string,
+    productId: string,
+  ) => Promise<{
+    expiresAt: string | null;
+    status?: string | null;
+    transactionId?: string | null;
+  } | null>;
   /// 拒否理由。JWS 本体は渡さない。
   log?: (entry: { code: string; reason: string }) => void;
 };
@@ -125,6 +138,8 @@ export async function handleVerifyStoreTransaction(
       boundUserId,
       expiresDate: verified.expiresDate,
       revocationDate: verified.revocationDate,
+      transactionId: verified.transactionId,
+      upgraded: verified.upgraded,
       now,
     });
     if (!decision.ok) {
@@ -140,17 +155,40 @@ export async function handleVerifyStoreTransaction(
       userId,
       verified.productId,
     );
-    if (deps.current) {
-      const stored = await deps.current(userId, decision.row.product_id);
-      if (shouldSkipOlderExpiry({
-        revoked: verified.revocationDate != null,
-        currentExpiresAt: stored?.expiresAt ?? null,
-        nextExpiresAt: decision.row.expires_at,
-      })) {
-        continue;
-      }
-    }
-    await deps.write(decision.row);
+    await settlePlusEntitlement({
+      row: decision.row,
+      load: async () => {
+        if (!deps.current) {
+          return null;
+        }
+        const stored = await deps.current(userId, decision.row.product_id);
+        if (!stored) {
+          return null;
+        }
+        return {
+          expiresAt: stored.expiresAt,
+          status: stored.status ?? "",
+          transactionId: stored.transactionId ?? null,
+        };
+      },
+      skip: (current) => {
+        if (!deps.current) {
+          return false;
+        }
+        return skipsOlderEntitlement({
+          revoked: verified.revocationDate != null,
+          upgraded: verified.upgraded,
+          currentExpiresAt: current?.expiresAt ?? null,
+          currentStatus: current?.status ?? null,
+          currentTransactionId: current?.transactionId ?? null,
+          nextExpiresAt: decision.row.expires_at,
+          transactionExpiresAt: verified.expiresDate,
+          transactionId: verified.transactionId,
+          now,
+        });
+      },
+      save: (row, expected) => deps.write(row, expected),
+    });
   }
   if (conflict) {
     return json({ ok: false, code: "bound_to_other_user" }, 409);

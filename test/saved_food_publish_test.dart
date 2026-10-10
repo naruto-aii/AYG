@@ -133,6 +133,17 @@ void main() {
       );
     });
 
+    test('maps banned public text to a specific message', () {
+      expect(
+        PublishErrorMessages.messageForKind(PublishFailureKind.bannedText),
+        'この内容は公開できません。食品名、読み、ブランド、単位、補足、バーコード、出典を変えてください',
+      );
+      expect(
+        PublishErrorMessages.messageForKind(PublishFailureKind.moderationBlocked),
+        'モデレーション状態により公開できません',
+      );
+    });
+
     test('maps rate limits', () {
       expect(
         PublishErrorMessages.messageForKind(PublishFailureKind.rateLimitHourly),

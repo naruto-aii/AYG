@@ -950,7 +950,7 @@ export function buildCookRecipes(): CookRecipe[] {
       "フライパンを中火にし、{oil}{g:oil}gを熱して卵を2分焼く。",
       "塩{g:salt}gとこしょう{g:pepper}gをふる。",
       "3分置いて黄身まで火を通して器に盛る。",
-    ], [s("egg", [["egg", 100]]), oil(1), salt(), pepper()]),
+    ], [s("egg", [["egg", 100]]), oil(2), salt(), pepper()]),
     dish("tofu-steak", "豆腐ステーキ", "和", "主菜", "焼", [
       "木綿豆腐の水気を切り、厚く切る。",
       "フライパンを中火にし、{oil}{g:oil}gを熱して豆腐を片面4分焼く。",

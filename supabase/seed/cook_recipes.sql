@@ -1009,7 +1009,7 @@ begin
     ('shrimp-fry', 'soy', 'seasoning', 'しょうゆ', '17007', 8, 300, array['しょうゆ','醤油']::text[], true),
     ('shrimp-fry', 'sake', 'seasoning', '料理酒', '17138', 6, 400, array['料理酒','酒']::text[], true),
     ('medamayaki', 'egg', 'egg', '卵', '12004', 100, 0, array['卵','たまご','玉子']::text[], false),
-    ('medamayaki', 'oil', 'oil', 'サラダ油', '14006', 1, 100, array['サラダ油','油']::text[], true),
+    ('medamayaki', 'oil', 'oil', 'サラダ油', '14006', 2, 100, array['サラダ油','油']::text[], true),
     ('medamayaki', 'salt', 'seasoning', '塩', '17012', 1, 200, array['塩','食塩']::text[], true),
     ('medamayaki', 'pepper', 'seasoning', 'こしょう', '17063', 1, 300, array['こしょう','胡椒','コショウ']::text[], true),
     ('tofu-steak', 'protein', 'protein', '木綿豆腐', '04032', 180, 0, array['木綿豆腐','豆腐']::text[], false),

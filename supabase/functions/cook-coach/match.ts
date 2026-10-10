@@ -298,8 +298,8 @@ export function realisticGramBounds(name: string, suggested: number): GramWindow
     max = 3;
   } else if (isOil(name)) {
     min = 0;
-    // 炒め・焼きはおおむね 8g、揚げ焼きやムニエルのバターでも 10g まで。
-    max = 10;
+    // 炒め・焼きはおおむね 8g、揚げ焼きやムニエルのバターでも大さじ1の 12g まで。
+    max = 12;
   } else if (isSugar(name)) {
     min = 0;
     max = 12;
@@ -644,8 +644,8 @@ export function explainGap(target: Macros, dish: MeasuredDish): string {
     parts.push("手元の食材だけではたんぱく質が足りない");
   }
   const oil = dish.ingredients.find((item) => isOil(item.name));
-  if (oil && oil.grams >= 10 && gap.fatG > 0) {
-    parts.push("油は10gまで");
+  if (oil && oil.grams >= 12 && gap.fatG > 0) {
+    parts.push("油は12gまで");
   }
   if (parts.length === 0) {
     parts.push("この食材の現実的な分量では目標にちょうど届かない");

@@ -69,9 +69,12 @@ export function runGrid(recipes: CookRecipe[] = cookRecipes) {
   const summary = {
     cases: n,
     zero: pct(rows.filter((r) => r.zero).length, n),
+    one: pct(rows.filter((r) => !r.zero && !r.two).length, n),
     twoDistinct: pct(rows.filter((r) => r.two).length, n),
     plans: plans.length,
     kcal10: pct(plans.filter((p) => p.kcal).length, plans.length),
+    p15only: pct(plans.filter((p) => p.p).length, plans.length),
+    pc15: pct(plans.filter((p) => p.p && p.c).length, plans.length),
     pfc15: pct(plans.filter((p) => p.pfc).length, plans.length),
     p15: pct(plans.filter((p) => p.p).length, plans.length),
     f15: pct(plans.filter((p) => p.f).length, plans.length),

@@ -9,6 +9,19 @@ bool isTabletLayout(Size size) {
   return size.shortestSide >= AppBreakpoints.tabletShortestSide;
 }
 
+/// Slide Over や、タブバー（390pt）が入りきらない細い Split View。
+///
+/// iPhone SE（320×568）と iPhone mini（375×812）は含めない。
+bool isCompactTabletWindow(Size size) {
+  if (size.width >= 390 || size.height < 700) {
+    return false;
+  }
+  if (size.width < 360) {
+    return true;
+  }
+  return size.height >= 830;
+}
+
 /// iPad のダイアログ・シート・スナックバーを、端まで伸ばさない幅に収める。
 ///
 /// iPhone では呼ばない。ここを通るとダイアログの最大幅が変わり、

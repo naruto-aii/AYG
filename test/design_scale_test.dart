@@ -1,4 +1,6 @@
 import 'package:ayg/widgets/layout/design_scale.dart';
+import 'package:ayg/widgets/layout/tablet_surface.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -36,5 +38,15 @@ void main() {
       designScreenScale(maxWidth: 320, maxHeight: 1194, shortestSide: 320),
       closeTo(320 / 390, 0.0001),
     );
+  });
+
+  test('slide over is compact, iPhone sizes are not', () {
+    expect(isCompactTabletWindow(const Size(320, 1194)), isTrue);
+    expect(isCompactTabletWindow(const Size(320, 834)), isTrue);
+    expect(isCompactTabletWindow(const Size(375, 834)), isTrue);
+    expect(isCompactTabletWindow(const Size(320, 568)), isFalse);
+    expect(isCompactTabletWindow(const Size(375, 812)), isFalse);
+    expect(isCompactTabletWindow(const Size(390, 844)), isFalse);
+    expect(isCompactTabletWindow(const Size(800, 600)), isFalse);
   });
 }

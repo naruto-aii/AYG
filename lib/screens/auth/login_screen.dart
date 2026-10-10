@@ -93,6 +93,8 @@ class _LoginScreenState extends State<LoginScreen> {
         // 同意はサインイン後の画面で取る。ここでは残さない。
         return;
       }
+      // 同意の記録はしない。未同意なら同意画面、同意済みなら同期へ進む。
+      await widget.controller.handleAuthenticatedSession();
     } on SignInCancelledException {
       CatalogActions.loginResult(provider: provider, result: 'cancelled');
       return;

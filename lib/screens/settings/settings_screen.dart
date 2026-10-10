@@ -140,16 +140,6 @@ class SettingsScreen extends StatelessWidget {
     _push(context, const SiriVoiceSetupScreen());
   }
 
-  Future<void> _clearTestPurchase(BuildContext context) async {
-    await controller.subscriptionRepository.clearTestPurchase();
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('無料に戻しました')));
-  }
-
   Future<void> _openCalonaviPlus(
     BuildContext context, {
     PlusFunnelFeature? feature,
@@ -199,18 +189,6 @@ class SettingsScreen extends StatelessWidget {
             subtitle: email ?? 'アカウント情報の確認・変更',
             showChevron: false,
           ),
-          if (controller.subscriptionRepository.testPurchaseToggleEnabled) ...[
-            const SizedBox(height: _rowGap),
-            SettingsRow(
-              key: const Key('test-purchase-revert'),
-              icon: AppIcons.information,
-              title: 'テスト用: 無料に戻す',
-              subtitle: controller.subscriptionRepository.isPlusActive
-                  ? '今はカロナビ+です。押すとすぐに無料になります'
-                  : '今は無料です。カロナビ+の購入ボタンでカロナビ+に戻します',
-              onTap: () => _clearTestPurchase(context),
-            ),
-          ],
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.information,

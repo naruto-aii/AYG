@@ -5,11 +5,21 @@
 ## 署名とログイン
 
 1. Apple Developer の App ID で **Sign in with Apple** を有効にする。`ios/Runner/Runner.entitlements` には `com.apple.developer.applesignin` / `Default` が入っている。App ID 側が無いと Archive の codesign が失敗する。
-2. Archive の前に `tool/configure_google_signin_ios.sh` を実行し、`ios/Flutter/GoogleSignIn.generated.xcconfig` を作る。このファイルは gitignore で、Xcode は生成しない。Google はログインだけに使う。課金は App Store のアプリ内課金。
+2. Archive の前に `./tool/prepare_ios_release.sh` を1回だけ実行する。中で `tool/configure_google_signin_ios.sh` が `ios/Flutter/GoogleSignIn.generated.xcconfig` を作る。このファイルは gitignore で、Xcode は生成しない。Google はログインだけに使う。課金は App Store のアプリ内課金。
 
 ## Archive
 
-3. **Release** スキームで Archive する。Release では `developmentPlusPreview` は常に偽（`!testPurchaseEnabled && !kReleaseMode`）で、購入しないとカロナビ+にならない。Debug / Profile ではテスト購入フラグが無いと真になり、購入せずカロナビ+になるので、審査用には使わない。`CALONAVI_TEST_PURCHASE` は渡さない。`ios/Flutter/Release.xcconfig` にもその定義は無い。
+3. **Release** スキームで Archive する。その前の `./tool/prepare_ios_release.sh` が、次を必ず実行する。
+
+   ```sh
+   flutter build ios --config-only --release \
+     --dart-define-from-file=tool/dart_defines.local.json \
+     --dart-define=officialFoodsEnabled=true
+   ```
+
+   `flutter build ios --config-only` を、`--dart-define-from-file=tool/dart_defines.local.json` なしで実行しない。外すと `ios/Flutter/Generated.xcconfig` から SUPABASE の定義が消え、Apple ログインと Google ログインが両方壊れる。鍵の値は手順にもログにも書かない。出力に `FLUTTER_BUILD_NUMBER`（pubspec の `+` の後ろ。この提出は 11）、`DART_DEFINES: OK`、`Google URL スキーム: OK`、`準備完了` が出てから Archive する。`flutter clean` と `flutter pub get` を Archive の直前に挟まない。
+
+   Release では `developmentPlusPreview` は常に偽（`!kReleaseMode`）で、購入しないとカロナビ+にならない。Debug / Profile の `flutter run` では真になり、購入せずカロナビ+になるので、審査用には使わない。
 4. App Store Connect の価格は、次の商品 ID に合わせる。表示はストアが返した税込価格を使う。
    - `calonavi_plus_monthly` … ¥980
    - `calonavi_plus_half_year` … ¥4,900（980円×5。1か月分お得。月あたり約817円）
@@ -29,27 +39,15 @@
 
 8. `in_app_purchase_storekit` 0.4.13 には `Transaction.currentEntitlements` の読み取り API が無い。プラグインは `restorePurchases` の中だけでそれを使い、結果を購入ストリームへ流す。課金猶予（期限は過ぎているが currentEntitlements に残る状態）は、今回のビルドでは判定しない。`Transaction.all` の期限だけを見て、商品ごとに最も遅い期限を残す。
 
-## 実機確認のあと外すワンタップ切替
+## ワンタップ切替は 1.0.0 (11) で削除
 
-このビルドには、PR #80 のワンタップ切替を残している。実機確認が終わったら、下の箇所を外す。Xcode の Archive は `CALONAVI_TEST_PURCHASE` を渡さないので、提出用ビルドには付かない。`./tool/run_ios.sh` と `./tool/run_ios.sh --release` だけが `--dart-define=CALONAVI_TEST_PURCHASE=true` を付ける。
+PR #80 のテスト用切替は、コードと画面から外した。設定の「テスト用: 無料に戻す」は無い。購入ボタンは StoreKit を開く。`CALONAVI_TEST_PURCHASE` はスクリプトもビルドも渡さない。
 
-切替は端末のカロナビ+表示だけを変える。署名付き取引が無いので `verify-store-transaction` は呼ばれず、`calonavi_plus_entitlements` には書かない。サーバの AI 判定は `not_plus` のまま。`supabase/migrations/20261006140000_calonavi_plus_test_product.sql` は商品IDの制約だけで、この切替を外すときに消さない。
-
-- `lib/config/test_purchase.dart` — `testPurchaseEnabled`。`CALONAVI_TEST_PURCHASE`、既定は false。
-- `tool/run_ios.sh` — 上の define を常に付ける。
-- `lib/bootstrap/native_bootstrap.dart` — `StoreKitSubscriptionRepository` へ `testPurchaseEnabled` を渡す。
-- `lib/repositories/storekit_subscription_repository.dart` — 有効なとき購入は StoreKit を開かず、`calonavi_plus_test_override` と商品 `calonavi_plus_test`、期限 `2099-01-01` で端末だけ有料にする。設定の「テスト用: 無料に戻す」は `clearTestPurchase`。
-- `lib/repositories/subscription_repository.dart` — `testPurchaseToggleEnabled`。既定は false。
-- `lib/screens/settings/settings_screen.dart` — 行「テスト用: 無料に戻す」（key `test-purchase-revert`）。
-- `lib/screens/subscription/calonavi_plus_flow.dart` — ストア価格を読まず、成功の文は「テスト用にカロナビ+にしました」。
-- `lib/config/subscription_catalog.dart` — `testPurchaseProductId = calonavi_plus_test`。
-- `lib/config/development_plus_preview.dart` — このフラグが真のとき、常時の有料プレビューは切る。
-- `test/test_purchase_toggle_test.dart` — 上の存在を確かめている。
-- `ios/Flutter/Release.xcconfig` — `CALONAVI_TEST_PURCHASE` を足さない。
+`supabase/migrations/20261006140000_calonavi_plus_test_product.sql` の商品ID制約は残す。この提出作業では本番データベースに何も適用しない。
 
 ## 審査メモ
 
-App Store Connect の審査メモに、日本語と英語の両方を入れる。アプリの画面には出さない。Sandbox の購入で確認する。`tool/run_ios.sh` のテスト切替は Archive に入らない。
+App Store Connect の審査メモに、日本語と英語の両方を入れる。アプリの画面には出さない。Sandbox の購入で確認する。
 
 日本語:
 

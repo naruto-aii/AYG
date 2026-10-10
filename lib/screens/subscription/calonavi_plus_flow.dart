@@ -287,17 +287,6 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   }
 
   Future<void> _loadPrices() async {
-    if (widget.repository.testPurchaseToggleEnabled) {
-      await Future<void>.value();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _offerings = SubscriptionOfferings.failed;
-        _loadingPrices = false;
-      });
-      return;
-    }
     SubscriptionOfferings offerings;
     try {
       offerings = await widget.repository.loadOfferings();
@@ -466,11 +455,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         if (!mounted) {
           return;
         }
-        _showMessage(
-          widget.repository.testPurchaseToggleEnabled
-              ? 'テスト用にカロナビ+にしました'
-              : '購入しました',
-        );
+        _showMessage('購入しました');
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }

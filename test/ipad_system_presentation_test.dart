@@ -47,15 +47,21 @@ void main() {
   );
 
   test(
-    'iPad system sheets get a window, a popover anchor, and an Apple sign-in anchor',
+    'Apple sign-in gets a scene window and other login paths are not swizzled',
     () {
       final source = File('ios/Runner/AppDelegate.swift').readAsStringSync();
       expect(source, contains('IpadSystemPresentation.install()'));
+      expect(source, contains('@objc dynamic func ayg_performRequests'));
       expect(source, contains('presentationContextProvider'));
+      expect(source, contains('UIWindow(windowScene: scene)'));
+      expect(source, isNot(contains('ASPresentationAnchor()')));
+      expect(source, isNot(contains('UIWindow()')));
+      expect(source, isNot(contains('func ayg_keyWindow')));
+      expect(source, isNot(contains('func ayg_present')));
+      expect(source, isNot(contains('NSSelectorFromString("keyWindow")')));
+      expect(source, isNot(contains('makeForegroundWindowKeyIfNeeded')));
+      // 共有シートは差し替えではなく、出す直前に自分で起点を置く。
       expect(source, contains('popover.sourceView'));
-      expect(source, contains('foregroundKeyWindow'));
-      expect(source, contains('UIImagePickerController'));
-      expect(source, contains('makeForegroundWindowKeyIfNeeded'));
     },
   );
 }

@@ -32,8 +32,9 @@ class ImagePickerMealPhotoSource implements MealPhotoSource {
 
   final ImagePicker _picker;
 
-  /// カメラは全画面、カメラロールは PHPicker。iPad で写真ライブラリが
-  /// ポップオーバーになる経路は、AppDelegate が起点を足す。
+  /// カメラロールは iOS 14 以降の PHPicker（シート）。requestFullMetadata は
+  /// false なので、iPad でポップオーバー起点が要る UIImagePicker の
+  /// 写真ライブラリは使わない。カメラはプラグインが全画面で出す。
   Future<Uint8List?> _pick(ImageSource source) async {
     final file = await _picker.pickImage(
       source: source,
@@ -209,10 +210,7 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
             MealPhotoPreview(jpeg: jpeg)
           else
             DesignCard(
-              child: Text(
-                '写真を1枚選んでください。',
-                style: AppTypography.bodyM,
-              ),
+              child: Text('写真を1枚選んでください。', style: AppTypography.bodyM),
             ),
           const SizedBox(height: AppSpacing.sm),
           DesignButton(

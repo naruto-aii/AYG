@@ -17,12 +17,6 @@ import WidgetKit
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  override func applicationDidBecomeActive(_ application: UIApplication) {
-    super.applicationDidBecomeActive(application)
-    // StoreKit の購入シートは前面シーンのキー窓に出る。
-    IpadSystemPresentation.makeForegroundWindowKeyIfNeeded()
-  }
-
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let channel = FlutterMethodChannel(
@@ -300,8 +294,12 @@ private func presentShareCard(call: FlutterMethodCall, result: @escaping Flutter
   }
 }
 
-/// iPad でシステム画面（写真・共有・Apple ログイン・Google ログイン・StoreKit）が
-/// アンカー無しのポップオーバーや、シーンの無い窓で落ちないようにする。
+/// iPad の Sign in with Apple だけ、プラグインが付けない表示元を足す。
+///
+/// sign_in_with_apple 8.2.0 の `performRequests` は delegate だけ置いて
+/// `presentationContextProvider` を置かない。iPhone はキー窓に戻って動く。
+/// iPad はシートを出せず error 1000 になる。Google ログイン・写真・共有・
+/// StoreKit は、この差し替えが無くても落ちる経路がアプリの使い方に無いので触らない。
 enum IpadSystemPresentation {
   private static var installed = false
 
@@ -311,76 +309,17 @@ enum IpadSystemPresentation {
     }
     installed = true
     exchange(
-      UIApplication.self,
-      NSSelectorFromString("keyWindow"),
-      #selector(UIApplication.ayg_keyWindow)
-    )
-    exchange(
-      UIViewController.self,
-      #selector(UIViewController.present(_:animated:completion:)),
-      #selector(UIViewController.ayg_present(_:animated:completion:))
-    )
-    exchange(
       ASAuthorizationController.self,
       #selector(ASAuthorizationController.performRequests),
       #selector(ASAuthorizationController.ayg_performRequests)
     )
   }
 
-  /// 前面のシーンのキー窓。Split View でもそのシーンの窓を返す。
+  /// 前面シーンのキー窓。Split View でもそのシーンの窓を返す。
   static func foregroundKeyWindow() -> UIWindow? {
     let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
     let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
     return scene?.windows.first { $0.isKeyWindow } ?? scene?.windows.first
-  }
-
-  static func makeForegroundWindowKeyIfNeeded() {
-    guard let window = foregroundKeyWindow(), !window.isKeyWindow else {
-      return
-    }
-    window.makeKey()
-  }
-
-  /// ポップオーバーなのに起点が無いと iPad は例外で落ちる。カメラの全画面表示は変えない。
-  static func anchorPopoverIfNeeded(
-    presenting controller: UIViewController,
-    on presenter: UIViewController
-  ) {
-    guard UIDevice.current.userInterfaceIdiom == .pad else {
-      return
-    }
-    // カメラをポップオーバーにすると iPad で起点が要る。全画面のまま出す。
-    if let picker = controller as? UIImagePickerController, picker.sourceType == .camera {
-      picker.modalPresentationStyle = .fullScreen
-    }
-    guard needsPopoverAnchor(controller) else {
-      return
-    }
-    guard let popover = controller.popoverPresentationController,
-          popover.sourceView == nil,
-          popover.barButtonItem == nil,
-          let view = presenter.viewIfLoaded else {
-      return
-    }
-    popover.sourceView = view
-    popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
-    popover.permittedArrowDirections = []
-  }
-
-  private static func needsPopoverAnchor(_ controller: UIViewController) -> Bool {
-    if controller.modalPresentationStyle == .popover {
-      return true
-    }
-    if controller is UIActivityViewController {
-      return true
-    }
-    if let alert = controller as? UIAlertController, alert.preferredStyle == .actionSheet {
-      return true
-    }
-    if let picker = controller as? UIImagePickerController {
-      return picker.sourceType == .photoLibrary || picker.sourceType == .savedPhotosAlbum
-    }
-    return false
   }
 
   private static func exchange(_ type: AnyClass, _ original: Selector, _ swizzled: Selector) {
@@ -397,41 +336,36 @@ enum IpadSystemPresentation {
 private final class AygAuthorizationAnchor: NSObject, ASAuthorizationControllerPresentationContextProviding {
   static let shared = AygAuthorizationAnchor()
 
-  func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-    IpadSystemPresentation.foregroundKeyWindow() ?? ASPresentationAnchor()
-  }
-}
+  /// 呼び出す前に、その時点の前面の窓を入れておく。
+  var held: UIWindow?
 
-extension UIApplication {
-  /// シーン利用時に deprecated の keyWindow が nil だと、Google ログインが
-  /// 表示元を失う。前面シーンの窓を返す。
-  @objc func ayg_keyWindow() -> UIWindow? {
-    let window = ayg_keyWindow()
-    if let window, window.isKeyWindow {
+  func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+    if let window = IpadSystemPresentation.foregroundKeyWindow() ?? held {
       return window
     }
-    return IpadSystemPresentation.foregroundKeyWindow() ?? window
-  }
-}
-
-extension UIViewController {
-  @objc func ayg_present(
-    _ viewControllerToPresent: UIViewController,
-    animated flag: Bool,
-    completion: (() -> Void)?
-  ) {
-    IpadSystemPresentation.anchorPopoverIfNeeded(
-      presenting: viewControllerToPresent,
-      on: self
-    )
-    ayg_present(viewControllerToPresent, animated: flag, completion: completion)
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    if let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first {
+      // シーンに入っていない窓は iOS 13 以降で例外になる。
+      let window = UIWindow(windowScene: scene)
+      window.frame = scene.coordinateSpace.bounds
+      held = window
+      return window
+    }
+    if let held {
+      return held
+    }
+    // 窓もシーンも無い。プロバイダは窓があるときだけ付けるので、ここは来ない。
+    // 未接続の窓を返すと落ちるので作らない。
+    fatalError("Sign in with Apple requires a window scene")
   }
 }
 
 extension ASAuthorizationController {
-  /// プラグインが presentationContextProvider を置かない。iPad では必須。
-  @objc func ayg_performRequests() {
-    if presentationContextProvider == nil {
+  /// `dynamic` が無いと、Release がこの自己呼び出しを直接呼び出しに変えて無限再帰になる。
+  @objc dynamic func ayg_performRequests() {
+    if presentationContextProvider == nil,
+       let window = IpadSystemPresentation.foregroundKeyWindow() {
+      AygAuthorizationAnchor.shared.held = window
       presentationContextProvider = AygAuthorizationAnchor.shared
     }
     ayg_performRequests()

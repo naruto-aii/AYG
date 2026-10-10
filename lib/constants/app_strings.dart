@@ -178,6 +178,8 @@ class AppStrings {
   static const termsConsentDecline = '同意しない';
   static const termsConsentSaveFailed =
       '同意を保存できませんでした。通信できるときに、もう一度押してください。';
+  static const termsConsentDeclineFailed =
+      'ログイン画面に戻れませんでした。もう一度押してください。';
 
   static const displayName = 'ユーザー名';
   static const displayNameHint = '表示する名前';

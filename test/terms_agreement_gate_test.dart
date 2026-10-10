@@ -3,6 +3,7 @@ import 'package:ayg/config/open_food_facts_config.dart';
 import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/services/ai_data_consent.dart';
+import 'package:ayg/services/local_user_data_clearer_base.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:flutter/material.dart';
@@ -29,14 +30,20 @@ void main() {
     WidgetTester tester, {
     AuthUser? restoredUser,
     MemoryAiDataConsent? consent,
+    MockAuthenticationRepository? authRepository,
+    MockDataSyncRepository? dataSync,
+    LocalUserDataClearerBase? clearer,
   }) async {
-    final auth = MockAuthenticationRepository(currentUser: restoredUser);
+    final auth =
+        authRepository ??
+        MockAuthenticationRepository(currentUser: restoredUser);
     addTearDown(auth.dispose);
-    final sync = MockDataSyncRepository();
+    final sync = dataSync ?? MockDataSyncRepository();
     final controller = AppController(
       healthRepository: MockHealthRepository(isAvailable: false),
       authenticationRepository: auth,
       dataSyncRepository: sync,
+      localUserDataClearer: clearer,
     );
     if (consent != null) {
       AiDataConsent.override = consent;
@@ -227,9 +234,7 @@ void main() {
     expect(sync.pullRemoteToLocalCalled, isTrue);
   });
 
-  testWidgets('アカウントを削除して作り直したら、前の端末フラグがあっても同意画面を出す', (
-    tester,
-  ) async {
+  testWidgets('アカウントを削除して作り直したら、前の端末フラグがあっても同意画面を出す', (tester) async {
     final consent = MemoryAiDataConsent(
       granted: true,
       serverByUser: {'deleted-user': aiDataConsentVersion},
@@ -252,9 +257,7 @@ void main() {
     expect(controller.requiresTermsAgreement, isFalse);
   });
 
-  testWidgets('再インストール後も、同意済みアカウントはサーバの行で画面を出さない', (
-    tester,
-  ) async {
+  testWidgets('再インストール後も、同意済みアカウントはサーバの行で画面を出さない', (tester) async {
     final consent = MemoryAiDataConsent(
       granted: false,
       serverByUser: {'agreed-user': aiDataConsentVersion},
@@ -271,9 +274,7 @@ void main() {
     expect(sync.pullRemoteToLocalCalled, isTrue);
   });
 
-  testWidgets('古い版に同意したアカウントは、もう一度出して、同意後は繰り返さない', (
-    tester,
-  ) async {
+  testWidgets('古い版に同意したアカウントは、もう一度出して、同意後は繰り返さない', (tester) async {
     final consent = MemoryAiDataConsent(
       serverByUser: {'old-user': '2026-10-08'},
     );
@@ -320,7 +321,122 @@ void main() {
     expect(consent.grantCalls, 0);
     expect(auth.logoutCalled, isTrue);
     expect(controller.isAuthenticated, isFalse);
+    expect(sync.pushLocalToRemoteCalled, isFalse);
     expect(sync.pullRemoteToLocalCalled, isFalse);
     expect(find.text(AppStrings.loginWithApple), findsOneWidget);
   });
+
+  testWidgets('同意の保存に失敗しても画面に残り、もう一度押せる', (tester) async {
+    final consent = MemoryAiDataConsent(serverByUser: {}, failGrant: true);
+    final (controller, _, sync) = await pumpApp(tester, consent: consent);
+
+    await tester.tap(find.text(AppStrings.loginWithApple));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppStrings.termsConsentAgree));
+    await tester.pump();
+
+    expect(find.text(AppStrings.termsConsentSaveFailed), findsOneWidget);
+    expect(controller.requiresTermsAgreement, isTrue);
+    expect(consent.grantCalls, 1);
+    expect(sync.pullRemoteToLocalCalled, isFalse);
+    expect(find.text(AppStrings.termsConsentAgree), findsOneWidget);
+
+    consent.failGrant = false;
+    await tester.tap(find.text(AppStrings.termsConsentAgree));
+    await tester.pumpAndSettle();
+
+    expect(consent.serverByUser?['test-user-id'], aiDataConsentVersion);
+    expect(controller.requiresTermsAgreement, isFalse);
+    expect(find.text(AppStrings.termsConsentAgree), findsNothing);
+  });
+
+  testWidgets('同意しないと、送れなくてもログインに戻り、記録は消さない', (tester) async {
+    final clearer = _Clearer();
+    final sync = _OfflineSync();
+    final consent = MemoryAiDataConsent(serverByUser: {});
+    final (controller, auth, _) = await pumpApp(
+      tester,
+      consent: consent,
+      dataSync: sync,
+      clearer: clearer,
+    );
+
+    await tester.tap(find.text(AppStrings.loginWithApple));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppStrings.termsConsentDecline));
+    await tester.pumpAndSettle();
+
+    expect(auth.logoutCalled, isTrue);
+    expect(controller.isAuthenticated, isFalse);
+    expect(sync.pushLocalToRemoteCalled, isFalse);
+    expect(clearer.calls, 0);
+    expect(consent.grantCalls, 0);
+    expect(find.text(AppStrings.loginWithApple), findsOneWidget);
+    expect(find.text(AppStrings.termsConsentAgree), findsNothing);
+  });
+
+  testWidgets('同意しないと、送れるときも記録を消さずにログインへ戻る', (tester) async {
+    final clearer = _Clearer();
+    final consent = MemoryAiDataConsent(
+      serverByUser: {'old-user': '2026-10-08'},
+    );
+    final (controller, _, sync) = await pumpApp(
+      tester,
+      consent: consent,
+      clearer: clearer,
+      restoredUser: const AuthUser(id: 'old-user', email: 'c@example.com'),
+    );
+
+    expect(find.text(AppStrings.termsConsentDecline), findsOneWidget);
+    await tester.tap(find.text(AppStrings.termsConsentDecline));
+    await tester.pumpAndSettle();
+
+    expect(controller.isAuthenticated, isFalse);
+    expect(sync.pushLocalToRemoteCalled, isFalse);
+    expect(clearer.calls, 0);
+    expect(consent.serverByUser?['old-user'], '2026-10-08');
+    expect(find.text(AppStrings.loginWithApple), findsOneWidget);
+  });
+
+  testWidgets('別アカウントへ切り替えると、前の同意では画面を飛ばさない', (tester) async {
+    final consent = MemoryAiDataConsent(
+      serverByUser: {'agreed-user': aiDataConsentVersion},
+    );
+    final (controller, auth, sync) = await pumpApp(
+      tester,
+      consent: consent,
+      restoredUser: const AuthUser(id: 'agreed-user', email: 'a@example.com'),
+    );
+
+    expect(controller.requiresTermsAgreement, isFalse);
+    expect(sync.pullRemoteToLocalCalled, isTrue);
+
+    auth.setCurrentUser(
+      const AuthUser(id: 'other-user', email: 'b@example.com'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.requiresTermsAgreement, isTrue);
+    expectConsentScreen();
+    expect(consent.serverByUser?.containsKey('other-user'), isFalse);
+    expect(consent.grantCalls, 0);
+  });
+}
+
+class _Clearer implements LocalUserDataClearerBase {
+  int calls = 0;
+
+  @override
+  Future<void> clearAll() async {
+    calls += 1;
+  }
+}
+
+class _OfflineSync extends MockDataSyncRepository {
+  @override
+  Future<void> pushLocalToRemote(String userId) async {
+    pushLocalToRemoteCalled = true;
+    lastUserId = userId;
+    throw StateError('offline');
+  }
 }

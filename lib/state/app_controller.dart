@@ -627,6 +627,24 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// 同意しない。ログインへ戻し、食事などの記録は消さないし、送らない。
+  ///
+  /// 通常の [logout] は未送信を送ってから手元を消す。送れないときは画面に残る。
+  /// 同意の前にそれを使うと、戻れないか、前のアカウントの記録が消える。
+  Future<bool> declineTermsAgreement() async {
+    _termsCheck += 1;
+    await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
+    if (_authenticationRepository?.isAuthenticated ?? false) {
+      notifyListeners();
+      return false;
+    }
+    _resetSyncState();
+    _clearInMemoryState();
+    sessionBlockMessage = null;
+    notifyListeners();
+    return true;
+  }
+
   /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。
   static const _unsentLogoutBudget = Duration(seconds: 3);
 

@@ -61,7 +61,18 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
     if (_saving) {
       return;
     }
-    await widget.controller.logout();
+    setState(() => _saving = true);
+    final left = await widget.controller.declineTermsAgreement();
+    if (!mounted) {
+      return;
+    }
+    if (left) {
+      return;
+    }
+    setState(() => _saving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.termsConsentDeclineFailed)),
+    );
   }
 
   @override

@@ -12,6 +12,7 @@ export type DecodedStoreNotification = {
   revocationReason?: number | null;
   gracePeriodExpiresDate?: number | null;
   transactionId?: string | null;
+  upgraded?: boolean;
   signedDate?: number | null;
   offerType?: number | null;
   offerDiscountType?: string | null;
@@ -43,6 +44,8 @@ export type NotificationDeps = {
     notificationType: string;
     subtype: string | null;
     gracePeriodExpiresDate: number | null;
+    transactionId: string | null;
+    upgraded: boolean;
   }) => Promise<void>;
 };
 
@@ -99,6 +102,8 @@ export async function handleAppStoreNotification(
         notificationType: decoded.notificationType,
         subtype: decoded.subtype ?? null,
         gracePeriodExpiresDate: decoded.gracePeriodExpiresDate ?? null,
+        transactionId: decoded.transactionId ?? null,
+        upgraded: decoded.upgraded === true,
       });
     } catch {
       return new Response("entitlement failed", { status: 500 });

@@ -1,4 +1,5 @@
 import { gunzipText, parseTsv } from "./store_import.ts";
+import type { EntitlementRow, StoredEntitlement } from "./store_entitlement.ts";
 import type { AnalyticsDeps, AnalyticsSegment } from "../store-analytics-import/import.ts";
 import type { SalesDeps } from "../store-sales-import/import.ts";
 
@@ -186,12 +187,12 @@ export async function boundStoreUser(originalTransactionId: string): Promise<str
 export async function readPlusEntitlement(
   userId: string,
   productId: string,
-): Promise<{ expiresAt: string | null; status: string } | null> {
+): Promise<{ expiresAt: string | null; status: string; transactionId: string | null } | null> {
   if (!isUuid(userId) || !productId) {
     return null;
   }
   const response = await rest(
-    `calonavi_plus_entitlements?user_id=eq.${encodeURIComponent(userId)}&product_id=eq.${encodeURIComponent(productId)}&select=expires_at,status&limit=1`,
+    `calonavi_plus_entitlements?user_id=eq.${encodeURIComponent(userId)}&product_id=eq.${encodeURIComponent(productId)}&select=expires_at,status,source_transaction_id&limit=1`,
   );
   if (!response.ok) {
     throw new Error(`entitlement read ${response.status}`);
@@ -203,30 +204,41 @@ export async function readPlusEntitlement(
   }
   const expires = (row as { expires_at?: unknown }).expires_at;
   const status = (row as { status?: unknown }).status;
+  const transactionId = (row as { source_transaction_id?: unknown }).source_transaction_id;
   return {
     expiresAt: typeof expires === "string" ? expires : null,
     status: typeof status === "string" ? status : "",
+    transactionId: typeof transactionId === "string" && transactionId.length > 0
+      ? transactionId
+      : null,
   };
 }
 
-export async function upsertPlusEntitlement(row: {
-  user_id: string;
-  product_id: string;
-  expires_at: string | null;
-  status: string;
-  advertising_use: false;
-}): Promise<void> {
-  const response = await rest(
-    "calonavi_plus_entitlements?on_conflict=user_id,product_id",
-    {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates" },
-      body: JSON.stringify(row),
-    },
-  );
+/// 読み取った期限・状態・取引IDと一致するときだけ書く。同時に別の更新が入ったら false。
+export async function savePlusEntitlement(
+  row: EntitlementRow,
+  expected: StoredEntitlement | null,
+): Promise<boolean> {
+  const response = await rest("rpc/save_plus_entitlement", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      p_user_id: row.user_id,
+      p_product_id: row.product_id,
+      p_expires_at: row.expires_at,
+      p_status: row.status,
+      p_source_transaction_id: row.source_transaction_id,
+      p_expect_row: expected != null,
+      p_expected_expires_at: expected?.expiresAt ?? null,
+      p_expected_status: expected?.status ?? null,
+      p_expected_source_transaction_id: expected?.transactionId ?? null,
+    }),
+  });
   if (!response.ok) {
     throw new Error(`entitlement write ${response.status}`);
   }
+  const body = await response.json();
+  return body === true;
 }
 
 export async function rememberOriginalTransaction(

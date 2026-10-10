@@ -1,9 +1,10 @@
 import { verifySignedTransaction } from "../_shared/apple_signed_data.ts";
+import { storeTransactionId } from "../_shared/store_entitlement.ts";
 import {
   boundStoreUser,
   readPlusEntitlement,
   rememberOriginalTransaction,
-  upsertPlusEntitlement,
+  savePlusEntitlement,
 } from "../_shared/store_live.ts";
 import { handleVerifyStoreTransaction, type VerifiedTransaction } from "./handler.ts";
 
@@ -19,8 +20,10 @@ function verifiedFromApple(payload: Record<string, unknown>): VerifiedTransactio
     originalTransactionId: typeof payload.originalTransactionId === "string"
       ? payload.originalTransactionId
       : "",
+    transactionId: storeTransactionId(payload.transactionId),
     expiresDate: numberOrNull(payload.expiresDate),
     revocationDate: numberOrNull(payload.revocationDate),
+    upgraded: payload.isUpgraded === true,
   };
 }
 
@@ -54,10 +57,12 @@ Deno.serve((req) =>
     boundUser: (originalTransactionId) => boundStoreUser(originalTransactionId),
     bind: (originalTransactionId, owner, productId) =>
       rememberOriginalTransaction(originalTransactionId, owner, productId),
-    write: (row) => upsertPlusEntitlement(row),
+    write: (row, expected) => savePlusEntitlement(row, expected),
     current: async (owner, productId) => {
       const row = await readPlusEntitlement(owner, productId);
-      return row ? { expiresAt: row.expiresAt } : null;
+      return row
+        ? { expiresAt: row.expiresAt, status: row.status, transactionId: row.transactionId }
+        : null;
     },
   })
 );

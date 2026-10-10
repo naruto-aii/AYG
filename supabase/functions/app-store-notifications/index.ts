@@ -7,7 +7,9 @@ import {
 import {
   decideNotificationEntitlement,
   entitlementNotificationTypes,
+  settlePlusEntitlement,
   skipsOlderEntitlement,
+  storeTransactionId,
 } from "../_shared/store_entitlement.ts";
 import {
   boundStoreUser,
@@ -17,7 +19,7 @@ import {
   notificationExists,
   rememberOriginalTransaction,
   readPlusEntitlement,
-  upsertPlusEntitlement,
+  savePlusEntitlement,
 } from "../_shared/store_live.ts";
 import { handleAppStoreNotification, type DecodedStoreNotification } from "./handler.ts";
 
@@ -63,7 +65,7 @@ Deno.serve((request) =>
         appAccountToken: stringOrNull(transaction.appAccountToken),
         originalTransactionId: stringOrNull(transaction.originalTransactionId) ??
           stringOrNull(renewal.originalTransactionId),
-        transactionId: stringOrNull(transaction.transactionId),
+        transactionId: storeTransactionId(transaction.transactionId) || null,
         productId: stringOrNull(transaction.productId) ?? stringOrNull(renewal.productId),
         bundleId,
         environment: transactionEnvironment,
@@ -71,6 +73,7 @@ Deno.serve((request) =>
         revocationDate: numberOrNull(transaction.revocationDate),
         revocationReason: numberOrNull(transaction.revocationReason),
         gracePeriodExpiresDate: numberOrNull(renewal.gracePeriodExpiresDate),
+        upgraded: transaction.isUpgraded === true,
         signedDate: numberOrNull(decoded.signedDate),
         offerType: numberOrNull(transaction.offerType),
         offerDiscountType: stringOrNull(transaction.offerDiscountType),
@@ -107,6 +110,8 @@ Deno.serve((request) =>
         expiresDate: input.expiresDate,
         revocationDate: input.revocationDate,
         gracePeriodExpiresDate: input.gracePeriodExpiresDate,
+        transactionId: input.transactionId,
+        upgraded: input.upgraded,
         now,
       });
       if (!decision.ok) {
@@ -120,23 +125,38 @@ Deno.serve((request) =>
         input.userId,
         input.productId,
       );
-      const stored = await readPlusEntitlement(input.userId, input.productId);
+      const productId = input.productId;
       const revoked = input.revocationDate != null ||
         notificationType === "REFUND" ||
         notificationType === "REVOKE";
-      if (skipsOlderEntitlement({
-        notificationType,
-        subtype: input.subtype,
-        revoked,
-        currentExpiresAt: stored?.expiresAt ?? null,
-        nextExpiresAt: decision.row.expires_at,
-        transactionExpiresAt: input.expiresDate,
-        gracePeriodExpiresAt: input.gracePeriodExpiresDate,
-        now,
-      })) {
-        return;
-      }
-      await upsertPlusEntitlement(decision.row);
+      await settlePlusEntitlement({
+        row: decision.row,
+        load: async () => {
+          const stored = await readPlusEntitlement(input.userId, productId);
+          if (!stored) {
+            return null;
+          }
+          return {
+            expiresAt: stored.expiresAt,
+            status: stored.status,
+            transactionId: stored.transactionId,
+          };
+        },
+        skip: (current) => skipsOlderEntitlement({
+          notificationType,
+          subtype: input.subtype,
+          revoked,
+          upgraded: input.upgraded,
+          currentExpiresAt: current?.expiresAt ?? null,
+          currentTransactionId: current?.transactionId ?? null,
+          nextExpiresAt: decision.row.expires_at,
+          transactionExpiresAt: input.expiresDate,
+          transactionId: input.transactionId,
+          gracePeriodExpiresAt: input.gracePeriodExpiresDate,
+          now,
+        }),
+        save: (row, expected) => savePlusEntitlement(row, expected),
+      });
     },
     insert: (row) => insertNotification(row),
     insertFailed: (signedPayload) => insertFailedNotification(signedPayload),

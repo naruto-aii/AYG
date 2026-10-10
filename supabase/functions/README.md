@@ -289,6 +289,8 @@ deno run -A supabase/functions/cook-coach/check_recipes.ts
 
 `20261008193000` のあと、`official_foods` があるデータベースで `supabase/seed/cook_recipes.sql` を流す。出し直し方は `docs/release/migrations.md`。この変更では本番に流さない。
 
+新規アカウントの同意が外部キーで 409 になるときは、アプリを出さず `supabase/migrations/20261010213000_ai_data_consent_auth_user.sql` だけを足す。`20261008210000` が適用済みなら、上の 1〜9 や返金記録より先に流してよい。手順は `docs/release/migrations.md`。
+
 そのあとで関数をデプロイする。同意の表より先に関数を出すと、AI機能は同意が無いとして止まります。
 
 1. `analyze-meal-photo`

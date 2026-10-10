@@ -20,6 +20,8 @@
 
 本番に `supabase/migrations/20261008210000_ai_data_consent.sql` がまだ無いときは、このビルドの前に手で適用する。適用済みなら、版の文字列を変えただけでは SQL は要らない。アカウント削除で行が消えるトリガーも、そのマイグレーションに入っている。
 
+新規アカウントが同意を保存できない件は、下の「同意を初回設定より前に保存する」を見る。アプリの版の文字列とは別の SQL である。
+
 エッジ関数 `analyze-meal-photo` と `lookup-food-text` は、`2026-10-08` と `2026-10-10` のどちらも有効な同意として受け付ける。AI の送信先の文言は両方の版で同じ。アプリは `2026-10-10` だけを今の版とし、`2026-10-08` のアカウントには同意画面を出す。
 
 関数は審査の前に本番へ出せる。旧アプリ（`2026-10-08` に同意済み）の AI は止まらない。新しい版の同意も、先に出た関数は拒まない。審査中の端末が本番の関数を使うときも、`2026-10-10` の同意で AI が 403 にならない。アプリだけ先に出すと、関数が `2026-10-08` だけを見ているあいだは新しい同意が拒まれる。関数を先に出す。
@@ -66,3 +68,19 @@ psql "$DATABASE_URL" -f supabase/seed/cook_recipes.sql
 17. そのあと、今有効な取引だけを送るアプリ
 
 戻すときは、出荷済みなら前のアプリ、次に 15 の関数、14 の関数の順で、返金記録を呼ばない版に戻す。それから `supabase/rollback/20261010200000_revoked_store_transactions_down.sql`。取引IDも戻すなら `supabase/rollback/20261010190000_entitlement_source_transaction_down.sql`。通知 URL は、前の関数に戻したあとも同じ URL のままでよい。関数を止めるときだけ外す。禁止語も戻すなら 11 の戻し、10 の戻し。加入の行自体は残る。新しい関数を載せたまま、返金記録の表は消さない。
+
+## 同意を初回設定より前に保存する（20261010213000）
+
+この変更では本番に適用しない。アプリは出さない。1.0.0 (11) の同意画面は、`public.users` を作る初回設定より前に `ai_data_consents` へ書く。参照先が `public.users` のままだと、新規アカウントは外部キーで 409 になる。
+
+本番に `20261008210000_ai_data_consent.sql` が既にあるときは、次の 1 ファイルだけを足す。返金記録や禁止語より先に流してよい。中身は `ai_data_consents` と `auth.users` だけを見る。`public.users` の行は作らない。初回設定の完了は `app_settings.onboarding_complete` のままである。
+
+18. `supabase/migrations/20261010213000_ai_data_consent_auth_user.sql`
+
+列は変えないので、審査中のアプリを作り直さなくてよい。ファイルの末尾で PostgREST にスキーマの再読み込みを知らせる。
+
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261010213000_ai_data_consent_auth_user.sql
+```
+
+戻すときは `supabase/rollback/20261010213000_ai_data_consent_auth_user_down.sql`。参照先を `public.users` に戻す。`public.users` が無い同意行は消える。食事の行は消えない。戻すと、新規アカウントは再び同意を保存できない。

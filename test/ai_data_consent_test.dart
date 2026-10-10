@@ -62,6 +62,21 @@ void main() {
       ).readAsStringSync(),
       contains('drop table if exists public.ai_data_consents'),
     );
+    final retarget = File(
+      'supabase/migrations/20261010213000_ai_data_consent_auth_user.sql',
+    ).readAsStringSync();
+    expect(retarget, contains('references auth.users (id) on delete cascade'));
+    expect(retarget, isNot(contains('insert into public.users')));
+    expect(
+      retarget,
+      contains('delete_ai_data_consent_on_account_close'),
+    );
+    expect(
+      File(
+        'supabase/rollback/20261010213000_ai_data_consent_auth_user_down.sql',
+      ).readAsStringSync(),
+      contains('references public.users (id) on delete cascade'),
+    );
   });
 
   test('the terms screen is the AI consent and has no extra checkbox', () {

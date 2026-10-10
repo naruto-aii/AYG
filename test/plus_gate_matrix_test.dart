@@ -245,6 +245,61 @@ void main() {
       await expectDialogThenPaywall(tester);
     });
 
+    testWidgets('購入したら食事テンプレートの作成を続ける', (tester) async {
+      final auth = _auth();
+      final gate = _GatePlus(active: false);
+      final controller = AppController(
+        authenticationRepository: auth,
+        subscriptionRepository: gate,
+        mealTemplateRepository: _MemoryMeals()..seedFour(),
+      );
+      addTearDown(controller.dispose);
+      controller.openCalonaviPlusFlow = (_) async {
+        gate.active = true;
+      };
+      await show(tester, MealTemplateListScreen(controller: controller));
+      await tapLabel(tester, find.text('テンプレートを作成'));
+      expect(find.text('カロナビ+限定機能'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
+      await tester.pumpAndSettle();
+      expect(find.text('登録する食品'), findsOneWidget);
+    });
+
+    testWidgets('購入しなければ食事テンプレートの作成は開かない', (tester) async {
+      final auth = _auth();
+      final controller = AppController(
+        authenticationRepository: auth,
+        mealTemplateRepository: _MemoryMeals()..seedFour(),
+      );
+      addTearDown(controller.dispose);
+      controller.openCalonaviPlusFlow = (_) async {};
+      await show(tester, MealTemplateListScreen(controller: controller));
+      await tapLabel(tester, find.text('テンプレートを作成'));
+      await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
+      await tester.pumpAndSettle();
+      expect(find.text('登録する食品'), findsNothing);
+      expect(find.text('テンプレートを作成'), findsOneWidget);
+    });
+
+    testWidgets('購入したら運動テンプレートの作成を続ける', (tester) async {
+      final auth = _auth();
+      final gate = _GatePlus(active: false);
+      final controller = AppController(
+        authenticationRepository: auth,
+        subscriptionRepository: gate,
+        workoutTemplateRepository: _MemoryWorkouts()..seedFour(),
+      );
+      addTearDown(controller.dispose);
+      controller.openCalonaviPlusFlow = (_) async {
+        gate.active = true;
+      };
+      await show(tester, WorkoutTemplateListScreen(controller: controller));
+      await tapLabel(tester, find.byIcon(Icons.add));
+      await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
+      await tester.pumpAndSettle();
+      expect(find.text('テンプレート作成'), findsOneWidget);
+    });
+
     testWidgets('ウィジェット', (tester) async {
       final auth = _auth();
       final controller = AppController(authenticationRepository: auth);

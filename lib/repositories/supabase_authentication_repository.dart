@@ -22,7 +22,7 @@ import 'authentication_repository.dart';
 Future<void> signOutLocalSessionThenGoogle({
   required Future<void> Function() supabaseSignOut,
   Future<void> Function()? googleSignOut,
-  Duration googleTimeout = const Duration(seconds: 3),
+  Duration googleTimeout = const Duration(seconds: 1),
 }) async {
   try {
     await supabaseSignOut();

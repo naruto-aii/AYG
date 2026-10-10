@@ -49,5 +49,8 @@ Future<bool> allowWorkoutTemplateCreate(
       );
     }
   }
-  return false;
+  if (!context.mounted) {
+    return false;
+  }
+  return controller.canCreateWorkoutTemplate();
 }

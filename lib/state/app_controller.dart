@@ -600,7 +600,16 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。
+  static const _unsentLogoutBudget = Duration(seconds: 3);
+
+  /// サインアウトの上限。Supabase のローカルを先に切り、ここを超えたら画面は戻す。
+  static const _signOutBudget = Duration(seconds: 2);
+
   /// 未送信を送れたとき true。送れないときは消さずに false。
+  ///
+  /// スタート画面へ戻るまでの最悪は、未送信の3秒とサインアウトの2秒で5秒。
+  /// 解析などの送信は待たない。
   Future<bool> logout({bool force = false}) async {
     _usage('logout', {'forced': force});
     if (_isSyncInProgress && !force) {
@@ -616,7 +625,7 @@ class AppController extends ChangeNotifier {
         delivered = await _pushBeforeWipe(
           dataSyncRepository,
           userId,
-        ).timeout(const Duration(seconds: 8));
+        ).timeout(_unsentLogoutBudget);
       } catch (_) {
         delivered = false;
       }
@@ -625,22 +634,12 @@ class AppController extends ChangeNotifier {
         return false;
       }
     }
-    await _bestEffort(
+    _forget(
       Analytics.service?.flush(budget: const Duration(seconds: 2)),
-      const Duration(seconds: 3),
     );
-    await _bestEffort(
-      _usageRecordRepository?.flushPending(),
-      const Duration(seconds: 3),
-    );
-    await _bestEffort(
-      _plusFunnelRepository?.flushPending(),
-      const Duration(seconds: 3),
-    );
-    await _bestEffort(
-      _coachProposalLog.flushPending(),
-      const Duration(seconds: 3),
-    );
+    _forget(_usageRecordRepository?.flushPending());
+    _forget(_plusFunnelRepository?.flushPending());
+    _forget(_coachProposalLog.flushPending());
     try {
       _resetSyncState();
       _clearInMemoryState();
@@ -654,12 +653,9 @@ class AppController extends ChangeNotifier {
       await _localSessionStore?.clearLastUserId();
       await _bestEffort(
         _authenticationRepository?.logout(),
-        const Duration(seconds: 8),
+        _signOutBudget,
       );
-      await _bestEffort(
-        Analytics.service?.setCurrentUser(null),
-        const Duration(seconds: 2),
-      );
+      _forget(Analytics.service?.setCurrentUser(null));
       sessionBlockMessage = null;
       notifyListeners();
       return true;
@@ -680,6 +676,14 @@ class AppController extends ChangeNotifier {
     try {
       await pending.timeout(limit);
     } catch (_) {}
+  }
+
+  /// 解析などの送信。失敗しても、終わらなくても、ログアウトは待たない。
+  void _forget(Future<void>? pending) {
+    if (pending == null) {
+      return;
+    }
+    unawaited(pending.catchError((_) {}));
   }
 
   String? sessionBlockMessage;

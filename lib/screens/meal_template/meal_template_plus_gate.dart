@@ -49,5 +49,8 @@ Future<bool> allowMealTemplateCreate(
       );
     }
   }
-  return false;
+  if (!context.mounted) {
+    return false;
+  }
+  return controller.canCreateMealTemplate();
 }

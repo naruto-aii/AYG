@@ -25,7 +25,7 @@ import { cookRecipes } from "./cook-coach/recipes.ts";
 import { assemblyIssues, needsModelRetry, stepIssues } from "./cook-coach/plan.ts";
 import { explainRejectedTarget } from "./cook-coach/handler.ts";
 import { portionPrefers, portionRank, refineMeal } from "./cook-coach/refine.ts";
-import { candidateBeats, selectCookPlans } from "./cook-coach/select.ts";
+import { candidateBeats, COOK_SEARCH_EVAL_CAP, COOK_SEARCH_MANY_CAP, COOK_SEARCH_RESERVE, cookSearchEvalCount, selectCookPlans } from "./cook-coach/select.ts";
 
 function food(code: string, name: string, kcal: number, proteinG: number, fatG: number, carbG: number): FoodRow {
   return {
@@ -987,6 +987,24 @@ Deno.test("a 50 kcal target still returns a plan and keeps an avoided food out",
   for (const plan of plans) {
     assertEquals(plan!.ingredients.some((item) => item.name.includes("卵")), false);
   }
+});
+
+Deno.test("a heavy search stops at the evaluation cap and still returns two plans", () => {
+  const six = selectCookPlans(cookRecipes, {
+    ingredients: ["鶏むね肉", "豚こま切れ", "卵", "ごはん", "玉ねぎ", "キャベツ"],
+    slot: "dinner",
+    target: { kcal: 50, proteinG: 3, fatG: 1, carbG: 7 },
+  });
+  assertEquals(six.a != null && six.b != null && six.a.name !== six.b.name, true);
+  assertEquals(cookSearchEvalCount() <= COOK_SEARCH_EVAL_CAP + COOK_SEARCH_RESERVE, true);
+  const many = ["鶏むね肉", "鶏もも肉", "豚こま切れ", "牛こま", "鮭", "卵", "木綿豆腐", "納豆", "ごはん", "キャベツ", "玉ねぎ", "にんじん", "ほうれん草", "ブロッコリー", "じゃがいも", "トマト", "パスタ", "うどん", "ベーコン", "牛乳"];
+  const twenty = selectCookPlans(cookRecipes, {
+    ingredients: many,
+    slot: "dinner",
+    target: { kcal: 50, proteinG: 3, fatG: 1, carbG: 7 },
+  });
+  assertEquals(twenty.a != null && twenty.b != null && twenty.a.name !== twenty.b.name, true);
+  assertEquals(cookSearchEvalCount() <= COOK_SEARCH_MANY_CAP + COOK_SEARCH_RESERVE, true);
 });
 
 Deno.test("fried egg starts at 2g of oil and refineMeal does not leave a 1g fry", () => {

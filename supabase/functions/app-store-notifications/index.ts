@@ -148,6 +148,7 @@ Deno.serve((request) =>
           revoked,
           upgraded: input.upgraded,
           currentExpiresAt: current?.expiresAt ?? null,
+          currentStatus: current?.status ?? null,
           currentTransactionId: current?.transactionId ?? null,
           nextExpiresAt: decision.row.expires_at,
           transactionExpiresAt: input.expiresDate,

@@ -158,6 +158,7 @@ export async function handleVerifyStoreTransaction(
           revoked: verified.revocationDate != null,
           upgraded: verified.upgraded,
           currentExpiresAt: current?.expiresAt ?? null,
+          currentStatus: current?.status ?? null,
           currentTransactionId: current?.transactionId ?? null,
           nextExpiresAt: decision.row.expires_at,
           transactionExpiresAt: verified.expiresDate,

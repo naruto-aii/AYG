@@ -263,9 +263,30 @@ function noticePeriodEnd(input: {
   return transaction;
 }
 
+/// 別の transactionId で、まだ未来の加入が残っているか。
+/// 通知の猶予日が保存済みの期限とたまたま同じでも、その別の取引は消さない。
+/// 届いた取引に期限が無いときは、未来の別取引を消さない。
+function differentTransactionKeepsStoredPeriod(input: {
+  currentExpiresAt: string | null;
+  transactionExpiresAt?: string | number | null;
+  now?: Date;
+}): boolean {
+  const stored = epochMillis(input.currentExpiresAt);
+  const now = (input.now ?? new Date()).getTime();
+  if (stored == null || stored <= now) {
+    return false;
+  }
+  const transaction = epochMillis(input.transactionExpiresAt);
+  if (transaction == null) {
+    return true;
+  }
+  return stored > transaction;
+}
+
 /// 返金・取り消しの取引より先の加入が残っているか。
 /// 取引の期限が無いときは、猶予より先の加入だけ残す。期限も猶予も無ければ消す。
 /// 保存済みの期限がこの通知の猶予日と同じなら、払っていない延長なので消す。
+/// 取引IDが両方分かっていて違うときは、この猶予日の一致は使わない。
 /// それより長い猶予日が残っていても、取引の期限より先の加入は消さない。
 function storedPeriodOutlivesRevocation(input: {
   currentExpiresAt: string | null;
@@ -313,9 +334,11 @@ function storedPeriodOutlivesNotice(input: {
 /// 古い更新で期限を短くしない。verify-store-transaction と通知の両方がこれを使う。
 /// 同じ transactionId の返金・失効・アップグレードは、猶予で延ばした期限でも上書きする。
 /// 別の transactionId で、保存してある期限の方が先でまだ未来なら上書きしない。
+/// その比較に、別の取引の通知に付いた猶予日は使わない。
 /// EXPIRED、猶予切れ、猶予なしの更新失敗は、今の加入がその通知の期間より新しいときだけ飛ばす。
 /// 返金と取り消しは、その取引より先の加入が残っているときだけ飛ばす。
-/// 同じ期間の返金と、猶予日そのものまで延ばした加入は無効にする。
+/// 同じ期間の返金と、取引IDが無い行の猶予日そのものは無効にする。
+/// 無効・期限切れの行は、別の取引の未来の加入（お試しや買い直し）を止めない。
 export function skipsOlderEntitlement(input: {
   notificationType?: string | null;
   subtype?: string | null;
@@ -331,6 +354,8 @@ export function skipsOlderEntitlement(input: {
   transactionId?: string | null;
   /// 上位プランへ移った取引。同じ取引なら、期限が短くなっても上書きする。
   upgraded?: boolean;
+  /// 保存してある行の状態。無効・期限切れは、別の取引の未来の加入を止めない。
+  currentStatus?: string | null;
   now?: Date;
 }): boolean {
   const type = input.notificationType ?? "";
@@ -350,7 +375,12 @@ export function skipsOlderEntitlement(input: {
   ) {
     return false;
   }
+  const idsDiffer = currentId != null && incomingId != null && currentId !== incomingId;
   if (input.revoked || type === "REFUND" || type === "REVOKE") {
+    // 別の取引の返金は、猶予日が同じというだけでは消さない。
+    if (idsDiffer) {
+      return differentTransactionKeepsStoredPeriod(input);
+    }
     return storedPeriodOutlivesRevocation(input);
   }
   if (
@@ -365,6 +395,17 @@ export function skipsOlderEntitlement(input: {
       gracePeriodExpiresAt: input.gracePeriodExpiresAt,
       now: input.now,
     });
+  }
+  // 返金やアップグレードで無効にした行の期限は、未来の日付のまま残ることがある。
+  // その日付で、あとのお試しや買い直しを止めない。同じ取引の送り直しは期限の比較に任せる。
+  const dead = input.currentStatus === "inactive" || input.currentStatus === "expired";
+  const newTransaction = currentId == null || (incomingId != null && incomingId !== currentId);
+  if (dead && newTransaction && input.upgraded !== true) {
+    const next = epochMillis(input.nextExpiresAt);
+    const nowMs = (input.now ?? new Date()).getTime();
+    if (next != null && next > nowMs) {
+      return false;
+    }
   }
   return shouldSkipOlderExpiry({
     revoked: false,

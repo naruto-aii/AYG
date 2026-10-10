@@ -7,6 +7,7 @@ enum PublishFailureKind {
   invalidState,
   validation,
   alreadyPublic,
+  bannedText,
   moderationBlocked,
   notAuthenticated,
   network,

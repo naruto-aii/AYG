@@ -160,6 +160,13 @@ class SupabaseErrorMapper {
       return FoodMasterPermissionException(error.message);
     }
 
+    if (combined.contains('banned public food text')) {
+      return PublishSavedFoodException(
+        kind: PublishFailureKind.bannedText,
+        message: error.message,
+      );
+    }
+
     if (combined.contains('moderation') ||
         combined.contains('not publishable') ||
         combined.contains('already public') ||

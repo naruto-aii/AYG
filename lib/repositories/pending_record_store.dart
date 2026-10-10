@@ -39,7 +39,10 @@ class PendingRecordStore {
     if (raw is! List) {
       return const [];
     }
-    return [for (final item in raw) if (item is String) item];
+    return [
+      for (final item in raw)
+        if (item is String) item,
+    ];
   }
 
   String _token(PendingRecordKind kind, String id) => '${kind.name}:$id';

@@ -1,5 +1,7 @@
+import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/screens/auth/login_screen.dart';
+import 'package:ayg/screens/legal/terms_agreement_screen.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
@@ -77,7 +79,30 @@ void main() {
           ),
         );
         expect(tester.takeException(), isNull);
-        expect(find.textContaining('Anthropic, PBC（米国）'), findsWidgets);
+        expect(find.textContaining('同意してから使い始めます'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'terms screen has no overflow on ${entry.key} with large text',
+      (tester) async {
+        final controller = AppController();
+        addTearDown(controller.dispose);
+        final repository = MockAuthenticationRepository(
+          currentUser: const AuthUser(id: 'new-user', email: 'a@example.com'),
+        );
+        addTearDown(repository.dispose);
+        await pumpAt(
+          tester,
+          entry.value,
+          TermsAgreementScreen(
+            controller: controller,
+            authenticationRepository: repository,
+          ),
+        );
+        expect(tester.takeException(), isNull);
+        expect(find.textContaining('Anthropic, PBC（米国）'), findsOneWidget);
+        expect(find.textContaining('一切認めません'), findsOneWidget);
       },
     );
   }

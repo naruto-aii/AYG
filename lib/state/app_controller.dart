@@ -139,8 +139,9 @@ class AppController extends ChangeNotifier {
     PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
-    Future<bool> Function()? termsAgreed,
-  }) : _termsAgreed = termsAgreed ?? AiDataConsent.grantedNow,
+    Future<bool> Function(String userId)? termsAgreedFor,
+  }) : _termsAgreedFor =
+           termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -284,15 +285,37 @@ class AppController extends ChangeNotifier {
   bool _hasInitialSyncCompleted = false;
   bool _isSyncInProgress = false;
 
-  /// この端末で、今の版の規約・プライバシー（AI送信の一文を含む）に
-  /// ログイン画面で同意したか。
-  final Future<bool> Function() _termsAgreed;
+  /// このアカウントが、今の版の規約・プライバシーに同意済みか。
+  final Future<bool> Function(String userId) _termsAgreedFor;
   bool _termsAgreementRequired = false;
+  bool _termsCheckPending = false;
+  String? _termsSatisfiedUserId;
   int _termsCheck = 0;
 
-  /// ログイン済みでも、ログイン画面（同意画面）をもう一度出す必要があるか。
-  /// 再インストールや規約の版上げで端末に同意が無いとき true。
+  /// サインイン済みで、今の版への同意がまだのとき true。
+  /// 同意済みのアカウントでは false のままにし、画面を繰り返さない。
   bool get requiresTermsAgreement => _termsAgreementRequired;
+
+  /// サーバの同意を確認しているあいだ。確認が終わるまでアプリ本体は出さない。
+  bool get termsCheckPending => _termsCheckPending;
+
+  /// 同意が済んだ今のアカウントのときだけ、ウィジェットと Siri の待ち行列を取り込む。
+  ///
+  /// 同意の前に取り込むと、待ち行列を消したあと手元の記録になる。別アカウントの
+  /// 未送信と混ざり、次の同期で違う人の食事になる。待ち行列には残し、同意のあとに取り込む。
+  bool get mayImportNativeMealQueues {
+    final userId = _authenticationRepository?.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      return false;
+    }
+    return _termsKnownFor(userId);
+  }
+
+  bool _termsKnownFor(String userId) {
+    final known = _termsSatisfiedUserId;
+    return known != null && known.toLowerCase() == userId.toLowerCase();
+  }
+
   bool _lastSyncFailed = false;
   bool _hasUnsentRecords = false;
   bool _isInitializing = false;
@@ -461,6 +484,11 @@ class AppController extends ChangeNotifier {
       return;
     }
 
+    if (!_termsKnownFor(user.id)) {
+      _termsCheckPending = true;
+      notifyListeners();
+    }
+
     if (!_isSyncInProgress) {
       await handleAuthenticatedSession();
     }
@@ -477,27 +505,40 @@ class AppController extends ChangeNotifier {
   Future<void> handleAuthenticatedSession({bool force = false}) async {
     final authUser = _authenticationRepository?.currentUser;
     if (authUser != null) {
-      // 同意はログイン画面のボタンでだけ記録する。保存済みのログイン状態が
-      // 戻っただけなら、同意の画面をもう一度出し、同期も AI も始めない。
+      // 同意はアカウントごと。ログインボタンでは記録しない。
+      // 今の版の行がサーバに無いあいだは、同期も AI も始めない。
+      final known = _termsKnownFor(authUser.id);
+      if (!known && !_termsCheckPending) {
+        _termsCheckPending = true;
+        notifyListeners();
+      }
       final check = ++_termsCheck;
-      final agreed = await _termsAgreed();
+      var agreed = known;
+      if (!known) {
+        try {
+          agreed = await _termsAgreedFor(authUser.id);
+        } catch (_) {
+          agreed = false;
+        }
+      }
       if (check != _termsCheck) {
         return;
       }
+      _termsCheckPending = false;
       if (!agreed) {
+        _termsSatisfiedUserId = null;
         if (!_termsAgreementRequired) {
           _termsAgreementRequired = true;
-          notifyListeners();
         }
+        notifyListeners();
         return;
       }
-      if (_termsAgreementRequired) {
-        _termsAgreementRequired = false;
-        notifyListeners();
-      }
+      _termsSatisfiedUserId = authUser.id;
+      _termsAgreementRequired = false;
     }
     final dataSyncRepository = _dataSyncRepository;
     if (authUser == null || dataSyncRepository == null) {
+      notifyListeners();
       return;
     }
     final userId = authUser.id.toLowerCase();
@@ -515,24 +556,9 @@ class AppController extends ChangeNotifier {
 
     try {
       final lastUserId = await _localSessionStore?.loadLastUserId();
-      final switching =
-          lastUserId != null &&
-          lastUserId.toLowerCase() != authUser.id.toLowerCase();
-      if (switching) {
-        final delivered = await _pushBeforeWipe(dataSyncRepository, lastUserId);
-        if (!delivered) {
-          _blockSession(
-            '前のアカウントの未送信の記録を送れなかったため、アカウントの切り替えを中止しました。通信できるときに再度開いてください。',
-          );
-          return;
-        }
-        final pendingCount = await _pendingRecords.count();
-        _usage('local_data_cleared', {
-          'reason': 'user_switch',
-          'pending_records_count': pendingCount,
-        });
-        await _pendingRecords.clear();
-        await _localUserDataClearer?.clearAll();
+      final switched = _isDifferentUser(lastUserId, authUser.id);
+      if (switched) {
+        await _discardPreviousUserData();
       }
 
       await dataSyncRepository.ensureUserProfile(
@@ -540,7 +566,7 @@ class AppController extends ChangeNotifier {
         email: authUser.email,
       );
 
-      if (force || switching || !_hasInitialSyncCompleted) {
+      if (force || switched || !_hasInitialSyncCompleted) {
         await _migrateLocalOwnerData(toUserId: authUser.id);
         final failed = await _pushUnsentBeforePull(
           dataSyncRepository,
@@ -595,6 +621,24 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// 同意しない。ログインへ戻し、食事などの記録は消さないし、送らない。
+  ///
+  /// 通常の [logout] は、今のアカウントの未送信を送ってからその人の手元を消す。
+  /// 同意の前はまだ送っていない。ここでも送らないし、消さない。
+  Future<bool> declineTermsAgreement() async {
+    _termsCheck += 1;
+    await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
+    if (_authenticationRepository?.isAuthenticated ?? false) {
+      notifyListeners();
+      return false;
+    }
+    _resetSyncState();
+    _clearInMemoryState();
+    sessionBlockMessage = null;
+    notifyListeners();
+    return true;
+  }
+
   /// 未送信の食事・運動を送る上限。超えればログアウトを止め、手元は残す。
   static const _unsentLogoutBudget = Duration(seconds: 3);
 
@@ -605,6 +649,7 @@ class AppController extends ChangeNotifier {
   ///
   /// スタート画面へ戻るまでの最悪は、未送信の3秒とサインアウトの2秒で5秒。
   /// 解析などの送信は待たない。
+  /// 手元が前のアカウントのままなら送らず消す。ログアウトは止めない。
   Future<bool> logout({bool force = false}) async {
     _usage('logout', {'forced': force});
     if (_isSyncInProgress && !force) {
@@ -614,7 +659,9 @@ class AppController extends ChangeNotifier {
     }
     final userId = _authenticationRepository?.currentUser?.id;
     final dataSyncRepository = _dataSyncRepository;
-    if (!force && userId != null && dataSyncRepository != null) {
+    final lastUserId = await _localSessionStore?.loadLastUserId();
+    final foreign = _isDifferentUser(lastUserId, userId);
+    if (!foreign && !force && userId != null && dataSyncRepository != null) {
       var delivered = false;
       try {
         delivered = await _pushBeforeWipe(
@@ -629,33 +676,7 @@ class AppController extends ChangeNotifier {
         return false;
       }
     }
-    _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
-    _forget(_usageRecordRepository?.flushPending());
-    _forget(_plusFunnelRepository?.flushPending());
-    _forget(_coachProposalLog.flushPending());
-    try {
-      _resetSyncState();
-      _clearInMemoryState();
-      final pendingCount = await _pendingRecords.count();
-      _usage('local_data_cleared', {
-        'reason': 'logout',
-        'pending_records_count': pendingCount,
-      });
-      await _pendingRecords.clear();
-      await _localUserDataClearer?.clearAll();
-      await _localSessionStore?.clearLastUserId();
-      await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
-      _forget(Analytics.service?.setCurrentUser(null));
-      sessionBlockMessage = null;
-      notifyListeners();
-      return true;
-    } catch (error, stackTrace) {
-      debugPrint('[AYG] logout cleanup failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      sessionBlockMessage = null;
-      notifyListeners();
-      return true;
-    }
+    return _finishLogout();
   }
 
   /// 通信が止まっても、ログアウトの後始末は続ける。
@@ -697,6 +718,69 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> _finishLogout() async {
+    _forget(Analytics.service?.flush(budget: const Duration(seconds: 2)));
+    _forget(_usageRecordRepository?.flushPending());
+    _forget(_plusFunnelRepository?.flushPending());
+    _forget(_coachProposalLog.flushPending());
+    try {
+      _resetSyncState();
+      _clearInMemoryState();
+      final pendingCount = await _pendingRecords.count();
+      _usage('local_data_cleared', {
+        'reason': 'logout',
+        'pending_records_count': pendingCount,
+      });
+      await _pendingRecords.clear();
+      await _localUserDataClearer?.clearAll();
+      await _clearUnscopedRepositories();
+      await _localSessionStore?.clearLastUserId();
+      await _bestEffort(_authenticationRepository?.logout(), _signOutBudget);
+      _forget(Analytics.service?.setCurrentUser(null));
+      sessionBlockMessage = null;
+      notifyListeners();
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('[AYG] logout cleanup failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      sessionBlockMessage = null;
+      notifyListeners();
+      return true;
+    }
+  }
+
+  bool _isDifferentUser(String? previousUserId, String? sessionUserId) {
+    if (previousUserId == null ||
+        previousUserId.isEmpty ||
+        sessionUserId == null ||
+        sessionUserId.isEmpty) {
+      return false;
+    }
+    return previousUserId.toLowerCase() != sessionUserId.toLowerCase();
+  }
+
+  /// 前のアカウントの未送信は送らず消す。今の人の同期は止めない。
+  Future<void> _discardPreviousUserData() async {
+    final pendingCount = await _pendingRecords.count();
+    _usage('local_data_cleared', {
+      'reason': 'user_switch',
+      'pending_records_count': pendingCount,
+    });
+    await _pendingRecords.clear();
+    await _localUserDataClearer?.clearAll();
+    await _clearUnscopedRepositories();
+    _clearInMemoryState();
+  }
+
+  Future<void> _clearUnscopedRepositories() async {
+    await _foodRepository?.clearAll();
+    await _exerciseRepository?.clearAll();
+    await _alcoholRepository?.clearAll();
+    await _weightRepository?.clearAll();
+    await _userRepository?.clearAll();
+    await _settingsRepository?.clearAll();
+  }
+
   /// 消す前に未送信を送る。一部でも失敗したら false。手元は残す。
   Future<bool> _pushBeforeWipe(
     DataSyncRepository dataSyncRepository,
@@ -721,6 +805,8 @@ class AppController extends ChangeNotifier {
 
   void _resetSyncState() {
     _termsAgreementRequired = false;
+    _termsCheckPending = false;
+    _termsSatisfiedUserId = null;
     _termsCheck += 1;
     _hasInitialSyncCompleted = false;
     _lastSyncFailed = false;

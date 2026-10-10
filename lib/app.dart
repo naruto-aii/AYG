@@ -8,6 +8,7 @@ import 'constants/app_strings.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/health_repository.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/legal/terms_agreement_screen.dart';
 import 'screens/onboarding/health_setup_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
 import 'services/analytics/analytics.dart';
@@ -107,9 +108,9 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
 
   bool _analyticsStarting = false;
 
-  /// 規約とプライバシーポリシーに同意してログインした人は、利用状況の記録を始める。
+  /// 利用規約に同意した人は、利用状況の記録を始める。
   ///
-  /// 専用の同意画面は出さない。プライバシーポリシー 3-2 に書いた範囲で記録する。
+  /// 解析だけの同意画面は出さない。プライバシーポリシー 3-2 に書いた範囲で記録する。
   /// 設定の「規約とポリシー」→「利用状況の記録」で止めた人には何もしない。
   void _startAnalyticsAfterAgreement() {
     final analytics = Analytics.service;
@@ -145,8 +146,11 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   Future<void> _resumePaidFeatures() async {
     await Analytics.service?.importNativePending();
     await widget.controller.refreshPaidEntitlement();
-    await widget.controller.syncLockScreenMeals();
-    await widget.controller.syncSiriVoiceLogs();
+    // 同意の前は待ち行列を消さない。同意のあとの同期が、アカウントを切り分けてから取り込む。
+    if (widget.controller.mayImportNativeMealQueues) {
+      await widget.controller.syncLockScreenMeals();
+      await widget.controller.syncSiriVoiceLogs();
+    }
     await widget.controller.flushUnsentRecords();
     await Analytics.service?.flush();
   }
@@ -186,17 +190,24 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     final app = ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
-        if (controller.isInitializing) {
+        if (controller.isInitializing || controller.termsCheckPending) {
           return const AppStartupLoadingScreen();
         }
 
-        // 規約・プライバシー（AI送信の一文を含む）に、この端末でまだ同意して
-        // いなければ、ログイン済みでも同じログイン画面を出す。押すまで何も送らない。
-        if (!controller.isAuthenticated || controller.requiresTermsAgreement) {
+        if (!controller.isAuthenticated) {
           return LoginScreen(
             controller: controller,
             authenticationRepository: widget.authenticationRepository,
             authStorageAvailable: widget.authStorageAvailable,
+          );
+        }
+
+        // このアカウントが今の版に未同意なら、アプリの前に同意画面を出す。
+        // 押すまで同期も AI も始めない。同意済みならここを通さない。
+        if (controller.requiresTermsAgreement) {
+          return TermsAgreementScreen(
+            controller: controller,
+            authenticationRepository: widget.authenticationRepository,
           );
         }
 

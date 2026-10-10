@@ -83,7 +83,7 @@ void main() {
         dataSyncRepository: sync,
         userRepository: users,
         settingsRepository: settings,
-        termsAgreed: () async => true,
+        termsAgreedFor: (_) async => true,
       );
 
       await controller.handleAuthenticatedSession();

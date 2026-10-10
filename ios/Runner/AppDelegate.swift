@@ -305,6 +305,8 @@ private func presentShareCard(call: FlutterMethodCall, result: @escaping Flutter
 enum IpadSystemPresentation {
   private static var installed = false
 
+  private static var sceneObserver: NSObjectProtocol?
+
   static func install() {
     if installed {
       return
@@ -325,6 +327,17 @@ enum IpadSystemPresentation {
       #selector(ASAuthorizationController.performRequests),
       #selector(ASAuthorizationController.ayg_performRequests)
     )
+    // UIApplicationSceneManifest があると applicationDidBecomeActive は来ない。
+    // シーンが前面になったときだけ、キー窓が無ければ前面の窓をキーにする。
+    if sceneObserver == nil {
+      sceneObserver = NotificationCenter.default.addObserver(
+        forName: UIScene.didActivateNotification,
+        object: nil,
+        queue: .main
+      ) { _ in
+        Self.makeForegroundWindowKeyIfNeeded()
+      }
+    }
   }
 
   /// 前面のシーンのキー窓。Split View でもそのシーンの窓を返す。
@@ -398,14 +411,27 @@ private final class AygAuthorizationAnchor: NSObject, ASAuthorizationControllerP
   static let shared = AygAuthorizationAnchor()
 
   func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-    IpadSystemPresentation.foregroundKeyWindow() ?? ASPresentationAnchor()
+    if let window = IpadSystemPresentation.foregroundKeyWindow() {
+      return window
+    }
+    // シーンに入っていない UIWindow() を返すと、iOS 13 以降は例外で落ちる。
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    if let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first {
+      let window = UIWindow(windowScene: scene)
+      window.frame = scene.coordinateSpace.bounds
+      return window
+    }
+    return UIWindow(frame: .zero)
   }
 }
 
 extension UIApplication {
   /// シーン利用時に deprecated の keyWindow が nil だと、Google ログインが
   /// 表示元を失う。前面シーンの窓を返す。
-  @objc func ayg_keyWindow() -> UIWindow? {
+  ///
+  /// `dynamic` が無いと、Release の最適化がこのメソッドの自己呼び出しを
+  /// 直接呼び出しに変え、キー窓を読むたびに無限再帰で落ちる。
+  @objc dynamic func ayg_keyWindow() -> UIWindow? {
     let window = ayg_keyWindow()
     if let window, window.isKeyWindow {
       return window
@@ -415,7 +441,8 @@ extension UIApplication {
 }
 
 extension UIViewController {
-  @objc func ayg_present(
+  /// `dynamic` は keyWindow と同じ理由。iPhone の present もここを通る。
+  @objc dynamic func ayg_present(
     _ viewControllerToPresent: UIViewController,
     animated flag: Bool,
     completion: (() -> Void)?
@@ -430,7 +457,8 @@ extension UIViewController {
 
 extension ASAuthorizationController {
   /// プラグインが presentationContextProvider を置かない。iPad では必須。
-  @objc func ayg_performRequests() {
+  /// `dynamic` は keyWindow と同じ理由。
+  @objc dynamic func ayg_performRequests() {
     if presentationContextProvider == nil {
       presentationContextProvider = AygAuthorizationAnchor.shared
     }

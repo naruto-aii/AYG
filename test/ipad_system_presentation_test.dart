@@ -56,6 +56,12 @@ void main() {
       expect(source, contains('foregroundKeyWindow'));
       expect(source, contains('UIImagePickerController'));
       expect(source, contains('makeForegroundWindowKeyIfNeeded'));
+      expect(source, contains('@objc dynamic func ayg_keyWindow'));
+      expect(source, contains('@objc dynamic func ayg_present'));
+      expect(source, contains('@objc dynamic func ayg_performRequests'));
+      expect(source, contains('UIScene.didActivateNotification'));
+      expect(source, contains('UIWindow(windowScene: scene)'));
+      expect(source, isNot(contains('ASPresentationAnchor()')));
     },
   );
 }

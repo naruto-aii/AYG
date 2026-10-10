@@ -954,6 +954,19 @@ Deno.test("selection follows portion rank and does not trade protein excess for 
   const covered = { hardMiss: 0, rank: portionRank(target, { kcal: 600, proteinG: 20, fatG: 20, carbG: 60 }), used: 1, recent: 0 };
   const missedIngredient = { hardMiss: 1, rank: portionRank(target, { kcal: 600, proteinG: 40, fatG: 20, carbG: 60 }), used: 1, recent: 0 };
   assertEquals(candidateBeats(covered, missedIngredient), true);
+  // 600kcal の ±10% は 540〜660。720 は外。使い残し 0 でも、帯の中の案に勝たない。
+  const outsideCovered = { hardMiss: 0, rank: portionRank(target, { kcal: 720, proteinG: 40, fatG: 20, carbG: 60 }), used: 4, recent: 0 };
+  const insideMissed = { hardMiss: 1, rank: portionRank(target, { kcal: 600, proteinG: 20, fatG: 20, carbG: 60 }), used: 1, recent: 0 };
+  assertEquals(candidateBeats(insideMissed, outsideCovered), true);
+  assertEquals(candidateBeats(outsideCovered, insideMissed), false);
+  // 両方とも外なら、使い残しより kcal の超過が小さい方を先にする。
+  const farCovered = { hardMiss: 0, rank: portionRank(target, { kcal: 900, proteinG: 40, fatG: 20, carbG: 60 }), used: 1, recent: 0 };
+  const nearMissed = { hardMiss: 1, rank: portionRank(target, { kcal: 720, proteinG: 20, fatG: 30, carbG: 40 }), used: 1, recent: 0 };
+  assertEquals(candidateBeats(nearMissed, farCovered), true);
+  // kcal の超過が同じなら、使い残しを P のミスより先にする。
+  const sameKcalCovered = { hardMiss: 0, rank: portionRank(target, { kcal: 720, proteinG: 10, fatG: 20, carbG: 60 }), used: 1, recent: 0 };
+  const sameKcalMissed = { hardMiss: 1, rank: portionRank(target, { kcal: 720, proteinG: 40, fatG: 20, carbG: 60 }), used: 1, recent: 0 };
+  assertEquals(candidateBeats(sameKcalCovered, sameKcalMissed), true);
 });
 
 Deno.test("a 50 kcal target still returns a plan and keeps an avoided food out", () => {

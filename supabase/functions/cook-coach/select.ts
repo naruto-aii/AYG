@@ -187,11 +187,11 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
       if (fresh && tierOf(fresh) === tierOf(b)) {
         b = fresh;
       }
-      // 入力した肉・魚・主食を全部使う案を A にする（手持ちの案で使い切れないときは買い足しの案を先に出す）。
-      if (missOf(a) > missOf(b)) {
+      // kcal が ±10% の外の案を、入力した肉・魚・主食を多く使うという理由で A にしない。
+      // カロリーの超過が同じときだけ、使い残しの少ない案を A にする。
+      if (leadingPrefers(b, a)) {
         [a, b] = [b, a];
-        aKind = "extra";
-        bKind = "on_hand";
+        [aKind, bKind] = [bKind, aKind];
       }
     }
     // 案は必ず2つ、別の料理で出す。片方の種類が作れないときは、もう片方の種類から別の主菜の案を足す。
@@ -211,7 +211,7 @@ export function selectCookPlans(recipes: CookRecipe[], input: CookPlanInput): Co
         bKind = "on_hand";
       }
     }
-    if (relaxKcal && a && b && lexSmaller(b.rank, a.rank)) {
+    if (relaxKcal && a && b && preferRanked(b, a)) {
       [a, b] = [b, a];
       [aKind, bKind] = [bKind, aKind];
     }
@@ -435,13 +435,12 @@ function composeMeals(
     }
     const hardMiss = missedHard(meal, listed);
     const used = usedCount(meal, listed);
-    // 栄養は portionRank と同じ辞書順。重み付きの和や帯のフラグでは、たんぱく質の超過を炭水化物・脂質でひっくり返せる。
-    // 入力した肉・魚・主食の使い残しだけは、その前に置く（使い切る案を先にする）。
-    // ±10% に入る料理が無いときの再探索では、使い残しよりカロリーの近さを先にする。
+    // 並びは preferRanked。kcal のバンド外、使い残し、P・C・F のバンド外、近さ。
+    // 使い残しを kcal より前に置くと、±10% の外の案が中の案に勝つ。
     found.push({
       dish: meal,
       recipeId,
-      hardMiss: relaxKcal ? 0 : hardMiss,
+      hardMiss,
       rank: portionRank(target, meal.totals),
       used,
       recent: recent.has(meal.name) ? 1 : 0,
@@ -497,14 +496,10 @@ function composeMeals(
   return found;
 }
 
-function missOf(item: Ranked): number {
-  return item.hardMiss;
-}
-
-// 入力食材の使い残しと、P・C・F がバンドの外かどうか。細かい近さは含めない。
+// kcal のバンド外、使い残し、P・C・F のバンド外。細かい近さは含めない。
 function tierOf(item: Ranked): number {
   const miss = (index: number) => (item.rank[index] ?? 0) > 1e-9 ? 1 : 0;
-  return item.hardMiss * 8 + miss(1) * 4 + miss(2) * 2 + miss(3);
+  return miss(0) * 16 + item.hardMiss * 8 + miss(1) * 4 + miss(2) * 2 + miss(3);
 }
 
 export function candidateBeats(
@@ -514,17 +509,39 @@ export function candidateBeats(
   return preferRanked(left, right);
 }
 
+// kcal のバンド外超過だけを先に比べる。超過が同じとき、使い残しの少ない方を先にする。
+function leadingPrefers(
+  left: { hardMiss: number; rank: number[] },
+  right: { hardMiss: number; rank: number[] },
+): boolean {
+  const kcalDelta = (left.rank[0] ?? 0) - (right.rank[0] ?? 0);
+  if (kcalDelta < -1e-9) {
+    return true;
+  }
+  if (kcalDelta > 1e-9) {
+    return false;
+  }
+  return left.hardMiss < right.hardMiss;
+}
+
 function preferRanked(
   left: { hardMiss: number; rank: number[]; used: number; recent: number },
   right: { hardMiss: number; rank: number[]; used: number; recent: number },
 ): boolean {
-  if (left.hardMiss !== right.hardMiss) {
-    return left.hardMiss < right.hardMiss;
-  }
-  if (lexSmaller(left.rank, right.rank)) {
+  // 1. kcal が ±10% の外なら、その超過。中の案を、入力食材を多く使う外の案が上回らない。
+  // 2. 入力した肉・魚・主食の使い残し。
+  // 3. たんぱく質、炭水化物、脂質のバンド外超過。
+  // 4. バンド内の近さ（kcal、P、C、F）。
+  if (leadingPrefers(left, right)) {
     return true;
   }
-  if (lexSmaller(right.rank, left.rank)) {
+  if (leadingPrefers(right, left)) {
+    return false;
+  }
+  if (lexSmaller(left.rank.slice(1), right.rank.slice(1))) {
+    return true;
+  }
+  if (lexSmaller(right.rank.slice(1), left.rank.slice(1))) {
     return false;
   }
   if (left.used !== right.used) {

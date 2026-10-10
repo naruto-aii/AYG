@@ -371,13 +371,6 @@ class StoreKitSubscriptionRepository extends SubscriptionRepository {
     return _buy(SubscriptionCatalog.productIdFor(plan));
   }
 
-  void _emitPlus() {
-    if (_plusController.isClosed) {
-      return;
-    }
-    _plusController.add(isPlusActive);
-  }
-
   Future<void> _buy(String productId) async {
     final store = _purchases ?? _InAppPurchaseClient(InAppPurchase.instance);
     final available = await store.isAvailable();

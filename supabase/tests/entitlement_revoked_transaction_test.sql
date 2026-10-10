@@ -1,6 +1,6 @@
 -- pgTAP: 返金・取り消しされた transactionId は利用者から見えない。
 -- ローカルの Postgres だけ。本番には繋がない。
--- 先に 20261010092056_revoked_store_transactions.sql を流す。
+-- 先に 20261010200000_revoked_store_transactions.sql を流す。
 
 begin;
 

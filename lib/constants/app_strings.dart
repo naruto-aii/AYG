@@ -224,11 +224,6 @@ class AppStrings {
   static const macroRecordNutritionLabel = '記録する栄養';
   static const quantityLabel = '数量';
   static const remainingToday = '今日あと';
-
-  /// Guideline 1.4.1。目標・ホーム・コーチなど、数値を出す画面に置く。
-  static const healthEstimateDisclaimer =
-      '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
-      '医療上の診断や治療を目的としたものではありません。';
   static const remainingKcalSuffix = '食べられます';
 
   static const weightSourceManual = '手入力';

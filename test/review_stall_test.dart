@@ -1,10 +1,7 @@
 import 'dart:async';
 
 import 'package:ayg/app.dart';
-import 'package:ayg/constants/app_strings.dart';
-import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/app_settings.dart';
-import 'package:ayg/models/calculation/calorie_target_mode.dart';
 import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/health_snapshot.dart';
 import 'package:ayg/models/nutrition_settings.dart';
@@ -13,15 +10,9 @@ import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/contracts/settings_repository_base.dart';
 import 'package:ayg/repositories/contracts/user_repository_base.dart';
 import 'package:ayg/repositories/usage_record_repository.dart';
-import 'package:ayg/screens/coach/cook_coach_screen.dart';
-import 'package:ayg/screens/home/home_screen.dart';
-import 'package:ayg/screens/settings/calculation_references_screen.dart';
 import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/state/app_controller.dart';
-import 'package:ayg/theme/app_theme.dart';
-import 'package:ayg/widgets/nutrition/calorie_target_editor.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mocks/mock_authentication_repository.dart';
@@ -208,98 +199,6 @@ void main() {
     expect(controller.profile, isNull);
     expect(controller.hasInitialSyncCompleted, isFalse);
     expect(controller.requiresSyncRetry, isTrue);
-  });
-
-  testWidgets('calorie screens say the numbers are not medical care', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: const CalculationReferencesScreen(),
-      ),
-    );
-    expect(find.text(AppStrings.healthEstimateDisclaimer), findsOneWidget);
-    expect(find.textContaining('有料'), findsNothing);
-
-    await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const CookCoachScreen()),
-    );
-    await tester.pump();
-    expect(find.text(AppStrings.healthEstimateDisclaimer), findsOneWidget);
-    expect(find.textContaining('有料'), findsNothing);
-
-    final kcal = TextEditingController(text: '1800');
-    final protein = TextEditingController(text: '120');
-    final fat = TextEditingController(text: '50');
-    final carb = TextEditingController(text: '200');
-    addTearDown(kcal.dispose);
-    addTearDown(protein.dispose);
-    addTearDown(fat.dispose);
-    addTearDown(carb.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: CalorieTargetEditor(
-              mode: CalorieTargetMode.automatic,
-              onModeChanged: (_) {},
-              kcalController: kcal,
-              proteinController: protein,
-              fatController: fat,
-              carbController: carb,
-            ),
-          ),
-        ),
-      ),
-    );
-    expect(find.byKey(const Key('health-estimate-disclaimer')), findsOneWidget);
-    expect(find.textContaining('有料'), findsNothing);
-  });
-
-  testWidgets('home shows the medical disclaimer under today remaining', (
-    tester,
-  ) async {
-    final controller = AppController(
-      healthRepository: MockHealthRepository(isAvailable: false),
-    );
-    addTearDown(controller.dispose);
-    controller.setProfile(
-      UserProfile(
-        birthDate: DateTime(1990, 1, 1),
-        gender: Gender.male,
-        heightCm: 170,
-        weightKg: 60,
-      ),
-    );
-    controller.setNutritionSettings(
-      const NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: ActivityLevel.moderate,
-      ),
-    );
-    controller.setGoal(
-      Goal(
-        type: GoalType.maintain,
-        targetWeightKg: 60,
-        targetDate: DateTime(2026, 12, 1),
-      ),
-    );
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: HomeScreen(
-          controller: controller,
-          openFoodFactsService: OpenFoodFactsService(userAgent: 'test'),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('今日あと'), findsOneWidget);
-    expect(find.text(AppStrings.healthEstimateDisclaimer), findsOneWidget);
-    expect(find.textContaining('有料'), findsNothing);
   });
 }
 

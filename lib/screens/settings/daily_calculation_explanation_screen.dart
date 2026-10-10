@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../constants/app_strings.dart';
 import '../../models/daily_summary.dart';
 import '../../services/health_activity_excess.dart';
 import '../../models/goal.dart';
@@ -32,7 +31,9 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
         children: [
           const DesignTitleBlock(
             title: 'この数値の計算根拠',
-            subtitle: AppStrings.healthEstimateDisclaimer,
+            subtitle:
+                '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
+                '医療上の診断や治療を目的としたものではありません。',
           ),
           if (energy?.unavailableReason != null) ...[
             DesignCard(

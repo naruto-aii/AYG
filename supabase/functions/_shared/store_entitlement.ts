@@ -222,6 +222,32 @@ function noticePeriodEnd(input: {
   return transaction;
 }
 
+/// 返金・取り消しの取引より先の加入が残っているか。
+/// 取引の期限が無いときは、猶予より先の加入だけ残す。期限も猶予も無ければ消す。
+/// 保存済みの期限がこの通知の猶予日と同じなら、払っていない延長なので消す。
+/// それより長い猶予日が残っていても、取引の期限より先の加入は消さない。
+function storedPeriodOutlivesRevocation(input: {
+  currentExpiresAt: string | null;
+  transactionExpiresAt?: string | number | null;
+  gracePeriodExpiresAt?: string | number | null;
+  now?: Date;
+}): boolean {
+  const stored = epochMillis(input.currentExpiresAt);
+  const now = (input.now ?? new Date()).getTime();
+  if (stored == null || stored <= now) {
+    return false;
+  }
+  const transaction = epochMillis(input.transactionExpiresAt);
+  const grace = epochMillis(input.gracePeriodExpiresAt);
+  if (grace != null && stored === grace) {
+    return false;
+  }
+  if (transaction == null) {
+    return grace != null && stored > grace;
+  }
+  return stored > transaction;
+}
+
 /// 失効通知の期間より先の加入が残っているか。
 /// 同じ期間の失効は false。期限の無い失効は、未来の加入を消さない。
 function storedPeriodOutlivesNotice(input: {
@@ -244,8 +270,9 @@ function storedPeriodOutlivesNotice(input: {
 }
 
 /// 古い更新で期限を短くしない。
-/// 返金と取り消しは、期限が前でも反映する。
 /// EXPIRED、猶予切れ、猶予なしの更新失敗は、今の加入がその通知の期間より新しいときだけ飛ばす。
+/// 返金と取り消しは、その取引より先の加入が残っているときだけ飛ばす。
+/// 同じ期間の返金と、猶予日そのものまで延ばした加入は無効にする。
 export function notificationSkipsOlderExpiry(input: {
   notificationType: string;
   subtype?: string | null;
@@ -260,7 +287,7 @@ export function notificationSkipsOlderExpiry(input: {
   const type = input.notificationType;
   const subtype = input.subtype ?? "";
   if (input.revoked || type === "REFUND" || type === "REVOKE") {
-    return false;
+    return storedPeriodOutlivesRevocation(input);
   }
   if (
     type === "EXPIRED" ||

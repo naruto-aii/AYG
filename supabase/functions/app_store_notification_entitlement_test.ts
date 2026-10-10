@@ -227,8 +227,42 @@ Deno.test("fixtures for expiry, billing failure, refund, revoke, and renewal sta
     currentExpiresAt: "2026-12-01T00:00:00.000Z",
     nextExpiresAt: "2026-11-08T00:00:00.000Z",
     transactionExpiresAt: Date.parse("2026-11-01T00:00:00Z"),
+    gracePeriodExpiresAt: Date.parse("2026-12-15T00:00:00Z"),
+    now,
+  }), true);
+  assertEquals(notificationSkipsOlderExpiry({
+    notificationType: "REFUND",
+    revoked: true,
+    currentExpiresAt: "2026-11-08T00:00:00.000Z",
+    nextExpiresAt: "2026-11-08T00:00:00.000Z",
+    transactionExpiresAt: paidEnd,
     now,
   }), false);
+  assertEquals(notificationSkipsOlderExpiry({
+    notificationType: "REFUND",
+    revoked: true,
+    currentExpiresAt: "2026-10-24T00:00:00.000Z",
+    nextExpiresAt: "2026-10-07T00:00:00.000Z",
+    transactionExpiresAt: Date.parse("2026-10-07T00:00:00Z"),
+    gracePeriodExpiresAt: graceEnd,
+    now,
+  }), false);
+  assertEquals(notificationSkipsOlderExpiry({
+    notificationType: "REFUND",
+    revoked: true,
+    currentExpiresAt: "2026-10-01T00:00:00.000Z",
+    nextExpiresAt: "2026-10-01T00:00:00.000Z",
+    transactionExpiresAt: Date.parse("2026-10-01T00:00:00Z"),
+    now,
+  }), false);
+  assertEquals(notificationSkipsOlderExpiry({
+    notificationType: "REVOKE",
+    revoked: true,
+    currentExpiresAt: "2026-12-01T00:00:00.000Z",
+    nextExpiresAt: "2026-10-08T00:00:00.000Z",
+    transactionExpiresAt: Date.parse("2026-11-01T00:00:00Z"),
+    now,
+  }), true);
   assertEquals(notificationSkipsOlderExpiry({
     notificationType: "REVOKE",
     revoked: true,

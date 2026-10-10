@@ -1,11 +1,15 @@
 import '../../../models/health_profile_data.dart';
+import '../../../repositories/local_write_guard.dart';
 
 /// Web向けインメモリ Health workout ストア。
 class WebHealthWorkoutStore {
   final List<HealthWorkoutRecord> _records = [];
 
-  Future<void> saveWorkoutRecords(List<HealthWorkoutRecord> records) async {
-    if (records.isEmpty) {
+  Future<void> saveWorkoutRecords(
+    List<HealthWorkoutRecord> records, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (records.isEmpty || !localWriteAllowed(mayWrite)) {
       return;
     }
     _records.addAll(records);

@@ -2,6 +2,7 @@ import 'package:isar/isar.dart';
 
 import '../../models/health_profile_data.dart';
 import '../health_repository.dart';
+import '../local_write_guard.dart';
 import 'health_workout_local_store.dart';
 import 'weight_repository.dart';
 
@@ -45,7 +46,10 @@ class UnsupportedHealthRepository implements HealthRepository {
   }
 
   @override
-  Future<void> saveWorkoutRecords(List<HealthWorkoutRecord> records) {
-    return _workoutStore.saveWorkoutRecords(records);
+  Future<void> saveWorkoutRecords(
+    List<HealthWorkoutRecord> records, {
+    LocalWriteGuard? mayWrite,
+  }) {
+    return _workoutStore.saveWorkoutRecords(records, mayWrite: mayWrite);
   }
 }

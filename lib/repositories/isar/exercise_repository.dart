@@ -4,6 +4,7 @@ import '../../database/entity_mapper.dart';
 import '../../database/schemas.dart';
 import '../../models/exercise_entry.dart';
 import '../contracts/exercise_repository_base.dart';
+import '../local_write_guard.dart';
 
 class ExerciseRepository implements ExerciseRepositoryBase {
   ExerciseRepository(this._isar);
@@ -50,8 +51,14 @@ class ExerciseRepository implements ExerciseRepositoryBase {
     });
   }
 
-  Future<void> replaceAll(List<ExerciseEntry> entries) async {
+  Future<void> replaceAll(
+    List<ExerciseEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _isar.exerciseEntryEntitys.clear();
       if (entries.isEmpty) {
         return;

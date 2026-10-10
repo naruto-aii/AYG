@@ -60,6 +60,19 @@ export function entitlementTiming(input: {
   return { status: "expired", expiresAt };
 }
 
+/// AI 機能と同じ条件。`status = active` かつ `expires_at` が今よりあと。
+export function plusAccessFromEntitlement(input: {
+  status: string | null;
+  expiresAt: string | null;
+  now: Date;
+}): boolean {
+  if (input.status !== "active" || input.expiresAt == null) {
+    return false;
+  }
+  const expires = Date.parse(input.expiresAt);
+  return Number.isFinite(expires) && expires > input.now.getTime();
+}
+
 /// Apple の transactionId。文字列でも数値でも、前後の空白を除いた文字列にする。
 export function storeTransactionId(value: unknown): string {
   if (typeof value === "string") {

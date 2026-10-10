@@ -1,5 +1,4 @@
 import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { Environment } from "npm:@apple/app-store-server-library";
 import { handleAppStoreNotification } from "./app-store-notifications/handler.ts";
 import {
   appleRootCertificates,
@@ -74,10 +73,7 @@ Deno.test("signed notifications trust the Apple root chain for this bundle", () 
     expectedAppAppleId(),
     configuredApp ? Number(configuredApp) : calonaviAppAppleId,
   );
-  assertEquals(storeVerificationEnvironments(), [
-    Environment.PRODUCTION,
-    Environment.SANDBOX,
-  ]);
+  assertEquals(storeVerificationEnvironments(), ["Production", "Sandbox"]);
 });
 
 Deno.test("a payload that is not signed by Apple is rejected", async () => {

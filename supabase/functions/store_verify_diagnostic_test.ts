@@ -65,7 +65,7 @@ Deno.test("verify-store-transaction passes the bundle fallback into the entitlem
   assert(!source.includes('Deno.env.get("APP_BUNDLE_ID")'));
 });
 
-Deno.test("a failed verify logs each environment once and does not skip the revocation check", async () => {
+Deno.test("a failed verify logs each environment once and redacts only a real JWS", async () => {
   const payload = b64url(JSON.stringify({
     bundleId: calonaviBundleId,
     environment: "Sandbox",
@@ -141,6 +141,16 @@ Deno.test("unsigned claims keep only the bundle and environment", () => {
     bundleId: null,
     environment: null,
   });
+});
+
+Deno.test("a node crypto method name stays in the log", () => {
+  const cause = new Error("Not implemented: crypto.X509Certificate.prototype.verify");
+  const error = new Error("wrapper");
+  (error as { status?: number; cause?: Error }).status = VerificationStatus.VERIFICATION_FAILURE;
+  (error as { cause?: Error }).cause = cause;
+  const failure = appleVerifyFailure(error);
+  assertEquals(failure.status, "VERIFICATION_FAILURE");
+  assertEquals(failure.message, "Not implemented: crypto.X509Certificate.prototype.verify");
 });
 
 Deno.test("a verification status name is logged without the JWS", () => {

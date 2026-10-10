@@ -6,6 +6,8 @@ drop trigger if exists saved_foods_reject_banned_public_text on public.saved_foo
 
 drop function if exists moderation.reject_banned_public_food_text();
 drop function if exists moderation.text_is_banned(text);
+drop function if exists moderation.term_is_affixed(text, text);
+drop function if exists moderation.latin_one_gap(text, text);
 drop function if exists moderation.term_uses_substring(text);
 drop function if exists moderation.strip_phrase(text, text);
 drop function if exists moderation.contains_term(text, text);

@@ -77,8 +77,8 @@ declare
   hw_from constant text := 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ';
   hw_to constant text := 'をぁぃぅぇぉゃゅょっーあいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん';
   hw_at integer;
-  fold_from constant text := 'àáâãäåÀÁÂÃÄÅèéêëÈÉÊËìíîïÌÍÎÏòóôõöÒÓÔÕÖùúûüÙÚÛÜýÿÝŸñÑçÇаАеЕоОрРсСуУхХіІјЈѕЅԁԀ013457@$!';
-  fold_to constant text := 'aaaaaaaaaaaaeeeeeeeeiiiiiiiioooooooooouuuuuuuuyyyynnccaaeeooppccyyxxiijjssddoieastasi';
+  fold_from constant text := 'àáâãäåÀÁÂÃÄÅèéêëÈÉÊËìíîïÌÍÎÏòóôõöÒÓÔÕÖùúûüÙÚÛÜýÿÝŸñÑçÇаАеЕоОрРсСуУхХіІјЈѕЅԁԀ013457$!';
+  fold_to constant text := 'aaaaaaaaaaaaeeeeeeeeiiiiiiiioooooooooouuuuuuuuyyyynnccaaeeooppccyyxxiijjssddoieastsi';
 begin
   v := pg_catalog.replace(v, 'ß', 'ss');
   v := pg_catalog.replace(v, 'æ', 'ae');
@@ -259,7 +259,68 @@ set search_path = ''
 as $$
   select p_term !~ '[a-z0-9]'
      and pg_catalog.char_length(p_term) >= 2
-     and p_term not in ('えろ', 'くそ', 'ふぇら', 'まんこ');
+     and p_term not in (
+       'えろ', 'くそ', 'ふぇら', 'まんこ', 'しね', 'なかだし', 'ころす'
+     );
+$$;
+
+-- 記号がラテンの1文字の代わりに入っているとき（f*ck, f@ck）。
+-- 4文字未満には使わない。食品名の誤検知を広げるため。
+create or replace function moderation.latin_one_gap(p_spaced text, p_term text)
+returns boolean
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  i integer;
+  n integer := pg_catalog.char_length(p_term);
+  pattern text;
+begin
+  if p_term is null or n < 4 or p_spaced is null or p_spaced = '' then
+    return false;
+  end if;
+  if p_term !~ '^[a-z]+$' then
+    return false;
+  end if;
+
+  for i in 1..n loop
+    pattern := pg_catalog.btrim(
+      pg_catalog.regexp_replace(
+        pg_catalog.substr(p_term, 1, i - 1)
+          || ' '
+          || pg_catalog.substr(p_term, i + 1),
+        ' +',
+        ' ',
+        'g'
+      )
+    );
+    if pattern <> '' and moderation.contains_term(p_spaced, pattern) then
+      return true;
+    end if;
+  end loop;
+
+  return false;
+end;
+$$;
+
+-- 短い語は文の先頭か末尾に付いているときだけ追加で見る。
+-- 途中の部分一致は、ポークソテー・からしねぎ・ぎょにくソーセージに当たる。
+create or replace function moderation.term_is_affixed(p_compact text, p_term text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select p_compact is not null
+     and p_term is not null
+     and p_term <> ''
+     and (
+       p_compact = p_term
+       or pg_catalog.left(p_compact, pg_catalog.char_length(p_term)) = p_term
+       or pg_catalog.right(p_compact, pg_catalog.char_length(p_term)) = p_term
+     )
+     and not (p_term = 'まんこ' and p_compact = 'さんまんこ');
 $$;
 
 create or replace function moderation.text_is_banned(p_name text)
@@ -280,7 +341,9 @@ declare
     'nigga', 'faggot', 'retard', 'rape',
     'くそ', 'くそったれ', 'ちくしょう', 'ちんこ', 'ちんぽ', 'まんこ', 'うんこ',
     'きんたま', 'ファック', 'セックス', 'フェラ', '中出し', '死ね', '殺す',
+    'しね', 'なかだし', 'ころす',
     'きちがい', '池沼', 'エロ',
+    'kuso', 'unko', 'chinko', 'manko', 'ero',
     'くそまずい', 'くそ不味い', 'えろい', 'えろすぎ', 'えろえろ',
     'おまんこ', 'フェラチオ', 'イラマチオ', 'クンニ', 'パイズリ', '顔射',
     'ザーメン', 'オナニー', '素股', '手コキ', '手マン', '肉便器',
@@ -313,6 +376,19 @@ begin
       end if;
     elsif moderation.contains_term(v_spaced, v_norm)
        or moderation.contains_term(v_compact, v_norm) then
+      return true;
+    elsif v_norm = 'ero' and (
+      v_compact = v_norm
+      or pg_catalog.left(v_compact, pg_catalog.char_length(v_norm)) = v_norm
+    ) then
+      -- 末尾の ero は zero / hero / cordero に当たるので見ない。
+      return true;
+    elsif v_norm in (
+      'えろ', 'くそ', 'ふぇら', 'まんこ', 'しね', 'なかだし', 'ころす',
+      'kuso', 'unko', 'chinko', 'manko'
+    ) and moderation.term_is_affixed(v_compact, v_norm) then
+      return true;
+    elsif v_norm = 'fuck' and moderation.latin_one_gap(v_spaced, v_norm) then
       return true;
     end if;
   end loop;
@@ -401,6 +477,8 @@ revoke all on function moderation.char_is_word(text) from public, anon, authenti
 revoke all on function moderation.contains_term(text, text) from public, anon, authenticated;
 revoke all on function moderation.strip_phrase(text, text) from public, anon, authenticated;
 revoke all on function moderation.term_uses_substring(text) from public, anon, authenticated;
+revoke all on function moderation.latin_one_gap(text, text) from public, anon, authenticated;
+revoke all on function moderation.term_is_affixed(text, text) from public, anon, authenticated;
 revoke all on function moderation.text_is_banned(text) from public, anon, authenticated;
 revoke all on function moderation.reject_banned_public_food_text() from public, anon, authenticated;
 

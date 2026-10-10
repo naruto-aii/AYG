@@ -21,7 +21,7 @@ exception
 end;
 $$;
 
-select plan(69);
+select plan(95);
 
 select ok(
   position(
@@ -58,6 +58,32 @@ select ok(not moderation.text_is_banned('ポークソーセージ'), 'pork sausa
 select ok(not moderation.text_is_banned('ミルクソフト'), 'milk soft stays');
 select ok(not moderation.text_is_banned('スモークソルト'), 'smoked salt stays');
 select ok(not moderation.text_is_banned('サンマンコ'), 'sanmanko stays');
+select ok(not moderation.text_is_banned('からしねぎ'), 'karashi negi stays');
+select ok(not moderation.text_is_banned('ちんげん菜'), 'chingensai stays');
+select ok(not moderation.text_is_banned('ぎょにくそーせーじ'), 'gyoniku sausage reading stays');
+select ok(moderation.text_is_banned('くそラーメン'), 'prefixed kuso is rejected');
+select ok(moderation.text_is_banned('エロラーメン'), 'prefixed ero is rejected');
+select ok(moderation.text_is_banned('まんこ丼'), 'prefixed manko is rejected');
+select ok(moderation.text_is_banned('ラーメンくそ'), 'suffixed kuso is rejected');
+select ok(not moderation.text_is_banned('超くそラーメン'), 'kuso in the middle of kana stays');
+select ok(moderation.text_is_banned('kuso'), 'romaji kuso is rejected');
+select ok(moderation.text_is_banned('unko'), 'romaji unko is rejected');
+select ok(moderation.text_is_banned('chinko'), 'romaji chinko is rejected');
+select ok(moderation.text_is_banned('manko'), 'romaji manko is rejected');
+select ok(moderation.text_is_banned('ero'), 'romaji ero is rejected');
+select ok(moderation.text_is_banned('eroramen'), 'prefixed romaji ero is rejected');
+select ok(moderation.text_is_banned('ero ramen'), 'spaced romaji ero is rejected');
+select ok(not moderation.text_is_banned('ramenero'), 'ero at the end of a latin word stays');
+select ok(not moderation.text_is_banned('zero'), 'zero stays');
+select ok(not moderation.text_is_banned('hero'), 'hero stays');
+select ok(not moderation.text_is_banned('cordero'), 'cordero stays');
+select ok(moderation.text_is_banned('kusoramen'), 'affixed romaji kuso is rejected');
+select ok(moderation.text_is_banned('しね'), 'hiragana shine is rejected');
+select ok(moderation.text_is_banned('なかだし'), 'hiragana nakadashi is rejected');
+select ok(moderation.text_is_banned('ころす'), 'hiragana korosu is rejected');
+select ok(moderation.text_is_banned('しねラーメン'), 'prefixed shine is rejected');
+select ok(moderation.text_is_banned('f*ck'), 'star inside fuck is rejected');
+select ok(moderation.text_is_banned('f@ck'), 'at inside fuck is rejected');
 select ok(not moderation.text_is_banned('Cock tail'), 'spaced cocktail phrase stays');
 select ok(not moderation.text_is_banned('rape seed oil'), 'rape seed oil stays');
 select ok(not moderation.text_is_banned('ブラックソース'), 'black sauce stays');

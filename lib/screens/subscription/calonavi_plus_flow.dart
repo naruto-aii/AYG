@@ -142,7 +142,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   /// これ以上の短い画面だけ、復元と規約を価格の下へ固定する。
   ///
   /// 幅 1.5 倍のテスト画面（高さ 600）は本文が約 280 で、ここへ足すと
-  /// 特典のリンクが押せなくなる。iPhone SE と iPad の横は本文が 400 を超える。
+  /// 特典のリンクが押せなくなる。iPhone SE と iPad の横は本文がこれを超える。
   static const _pinLegalAt = 380.0;
 
   bool _busy = false;

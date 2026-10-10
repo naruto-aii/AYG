@@ -2,14 +2,12 @@ import Foundation
 
 /// 「何gですか？」への答え。
 ///
-/// ビルド11で同じ質問が続くのは、`resolveAmount` の中ではない。
-/// 届いた文字列は、量が取れれば登録になり、取れなければ
-/// 「量を聞き取れませんでした。もう一度、最初から言ってください」で終わる。
-/// 数字だけの「150」も、文字列として届いていれば 150g になる。
-/// 同じ「何gですか？」が残るのは、`requestValue` がその文字列を返さなかったときだけ。
+/// 聞き返しは `Double`。単位はパラメータに固定し、届いた数値にその単位を足す。
+/// 数値だけでも単位付きでも、システムが同じ `Double` を返せば、この関数は1回で登録にする。
+/// ここからは質問を返さない。
 ///
-/// 食品名の自由文を独自の型で受けたときの無限ループとは別。あれは空文字で初期化した非Optionalを
-/// `needsValueError` で聞き直したため、やり直しのたびに空のまま同じ質問に戻っていた。
+/// ビルド11の `String` は、届いた「150」を 150g にできる。同じ質問が残るのは、
+/// その文字列が `requestValue` から戻らなかったときだけ。
 enum SiriAmountReply {
   struct Parsed: Equatable {
     var amount: Double
@@ -25,12 +23,6 @@ enum SiriAmountReply {
       of: #"^[0-9０-９]+(?:[.．][0-9０-９]+)?$"#,
       options: .regularExpression
     ) != nil
-  }
-
-  /// 検索文字列をそのまま受けたときに、量の答えとして残す言葉。空は捨てる。
-  static func acceptedTranscript(_ raw: String) -> String? {
-    let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    return text.isEmpty ? nil : text
   }
 
   /// 届いた発話を量にする。単位が無ければ、聞いた単位を足す。
@@ -326,38 +318,158 @@ enum SiriAmountReply {
   }
 }
 
-/// 質問の回数。`perform()` がやり直されても、同じ会話のあいだは増やす。
-enum SiriDialogueLimit {
-  static let maxRounds = 32
-  static let exitSpeech = "質問が続いたので、登録を中断しました。もう一度、最初から言ってください"
-  static let staleSeconds: TimeInterval = 180
-  private static let roundKey = "siriVoiceDialogueRound"
-  private static let atKey = "siriVoiceDialogueAt"
+/// 聞き返しの単位。食品の `g` / `ml` / `piece` / `serving` と、運動の `durationMin` / `distanceKm`。
+enum SiriAmountSlot: String, Equatable {
+  case grams
+  case milliliters
+  case minutes
+  case kilometers
+  case count
 
-  static func notePrompt(defaults: UserDefaults, now: TimeInterval) -> Int {
-    let last = defaults.double(forKey: atKey)
-    var round = defaults.integer(forKey: roundKey)
-    if last <= 0 || now - last > staleSeconds {
-      round = 0
+  var suffix: String {
+    switch self {
+    case .grams: return "g"
+    case .milliliters: return "ml"
+    case .minutes: return "分"
+    case .kilometers: return "km"
+    case .count: return "個"
     }
-    round += 1
-    defaults.set(round, forKey: roundKey)
-    defaults.set(now, forKey: atKey)
-    return round
   }
 
-  /// 上限まで数える。超えた回は false を返し、回数を消す。次の会話は1から。
-  static func allow(defaults: UserDefaults, now: TimeInterval) -> Bool {
-    let round = notePrompt(defaults: defaults, now: now)
-    if round > maxRounds {
-      reset(defaults: defaults)
-      return false
+  /// 個と食分は同じ数値パラメータ。食分のときだけ接尾辞を変える。
+  func suffix(foodUnit: String?) -> String {
+    if self == .count && foodUnit == "serving" {
+      return "食"
     }
-    return true
+    return suffix
+  }
+
+  static func from(unit: String?) -> SiriAmountSlot {
+    switch unit {
+    case "ml": return .milliliters
+    case "distanceKm": return .kilometers
+    case "durationMin": return .minutes
+    case "piece", "serving": return .count
+    default: return .grams
+    }
+  }
+}
+
+extension SiriAmountReply {
+  /// `Double` が戻ったあとの1手。質問の単位を足して登録にする。同じ質問には戻さない。
+  static func followUp(number: Double, suffix: String) -> Turn {
+    guard number > 0, number < 100_000 else {
+      return .stop(unheardSpeech)
+    }
+    guard let parsed = parse(text: canonical(number), assumedSuffix: suffix) else {
+      return .stop(unheardSpeech)
+    }
+    return .recorded(parsed)
+  }
+
+  /// 150 は "150"。150.5 はそのまま。
+  static func canonical(_ number: Double) -> String {
+    if number == number.rounded(), abs(number) < Double(Int.max) {
+      return String(Int(number.rounded()))
+    }
+    return String(number)
+  }
+}
+
+/// 同じ質問文は2回まで。3回目は `requestValue` を呼ぶ前に止める。
+/// 別の質問文は数えない。絞り込みのあとに量を聞いても、量の1回目のまま。
+enum SiriQuestionLimit {
+  static let maxAsks = 2
+  static let exitSpeech = "同じ質問が続いたので、登録を中断しました。もう一度、最初から言ってください"
+  static let staleSeconds: TimeInterval = 180
+  /// 中断の直後に `perform()` がやり直されても、同じ質問は出さない。人がやり直す間隔では消す。
+  static let reopenSeconds: TimeInterval = 5
+  private static let countsKey = "siriQuestionCounts"
+  private static let atKey = "siriQuestionAt"
+  private static let closedKey = "siriQuestionClosed"
+
+  static func allowAsk(question: String, defaults: UserDefaults, now: TimeInterval) -> Bool {
+    let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
+    let closed = defaults.double(forKey: closedKey)
+    let last = defaults.double(forKey: atKey)
+    var counts = load(defaults)
+    if closed > 0 && now - closed >= reopenSeconds {
+      counts = [:]
+      defaults.removeObject(forKey: closedKey)
+    } else if closed <= 0 && (last <= 0 || now - last > staleSeconds) {
+      counts = [:]
+    }
+    let next = (counts[text] ?? 0) + 1
+    counts[text] = next
+    save(counts, defaults: defaults)
+    defaults.set(now, forKey: atKey)
+    return next <= maxAsks
+  }
+
+  static func asks(question: String, defaults: UserDefaults) -> Int {
+    let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
+    return load(defaults)[text] ?? 0
+  }
+
+  static func close(defaults: UserDefaults, now: TimeInterval) {
+    defaults.set(now, forKey: closedKey)
   }
 
   static func reset(defaults: UserDefaults) {
-    defaults.removeObject(forKey: roundKey)
+    defaults.removeObject(forKey: countsKey)
     defaults.removeObject(forKey: atKey)
+    defaults.removeObject(forKey: closedKey)
+  }
+
+  private static func load(_ defaults: UserDefaults) -> [String: Int] {
+    guard let raw = defaults.string(forKey: countsKey),
+          let data = raw.data(using: .utf8),
+          let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      return [:]
+    }
+    var counts: [String: Int] = [:]
+    for (key, value) in object {
+      if let number = value as? Int {
+        counts[key] = number
+      } else if let number = value as? NSNumber {
+        counts[key] = number.intValue
+      }
+    }
+    return counts
+  }
+
+  private static func save(_ counts: [String: Int], defaults: UserDefaults) {
+    guard JSONSerialization.isValidJSONObject(counts),
+          let data = try? JSONSerialization.data(withJSONObject: counts),
+          let raw = String(data: data, encoding: .utf8)
+    else {
+      return
+    }
+    defaults.set(raw, forKey: countsKey)
+  }
+}
+
+/// 数値がすでに入っていれば質問しない。無いときだけ数える。3回目は request を呼ばない。
+enum SiriAmountAsk {
+  enum Outcome: Equatable {
+    case number(Double)
+    case stopRepeat
+  }
+
+  static func take(
+    stored: Double?,
+    question: String,
+    defaults: UserDefaults,
+    now: TimeInterval,
+    request: () async throws -> Double
+  ) async throws -> Outcome {
+    if let stored {
+      return .number(stored)
+    }
+    guard SiriQuestionLimit.allowAsk(question: question, defaults: defaults, now: now) else {
+      return .stopRepeat
+    }
+    return .number(try await request())
   }
 }

@@ -142,13 +142,158 @@ final class SiriAmountReplyTests: XCTestCase {
     }
   }
 
-  func testAcceptedTranscriptKeepsABareNumber() {
-    XCTAssertEqual(SiriAmountReply.acceptedTranscript("150"), "150")
-    XCTAssertEqual(SiriAmountReply.acceptedTranscript("１５０"), "１５０")
-    XCTAssertEqual(SiriAmountReply.acceptedTranscript("150.5"), "150.5")
-    XCTAssertEqual(SiriAmountReply.acceptedTranscript(" 150グラム "), "150グラム")
-    XCTAssertNil(SiriAmountReply.acceptedTranscript("  "))
-    XCTAssertNil(SiriAmountReply.acceptedTranscript(""))
+  func testReturnedNumberUsesTheQuestionUnitInOneStep() {
+    let cases: [(Double, String, Double, String)] = [
+      (150, "g", 150, "grams"),
+      (150.5, "g", 150.5, "grams"),
+      (30, "分", 30, "minutes"),
+      (5, "km", 5, "kilometers"),
+      (200, "ml", 200, "milliliters"),
+      (2, "個", 2, "piece"),
+      (1, "食", 1, "serving"),
+    ]
+    for item in cases {
+      let turn = SiriAmountReply.followUp(number: item.0, suffix: item.1)
+      guard case .recorded(let parsed) = turn else {
+        return XCTFail("数値が同じ質問に戻った: \(item) \(turn)")
+      }
+      XCTAssertEqual(parsed.amount, item.2, item.1)
+      XCTAssertEqual(parsed.unit, item.3, item.1)
+    }
+  }
+
+  func testReturnedNumberDoesNotAskForTheUnit() {
+    let turn = SiriAmountReply.followUp(number: 150, suffix: "g")
+    if case .askAgain = turn {
+      XCTFail("150 のあとに単位を聞き直した")
+    }
+    XCTAssertEqual(turn, .recorded(SiriAmountReply.Parsed(amount: 150, unit: "grams")))
+    XCTAssertNotEqual(SiriAmountReply.unheardSpeech, gramQuestion)
+  }
+
+  func testUnitPhrasesStillParseWhenTheWordsArrive() {
+    let grams = SiriAmountReply.parse(text: "150グラム", assumedSuffix: "g")
+    XCTAssertEqual(grams?.amount, 150)
+    XCTAssertEqual(grams?.unit, "grams")
+    let minutes = SiriAmountReply.parse(text: "30分", assumedSuffix: "分")
+    XCTAssertEqual(minutes?.amount, 30)
+    XCTAssertEqual(minutes?.unit, "minutes")
+    let kilometers = SiriAmountReply.parse(text: "5キロ", assumedSuffix: "km")
+    XCTAssertEqual(kilometers?.amount, 5)
+    XCTAssertEqual(kilometers?.unit, "kilometers")
+    let kanji = SiriAmountReply.parse(text: "百五十", assumedSuffix: "g")
+    XCTAssertEqual(kanji?.amount, 150)
+    XCTAssertEqual(kanji?.unit, "grams")
+  }
+
+  func testAmountSlotFollowsTheQuestionUnit() {
+    XCTAssertEqual(SiriAmountSlot.from(unit: "g"), .grams)
+    XCTAssertEqual(SiriAmountSlot.from(unit: nil), .grams)
+    XCTAssertEqual(SiriAmountSlot.from(unit: "ml"), .milliliters)
+    XCTAssertEqual(SiriAmountSlot.from(unit: "durationMin"), .minutes)
+    XCTAssertEqual(SiriAmountSlot.from(unit: "distanceKm"), .kilometers)
+    XCTAssertEqual(SiriAmountSlot.from(unit: "piece"), .count)
+    XCTAssertEqual(SiriAmountSlot.from(unit: "serving"), .count)
+    XCTAssertEqual(SiriAmountSlot.grams.suffix, "g")
+    XCTAssertEqual(SiriAmountSlot.minutes.suffix, "分")
+    XCTAssertEqual(SiriAmountSlot.kilometers.suffix, "km")
+    XCTAssertEqual(SiriAmountSlot.count.suffix(foodUnit: "piece"), "個")
+    XCTAssertEqual(SiriAmountSlot.count.suffix(foodUnit: "serving"), "食")
+  }
+
+  func testStoredNumberDoesNotAsk() async throws {
+    let defaults = freshDefaults("siri-stored-number")
+    var calls = 0
+    let outcome = try await SiriAmountAsk.take(
+      stored: 150,
+      question: gramQuestion,
+      defaults: defaults,
+      now: 1
+    ) {
+      calls += 1
+      return 1
+    }
+    XCTAssertEqual(outcome, .number(150))
+    XCTAssertEqual(calls, 0)
+    XCTAssertEqual(SiriQuestionLimit.asks(question: gramQuestion, defaults: defaults), 0)
+  }
+
+  func testThirdIdenticalQuestionDoesNotCallRequest() async throws {
+    let defaults = freshDefaults("siri-third-ask")
+    let now = Date().timeIntervalSince1970
+    for _ in 0..<2 {
+      let outcome = try await SiriAmountAsk.take(
+        stored: nil,
+        question: gramQuestion,
+        defaults: defaults,
+        now: now
+      ) { 150 }
+      XCTAssertEqual(outcome, .number(150))
+    }
+    var calls = 0
+    let third = try await SiriAmountAsk.take(
+      stored: nil,
+      question: gramQuestion,
+      defaults: defaults,
+      now: now + 1
+    ) {
+      calls += 1
+      return 150
+    }
+    XCTAssertEqual(third, .stopRepeat)
+    XCTAssertEqual(calls, 0)
+    XCTAssertNotEqual(SiriQuestionLimit.exitSpeech, gramQuestion)
+    SiriQuestionLimit.close(defaults: defaults, now: now + 1)
+    var again = 0
+    let restarted = try await SiriAmountAsk.take(
+      stored: nil,
+      question: gramQuestion,
+      defaults: defaults,
+      now: now + 2
+    ) {
+      again += 1
+      return 150
+    }
+    XCTAssertEqual(restarted, .stopRepeat)
+    XCTAssertEqual(again, 0)
+    let reopened = try await SiriAmountAsk.take(
+      stored: nil,
+      question: gramQuestion,
+      defaults: defaults,
+      now: now + 2 + SiriQuestionLimit.reopenSeconds
+    ) { 150 }
+    XCTAssertEqual(reopened, .number(150))
+  }
+
+  func testDifferentQuestionsDoNotShareTheCap() {
+    let defaults = freshDefaults("siri-different-questions")
+    let now = Date().timeIntervalSince1970
+    let questions = [
+      "どの部位ですか？",
+      "食事ですか、運動ですか？",
+      "何を食べましたか？",
+      "何gですか？",
+      "何mlですか？",
+      "何個ですか？",
+      "何分ですか？",
+      "何キロですか？",
+      "でいいですね",
+    ]
+    for question in questions {
+      XCTAssertTrue(
+        SiriQuestionLimit.allowAsk(question: question, defaults: defaults, now: now),
+        question
+      )
+    }
+    XCTAssertTrue(
+      SiriQuestionLimit.allowAsk(question: gramQuestion, defaults: defaults, now: now + 1)
+    )
+    XCTAssertFalse(
+      SiriQuestionLimit.allowAsk(question: gramQuestion, defaults: defaults, now: now + 2)
+    )
+    XCTAssertTrue(
+      SiriQuestionLimit.allowAsk(question: "何分ですか？", defaults: defaults, now: now + 3)
+    )
   }
 
   func testResolvedBareNumberRecordsOnTheFirstReply() {
@@ -207,39 +352,22 @@ final class SiriAmountReplyTests: XCTestCase {
     )
   }
 
-  func testDialogueStopsAfterTheRoundCapAndTheNextConversationStartsOver() {
-    let defaults = UserDefaults(suiteName: "siri-amount-reply-tests")!
-    defaults.removePersistentDomain(forName: "siri-amount-reply-tests")
-    let start = Date().timeIntervalSince1970
-    for round in 1...SiriDialogueLimit.maxRounds {
-      XCTAssertTrue(
-        SiriDialogueLimit.allow(defaults: defaults, now: start + Double(round)),
-        "round \(round)"
-      )
-    }
-    XCTAssertFalse(
-      SiriDialogueLimit.allow(
-        defaults: defaults,
-        now: start + Double(SiriDialogueLimit.maxRounds + 1)
-      )
-    )
-    XCTAssertFalse(SiriDialogueLimit.exitSpeech.isEmpty)
-    XCTAssertNotEqual(SiriDialogueLimit.exitSpeech, gramQuestion)
-    XCTAssertTrue(
-      SiriDialogueLimit.allow(
-        defaults: defaults,
-        now: start + Double(SiriDialogueLimit.maxRounds + 2)
-      )
-    )
+  func testSameQuestionResetsAfterAPauseAndAfterEnd() {
+    let defaults = freshDefaults("siri-amount-reply-stale")
+    let now = Date().timeIntervalSince1970
+    XCTAssertTrue(SiriQuestionLimit.allowAsk(question: gramQuestion, defaults: defaults, now: now))
+    XCTAssertTrue(SiriQuestionLimit.allowAsk(question: gramQuestion, defaults: defaults, now: now + 10))
+    XCTAssertFalse(SiriQuestionLimit.allowAsk(question: gramQuestion, defaults: defaults, now: now + 11))
+    let later = now + 11 + SiriQuestionLimit.staleSeconds + 1
+    XCTAssertTrue(SiriQuestionLimit.allowAsk(question: gramQuestion, defaults: defaults, now: later))
+    SiriQuestionLimit.reset(defaults: defaults)
+    XCTAssertTrue(SiriQuestionLimit.allowAsk(question: gramQuestion, defaults: defaults, now: later + 1))
+    XCTAssertEqual(SiriQuestionLimit.asks(question: gramQuestion, defaults: defaults), 1)
   }
 
-  func testDialogueRoundResetsAfterAPause() {
-    let defaults = UserDefaults(suiteName: "siri-amount-reply-stale")!
-    defaults.removePersistentDomain(forName: "siri-amount-reply-stale")
-    let now = Date().timeIntervalSince1970
-    XCTAssertEqual(SiriDialogueLimit.notePrompt(defaults: defaults, now: now), 1)
-    XCTAssertEqual(SiriDialogueLimit.notePrompt(defaults: defaults, now: now + 10), 2)
-    let later = now + 10 + SiriDialogueLimit.staleSeconds + 1
-    XCTAssertEqual(SiriDialogueLimit.notePrompt(defaults: defaults, now: later), 1)
+  private func freshDefaults(_ name: String) -> UserDefaults {
+    let defaults = UserDefaults(suiteName: name)!
+    defaults.removePersistentDomain(forName: name)
+    return defaults
   }
 }

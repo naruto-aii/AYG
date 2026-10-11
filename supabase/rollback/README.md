@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。このエージェントは本番 DB に接続しない。
 
+## 20261011063750 kpi exclusion by identity
+
+`kpi.excluded_user_ids` を、user_id と email だけの定義に戻す。`provider` / `provider_id` だけの除外行は消える。user_id・install_id・email がある行は残る。アプリの表、RLS、退会処理の本文は戻さない（この変更はそれらを書き換えていない）。先にこの down を流す。`20261007112725` の down は、そのあとで kpi スキーマごと消すときだけ使う。
+
+`supabase/rollback/20261011063750_kpi_exclusion_by_identity_down.sql`
+
 ## 20261007112725 kpi excluded users
 
 本番には version `20261007112725` で適用済み。開発者アカウントを日次集計と退会集計から外す。戻すときは、先に `maintain_app_events` と `delete_own_account` を `20261007103757` 時点の本文へ戻す。本文は `db-backup-20261007/maintain_app_events_prod_before_kpi_excluded_users.sql` と `db-backup-20261007/delete_own_account_prod_before_kpi_excluded_users.sql`。そのあとこの down を流す。`kpi` スキーマと `public.kpi_excluded_users` が消える。定期実行 `20261008090300` を先に戻す。

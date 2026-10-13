@@ -86,7 +86,7 @@ void main() {
       'Google LLC（Google ログイン）',
       'Supabase, Inc.（クラウド上のデータベースと認証。保存先はシンガポール）',
       '個人データは日本国外（Supabase はシンガポール）で取り扱われます。',
-      'アカウントを削除すると、氏名、メールアドレス、ログイン情報、生年月日、メモ、購入の取引番号との対応は消します。食事・運動・体重などの記録と操作の記録は、利用者IDとは別の番号を付け、サービスの改善のために残します。残すのは、性別、身長、体重、目標の種類、年代の幅、アカウントを作った月、プラン、食事の名前と量とカロリーとPFC、運動の名前と時間と消費カロリー、体重の記録、お酒の名前と量、ワークアウトの種目と消費カロリー、食品の検索語、テンプレートを使った回数、コーチの提案を登録したかどうか、有料機能の操作（機能名と商品ID）、画面とアプリの操作です。時刻は時までです。運動の検索語、テンプレートの名前と中身、メモの文面は残しません。',
+      'アカウントを削除すると、氏名、メールアドレス、ログイン情報、生年月日、メモ、購入の取引番号との対応は消します。食事・運動・体重などの記録と操作の記録は、利用者IDとは別の番号を付け、サービスの改善のために残します。残すのは、性別、身長、体重、目標の種類、年代の幅、アカウントを作った月、プラン、集計から外すかどうか、削除した時刻（時まで）、食事の名前と量とカロリーとPFCと食品マスタの版、運動の名前と時間と消費カロリー、体重とその記録元、お酒の名前と量と単位と度数と総カロリーと純アルコール量とアルコール由来カロリー、ワークアウトの種目と消費カロリー、食品の検索語とその記録元、テンプレートを使った回数、コーチの提案を登録したかどうか、有料機能の操作（機能名と商品ID）、画面の操作、アプリの操作（発生元、系統、アプリの版）です。時刻は時までです。運動の検索語、テンプレートの名前と中身、メモの文面は残しません。運動の検索の記録元は残します。',
       'アカウントを削除すると、氏名、メールアドレス、ログイン情報、生年月日、メモ、購入の取引番号との対応は消します。食事・運動・体重などの記録と操作の記録は、利用者IDとは別の番号を付け、性別、身長、体重、食事の名前、食品の検索語などを含めて、サービスの改善のために残します。',
     ];
     String? first;
@@ -115,6 +115,31 @@ void main() {
       expect(html, contains('外食・コンビニ'), reason: path);
       expect(html, contains('設定の「AIへの送信」がオフのときは送りません'), reason: path);
     }
+    const kept =
+        '集計から外すかどうか、削除した時刻（時まで）、食事の名前と量とカロリーとPFCと食品マスタの版、運動の名前と時間と消費カロリー、体重とその記録元、お酒の名前と量と単位と度数と総カロリーと純アルコール量とアルコール由来カロリー';
+    const appEvents = '画面の操作、アプリの操作（発生元、系統、アプリの版）';
+    for (final path in [
+      'legal/terms.html',
+      'docs/legal/terms.html',
+      'legal/account-deletion.html',
+      'docs/legal/account-deletion.html',
+      'lib/constants/app_strings.dart',
+    ]) {
+      final text = File(path).readAsStringSync();
+      expect(text, contains(kept), reason: path);
+      expect(text, contains(appEvents), reason: path);
+      expect(text, contains('運動の検索の記録元は残します'), reason: path);
+      expect(text, isNot(contains('画面とアプリの操作')), reason: path);
+    }
+    expect(
+      File('legal/account-deletion.html').readAsStringSync(),
+      File('docs/legal/account-deletion.html').readAsStringSync(),
+    );
+    expect(
+      AppStrings.accountDeletionConfirmBody,
+      contains('${AppStrings.accountDeletionRemovesBody}は消します。'),
+    );
+    expect(AppStrings.accountDeletionConfirmBody, contains(appEvents));
     expect(
       File('legal/terms.html').readAsStringSync(),
       contains('同じ Apple ID では1回です'),

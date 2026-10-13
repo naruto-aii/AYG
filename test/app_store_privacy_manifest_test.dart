@@ -46,14 +46,16 @@ void main() {
       'NSPrivacyCollectedDataTypePurposeAppFunctionality'.allMatches(manifest),
       hasLength(collected.length + functionalityOnly.length),
     );
-    expect(
-      'NSPrivacyCollectedDataTypePurposeAnalytics'.allMatches(manifest),
-      hasLength(collected.length + analyticsOnly.length - 2),
-    );
-    for (final type in [
+    const noAnalytics = [
       'NSPrivacyCollectedDataTypeHealth',
       'NSPrivacyCollectedDataTypeFitness',
-    ]) {
+      'NSPrivacyCollectedDataTypeSensitiveInfo',
+    ];
+    expect(
+      'NSPrivacyCollectedDataTypePurposeAnalytics'.allMatches(manifest),
+      hasLength(collected.length + analyticsOnly.length - noAnalytics.length),
+    );
+    for (final type in noAnalytics) {
       final start = manifest.indexOf(type);
       final end = manifest.indexOf('</dict>', start);
       final block = manifest.substring(start, end);
@@ -89,9 +91,13 @@ void main() {
     expect(pubspec, isNot(contains('google_mobile_ads')));
     expect(pubspec, isNot(contains('app_tracking_transparency')));
     expect(worksheet, contains('広告SDKは入れていません'));
-    expect(worksheet, contains('健康とフィットネスは、分析の目的には使いません'));
+    expect(
+      worksheet,
+      contains('健康、フィットネス、性別（機微な情報）は、分析の目的には使いません'),
+    );
     expect(worksheet, contains('| 健康 | はい | いいえ | アプリの機能 |'));
     expect(worksheet, contains('| フィットネス | はい | いいえ | アプリの機能 |'));
+    expect(worksheet, contains('| 機微な情報 | はい | いいえ | アプリの機能 |'));
     expect(worksheet, contains('ヘルスケア由来のデータ'));
     expect(worksheet, contains('広告に使いません'));
     expect(worksheet, contains('追跡もしません'));

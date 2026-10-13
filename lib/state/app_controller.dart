@@ -515,6 +515,7 @@ class AppController extends ChangeNotifier {
       _clearServerPlus();
       unawaited(setLockScreenMealPaid(false));
       _clearInMemoryState();
+      await AiDataConsent.clearLocalSending();
       notifyListeners();
       return;
     }
@@ -540,6 +541,9 @@ class AppController extends ChangeNotifier {
   }) async {
     final authUser = _authenticationRepository?.currentUser;
     if (authUser != null) {
+      // ログインとアカウント切替で、この人の「AIへの送信」を読み直す。
+      // 失敗しても、同意と同期は続ける。
+      await AiDataConsent.refreshSendingForCurrentUser();
       // 同意はアカウントごと。ログインボタンでは記録しない。
       // 今の版の行がサーバに無いあいだは、同期も AI も始めない。
       final known = _termsKnownFor(authUser.id);
@@ -666,6 +670,7 @@ class AppController extends ChangeNotifier {
     }
     _resetSyncState();
     _clearInMemoryState();
+    await AiDataConsent.clearLocalSending();
     sessionBlockMessage = null;
     notifyListeners();
     return true;
@@ -692,6 +697,8 @@ class AppController extends ChangeNotifier {
       if (!_stillCurrent(epoch)) {
         return;
       }
+      // 前の人の手元を消したあと、今の人の送信設定を入れ直す。
+      await AiDataConsent.refreshSendingForCurrentUser();
       await _loadServerPlusForCurrentUser();
       if (mayWrite()) {
         await _applyPaidEntitlement();
@@ -877,6 +884,7 @@ class AppController extends ChangeNotifier {
     try {
       _resetSyncState();
       _clearInMemoryState();
+      await AiDataConsent.clearLocalSending();
       final pendingCount = await _pendingRecords.count();
       _usage('local_data_cleared', {
         'reason': 'logout',

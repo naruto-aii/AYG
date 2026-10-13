@@ -81,13 +81,13 @@ class _ChainFoodLookupScreenState extends State<ChainFoodLookupScreen> {
             child: DesignTextInput(
               inputKey: const Key('chain-food-lookup-field'),
               controller: _query,
-              hintText: 'セブン サラダチキン',
+              hintText: '店名と商品名',
               onChanged: (_) => setState(() {}),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '例）吉野家 牛丼 大盛',
+            '例）牛丼 大盛',
             style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
         ],

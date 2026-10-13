@@ -27,54 +27,57 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
   }
 
-  testWidgets('onboarding asks HealthKit without a primer and stays usable if denied', (
-    tester,
-  ) async {
-    await usePhoneSurface(tester);
-    final health = MockHealthRepository(
-      isAvailable: true,
-      permissionsGranted: false,
-    );
-    final auth = MockAuthenticationRepository(
-      currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
-    );
-    addTearDown(auth.dispose);
-    final controller = AppController(
-      healthRepository: health,
-      authenticationRepository: auth,
-      dataSyncRepository: MockDataSyncRepository(),
-    );
-    addTearDown(controller.dispose);
-    await controller.initialize();
-
-    await tester.pumpWidget(
-      AygApp(
-        controller: controller,
-        openFoodFactsService: OpenFoodFactsService(userAgent: 'permission-test'),
+  testWidgets(
+    'onboarding asks HealthKit without a primer and stays usable if denied',
+    (tester) async {
+      await usePhoneSurface(tester);
+      final health = MockHealthRepository(
+        isAvailable: true,
+        permissionsGranted: false,
+      );
+      final auth = MockAuthenticationRepository(
+        currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
+      );
+      addTearDown(auth.dispose);
+      final controller = AppController(
         healthRepository: health,
         authenticationRepository: auth,
-      ),
-    );
-    await tester.pump();
+        dataSyncRepository: MockDataSyncRepository(),
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
 
-    expect(find.byType(BasicInfoScreen), findsOneWidget);
-    expect(find.text('基本情報を入力'), findsOneWidget);
-    expect(find.text('初回設定  1/2'), findsOneWidget);
-    expect(find.text('次へ'), findsOneWidget);
-    expect(health.requestPermissionsCalled, isTrue);
-    expect(controller.useHealthIntegration, isFalse);
-    expect(
-      find.text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
-      findsOneWidget,
-    );
-    expect(find.text('Healthと連携しますか？'), findsNothing);
-    expect(find.text('連携しない'), findsNothing);
-    expect(find.text('連携する（推奨）'), findsNothing);
-    expect(
-      File('lib/screens/onboarding/health_setup_screen.dart').existsSync(),
-      isFalse,
-    );
-  });
+      await tester.pumpWidget(
+        AygApp(
+          controller: controller,
+          openFoodFactsService: OpenFoodFactsService(
+            userAgent: 'permission-test',
+          ),
+          healthRepository: health,
+          authenticationRepository: auth,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(BasicInfoScreen), findsOneWidget);
+      expect(find.text('基本情報を入力'), findsOneWidget);
+      expect(find.text('初回設定  1/2'), findsOneWidget);
+      expect(find.text('次へ'), findsOneWidget);
+      expect(health.requestPermissionsCalled, isTrue);
+      expect(controller.useHealthIntegration, isFalse);
+      expect(
+        find.text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
+        findsOneWidget,
+      );
+      expect(find.text('Healthと連携しますか？'), findsNothing);
+      expect(find.text('連携しない'), findsNothing);
+      expect(find.text('連携する（推奨）'), findsNothing);
+      expect(
+        File('lib/screens/onboarding/health_setup_screen.dart').existsSync(),
+        isFalse,
+      );
+    },
+  );
 
   testWidgets('granted HealthKit prefills empty basic-info fields', (
     tester,
@@ -95,7 +98,9 @@ void main() {
         theme: AppTheme.light,
         home: BasicInfoScreen(
           controller: controller,
-          openFoodFactsService: OpenFoodFactsService(userAgent: 'permission-test'),
+          openFoodFactsService: OpenFoodFactsService(
+            userAgent: 'permission-test',
+          ),
           healthPrefill: HealthProfileData.empty,
           authenticationRepository: auth,
           healthRepository: health,
@@ -133,7 +138,9 @@ void main() {
         theme: AppTheme.light,
         home: BasicInfoScreen(
           controller: controller,
-          openFoodFactsService: OpenFoodFactsService(userAgent: 'permission-test'),
+          openFoodFactsService: OpenFoodFactsService(
+            userAgent: 'permission-test',
+          ),
           healthPrefill: HealthProfileData.empty,
           authenticationRepository: auth,
           healthRepository: health,
@@ -149,46 +156,47 @@ void main() {
     expect(find.text('次へ'), findsOneWidget);
   });
 
-  testWidgets('settings health toggle requests permission only when turning it on', (
-    tester,
-  ) async {
-    await usePhoneSurface(tester);
-    final health = MockHealthRepository(
-      isAvailable: true,
-      permissionsGranted: false,
-    );
-    final controller = AppController(healthRepository: health);
-    addTearDown(controller.dispose);
-    controller.setNutritionSettings(
-      const NutritionSettings(
-        useHealthIntegration: false,
-        activityLevel: ActivityLevel.moderate,
-      ),
-    );
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: SettingsHealthActivityScreen(
-          controller: controller,
-          healthRepository: health,
+  testWidgets(
+    'settings health toggle requests permission only when turning it on',
+    (tester) async {
+      await usePhoneSurface(tester);
+      final health = MockHealthRepository(
+        isAvailable: true,
+        permissionsGranted: false,
+      );
+      final controller = AppController(healthRepository: health);
+      addTearDown(controller.dispose);
+      controller.setNutritionSettings(
+        const NutritionSettings(
+          useHealthIntegration: false,
+          activityLevel: ActivityLevel.moderate,
         ),
-      ),
-    );
-    expect(health.requestPermissionsCalled, isFalse);
+      );
 
-    await tester.tap(find.text('連携しない'));
-    await tester.pumpAndSettle();
-    expect(health.requestPermissionsCalled, isFalse);
-    expect(find.text(AppStrings.activityLevel), findsOneWidget);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SettingsHealthActivityScreen(
+            controller: controller,
+            healthRepository: health,
+          ),
+        ),
+      );
+      expect(health.requestPermissionsCalled, isFalse);
 
-    await tester.tap(find.text('連携する（推奨）'));
-    await tester.pumpAndSettle();
-    expect(health.requestPermissionsCalled, isTrue);
-    expect(controller.useHealthIntegration, isFalse);
-    expect(find.text(AppStrings.activityLevel), findsOneWidget);
-    expect(find.text('Healthと連携しますか？'), findsNothing);
-  });
+      await tester.tap(find.text('連携しない'));
+      await tester.pumpAndSettle();
+      expect(health.requestPermissionsCalled, isFalse);
+      expect(find.text(AppStrings.activityLevel), findsOneWidget);
+
+      await tester.tap(find.text('連携する'));
+      await tester.pumpAndSettle();
+      expect(health.requestPermissionsCalled, isTrue);
+      expect(controller.useHealthIntegration, isFalse);
+      expect(find.text(AppStrings.activityLevel), findsOneWidget);
+      expect(find.text('Healthと連携しますか？'), findsNothing);
+    },
+  );
 
   test('denied health permission does not turn integration on', () async {
     final health = MockHealthRepository(

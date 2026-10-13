@@ -80,10 +80,7 @@ void main() {
     ).readAsStringSync();
     expect(retarget, contains('references auth.users (id) on delete cascade'));
     expect(retarget, isNot(contains('insert into public.users')));
-    expect(
-      retarget,
-      contains('delete_ai_data_consent_on_account_close'),
-    );
+    expect(retarget, contains('delete_ai_data_consent_on_account_close'));
     expect(
       File(
         'supabase/rollback/20261010213000_ai_data_consent_auth_user_down.sql',
@@ -106,7 +103,10 @@ void main() {
       File('lib/screens/legal/ai_data_consent_dialog.dart').existsSync(),
       isFalse,
     );
-    expect(AppStrings.termsConsentAi, 'AI機能では入力内容をAnthropic, PBC（米国）に送ります。');
+    expect(
+      AppStrings.termsConsentAi,
+      '写真で登録、外食・コンビニ、AIで探すでは、入力内容をAnthropic, PBC（米国）に送ります。',
+    );
     expect(AppStrings.termsConsentTitle, contains('利用規約とプライバシーポリシー'));
     expect(AppStrings.termsConsentUgc, contains('一切認めません'));
     for (final path in [

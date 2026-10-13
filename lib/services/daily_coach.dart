@@ -279,9 +279,7 @@ List<CoachMealProposal> planCoachMeals({
   );
   final late = now != null && personalCoachIsLateEvening(now);
   final note = remainingKcal > 850 && !late ? '残りは次の食事で' : null;
-  return [
-    for (final meal in planned) _proposal(foods, meal, note: note),
-  ];
+  return [for (final meal in planned) _proposal(foods, meal, note: note)];
 }
 
 double _componentKcal(List<CoachFoodStock> foods, PlannedCoachItem item) {
@@ -431,15 +429,12 @@ _ExercisePlan? _exercisePlan({
     return const _ExercisePlan('今日はほぼちょうどです。');
   }
   if (personalCoachIsNight(now)) {
-    return const _ExercisePlan('明日の歩数で取り戻しましょう。');
+    return const _ExercisePlan('今日はここまでにして、明日の食事で調整しましょう。');
   }
   final practice = _bestPractice(exercises, now);
   final weight = weightKg != null && weightKg > 0 ? weightKg : null;
   if (weight == null) {
-    return const _ExercisePlan(
-      '体重が未登録のため、戻るカロリーを計算できません。',
-      needsWeight: true,
-    );
+    return const _ExercisePlan('体重が未登録のため、戻るカロリーを計算できません。', needsWeight: true);
   }
   final requiredRunKm = overageKcal / weight;
   if (practice == null) {
@@ -789,7 +784,10 @@ _ExercisePlan? _durationMessage({
       _timeMessage(
         activityName: practice.activity.displayName,
         neededMinutes: (overageKcal / perMinute).round(),
-        todayMinutes: math.max(1, math.min(overageKcal / perMinute, cap).round()),
+        todayMinutes: math.max(
+          1,
+          math.min(overageKcal / perMinute, cap).round(),
+        ),
         recoveredKcal: 0,
         overageKcal: overageKcal,
       ),

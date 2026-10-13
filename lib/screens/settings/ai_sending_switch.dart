@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../services/ai_data_consent.dart';
 import '../../theme/app_typography.dart';
 
-/// 設定の「AIへの送信」。オフのときは写真で登録と AIで探すを送らない。
+/// 設定の「AIへの送信」。オフのときは写真で登録、外食・コンビニ、AIで探すを送らない。
 class AiSendingSwitch extends StatefulWidget {
   const AiSendingSwitch({super.key});
 
@@ -59,7 +59,7 @@ class _AiSendingSwitchState extends State<AiSendingSwitch> {
       contentPadding: EdgeInsets.zero,
       title: Text('AIへの送信', style: AppTypography.titleS),
       subtitle: Text(
-        'オフにすると、写真で登録とAIで探すは送りません。手入力の記録はそのまま使えます。',
+        'オフにすると、写真で登録、外食・コンビニ、AIで探すはAnthropic, PBC（米国）に送りません。手入力の記録はそのまま使えます。',
         style: AppTypography.bodyS,
       ),
       value: _enabled ?? true,

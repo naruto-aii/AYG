@@ -146,7 +146,7 @@ class _SettingsHealthActivityScreenState
             subtitle: '消費カロリー（アクティブエネルギー）とワークアウトの取り込み方を決めます。',
           ),
           SelectCard(
-            title: '連携する（推奨）',
+            title: '連携する',
             description: available
                 ? '消費カロリー（アクティブエネルギー）とワークアウトを自動で取り込み、\nよりカンタンに記録できます。'
                 : AppStrings.healthUnavailableOnDevice,

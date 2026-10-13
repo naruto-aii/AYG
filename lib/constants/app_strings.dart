@@ -53,21 +53,20 @@ class AppStrings {
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
   static const settingsAccountDeletionSubtitle = '公開食品は残ります';
-  static const accountDeletionLead =
-      '削除するとログインできなくなります。個人を特定できる情報は消します。';
+  static const accountDeletionLead = '削除するとログインできなくなります。個人を特定できる情報は消します。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
       '氏名、メールアドレス、ログイン情報、生年月日、メモ、購入の取引番号との対応';
   static const accountDeletionKeeps = '残るもの';
   static const accountDeletionKeepsBody =
-      '食事・運動・体重などの記録と操作の記録は、誰のものかわからない形に加工して残します。公開食品も残ります。氏名やメールアドレスは載せません。';
+      '食事・運動・体重などの記録と操作の記録は、誰のものかわからない形に加工し、サービスの改善のために残します。公開食品も残ります。氏名やメールアドレスは載せません。';
   static const accountDeletionBilling =
       'アカウントを削除しても、ストアの定期購入は止まりません。先に iPhone の「設定」> Apple ID >「サブスクリプション」で解約してください。';
   static const accountDeletionExecute = '削除する';
   static const accountDeletionReadPolicy = 'アカウント削除の説明';
   static const accountDeletionConfirmTitle = 'アカウントを削除しますか';
   static const accountDeletionConfirmBody =
-      '氏名・メールアドレス・ログイン情報など、個人を特定できる情報は削除します。食事・運動・体重などの記録は、誰のものかわからない形に加工して残します。公開食品も残ります。この操作は取り消せません。';
+      '氏名・メールアドレス・ログイン情報など、個人を特定できる情報は削除します。食事・運動・体重などの記録は、誰のものかわからない形に加工し、サービスの改善のために残します。公開食品も残ります。この操作は取り消せません。';
   static const accountDeletionFailed = 'アカウントを削除できませんでした';
   static const accountDeletionUnavailable =
       'いまアカウントを削除できません。時間をおくか、運営へメールしてください。';
@@ -84,7 +83,7 @@ class AppStrings {
   static const coachCookingBody =
       '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
   static const plusAiDailyLimit =
-      '写真で登録、外食・コンビニ、AIで探すは、あわせて1日15回までです。';
+      '写真で登録、外食・コンビニ、AIで探すは、あわせて1日15回までです。自炊コーチはこの回数に入りません。';
   static const plusAiLimitBody = plusAiDailyLimit;
   static const coachBetaNotice =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。$coachCookingBody';
@@ -103,10 +102,9 @@ class AppStrings {
       '食事の写真から、AIがカロリーとPFCの推定を出します。料理名、量、補足は任意で、入れると精度が上がります。登録の前に確認して、数値を直せます。';
   static const plusBenefitEatingOutTitle = '外食・コンビニ';
   static const plusBenefitEatingOutBody =
-      '店名と商品名を入れると、AIがカロリーとPFCの推定を出します。セブン サラダチキンのように、新しい商品や詳しいメニューでも出せます。推定だと表示します。';
+      '店名と商品名を入れると、AIがカロリーとPFCの推定を出します。チェーン店の商品名でも推定を出せます。推定だと表示します。';
   static const plusBenefitAiSearchTitle = 'AIで探す';
-  static const plusBenefitAiSearchBody =
-      'いつもの検索で見つからないときは、AIが候補を出します。';
+  static const plusBenefitAiSearchBody = 'いつもの検索で見つからないときは、AIが候補を出します。';
   static const plusBenefitCoachTitle = 'パーソナルコーチ';
   static const plusBenefitCoachBody =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。$coachCookingBody';
@@ -155,39 +153,36 @@ class AppStrings {
       '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
 
   /// Guideline 3.1.2(c)。無料期間の残りがあるときに購入すると、残りは失効する。
-  static const plusTrialForfeiture =
-      '無料期間中に購入した場合、無料期間の残りは失効します。';
+  static const plusTrialForfeiture = '無料期間中に購入した場合、無料期間の残りは失効します。';
 
   /// 無料のお試しがあるプランのボタン。ストアがお試しを返したときだけ使う。
   static String plusTrialCta(int days) => '$days日間無料ではじめる';
 
   /// 自動更新の説明に足す1文。お試しを返したときだけ出す。
   static String plusTrialNotice(int days) =>
-      'はじめてカロナビ+に登録する方は、$days日間無料でお試しいただけます。無料期間中は請求されません。無料期間が終わる24時間以上前に解約しない限り、選んだプランの料金で定期購入が自動で始まり、Apple ID へ請求されます。';
+      'この Apple ID では、$days日間無料でお試しいただけます。同じ Apple ID では1回です。無料期間中は請求されません。無料期間が終わる24時間以上前に解約しない限り、選んだプランの料金で定期購入が自動で始まり、Apple ID へ請求されます。';
 
   static const plusCancelHow =
       '管理と解約は、App Store のアカウント設定から行えます。アプリを消しても課金は止まりません。';
   static const plusCurrentExpiryPrefix = '現在の有効期限';
+
   /// ログイン画面の予告。同意そのものは次の画面で取る。
   static const loginTermsNextMultiline =
       'ログインのあと、利用規約とプライバシーポリシーに\n同意してから使い始めます。';
 
   static const termsConsentTitle = '利用規約とプライバシーポリシー';
-  static const termsConsentLead =
-      'はじめる前に、利用規約とプライバシーポリシーへの同意が必要です。';
+  static const termsConsentLead = 'はじめる前に、利用規約とプライバシーポリシーへの同意が必要です。';
 
   /// オーナー指定の一文。AIだけの同意画面は作らない。
-  static const termsConsentAi = 'AI機能では入力内容をAnthropic, PBC（米国）に送ります。';
+  static const termsConsentAi =
+      '写真で登録、外食・コンビニ、AIで探すでは、入力内容をAnthropic, PBC（米国）に送ります。';
 
   /// Guideline 1.2。不適切な内容と嫌がらせを認めない。
-  static const termsConsentUgc =
-      '公開される内容への不適切な投稿や、他の利用者への嫌がらせは一切認めません。';
+  static const termsConsentUgc = '公開される内容への不適切な投稿や、他の利用者への嫌がらせは一切認めません。';
   static const termsConsentAgree = '同意してはじめる';
   static const termsConsentDecline = '同意しない';
-  static const termsConsentSaveFailed =
-      '同意を保存できませんでした。通信できるときに、もう一度押してください。';
-  static const termsConsentDeclineFailed =
-      'ログイン画面に戻れませんでした。もう一度押してください。';
+  static const termsConsentSaveFailed = '同意を保存できませんでした。通信できるときに、もう一度押してください。';
+  static const termsConsentDeclineFailed = 'ログイン画面に戻れませんでした。もう一度押してください。';
 
   static const displayName = 'ユーザー名';
   static const displayNameHint = '表示する名前';

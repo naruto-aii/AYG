@@ -187,29 +187,17 @@ void main() {
       expect(find.text('無料とカロナビ+'), findsOneWidget);
       expect(find.textContaining('カロナビ+'), findsWidgets);
       expect(find.text('ウィジェットと、音声登録'), findsOneWidget);
-      expect(
-        find.textContaining('枠は食事と運動を自由に組み合わせられます'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('音声登録 は、β版として先行公開'),
-        findsNothing,
-      );
-      expect(
-        find.textContaining('β版として先行公開している機能で、カロナビ+で使えます'),
-        findsNothing,
-      );
+      expect(find.textContaining('枠は食事と運動を自由に組み合わせられます'), findsOneWidget);
+      expect(find.textContaining('音声登録 は、β版として先行公開'), findsNothing);
+      expect(find.textContaining('β版として先行公開している機能で、カロナビ+で使えます'), findsNothing);
       expect(find.textContaining('先行アクセス'), findsNothing);
       expect(find.textContaining('食事と運動のメモは無料です'), findsOneWidget);
       expect(find.textContaining('食事のメモはカロナビ+です'), findsNothing);
       expect(find.textContaining('写真で登録'), findsWidgets);
       expect(find.textContaining('外食・コンビニ'), findsWidgets);
-      expect(find.textContaining('自炊コーチ'), findsOneWidget);
+      expect(find.textContaining('自炊コーチ'), findsNWidgets(3));
       expect(find.textContaining('あわせて1日15回までです'), findsWidgets);
-      expect(
-        find.textContaining('入れると精度が上がります'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('入れると精度が上がります'), findsOneWidget);
       Navigator.of(tester.element(find.byType(HowToUseScreen))).pop();
       await tester.pumpAndSettle();
     }
@@ -235,12 +223,11 @@ void main() {
       ),
     );
 
-    for (final subtitle in const [
-      'よく食べる組み合わせをまとめて登録',
-      'よくする運動をまとめて登録',
-    ]) {
+    for (final subtitle in const ['よく食べる組み合わせをまとめて登録', 'よくする運動をまとめて登録']) {
       expect(find.text(subtitle), findsOneWidget);
-      final paragraph = tester.renderObject<RenderParagraph>(find.text(subtitle));
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text(subtitle),
+      );
       expect(paragraph.didExceedMaxLines, isFalse);
     }
     expect(find.textContaining('無料は4件まで'), findsNothing);
@@ -296,7 +283,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CalculationReferencesScreen), findsOneWidget);
     expect(find.textContaining('Mifflin'), findsWidgets);
-    Navigator.of(tester.element(find.byType(CalculationReferencesScreen))).pop();
+    Navigator.of(
+      tester.element(find.byType(CalculationReferencesScreen)),
+    ).pop();
     await tester.pumpAndSettle();
     await tester.tap(find.text('データの出典'));
     await tester.pumpAndSettle();
@@ -337,7 +326,9 @@ void main() {
     await authRepository.dispose();
   });
 
-  testWidgets('settings subtitles stay on one line', (WidgetTester tester) async {
+  testWidgets('settings subtitles stay on one line', (
+    WidgetTester tester,
+  ) async {
     final authRepository = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'test@example.com'),
     );
@@ -373,7 +364,9 @@ void main() {
     ]) {
       expect(find.text(subtitle), findsOneWidget);
       expect(
-        tester.renderObject<RenderParagraph>(find.text(subtitle)).didExceedMaxLines,
+        tester
+            .renderObject<RenderParagraph>(find.text(subtitle))
+            .didExceedMaxLines,
         isFalse,
       );
     }
@@ -385,7 +378,10 @@ void main() {
       isFalse,
     );
 
-    await tester.scrollUntilVisible(find.byKey(const Key('settings-profile')), 200);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('settings-profile')),
+      200,
+    );
     await tester.tap(find.byKey(const Key('settings-profile')));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsProfileScreen), findsOneWidget);

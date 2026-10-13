@@ -27,20 +27,23 @@ void main() {
     }
   });
 
-  test('Sign in with Apple and Health purpose strings are in the iOS target', () {
-    final entitlements = File(
-      'ios/Runner/Runner.entitlements',
-    ).readAsStringSync();
-    expect(entitlements, contains('com.apple.developer.applesignin'));
-    expect(entitlements, contains('Default'));
+  test(
+    'Sign in with Apple and Health purpose strings are in the iOS target',
+    () {
+      final entitlements = File(
+        'ios/Runner/Runner.entitlements',
+      ).readAsStringSync();
+      expect(entitlements, contains('com.apple.developer.applesignin'));
+      expect(entitlements, contains('Default'));
 
-    final plist = File('ios/Runner/Info.plist').readAsStringSync();
-    expect(plist, contains('NSHealthShareUsageDescription'));
-    expect(plist, isNot(contains('NSHealthUpdateUsageDescription')));
-    expect(plist, contains('生年月日、性別、身長、体重、アクティブエネルギー、ワークアウト'));
-    expect(plist, isNot(contains('ヘルスケアへ書き込みません')));
-    expect(plist, isNot(contains('必要に応じてHealthデータを更新')));
-  });
+      final plist = File('ios/Runner/Info.plist').readAsStringSync();
+      expect(plist, contains('NSHealthShareUsageDescription'));
+      expect(plist, isNot(contains('NSHealthUpdateUsageDescription')));
+      expect(plist, contains('生年月日、性別、身長、体重、アクティブエネルギー、ワークアウト'));
+      expect(plist, isNot(contains('ヘルスケアへ書き込みません')));
+      expect(plist, isNot(contains('必要に応じてHealthデータを更新')));
+    },
+  );
 
   test('published plus prices are the tax-included catalog', () {
     const sentence =
@@ -99,7 +102,51 @@ void main() {
       expect(html, isNot(contains('Health Connect')), reason: path);
       expect(html, isNot(contains('最終更新日は 2026-10-07 です。')), reason: path);
       expect(html, isNot(contains('期限が来たら捨てます')), reason: path);
+      expect(html, contains('アプリの機能にだけ使い'), reason: path);
+      expect(html, isNot(contains('アプリの機能と分析にだけ')), reason: path);
+      expect(
+        html,
+        contains('委託先（Anthropic, PBC を含む）は、このポリシーと同等以上の保護をします。'),
+        reason: path,
+      );
+      expect(html, contains('外食・コンビニ'), reason: path);
+      expect(html, contains('設定の「AIへの送信」がオフのときは送りません'), reason: path);
     }
+    expect(
+      File('legal/terms.html').readAsStringSync(),
+      contains('同じ Apple ID では1回です'),
+    );
+    expect(
+      File('legal/terms.html').readAsStringSync(),
+      contains('無料期間中に購入した場合、無料期間の残りは失効します。'),
+    );
+    expect(
+      File('legal/tokushoho.html').readAsStringSync(),
+      contains('各購入画面の表示が正です'),
+    );
+    for (final path in [
+      'docs/app-store-listing-ja.md',
+      'lib/constants/app_strings.dart',
+      'lib/screens/food/chain_food_lookup_screen.dart',
+      'legal/terms.html',
+      'legal/privacy.html',
+    ]) {
+      expect(
+        File(path).readAsStringSync(),
+        isNot(contains('セブン')),
+        reason: path,
+      );
+    }
+    expect(
+      File('lib/services/daily_coach.dart').readAsStringSync(),
+      isNot(contains('歩数')),
+    );
+    expect(
+      File(
+        'lib/screens/settings/settings_health_activity_screen.dart',
+      ).readAsStringSync(),
+      isNot(contains('連携する（推奨）')),
+    );
   });
 
   test('estimate caches stay for reuse and are not described as discarded', () {
@@ -140,12 +187,18 @@ void main() {
       File('supabase/functions/_shared/expired_cache.ts').existsSync(),
       isFalse,
     );
-    expect(File('supabase/functions/expired_cache_test.ts').existsSync(), isFalse);
+    expect(
+      File('supabase/functions/expired_cache_test.ts').existsSync(),
+      isFalse,
+    );
     for (final path in [
       'supabase/functions/lookup-food-text/handler.ts',
       'supabase/functions/cook-coach/handler.ts',
     ]) {
-      expect(File(path).readAsStringSync(), isNot(contains('deleteExpiredCache')));
+      expect(
+        File(path).readAsStringSync(),
+        isNot(contains('deleteExpiredCache')),
+      );
     }
   });
 }

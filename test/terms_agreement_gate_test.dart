@@ -77,6 +77,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> decline(WidgetTester tester) async {
+    final finder = find.text(AppStrings.termsConsentDecline);
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
+  }
+
   test('サーバの版だけを見て、端末全体のフラグでは通さない', () {
     const user = 'user-1';
     expect(
@@ -316,8 +324,7 @@ void main() {
 
     await tester.tap(find.text(AppStrings.loginWithApple));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(AppStrings.termsConsentDecline));
-    await tester.pumpAndSettle();
+    await decline(tester);
 
     expect(consent.grantCalls, 0);
     expect(auth.logoutCalled, isTrue);
@@ -364,8 +371,7 @@ void main() {
 
     await tester.tap(find.text(AppStrings.loginWithApple));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(AppStrings.termsConsentDecline));
-    await tester.pumpAndSettle();
+    await decline(tester);
 
     expect(auth.logoutCalled, isTrue);
     expect(controller.isAuthenticated, isFalse);
@@ -389,8 +395,7 @@ void main() {
     );
 
     expect(find.text(AppStrings.termsConsentDecline), findsOneWidget);
-    await tester.tap(find.text(AppStrings.termsConsentDecline));
-    await tester.pumpAndSettle();
+    await decline(tester);
 
     expect(controller.isAuthenticated, isFalse);
     expect(sync.pushLocalToRemoteCalled, isFalse);

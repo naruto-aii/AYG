@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'catalog_plus_repository.dart';
 import 'mocks/mock_authentication_repository.dart';
 
 void main() {
@@ -398,7 +399,10 @@ void main() {
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
     );
-    final controller = AppController(authenticationRepository: auth);
+    final controller = AppController(
+      authenticationRepository: auth,
+      subscriptionRepository: CatalogPlusRepository(),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -585,7 +589,10 @@ void main() {
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
     );
-    final controller = AppController(authenticationRepository: auth);
+    final controller = AppController(
+      authenticationRepository: auth,
+      subscriptionRepository: CatalogPlusRepository(),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -643,7 +650,10 @@ void main() {
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
     );
-    final controller = AppController(authenticationRepository: auth);
+    final controller = AppController(
+      authenticationRepository: auth,
+      subscriptionRepository: CatalogPlusRepository(),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -715,6 +725,7 @@ void main() {
     final controller = AppController(
       authenticationRepository: auth,
       lockScreenMealGateway: gateway,
+      subscriptionRepository: CatalogPlusRepository(),
     );
 
     await tester.pumpWidget(

@@ -246,6 +246,10 @@ class AppController extends ChangeNotifier {
   bool _firstMealGuideSeen = false;
   bool _offerFirstMealGuide = false;
   DateTime? _onboardingOpenedAt;
+
+  /// 審査ビルドでは「はじめる」が遠隔保存のあいだも押せた。
+  /// 完了イベントは保存の前に送り、約1秒後の再入でもう一度出ていた。
+  /// フラグは await より前に立て、同じ起動中は送らない。
   bool _onboardingEventsSent = false;
   bool _onboardingGuideOffered = false;
   String? _currentTab;

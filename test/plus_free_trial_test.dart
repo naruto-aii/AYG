@@ -367,9 +367,14 @@ void main() {
       await tester.binding.setSurfaceSize(null);
     });
 
-    testWidgets('fallback prices never claim a free trial', (tester) async {
+    testWidgets('a failed store load shows reload and no trial', (
+      tester,
+    ) async {
       await _pumpPaywall(tester, UnavailableSubscriptionRepository());
-      expect(find.text('¥8,800で始める'), findsOneWidget);
+      expect(find.byKey(const Key('plus-reload')), findsOneWidget);
+      expect(find.text(AppStrings.plusProductsUnavailable), findsOneWidget);
+      expect(find.byKey(const Key('calonavi-plus-close')), findsOneWidget);
+      expect(find.text('¥8,800で始める'), findsNothing);
       expect(find.textContaining('日間無料'), findsNothing);
       await tester.binding.setSurfaceSize(null);
     });

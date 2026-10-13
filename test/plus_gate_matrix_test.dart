@@ -9,6 +9,7 @@ import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/models/meal_template.dart';
 import 'package:ayg/models/saved_food.dart';
 import 'package:ayg/models/workout_template.dart';
+import 'catalog_plus_repository.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/coach_intro_store.dart';
 import 'package:ayg/repositories/contracts/meal_template_repository_base.dart';
@@ -104,7 +105,9 @@ void main() {
   }
 
   AppController unpaid() {
-    final controller = AppController();
+    final controller = AppController(
+      subscriptionRepository: CatalogPlusRepository(),
+    );
     addTearDown(controller.dispose);
     return controller;
   }
@@ -183,7 +186,10 @@ void main() {
 
     testWidgets('パーソナルコーチ（設定）', (tester) async {
       final auth = _auth();
-      final controller = AppController(authenticationRepository: auth);
+      final controller = AppController(
+        authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
+      );
       addTearDown(controller.dispose);
       await show(
         tester,
@@ -224,6 +230,7 @@ void main() {
       final meals = _MemoryMeals()..seedFour();
       final controller = AppController(
         authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
         mealTemplateRepository: meals,
       );
       addTearDown(controller.dispose);
@@ -237,6 +244,7 @@ void main() {
       final workouts = _MemoryWorkouts()..seedFour();
       final controller = AppController(
         authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
         workoutTemplateRepository: workouts,
       );
       addTearDown(controller.dispose);
@@ -302,7 +310,10 @@ void main() {
 
     testWidgets('ウィジェット', (tester) async {
       final auth = _auth();
-      final controller = AppController(authenticationRepository: auth);
+      final controller = AppController(
+        authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
+      );
       addTearDown(controller.dispose);
       await show(
         tester,
@@ -320,7 +331,10 @@ void main() {
 
     testWidgets('音声登録', (tester) async {
       final auth = _auth();
-      final controller = AppController(authenticationRepository: auth);
+      final controller = AppController(
+        authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
+      );
       addTearDown(controller.dispose);
       await show(
         tester,
@@ -743,7 +757,7 @@ class _GatePlus extends SubscriptionRepository {
 
   @override
   Future<SubscriptionOfferings> loadOfferings() async {
-    return SubscriptionOfferings.failed;
+    return catalogSubscriptionOfferings();
   }
 
   @override

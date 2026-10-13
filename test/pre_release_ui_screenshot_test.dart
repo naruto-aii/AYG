@@ -6,7 +6,7 @@ import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
-import 'package:ayg/repositories/unavailable_subscription_repository.dart';
+import 'catalog_plus_repository.dart';
 import 'package:ayg/screens/settings/how_to_use_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
@@ -44,7 +44,7 @@ void main() {
     await _capture(
       tester,
       CalonaviPlusEntryScreen(
-        repository: UnavailableSubscriptionRepository(),
+        repository: CatalogPlusRepository(),
       ),
       File('${directory.path}/paywall_legal_links.png'),
       find.text('特定商取引法に基づく表記'),

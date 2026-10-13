@@ -19,7 +19,7 @@ import 'package:ayg/repositories/announcement_read_store.dart';
 import 'package:ayg/repositories/announcement_repository.dart';
 import 'package:ayg/repositories/coach_intro_store.dart';
 import 'package:ayg/repositories/official_food_repository.dart';
-import 'package:ayg/repositories/unavailable_subscription_repository.dart';
+import 'catalog_plus_repository.dart';
 import 'package:ayg/screens/auth/login_screen.dart';
 import 'package:ayg/screens/coach/cook_coach_screen.dart';
 import 'package:ayg/screens/coach/daily_coach_screen.dart';
@@ -260,7 +260,7 @@ Future<void> _audit(
       ),
     ),
     'paywall': () => CalonaviPlusEntryScreen(
-      repository: UnavailableSubscriptionRepository(),
+      repository: CatalogPlusRepository(),
     ),
     'settings': () => SettingsScreen(
       controller: controller,
@@ -381,7 +381,7 @@ Future<void> _audit(
     tester,
     device: _ipad13Portrait,
     home: CalonaviPlusEntryScreen(
-      repository: UnavailableSubscriptionRepository(),
+      repository: CatalogPlusRepository(),
     ),
     overflows: overflows,
     label: 'paywall_sheet/ipad13_portrait',

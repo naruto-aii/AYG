@@ -9,6 +9,7 @@ import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
+import 'catalog_plus_repository.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/screens/home/home_screen.dart';
 import 'package:ayg/screens/legal/legal_document.dart';
@@ -71,7 +72,7 @@ void main() {
 
     await _capture(
       tester,
-      UnavailableSubscriptionRepository(),
+      CatalogPlusRepository(),
       File('${directory.path}/paywall_top.png'),
       scrollToPlans: false,
     );
@@ -79,7 +80,7 @@ void main() {
 
     await _capture(
       tester,
-      UnavailableSubscriptionRepository(),
+      CatalogPlusRepository(),
       File('${directory.path}/paywall_plans_fallback.png'),
       scrollToPlans: true,
     );
@@ -102,7 +103,7 @@ void main() {
 
     await _captureFull(
       tester,
-      UnavailableSubscriptionRepository(),
+      CatalogPlusRepository(),
       File('${directory.path}/paywall_full.png'),
     );
     expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
@@ -258,7 +259,7 @@ void main() {
         home: RepaintBoundary(
           key: key,
           child: CalonaviPlusEntryScreen(
-            repository: UnavailableSubscriptionRepository(),
+            repository: CatalogPlusRepository(),
           ),
         ),
       ),

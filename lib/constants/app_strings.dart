@@ -143,10 +143,14 @@ class AppStrings {
   /// 月額カードの下の小さい文字。半年と年額は「月あたり」を出す。
   static const plusMonthlyNote = '1か月ごと';
 
-  /// ストアが金額を返せないときだけの表示。購入処理では使わない。
+  /// App Store Connect に登録する税込価格。画面はストアが返した金額だけを出す。
   static const plusFallbackMonthlyPrice = '¥980';
   static const plusFallbackHalfYearPrice = '¥4,900';
   static const plusFallbackYearlyPrice = '¥8,800';
+  static const plusPricesLoading = '価格を読み込んでいます';
+  static const plusProductsUnavailable =
+      'App Store から商品を取得できませんでした。通信を確認して、再読込を押してください。';
+  static const plusReloadProducts = '再読込';
   static const plusAutoRenew =
       '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
 

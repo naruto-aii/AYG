@@ -30,6 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
+import 'catalog_plus_repository.dart';
 import 'helpers/isar_test_helper.dart';
 import 'mocks/mock_authentication_repository.dart';
 import 'mocks/mock_data_sync_repository.dart';
@@ -739,7 +740,7 @@ class _ScriptedPlus extends SubscriptionRepository {
 
   @override
   Future<SubscriptionOfferings> loadOfferings() async {
-    return SubscriptionOfferings.failed;
+    return catalogSubscriptionOfferings();
   }
 
   @override

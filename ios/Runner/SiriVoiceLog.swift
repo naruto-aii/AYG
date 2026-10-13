@@ -3254,10 +3254,10 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   /// 単位を指定する初期化子は測定値用。https://developer.apple.com/documentation/appintents/intentparameter
   /// `UnitMass` の基本単位はキログラムで、グラムの係数は 0.001。
   /// https://developer.apple.com/documentation/foundation/unitmass
-  @Parameter(title: "グラム", supportsNegativeNumbers: false)
+  @Parameter(title: "グラム")
   var amountGrams: Double?
 
-  @Parameter(title: "ミリリットル", supportsNegativeNumbers: false)
+  @Parameter(title: "ミリリットル")
   var amountMilliliters: Double?
 
   /// 何分は時間の測定値。単位を言わなければ分。届いた値はアプリで分に換算する。
@@ -3268,10 +3268,10 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "分", defaultUnit: .minutes, supportsNegativeNumbers: false)
   var amountMinutes: Measurement<UnitDuration>?
 
-  @Parameter(title: "キロメートル", supportsNegativeNumbers: false)
+  @Parameter(title: "キロメートル")
   var amountKilometers: Double?
 
-  @Parameter(title: "個数", supportsNegativeNumbers: false)
+  @Parameter(title: "個数")
   var amountCount: Double?
 
   @Parameter(title: "言い直し")
@@ -3534,10 +3534,10 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   /// 単位を指定する初期化子は測定値用。https://developer.apple.com/documentation/appintents/intentparameter
   /// `UnitMass` の基本単位はキログラムで、グラムの係数は 0.001。
   /// https://developer.apple.com/documentation/foundation/unitmass
-  @Parameter(title: "グラム", supportsNegativeNumbers: false)
+  @Parameter(title: "グラム")
   var amountGrams: Double?
 
-  @Parameter(title: "ミリリットル", supportsNegativeNumbers: false)
+  @Parameter(title: "ミリリットル")
   var amountMilliliters: Double?
 
   /// 何分は時間の測定値。単位を言わなければ分。届いた値はアプリで分に換算する。
@@ -3548,10 +3548,10 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "分", defaultUnit: .minutes, supportsNegativeNumbers: false)
   var amountMinutes: Measurement<UnitDuration>?
 
-  @Parameter(title: "キロメートル", supportsNegativeNumbers: false)
+  @Parameter(title: "キロメートル")
   var amountKilometers: Double?
 
-  @Parameter(title: "個数", supportsNegativeNumbers: false)
+  @Parameter(title: "個数")
   var amountCount: Double?
 
   @Parameter(title: "言い直し")
@@ -3802,10 +3802,10 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   /// 単位を指定する初期化子は測定値用。https://developer.apple.com/documentation/appintents/intentparameter
   /// `UnitMass` の基本単位はキログラムで、グラムの係数は 0.001。
   /// https://developer.apple.com/documentation/foundation/unitmass
-  @Parameter(title: "グラム", supportsNegativeNumbers: false)
+  @Parameter(title: "グラム")
   var amountGrams: Double?
 
-  @Parameter(title: "ミリリットル", supportsNegativeNumbers: false)
+  @Parameter(title: "ミリリットル")
   var amountMilliliters: Double?
 
   /// 何分は時間の測定値。単位を言わなければ分。届いた値はアプリで分に換算する。
@@ -3816,10 +3816,10 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "分", defaultUnit: .minutes, supportsNegativeNumbers: false)
   var amountMinutes: Measurement<UnitDuration>?
 
-  @Parameter(title: "キロメートル", supportsNegativeNumbers: false)
+  @Parameter(title: "キロメートル")
   var amountKilometers: Double?
 
-  @Parameter(title: "個数", supportsNegativeNumbers: false)
+  @Parameter(title: "個数")
   var amountCount: Double?
 
   @Parameter(title: "言い直し")

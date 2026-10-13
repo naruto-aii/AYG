@@ -255,10 +255,19 @@ void main() {
     expect(photo, contains('ImageSource.gallery'));
 
     expect(plist, contains('<key>NSHealthShareUsageDescription</key>'));
+    expect(plist, contains('<key>NSHealthUpdateUsageDescription</key>'));
+    expect(
+      plist,
+      contains(
+        'カロナビはヘルスケアへデータを書き込みません。読み取りに使うヘルスケア連携ライブラリが更新の許可説明を必要とするため、この説明を表示しています。',
+      ),
+    );
     expect(plist, contains('<key>NSCameraUsageDescription</key>'));
     expect(plist, contains('<key>NSSiriUsageDescription</key>'));
     expect(plist, contains('生年月日、性別、身長、体重、アクティブエネルギー、ワークアウト'));
+    expect(healthRepo, contains('requestAuthorization(_readTypes)'));
     expect(healthRepo, isNot(contains('HealthDataAccess.WRITE')));
+    expect(healthRepo, isNot(contains('HealthDataAccess.READ_WRITE')));
     final healthSettings = File(
       'lib/screens/settings/settings_health_activity_screen.dart',
     ).readAsStringSync();
@@ -270,7 +279,6 @@ void main() {
     expect(entitlements, contains('com.apple.developer.healthkit'));
 
     for (final absent in [
-      'NSHealthUpdateUsageDescription',
       'NSPhotoLibraryUsageDescription',
       'NSPhotoLibraryAddUsageDescription',
       'NSUserTrackingUsageDescription',

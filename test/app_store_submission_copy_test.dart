@@ -38,7 +38,13 @@ void main() {
 
       final plist = File('ios/Runner/Info.plist').readAsStringSync();
       expect(plist, contains('NSHealthShareUsageDescription'));
-      expect(plist, isNot(contains('NSHealthUpdateUsageDescription')));
+      expect(plist, contains('<key>NSHealthUpdateUsageDescription</key>'));
+      expect(
+        plist,
+        contains(
+          'カロナビはヘルスケアへデータを書き込みません。読み取りに使うヘルスケア連携ライブラリが更新の許可説明を必要とするため、この説明を表示しています。アプリが行うのは、生年月日、性別、身長、体重、アクティブエネルギー、ワークアウトの読み取りだけです。',
+        ),
+      );
       expect(plist, contains('生年月日、性別、身長、体重、アクティブエネルギー、ワークアウト'));
       expect(plist, isNot(contains('ヘルスケアへ書き込みません')));
       expect(plist, isNot(contains('必要に応じてHealthデータを更新')));

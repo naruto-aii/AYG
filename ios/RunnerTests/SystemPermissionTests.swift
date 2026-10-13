@@ -5,7 +5,8 @@ final class SystemPermissionTests: XCTestCase {
   func testPurposeStringsMatchUsedPermissions() throws {
     let plist = try String(contentsOf: runnerFile("Info.plist"), encoding: .utf8)
     XCTAssertTrue(plist.contains("<key>NSHealthShareUsageDescription</key>"))
-    XCTAssertFalse(plist.contains("NSHealthUpdateUsageDescription"))
+    XCTAssertTrue(plist.contains("<key>NSHealthUpdateUsageDescription</key>"))
+    XCTAssertTrue(plist.contains("カロナビはヘルスケアへデータを書き込みません。"))
     XCTAssertTrue(plist.contains("<key>NSCameraUsageDescription</key>"))
     XCTAssertTrue(plist.contains("<key>NSSiriUsageDescription</key>"))
     XCTAssertTrue(plist.contains("生年月日、性別、身長、体重、アクティブエネルギー、ワークアウト"))

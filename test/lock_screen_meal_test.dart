@@ -420,7 +420,7 @@ void main() {
           .didExceedMaxLines,
       isFalse,
     );
-    expect(find.text('音声登録 (β)'), findsOneWidget);
+    expect(find.text('音声登録'), findsOneWidget);
     expect(find.text('声だけで食事・運動を登録'), findsOneWidget);
     expect(find.text('カロナビ+で使えます'), findsNothing);
     expect(
@@ -446,7 +446,7 @@ void main() {
       ),
     );
     expect(find.text('ウィジェット'), findsNothing);
-    expect(find.text('音声登録 (β)'), findsNothing);
+    expect(find.text('音声登録'), findsNothing);
     expect(find.textContaining('自動では付きません'), findsNothing);
     await auth.dispose();
   });
@@ -657,8 +657,8 @@ void main() {
         ),
       ),
     );
-    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
-    await tester.tap(find.text('音声登録 (β)'));
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
     expect(find.text('カロナビ+限定機能'), findsOneWidget);
@@ -741,8 +741,8 @@ void main() {
 
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
-    await tester.tap(find.text('音声登録 (β)'));
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
     expect(find.text('カロナビ+限定機能'), findsOneWidget);
@@ -778,15 +778,15 @@ void main() {
         ),
       ),
     );
-    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
-    await tester.tap(find.text('音声登録 (β)'));
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
     expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
     expect(find.text('使い始める前'), findsOneWidget);
-    expect(find.text('音声登録 (β)'), findsWidgets);
+    expect(find.text('音声登録'), findsWidgets);
     expect(find.textContaining('ショートカットを自分で作る必要はありません'), findsWidgets);
     expect(find.textContaining('カロナビ+で使えます'), findsNothing);
     expect(find.textContaining('β版として先行公開'), findsNothing);
@@ -848,8 +848,8 @@ void main() {
       ),
     );
 
-    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
-    await tester.tap(find.text('音声登録 (β)'));
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
     expect(gateway.paid, isTrue);

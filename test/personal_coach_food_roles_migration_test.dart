@@ -18,7 +18,7 @@ void main() {
     expect(lower, isNot(contains('truncate')));
     expect(sql, contains('add column if not exists coach_role'));
     expect(sql, contains('is_active = false'));
-    expect(sql, contains('パーソナルコーチ (β)'));
+    expect(sql, contains('パーソナルコーチ'));
     expect(CoachFoodCatalog.candidates, hasLength(66));
     final inserted = RegExp(
       r"\('(\d{5})'",

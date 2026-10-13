@@ -27,6 +27,13 @@ PhotoMealFailure photoMealFailureFromBody(Object? body) {
 const photoMealFallbackMessage =
     '推定できませんでした。しばらくしてからもう一度試すか、手入力で記録できます。';
 
+/// 設定がオフなら送らない。手入力はそのまま使える。
+Future<void> ensureAiSendingEnabled() async {
+  if (!await AiDataConsent.isSendingEnabled()) {
+    throw const PhotoMealFailure(aiSendingOffMessage);
+  }
+}
+
 String _clipNote(String note) {
   final trimmed = note.trim();
   if (trimmed.length <= photoMealNoteMaxLength) {
@@ -65,6 +72,7 @@ class PhotoMealClient {
   factory PhotoMealClient.supabase({SupabaseClient? client}) {
     return PhotoMealClient(
       invoke: (body) async {
+        await ensureAiSendingEnabled();
         if (!await AiDataConsent.ensureServerCopy()) {
           final agreed = await AiDataConsent.grantedNow();
           throw PhotoMealFailure(

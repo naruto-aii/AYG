@@ -186,13 +186,13 @@ void main() {
       expect(find.textContaining('今日あと'), findsOneWidget);
       expect(find.text('無料とカロナビ+'), findsOneWidget);
       expect(find.textContaining('カロナビ+'), findsWidgets);
-      expect(find.text('ウィジェットと、音声登録 (β)'), findsOneWidget);
+      expect(find.text('ウィジェットと、音声登録'), findsOneWidget);
       expect(
         find.textContaining('枠は食事と運動を自由に組み合わせられます'),
         findsOneWidget,
       );
       expect(
-        find.textContaining('音声登録 (β) は、β版として先行公開'),
+        find.textContaining('音声登録 は、β版として先行公開'),
         findsNothing,
       );
       expect(
@@ -202,8 +202,8 @@ void main() {
       expect(find.textContaining('先行アクセス'), findsNothing);
       expect(find.textContaining('食事と運動のメモは無料です'), findsOneWidget);
       expect(find.textContaining('食事のメモはカロナビ+です'), findsNothing);
-      expect(find.textContaining('写真で登録 (β)'), findsWidgets);
-      expect(find.textContaining('外食・コンビニ (β)'), findsWidgets);
+      expect(find.textContaining('写真で登録'), findsWidgets);
+      expect(find.textContaining('外食・コンビニ'), findsWidgets);
       expect(find.textContaining('自炊コーチ'), findsOneWidget);
       expect(find.textContaining('あわせて1日15回までです'), findsWidgets);
       expect(
@@ -363,7 +363,7 @@ void main() {
       '食事と自炊の献立を提案',
       'はじめての操作と、無料との違い',
       '名前・体格と、目標カロリー',
-      '運動・歩数・ヘルスケア連携の設定',
+      '消費カロリーとワークアウトの設定',
       '保存済み食品の登録・管理',
       'ホーム画面とロック画面から登録',
       '声だけで食事・運動を登録',

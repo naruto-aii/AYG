@@ -167,7 +167,6 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   void initState() {
     super.initState();
     _openedAt = DateTime.now();
-    _record(PlusFunnelEvent.paywallOpen);
     _loadPrices();
   }
 
@@ -247,7 +246,9 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           'entry_point': widget.feature == null
               ? 'settings'
               : 'gate_$featureName',
-          'products_loaded': !_loadingPrices && _offerings != null,
+          'products_loaded':
+              _offerings != null && _offerings!.loadFailed == false,
+          'load_error': _offerings?.loadFailed ?? true,
         });
       case PlusFunnelEvent.planSelect:
         Analytics.emit('plan_select', {'product_id': planId});
@@ -300,6 +301,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       _offerings = offerings;
       _loadingPrices = false;
     });
+    _record(PlusFunnelEvent.paywallOpen);
   }
 
   bool _hasStorePrice(SubscriptionProductOffer? offer) {
@@ -558,7 +560,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final plans = _loadingPrices ? const <_PlanOption>[] : _plans;
+    if (_loadingPrices) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final plans = _plans;
     final selectedPlan = plans.isEmpty ? null : _selectedPlan;
 
     return DesignPage(
@@ -860,6 +867,8 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         Text(AppStrings.plusBillingPeriod, style: _legalStyle),
         const SizedBox(height: AppSpacing.xxs),
         Text(AppStrings.plusAutoRenew, style: _legalStyle),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(AppStrings.plusTrialForfeiture, style: _legalStyle),
         if (_anyTrialDays case final trialDays?) ...[
           const SizedBox(height: AppSpacing.xxs),
           Text(

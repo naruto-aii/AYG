@@ -18,6 +18,7 @@ class AiFoodLookupClient {
   factory AiFoodLookupClient.supabase({SupabaseClient? client}) {
     return AiFoodLookupClient(
       invoke: (body) async {
+        await ensureAiSendingEnabled();
         if (!await AiDataConsent.ensureServerCopy()) {
           final agreed = await AiDataConsent.grantedNow();
           throw PhotoMealFailure(

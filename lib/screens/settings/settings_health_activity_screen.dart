@@ -143,12 +143,12 @@ class _SettingsHealthActivityScreenState
         children: [
           const DesignTitleBlock(
             title: '活動・Health',
-            subtitle: '歩数や運動の取り込み方を決めます。',
+            subtitle: '消費カロリー（アクティブエネルギー）とワークアウトの取り込み方を決めます。',
           ),
           SelectCard(
             title: '連携する（推奨）',
             description: available
-                ? '歩数や運動のデータを自動で取り込み、\nよりカンタンに記録できます。'
+                ? '消費カロリー（アクティブエネルギー）とワークアウトを自動で取り込み、\nよりカンタンに記録できます。'
                 : AppStrings.healthUnavailableOnDevice,
             selected: useHealth,
             onTap: _isBusy || !available ? null : () => _selectHealth(true),

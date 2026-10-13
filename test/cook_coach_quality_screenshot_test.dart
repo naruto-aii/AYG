@@ -198,7 +198,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('速歩き'), findsOneWidget);
     expect(find.text('この量で登録'), findsOneWidget);
-    expect(find.text('自炊コーチ (β)'), findsOneWidget);
+    expect(find.text('自炊コーチ'), findsOneWidget);
     await _write(tester, boundary, File('${directory.path}/coach_over_target.png'));
   });
 }

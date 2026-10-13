@@ -106,12 +106,12 @@ void main() {
       File('${directory.path}/paywall_full.png'),
     );
     expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
-    expect(find.text('写真で登録 (β)'), findsOneWidget);
-    expect(find.text('AIで探す (β)'), findsOneWidget);
-    expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
+    expect(find.text('写真で登録'), findsOneWidget);
+    expect(find.text('AIで探す'), findsOneWidget);
+    expect(find.text('パーソナルコーチ'), findsOneWidget);
     expect(find.text('その他の機能を見る'), findsOneWidget);
     // 外食・コンビニなどは「その他の機能を見る」のシートに出す。
-    expect(find.text('外食・コンビニ (β)'), findsNothing);
+    expect(find.text('外食・コンビニ'), findsNothing);
     expect(find.text('食事・運動の記録にメモを追加'), findsNothing);
     expect(find.textContaining('精度検証中'), findsNothing);
     expect(find.byKey(const Key('plus-plans')), findsOneWidget);
@@ -277,9 +277,9 @@ void main() {
     expect(find.text('カロナビ+'), findsOneWidget);
     expect(find.text('その他の機能を見る'), findsOneWidget);
     expect(find.text('ウィジェットでワンタップ記録'), findsOneWidget);
-    expect(find.text('写真で登録 (β)'), findsOneWidget);
+    expect(find.text('写真で登録'), findsOneWidget);
     _expectAbovePurchase(tester, 'ウィジェットでワンタップ記録');
-    _expectAbovePurchase(tester, '写真で登録 (β)');
+    _expectAbovePurchase(tester, '写真で登録');
 
     await _alignPlans(tester);
     expect(find.text('¥8,800で始める'), findsOneWidget);

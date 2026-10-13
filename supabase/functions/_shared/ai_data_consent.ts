@@ -35,6 +35,7 @@ export async function hasAiDataConsent(args: {
   const url =
     `${args.base}/rest/v1/ai_data_consents?user_id=eq.${encodeURIComponent(args.userId)}` +
     `&policy_version=in.(${versions})` +
+    `&ai_sending_enabled=eq.true` +
     `&select=user_id&limit=1`;
   const response = await args.fetchImpl(url, {
     headers: {

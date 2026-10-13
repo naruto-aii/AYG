@@ -10,7 +10,7 @@ import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 import 'ai_food_lookup_screen.dart';
 
-const chainFoodLookupTitle = '外食・コンビニ (β)';
+const chainFoodLookupTitle = '外食・コンビニ';
 
 /// 店名と品名を入れて、AIで探すと同じ推定へ進む。
 class ChainFoodLookupScreen extends StatefulWidget {

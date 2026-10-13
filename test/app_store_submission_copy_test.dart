@@ -36,8 +36,9 @@ void main() {
 
     final plist = File('ios/Runner/Info.plist').readAsStringSync();
     expect(plist, contains('NSHealthShareUsageDescription'));
+    expect(plist, isNot(contains('NSHealthUpdateUsageDescription')));
     expect(plist, contains('生年月日、性別、身長、体重、アクティブエネルギー、ワークアウト'));
-    expect(plist, contains('ヘルスケアへ書き込みません'));
+    expect(plist, isNot(contains('ヘルスケアへ書き込みません')));
     expect(plist, isNot(contains('必要に応じてHealthデータを更新')));
   });
 

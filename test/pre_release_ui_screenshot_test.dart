@@ -54,7 +54,7 @@ void main() {
     expect(find.text('プライバシーポリシー'), findsOneWidget);
     expect(find.textContaining('Apple ID'), findsOneWidget);
     expect(find.textContaining('24時間以上前'), findsOneWidget);
-    expect(find.text('写真で登録 (β)'), findsOneWidget);
+    expect(find.text('写真で登録'), findsOneWidget);
     expect(find.text('その他の機能を見る'), findsOneWidget);
 
     expect(find.textContaining('社長確認'), findsNothing);
@@ -64,8 +64,8 @@ void main() {
       tester,
       const HowToUseScreen(),
       File('${directory.path}/how_to_widget_voice.png'),
-      find.text('ウィジェットと、音声登録 (β)'),
-      scrollTo: find.text('ウィジェットと、音声登録 (β)'),
+      find.text('ウィジェットと、音声登録'),
+      scrollTo: find.text('ウィジェットと、音声登録'),
     );
     expect(find.textContaining('カロナビ+の機能です'), findsNothing);
 
@@ -108,10 +108,10 @@ void main() {
       ),
       File('${directory.path}/settings.png'),
       find.text('設定'),
-      scrollTo: find.text('音声登録 (β)'),
+      scrollTo: find.text('音声登録'),
     );
-    expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
-    expect(find.text('音声登録 (β)'), findsOneWidget);
+    expect(find.text('パーソナルコーチ'), findsOneWidget);
+    expect(find.text('音声登録'), findsOneWidget);
     await authRepository.dispose();
   });
 }

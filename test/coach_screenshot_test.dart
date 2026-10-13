@@ -268,8 +268,8 @@ Future<List<int>> _capture(
   expect(find.textContaining('精度検証中'), findsNothing);
   expect(find.textContaining('□'), findsNothing);
   if (checkTitleSize) {
-    final title = tester.widget<Text>(find.text('パーソナルコーチ (β)'));
-    expect(title.data, 'パーソナルコーチ (β)');
+    final title = tester.widget<Text>(find.text('パーソナルコーチ'));
+    expect(title.data, 'パーソナルコーチ');
     expect(title.style?.fontSize, AppTypography.headingL.fontSize);
   }
   final bytes = await tester.runAsync(

@@ -25,14 +25,20 @@ void main() {
     AiDataConsent.override = null;
   });
 
-  test('camera and photo library purposes are already in Japanese', () {
+  test('camera purpose is specific and photo library permission is unused', () {
     final plist = File('ios/Runner/Info.plist').readAsStringSync();
     expect(plist, contains('<key>NSCameraUsageDescription</key>'));
-    expect(plist, contains('食事の写真を撮って栄養を推定し、商品バーコードを読み取るためにカメラを使います。'));
-    expect(plist, contains('食事の写真はカロナビに保存しません。'));
-    expect(plist, contains('<key>NSPhotoLibraryUsageDescription</key>'));
-    expect(plist, contains('カメラロールの食事の写真から栄養を推定するために使います。'));
-    expect(plist, contains('選んだ写真はカロナビに保存しません。'));
+    expect(
+      plist,
+      contains('食事の写真を撮ってカロリーとPFCを推定し、市販食品のバーコード番号を読み取るためにカメラを使います。'),
+    );
+    expect(plist, contains('撮った食事の写真はカロナビに保存しません。'));
+    expect(plist, isNot(contains('NSPhotoLibraryUsageDescription')));
+    expect(plist, isNot(contains('NSPhotoLibraryAddUsageDescription')));
+    expect(
+      File('lib/screens/food/photo_meal_screen.dart').readAsStringSync(),
+      contains('requestFullMetadata: false'),
+    );
   });
 
   test('consent version matches the server and the row is the user only', () {
@@ -43,7 +49,14 @@ void main() {
     expect(shared, contains('"2026-10-08"'));
     expect(shared, contains('acceptedAiDataConsentVersions'));
     expect(shared, contains('policy_version=in.'));
+    expect(shared, contains('ai_sending_enabled=eq.true'));
     expect(shared, isNot(contains('policy_version=eq.')));
+    expect(
+      File(
+        'supabase/migrations/20261013100000_ai_sending_enabled.sql',
+      ).readAsStringSync(),
+      contains('ai_sending_enabled boolean not null default true'),
+    );
     expect(shared, contains(aiDataConsentRequiredMessage));
     final sql = File(
       'supabase/migrations/20261008210000_ai_data_consent.sql',

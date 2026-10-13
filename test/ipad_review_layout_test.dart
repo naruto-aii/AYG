@@ -34,7 +34,6 @@ import 'package:ayg/screens/legal/legal_document_screen.dart';
 import 'package:ayg/screens/onboarding/activity_level_screen.dart';
 import 'package:ayg/screens/onboarding/basic_info_screen.dart';
 import 'package:ayg/screens/onboarding/goal_setup_screen.dart';
-import 'package:ayg/screens/onboarding/health_setup_screen.dart';
 import 'package:ayg/screens/settings/account_deletion_screen.dart';
 import 'package:ayg/screens/settings/lock_screen_meal_screen.dart';
 import 'package:ayg/screens/settings/settings_screen.dart';
@@ -146,12 +145,6 @@ Future<void> _audit(
     'login': () =>
         LoginScreen(controller: controller, authenticationRepository: auth),
     'terms': () => const LegalDocumentScreen(document: LegalDocument.terms),
-    'onboarding_health': () => HealthSetupScreen(
-      controller: controller,
-      openFoodFactsService: facts,
-      healthRepository: health,
-      authenticationRepository: auth,
-    ),
     'onboarding_basic': () => BasicInfoScreen(
       controller: controller,
       openFoodFactsService: facts,

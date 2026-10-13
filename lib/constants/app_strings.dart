@@ -84,7 +84,7 @@ class AppStrings {
   static const coachCookingBody =
       '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
   static const plusAiDailyLimit =
-      '写真で登録 (β)、外食・コンビニ (β)、AIで探す (β) は、あわせて1日15回までです。';
+      '写真で登録、外食・コンビニ、AIで探すは、あわせて1日15回までです。';
   static const plusAiLimitBody = plusAiDailyLimit;
   static const coachBetaNotice =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。$coachCookingBody';
@@ -96,18 +96,18 @@ class AppStrings {
   static const plusBenefitWidgetTitle = 'ウィジェットでワンタップ記録';
   static const plusBenefitWidgetBody =
       'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
-  static const plusBenefitSiriTitle = '音声登録 (β)';
+  static const plusBenefitSiriTitle = '音声登録';
   static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
-  static const plusBenefitPhotoTitle = '写真で登録 (β)';
+  static const plusBenefitPhotoTitle = '写真で登録';
   static const plusBenefitPhotoBody =
       '食事の写真から、AIがカロリーとPFCの推定を出します。料理名、量、補足は任意で、入れると精度が上がります。登録の前に確認して、数値を直せます。';
-  static const plusBenefitEatingOutTitle = '外食・コンビニ (β)';
+  static const plusBenefitEatingOutTitle = '外食・コンビニ';
   static const plusBenefitEatingOutBody =
       '店名と商品名を入れると、AIがカロリーとPFCの推定を出します。セブン サラダチキンのように、新しい商品や詳しいメニューでも出せます。推定だと表示します。';
-  static const plusBenefitAiSearchTitle = 'AIで探す (β)';
+  static const plusBenefitAiSearchTitle = 'AIで探す';
   static const plusBenefitAiSearchBody =
       'いつもの検索で見つからないときは、AIが候補を出します。';
-  static const plusBenefitCoachTitle = 'パーソナルコーチ (β)';
+  static const plusBenefitCoachTitle = 'パーソナルコーチ';
   static const plusBenefitCoachBody =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。$coachCookingBody';
 
@@ -149,6 +149,10 @@ class AppStrings {
   static const plusFallbackYearlyPrice = '¥8,800';
   static const plusAutoRenew =
       '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
+
+  /// Guideline 3.1.2(c)。無料期間の残りがあるときに購入すると、残りは失効する。
+  static const plusTrialForfeiture =
+      '無料期間中に購入した場合、無料期間の残りは失効します。';
 
   /// 無料のお試しがあるプランのボタン。ストアがお試しを返したときだけ使う。
   static String plusTrialCta(int days) => '$days日間無料ではじめる';

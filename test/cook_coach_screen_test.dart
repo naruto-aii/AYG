@@ -60,7 +60,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('自炊コーチ (β)'), findsOneWidget);
+    expect(find.text('自炊コーチ'), findsOneWidget);
     final title = tester.widget<Text>(
       find.byKey(const Key('cook_coach_title')),
     );

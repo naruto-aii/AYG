@@ -21,6 +21,13 @@ const aiDataConsentAtKey = 'terms_agreement_server_at';
 
 const aiDataConsentRequiredMessage = 'AI機能を使うには、同意が必要です。';
 
+/// 設定の「AIへの送信」がオフのとき。写真で登録と AIで探すは、この文を出して送らない。
+const aiSendingOffMessage =
+    'AIへの送信はオフです。設定の「AIへの送信」をオンにすると使えます。';
+
+const aiSendingEnabledKey = 'ai_sending_enabled';
+const aiSendingEnabledUserKey = 'ai_sending_enabled_user_id';
+
 /// 同意の読み取りが止まっても、同意画面か手元の控えへ戻すまでの上限。
 ///
 /// 失敗した読み取りは手元の控えに戻る。応答が無い通信は例外にならないので、
@@ -95,6 +102,12 @@ abstract class AiDataConsent {
   /// サーバに書いてから、時刻を端末に残す。失敗したら false。
   Future<bool> grant();
 
+  /// 設定の「AIへの送信」。未設定はオン。
+  bool get sendingEnabled;
+
+  /// サーバの `ai_data_consents.ai_sending_enabled` と端末の控えを同じにする。
+  Future<bool> setSendingEnabled(bool enabled);
+
   /// テストが差し替える。本番は null。
   static AiDataConsent? override;
 
@@ -161,6 +174,36 @@ abstract class AiDataConsent {
     }
   }
 
+  /// 設定のスイッチ。テストの差し替えがあればそれを見る。
+  static Future<bool> isSendingEnabled() async {
+    final current = override;
+    if (current != null) {
+      return current.sendingEnabled;
+    }
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      return PrefsAiDataConsent(preferences).sendingEnabled;
+    } catch (error) {
+      debugPrint('[AYG] ai sending read failed: $error');
+      return false;
+    }
+  }
+
+  /// オンまたはオフをサーバへ書いてから、端末に残す。失敗したら false。
+  static Future<bool> saveSendingEnabled(bool enabled) async {
+    final current = override;
+    if (current != null) {
+      return current.setSendingEnabled(enabled);
+    }
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      return PrefsAiDataConsent(preferences).setSendingEnabled(enabled);
+    } catch (error) {
+      debugPrint('[AYG] ai sending update failed: $error');
+      return false;
+    }
+  }
+
   /// AI機能を呼ぶ直前。同意がサーバに無ければ静かに再送する。画面は出さない。
   static Future<bool> ensureServerCopy() async {
     try {
@@ -189,6 +232,7 @@ class MemoryAiDataConsent extends AiDataConsent {
   bool granted;
   bool synced;
   bool failGrant;
+  bool sending = true;
 
   /// null のときは [granted] を全アカウントの同意として扱う（既存テスト）。
   /// 空でもマップがあるときは、そのアカウントの版だけを見る。
@@ -247,6 +291,18 @@ class MemoryAiDataConsent extends AiDataConsent {
     synced = true;
     return true;
   }
+
+  @override
+  bool get sendingEnabled => sending;
+
+  @override
+  Future<bool> setSendingEnabled(bool enabled) async {
+    if (failGrant) {
+      return false;
+    }
+    sending = enabled;
+    return true;
+  }
 }
 
 class PrefsAiDataConsent extends AiDataConsent {
@@ -257,6 +313,42 @@ class PrefsAiDataConsent extends AiDataConsent {
   @override
   bool get isGranted =>
       _preferences.getString(aiDataConsentVersionKey) == aiDataConsentVersion;
+
+  @override
+  bool get sendingEnabled {
+    if (!_preferences.containsKey(aiSendingEnabledKey)) {
+      return true;
+    }
+    return _preferences.getBool(aiSendingEnabledKey) ?? true;
+  }
+
+  @override
+  Future<bool> setSendingEnabled(bool enabled) async {
+    if (!SupabaseConfig.isConfigured) {
+      return false;
+    }
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) {
+        return false;
+      }
+      final updated = await supabase
+          .from('ai_data_consents')
+          .update({'ai_sending_enabled': enabled})
+          .eq('user_id', userId)
+          .select('user_id');
+      if (updated.isEmpty) {
+        return false;
+      }
+      await _preferences.setBool(aiSendingEnabledKey, enabled);
+      await _preferences.setString(aiSendingEnabledUserKey, userId);
+      return true;
+    } catch (error) {
+      debugPrint('[AYG] ai sending update failed: $error');
+      return false;
+    }
+  }
 
   bool get hasServerCopy {
     final at = _preferences.getString(aiDataConsentAtKey);

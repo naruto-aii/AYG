@@ -400,7 +400,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
               ),
             ],
           ),
-          const DesignTitleBlock(title: 'パーソナルコーチ (β)', showBack: false),
+          const DesignTitleBlock(title: 'パーソナルコーチ', showBack: false),
           if (!_plusBlocked) ...[
             CookCoachEntryButton(
               key: const Key('cook_coach_entry'),
@@ -835,7 +835,7 @@ class CookCoachEntryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '自炊コーチ (β)',
+      label: '自炊コーチ',
       onTap: onPressed,
       excludeSemantics: true,
       child: DecoratedBox(
@@ -876,7 +876,7 @@ class CookCoachEntryButton extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '自炊コーチ (β)',
+                      '自炊コーチ',
                       style: AppTypography.titleM.copyWith(
                         color: AppColors.textOnPrimary,
                       ),

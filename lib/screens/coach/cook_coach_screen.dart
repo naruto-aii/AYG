@@ -329,7 +329,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
             ),
           ),
           Text(
-            '自炊コーチ (β)',
+            '自炊コーチ',
             key: const Key('cook_coach_title'),
             style: AppTypography.headingL,
           ),
@@ -370,7 +370,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
       children: [
         const DesignCard(
           child: Text(
-            '自炊コーチ (β) は、カロナビ+です。手元の食材から、この食事の目標に近い料理を出します。',
+            '自炊コーチは、カロナビ+です。手元の食材から、この食事の目標に近い料理を出します。',
             style: AppTypography.bodyS,
           ),
         ),
@@ -387,7 +387,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
               context,
               controller,
               message:
-                  '自炊コーチ (β) は、カロナビ+です。手元の食材から、この食事の目標に近い料理を出します。',
+                  '自炊コーチは、カロナビ+です。手元の食材から、この食事の目標に近い料理を出します。',
               feature: PlusFunnelFeature.coach,
             );
           },

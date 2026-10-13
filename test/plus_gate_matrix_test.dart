@@ -177,7 +177,7 @@ void main() {
           openFoodFactsService: OpenFoodFactsService(userAgent: 'test'),
         ),
       );
-      await tapLabel(tester, find.text('パーソナルコーチ (β)'));
+      await tapLabel(tester, find.text('パーソナルコーチ'));
       await expectDialogThenPaywall(tester);
     });
 
@@ -194,7 +194,7 @@ void main() {
           supportEmail: '',
         ),
       );
-      await tapLabel(tester, find.text('パーソナルコーチ (β)'));
+      await tapLabel(tester, find.text('パーソナルコーチ'));
       await expectDialogThenPaywall(tester);
     });
 
@@ -332,7 +332,7 @@ void main() {
           supportEmail: '',
         ),
       );
-      await tapLabel(tester, find.text('音声登録 (β)'));
+      await tapLabel(tester, find.text('音声登録'));
       await expectDialogThenPaywall(tester);
     });
   });
@@ -375,7 +375,7 @@ void main() {
       );
       await tapLabel(tester, find.text('写真で登録'));
       expect(find.text('カロナビ+限定機能'), findsNothing);
-      expect(find.text('写真で登録 (β)'), findsOneWidget);
+      expect(find.text('写真で登録'), findsOneWidget);
     });
 
     testWidgets('パーソナルコーチと自炊コーチ', (tester) async {
@@ -391,7 +391,7 @@ void main() {
       expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.byKey(const Key('cook_coach_entry')), findsOneWidget);
       await tapLabel(tester, find.byKey(const Key('cook_coach_entry')));
-      expect(find.text('自炊コーチ (β)'), findsOneWidget);
+      expect(find.text('自炊コーチ'), findsOneWidget);
       expect(find.text('カロナビ+を見る'), findsNothing);
     });
 
@@ -460,7 +460,7 @@ void main() {
       expect(find.textContaining('ウィジェットでワンタップ記録です'), findsOneWidget);
       tester.state<NavigatorState>(find.byType(Navigator)).pop();
       await tester.pumpAndSettle();
-      await tapLabel(tester, find.text('音声登録 (β)'));
+      await tapLabel(tester, find.text('音声登録'));
       expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.textContaining('Siriをオンにする'), findsOneWidget);
     });

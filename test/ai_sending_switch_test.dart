@@ -160,7 +160,9 @@ void main() {
       );
       await failing.refreshSendingForSession();
       expect(preferences.getString(aiSendingEnabledUserKey), 'user-c');
-      expect(failing.sendingEnabled, isTrue);
+      expect(preferences.getBool(aiSendingEnabledKey), isTrue);
+      expect(failing.sendingReadFailed, isTrue);
+      expect(failing.sendingEnabled, isFalse);
 
       await store.clearLocalSending();
       expect(preferences.containsKey(aiSendingEnabledKey), isFalse);
@@ -213,7 +215,83 @@ void main() {
       expect(preferences.containsKey(aiSendingEnabledKey), isFalse);
       expect(preferences.containsKey(aiSendingEnabledUserKey), isFalse);
       expect(await AiDataConsent.isSendingEnabled(), isTrue);
+      AiDataConsent.readSendingForTest = null;
       await ensureAiSendingEnabled();
     },
   );
+
+  test(
+    'an unreadable AI sending value does not send and asks to retry',
+    () async {
+      AiDataConsent.override = null;
+      SharedPreferences.setMockInitialValues({
+        aiSendingEnabledKey: false,
+        aiSendingEnabledUserKey: 'previous-user',
+      });
+      final preferences = await SharedPreferences.getInstance();
+      AiDataConsent.sessionUserIdForTest = () => 'current-user';
+      AiDataConsent.readSendingForTest = (userId) async {
+        expect(userId, 'current-user');
+        throw StateError('offline');
+      };
+
+      await expectLater(
+        ensureAiSendingEnabled(),
+        throwsA(
+          isA<PhotoMealFailure>().having(
+            (error) => error.message,
+            'message',
+            aiSendingUnreadableMessage,
+          ),
+        ),
+      );
+      expect(preferences.getString(aiSendingEnabledUserKey), 'previous-user');
+      expect(preferences.getBool(aiSendingEnabledKey), isFalse);
+      expect(await AiDataConsent.isSendingEnabled(), isFalse);
+      expect(preferences.getString(aiSendingReadFailedUserKey), 'current-user');
+
+      AiDataConsent.readSendingForTest = (_) async => false;
+      await expectLater(
+        ensureAiSendingEnabled(),
+        throwsA(
+          isA<PhotoMealFailure>().having(
+            (error) => error.message,
+            'message',
+            aiSendingOffMessage,
+          ),
+        ),
+      );
+      expect(preferences.getString(aiSendingEnabledUserKey), 'current-user');
+      expect(preferences.containsKey(aiSendingReadFailedUserKey), isFalse);
+
+      AiDataConsent.readSendingForTest = (_) async => true;
+      await ensureAiSendingEnabled();
+      expect(await AiDataConsent.isSendingEnabled(), isTrue);
+      expect(preferences.getBool(aiSendingEnabledKey), isTrue);
+    },
+  );
+
+  test('the same account cached on is not used when the read fails', () async {
+    AiDataConsent.override = null;
+    SharedPreferences.setMockInitialValues({
+      aiSendingEnabledKey: true,
+      aiSendingEnabledUserKey: 'Current-User',
+    });
+    AiDataConsent.sessionUserIdForTest = () => 'current-user';
+    AiDataConsent.readSendingForTest = (_) async {
+      throw StateError('timeout');
+    };
+
+    await expectLater(
+      ensureAiSendingEnabled(),
+      throwsA(
+        isA<PhotoMealFailure>().having(
+          (error) => error.message,
+          'message',
+          contains('通信を確認して、もう一度お試しください'),
+        ),
+      ),
+    );
+    expect(await AiDataConsent.isSendingEnabled(), isFalse);
+  });
 }

@@ -21,14 +21,20 @@ const aiDataConsentAtKey = 'terms_agreement_server_at';
 
 const aiDataConsentRequiredMessage = 'AI機能を使うには、同意が必要です。';
 
-/// 設定の「AIへの送信」がオフのとき。写真で登録と AIで探すは、この文を出して送らない。
+/// 設定の「AIへの送信」がオフのとき。写真で登録、外食・コンビニ、AIで探すは、この文を出して送らない。
 const aiSendingOffMessage = 'AIへの送信はオフです。設定の「AIへの送信」をオンにすると使えます。';
+
+/// そのアカウントのオンオフをサーバから読めなかったとき。オンにはしない。
+const aiSendingUnreadableMessage = 'AIへは送れません。通信を確認して、もう一度お試しください。';
 
 /// 端末の「AIへの送信」。[aiSendingEnabledUserKey] と同じアカウントのときだけ使う。
 const aiSendingEnabledKey = 'ai_sending_enabled';
 
 /// この控えの持ち主。未ログインや別アカウントでは、値を表示にも判定にも使わない。
 const aiSendingEnabledUserKey = 'ai_sending_enabled_user_id';
+
+/// このユーザーの `ai_sending_enabled` を読めなかった印。前の人のオンオフとは別に持つ。
+const aiSendingReadFailedUserKey = 'ai_sending_read_failed_user_id';
 
 /// 手元の「AIへの送信」は、今のアカウントの控えだけを使う。
 ///
@@ -207,6 +213,20 @@ abstract class AiDataConsent {
       sessionUserId: sessionUserIdForTest,
       readServerSending: readSendingForTest,
     );
+  }
+
+  /// 今のアカウントのオンオフを、直前の読み取りでサーバから取れなかった。
+  static Future<bool> sendingReadFailed() async {
+    if (override != null) {
+      return false;
+    }
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      return _sendingPrefs(preferences).sendingReadFailed;
+    } catch (error) {
+      debugPrint('[AYG] ai sending read failed: $error');
+      return false;
+    }
   }
 
   /// 設定のスイッチ。テストの差し替えがあればそれを見る。
@@ -405,6 +425,9 @@ class PrefsAiDataConsent extends AiDataConsent {
 
   @override
   bool get sendingEnabled {
+    if (sendingReadFailed) {
+      return false;
+    }
     final stored = _preferences.containsKey(aiSendingEnabledKey)
         ? _preferences.getBool(aiSendingEnabledKey)
         : null;
@@ -415,9 +438,20 @@ class PrefsAiDataConsent extends AiDataConsent {
     );
   }
 
+  /// 今のセッションの `ai_sending_enabled` を読めなかった。オンにはしない。
+  bool get sendingReadFailed {
+    final sessionUserId = _sessionUserIdNow();
+    if (sessionUserId == null || sessionUserId.isEmpty) {
+      return false;
+    }
+    final failedUserId = _preferences.getString(aiSendingReadFailedUserKey);
+    return failedUserId != null &&
+        failedUserId.toLowerCase() == sessionUserId.toLowerCase();
+  }
+
   /// 今のセッションの人の値をサーバから読み、端末の控えをその人のものにする。
   ///
-  /// 行が無いときはオン。通信に失敗しても、前の人の値では上書きしない。
+  /// 行が無いときはオン。通信に失敗したときはオンにせず、前の人の値では上書きしない。
   Future<void> refreshSendingForSession() async {
     final userId = _sessionUserIdNow();
     if (userId == null || userId.isEmpty) {
@@ -434,8 +468,14 @@ class PrefsAiDataConsent extends AiDataConsent {
       }
       await _preferences.setBool(aiSendingEnabledKey, enabled);
       await _preferences.setString(aiSendingEnabledUserKey, userId);
+      await _preferences.remove(aiSendingReadFailedUserKey);
     } catch (error) {
       debugPrint('[AYG] ai sending refresh failed: $error');
+      final now = _sessionUserIdNow();
+      if (now == null || now.toLowerCase() != userId.toLowerCase()) {
+        return;
+      }
+      await _preferences.setString(aiSendingReadFailedUserKey, userId);
     }
   }
 
@@ -466,6 +506,7 @@ class PrefsAiDataConsent extends AiDataConsent {
   Future<void> clearLocalSending() async {
     await _preferences.remove(aiSendingEnabledKey);
     await _preferences.remove(aiSendingEnabledUserKey);
+    await _preferences.remove(aiSendingReadFailedUserKey);
   }
 
   @override
@@ -489,6 +530,7 @@ class PrefsAiDataConsent extends AiDataConsent {
       }
       await _preferences.setBool(aiSendingEnabledKey, enabled);
       await _preferences.setString(aiSendingEnabledUserKey, userId);
+      await _preferences.remove(aiSendingReadFailedUserKey);
       return true;
     } catch (error) {
       debugPrint('[AYG] ai sending update failed: $error');

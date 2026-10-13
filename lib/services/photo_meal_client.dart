@@ -24,11 +24,16 @@ PhotoMealFailure photoMealFailureFromBody(Object? body) {
   );
 }
 
-const photoMealFallbackMessage =
-    '推定できませんでした。しばらくしてからもう一度試すか、手入力で記録できます。';
+const photoMealFallbackMessage = '推定できませんでした。しばらくしてからもう一度試すか、手入力で記録できます。';
 
-/// 設定がオフなら送らない。手入力はそのまま使える。
+/// 写真で登録、外食・コンビニ、AIで探すの前に呼ぶ。手入力はこの関数を通らない。
+///
+/// サーバを読めないときはオンにしない。読めた値だけに従う。
 Future<void> ensureAiSendingEnabled() async {
+  await AiDataConsent.refreshSendingForCurrentUser();
+  if (await AiDataConsent.sendingReadFailed()) {
+    throw const PhotoMealFailure(aiSendingUnreadableMessage);
+  }
   if (!await AiDataConsent.isSendingEnabled()) {
     throw const PhotoMealFailure(aiSendingOffMessage);
   }
@@ -60,8 +65,7 @@ String photoMealMessageFromBody(Object? body) {
   return photoMealFallbackMessage;
 }
 
-typedef PhotoMealInvoke =
-    Future<Object?> Function(Map<String, Object?> body);
+typedef PhotoMealInvoke = Future<Object?> Function(Map<String, Object?> body);
 
 /// Edge Function `analyze-meal-photo`。API キーはアプリに置かない。
 class PhotoMealClient {
@@ -123,9 +127,7 @@ class PhotoMealClient {
     }
     final estimate = parsePhotoMealEstimate(data['estimate']);
     if (estimate == null) {
-      throw const PhotoMealFailure(
-        '推定を確認できませんでした。料理名と量を入れるか、手入力で記録できます。',
-      );
+      throw const PhotoMealFailure('推定を確認できませんでした。料理名と量を入れるか、手入力で記録できます。');
     }
     final usageId = data['usage_id'];
     final collectionId = data['collection_id'];

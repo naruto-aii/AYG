@@ -53,20 +53,21 @@ class AppStrings {
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
   static const settingsAccountDeletionSubtitle = '公開食品は残ります';
-  static const accountDeletionLead = '削除するとログインできなくなります。個人を特定できる情報は消します。';
+  static const accountDeletionLead =
+      '削除するとログインできなくなります。氏名、メールアドレス、ログイン情報は消します。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
       '氏名、メールアドレス、ログイン情報、生年月日、メモ、購入の取引番号との対応';
   static const accountDeletionKeeps = '残るもの';
   static const accountDeletionKeepsBody =
-      '食事・運動・体重などの記録と操作の記録は、誰のものかわからない形に加工し、サービスの改善のために残します。公開食品も残ります。氏名やメールアドレスは載せません。';
+      '食事・運動・体重などの記録と操作の記録は、利用者IDとは別の番号を付け、サービスの改善のために残します。残すのは、性別、身長、体重、目標の種類、年代の幅、アカウントを作った月、プラン、食事の名前と量とカロリーとPFC、運動の名前と時間と消費カロリー、体重の記録、お酒の名前と量、ワークアウトの種目と消費カロリー、食品の検索語、テンプレートを使った回数、コーチの提案を登録したかどうか、有料機能の操作（機能名と商品ID）、画面とアプリの操作です。時刻は時までです。運動の検索語、テンプレートの名前と中身、メモの文面は残しません。公開食品も残ります。氏名やメールアドレスは載せません。';
   static const accountDeletionBilling =
       'アカウントを削除しても、ストアの定期購入は止まりません。先に iPhone の「設定」> Apple ID >「サブスクリプション」で解約してください。';
   static const accountDeletionExecute = '削除する';
   static const accountDeletionReadPolicy = 'アカウント削除の説明';
   static const accountDeletionConfirmTitle = 'アカウントを削除しますか';
   static const accountDeletionConfirmBody =
-      '氏名・メールアドレス・ログイン情報など、個人を特定できる情報は削除します。食事・運動・体重などの記録は、誰のものかわからない形に加工し、サービスの改善のために残します。公開食品も残ります。この操作は取り消せません。';
+      '氏名、メールアドレス、ログイン情報、生年月日、メモは消します。食事・運動・体重などの記録と操作の記録は、利用者IDとは別の番号を付け、サービスの改善のために残します。残すのは、性別、身長、体重、目標の種類、年代の幅、アカウントを作った月、プラン、食事の名前と量とカロリーとPFC、運動の名前と時間と消費カロリー、体重の記録、お酒の名前と量、ワークアウトの種目と消費カロリー、食品の検索語、テンプレートを使った回数、コーチの提案を登録したかどうか、有料機能の操作（機能名と商品ID）、画面とアプリの操作です。時刻は時までです。運動の検索語、テンプレートの名前と中身、メモの文面は残しません。公開食品も残ります。この操作は取り消せません。';
   static const accountDeletionFailed = 'アカウントを削除できませんでした';
   static const accountDeletionUnavailable =
       'いまアカウントを削除できません。時間をおくか、運営へメールしてください。';

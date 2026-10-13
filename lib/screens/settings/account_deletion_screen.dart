@@ -54,10 +54,13 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
   Future<void> _confirmAndDelete() async {
     CatalogActions.accountDeletionStarted('confirm');
     final confirmed = await showDialog<bool>(
-      routeSettings: const RouteSettings(name: 'account_deletion_screen_showDialog_0'),
+      routeSettings: const RouteSettings(
+        name: 'account_deletion_screen_showDialog_0',
+      ),
       context: context,
       builder: (context) {
         return AlertDialog(
+          scrollable: true,
           title: const Text(AppStrings.accountDeletionConfirmTitle),
           content: const Text(AppStrings.accountDeletionConfirmBody),
           actions: [
@@ -112,7 +115,9 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
 
   Future<void> _showAppleRevokeFailed() async {
     await showDialog<void>(
-      routeSettings: const RouteSettings(name: 'account_deletion_screen_showDialog_1'),
+      routeSettings: const RouteSettings(
+        name: 'account_deletion_screen_showDialog_1',
+      ),
       context: context,
       barrierDismissible: false,
       builder: (context) {
@@ -122,7 +127,9 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text(AppStrings.accountDeletionAppleRevokeFailedClose),
+              child: const Text(
+                AppStrings.accountDeletionAppleRevokeFailedClose,
+              ),
             ),
           ],
         );
@@ -132,7 +139,9 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
 
   Future<void> _showUnavailable() async {
     await showDialog<void>(
-      routeSettings: const RouteSettings(name: 'account_deletion_screen_showDialog_2'),
+      routeSettings: const RouteSettings(
+        name: 'account_deletion_screen_showDialog_2',
+      ),
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -168,7 +177,10 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
           const SizedBox(height: AppSpacing.md),
           Text(AppStrings.accountDeletionRemoves, style: AppTypography.labelM),
           const SizedBox(height: AppSpacing.sm),
-          Text(AppStrings.accountDeletionRemovesBody, style: AppTypography.bodyS),
+          Text(
+            AppStrings.accountDeletionRemovesBody,
+            style: AppTypography.bodyS,
+          ),
           const SizedBox(height: AppSpacing.md),
           Text(AppStrings.accountDeletionKeeps, style: AppTypography.labelM),
           const SizedBox(height: AppSpacing.sm),
@@ -190,7 +202,8 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
             showTrailingIcon: false,
             onPressed: _isDeleting
                 ? null
-                : () => showLegalDocument(context, LegalDocument.accountDeletion),
+                : () =>
+                      showLegalDocument(context, LegalDocument.accountDeletion),
           ),
         ],
       ),

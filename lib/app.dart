@@ -5,11 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'constants/app_strings.dart';
+import 'models/health_profile_data.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/health_repository.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/legal/terms_agreement_screen.dart';
-import 'screens/onboarding/health_setup_screen.dart';
+import 'screens/onboarding/basic_info_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
 import 'services/analytics/analytics.dart';
 import 'services/analytics/analytics_runtime.dart';
@@ -237,11 +238,12 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
         }
 
         if (controller.requiresOnboarding) {
-          return HealthSetupScreen(
+          return BasicInfoScreen(
             controller: controller,
             openFoodFactsService: widget.openFoodFactsService,
-            healthRepository: widget.healthRepository,
+            healthPrefill: HealthProfileData.empty,
             authenticationRepository: widget.authenticationRepository,
+            healthRepository: widget.healthRepository,
           );
         }
 

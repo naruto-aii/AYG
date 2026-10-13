@@ -22,6 +22,7 @@ import 'how_to_use_screen.dart';
 import 'lock_screen_meal_screen.dart';
 import 'operator_contact_screen.dart';
 import 'siri_voice_setup_screen.dart';
+import 'ai_sending_switch.dart';
 import 'settings_account_screen.dart';
 import 'settings_food_master_screen.dart';
 import 'settings_health_activity_screen.dart';
@@ -200,7 +201,7 @@ class SettingsScreen extends StatelessWidget {
           SettingsRow(
             key: const Key('settings-personal-coach'),
             icon: AppIcons.meal,
-            title: 'パーソナルコーチ (β)',
+            title: 'パーソナルコーチ',
             subtitle: '食事と自炊の献立を提案',
             onTap: () => _openPersonalCoach(context),
           ),
@@ -224,7 +225,7 @@ class SettingsScreen extends StatelessWidget {
             title: '活動・Health',
             subtitle: hideHealthSettings
                 ? AppStrings.webHealthUnavailable
-                : '運動・歩数・ヘルスケア連携の設定',
+                : '消費カロリーとワークアウトの設定',
             onTap: hideHealthSettings || health == null
                 ? null
                 : () => _push(
@@ -259,7 +260,7 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: _rowGap),
             SettingsRow(
               icon: AppIcons.information,
-              title: '音声登録 (β)',
+              title: '音声登録',
               subtitle: '声だけで食事・運動を登録',
               onTap: () => _openVoiceRegistration(context),
             ),
@@ -282,6 +283,8 @@ class SettingsScreen extends StatelessWidget {
             subtitle: '利用規約、プライバシー、特商法',
             onTap: () => _push(context, const SettingsPoliciesScreen()),
           ),
+          const SizedBox(height: _rowGap),
+          const AiSendingSwitch(),
           if (contactEmail.isNotEmpty) ...[
             const SizedBox(height: _rowGap),
             SettingsRow(

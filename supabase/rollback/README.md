@@ -2,6 +2,12 @@
 
 新しいものほど上に書く。本番への適用は手動。
 
+## 20261013100000 ai sending enabled
+
+本番には適用していない。`ai_data_consents.ai_sending_enabled` を消し、同意時刻を再び更新のたびに付け直す。同意の行と食事の行は消えない。
+
+`supabase/rollback/20261013100000_ai_sending_enabled_down.sql`
+
 ## 20261010220000 stop unverified transaction binding
 
 本番には適用していない。`entitlement_observed` が `store_original_transactions` を書かなくなる。加入の行が無い対応は消える。検証済みの加入と、その対応は残る。戻すと自己申告で対応表を再び書く。消した行は戻らない。
@@ -173,7 +179,7 @@
 
 ## 20261004150000 coach proposal logs
 
-パーソナルコーチ (β) が出した提案の記録だけを戻す。食事、運動、公式食品、お知らせ、候補食品は消さない。2回実行しても失敗しない。
+パーソナルコーチが出した提案の記録だけを戻す。食事、運動、公式食品、お知らせ、候補食品は消さない。2回実行しても失敗しない。
 
 `supabase/rollback/20261004150000_coach_proposal_logs_down.sql`
 
@@ -203,7 +209,7 @@
 
 ## 20261004120000 coach food candidates
 
-パーソナルコーチ (β) の候補表だけを戻す。official_foods の数値、食事、運動、体重は消さない。2回実行しても失敗しない。
+パーソナルコーチの候補表だけを戻す。official_foods の数値、食事、運動、体重は消さない。2回実行しても失敗しない。
 
 `supabase/rollback/20261004120000_coach_food_candidates_down.sql`
 

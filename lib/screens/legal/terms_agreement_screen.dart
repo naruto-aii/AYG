@@ -107,10 +107,13 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
                   const SizedBox(height: AppSpacing.lg),
                   const _ConsentCard(),
                   const SizedBox(height: AppSpacing.lg),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  // 収まるときは今までどおり1行。狭い幅や大きい文字では次の行へ折り返す。
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       _DocLink(
+                        key: const Key('terms-agreement-terms-link'),
                         label: '利用規約',
                         onTap: () =>
                             showLegalDocument(context, LegalDocument.terms),
@@ -125,6 +128,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
                         ),
                       ),
                       _DocLink(
+                        key: const Key('terms-agreement-privacy-link'),
                         label: 'プライバシーポリシー',
                         onTap: () =>
                             showLegalDocument(context, LegalDocument.privacy),
@@ -189,7 +193,7 @@ class _ConsentCard extends StatelessWidget {
 }
 
 class _DocLink extends StatelessWidget {
-  const _DocLink({required this.label, required this.onTap});
+  const _DocLink({super.key, required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -203,6 +207,7 @@ class _DocLink extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: AppTypography.bodyS.copyWith(color: AppColors.textBrand),
         ),
       ),

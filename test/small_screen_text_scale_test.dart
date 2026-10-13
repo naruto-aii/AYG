@@ -1,5 +1,5 @@
 import 'package:ayg/repositories/authentication_repository.dart';
-import 'package:ayg/repositories/unavailable_subscription_repository.dart';
+import 'catalog_plus_repository.dart';
 import 'package:ayg/screens/auth/login_screen.dart';
 import 'package:ayg/screens/legal/terms_agreement_screen.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
@@ -38,7 +38,7 @@ void main() {
         tester,
         entry.value,
         CalonaviPlusEntryScreen(
-          repository: UnavailableSubscriptionRepository(),
+          repository: CatalogPlusRepository(),
         ),
       );
       expect(tester.takeException(), isNull);

@@ -51,7 +51,7 @@ class DataSourceScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('写真で登録 (β) の推定', style: AppTypography.titleS),
+                Text('写真で登録 の推定', style: AppTypography.titleS),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   '食事の写真と、入力した料理名と量から、AIがカロリーとPFCを推定します。成分表の数値ではありません。登録の前に確認して、直せます。写真はカロナビに保存しません。',
@@ -65,10 +65,10 @@ class DataSourceScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('AIで探す (β) の推定', style: AppTypography.titleS),
+                Text('AIで探す の推定', style: AppTypography.titleS),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '入力した食品名から、AIがカロリーとPFCを推定します。成分表の数値ではありません。登録の前に確認して、直せます。食品データベースには追加しません。外食・コンビニ (β) も同じ推定です。',
+                  '入力した食品名から、AIがカロリーとPFCを推定します。成分表の数値ではありません。登録の前に確認して、直せます。食品データベースには追加しません。外食・コンビニも同じ推定です。',
                 ),
               ],
             ),
@@ -78,7 +78,7 @@ class DataSourceScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('自炊コーチ (β) の栄養', style: AppTypography.titleS),
+                Text('自炊コーチの栄養', style: AppTypography.titleS),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   '料理は、確認済みの家庭料理から選びます。食材のグラムに対するカロリーとPFCは、日本食品標準成分表の値で計算します。画面に、この食事の目標との差を出します。',
@@ -92,7 +92,7 @@ class DataSourceScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('パーソナルコーチ (β) の量と区分', style: AppTypography.titleS),
+                Text('パーソナルコーチの量と区分', style: AppTypography.titleS),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   '主食・主菜・副菜・乳製品・果物の組み合わせと、1品の量は次の資料の数値を使っています。',

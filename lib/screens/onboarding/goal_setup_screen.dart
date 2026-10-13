@@ -62,6 +62,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   final _fatController = TextEditingController();
   final _carbController = TextEditingController();
   DateTime? _targetDate;
+  bool _saving = false;
 
   double? get _currentWeightKg => widget.controller.profile?.weightKg;
 
@@ -236,6 +237,9 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   }
 
   Future<void> _skip() async {
+    if (_saving) {
+      return;
+    }
     final current = _currentWeightKg;
     if (current == null) {
       _warn('先に基本情報を入力してください');
@@ -252,6 +256,9 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   }
 
   Future<void> _complete() async {
+    if (_saving) {
+      return;
+    }
     final targetDate = _targetDate;
     if (targetDate == null) {
       _warn('目標日を選択してください');
@@ -306,6 +313,10 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
   }
 
   Future<void> _save(Goal goal, {bool updateCalorieTarget = true}) async {
+    if (_saving) {
+      return;
+    }
+    setState(() => _saving = true);
     if (updateCalorieTarget) {
       _saveCalorieTarget();
     }
@@ -315,6 +326,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
       if (!mounted) {
         return;
       }
+      setState(() => _saving = false);
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           settings: const RouteSettings(
@@ -337,6 +349,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
       if (!mounted) {
         return;
       }
+      setState(() => _saving = false);
       _warn(userErrorMessage(error, action: '保存'));
       return;
     }
@@ -394,7 +407,11 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: DesignButton(label: 'はじめる', onPressed: _complete),
+            child: DesignButton(
+              label: 'はじめる',
+              loading: _saving,
+              onPressed: _saving ? null : _complete,
+            ),
           ),
         ],
       ),
@@ -402,7 +419,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 4),
-          const Center(child: StepIndicator(current: 3)),
+          const Center(child: StepIndicator(current: 2, total: 2)),
           const SizedBox(height: 10),
           Text(
             '目標を設定',

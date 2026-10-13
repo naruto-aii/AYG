@@ -1,5 +1,7 @@
 import 'package:ayg/config/subscription_catalog.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
+
+import 'catalog_plus_repository.dart';
 import 'package:ayg/screens/subscription/calonavi_plus_flow.dart';
 import 'package:ayg/services/subscription_offer.dart';
 import 'package:ayg/theme/app_theme.dart';
@@ -86,7 +88,7 @@ class _Plans extends UnavailableSubscriptionRepository {
 
   @override
   Future<SubscriptionOfferings> loadOfferings() async {
-    return SubscriptionOfferings.failed;
+    return catalogSubscriptionOfferings();
   }
 
   @override

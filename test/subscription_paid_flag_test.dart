@@ -137,9 +137,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('カロナビ+のその他の機能'), findsNothing);
       expect(find.textContaining('¥980'), findsWidgets);
-      expect(find.text('半年'), findsOneWidget);
-      expect(find.text('年額'), findsOneWidget);
-      expect(find.text('¥8,800で始める'), findsOneWidget);
+      expect(find.text('月額'), findsOneWidget);
+      expect(find.text('半年'), findsNothing);
+      expect(find.text('年額'), findsNothing);
+      expect(find.text('¥980で始める'), findsOneWidget);
+      expect(find.text('¥8,800'), findsNothing);
       expect(find.textContaining('380'), findsNothing);
       expect(gateway.paid, isFalse);
       expect(plus.monthlyPurchases, 0);

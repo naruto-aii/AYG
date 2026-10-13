@@ -137,9 +137,8 @@ void main() {
         searchOverrides: CombinedFoodSearchOverrides(
           debounce: Duration.zero,
           searchSaved: (_) async => [food('自家製牛丼', id: 'saved-1')],
-          searchOfficial: (_) async => const OfficialFoodSearchResult(
-            matches: [],
-          ),
+          searchOfficial: (_) async =>
+              const OfficialFoodSearchResult(matches: []),
           searchPublic: (_) async => const [],
         ),
       ),
@@ -178,8 +177,8 @@ void main() {
       File('${directory.path}/chain_food_lookup_input.png'),
       find.text(chainFoodLookupTitle),
     );
-    expect(find.text('セブン サラダチキン'), findsOneWidget);
-    expect(find.text('例）吉野家 牛丼 大盛'), findsOneWidget);
+    expect(find.text('店名と商品名'), findsOneWidget);
+    expect(find.text('例）牛丼 大盛'), findsOneWidget);
 
     await _capture(
       tester,

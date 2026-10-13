@@ -30,7 +30,7 @@ Future<bool> openAiFoodLookup({
   final allowed = await ensureCalonaviPlus(
     context,
     controller,
-    message: 'AIで探す (β) は、カロナビ+です。食品名から、カロリーとPFCの推定を出します。',
+    message: 'AIで探すは、カロナビ+です。食品名から、カロリーとPFCの推定を出します。',
     feature: PlusFunnelFeature.aiFoodLookup,
   );
   if (!allowed || !context.mounted) {

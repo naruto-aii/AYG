@@ -100,6 +100,20 @@ import WidgetKit
         result(FlutterMethodNotImplemented)
       }
     }
+    let backup = FlutterMethodChannel(
+      name: "com.narutoaii.ayg/backup_exclusion",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    backup.setMethodCallHandler { call, result in
+      switch call.method {
+      case "excludeFromBackup":
+        let args = call.arguments as? [String: Any]
+        let path = args?["path"] as? String ?? ""
+        result(excludeFromICloudBackup(path: path))
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
     let analytics = FlutterMethodChannel(
       name: "com.narutoaii.ayg/analytics_native",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
@@ -107,6 +121,22 @@ import WidgetKit
     analytics.setMethodCallHandler { call, result in
       handleAnalytics(call: call, result: result)
     }
+  }
+}
+
+/// HealthKit 由来の値を含む Isar を、iCloud バックアップの対象から外す。
+private func excludeFromICloudBackup(path: String) -> Bool {
+  guard !path.isEmpty else {
+    return false
+  }
+  var url = URL(fileURLWithPath: path)
+  var values = URLResourceValues()
+  values.isExcludedFromBackup = true
+  do {
+    try url.setResourceValues(values)
+    return true
+  } catch {
+    return false
   }
 }
 

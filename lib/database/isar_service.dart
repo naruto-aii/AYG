@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../platform/ios_backup_exclusion.dart';
 import 'schemas.dart';
 
 /// Isar データベースの初期化・管理。
@@ -47,6 +48,7 @@ class IsarService {
       directory: dir,
       name: 'ayg',
     );
+    await excludeHealthDatabaseFromBackup(dir);
     return _instance!;
   }
 

@@ -10,7 +10,7 @@ import '../design/settings_row.dart';
 class AiFoodLookupRow extends StatelessWidget {
   const AiFoodLookupRow({super.key, required this.onTap});
 
-  static const label = 'AIで探す (β)';
+  static const label = 'AIで探す';
   static const subtitle = '無い食品も、AIが推定します';
 
   final VoidCallback onTap;

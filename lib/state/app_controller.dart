@@ -246,6 +246,12 @@ class AppController extends ChangeNotifier {
   bool _firstMealGuideSeen = false;
   bool _offerFirstMealGuide = false;
   DateTime? _onboardingOpenedAt;
+
+  /// 審査ビルドでは「はじめる」が遠隔保存のあいだも押せた。
+  /// 完了イベントは保存の前に送り、約1秒後の再入でもう一度出ていた。
+  /// フラグは await より前に立て、同じ起動中は送らない。
+  bool _onboardingEventsSent = false;
+  bool _onboardingGuideOffered = false;
   String? _currentTab;
   String? _linkedFoodSearchId;
   final Map<String, String> _foodSearchIds = {};
@@ -509,6 +515,7 @@ class AppController extends ChangeNotifier {
       _clearServerPlus();
       unawaited(setLockScreenMealPaid(false));
       _clearInMemoryState();
+      await AiDataConsent.clearLocalSending();
       notifyListeners();
       return;
     }
@@ -534,6 +541,9 @@ class AppController extends ChangeNotifier {
   }) async {
     final authUser = _authenticationRepository?.currentUser;
     if (authUser != null) {
+      // ログインとアカウント切替で、この人の「AIへの送信」を読み直す。
+      // 失敗しても、同意と同期は続ける。
+      await AiDataConsent.refreshSendingForCurrentUser();
       // 同意はアカウントごと。ログインボタンでは記録しない。
       // 今の版の行がサーバに無いあいだは、同期も AI も始めない。
       final known = _termsKnownFor(authUser.id);
@@ -660,6 +670,7 @@ class AppController extends ChangeNotifier {
     }
     _resetSyncState();
     _clearInMemoryState();
+    await AiDataConsent.clearLocalSending();
     sessionBlockMessage = null;
     notifyListeners();
     return true;
@@ -686,6 +697,8 @@ class AppController extends ChangeNotifier {
       if (!_stillCurrent(epoch)) {
         return;
       }
+      // 前の人の手元を消したあと、今の人の送信設定を入れ直す。
+      await AiDataConsent.refreshSendingForCurrentUser();
       await _loadServerPlusForCurrentUser();
       if (mayWrite()) {
         await _applyPaidEntitlement();
@@ -871,6 +884,7 @@ class AppController extends ChangeNotifier {
     try {
       _resetSyncState();
       _clearInMemoryState();
+      await AiDataConsent.clearLocalSending();
       final pendingCount = await _pendingRecords.count();
       _usage('local_data_cleared', {
         'reason': 'logout',
@@ -1108,6 +1122,9 @@ class AppController extends ChangeNotifier {
     healthPrefill = HealthProfileData.empty;
     healthSnapshot = HealthSnapshot.empty;
     appSettings = const AppSettings();
+    _onboardingOpenedAt = null;
+    _onboardingEventsSent = false;
+    _onboardingGuideOffered = false;
     summary = null;
     foodEntries.clear();
     exerciseEntries.clear();
@@ -1159,20 +1176,26 @@ class AppController extends ChangeNotifier {
     final opened = _onboardingOpenedAt ??= DateTime.now();
     final durationMs = DateTime.now().difference(opened).inMilliseconds;
     final elapsed = durationMs < 0 ? 0 : durationMs;
-    CatalogActions.onboardingStepComplete(
-      step: 'goal',
-      durationMs: elapsed,
-      skipped: false,
-    );
-    _usage('onboarding_complete', {
-      'goal_type': goal?.type.name ?? 'maintain',
-      'health_enabled': useHealthIntegration,
-      'duration_ms': elapsed,
-    });
+    if (!_onboardingEventsSent) {
+      _onboardingEventsSent = true;
+      CatalogActions.onboardingStepComplete(
+        step: 'goal',
+        durationMs: elapsed,
+        skipped: false,
+      );
+      _usage('onboarding_complete', {
+        'goal_type': goal?.type.name ?? 'maintain',
+        'health_enabled': useHealthIntegration,
+        'duration_ms': elapsed,
+      });
+    }
     appSettings = appSettings.copyWith(onboardingComplete: true);
     await _settingsRepository?.saveAppSettings(appSettings);
     await _persistToRemoteNow();
-    offerFirstMealGuide();
+    if (!_onboardingGuideOffered) {
+      _onboardingGuideOffered = true;
+      offerFirstMealGuide();
+    }
     notifyListeners();
   }
 
@@ -1552,10 +1575,11 @@ class AppController extends ChangeNotifier {
       'enabled': granted,
       'context': 'settings',
     });
-    final profileData = granted
-        ? await healthRepository.fetchProfileData()
-        : HealthProfileData.empty;
+    if (!granted) {
+      return false;
+    }
 
+    final profileData = await healthRepository.fetchProfileData();
     final current = nutritionSettings;
     await saveNutritionSettingsSettings(
       (current ?? const NutritionSettings(useHealthIntegration: true)).copyWith(
@@ -1563,7 +1587,7 @@ class AppController extends ChangeNotifier {
       ),
     );
     await applyHealthProfileData(profileData);
-    return granted;
+    return true;
   }
 
   Future<void> disableHealthIntegration({ActivityLevel? activityLevel}) async {

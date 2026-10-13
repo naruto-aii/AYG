@@ -23,7 +23,7 @@ import '../legal/legal_document_screen.dart';
 
 /// ウィジェットと Siri の案内、設定からカロナビ+へ進む。
 ///
-/// 表示金額は、ストアが返した税込価格を使う。返せないときだけ画面の予備表示を出す。
+/// 表示金額は、ストアが返した税込価格だけを使う。取得できないときは再読込を出す。
 /// 購入処理は商品IDだけを渡す。この画面を開いただけでは購入も登録もしない。
 /// フラグはここでは立てない。
 Future<void> showCalonaviPlus(
@@ -152,6 +152,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
 
   bool _busy = false;
   bool _loadingPrices = true;
+  bool _paywallOpened = false;
   SubscriptionOfferings? _offerings;
 
   /// 見えている特典の行が途中で切れてバッジに接しないよう、追加で空ける量。
@@ -167,7 +168,6 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   void initState() {
     super.initState();
     _openedAt = DateTime.now();
-    _record(PlusFunnelEvent.paywallOpen);
     _loadPrices();
   }
 
@@ -247,7 +247,8 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
           'entry_point': widget.feature == null
               ? 'settings'
               : 'gate_$featureName',
-          'products_loaded': !_loadingPrices && _offerings != null,
+          'products_loaded': _productsReady,
+          'load_error': _offerings?.loadFailed ?? true,
         });
       case PlusFunnelEvent.planSelect:
         Analytics.emit('plan_select', {'product_id': planId});
@@ -286,6 +287,24 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     }());
   }
 
+  bool get _productsReady {
+    final offerings = _offerings;
+    if (offerings == null || offerings.loadFailed) {
+      return false;
+    }
+    return PlusPlan.values.any(
+      (plan) => _hasStorePrice(offerings.offerFor(plan)),
+    );
+  }
+
+  Future<void> _reloadPrices() async {
+    if (_loadingPrices) {
+      return;
+    }
+    setState(() => _loadingPrices = true);
+    await _loadPrices();
+  }
+
   Future<void> _loadPrices() async {
     SubscriptionOfferings offerings;
     try {
@@ -299,7 +318,16 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     setState(() {
       _offerings = offerings;
       _loadingPrices = false;
+      final ready = _plans;
+      if (ready.isNotEmpty && !ready.any((plan) => plan.plan == _selected)) {
+        _selected = ready.first.plan;
+      }
     });
+    if (_paywallOpened) {
+      return;
+    }
+    _paywallOpened = true;
+    _record(PlusFunnelEvent.paywallOpen);
   }
 
   bool _hasStorePrice(SubscriptionProductOffer? offer) {
@@ -307,16 +335,12 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     return offer != null && offer.canPurchase && price.isNotEmpty;
   }
 
-  /// ストアの金額が無いときだけ、画面に出す予備。購入には渡さない。
-  String _displayPrice(PlusPlan plan, SubscriptionProductOffer? offer) {
-    if (_hasStorePrice(offer)) {
-      return offer!.localizedPrice.trim();
+  /// ストアが返した税込価格。金額が無いプランは画面に出さない。
+  String? _displayPrice(SubscriptionProductOffer? offer) {
+    if (!_hasStorePrice(offer)) {
+      return null;
     }
-    return switch (plan) {
-      PlusPlan.monthly => AppStrings.plusFallbackMonthlyPrice,
-      PlusPlan.halfYear => AppStrings.plusFallbackHalfYearPrice,
-      PlusPlan.yearly => AppStrings.plusFallbackYearlyPrice,
-    };
+    return offer!.localizedPrice.trim();
   }
 
   /// 半年と年額の注記は、いま画面に出している金額から割る。
@@ -387,21 +411,25 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
 
   List<_PlanOption> get _plans {
     final offerings = _offerings;
-    final prices = {
-      for (final plan in PlusPlan.values)
-        plan: _displayPrice(plan, offerings?.offerFor(plan)),
-    };
+    final prices = <PlusPlan, String>{};
+    for (final plan in PlusPlan.values) {
+      final price = _displayPrice(offerings?.offerFor(plan));
+      if (price == null) {
+        continue;
+      }
+      prices[plan] = price;
+    }
     final yen = {
       for (final entry in prices.entries) entry.key: yenAmount(entry.value),
     };
     return [
-      for (final plan in PlusPlan.values)
+      for (final entry in prices.entries)
         _PlanOption(
-          plan: plan,
-          price: prices[plan]!,
-          note: _note(plan, prices[plan]!),
-          badgeLabel: _badge(plan, yen),
-          freeTrialDays: _trialDays(offerings?.offerFor(plan)),
+          plan: entry.key,
+          price: entry.value,
+          note: _note(entry.key, entry.value),
+          badgeLabel: _badge(entry.key, yen),
+          freeTrialDays: _trialDays(offerings?.offerFor(entry.key)),
         ),
     ];
   }
@@ -424,11 +452,14 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
   }
 
   _PlanOption get _selectedPlan {
-    return _plans.firstWhere((plan) => plan.plan == _selected);
+    return _plans.firstWhere(
+      (plan) => plan.plan == _selected,
+      orElse: () => _plans.first,
+    );
   }
 
   Future<void> _confirm() async {
-    final plan = _selected;
+    final plan = _selectedPlan.plan;
     final productId = SubscriptionCatalog.planKeyFor(plan);
     _record(PlusFunnelEvent.purchaseTap, productId: productId);
     await _purchase(
@@ -556,26 +587,78 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     );
   }
 
+  Widget _closeButton() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: IconButton(
+        key: const Key('calonavi-plus-close'),
+        tooltip: '閉じる',
+        icon: const DesignIcon(
+          Symbols.close_rounded,
+          size: 22,
+          color: AppColors.iconMuted,
+        ),
+        onPressed: () => Navigator.of(context).maybePop(),
+      ),
+    );
+  }
+
+  /// 読み込み中も、取得できないときも、閉じる・再読込・規約は押せる。
+  Widget _priceStatusPage({required bool loading}) {
+    return DesignPage(
+      header: _closeButton(),
+      bodyPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenHorizontal,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'カロナビ+',
+            textAlign: TextAlign.center,
+            style: AppTypography.headingL,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (loading)
+            const Center(
+              child: CircularProgressIndicator(key: Key('plus-price-loading')),
+            )
+          else
+            DesignButton(
+              key: const Key('plus-reload'),
+              label: AppStrings.plusReloadProducts,
+              showTrailingIcon: false,
+              onPressed: _reloadPrices,
+            ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            loading
+                ? AppStrings.plusPricesLoading
+                : AppStrings.plusProductsUnavailable,
+            textAlign: TextAlign.center,
+            style: AppTypography.bodyM,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ..._legalLinkBlock(),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final plans = _loadingPrices ? const <_PlanOption>[] : _plans;
+    if (_loadingPrices) {
+      return _priceStatusPage(loading: true);
+    }
+    if (!_productsReady) {
+      return _priceStatusPage(loading: false);
+    }
+    final plans = _plans;
     final selectedPlan = plans.isEmpty ? null : _selectedPlan;
 
     return DesignPage(
       scrollable: false,
-      header: Align(
-        alignment: Alignment.centerRight,
-        child: IconButton(
-          key: const Key('calonavi-plus-close'),
-          tooltip: '閉じる',
-          icon: const DesignIcon(
-            Symbols.close_rounded,
-            size: 22,
-            color: AppColors.iconMuted,
-          ),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-      ),
+      header: _closeButton(),
       bodyPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.screenHorizontal,
       ),
@@ -860,6 +943,8 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         Text(AppStrings.plusBillingPeriod, style: _legalStyle),
         const SizedBox(height: AppSpacing.xxs),
         Text(AppStrings.plusAutoRenew, style: _legalStyle),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(AppStrings.plusTrialForfeiture, style: _legalStyle),
         if (_anyTrialDays case final trialDays?) ...[
           const SizedBox(height: AppSpacing.xxs),
           Text(

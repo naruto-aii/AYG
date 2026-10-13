@@ -108,7 +108,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('自炊コーチ (β)'), findsOneWidget);
+    expect(find.text('自炊コーチ'), findsOneWidget);
     expect(find.byIcon(Symbols.chevron_right_rounded), findsOneWidget);
     expect(find.byIcon(Symbols.skillet_rounded), findsOneWidget);
     expect(find.textContaining('押す'), findsNothing);
@@ -123,6 +123,6 @@ void main() {
     await tester.tap(find.byKey(const Key('cook_coach_entry')));
     expect(opened, 1);
     expect(tester.getSemantics(find.byKey(const Key('cook_coach_entry'))),
-        matchesSemantics(isButton: true, label: '自炊コーチ (β)', hasTapAction: true));
+        matchesSemantics(isButton: true, label: '自炊コーチ', hasTapAction: true));
   });
 }

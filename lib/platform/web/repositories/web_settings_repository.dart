@@ -2,6 +2,7 @@ import '../../../models/app_settings.dart';
 import '../../../models/health_snapshot.dart';
 import '../../../models/nutrition_settings.dart';
 import '../../../repositories/contracts/settings_repository_base.dart';
+import '../../../repositories/local_write_guard.dart';
 
 /// Web向けインメモリ SettingsRepository。
 class SettingsRepository implements SettingsRepositoryBase {
@@ -14,6 +15,16 @@ class SettingsRepository implements SettingsRepositoryBase {
     _nutritionSettings = settings;
   }
 
+  Future<void> saveNutritionSettingsForSync(
+    NutritionSettings settings, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    _nutritionSettings = settings;
+  }
+
   @override
   Future<NutritionSettings?> loadNutritionSettings() async =>
       _nutritionSettings;
@@ -23,11 +34,31 @@ class SettingsRepository implements SettingsRepositoryBase {
     _healthSnapshot = snapshot;
   }
 
+  Future<void> saveHealthSnapshotForSync(
+    HealthSnapshot snapshot, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    _healthSnapshot = snapshot;
+  }
+
   @override
   Future<HealthSnapshot?> loadHealthSnapshot() async => _healthSnapshot;
 
   @override
   Future<void> saveAppSettings(AppSettings settings) async {
+    _appSettings = settings;
+  }
+
+  Future<void> saveAppSettingsForSync(
+    AppSettings settings, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
     _appSettings = settings;
   }
 

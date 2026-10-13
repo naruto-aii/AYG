@@ -68,6 +68,7 @@ void main() {
     expect(find.text(AppStrings.plusAiLimitTitle), findsNothing);
     expect(find.text(AppStrings.plusBillingPeriod), findsOneWidget);
     expect(find.text(AppStrings.plusAutoRenew), findsOneWidget);
+    expect(find.text(AppStrings.plusTrialForfeiture), findsOneWidget);
     expect(find.text(AppStrings.plusCancelHow), findsOneWidget);
     expect(find.text('利用規約'), findsOneWidget);
     expect(find.text('プライバシーポリシー'), findsOneWidget);
@@ -96,19 +97,19 @@ void main() {
       expect(find.text(entry.value), findsOneWidget, reason: entry.value);
     }
     expect(find.text(AppStrings.siriVoicePaidGuidance), findsOneWidget);
-    expect(find.textContaining('(β)'), findsWidgets);
+    expect(find.textContaining('(β)'), findsNothing);
     _expectNoBannedWording();
     await tester.tap(find.byKey(const Key('plus-more-features-close')));
     await tester.pumpAndSettle();
     expect(find.text('カロナビ+のその他の機能'), findsNothing);
     expect(find.text('¥8,800で始める'), findsOneWidget);
 
-    expect(AppStrings.plusBenefitSiriTitle, '音声登録 (β)');
+    expect(AppStrings.plusBenefitSiriTitle, '音声登録');
     expect(AppStrings.plusBenefitWidgetTitle, 'ウィジェットでワンタップ記録');
-    expect(AppStrings.plusBenefitPhotoTitle, '写真で登録 (β)');
-    expect(AppStrings.plusBenefitEatingOutTitle, '外食・コンビニ (β)');
-    expect(AppStrings.plusBenefitAiSearchTitle, 'AIで探す (β)');
-    expect(AppStrings.plusBenefitCoachTitle, 'パーソナルコーチ (β)');
+    expect(AppStrings.plusBenefitPhotoTitle, '写真で登録');
+    expect(AppStrings.plusBenefitEatingOutTitle, '外食・コンビニ');
+    expect(AppStrings.plusBenefitAiSearchTitle, 'AIで探す');
+    expect(AppStrings.plusBenefitCoachTitle, 'パーソナルコーチ');
     expect(AppStrings.plusAiDailyLimit, contains('あわせて1日15回まで'));
     expect(AppStrings.plusAiLimitTitle, 'AI機能は1日15回まで');
     expect(AppStrings.plusMoreFeaturesTitle, 'カロナビ+のその他の機能');

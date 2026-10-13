@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../constants/app_strings.dart';
 import '../../config/demo_mode.dart';
 import '../../models/display_name.dart';
 import '../../models/health_profile_data.dart';
+import '../../models/nutrition_settings.dart';
 import '../../models/user_profile.dart';
 import '../../repositories/authentication_repository.dart';
 import '../../repositories/health_repository.dart';
@@ -63,22 +66,58 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
       suggested:
           widget.authenticationRepository.currentUser?.suggestedDisplayName,
     );
-    _birthDate = widget.healthPrefill.birthDate;
-    _gender = widget.healthPrefill.gender;
-    final height = widget.healthPrefill.heightCm;
-    if (height != null) {
-      _heightController.text = height.toStringAsFixed(0);
-    }
-    final weight = widget.healthPrefill.weightKg;
-    if (weight != null) {
-      _weightController.text = weight.toStringAsFixed(1);
-    }
+    _applyPrefill(widget.healthPrefill);
     if (calonaviDemoMode && _birthDate == null) {
       _birthDate = DateTime(1996, 4, 12);
       _gender = Gender.female;
       _heightController.text = '162';
       _weightController.text = '54.0';
     }
+    unawaited(_requestHealthOnOpen());
+  }
+
+  void _applyPrefill(HealthProfileData data) {
+    _birthDate ??= data.birthDate;
+    _gender ??= data.gender;
+    if (_heightController.text.trim().isEmpty && data.heightCm != null) {
+      _heightController.text = data.heightCm!.toStringAsFixed(0);
+    }
+    if (_weightController.text.trim().isEmpty && data.weightKg != null) {
+      _weightController.text = data.weightKg!.toStringAsFixed(1);
+    }
+  }
+
+  /// 説明画面は置かない。基本情報を開いた時点で HealthKit の許可を求める。
+  /// 断ったとき、対応していない端末のときは、この画面の手入力のまま進める。
+  Future<void> _requestHealthOnOpen() async {
+    final health = widget.healthRepository;
+    final granted = await health.requestPermissions();
+    if (!mounted || !health.isAvailable || !granted) {
+      if (mounted && health.isAvailable && !granted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
+          ),
+        );
+      }
+      return;
+    }
+
+    final current = widget.controller.nutritionSettings;
+    widget.controller.setNutritionSettings(
+      (current ?? const NutritionSettings(useHealthIntegration: true)).copyWith(
+        useHealthIntegration: true,
+      ),
+    );
+    final profile = await health.fetchProfileData();
+    if (!mounted) {
+      return;
+    }
+    await widget.controller.applyHealthProfileData(profile);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _applyPrefill(profile));
   }
 
   @override
@@ -179,7 +218,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
         height: 56,
         child: Padding(
           padding: EdgeInsets.only(top: 12),
-          child: Center(child: StepIndicator(current: 2)),
+          child: Center(child: StepIndicator(current: 1, total: 2)),
         ),
       ),
       bottomBar: Row(

@@ -9,6 +9,7 @@ import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/models/meal_template.dart';
 import 'package:ayg/models/saved_food.dart';
 import 'package:ayg/models/workout_template.dart';
+import 'catalog_plus_repository.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/repositories/coach_intro_store.dart';
 import 'package:ayg/repositories/contracts/meal_template_repository_base.dart';
@@ -104,7 +105,9 @@ void main() {
   }
 
   AppController unpaid() {
-    final controller = AppController();
+    final controller = AppController(
+      subscriptionRepository: CatalogPlusRepository(),
+    );
     addTearDown(controller.dispose);
     return controller;
   }
@@ -177,13 +180,16 @@ void main() {
           openFoodFactsService: OpenFoodFactsService(userAgent: 'test'),
         ),
       );
-      await tapLabel(tester, find.text('パーソナルコーチ (β)'));
+      await tapLabel(tester, find.text('パーソナルコーチ'));
       await expectDialogThenPaywall(tester);
     });
 
     testWidgets('パーソナルコーチ（設定）', (tester) async {
       final auth = _auth();
-      final controller = AppController(authenticationRepository: auth);
+      final controller = AppController(
+        authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
+      );
       addTearDown(controller.dispose);
       await show(
         tester,
@@ -194,7 +200,7 @@ void main() {
           supportEmail: '',
         ),
       );
-      await tapLabel(tester, find.text('パーソナルコーチ (β)'));
+      await tapLabel(tester, find.text('パーソナルコーチ'));
       await expectDialogThenPaywall(tester);
     });
 
@@ -224,6 +230,7 @@ void main() {
       final meals = _MemoryMeals()..seedFour();
       final controller = AppController(
         authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
         mealTemplateRepository: meals,
       );
       addTearDown(controller.dispose);
@@ -237,6 +244,7 @@ void main() {
       final workouts = _MemoryWorkouts()..seedFour();
       final controller = AppController(
         authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
         workoutTemplateRepository: workouts,
       );
       addTearDown(controller.dispose);
@@ -302,7 +310,10 @@ void main() {
 
     testWidgets('ウィジェット', (tester) async {
       final auth = _auth();
-      final controller = AppController(authenticationRepository: auth);
+      final controller = AppController(
+        authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
+      );
       addTearDown(controller.dispose);
       await show(
         tester,
@@ -320,7 +331,10 @@ void main() {
 
     testWidgets('音声登録', (tester) async {
       final auth = _auth();
-      final controller = AppController(authenticationRepository: auth);
+      final controller = AppController(
+        authenticationRepository: auth,
+        subscriptionRepository: CatalogPlusRepository(),
+      );
       addTearDown(controller.dispose);
       await show(
         tester,
@@ -332,7 +346,7 @@ void main() {
           supportEmail: '',
         ),
       );
-      await tapLabel(tester, find.text('音声登録 (β)'));
+      await tapLabel(tester, find.text('音声登録'));
       await expectDialogThenPaywall(tester);
     });
   });
@@ -375,7 +389,7 @@ void main() {
       );
       await tapLabel(tester, find.text('写真で登録'));
       expect(find.text('カロナビ+限定機能'), findsNothing);
-      expect(find.text('写真で登録 (β)'), findsOneWidget);
+      expect(find.text('写真で登録'), findsOneWidget);
     });
 
     testWidgets('パーソナルコーチと自炊コーチ', (tester) async {
@@ -391,7 +405,7 @@ void main() {
       expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.byKey(const Key('cook_coach_entry')), findsOneWidget);
       await tapLabel(tester, find.byKey(const Key('cook_coach_entry')));
-      expect(find.text('自炊コーチ (β)'), findsOneWidget);
+      expect(find.text('自炊コーチ'), findsOneWidget);
       expect(find.text('カロナビ+を見る'), findsNothing);
     });
 
@@ -460,7 +474,7 @@ void main() {
       expect(find.textContaining('ウィジェットでワンタップ記録です'), findsOneWidget);
       tester.state<NavigatorState>(find.byType(Navigator)).pop();
       await tester.pumpAndSettle();
-      await tapLabel(tester, find.text('音声登録 (β)'));
+      await tapLabel(tester, find.text('音声登録'));
       expect(find.text('カロナビ+限定機能'), findsNothing);
       expect(find.textContaining('Siriをオンにする'), findsOneWidget);
     });
@@ -743,7 +757,7 @@ class _GatePlus extends SubscriptionRepository {
 
   @override
   Future<SubscriptionOfferings> loadOfferings() async {
-    return SubscriptionOfferings.failed;
+    return catalogSubscriptionOfferings();
   }
 
   @override

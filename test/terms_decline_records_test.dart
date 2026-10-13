@@ -12,6 +12,7 @@ import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/models/weight_entry.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/repositories/local_write_guard.dart';
 import 'package:ayg/repositories/contracts/alcohol_repository_base.dart';
 import 'package:ayg/repositories/contracts/exercise_repository_base.dart';
 import 'package:ayg/repositories/contracts/food_repository_base.dart';
@@ -290,7 +291,10 @@ class _RecordingSync extends MockDataSyncRepository {
   final pushes = <({String userId, List<String> foodIds})>[];
 
   @override
-  Future<void> pushLocalToRemote(String userId) async {
+  Future<void> pushLocalToRemote(
+    String userId, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     pushLocalToRemoteCalled = true;
     lastUserId = userId;
     pushes.add((

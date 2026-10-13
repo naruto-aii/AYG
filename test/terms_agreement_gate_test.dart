@@ -2,6 +2,7 @@ import 'package:ayg/app.dart';
 import 'package:ayg/config/open_food_facts_config.dart';
 import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/repositories/local_write_guard.dart';
 import 'package:ayg/services/ai_data_consent.dart';
 import 'package:ayg/services/local_user_data_clearer_base.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
@@ -73,6 +74,14 @@ void main() {
 
   Future<void> agree(WidgetTester tester) async {
     await tester.tap(find.text(AppStrings.termsConsentAgree));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> decline(WidgetTester tester) async {
+    final finder = find.text(AppStrings.termsConsentDecline);
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.tap(finder);
     await tester.pumpAndSettle();
   }
 
@@ -315,8 +324,7 @@ void main() {
 
     await tester.tap(find.text(AppStrings.loginWithApple));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(AppStrings.termsConsentDecline));
-    await tester.pumpAndSettle();
+    await decline(tester);
 
     expect(consent.grantCalls, 0);
     expect(auth.logoutCalled, isTrue);
@@ -363,8 +371,7 @@ void main() {
 
     await tester.tap(find.text(AppStrings.loginWithApple));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(AppStrings.termsConsentDecline));
-    await tester.pumpAndSettle();
+    await decline(tester);
 
     expect(auth.logoutCalled, isTrue);
     expect(controller.isAuthenticated, isFalse);
@@ -388,8 +395,7 @@ void main() {
     );
 
     expect(find.text(AppStrings.termsConsentDecline), findsOneWidget);
-    await tester.tap(find.text(AppStrings.termsConsentDecline));
-    await tester.pumpAndSettle();
+    await decline(tester);
 
     expect(controller.isAuthenticated, isFalse);
     expect(sync.pushLocalToRemoteCalled, isFalse);
@@ -434,7 +440,10 @@ class _Clearer implements LocalUserDataClearerBase {
 
 class _OfflineSync extends MockDataSyncRepository {
   @override
-  Future<void> pushLocalToRemote(String userId) async {
+  Future<void> pushLocalToRemote(
+    String userId, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     pushLocalToRemoteCalled = true;
     lastUserId = userId;
     throw StateError('offline');

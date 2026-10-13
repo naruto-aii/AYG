@@ -1,7 +1,7 @@
-import { Environment } from "npm:@apple/app-store-server-library";
 import {
   expectedBundleId,
   signedDataVerifier,
+  StoreEnvironment,
   verifySignedNotification,
 } from "../_shared/apple_signed_data.ts";
 import {
@@ -42,12 +42,14 @@ Deno.serve((request) =>
         signedPayload,
       );
       const data = decoded.data ?? {};
-      const environment = data.environment === "Sandbox"
-        ? Environment.SANDBOX
-        : data.environment === "Production"
-        ? Environment.PRODUCTION
+      const environment = data.environment === StoreEnvironment.SANDBOX
+        ? StoreEnvironment.SANDBOX
+        : data.environment === StoreEnvironment.PRODUCTION
+        ? StoreEnvironment.PRODUCTION
         : verifiedEnvironment;
-      const environmentName = environment === Environment.SANDBOX ? "Sandbox" : "Production";
+      const environmentName = environment === StoreEnvironment.SANDBOX
+        ? StoreEnvironment.SANDBOX
+        : StoreEnvironment.PRODUCTION;
       let transaction: Record<string, unknown> = {};
       let renewal: Record<string, unknown> = {};
       if (data.signedTransactionInfo) {

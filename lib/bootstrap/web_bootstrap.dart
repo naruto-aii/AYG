@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app.dart';
+import '../services/server_plus_store.dart';
 import '../config/open_food_facts_config.dart';
 import '../config/supabase_config.dart';
 import '../platform/web/repositories/web_alcohol_repository.dart';
@@ -227,6 +228,7 @@ Future<void> bootstrapWebApp() async {
       plusFunnelRepository: SupabaseConfig.isConfigured
           ? SupabasePlusFunnelRepository()
           : const NoOpPlusFunnelRepository(),
+      serverPlusStore: ServerPlusStore(preferences: preferences),
     );
 
     if (kDebugMode) {

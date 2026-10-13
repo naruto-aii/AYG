@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app.dart';
+import '../services/server_plus_store.dart';
 import '../config/demo_mode.dart';
 import '../config/development_plus_preview.dart';
 import '../config/open_food_facts_config.dart';
@@ -239,6 +240,7 @@ Future<void> bootstrapApp() async {
         ? SupabasePlusFunnelRepository()
         : const NoOpPlusFunnelRepository(),
     reviewPromptStore: PreferencesReviewPromptStore(preferences: preferences),
+    serverPlusStore: ServerPlusStore(preferences: preferences),
   );
   await controller.initialize();
 

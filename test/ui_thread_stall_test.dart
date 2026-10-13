@@ -11,6 +11,7 @@ import 'package:ayg/repositories/contracts/exercise_repository_base.dart';
 import 'package:ayg/repositories/contracts/food_repository_base.dart';
 import 'package:ayg/repositories/contracts/weight_repository_base.dart';
 import 'package:ayg/repositories/data_sync_repository.dart';
+import 'package:ayg/repositories/local_write_guard.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/widgets/layout/active_tab_listenable_builder.dart';
 import 'package:flutter/foundation.dart';
@@ -186,7 +187,10 @@ class _GatedSync extends MockDataSyncRepository {
   int pushes = 0;
 
   @override
-  Future<void> pushLocalToRemote(String userId) async {
+  Future<void> pushLocalToRemote(
+    String userId, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     pushes++;
     pushLocalToRemoteCalled = true;
     lastUserId = userId;

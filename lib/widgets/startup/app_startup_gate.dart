@@ -36,6 +36,59 @@ class AppStartupLoadingScreen extends StatelessWidget {
   }
 }
 
+/// 初回同期のあいだ出す読み込み。同期そのものは止めない。
+///
+/// 通信が戻らないときも、再試行とログアウトを押せる。
+class AppInitialSyncScreen extends StatelessWidget {
+  const AppInitialSyncScreen({
+    super.key,
+    required this.onRetry,
+    required this.onLogout,
+    this.message,
+  });
+
+  final VoidCallback onRetry;
+  final VoidCallback onLogout;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    final note = message;
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Spacer(),
+              const Center(child: CircularProgressIndicator()),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                '読み込み中…',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              if (note != null && note.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  note,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const Spacer(),
+              PrimaryButton(label: '再試行', onPressed: onRetry),
+              const SizedBox(height: AppSpacing.sm),
+              TextButton(onPressed: onLogout, child: const Text('ログアウト')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 初回同期失敗時の再試行画面（オンボーディングと区別）。
 class AppSyncRetryScreen extends StatelessWidget {
   const AppSyncRetryScreen({

@@ -1,5 +1,6 @@
 import '../../../models/meal_template.dart';
 import '../../../repositories/contracts/meal_template_repository_base.dart';
+import '../../../repositories/local_write_guard.dart';
 import '../../../utils/food_name_normalizer.dart';
 
 /// Web向けインメモリ MealTemplateRepository。
@@ -184,5 +185,23 @@ class MealTemplateRepository implements MealTemplateRepositoryBase {
       _itemsByTemplate.remove(entry.key);
     }
     _itemsByTemplate.addAll(migratedItems);
+  }
+
+  Future<void> applyRemoteForSync({
+    required String ownerUserId,
+    required List<MealTemplate> templates,
+    required Map<String, List<MealTemplateItem>> itemsByTemplate,
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    _templates.removeWhere((template) => template.ownerUserId == ownerUserId);
+    _itemsByTemplate.removeWhere((key, _) => key.startsWith('$ownerUserId::'));
+    for (final template in templates) {
+      _templates.add(template);
+      _itemsByTemplate[_itemsKey(template.ownerUserId, template.templateId)] =
+          List.of(itemsByTemplate[template.templateId] ?? const []);
+    }
   }
 }

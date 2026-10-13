@@ -53,7 +53,7 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
     final allowed = await ensureCalonaviPlus(
       context,
       widget.controller,
-      message: '外食・コンビニ (β) は、カロナビ+です。店名と品名から、カロリーとPFCの推定を出します。',
+      message: '外食・コンビニは、カロナビ+です。店名と品名から、カロリーとPFCの推定を出します。',
       feature: PlusFunnelFeature.aiFoodLookup,
     );
     if (!allowed || !mounted) {

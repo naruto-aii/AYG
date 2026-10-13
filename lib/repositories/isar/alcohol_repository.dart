@@ -4,6 +4,7 @@ import '../../database/entity_mapper.dart';
 import '../../database/schemas.dart';
 import '../../models/alcohol_entry.dart';
 import '../contracts/alcohol_repository_base.dart';
+import '../local_write_guard.dart';
 
 class AlcoholRepository implements AlcoholRepositoryBase {
   AlcoholRepository(this._isar);
@@ -56,8 +57,14 @@ class AlcoholRepository implements AlcoholRepositoryBase {
     });
   }
 
-  Future<void> replaceAll(List<AlcoholEntry> entries) async {
+  Future<void> replaceAll(
+    List<AlcoholEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _isar.alcoholEntryEntitys.clear();
       if (entries.isEmpty) {
         return;

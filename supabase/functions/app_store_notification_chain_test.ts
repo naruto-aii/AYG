@@ -1,7 +1,6 @@
 import { assert, assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { Buffer } from "node:buffer";
 import { sign } from "node:crypto";
-import { Environment } from "npm:@apple/app-store-server-library";
 import {
   appleSignedDataOnlineChecks,
   calonaviAppAppleId,
@@ -89,10 +88,78 @@ Deno.test("fixture chains verify for Sandbox and Production without calling Appl
   restore("APPLE_SIGNED_DATA_ONLINE_CHECKS", previousOnline);
 });
 
+Deno.test("online checks still accept a fixture chain and do not need OCSP", async () => {
+  const chain = await makeChain("calonavi-online");
+  const previousOnline = Deno.env.get("APPLE_SIGNED_DATA_ONLINE_CHECKS");
+  const previousRoot = Deno.env.get("APPLE_ROOT_CA_BASE64");
+  const previousBundle = Deno.env.get("APP_BUNDLE_ID");
+  Deno.env.set("APPLE_SIGNED_DATA_ONLINE_CHECKS", "true");
+  Deno.env.set("APPLE_ROOT_CA_BASE64", chain.rootB64);
+  Deno.env.delete("APP_BUNDLE_ID");
+  try {
+    assertEquals(appleSignedDataOnlineChecks(), true);
+    const verified = await verifySignedNotification(signedNotification(chain, {
+      environment: "Sandbox",
+      notificationType: "SUBSCRIBED",
+      expiresDate: Date.now() + 3 * 24 * 60 * 60 * 1000,
+    }));
+    assertEquals(verified.decoded.data?.environment, "Sandbox");
+  } finally {
+    restore("APPLE_SIGNED_DATA_ONLINE_CHECKS", previousOnline);
+    restore("APPLE_ROOT_CA_BASE64", previousRoot);
+    restore("APP_BUNDLE_ID", previousBundle);
+  }
+});
+
+Deno.test("a chain without the Apple certificate OID is rejected", async () => {
+  const missingLeaf = await makeChain("calonavi-no-leaf-oid", { leafOid: false });
+  const missingIntermediate = await makeChain("calonavi-no-int-oid", { intermediateOid: false });
+  const previousOnline = Deno.env.get("APPLE_SIGNED_DATA_ONLINE_CHECKS");
+  const previousRoot = Deno.env.get("APPLE_ROOT_CA_BASE64");
+  Deno.env.set("APPLE_SIGNED_DATA_ONLINE_CHECKS", "false");
+  try {
+    Deno.env.set("APPLE_ROOT_CA_BASE64", missingLeaf.rootB64);
+    await assertRejects(() =>
+      verifySignedNotification(signedNotification(missingLeaf, {
+        environment: "Sandbox",
+        notificationType: "SUBSCRIBED",
+        expiresDate: Date.now() + 1000,
+      }))
+    );
+    Deno.env.set("APPLE_ROOT_CA_BASE64", missingIntermediate.rootB64);
+    await assertRejects(() =>
+      verifySignedNotification(signedNotification(missingIntermediate, {
+        environment: "Sandbox",
+        notificationType: "SUBSCRIBED",
+        expiresDate: Date.now() + 1000,
+      }))
+    );
+  } finally {
+    restore("APPLE_SIGNED_DATA_ONLINE_CHECKS", previousOnline);
+    restore("APPLE_ROOT_CA_BASE64", previousRoot);
+  }
+});
+
+Deno.test("the deployed verifier does not call Apple's node crypto verifier", async () => {
+  const signed = await Deno.readTextFile(new URL("./_shared/apple_signed_data.ts", import.meta.url));
+  const webcrypto = await Deno.readTextFile(new URL("./_shared/apple_webcrypto_jws.ts", import.meta.url));
+  const notifications = await Deno.readTextFile(
+    new URL("./app-store-notifications/index.ts", import.meta.url),
+  );
+  const verify = await Deno.readTextFile(
+    new URL("./verify-store-transaction/index.ts", import.meta.url),
+  );
+  for (const source of [signed, webcrypto, notifications, verify]) {
+    assert(!source.includes("new SignedDataVerifier"));
+    assert(!source.includes("app-store-server-library"));
+    assert(!source.includes("node:crypto"));
+  }
+});
+
 async function decode(signedPayload: string) {
   const { decoded } = await verifySignedNotification(signedPayload);
   const data = decoded.data ?? {};
-  const environment = data.environment === "Sandbox" ? Environment.SANDBOX : Environment.PRODUCTION;
+  const environment = data.environment === "Sandbox" ? "Sandbox" : "Production";
   const transaction = await signedDataVerifier(environment).verifyAndDecodeTransaction(
     data.signedTransactionInfo ?? "",
   );
@@ -173,7 +240,12 @@ function restore(name: string, value: string | undefined) {
   }
 }
 
-async function makeChain(label: string): Promise<Chain> {
+async function makeChain(
+  label: string,
+  options?: { leafOid?: boolean; intermediateOid?: boolean },
+): Promise<Chain> {
+  const leafOid = options?.leafOid !== false;
+  const intermediateOid = options?.intermediateOid !== false;
   const dir = await Deno.makeTempDir({ prefix: `${label}-` });
   const config = `${dir}/openssl.cnf`;
   await Deno.writeTextFile(config, `
@@ -186,15 +258,15 @@ basicConstraints = critical,CA:TRUE,pathlen:0
 keyUsage = critical,keyCertSign,cRLSign
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid:always,issuer
-1.2.840.113635.100.6.2.1 = ASN1:NULL
+${intermediateOid ? "1.2.840.113635.100.6.2.1 = ASN1:NULL" : ""}
 [v3_leaf]
 basicConstraints = critical,CA:FALSE
 keyUsage = critical,digitalSignature
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid:always,issuer
-1.2.840.113635.100.6.11.1 = ASN1:NULL
+${leafOid ? "1.2.840.113635.100.6.11.1 = ASN1:NULL" : ""}
 `);
-  await openssl(["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", `${dir}/root.key`]);
+  await openssl(["ecparam", "-name", "secp384r1", "-genkey", "-noout", "-out", `${dir}/root.key`]);
   await openssl(["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", `${dir}/int.key`]);
   await openssl(["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", `${dir}/leaf.key`]);
   await openssl([
@@ -206,8 +278,9 @@ authorityKeyIdentifier = keyid:always,issuer
     "req", "-new", "-key", `${dir}/int.key`, "-out", `${dir}/int.csr`,
     "-subj", `/CN=${label} Intermediate/O=Calonavi Test/C=US`,
   ]);
+  // ルートは P-384。Edge の WebCrypto は P-384 と SHA-256 の組み合わせを実装していない。
   await openssl([
-    "x509", "-req", "-in", `${dir}/int.csr`, "-CA", `${dir}/root.pem`, "-CAkey", `${dir}/root.key`,
+    "x509", "-req", "-sha384", "-in", `${dir}/int.csr`, "-CA", `${dir}/root.pem`, "-CAkey", `${dir}/root.key`,
     "-CAcreateserial", "-out", `${dir}/int.pem`, "-days", "4000",
     "-extfile", config, "-extensions", "v3_intermediate",
   ]);

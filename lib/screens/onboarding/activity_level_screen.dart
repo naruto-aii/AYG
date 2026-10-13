@@ -41,6 +41,9 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
   bool _isSaving = false;
 
   Future<void> _complete() async {
+    if (_isSaving) {
+      return;
+    }
     setState(() => _isSaving = true);
 
     final current = widget.controller.nutritionSettings;

@@ -60,6 +60,19 @@ export function entitlementTiming(input: {
   return { status: "expired", expiresAt };
 }
 
+/// AI 機能と同じ条件。`status = active` かつ `expires_at` が今よりあと。
+export function plusAccessFromEntitlement(input: {
+  status: string | null;
+  expiresAt: string | null;
+  now: Date;
+}): boolean {
+  if (input.status !== "active" || input.expiresAt == null) {
+    return false;
+  }
+  const expires = Date.parse(input.expiresAt);
+  return Number.isFinite(expires) && expires > input.now.getTime();
+}
+
 /// Apple の transactionId。文字列でも数値でも、前後の空白を除いた文字列にする。
 export function storeTransactionId(value: unknown): string {
   if (typeof value === "string") {
@@ -468,19 +481,20 @@ export function notificationSkipsOlderExpiry(
 
 /// 読み取った行と書く行が食い違っていたら false。呼び出し側は読み直す。
 /// 判定そのものは skipsOlderEntitlement に残し、ここでは同時更新だけを弾く。
+/// `skipped` は今の行を残した。`saved` は渡した行を書いた。
 export async function settlePlusEntitlement(input: {
   row: EntitlementRow;
   load: () => Promise<StoredEntitlement | null>;
   skip: (current: StoredEntitlement | null) => boolean;
   save: (row: EntitlementRow, expected: StoredEntitlement | null) => Promise<boolean>;
-}): Promise<void> {
+}): Promise<"saved" | "skipped"> {
   for (let attempt = 0; attempt < 4; attempt++) {
     const current = await input.load();
     if (input.skip(current)) {
-      return;
+      return "skipped";
     }
     if (await input.save(input.row, current)) {
-      return;
+      return "saved";
     }
   }
   throw new Error("entitlement conflict");

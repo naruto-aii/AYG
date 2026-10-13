@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ayg/models/sync_failure.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:postgrest/postgrest.dart';
@@ -17,6 +19,19 @@ void main() {
 
     expect(failure.errorCode, 'FETCH_MEAL_TEMPLATES_TABLE_MISSING');
     expect(failure.userMessage, 'データを読み込めませんでした');
+  });
+
+  test('a timed out sync tells the user the connection failed', () {
+    final failure = SyncFailure.from(
+      step: SyncStep.applyRemoteData,
+      error: TimeoutException('initial sync budget'),
+      repository: 'AppController',
+      tableName: 'local_cache',
+      operation: 'sync',
+    );
+
+    expect(failure.userMessage, '通信に失敗しました');
+    expect(failure.userMessage, isNot(contains('TimeoutException')));
   });
 
   test('copy text excludes secrets', () {

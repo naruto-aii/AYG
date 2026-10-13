@@ -4,6 +4,7 @@ import '../../database/entity_mapper.dart';
 import '../../database/schemas.dart';
 import '../../models/food_entry.dart';
 import '../contracts/food_repository_base.dart';
+import '../local_write_guard.dart';
 
 class FoodRepository implements FoodRepositoryBase {
   FoodRepository(this._isar);
@@ -74,8 +75,16 @@ class FoodRepository implements FoodRepositoryBase {
     });
   }
 
-  Future<void> replaceAll(List<FoodEntry> entries) async {
+  Future<void> replaceAll(
+    List<FoodEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     await _isar.writeTxn(() async {
+      // 消してから入れ直すので、世代の確認は clear の前。
+      // トランザクションの外で見ると、確認のあとに世代が変わり、古い表で消してしまう。
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _isar.foodEntryEntitys.clear();
       if (entries.isEmpty) {
         return;

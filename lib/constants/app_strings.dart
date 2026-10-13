@@ -54,20 +54,20 @@ class AppStrings {
   static const settingsAccountDeletion = 'アカウント削除';
   static const settingsAccountDeletionSubtitle = '公開食品は残ります';
   static const accountDeletionLead =
-      '削除するとログインできなくなります。個人を特定できる情報は消します。';
+      '削除するとログインできなくなります。氏名、メールアドレス、ログイン情報は消します。';
   static const accountDeletionRemoves = '削除されるもの';
   static const accountDeletionRemovesBody =
       '氏名、メールアドレス、ログイン情報、生年月日、メモ、購入の取引番号との対応';
   static const accountDeletionKeeps = '残るもの';
   static const accountDeletionKeepsBody =
-      '食事・運動・体重などの記録と操作の記録は、誰のものかわからない形に加工して残します。公開食品も残ります。氏名やメールアドレスは載せません。';
+      '食事・運動・体重などの記録と操作の記録は、利用者IDとは別の番号を付け、サービスの改善のために残します。残すのは、性別、身長、体重、目標の種類、年代の幅、アカウントを作った月、プラン、集計から外すかどうか、削除した時刻（時まで）、食事の名前と量とカロリーとPFCと食品マスタの版、運動の名前と時間と消費カロリー、体重とその記録元、お酒の名前と量と単位と度数と総カロリーと純アルコール量とアルコール由来カロリー、ワークアウトの種目と消費カロリー、食品の検索語とその記録元、テンプレートを使った回数、コーチの提案を登録したかどうか、有料機能の操作（機能名と商品ID）、画面の操作、アプリの操作（発生元、系統、アプリの版）です。時刻は時までです。運動の検索語、テンプレートの名前と中身、メモの文面は残しません。運動の検索の記録元は残します。公開食品も残ります。氏名やメールアドレスは載せません。';
   static const accountDeletionBilling =
       'アカウントを削除しても、ストアの定期購入は止まりません。先に iPhone の「設定」> Apple ID >「サブスクリプション」で解約してください。';
   static const accountDeletionExecute = '削除する';
   static const accountDeletionReadPolicy = 'アカウント削除の説明';
   static const accountDeletionConfirmTitle = 'アカウントを削除しますか';
   static const accountDeletionConfirmBody =
-      '氏名・メールアドレス・ログイン情報など、個人を特定できる情報は削除します。食事・運動・体重などの記録は、誰のものかわからない形に加工して残します。公開食品も残ります。この操作は取り消せません。';
+      '氏名、メールアドレス、ログイン情報、生年月日、メモ、購入の取引番号との対応は消します。食事・運動・体重などの記録と操作の記録は、利用者IDとは別の番号を付け、サービスの改善のために残します。残すのは、性別、身長、体重、目標の種類、年代の幅、アカウントを作った月、プラン、集計から外すかどうか、削除した時刻（時まで）、食事の名前と量とカロリーとPFCと食品マスタの版、運動の名前と時間と消費カロリー、体重とその記録元、お酒の名前と量と単位と度数と総カロリーと純アルコール量とアルコール由来カロリー、ワークアウトの種目と消費カロリー、食品の検索語とその記録元、テンプレートを使った回数、コーチの提案を登録したかどうか、有料機能の操作（機能名と商品ID）、画面の操作、アプリの操作（発生元、系統、アプリの版）です。時刻は時までです。運動の検索語、テンプレートの名前と中身、メモの文面は残しません。運動の検索の記録元は残します。公開食品も残ります。この操作は取り消せません。';
   static const accountDeletionFailed = 'アカウントを削除できませんでした';
   static const accountDeletionUnavailable =
       'いまアカウントを削除できません。時間をおくか、運営へメールしてください。';
@@ -84,7 +84,7 @@ class AppStrings {
   static const coachCookingBody =
       '自炊コーチは、手元の食材から、残りのカロリーとPFCに合わせた献立を2パターン出します。グラムと簡単なレシピが付き、ワンタップで登録できます。';
   static const plusAiDailyLimit =
-      '写真で登録 (β)、外食・コンビニ (β)、AIで探す (β) は、あわせて1日15回までです。';
+      '写真で登録、外食・コンビニ、AIで探すは、あわせて1日15回までです。自炊コーチはこの回数に入りません。';
   static const plusAiLimitBody = plusAiDailyLimit;
   static const coachBetaNotice =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。食べすぎた日は運動を提案します。$coachCookingBody';
@@ -96,18 +96,17 @@ class AppStrings {
   static const plusBenefitWidgetTitle = 'ウィジェットでワンタップ記録';
   static const plusBenefitWidgetBody =
       'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録できます。枠は食事と運動を自由に組み合わせられます。';
-  static const plusBenefitSiriTitle = '音声登録 (β)';
+  static const plusBenefitSiriTitle = '音声登録';
   static const plusBenefitSiriBody = '食事も運動も、声で登録できます。';
-  static const plusBenefitPhotoTitle = '写真で登録 (β)';
+  static const plusBenefitPhotoTitle = '写真で登録';
   static const plusBenefitPhotoBody =
       '食事の写真から、AIがカロリーとPFCの推定を出します。料理名、量、補足は任意で、入れると精度が上がります。登録の前に確認して、数値を直せます。';
-  static const plusBenefitEatingOutTitle = '外食・コンビニ (β)';
+  static const plusBenefitEatingOutTitle = '外食・コンビニ';
   static const plusBenefitEatingOutBody =
-      '店名と商品名を入れると、AIがカロリーとPFCの推定を出します。セブン サラダチキンのように、新しい商品や詳しいメニューでも出せます。推定だと表示します。';
-  static const plusBenefitAiSearchTitle = 'AIで探す (β)';
-  static const plusBenefitAiSearchBody =
-      'いつもの検索で見つからないときは、AIが候補を出します。';
-  static const plusBenefitCoachTitle = 'パーソナルコーチ (β)';
+      '店名と商品名を入れると、AIがカロリーとPFCの推定を出します。チェーン店の商品名でも推定を出せます。推定だと表示します。';
+  static const plusBenefitAiSearchTitle = 'AIで探す';
+  static const plusBenefitAiSearchBody = 'いつもの検索で見つからないときは、AIが候補を出します。';
+  static const plusBenefitCoachTitle = 'パーソナルコーチ';
   static const plusBenefitCoachBody =
       '残りカロリーを時間帯に合わせて今日これからの食事と間食に分け、食事ごとに主食・主菜・副菜の組み合わせと量を提案します。$coachCookingBody';
 
@@ -143,43 +142,48 @@ class AppStrings {
   /// 月額カードの下の小さい文字。半年と年額は「月あたり」を出す。
   static const plusMonthlyNote = '1か月ごと';
 
-  /// ストアが金額を返せないときだけの表示。購入処理では使わない。
+  /// App Store Connect に登録する税込価格。画面はストアが返した金額だけを出す。
   static const plusFallbackMonthlyPrice = '¥980';
   static const plusFallbackHalfYearPrice = '¥4,900';
   static const plusFallbackYearlyPrice = '¥8,800';
+  static const plusPricesLoading = '価格を読み込んでいます';
+  static const plusProductsUnavailable =
+      'App Store から商品を取得できませんでした。通信を確認して、再読込を押してください。';
+  static const plusReloadProducts = '再読込';
   static const plusAutoRenew =
       '購入の確認時に Apple ID へ請求されます。期間が終わる24時間以上前に解約しない限り、同じ期間で自動更新されます。更新の料金は、期間が終わる24時間以内に請求されます。';
+
+  /// Guideline 3.1.2(c)。無料期間の残りがあるときに購入すると、残りは失効する。
+  static const plusTrialForfeiture = '無料期間中に購入した場合、無料期間の残りは失効します。';
 
   /// 無料のお試しがあるプランのボタン。ストアがお試しを返したときだけ使う。
   static String plusTrialCta(int days) => '$days日間無料ではじめる';
 
   /// 自動更新の説明に足す1文。お試しを返したときだけ出す。
   static String plusTrialNotice(int days) =>
-      'はじめてカロナビ+に登録する方は、$days日間無料でお試しいただけます。無料期間中は請求されません。無料期間が終わる24時間以上前に解約しない限り、選んだプランの料金で定期購入が自動で始まり、Apple ID へ請求されます。';
+      'この Apple ID では、$days日間無料でお試しいただけます。同じ Apple ID では1回です。無料期間中は請求されません。無料期間が終わる24時間以上前に解約しない限り、選んだプランの料金で定期購入が自動で始まり、Apple ID へ請求されます。';
 
   static const plusCancelHow =
       '管理と解約は、App Store のアカウント設定から行えます。アプリを消しても課金は止まりません。';
   static const plusCurrentExpiryPrefix = '現在の有効期限';
+
   /// ログイン画面の予告。同意そのものは次の画面で取る。
   static const loginTermsNextMultiline =
       'ログインのあと、利用規約とプライバシーポリシーに\n同意してから使い始めます。';
 
   static const termsConsentTitle = '利用規約とプライバシーポリシー';
-  static const termsConsentLead =
-      'はじめる前に、利用規約とプライバシーポリシーへの同意が必要です。';
+  static const termsConsentLead = 'はじめる前に、利用規約とプライバシーポリシーへの同意が必要です。';
 
   /// オーナー指定の一文。AIだけの同意画面は作らない。
-  static const termsConsentAi = 'AI機能では入力内容をAnthropic, PBC（米国）に送ります。';
+  static const termsConsentAi =
+      '写真で登録、外食・コンビニ、AIで探すでは、入力内容をAnthropic, PBC（米国）に送ります。';
 
   /// Guideline 1.2。不適切な内容と嫌がらせを認めない。
-  static const termsConsentUgc =
-      '公開される内容への不適切な投稿や、他の利用者への嫌がらせは一切認めません。';
+  static const termsConsentUgc = '公開される内容への不適切な投稿や、他の利用者への嫌がらせは一切認めません。';
   static const termsConsentAgree = '同意してはじめる';
   static const termsConsentDecline = '同意しない';
-  static const termsConsentSaveFailed =
-      '同意を保存できませんでした。通信できるときに、もう一度押してください。';
-  static const termsConsentDeclineFailed =
-      'ログイン画面に戻れませんでした。もう一度押してください。';
+  static const termsConsentSaveFailed = '同意を保存できませんでした。通信できるときに、もう一度押してください。';
+  static const termsConsentDeclineFailed = 'ログイン画面に戻れませんでした。もう一度押してください。';
 
   static const displayName = 'ユーザー名';
   static const displayNameHint = '表示する名前';

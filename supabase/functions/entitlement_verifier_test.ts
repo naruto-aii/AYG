@@ -309,7 +309,10 @@ Deno.test("a same-transaction refund from the app clears grace without a grace d
     revocationDate: Date.parse("2026-10-09T00:00:00.000Z"),
   }));
   assertEquals(refund.status, 200);
-  assertEquals(await refund.json(), { ok: true });
+  const refundBody = await refund.json();
+  assertEquals(refundBody.ok, true);
+  assertEquals(refundBody.plus, false);
+  assertEquals(refundBody.expiresAt, null);
   assertEquals(book.current(monthly)?.status, "inactive");
   assertEquals(book.plus(), false);
 });
@@ -650,16 +653,18 @@ Deno.test("a concurrent renewal wins over a late expiry, and a stuck conflict re
       }),
       exists: () => Promise.resolve(false),
       matchUser: () => Promise.resolve({ userId: user, deleted: false }),
-      applyEntitlement: () => settlePlusEntitlement({
-        row: expiry.row,
-        load: () => Promise.resolve({
-          expiresAt: "2026-11-08T00:00:00.000Z",
-          status: "active",
-          transactionId: "tx-old",
-        }),
-        skip: () => false,
-        save: () => Promise.resolve(false),
-      }),
+      applyEntitlement: async () => {
+        await settlePlusEntitlement({
+          row: expiry.row,
+          load: () => Promise.resolve({
+            expiresAt: "2026-11-08T00:00:00.000Z",
+            status: "active",
+            transactionId: "tx-old",
+          }),
+          skip: () => false,
+          save: () => Promise.resolve(false),
+        });
+      },
       insert: () => Promise.resolve(),
       insertFailed: () => Promise.resolve(),
     },
@@ -821,7 +826,12 @@ Deno.test("verify responses stay 200, 401, 400, and 409", async () => {
   const book = ledger();
   const ok = await applyVerify(book, verified());
   assertEquals(ok.status, 200);
-  assertEquals(await ok.json(), { ok: true });
+  const body = await ok.json();
+  // `ok: true` はそのまま。`plus` は足した項目で、審査中の build 11 は読まない。
+  assertEquals(body.ok, true);
+  assertEquals(body.code, undefined);
+  assertEquals(body.plus, true);
+  assertEquals(typeof body.expiresAt, "string");
 
   const anon = await handleVerifyStoreTransaction(post({ signedTransaction: jws }), {
     ...verifyDeps(book, verified()),

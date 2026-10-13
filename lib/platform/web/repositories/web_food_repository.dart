@@ -1,5 +1,6 @@
 import '../../../models/food_entry.dart';
 import '../../../repositories/contracts/food_repository_base.dart';
+import '../../../repositories/local_write_guard.dart';
 
 /// Web向けインメモリ FoodRepository。
 class FoodRepository implements FoodRepositoryBase {
@@ -33,5 +34,17 @@ class FoodRepository implements FoodRepositoryBase {
   @override
   Future<void> clearAll() async {
     _entries.clear();
+  }
+
+  Future<void> replaceAll(
+    List<FoodEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    _entries
+      ..clear()
+      ..addAll(entries);
   }
 }

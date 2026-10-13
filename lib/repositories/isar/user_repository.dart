@@ -5,6 +5,7 @@ import '../../database/schemas.dart';
 import '../../models/goal.dart';
 import '../../models/user_profile.dart';
 import '../contracts/user_repository_base.dart';
+import '../local_write_guard.dart';
 
 class UserRepository implements UserRepositoryBase {
   UserRepository(this._isar);
@@ -13,6 +14,21 @@ class UserRepository implements UserRepositoryBase {
 
   Future<void> saveProfile(UserProfile profile) async {
     await _isar.writeTxn(() async {
+      await _isar.userProfileEntitys.put(
+        EntityMapper.toUserProfileEntity(profile),
+      );
+    });
+  }
+
+  /// 同期の取得だけが使う。画面の保存は [saveProfile]。
+  Future<void> saveProfileForSync(
+    UserProfile profile, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _isar.userProfileEntitys.put(
         EntityMapper.toUserProfileEntity(profile),
       );
@@ -29,6 +45,15 @@ class UserRepository implements UserRepositoryBase {
 
   Future<void> saveGoal(Goal goal) async {
     await _isar.writeTxn(() async {
+      await _isar.goalEntitys.put(EntityMapper.toGoalEntity(goal));
+    });
+  }
+
+  Future<void> saveGoalForSync(Goal goal, {LocalWriteGuard? mayWrite}) async {
+    await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
       await _isar.goalEntitys.put(EntityMapper.toGoalEntity(goal));
     });
   }

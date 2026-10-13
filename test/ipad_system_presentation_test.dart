@@ -29,7 +29,7 @@ void main() {
   });
 
   test(
-    'the app still targets iPhone and iPad, and the build number is 1.0.0+11',
+    'the app still targets iPhone and iPad, and the build number is 1.0.0+12',
     () {
       final project = File(
         'ios/Runner.xcodeproj/project.pbxproj',
@@ -41,7 +41,7 @@ void main() {
       expect(families, everyElement('"1,2"'));
       expect(
         File('pubspec.yaml').readAsStringSync(),
-        contains('version: 1.0.0+11'),
+        contains('version: 1.0.0+12'),
       );
     },
   );

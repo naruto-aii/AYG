@@ -67,7 +67,7 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 1. `20261007094059_app_events.sql` と `20261007094142_app_events_retention.sql` は本番に適用済み。アプリは `public.insert_app_events` で追加する。表への直接 INSERT は渡していない。
 2. `app-store-notifications` を配備し、App Store Connect の通知先（本番とサンドボックス、どちらもバージョン 2）を `https://vdzzusqisymtejcjnikb.supabase.co/functions/v1/app-store-notifications` にする。通知の処理に `20261008090100` と `20261008090300`（pg_cron）は要らない。
-3. 上の秘密を入れる。`APP_BUNDLE_ID` は `com.narutoaii.ayg`、`ASC_APP_APPLE_ID` は `6814054275`。ルート証明書は関数に Apple Root CA - G3 / G2 / Apple Inc Root を同梱している。`APPLE_ROOT_CA_BASE64` は追加の DER を足すときだけ。`APPLE_SIGNED_DATA_ONLINE_CHECKS` は本番に置かない。未設定なら失効確認はオン。`false` はテスト専用。
+3. 上の秘密を入れる。`APP_BUNDLE_ID` は `com.narutoaii.ayg`、`ASC_APP_APPLE_ID` は `6814054275`。ルート証明書は関数に Apple Root CA - G3 / G2 / Apple Inc Root を同梱している。`APPLE_ROOT_CA_BASE64` は追加の DER を足すときだけ。署名の確認は Node の `crypto.X509Certificate` を使わない。Supabase Edge Runtime にはその `verify` が無く、Apple の app-store-server-library は `Not implemented` になる。x5c は WebCrypto（`@peculiar/x509`）で同梱のルートまでたどり、中間証明書の OID `1.2.840.113635.100.6.2.1`、葉証明書の OID `1.2.840.113635.100.6.11.1`、証明書の有効期限（60秒のずれまで）、ES256、bundleId、environment を確かめる。本番では appAppleId も確かめる。OCSP は Edge で Node の crypto を使うため行わない。`APPLE_SIGNED_DATA_ONLINE_CHECKS` は本番に置かない。未設定なら証明書の期限は今の時刻で見る。`false` はテスト専用で、期限を取引の signedDate で見る。検証が全部失敗したときだけ、状態名、原因のエラー名とメッセージ、Production と Sandbox のそれぞれの結果、`APP_BUNDLE_ID` が空でないか・`com.narutoaii.ayg` と一致するか（真偽だけ）、取引の bundleId と environment をログに出す。JWS は `eyJ` で始まる三つ組だけを隠す。鍵と、`APP_BUNDLE_ID` の値そのものは出さない。`APP_BUNDLE_ID` が空のときは、署名の確認も加入判定も既定の `com.narutoaii.ayg` を使う。別の値が入っているときは、その値のままなので `INVALID_APP_IDENTIFIER` になり得る。App Store Server API の秘密鍵は、この JWS の確認には使わない。利用者の返金は取引の `revocationDate` と App Store の通知で止める。
 4. `store-analytics-setup` を 1 回だけ実行する。そのあと管理者鍵を無効化し、`ASC_ADMIN_KEY_ID` と `ASC_ADMIN_PRIVATE_KEY` を消す。
 5. pg_cron と pg_net を有効にする承認のあと、Vault に `project_url`（`https://vdzzusqisymtejcjnikb.supabase.co`）と `store_import_secret` を入れ、`20261008090100_store_import_schedule.sql` を適用する。
 6. `store-analytics-import` と `store-sales-import` を配備する。
@@ -154,7 +154,7 @@ deno test --config supabase/functions/deno.json supabase/functions/analyze_meal_
 
 検索語は、正規化してからプロンプトのデータの枠に入れます。指示としては読みません。同じ利用者の、同じ正規化の検索語だけを `ai_food_estimate_cache` にモデル名と期限つきで残します。主キーは利用者と検索語です。他の利用者には出さず、食品の一覧としても出しません。以前の共有行は、マイグレーションが消します。期限は `TEXT_AI_CACHE_TTL_HOURS` です。空なら仮置きの 168 時間です。オーナーはまだ決めていません。
 
-外食・コンビニも同じ関数です。通常の食品検索が 0 件のときと、結果があるときの「AIで探す (β)」は、どちらも利用者が押したときだけ呼びます。入力のたびにモデルは呼びません。
+外食・コンビニも同じ関数です。通常の食品検索が 0 件のときと、結果があるときの「AIで探す」は、どちらも利用者が押したときだけ呼びます。入力のたびにモデルは呼びません。
 
 1日の回数は写真で登録、外食・コンビニ、AIで探すを合算し、`AI_COMBINED_DAILY_LIMIT`（空なら `AI_DAILY_LIMIT`、それも空なら 15）です。自炊コーチはこの回数に入りません。超えたときは「本日の上限に達しました」です。月の回数は `TEXT_AI_MONTHLY_LIMIT` が空なら止めません。月間の費用は、写真で登録と AIで探すの `estimated_cost_jpy` を合算し、`PHOTO_AI_MONTHLY_SPEND_JPY` が空なら止めません。キャッシュに当たった呼び出しの費用は 0 です。費用の上限が設定されていて、それを超えていても、期限内のキャッシュは返せます。モデルは呼びません。回数の上限はキャッシュも数えます。無料の回数はありません。
 

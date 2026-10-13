@@ -5,11 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'constants/app_strings.dart';
+import 'models/health_profile_data.dart';
 import 'repositories/authentication_repository.dart';
 import 'repositories/health_repository.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/legal/terms_agreement_screen.dart';
-import 'screens/onboarding/health_setup_screen.dart';
+import 'screens/onboarding/basic_info_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
 import 'services/analytics/analytics.dart';
 import 'services/analytics/analytics_runtime.dart';
@@ -190,11 +191,10 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     final app = ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
-        if (controller.isInitializing || controller.termsCheckPending) {
-          return const AppStartupLoadingScreen();
-        }
-
         if (!controller.isAuthenticated) {
+          if (controller.isInitializing) {
+            return const AppStartupLoadingScreen();
+          }
           return LoginScreen(
             controller: controller,
             authenticationRepository: widget.authenticationRepository,
@@ -211,7 +211,18 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
           );
         }
 
-        if (controller.isSyncInProgress) {
+        // 初回同期は止めない。止まって見える通信でも、再試行とログアウトは押せる。
+        // 初回が終わったあとのトークン更新では、利用中の画面をこの読み込みに戻さない。
+        if (controller.isSyncInProgress &&
+            !controller.hasInitialSyncCompleted) {
+          return AppInitialSyncScreen(
+            message: controller.sessionBlockMessage,
+            onRetry: () => controller.retryAuthenticatedSync(),
+            onLogout: () => controller.logout(),
+          );
+        }
+
+        if (controller.isInitializing || controller.termsCheckPending) {
           return const AppStartupLoadingScreen();
         }
 
@@ -227,11 +238,12 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
         }
 
         if (controller.requiresOnboarding) {
-          return HealthSetupScreen(
+          return BasicInfoScreen(
             controller: controller,
             openFoodFactsService: widget.openFoodFactsService,
-            healthRepository: widget.healthRepository,
+            healthPrefill: HealthProfileData.empty,
             authenticationRepository: widget.authenticationRepository,
+            healthRepository: widget.healthRepository,
           );
         }
 

@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import os
 
 /// 食事と運動を登録し、何をどれだけ登録したかを読み上げる。
 ///
@@ -1853,86 +1854,40 @@ enum SiriVoiceStore {
     let resolved = resolveAmountOnce(plan, text: text)
     // 答えから量が取れないときに同じ質問を繰り返さない。聞き直しは1回で終える。
     if plan.asksAmount && resolved.asksAmount {
-      return stop("量を聞き取れませんでした。もう一度、最初から言ってください")
+      return stop(SiriAmountReply.unheardSpeech)
     }
     return resolved
   }
 
-  /// 質問への答えは「30」「30分」「三十分」のどれでも受ける。
+  /// 聞き返しの `Double`。届いた数値に、質問の単位を足す。倍率は掛けない。
+  static func resolveAmountNumber(_ plan: Plan, number: Double) -> Plan {
+    resolveAmount(plan, text: SiriAmountReply.canonical(number))
+  }
+
+  /// 何分の測定値。秒でも時間でも分にしてから範囲を見る。範囲外は登録せず、打ち切りの文にする。
+  static func resolveDuration(_ plan: Plan, measurement: Measurement<UnitDuration>) -> Plan {
+    let raw = measurement.value
+    let unit = SiriAmountReply.durationUnitLabel(measurement.unit)
+    guard let minutes = SiriAmountReply.minutes(from: measurement) else {
+      SiriAmountLog.rejectedDuration(rawValue: raw, unit: unit)
+      return resolveAmount(plan, text: "")
+    }
+    SiriAmountLog.resolvedDuration(rawValue: raw, unit: unit, minutes: minutes)
+    return resolveAmountNumber(plan, number: minutes)
+  }
+
+  /// 質問への答えは「30」「30分」「三十分」「ひゃくごじゅう」のどれでも受ける。
   /// 単位付きならそのまま読み、数字だけなら聞いた単位を足す。
+  /// 「1時間」は言葉が残っているときだけ分にする。数値の 1 からは戻さない。
   private static func amountFromReply(_ text: String, suffix: String) -> ParsedQuantity? {
-    let normalized = normalizeNumerals(text)
-    if suffix == "分" || suffix == "km", let minutes = hoursAsMinutes(normalized) {
+    let prepared = SiriAmountReply.prepare(text)
+    if suffix == "分" || suffix == "km", let minutes = SiriAmountReply.hoursAsMinutes(prepared) {
       return ParsedQuantity(amount: minutes, unit: "minutes")
     }
-    return parseQuantity(normalized) ?? parseQuantity(normalized + suffix)
-  }
-
-  /// 運動の時間の答え「1時間」「1時間半」「1時間30分」を分にする。
-  private static func hoursAsMinutes(_ text: String) -> Double? {
-    let compact = text
-      .replacingOccurrences(of: "[\\s。、,]", with: "", options: .regularExpression)
-      .replacingOccurrences(of: "(です|くらい|ぐらい|ほど)$", with: "", options: .regularExpression)
-    guard let regex = try? NSRegularExpression(
-      pattern: #"^(\d+(?:\.\d+)?)時間(?:(半)|(\d+)分間?)?$"#
-    ),
-      let found = regex.firstMatch(in: compact, range: NSRange(compact.startIndex..., in: compact)),
-      let hoursRange = Range(found.range(at: 1), in: compact),
-      let hours = Double(compact[hoursRange])
-    else {
+    guard let parsed = SiriAmountReply.parsePrepared(prepared, assumedSuffix: suffix) else {
       return nil
     }
-    var minutes = hours * 60
-    if Range(found.range(at: 2), in: compact) != nil {
-      minutes += 30
-    }
-    if let extraRange = Range(found.range(at: 3), in: compact), let extra = Double(compact[extraRange]) {
-      minutes += extra
-    }
-    return minutes > 0 ? minutes : nil
-  }
-
-  /// 全角数字と漢数字（〇〜九、十、百、千）を半角の数字にする。
-  private static func normalizeNumerals(_ text: String) -> String {
-    let digits: [Character: Int] = [
-      "〇": 0, "零": 0, "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
-      "六": 6, "七": 7, "八": 8, "九": 9,
-    ]
-    let units: [Character: Int] = ["十": 10, "百": 100, "千": 1000]
-    var out = ""
-    var total = 0
-    var current = -1
-    var inNumber = false
-    func flush() {
-      if inNumber {
-        out += String(total + max(current, 0))
-      }
-      total = 0
-      current = -1
-      inNumber = false
-    }
-    for ch in text {
-      if let wide = ch.unicodeScalars.first?.value, wide >= 0xFF10, wide <= 0xFF19, ch.unicodeScalars.count == 1 {
-        flush()
-        out.append(Character(UnicodeScalar(wide - 0xFF10 + 0x30)!))
-        continue
-      }
-      if let d = digits[ch] {
-        inNumber = true
-        current = (current < 0 ? 0 : current) * 10 + d
-        continue
-      }
-      if let u = units[ch] {
-        inNumber = true
-        total += (current < 0 ? 1 : current) * u
-        current = -1
-        continue
-      }
-      flush()
-      out.append(ch)
-    }
-    flush()
-    return out
+    return ParsedQuantity(amount: parsed.amount, unit: parsed.unit)
   }
 
   private static func resolveAmountOnce(_ plan: Plan, text: String) -> Plan {
@@ -3154,6 +3109,36 @@ enum SiriVoiceStore {
     }
     defaults?.set(raw, forKey: pendingKey)
   }
+
+  /// ウィジェットの App Group とは別の置き場。同じ質問文の回数だけを持つ。
+  static func dialogueDefaults() -> UserDefaults {
+    UserDefaults(suiteName: "siri-dialogue-rounds") ?? .standard
+  }
+
+  /// この質問文を、これから話す前に数える。3回目なら false。`requestValue` は呼ばない。
+  static func beginQuestion(_ question: String, now: Date = Date()) -> Bool {
+    SiriQuestionLimit.allowAsk(
+      question: question,
+      defaults: dialogueDefaults(),
+      now: now.timeIntervalSince1970
+    )
+  }
+
+  static func endDialogue() {
+    SiriQuestionLimit.reset(defaults: dialogueDefaults())
+  }
+
+  static var dialogueExitSpeech: String { SiriQuestionLimit.exitSpeech }
+
+  /// 同じ質問が3回目になるとき。すぐのやり直しでは質問を出さず、終了の文を返す。
+  static func denyRepeatedQuestion(now: Date = Date()) -> String {
+    SiriAmountLog.branch("stop.repeat")
+    SiriQuestionLimit.close(
+      defaults: dialogueDefaults(),
+      now: now.timeIntervalSince1970
+    )
+    return dialogueExitSpeech
+  }
 }
 
 /// 話した通りの文字列を受け取る。候補の一覧は持たず、言葉そのものを返す。
@@ -3184,6 +3169,45 @@ struct SiriSpokenTextQuery: EntityStringQuery {
 
   func suggestedEntities() async throws -> [SiriSpokenText] {
     []
+  }
+}
+
+/// TestFlight で、どの枝が走ったかを見る。食品名は出さない。数値だけ出す。
+/// Console の subsystem は `com.narutoaii.ayg`、category は `siri-amount`。
+/// `ask.grams` のあと `resolved.grams value=150` なら、戻った数値は 150。
+/// 何分は `raw=` が届いた値、`unit=` がその単位、`value=` が分に換算した値。
+/// 食品名も種目名も出さない。
+/// `ask` だけで `resolved` も `stop.repeat` も無いときは、`requestValue` が戻っていない。
+/// `stop.repeat` は、同じ質問文の3回目で聞く前に止めた印。
+/// `stop.range` は、分に換算した値が範囲外で、登録しなかった印。
+enum SiriAmountLog {
+  private static let log = Logger(subsystem: "com.narutoaii.ayg", category: "siri-amount")
+
+  static func branch(_ name: String) {
+    log.info("siri-amount branch=\(name, privacy: .public)")
+  }
+
+  /// 登録に使う数値。食品名は付けない。
+  static func resolved(slot: String, value: Double) {
+    let shown = SiriAmountReply.canonical(value)
+    log.info("siri-amount branch=resolved.\(slot, privacy: .public) value=\(shown, privacy: .public)")
+  }
+
+  /// 何分。生の値と単位、分に換算した値。種目名は付けない。
+  static func resolvedDuration(rawValue: Double, unit: String, minutes: Double) {
+    let raw = SiriAmountReply.canonical(rawValue)
+    let shown = SiriAmountReply.canonical(minutes)
+    log.info(
+      "siri-amount branch=resolved.minutes raw=\(raw, privacy: .public) unit=\(unit, privacy: .public) value=\(shown, privacy: .public)"
+    )
+  }
+
+  /// 分に換算した値が範囲外。生の値と単位だけ出す。
+  static func rejectedDuration(rawValue: Double, unit: String) {
+    let raw = SiriAmountReply.canonical(rawValue)
+    log.info(
+      "siri-amount branch=stop.range raw=\(raw, privacy: .public) unit=\(unit, privacy: .public)"
+    )
   }
 }
 
@@ -3223,8 +3247,32 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "きつさ2")
   var intensity2: SiriChoiceEntity?
 
-  @Parameter(title: "量")
-  var amountReply: String?
+  /// 単位は付けない。測定値にすると基本単位へ換算され、150 が 0.15 で戻ることがある。
+  /// `DoubleFromStringResolver` は文字列を数値にするだけで、単位は換算しない。
+  /// https://developer.apple.com/documentation/appintents/doublefromstringresolver
+  /// https://developer.apple.com/documentation/appintents/adding-parameters-to-an-app-intent
+  /// 単位を指定する初期化子は測定値用。https://developer.apple.com/documentation/appintents/intentparameter
+  /// `UnitMass` の基本単位はキログラムで、グラムの係数は 0.001。
+  /// https://developer.apple.com/documentation/foundation/unitmass
+  @Parameter(title: "グラム", supportsNegativeNumbers: false)
+  var amountGrams: Double?
+
+  @Parameter(title: "ミリリットル", supportsNegativeNumbers: false)
+  var amountMilliliters: Double?
+
+  /// 何分は時間の測定値。単位を言わなければ分。届いた値はアプリで分に換算する。
+  /// `defaultUnit` は単位が無いときの既定。測定値パラメータは iOS 16 からあり、iOS 17 で使える。
+  /// https://developer.apple.com/documentation/appintents/intentparameter
+  /// https://developer.apple.com/documentation/foundation/unitduration
+  /// https://developer.apple.com/documentation/foundation/measurement/converted(to:)
+  @Parameter(title: "分", defaultUnit: .minutes, supportsNegativeNumbers: false)
+  var amountMinutes: Measurement<UnitDuration>?
+
+  @Parameter(title: "キロメートル", supportsNegativeNumbers: false)
+  var amountKilometers: Double?
+
+  @Parameter(title: "個数", supportsNegativeNumbers: false)
+  var amountCount: Double?
 
   @Parameter(title: "言い直し")
   var retryReply: String?
@@ -3245,18 +3293,27 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   func perform() async throws -> some IntentResult & ProvidesDialog {
     SiriAnalytics.started(intent: "log_food", hasParameter: !foodName.text.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
+      SiriVoiceStore.endDialogue()
       SiriAnalytics.finished(status: "continued", stopReason: "open_app", continued: true)
       return .result(dialog: "アプリで検索します")
     }
-    let spoken = try await promptedFoodName()
+    guard let spoken = try await promptedFoodName() else {
+      return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+    }
     var plan = await SiriVoiceStore.planFood(name: spoken, quantity: "")
     var retried = false
     while true {
       if plan.asksNarrow {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
         plan = await SiriVoiceStore.resolveNarrow(plan, text: try await nextNarrow(plan))
         continue
       }
       if plan.asksKind {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
         SiriAnalytics.prompt(kind: "disambiguation")
         let picked = try await $kind.requestDisambiguation(
           among: SiriSpokenKind.allCases,
@@ -3267,7 +3324,11 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       if plan.asksChoice {
         let options = SiriChoiceEntity.list(plan.choices)
         guard !options.isEmpty else {
+          SiriVoiceStore.endDialogue()
           return .result(dialog: SiriSpeech.dialog(plan.spoken))
+        }
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
         }
         SiriAnalytics.prompt(kind: "disambiguation")
         let picked = try await $choice.requestDisambiguation(
@@ -3277,6 +3338,9 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
         plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
       }
       if plan.asksIntensity {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
         plan = SiriVoiceStore.resolveIntensity(plan, id: try await nextIntensity(plan))
         if plan.asksIntensity {
           continue
@@ -3284,14 +3348,26 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       }
       if plan.asksAmount {
         SiriAnalytics.prompt(kind: "value")
-        let text = try await $amountReply.requestValue(SiriSpeech.dialog(plan.spoken))
-        plan = SiriVoiceStore.resolveAmount(plan, text: text)
+        switch try await readAmount(plan) {
+        case .stopRepeat:
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        case .number(let number):
+          let slot = SiriAmountSlot.from(unit: plan.record?["unit"] as? String)
+          SiriAmountLog.resolved(slot: slot.rawValue, value: number)
+          plan = SiriVoiceStore.resolveAmountNumber(plan, number: number)
+        case .duration(let measurement):
+          plan = SiriVoiceStore.resolveDuration(plan, measurement: measurement)
+        }
       }
       if plan.asksRetry {
         if retried {
+          SiriVoiceStore.endDialogue()
           SiriVoiceStore.rememberSearch(kind: "food", query: plan.searchQuery ?? spoken)
           SiriAnalytics.finished(status: "continued", stopReason: "needs_app", continued: true)
           throw needsToContinueInForegroundError()
+        }
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
         }
         retried = true
         SiriAnalytics.prompt(kind: "value")
@@ -3303,14 +3379,65 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
     }
     switch SiriVoiceStore.commitStep(plan) {
     case .speak(let text):
+      SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(text))
     case .confirm(let dialog, let report):
+      guard SiriVoiceStore.beginQuestion(dialog) else {
+        return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+      }
       SiriAnalytics.prompt(kind: "confirmation")
       try await requestConfirmation(
         result: .result(dialog: SiriSpeech.dialog(dialog))
       )
       SiriVoiceStore.commitConfirmed(plan)
+      SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(report))
+    }
+  }
+
+  /// グラムなどは単位なしの数値。何分は時間の測定値で受け、アプリで分に換算する。
+  private func readAmount(_ plan: SiriVoiceStore.Plan) async throws -> SiriAmountAsk.Outcome {
+    let slot = SiriAmountSlot.from(unit: plan.record?["unit"] as? String)
+    let now = Date().timeIntervalSince1970
+    let defaults = SiriVoiceStore.dialogueDefaults()
+    if slot == .minutes {
+      return try await SiriAmountAsk.takeDuration(
+        stored: amountMinutes,
+        question: plan.spoken,
+        defaults: defaults,
+        now: now
+      ) {
+        SiriAmountLog.branch("ask.minutes")
+        return try await $amountMinutes.requestValue(SiriSpeech.dialog(plan.spoken))
+      }
+    }
+    let stored: Double?
+    let request: () async throws -> Double
+    switch slot {
+    case .grams:
+      stored = amountGrams
+      request = { try await self.$amountGrams.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .milliliters:
+      stored = amountMilliliters
+      request = { try await self.$amountMilliliters.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .kilometers:
+      stored = amountKilometers
+      request = { try await self.$amountKilometers.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .count:
+      stored = amountCount
+      request = { try await self.$amountCount.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .minutes:
+      stored = nil
+      request = { throw CancellationError() }
+    }
+    return try await SiriAmountAsk.take(
+      stored: stored,
+      question: plan.spoken,
+      defaults: defaults,
+      now: now
+    ) {
+      SiriAmountLog.branch("ask.\(slot.rawValue)")
+      return try await request()
     }
   }
 
@@ -3342,7 +3469,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
 
   /// 言い方に食品が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
   /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
-  private func promptedFoodName() async throws -> String {
+  private func promptedFoodName() async throws -> String? {
     if let spoken = food?.spoken.trimmingCharacters(in: .whitespacesAndNewlines),
        !spoken.isEmpty {
       return spoken
@@ -3355,8 +3482,12 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       return given
     }
     // 自由文は文字列のパラメータで受ける。独自の型だと答えが値にならず同じ質問が繰り返される。
+    let question = "何を食べましたか？"
+    guard SiriVoiceStore.beginQuestion(question) else {
+      return nil
+    }
     SiriAnalytics.prompt(kind: "value")
-    return try await $foodReply.requestValue(SiriSpeech.dialog("何を食べましたか？"))
+    return try await $foodReply.requestValue(SiriSpeech.dialog(question))
   }
 }
 
@@ -3396,8 +3527,32 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "きつさ2")
   var intensity2: SiriChoiceEntity?
 
-  @Parameter(title: "量")
-  var amountReply: String?
+  /// 単位は付けない。測定値にすると基本単位へ換算され、150 が 0.15 で戻ることがある。
+  /// `DoubleFromStringResolver` は文字列を数値にするだけで、単位は換算しない。
+  /// https://developer.apple.com/documentation/appintents/doublefromstringresolver
+  /// https://developer.apple.com/documentation/appintents/adding-parameters-to-an-app-intent
+  /// 単位を指定する初期化子は測定値用。https://developer.apple.com/documentation/appintents/intentparameter
+  /// `UnitMass` の基本単位はキログラムで、グラムの係数は 0.001。
+  /// https://developer.apple.com/documentation/foundation/unitmass
+  @Parameter(title: "グラム", supportsNegativeNumbers: false)
+  var amountGrams: Double?
+
+  @Parameter(title: "ミリリットル", supportsNegativeNumbers: false)
+  var amountMilliliters: Double?
+
+  /// 何分は時間の測定値。単位を言わなければ分。届いた値はアプリで分に換算する。
+  /// `defaultUnit` は単位が無いときの既定。測定値パラメータは iOS 16 からあり、iOS 17 で使える。
+  /// https://developer.apple.com/documentation/appintents/intentparameter
+  /// https://developer.apple.com/documentation/foundation/unitduration
+  /// https://developer.apple.com/documentation/foundation/measurement/converted(to:)
+  @Parameter(title: "分", defaultUnit: .minutes, supportsNegativeNumbers: false)
+  var amountMinutes: Measurement<UnitDuration>?
+
+  @Parameter(title: "キロメートル", supportsNegativeNumbers: false)
+  var amountKilometers: Double?
+
+  @Parameter(title: "個数", supportsNegativeNumbers: false)
+  var amountCount: Double?
 
   @Parameter(title: "言い直し")
   var retryReply: String?
@@ -3418,72 +3573,150 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   func perform() async throws -> some IntentResult & ProvidesDialog {
     SiriAnalytics.started(intent: "log_exercise", hasParameter: !activityName.text.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
+      SiriVoiceStore.endDialogue()
       SiriAnalytics.finished(status: "continued", stopReason: "open_app", continued: true)
       return .result(dialog: "アプリで検索します")
     }
-    let spoken = try await promptedActivityName()
+    guard let spoken = try await promptedActivityName() else {
+      return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+    }
     var plan = await SiriVoiceStore.planExercise(name: spoken, quantity: "")
     var retried = false
     while true {
-    if plan.asksNarrow {
-      plan = await SiriVoiceStore.resolveNarrow(plan, text: try await nextNarrow(plan))
-      continue
-    }
-    if plan.asksKind {
-      SiriAnalytics.prompt(kind: "disambiguation")
-      let picked = try await $kind.requestDisambiguation(
-        among: SiriSpokenKind.allCases,
-        dialog: SiriSpeech.dialog(plan.spoken)
-      )
-      plan = await SiriVoiceStore.resolveKind(plan, kind: picked)
-    }
-    if plan.asksChoice {
-      let options = SiriChoiceEntity.list(plan.choices)
-      SiriAnalytics.prompt(kind: "disambiguation")
-      let picked = try await $choice.requestDisambiguation(
-        among: options,
-        dialog: SiriSpeech.dialog(plan.spoken)
-      )
-      plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
-    }
-    if plan.asksIntensity {
-      plan = SiriVoiceStore.resolveIntensity(plan, id: try await nextIntensity(plan))
-      if plan.asksIntensity {
+      if plan.asksNarrow {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
+        plan = await SiriVoiceStore.resolveNarrow(plan, text: try await nextNarrow(plan))
         continue
       }
-    }
-    if plan.asksAmount {
-      SiriAnalytics.prompt(kind: "value")
-      let text = try await $amountReply.requestValue(SiriSpeech.dialog(plan.spoken))
-      plan = SiriVoiceStore.resolveAmount(plan, text: text)
-    }
-    if plan.asksRetry {
-      if retried {
-        SiriVoiceStore.rememberSearch(
-          kind: "exercise",
-          query: plan.searchQuery ?? spoken
+      if plan.asksKind {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
+        SiriAnalytics.prompt(kind: "disambiguation")
+        let picked = try await $kind.requestDisambiguation(
+          among: SiriSpokenKind.allCases,
+          dialog: SiriSpeech.dialog(plan.spoken)
         )
-        SiriAnalytics.finished(status: "continued", stopReason: "needs_app", continued: true)
-        throw needsToContinueInForegroundError()
+        plan = await SiriVoiceStore.resolveKind(plan, kind: picked)
       }
-      retried = true
-      SiriAnalytics.prompt(kind: "value")
-      let again = try await $retryReply.requestValue(SiriSpeech.dialog(plan.spoken))
-      plan = await SiriVoiceStore.planExercise(name: again, quantity: "")
-      continue
-    }
-    break
+      if plan.asksChoice {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
+        let options = SiriChoiceEntity.list(plan.choices)
+        SiriAnalytics.prompt(kind: "disambiguation")
+        let picked = try await $choice.requestDisambiguation(
+          among: options,
+          dialog: SiriSpeech.dialog(plan.spoken)
+        )
+        plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
+      }
+      if plan.asksIntensity {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
+        plan = SiriVoiceStore.resolveIntensity(plan, id: try await nextIntensity(plan))
+        if plan.asksIntensity {
+          continue
+        }
+      }
+      if plan.asksAmount {
+        SiriAnalytics.prompt(kind: "value")
+        switch try await readAmount(plan) {
+        case .stopRepeat:
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        case .number(let number):
+          let slot = SiriAmountSlot.from(unit: plan.record?["unit"] as? String)
+          SiriAmountLog.resolved(slot: slot.rawValue, value: number)
+          plan = SiriVoiceStore.resolveAmountNumber(plan, number: number)
+        case .duration(let measurement):
+          plan = SiriVoiceStore.resolveDuration(plan, measurement: measurement)
+        }
+      }
+      if plan.asksRetry {
+        if retried {
+          SiriVoiceStore.endDialogue()
+          SiriVoiceStore.rememberSearch(
+            kind: "exercise",
+            query: plan.searchQuery ?? spoken
+          )
+          SiriAnalytics.finished(status: "continued", stopReason: "needs_app", continued: true)
+          throw needsToContinueInForegroundError()
+        }
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
+        retried = true
+        SiriAnalytics.prompt(kind: "value")
+        let again = try await $retryReply.requestValue(SiriSpeech.dialog(plan.spoken))
+        plan = await SiriVoiceStore.planExercise(name: again, quantity: "")
+        continue
+      }
+      break
     }
     switch SiriVoiceStore.commitStep(plan) {
     case .speak(let text):
+      SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(text))
     case .confirm(let dialog, let report):
+      guard SiriVoiceStore.beginQuestion(dialog) else {
+        return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+      }
       SiriAnalytics.prompt(kind: "confirmation")
       try await requestConfirmation(
         result: .result(dialog: SiriSpeech.dialog(dialog))
       )
       SiriVoiceStore.commitConfirmed(plan)
+      SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(report))
+    }
+  }
+
+  /// グラムなどは単位なしの数値。何分は時間の測定値で受け、アプリで分に換算する。
+  private func readAmount(_ plan: SiriVoiceStore.Plan) async throws -> SiriAmountAsk.Outcome {
+    let slot = SiriAmountSlot.from(unit: plan.record?["unit"] as? String)
+    let now = Date().timeIntervalSince1970
+    let defaults = SiriVoiceStore.dialogueDefaults()
+    if slot == .minutes {
+      return try await SiriAmountAsk.takeDuration(
+        stored: amountMinutes,
+        question: plan.spoken,
+        defaults: defaults,
+        now: now
+      ) {
+        SiriAmountLog.branch("ask.minutes")
+        return try await $amountMinutes.requestValue(SiriSpeech.dialog(plan.spoken))
+      }
+    }
+    let stored: Double?
+    let request: () async throws -> Double
+    switch slot {
+    case .grams:
+      stored = amountGrams
+      request = { try await self.$amountGrams.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .milliliters:
+      stored = amountMilliliters
+      request = { try await self.$amountMilliliters.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .kilometers:
+      stored = amountKilometers
+      request = { try await self.$amountKilometers.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .count:
+      stored = amountCount
+      request = { try await self.$amountCount.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .minutes:
+      stored = nil
+      request = { throw CancellationError() }
+    }
+    return try await SiriAmountAsk.take(
+      stored: stored,
+      question: plan.spoken,
+      defaults: defaults,
+      now: now
+    ) {
+      SiriAmountLog.branch("ask.\(slot.rawValue)")
+      return try await request()
     }
   }
 
@@ -3515,7 +3748,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
 
   /// 言い方に種目が無いときだけ聞く。入っていればそのまま名寄せへ渡す。
   /// init の空文字は値として残るので、requestValue ではなく聞き直してからやり直す。
-  private func promptedActivityName() async throws -> String {
+  private func promptedActivityName() async throws -> String? {
     if let spoken = activity?.spoken.trimmingCharacters(in: .whitespacesAndNewlines),
        !spoken.isEmpty {
       return spoken
@@ -3528,8 +3761,12 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
       return given
     }
     // 自由文は文字列のパラメータで受ける。独自の型だと答えが値にならず同じ質問が繰り返される。
+    let question = "何をしましたか？"
+    guard SiriVoiceStore.beginQuestion(question) else {
+      return nil
+    }
     SiriAnalytics.prompt(kind: "value")
-    return try await $activityReply.requestValue(SiriSpeech.dialog("何をしましたか？"))
+    return try await $activityReply.requestValue(SiriSpeech.dialog(question))
   }
 }
 
@@ -3558,8 +3795,32 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   @Parameter(title: "きつさ2")
   var intensity2: SiriChoiceEntity?
 
-  @Parameter(title: "量")
-  var amountReply: String?
+  /// 単位は付けない。測定値にすると基本単位へ換算され、150 が 0.15 で戻ることがある。
+  /// `DoubleFromStringResolver` は文字列を数値にするだけで、単位は換算しない。
+  /// https://developer.apple.com/documentation/appintents/doublefromstringresolver
+  /// https://developer.apple.com/documentation/appintents/adding-parameters-to-an-app-intent
+  /// 単位を指定する初期化子は測定値用。https://developer.apple.com/documentation/appintents/intentparameter
+  /// `UnitMass` の基本単位はキログラムで、グラムの係数は 0.001。
+  /// https://developer.apple.com/documentation/foundation/unitmass
+  @Parameter(title: "グラム", supportsNegativeNumbers: false)
+  var amountGrams: Double?
+
+  @Parameter(title: "ミリリットル", supportsNegativeNumbers: false)
+  var amountMilliliters: Double?
+
+  /// 何分は時間の測定値。単位を言わなければ分。届いた値はアプリで分に換算する。
+  /// `defaultUnit` は単位が無いときの既定。測定値パラメータは iOS 16 からあり、iOS 17 で使える。
+  /// https://developer.apple.com/documentation/appintents/intentparameter
+  /// https://developer.apple.com/documentation/foundation/unitduration
+  /// https://developer.apple.com/documentation/foundation/measurement/converted(to:)
+  @Parameter(title: "分", defaultUnit: .minutes, supportsNegativeNumbers: false)
+  var amountMinutes: Measurement<UnitDuration>?
+
+  @Parameter(title: "キロメートル", supportsNegativeNumbers: false)
+  var amountKilometers: Double?
+
+  @Parameter(title: "個数", supportsNegativeNumbers: false)
+  var amountCount: Double?
 
   @Parameter(title: "言い直し")
   var retryReply: String?
@@ -3584,20 +3845,29 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   func perform() async throws -> some IntentResult & ProvidesDialog {
     SiriAnalytics.started(intent: "log_utterance", hasParameter: !utterance.text.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
+      SiriVoiceStore.endDialogue()
       SiriAnalytics.finished(status: "continued", stopReason: "open_app", continued: true)
       return .result(dialog: "アプリで検索します")
     }
-    let routed = try await routedEntry()
+    guard let routed = try await routedEntry() else {
+      return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+    }
     let spoken = routed.text
     let forced = routed.kind
     var plan = routed.plan
     var retried = false
     while true {
       if plan.asksNarrow {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
         plan = await SiriVoiceStore.resolveNarrow(plan, text: try await nextNarrow(plan))
         continue
       }
       if plan.asksKind {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
         SiriAnalytics.prompt(kind: "disambiguation")
         let picked = try await $kind.requestDisambiguation(
           among: SiriSpokenKind.allCases,
@@ -3608,7 +3878,11 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
       if plan.asksChoice {
         let options = SiriChoiceEntity.list(plan.choices)
         guard !options.isEmpty else {
+          SiriVoiceStore.endDialogue()
           return .result(dialog: SiriSpeech.dialog(plan.spoken))
+        }
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
         }
         SiriAnalytics.prompt(kind: "disambiguation")
         let picked = try await $choice.requestDisambiguation(
@@ -3618,6 +3892,9 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
         plan = await SiriVoiceStore.resolveChoice(plan, id: picked.id)
       }
       if plan.asksIntensity {
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        }
         plan = SiriVoiceStore.resolveIntensity(plan, id: try await nextIntensity(plan))
         if plan.asksIntensity {
           continue
@@ -3625,17 +3902,29 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
       }
       if plan.asksAmount {
         SiriAnalytics.prompt(kind: "value")
-        let text = try await $amountReply.requestValue(SiriSpeech.dialog(plan.spoken))
-        plan = SiriVoiceStore.resolveAmount(plan, text: text)
+        switch try await readAmount(plan) {
+        case .stopRepeat:
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+        case .number(let number):
+          let slot = SiriAmountSlot.from(unit: plan.record?["unit"] as? String)
+          SiriAmountLog.resolved(slot: slot.rawValue, value: number)
+          plan = SiriVoiceStore.resolveAmountNumber(plan, number: number)
+        case .duration(let measurement):
+          plan = SiriVoiceStore.resolveDuration(plan, measurement: measurement)
+        }
       }
       if plan.asksRetry {
         if retried {
+          SiriVoiceStore.endDialogue()
           SiriVoiceStore.rememberSearch(
             kind: plan.searchKind,
             query: plan.searchQuery ?? spoken
           )
           SiriAnalytics.finished(status: "continued", stopReason: "needs_app", continued: true)
           throw needsToContinueInForegroundError()
+        }
+        guard SiriVoiceStore.beginQuestion(plan.spoken) else {
+          return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
         }
         retried = true
         SiriAnalytics.prompt(kind: "value")
@@ -3653,14 +3942,65 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     }
     switch SiriVoiceStore.commitStep(plan) {
     case .speak(let text):
+      SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(text))
     case .confirm(let dialog, let report):
+      guard SiriVoiceStore.beginQuestion(dialog) else {
+        return .result(dialog: SiriSpeech.dialog(SiriVoiceStore.denyRepeatedQuestion()))
+      }
       SiriAnalytics.prompt(kind: "confirmation")
       try await requestConfirmation(
         result: .result(dialog: SiriSpeech.dialog(dialog))
       )
       SiriVoiceStore.commitConfirmed(plan)
+      SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(report))
+    }
+  }
+
+  /// グラムなどは単位なしの数値。何分は時間の測定値で受け、アプリで分に換算する。
+  private func readAmount(_ plan: SiriVoiceStore.Plan) async throws -> SiriAmountAsk.Outcome {
+    let slot = SiriAmountSlot.from(unit: plan.record?["unit"] as? String)
+    let now = Date().timeIntervalSince1970
+    let defaults = SiriVoiceStore.dialogueDefaults()
+    if slot == .minutes {
+      return try await SiriAmountAsk.takeDuration(
+        stored: amountMinutes,
+        question: plan.spoken,
+        defaults: defaults,
+        now: now
+      ) {
+        SiriAmountLog.branch("ask.minutes")
+        return try await $amountMinutes.requestValue(SiriSpeech.dialog(plan.spoken))
+      }
+    }
+    let stored: Double?
+    let request: () async throws -> Double
+    switch slot {
+    case .grams:
+      stored = amountGrams
+      request = { try await self.$amountGrams.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .milliliters:
+      stored = amountMilliliters
+      request = { try await self.$amountMilliliters.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .kilometers:
+      stored = amountKilometers
+      request = { try await self.$amountKilometers.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .count:
+      stored = amountCount
+      request = { try await self.$amountCount.requestValue(SiriSpeech.dialog(plan.spoken)) }
+    case .minutes:
+      stored = nil
+      request = { throw CancellationError() }
+    }
+    return try await SiriAmountAsk.take(
+      stored: stored,
+      question: plan.spoken,
+      defaults: defaults,
+      now: now
+    ) {
+      SiriAmountLog.branch("ask.\(slot.rawValue)")
+      return try await request()
     }
   }
 
@@ -3696,7 +4036,7 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     text: String,
     kind: SiriSpokenKind?,
     plan: SiriVoiceStore.Plan
-  ) {
+  )? {
     let current = utterance.text.trimmingCharacters(in: .whitespacesAndNewlines)
     if !current.isEmpty {
       if kind == .meal {
@@ -3711,20 +4051,25 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     if let kind {
       picked = kind
     } else {
+      let question = "食事ですか、運動ですか？"
+      guard SiriVoiceStore.beginQuestion(question) else {
+        return nil
+      }
       SiriAnalytics.prompt(kind: "disambiguation")
       picked = try await $kind.requestDisambiguation(
         among: SiriSpokenKind.allCases,
-        dialog: SiriSpeech.dialog("食事ですか、運動ですか？")
+        dialog: SiriSpeech.dialog(question)
       )
     }
-    let text: String
-    if picked == .meal {
-      SiriAnalytics.prompt(kind: "value")
-      text = try await $entryReply.requestValue(SiriSpeech.dialog("何を食べましたか？"))
-      return (text, picked, await SiriVoiceStore.planFood(name: text, quantity: ""))
+    let question = picked == .meal ? "何を食べましたか？" : "何をしましたか？"
+    guard SiriVoiceStore.beginQuestion(question) else {
+      return nil
     }
     SiriAnalytics.prompt(kind: "value")
-    text = try await $entryReply.requestValue(SiriSpeech.dialog("何をしましたか？"))
+    let text = try await $entryReply.requestValue(SiriSpeech.dialog(question))
+    if picked == .meal {
+      return (text, picked, await SiriVoiceStore.planFood(name: text, quantity: ""))
+    }
     return (text, picked, await SiriVoiceStore.planExercise(name: text, quantity: ""))
   }
 }

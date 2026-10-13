@@ -152,6 +152,7 @@ Deno.test("functions accept both 2026-10-08 and 2026-10-10 consent rows", async 
   assertEquals(url.includes("2026-10-10"), true);
   assertEquals(url.includes("policy_version=in."), true);
   assertEquals(url.includes("policy_version=eq."), false);
+  assertEquals(url.includes("ai_sending_enabled=eq.true"), true);
 
   assertEquals(
     await hasAiDataConsent({

@@ -6,6 +6,7 @@ import '../../database/schemas.dart';
 import '../../models/workout_template.dart';
 import '../../utils/food_name_normalizer.dart';
 import '../contracts/workout_template_repository_base.dart';
+import '../local_write_guard.dart';
 
 class WorkoutTemplateRepository implements WorkoutTemplateRepositoryBase {
   WorkoutTemplateRepository(this._isar);
@@ -219,6 +220,57 @@ class WorkoutTemplateRepository implements WorkoutTemplateRepositoryBase {
       for (final entity in items) {
         entity.ownerUserId = toOwnerUserId;
         await _isar.workoutTemplateItemEntitys.put(entity);
+      }
+    });
+  }
+
+  Future<void> applyRemoteForSync({
+    required String ownerUserId,
+    required List<WorkoutTemplate> templates,
+    required Map<String, List<WorkoutTemplateItem>> itemsByTemplate,
+    LocalWriteGuard? mayWrite,
+  }) async {
+    await _isar.writeTxn(() async {
+      if (!localWriteAllowed(mayWrite)) {
+        return;
+      }
+      final existingItems = await _isar.workoutTemplateItemEntitys
+          .filter()
+          .ownerUserIdEqualTo(ownerUserId)
+          .findAll();
+      if (existingItems.isNotEmpty) {
+        await _isar.workoutTemplateItemEntitys.deleteAll(
+          existingItems.map((entity) => entity.id).toList(),
+        );
+      }
+      final existing = await _isar.workoutTemplateEntitys
+          .filter()
+          .ownerUserIdEqualTo(ownerUserId)
+          .findAll();
+      if (existing.isNotEmpty) {
+        await _isar.workoutTemplateEntitys.deleteAll(
+          existing.map((entity) => entity.id).toList(),
+        );
+      }
+      if (templates.isEmpty) {
+        return;
+      }
+      await _isar.workoutTemplateEntitys.putAll(
+        templates.map(EntityMapper.toWorkoutTemplateEntity).toList(),
+      );
+      final itemEntities = [
+        for (final template in templates)
+          for (final item
+              in itemsByTemplate[template.templateId] ??
+                  const <WorkoutTemplateItem>[])
+            EntityMapper.toWorkoutTemplateItemEntity(
+              item: item,
+              templateId: template.templateId,
+              ownerUserId: ownerUserId,
+            ),
+      ];
+      if (itemEntities.isNotEmpty) {
+        await _isar.workoutTemplateItemEntitys.putAll(itemEntities);
       }
     });
   }

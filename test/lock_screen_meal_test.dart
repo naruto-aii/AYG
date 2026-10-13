@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'catalog_plus_repository.dart';
 import 'mocks/mock_authentication_repository.dart';
 
 void main() {
@@ -398,7 +399,10 @@ void main() {
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
     );
-    final controller = AppController(authenticationRepository: auth);
+    final controller = AppController(
+      authenticationRepository: auth,
+      subscriptionRepository: CatalogPlusRepository(),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -420,7 +424,7 @@ void main() {
           .didExceedMaxLines,
       isFalse,
     );
-    expect(find.text('音声登録 (β)'), findsOneWidget);
+    expect(find.text('音声登録'), findsOneWidget);
     expect(find.text('声だけで食事・運動を登録'), findsOneWidget);
     expect(find.text('カロナビ+で使えます'), findsNothing);
     expect(
@@ -446,7 +450,7 @@ void main() {
       ),
     );
     expect(find.text('ウィジェット'), findsNothing);
-    expect(find.text('音声登録 (β)'), findsNothing);
+    expect(find.text('音声登録'), findsNothing);
     expect(find.textContaining('自動では付きません'), findsNothing);
     await auth.dispose();
   });
@@ -585,7 +589,10 @@ void main() {
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
     );
-    final controller = AppController(authenticationRepository: auth);
+    final controller = AppController(
+      authenticationRepository: auth,
+      subscriptionRepository: CatalogPlusRepository(),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -643,7 +650,10 @@ void main() {
     final auth = MockAuthenticationRepository(
       currentUser: const AuthUser(id: 'user-1', email: 'a@example.com'),
     );
-    final controller = AppController(authenticationRepository: auth);
+    final controller = AppController(
+      authenticationRepository: auth,
+      subscriptionRepository: CatalogPlusRepository(),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -657,8 +667,8 @@ void main() {
         ),
       ),
     );
-    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
-    await tester.tap(find.text('音声登録 (β)'));
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
     expect(find.text('カロナビ+限定機能'), findsOneWidget);
@@ -715,6 +725,7 @@ void main() {
     final controller = AppController(
       authenticationRepository: auth,
       lockScreenMealGateway: gateway,
+      subscriptionRepository: CatalogPlusRepository(),
     );
 
     await tester.pumpWidget(
@@ -741,8 +752,8 @@ void main() {
 
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
-    await tester.tap(find.text('音声登録 (β)'));
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
     expect(find.text('カロナビ+限定機能'), findsOneWidget);
@@ -778,15 +789,15 @@ void main() {
         ),
       ),
     );
-    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
-    await tester.tap(find.text('音声登録 (β)'));
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
     expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ショートカットを開く'), findsOneWidget);
     expect(find.text('使い始める前'), findsOneWidget);
-    expect(find.text('音声登録 (β)'), findsWidgets);
+    expect(find.text('音声登録'), findsWidgets);
     expect(find.textContaining('ショートカットを自分で作る必要はありません'), findsWidgets);
     expect(find.textContaining('カロナビ+で使えます'), findsNothing);
     expect(find.textContaining('β版として先行公開'), findsNothing);
@@ -848,8 +859,8 @@ void main() {
       ),
     );
 
-    await tester.scrollUntilVisible(find.text('音声登録 (β)'), 200);
-    await tester.tap(find.text('音声登録 (β)'));
+    await tester.scrollUntilVisible(find.text('音声登録'), 200);
+    await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
     expect(gateway.paid, isTrue);

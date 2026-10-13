@@ -1,6 +1,7 @@
 import 'package:ayg/models/food_entry.dart';
 import 'package:ayg/models/sync_failure.dart';
 import 'package:ayg/repositories/data_sync_repository.dart';
+import 'package:ayg/repositories/local_write_guard.dart';
 
 class MockDataSyncRepository implements DataSyncRepository {
   bool ensureUserProfileCalled = false;
@@ -63,6 +64,7 @@ class MockDataSyncRepository implements DataSyncRepository {
   Future<void> pullRemoteToLocal(
     String userId, {
     Set<String> skipTables = const {},
+    LocalWriteGuard? mayWrite,
   }) async {
     pullRemoteToLocalCalled = true;
     lastUserId = userId;
@@ -88,7 +90,10 @@ class MockDataSyncRepository implements DataSyncRepository {
   }
 
   @override
-  Future<void> pushLocalToRemote(String userId) async {
+  Future<void> pushLocalToRemote(
+    String userId, {
+    LocalWriteGuard? mayWrite,
+  }) async {
     pushLocalToRemoteCalled = true;
     lastUserId = userId;
   }
@@ -97,6 +102,7 @@ class MockDataSyncRepository implements DataSyncRepository {
   Future<void> pushFoodEntry({
     required String userId,
     required FoodEntry entry,
+    LocalWriteGuard? mayWrite,
   }) async {
     lastUserId = userId;
     pushedFoodEntryIds.add(entry.id);

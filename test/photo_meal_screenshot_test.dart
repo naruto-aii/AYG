@@ -90,7 +90,7 @@ void main() {
         source: _FixedPhotoSource(jpeg),
       ),
       File('${directory.path}/photo_meal_entry.png'),
-      find.text('写真で登録 (β)'),
+      find.text('写真で登録'),
       scrollTo: find.text('補足'),
     );
     expect(

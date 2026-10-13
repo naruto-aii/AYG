@@ -58,7 +58,7 @@ class ImagePickerMealPhotoSource implements MealPhotoSource {
   Future<Uint8List?> pickFromLibrary() => _pick(ImageSource.gallery);
 }
 
-/// 写真で登録 (β)。写真は必須。料理名と量は任意。
+/// 写真で登録。写真は必須。料理名と量は任意。
 class PhotoMealScreen extends StatefulWidget {
   const PhotoMealScreen({
     super.key,
@@ -216,7 +216,7 @@ class _PhotoMealScreenState extends State<PhotoMealScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const DesignTitleBlock(
-            title: '写真で登録 (β)',
+            title: '写真で登録',
             subtitle:
                 '食事の写真から、AIがカロリーとPFCを推定します。料理名、量、補足は任意で、入れると精度が上がります。登録の前に確認して、数値を直せます。\n写真は栄養の推定に使い、カロナビには保存しません。${AppStrings.plusAiDailyLimit}',
           ),

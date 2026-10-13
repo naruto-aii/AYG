@@ -6,6 +6,7 @@ import '../models/health_profile_data.dart';
 import '../models/user_profile.dart';
 import 'health_characteristics.dart';
 import 'health_repository.dart';
+import 'local_write_guard.dart';
 import 'health_workout_local_store.dart';
 import 'weight_repository.dart';
 
@@ -101,8 +102,11 @@ class PlatformHealthRepository implements HealthRepository {
   }
 
   @override
-  Future<void> saveWorkoutRecords(List<HealthWorkoutRecord> records) {
-    return _workoutStore.saveWorkoutRecords(records);
+  Future<void> saveWorkoutRecords(
+    List<HealthWorkoutRecord> records, {
+    LocalWriteGuard? mayWrite,
+  }) {
+    return _workoutStore.saveWorkoutRecords(records, mayWrite: mayWrite);
   }
 
   Future<DateTime?> _fetchBirthDate() async {

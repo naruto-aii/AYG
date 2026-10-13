@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ayg/constants/app_strings.dart';
 import 'package:ayg/repositories/authentication_repository.dart';
+import 'package:ayg/repositories/local_write_guard.dart';
 import 'package:ayg/repositories/coach_proposal_log.dart';
 import 'package:ayg/repositories/plus_funnel_repository.dart';
 import 'package:ayg/repositories/supabase_authentication_repository.dart';
@@ -20,19 +21,22 @@ import 'mocks/mock_data_sync_repository.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('supabase sign-out runs before google and survives a google failure', () async {
-    final order = <String>[];
-    await signOutLocalSessionThenGoogle(
-      supabaseSignOut: () async {
-        order.add('supabase');
-      },
-      googleSignOut: () async {
-        order.add('google');
-        throw StateError('google down');
-      },
-    );
-    expect(order, ['supabase', 'google']);
-  });
+  test(
+    'supabase sign-out runs before google and survives a google failure',
+    () async {
+      final order = <String>[];
+      await signOutLocalSessionThenGoogle(
+        supabaseSignOut: () async {
+          order.add('supabase');
+        },
+        googleSignOut: () async {
+          order.add('google');
+          throw StateError('google down');
+        },
+      );
+      expect(order, ['supabase', 'google']);
+    },
+  );
 
   test('a hung google sign-out does not block logout', () async {
     final started = DateTime.now();
@@ -108,7 +112,9 @@ void main() {
     await tester.ensureVisible(find.text(AppStrings.accountDeletionExecute));
     await tester.tap(find.text(AppStrings.accountDeletionExecute));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, AppStrings.accountDeletionExecute));
+    await tester.tap(
+      find.widgetWithText(TextButton, AppStrings.accountDeletionExecute),
+    );
     await tester.pumpAndSettle();
 
     expect(auth.deleteOwnAccountCalled, isTrue);
@@ -254,12 +260,13 @@ class _HangCoach extends NoOpCoachProposalLog {
 
 class _HangPush extends MockDataSyncRepository {
   @override
-  Future<void> pushLocalToRemote(String userId) => Completer<void>().future;
+  Future<void> pushLocalToRemote(String userId, {LocalWriteGuard? mayWrite}) =>
+      Completer<void>().future;
 }
 
 class _SlowPush extends MockDataSyncRepository {
   @override
-  Future<void> pushLocalToRemote(String userId) {
+  Future<void> pushLocalToRemote(String userId, {LocalWriteGuard? mayWrite}) {
     return Future<void>.delayed(const Duration(milliseconds: 2800));
   }
 }

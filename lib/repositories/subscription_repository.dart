@@ -6,6 +6,9 @@ import '../services/subscription_offer.dart';
 abstract class SubscriptionRepository {
   bool get isPlusActive;
 
+  /// debug / profile の見本だけ真。release の購入判定には使わない。
+  bool get previewsPaidLocally => false;
+
   Stream<bool> get plusChanges;
 
   /// ストアが商品IDを返した加入。期限だけの端末キャッシュは含めない。

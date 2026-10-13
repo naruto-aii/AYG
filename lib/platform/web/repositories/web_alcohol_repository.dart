@@ -1,5 +1,6 @@
 import '../../../models/alcohol_entry.dart';
 import '../../../repositories/contracts/alcohol_repository_base.dart';
+import '../../../repositories/local_write_guard.dart';
 
 /// Web向けインメモリ AlcoholRepository。
 class AlcoholRepository implements AlcoholRepositoryBase {
@@ -37,5 +38,17 @@ class AlcoholRepository implements AlcoholRepositoryBase {
   @override
   Future<void> clearAll() async {
     _entries.clear();
+  }
+
+  Future<void> replaceAll(
+    List<AlcoholEntry> entries, {
+    LocalWriteGuard? mayWrite,
+  }) async {
+    if (!localWriteAllowed(mayWrite)) {
+      return;
+    }
+    _entries
+      ..clear()
+      ..addAll(entries);
   }
 }

@@ -119,7 +119,7 @@ void main() {
 
     expect(find.text(AppStrings.coachFeatureBody), findsOneWidget);
     expect(find.text(AppStrings.coachBetaNotice), findsNothing);
-    expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
+    expect(find.text('パーソナルコーチ'), findsOneWidget);
     final mealBottom = tester.getBottomLeft(find.text(headline)).dy;
     final noteTop = tester
         .getTopLeft(find.byKey(const Key('coach_beta_notice')))
@@ -161,7 +161,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('パーソナルコーチ (β)'));
+    await tester.tap(find.text('パーソナルコーチ'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsNothing);
@@ -604,11 +604,11 @@ void main() {
     expect(find.byTooltip('お知らせ'), findsOneWidget);
     expect(find.byKey(const Key('announcement_unread_dot')), findsNothing);
     final remainingTop = tester.getTopLeft(find.text('今日あと')).dy;
-    final coachTop = tester.getTopLeft(find.text('パーソナルコーチ (β)')).dy;
+    final coachTop = tester.getTopLeft(find.text('パーソナルコーチ')).dy;
     expect(coachTop, greaterThan(remainingTop));
     expect(tester.widget<DesignButton>(find.byType(DesignButton)).height, 52);
 
-    await tester.tap(find.text('パーソナルコーチ (β)'));
+    await tester.tap(find.text('パーソナルコーチ'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsOneWidget);
@@ -621,7 +621,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DailyCoachScreen), findsNothing);
 
-    await tester.tap(find.text('パーソナルコーチ (β)'));
+    await tester.tap(find.text('パーソナルコーチ'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();

@@ -78,7 +78,7 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 ## 利用者チェックポイントの Slack 通知
 
-`userlog-notify` は、インストール、ログイン、初回登録完了、無料トライアル開始、有料開始、解約、期限切れ、返金を Slack の Incoming Webhook へ送る。ログインは、同じ利用者と同じインストール ID の組が `app_events` に初めて出たときだけ送る。`auth.sessions` の挿入では送らない。この変更では関数を配備せず、マイグレーションも本番へ適用しない。
+`userlog-notify` は、インストール、ログイン、初回登録完了、無料トライアル開始、有料開始、解約、期限切れ、返金を Slack の Incoming Webhook へ送る。ログインは、同じ利用者と同じインストール ID の組が `app_events` に初めて出たときだけ送る。アプリは 1 回の INSERT で最大 100 行を書くので、トリガーはその文をまとめて見る。`auth.sessions` の挿入では送らない。この変更では関数を配備せず、マイグレーションも本番へ適用しない。
 
 既存の表とパーティションの列は変えない。送った記録は `public.userlog_notifications_sent` に書く。ログインの一意キーは利用者、`login`、インストール ID。トリガーは失敗を飲み、元の INSERT は成功する。`app-store-notifications` は変更しない。
 

@@ -2,7 +2,7 @@
 
 begin;
 
-select plan(23);
+select plan(28);
 
 select hasnt_trigger(
   'auth',
@@ -16,6 +16,21 @@ select has_trigger(
   'app_events',
   'userlog_app_events_login_insert',
   'app_events has the install login trigger'
+);
+
+select ok(
+  (
+    select pg_get_triggerdef(t.oid) ilike '%for each statement%'
+      and pg_get_triggerdef(t.oid) ilike '%referencing new table%'
+    from pg_trigger t
+    join pg_class c on c.oid = t.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'app_events'
+      and t.tgname = 'userlog_app_events_login_insert'
+      and not t.tgisinternal
+  ),
+  'login trigger reads one insert as a batch'
 );
 
 select has_trigger(
@@ -120,6 +135,118 @@ select is(
   ),
   1,
   'another user on the same install notifies once'
+);
+
+do $batch_same$
+begin
+  insert into public.app_events (event_id, user_id, event_name, occurred_at, install_id)
+  values
+    (
+      'cb111111-1111-4111-8111-111111111111',
+      'ab111111-1111-4111-8111-111111111111',
+      'app_open',
+      timestamptz '2026-10-15 06:00:00+00',
+      'bb111111-1111-4111-8111-111111111111'
+    ),
+    (
+      'cb111111-1111-4111-8111-111111111112',
+      'ab111111-1111-4111-8111-111111111111',
+      'app_open',
+      timestamptz '2026-10-15 06:01:00+00',
+      'bb111111-1111-4111-8111-111111111111'
+    ),
+    (
+      'cb111111-1111-4111-8111-111111111113',
+      'ab111111-1111-4111-8111-111111111111',
+      'app_open',
+      timestamptz '2026-10-15 06:02:00+00',
+      'bb111111-1111-4111-8111-111111111111'
+    );
+end
+$batch_same$;
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'kind' = 'install_login'
+      and body ->> 'user_id' = 'ab111111-1111-4111-8111-111111111111'
+      and body ->> 'source_id' = 'bb111111-1111-4111-8111-111111111111'
+  ),
+  1,
+  'one insert with several rows for a new pair notifies once'
+);
+
+do $batch_seen$
+begin
+  insert into public.app_events (event_id, user_id, event_name, occurred_at, install_id)
+  values
+    (
+      'cb111111-1111-4111-8111-111111111114',
+      'ab111111-1111-4111-8111-111111111111',
+      'app_open',
+      timestamptz '2026-10-15 06:03:00+00',
+      'bb111111-1111-4111-8111-111111111111'
+    ),
+    (
+      'cb111111-1111-4111-8111-111111111115',
+      'ab111111-1111-4111-8111-111111111111',
+      'app_open',
+      timestamptz '2026-10-15 06:04:00+00',
+      'bb111111-1111-4111-8111-111111111111'
+    );
+end
+$batch_seen$;
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'kind' = 'install_login'
+      and body ->> 'user_id' = 'ab111111-1111-4111-8111-111111111111'
+      and body ->> 'source_id' = 'bb111111-1111-4111-8111-111111111111'
+  ),
+  1,
+  'a later batch for an already-seen pair does not notify'
+);
+
+do $batch_mixed$
+begin
+  insert into public.app_events (event_id, user_id, event_name, occurred_at, install_id)
+  values
+    (
+      'cb222222-2222-4222-8222-222222222221',
+      'ab222222-2222-4222-8222-222222222222',
+      'app_open',
+      timestamptz '2026-10-15 07:00:00+00',
+      'bb222222-2222-4222-8222-222222222222'
+    ),
+    (
+      'cb222222-2222-4222-8222-222222222222',
+      'ab222222-2222-4222-8222-222222222222',
+      'app_open',
+      timestamptz '2026-10-15 07:01:00+00',
+      'bb222222-2222-4222-8222-222222222222'
+    ),
+    (
+      'cb333333-3333-4333-8333-333333333333',
+      'ab222222-2222-4222-8222-222222222222',
+      'app_open',
+      timestamptz '2026-10-15 07:02:00+00',
+      'bb333333-3333-4333-8333-333333333333'
+    );
+end
+$batch_mixed$;
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'kind' = 'install_login'
+      and body ->> 'user_id' = 'ab222222-2222-4222-8222-222222222222'
+  ),
+  2,
+  'one insert with two new pairs notifies twice'
 );
 
 do $nulls$
@@ -452,6 +579,86 @@ select is(
   ),
   1,
   'the app_events row remains when pg_net is unavailable'
+);
+
+select lives_ok(
+  $sql$
+  do $inner$
+  declare
+    v_pairs integer;
+    v_rows integer;
+  begin
+    create table public.userlog_pgtap_parts (
+      event_id uuid not null,
+      user_id uuid,
+      install_id uuid,
+      occurred_at timestamptz not null,
+      primary key (event_id, occurred_at)
+    ) partition by range (occurred_at);
+    create table public.userlog_pgtap_parts_oct
+      partition of public.userlog_pgtap_parts
+      for values from ('2026-10-01') to ('2026-11-01');
+    create table public.userlog_pgtap_parts_nov
+      partition of public.userlog_pgtap_parts
+      for values from ('2026-11-01') to ('2026-12-01');
+    create table public.userlog_pgtap_part_log (
+      pairs integer not null,
+      batch_rows integer not null
+    );
+    create function public.userlog_pgtap_on_part()
+    returns trigger
+    language plpgsql
+    as $fn$
+    begin
+      insert into public.userlog_pgtap_part_log (pairs, batch_rows)
+      select count(*)::integer, (select count(*)::integer from new_rows)
+      from (
+        select user_id, install_id
+        from new_rows
+        where user_id is not null
+          and install_id is not null
+        group by user_id, install_id
+      ) as pairs;
+      return null;
+    end
+    $fn$;
+    create trigger userlog_pgtap_parts_insert
+      after insert on public.userlog_pgtap_parts
+      referencing new table as new_rows
+      for each statement
+      execute function public.userlog_pgtap_on_part();
+    insert into public.userlog_pgtap_parts (event_id, user_id, install_id, occurred_at)
+    values
+      (
+        'cc111111-1111-4111-8111-111111111111',
+        'ac111111-1111-4111-8111-111111111111',
+        'bc111111-1111-4111-8111-111111111111',
+        timestamptz '2026-10-15 08:00:00+00'
+      ),
+      (
+        'cc111111-1111-4111-8111-111111111112',
+        'ac111111-1111-4111-8111-111111111111',
+        'bc111111-1111-4111-8111-111111111111',
+        timestamptz '2026-10-16 08:00:00+00'
+      ),
+      (
+        'cc111111-1111-4111-8111-111111111113',
+        'ac111111-1111-4111-8111-111111111111',
+        'bc222222-2222-4222-8222-222222222222',
+        timestamptz '2026-11-02 08:00:00+00'
+      );
+    select pairs, batch_rows into v_pairs, v_rows
+    from public.userlog_pgtap_part_log;
+    if v_pairs is distinct from 2 or v_rows is distinct from 3 then
+      raise exception 'partition batch saw % pairs and % rows', v_pairs, v_rows;
+    end if;
+    if (select count(*) from public.userlog_pgtap_part_log) is distinct from 1 then
+      raise exception 'partition insert fired the statement trigger more than once';
+    end if;
+  end
+  $inner$
+  $sql$,
+  'a partitioned table statement trigger sees the whole insert'
 );
 
 select * from finish();

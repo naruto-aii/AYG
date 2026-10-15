@@ -62,8 +62,9 @@ end
 $userlog_remap_now$;
 
 -- ---------------------------------------------------------------------
--- 2. app_events に、その利用者とインストールの組が初めて出たときだけ呼ぶ。
---    送信済み行があるとき、または user_id / install_id が無いときは呼ばない。
+-- 2. 1 回の INSERT（最大 100 行）を 1 つの文として見る。
+--    組ごとに、送信済み行が無く、この文の外に同じ組が無いときだけ 1 回呼ぶ。
+--    user_id / install_id が無い行は無視する。
 -- ---------------------------------------------------------------------
 create or replace function userlog.on_install_login()
 returns trigger
@@ -71,40 +72,58 @@ language plpgsql
 security definer
 set search_path = ''
 as $function$
+declare
+  r record;
 begin
   begin
-    if new.user_id is null or new.install_id is null then
-      return null;
-    end if;
+    for r in
+      select
+        incoming.user_id,
+        incoming.install_id,
+        min(incoming.occurred_at) as occurred_at
+      from new_rows as incoming
+      where incoming.user_id is not null
+        and incoming.install_id is not null
+      group by incoming.user_id, incoming.install_id
+    loop
+      begin
+        if exists (
+          select 1
+          from public.userlog_notifications_sent as sent
+          where sent.user_id = r.user_id
+            and sent.checkpoint_type = 'login'
+            and sent.source_id = r.install_id::text
+        ) then
+          continue;
+        end if;
 
-    if exists (
-      select 1
-      from public.userlog_notifications_sent as sent
-      where sent.user_id = new.user_id
-        and sent.checkpoint_type = 'login'
-        and sent.source_id = new.install_id::text
-    ) then
-      return null;
-    end if;
+        if exists (
+          select 1
+          from public.app_events as events
+          where events.user_id = r.user_id
+            and events.install_id = r.install_id
+            and not exists (
+              select 1
+              from new_rows as batch_rows
+              where batch_rows.event_id = events.event_id
+                and batch_rows.occurred_at = events.occurred_at
+            )
+        ) then
+          continue;
+        end if;
 
-    if exists (
-      select 1
-      from public.app_events as events
-      where events.install_id = new.install_id
-        and events.user_id = new.user_id
-        and (events.event_id, events.occurred_at)
-          is distinct from (new.event_id, new.occurred_at)
-    ) then
-      return null;
-    end if;
-
-    perform userlog.enqueue_json(pg_catalog.jsonb_build_object(
-      'kind', 'install_login',
-      'source_id', new.install_id,
-      'user_id', new.user_id,
-      'install_id', new.install_id,
-      'occurred_at', new.occurred_at
-    ));
+        perform userlog.enqueue_json(pg_catalog.jsonb_build_object(
+          'kind', 'install_login',
+          'source_id', r.install_id,
+          'user_id', r.user_id,
+          'install_id', r.install_id,
+          'occurred_at', r.occurred_at
+        ));
+      exception
+        when others then
+          raise warning 'userlog install login skipped';
+      end;
+    end loop;
   exception
     when others then
       raise warning 'userlog install login skipped';
@@ -116,7 +135,7 @@ $function$;
 revoke all on function userlog.on_install_login() from public;
 grant execute on function userlog.on_install_login() to service_role;
 comment on function userlog.on_install_login() is
-  '利用者とインストールの組が初めて出たときだけ userlog-notify を呼ぶ。失敗しても挿入は続ける。';
+  '1 回の INSERT に入った利用者とインストールの組が、その文の外にまだ無いときだけ userlog-notify を呼ぶ。失敗しても挿入は続ける。';
 
 do $userlog_login_grant$
 begin
@@ -129,7 +148,8 @@ $userlog_login_grant$;
 drop trigger if exists userlog_app_events_login_insert on public.app_events;
 create trigger userlog_app_events_login_insert
   after insert on public.app_events
-  for each row
+  referencing new table as new_rows
+  for each statement
   execute function userlog.on_install_login();
 
 drop trigger if exists userlog_auth_sessions_insert on auth.sessions;

@@ -1,4 +1,5 @@
 -- ログイン通知を、auth.sessions の挿入へ戻す。
+-- app_events の文単位トリガー（REFERENCING NEW TABLE）も外す。
 -- 既存の表・列・pg_net は残す。書き換えた source_id は戻さない。
 -- 元のセッション ID は残していない。このファイルは本番では手で流す。
 

@@ -14,14 +14,15 @@ class AnalyticsQueue {
   final int maxPending;
   int droppedOverflow = 0;
 
-  Future<void> enqueue(AnalyticsEvent event) async {
+  Future<void> enqueue(AnalyticsEvent event, {DateTime? now}) async {
+    final stamp = (now ?? DateTime.now()).toUtc();
     final row = PendingAnalyticsEvent()
       ..eventId = event.eventId
       ..userId = event.userId
       ..json = event.encode()
-      ..createdAt = DateTime.now().toUtc()
+      ..createdAt = stamp
       ..attempts = 0
-      ..nextAttemptAt = DateTime.now().toUtc()
+      ..nextAttemptAt = stamp
       ..quarantined = false;
     await _isar.writeTxn(() async {
       await _isar.pendingAnalyticsEvents.putByEventId(row);

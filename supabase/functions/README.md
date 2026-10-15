@@ -75,3 +75,36 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 8. `20261007103757_app_events_closed_month.sql` は本番に適用済み。集計済みの月の操作は受け付けない。
 9. `20261007112725_kpi_excluded_users.sql` は本番に適用済み。開発者アカウントは日次集計と退会集計から外す。手順 8 のあと。
 10. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 8 と 9 は適用済み。
+
+## 利用者チェックポイントの Slack 通知
+
+`userlog-notify` は、インストール、ログイン、初回登録完了、無料トライアル開始、有料開始、解約、期限切れ、返金を Slack の Incoming Webhook へ送る。この変更では関数を配備せず、マイグレーションも本番へ適用しない。
+
+既存の表の列、関数、RLS、既存トリガーの中身は変えない。送った記録は新しい表 `public.userlog_notifications_sent` にだけ書く。トリガーは失敗を飲み、元の INSERT は成功する。`app-store-notifications` は変更しない。
+
+秘密の名前（値は git に書かない）:
+
+- `SLACK_USERLOG_WEBHOOK_URL` — Incoming Webhook。Edge Function の秘密。
+- `SLACK_USERLOG_MENTION` — 投稿の先頭でメンションする Slack メンバー ID。Edge Function の秘密。
+- `USERLOG_NOTIFY_SECRET` — 32 文字以上。Edge Function の秘密。Vault の `userlog_notify_secret` と同じ値。
+- Vault の `project_url` — 関数の起点。取り込み用と同じ名前。この節には値を書かない。
+
+公開するときの順番:
+
+1. Edge Function の秘密 3 つを入れる。`userlog-notify` を配備する。この時点ではデータベースはまだ呼ばない。
+2. `20261015032420_userlog_notifications.sql` を適用する。pg_net が未導入なら、このファイルが有効にする。pg_cron は有効にしない。過去分は送らない。
+3. Vault に `project_url` と `userlog_notify_secret` を入れる。秘密が無い間、トリガーは warning を出して元の書き込みは成功する。
+4. バックフィルは、上の 3 つが終わったあと、SQL エディタで次を 1 回実行する。
+
+```sql
+select userlog.enqueue_backfill();
+```
+
+対象は 2026-10-14 20:17 UTC 以降。表示は通常の通知で、テストの印は付けない。同じイベントは `userlog_notifications_sent` で 1 回にまとまる。失敗した行は status が `failed` のままなので、もう一度同じ SQL を実行すると送り直す。`sent` の行は送らない。
+
+戻すときは `supabase/rollback/20261015032420_userlog_notifications_down.sql` を手で流す。pg_net と既存の表は残る。関数を出していれば削除する。
+
+```sh
+deno test --allow-env --config supabase/functions/deno.json supabase/functions/userlog_notify_test.ts
+bash supabase/tests/run_userlog_notifications_test.sh
+```

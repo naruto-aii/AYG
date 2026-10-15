@@ -20,5 +20,12 @@ fi
 
 psql_cmd -f supabase/tests/userlog_notifications_bootstrap.sql
 psql_cmd -f supabase/migrations/20261015032420_userlog_notifications.sql
+psql_cmd -f supabase/migrations/20261015065812_userlog_login_per_install.sql
 psql_cmd -f supabase/tests/userlog_notifications_test.sql
+psql_cmd -c "create extension if not exists pgtap;"
+if [[ -n "${DATABASE_URL:-}" ]]; then
+  PGOPTIONS="-c client_min_messages=error" pg_prove -d "$DATABASE_URL" supabase/tests/userlog_login_per_install_test.sql
+else
+  sudo -u postgres env PGOPTIONS="-c client_min_messages=error" pg_prove -d userlog_test supabase/tests/userlog_login_per_install_test.sql
+fi
 echo "userlog sql tests passed"

@@ -136,6 +136,16 @@ export function moneyCents(price: number, units: number): number {
   return Math.round(price * 100 * units);
 }
 
+/// 返金行は Customer Price と Units がどちらも負で、Developer Proceeds は正。
+/// 売上は単価の大きさに数量の符号だけを掛ける。両方の負を掛けると返金が売上に足される。
+export function salesCents(price: number, units: number): number {
+  const direction = units < 0 ? -1 : 1;
+  return Math.round(Math.abs(price) * 100 * Math.abs(units)) * direction;
+}
+
+/// reserved のまま finish まで届かなかった行を、この時間が過ぎたら取り直す。
+export const reservationLeaseMs = 30 * 60 * 1000;
+
 export function classifyUnavailable(status: number, body: string): Availability {
   if (status >= 200 && status < 300) return "ready";
   if (status === 404) {
@@ -192,7 +202,13 @@ export function nextClaim(
   nowMs: number,
 ): { action: "insert" | "reclaim" | "skip"; attempt: number } {
   if (!post) return { action: "insert", attempt: 1 };
-  if (post.status !== "failed") return { action: "skip", attempt: post.attempt };
+  if (post.status === "posted") return { action: "skip", attempt: post.attempt };
+  if (post.status === "reserved") {
+    if (nowMs - post.updatedAtMs < reservationLeaseMs) {
+      return { action: "skip", attempt: post.attempt };
+    }
+    return { action: "reclaim", attempt: post.attempt + 1 };
+  }
   if (nowMs - post.updatedAtMs < claimBackoffMs(post.attempt)) {
     return { action: "skip", attempt: post.attempt };
   }
@@ -245,9 +261,21 @@ function sameId(value: string, appAppleId: string): boolean {
   return value.trim() !== "" && value.trim() === appAppleId.trim();
 }
 
-function salesRowForApp(row: Record<string, string>, appAppleId: string): boolean {
-  return sameId(cell(row, "Apple Identifier"), appAppleId) ||
-    sameId(cell(row, "Parent Identifier"), appAppleId);
+function appSkus(rows: Record<string, string>[], appAppleId: string): Set<string> {
+  const skus = new Set<string>();
+  for (const row of rows) {
+    if (!sameId(cell(row, "Apple Identifier"), appAppleId)) continue;
+    const sku = cell(row, "SKU").trim();
+    if (sku) skus.add(sku);
+  }
+  return skus;
+}
+
+/// Parent Identifier は親アプリの SKU。Apple ID とは比べない。
+function salesRowForApp(row: Record<string, string>, appAppleId: string, skus: Set<string>): boolean {
+  if (sameId(cell(row, "Apple Identifier"), appAppleId)) return true;
+  const parent = cell(row, "Parent Identifier").trim();
+  return parent !== "" && skus.has(parent);
 }
 
 export function aggregateSales(rows: Record<string, string>[], appAppleId: string): SalesSummary {
@@ -258,8 +286,9 @@ export function aggregateSales(rows: Record<string, string>[], appAppleId: strin
     proceedsCents: 0,
     nonJpyCustomerRows: 0,
   };
+  const skus = appSkus(rows, appAppleId);
   for (const row of rows) {
-    if (!salesRowForApp(row, appAppleId)) continue;
+    if (!salesRowForApp(row, appAppleId, skus)) continue;
     const units = numberCell(row, "Units");
     const productType = cell(row, "Product Type Identifier").trim().toLowerCase();
     if (newDownloadTypes.has(productType)) summary.newDownloads += units;
@@ -268,7 +297,7 @@ export function aggregateSales(rows: Record<string, string>[], appAppleId: strin
     const proceedsCurrency = cell(row, "Currency of Proceeds").trim().toUpperCase();
     const price = firstNumber(row, ["Customer Price"]);
     const proceeds = firstNumber(row, ["Developer Proceeds", "Developer Proceeds (per unit)"]);
-    if (customerCurrency === "JPY") summary.salesCents += moneyCents(price, units);
+    if (customerCurrency === "JPY") summary.salesCents += salesCents(price, units);
     else if (units !== 0) summary.nonJpyCustomerRows += 1;
     if (proceedsCurrency === "JPY") summary.proceedsCents += moneyCents(proceeds, units);
   }
@@ -588,7 +617,7 @@ export function formatFlashMessage(view: FlashView): string {
     averageRating: view.reviews.averageRating,
   });
   return [
-    `📊 カロナビ日次レポート｜${date}分`,
+    `📊 カロナビ日次レポート｜${date}分　_太平洋時間の暦日_`,
     "（App Store の集計日。太平洋時間の 0:00〜23:59）",
     "",
     "■ 獲得",
@@ -618,7 +647,7 @@ export function formatAcquisitionMessage(input: {
   const previousConversion = input.previous ? formatPercent(input.previous.conversionRate) : null;
   const conversionDelta = previousConversion == null ? "前日 —" : `前日 ${previousConversion}`;
   return [
-    `📈 カロナビ集客｜${date}分`,
+    `📈 カロナビ集客｜${date}分　_太平洋時間の暦日_`,
     "（Analytics。集計日の 3 日後以降に、出ている日だけ投稿）",
     "",
     `表示回数 ${input.today.impressions.toLocaleString("en-US")}（${impressions}）`,

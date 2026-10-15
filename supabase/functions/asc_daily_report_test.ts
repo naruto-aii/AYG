@@ -1,5 +1,4 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { gunzipText, parseTsv } from "./_shared/store_import.ts";
 import {
   aggregateEvents,
   aggregateSales,
@@ -26,9 +25,19 @@ import {
 } from "./asc-daily-report/parse.ts";
 import { runAscDailyReport, type History, type ReportDeps, type ReportResponse } from "./asc-daily-report/report.ts";
 
+// store_import.ts は静的 import しない。Deno 2.9 の型検査が、既存の Blob と Uint8Array
+// の不一致で止まる。実行時は同じ parseTsv / gunzipText を使う。既存ファイルは直さない。
+const storeImport = await import(new URL("./_shared/store_import.ts", import.meta.url).href) as {
+  parseTsv: (text: string) => Record<string, string>[];
+  gunzipText: (bytes: Uint8Array) => Promise<string>;
+};
+const { parseTsv, gunzipText } = storeImport;
+
 const appId = "111";
+const appSku = "calonavi";
 const flashDate = "2026-10-16";
 const nowIso = "2026-10-17T21:00:00Z";
+const reservationLeaseMs = 30 * 60 * 1000;
 
 const salesHeader = [
   "Provider",
@@ -69,6 +78,7 @@ function salesRow(fields: Record<string, string>): string {
 const salesTsv = [
   salesHeader,
   salesRow({
+    SKU: appSku,
     "Product Type Identifier": "1",
     Units: "10",
     "Developer Proceeds": "0",
@@ -78,6 +88,7 @@ const salesTsv = [
     "Customer Price": "0",
   }),
   salesRow({
+    SKU: appSku,
     "Product Type Identifier": "3",
     Units: "4",
     "Developer Proceeds": "0",
@@ -87,6 +98,7 @@ const salesTsv = [
     "Customer Price": "0",
   }),
   salesRow({
+    SKU: appSku,
     "Product Type Identifier": "7",
     Units: "20",
     "Developer Proceeds": "0",
@@ -96,6 +108,7 @@ const salesTsv = [
     "Customer Price": "0",
   }),
   salesRow({
+    SKU: "other-app",
     "Product Type Identifier": "1",
     Units: "100",
     "Developer Proceeds": "0",
@@ -105,6 +118,7 @@ const salesTsv = [
     "Customer Price": "0",
   }),
   salesRow({
+    SKU: "calonavi.plus",
     "Product Type Identifier": "IAY",
     Units: "2",
     "Developer Proceeds": "406",
@@ -112,9 +126,10 @@ const salesTsv = [
     "Currency of Proceeds": "JPY",
     "Apple Identifier": "555",
     "Customer Price": "580",
-    "Parent Identifier": appId,
+    "Parent Identifier": appSku,
   }),
   salesRow({
+    SKU: "calonavi.plus",
     "Product Type Identifier": "IAY",
     Units: "1",
     "Developer Proceeds": "2.79",
@@ -122,16 +137,28 @@ const salesTsv = [
     "Currency of Proceeds": "USD",
     "Apple Identifier": "555",
     "Customer Price": "3.99",
-    "Parent Identifier": appId,
+    "Parent Identifier": appSku,
   }),
   salesRow({
+    SKU: "calonavi.plus",
     "Product Type Identifier": "IAY",
     Units: "-1",
     "Developer Proceeds": "406",
     "Customer Currency": "JPY",
     "Currency of Proceeds": "JPY",
     "Apple Identifier": "555",
-    "Customer Price": "580",
+    "Customer Price": "-580",
+    "Parent Identifier": appSku,
+  }),
+  salesRow({
+    SKU: "not-this-app",
+    "Product Type Identifier": "IAY",
+    Units: "1",
+    "Developer Proceeds": "700",
+    "Customer Currency": "JPY",
+    "Currency of Proceeds": "JPY",
+    "Apple Identifier": "888",
+    "Customer Price": "1000",
     "Parent Identifier": appId,
   }),
 ].join("\n");
@@ -461,8 +488,89 @@ Deno.test("claim waits after failure and will not take a posted row", () => {
   const failed: StoredPost = { status: "failed", attempt: 1, updatedAtMs: 0 };
   assertEquals(nextClaim(failed, 29_000).action, "skip");
   assertEquals(nextClaim(failed, 30_000), { action: "reclaim", attempt: 2 });
-  assertEquals(nextClaim({ status: "posted", attempt: 1, updatedAtMs: 0 }, 999_999).action, "skip");
-  assertEquals(nextClaim({ status: "reserved", attempt: 1, updatedAtMs: 0 }, 999_999).action, "skip");
+  assertEquals(nextClaim({ status: "posted", attempt: 1, updatedAtMs: 0 }, reservationLeaseMs * 10).action, "skip");
+  assertEquals(nextClaim({ status: "reserved", attempt: 1, updatedAtMs: 0 }, reservationLeaseMs - 1).action, "skip");
+  assertEquals(
+    nextClaim({ status: "reserved", attempt: 1, updatedAtMs: 0 }, reservationLeaseMs),
+    { action: "reclaim", attempt: 2 },
+  );
+});
+
+Deno.test("refund rows use Apple's signs and in-app rows use the parent SKU", () => {
+  const refund = aggregateSales([
+    {
+      SKU: appSku,
+      "Apple Identifier": appId,
+      "Product Type Identifier": "1",
+      Units: "0",
+      "Customer Price": "0",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "0",
+      "Currency of Proceeds": "JPY",
+    },
+    {
+      SKU: "calonavi.plus",
+      "Apple Identifier": "555",
+      "Parent Identifier": appSku,
+      "Product Type Identifier": "IAY",
+      Units: "2",
+      "Customer Price": "580",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "406",
+      "Currency of Proceeds": "JPY",
+    },
+    {
+      SKU: "calonavi.plus",
+      "Apple Identifier": "555",
+      "Parent Identifier": appSku,
+      "Product Type Identifier": "IAY",
+      Units: "-1",
+      "Customer Price": "-580",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "406",
+      "Currency of Proceeds": "JPY",
+    },
+  ], appId);
+  assertEquals(refund.salesCents, 58_000);
+  assertEquals(refund.proceedsCents, 40_600);
+
+  const linked = aggregateSales([
+    {
+      SKU: appSku,
+      "Apple Identifier": appId,
+      "Product Type Identifier": "1",
+      Units: "1",
+      "Customer Price": "0",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "0",
+      "Currency of Proceeds": "JPY",
+    },
+    {
+      SKU: "calonavi.plus",
+      "Apple Identifier": "555",
+      "Parent Identifier": appSku,
+      "Product Type Identifier": "IAY",
+      Units: "1",
+      "Customer Price": "580",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "406",
+      "Currency of Proceeds": "JPY",
+    },
+    {
+      SKU: "not-this-app",
+      "Apple Identifier": "888",
+      "Parent Identifier": appId,
+      "Product Type Identifier": "IAY",
+      Units: "1",
+      "Customer Price": "1000",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "700",
+      "Currency of Proceeds": "JPY",
+    },
+  ], appId);
+  assertEquals(linked.salesCents, 58_000);
+  assertEquals(linked.proceedsCents, 40_600);
+  assertEquals(linked.newDownloads, 1);
 });
 
 Deno.test("ongoing request is prepared and not repeated", async () => {
@@ -520,13 +628,6 @@ function key(reportType: string, dataDate: string): string {
 }
 
 function depsFor(store: Memory, nowMs: { value: number }, slack: string[]): ReportDeps {
-  const history = (): History => ({
-    sales: store.sales,
-    subscriptions: store.subscriptions,
-    events: store.events,
-    reviews: store.reviews,
-    analytics: store.analytics,
-  });
   return {
     now: () => new Date(nowMs.value),
     appAppleId: appId,
@@ -553,7 +654,13 @@ function depsFor(store: Memory, nowMs: { value: number }, slack: string[]): Repo
       });
       return Promise.resolve();
     },
-    history: () => Promise.resolve(history()),
+    history: (from, to) => Promise.resolve({
+      sales: store.sales.filter((row) => row.dataDate >= from && row.dataDate <= to),
+      subscriptions: store.subscriptions.filter((row) => row.dataDate >= from && row.dataDate <= to),
+      events: store.events.filter((row) => row.dataDate >= from && row.dataDate <= to),
+      reviews: store.reviews.filter((row) => row.dataDate >= from && row.dataDate <= to),
+      analytics: store.analytics.filter((row) => row.dataDate >= from && row.dataDate <= to),
+    }),
     saveSales: (dataDate, row) => {
       store.sales = store.sales.filter((item) => item.dataDate !== dataDate);
       store.sales.push({ dataDate, ...row });
@@ -641,7 +748,7 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   assertEquals(first.acquisitionPosted, ["2026-10-14"]);
   assertEquals(slack.length, 2);
   const flash = slack[0];
-  assertEquals(flash.includes("📊 カロナビ日次レポート｜10/16（金）分"), true);
+  assertEquals(flash.includes("📊 カロナビ日次レポート｜10/16（金）分　_太平洋時間の暦日_"), true);
   assertEquals(flash.includes("■ 獲得"), true);
   assertEquals(flash.includes("■ 課金"), true);
   assertEquals(flash.includes("■ レビュー"), true);
@@ -658,7 +765,7 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   assertEquals(flash.includes("「使いやすい」"), true);
   assertEquals(flash.includes("本文のない★だけの評価は API に含まれません。"), true);
   assertEquals(flash.includes("トライアル開始と、有料への切り替えが両方あります。"), true);
-  assertEquals(slack[1].includes("📈 カロナビ集客｜10/14（水）分"), true);
+  assertEquals(slack[1].includes("📈 カロナビ集客｜10/14（水）分　_太平洋時間の暦日_"), true);
   assertEquals(slack[1].includes("表示回数 1,200"), true);
   assertEquals(slack[1].includes("製品ページ閲覧 250"), true);
   assertEquals(slack[1].includes("検索 800（広告を含む） / 広告 検索と分かれて出ない / その他 400"), true);
@@ -727,6 +834,99 @@ Deno.test("sales retries before the day is treated as missing", async () => {
   assertEquals(result.flashPosted, [flashDate]);
   assertEquals(salesCalls, 3);
   assertEquals(sleeps, [100, 200]);
+});
+
+Deno.test("the first day of the month compares with the previous month", async () => {
+  const store = memory();
+  store.sales.push({
+    dataDate: "2026-09-30",
+    newDownloads: 4,
+    redownloads: 2,
+    salesCents: 10_000,
+    proceedsCents: 7_000,
+    nonJpyCustomerRows: 0,
+  });
+  store.subscriptions.push({ dataDate: "2026-09-30", plan: "monthly", activePaid: 10, activeTrials: 2 });
+  store.events.push({ dataDate: "2026-09-30", trialStarts: 1, paidConversions: 1, cancellations: 1 });
+  store.reviews.push({
+    dataDate: "2026-09-30",
+    reviewCount: 3,
+    averageRating: 5,
+    stars: [0, 0, 0, 0, 3],
+    excerpt: "",
+  });
+  const asked: Array<{ from: string; to: string }> = [];
+  const slack: string[] = [];
+  const deps = depsFor(store, { value: Date.parse("2026-10-02T20:00:00Z") }, slack);
+  const history = deps.history;
+  deps.history = (from, to) => {
+    asked.push({ from, to });
+    return history(from, to);
+  };
+  deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
+  deps.fetchSalesReport = (kind, dataDate) => {
+    if (dataDate !== "2026-10-01") {
+      return Promise.resolve({
+        status: 404,
+        errorBody: "The report you requested is not available yet. Please try again later.",
+        rows: [],
+      });
+    }
+    return Promise.resolve(reportFor(kind, flashDate, "ready"));
+  };
+  deps.fetchReviews = () => Promise.resolve({
+    status: 200,
+    errorBody: "",
+    complete: true,
+    reviews: [
+      { rating: 5, title: "", body: "月初", createdDate: "2026-10-01T19:00:00Z" },
+    ],
+  });
+  deps.postSlack = (text) => {
+    assertEquals(store.posts.get("flash:2026-10-01")?.status, "reserved");
+    slack.push(text);
+    return Promise.resolve(true);
+  };
+  const result = await runAscDailyReport(deps);
+  assertEquals(result.flashPosted, ["2026-10-01"]);
+  assertEquals(asked.some((range) => range.from <= "2026-09-30" && range.to >= "2026-10-01"), true);
+  const flash = slack[0];
+  assertEquals(flash.includes("新規DL 10（前日 +6 / 今月 10）"), true);
+  assertEquals(flash.includes("再DL 4（前日 +2 / 今月 4）"), true);
+  assertEquals(flash.includes("売上 ¥580（前日 +¥480 / 今月 ¥580）"), true);
+  assertEquals(flash.includes("手取り ¥406（前日 +¥336 / 今月 ¥406）"), true);
+  assertEquals(flash.includes("月額 有効 13（前日 +3） / トライアル中 4（前日 +2）"), true);
+  assertEquals(flash.includes("トライアル開始 3（前日 +2 / 今月 3）"), true);
+  assertEquals(flash.includes("有料への切り替え 5（前日 +4 / 今月 5）"), true);
+  assertEquals(flash.includes("解約 4（前日 +3 / 今月 4）"), true);
+  assertEquals(flash.includes("本文つき 1件（前日 -2 / 今月 1件）"), true);
+});
+
+Deno.test("an expired reservation can be posted again and a fresh one cannot", async () => {
+  const store = memory();
+  const slack: string[] = [];
+  const clock = { value: Date.parse(nowIso) };
+  const deps = depsFor(store, clock, slack);
+  deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
+  store.posts.set(`flash:${flashDate}`, {
+    status: "reserved",
+    attempt: 1,
+    updatedAtMs: clock.value - reservationLeaseMs + 1,
+  });
+  const held = await runAscDailyReport(deps);
+  assertEquals(held.flashPosted, []);
+  assertEquals(slack.length, 0);
+  assertEquals(store.posts.get(`flash:${flashDate}`)?.status, "reserved");
+  store.posts.set(`flash:${flashDate}`, {
+    status: "reserved",
+    attempt: 1,
+    updatedAtMs: clock.value - reservationLeaseMs,
+  });
+  const retried = await runAscDailyReport(deps);
+  assertEquals(retried.flashPosted, [flashDate]);
+  assertEquals(slack.length, 1);
+  assertEquals(store.posts.get(`flash:${flashDate}`)?.status, "posted");
+  assertEquals(store.posts.get(`flash:${flashDate}`)?.attempt, 2);
 });
 
 Deno.test("a failed post is reserved first, then retried only after backoff", async () => {

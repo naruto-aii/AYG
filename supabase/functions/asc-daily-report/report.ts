@@ -105,6 +105,12 @@ async function fetchReady(
   return { state: "missing", rows: [] };
 }
 
+function historyStart(dataDate: string): string {
+  const previous = addDays(dataDate, -1);
+  const start = monthStart(dataDate);
+  return previous < start ? previous : start;
+}
+
 function previousSales(history: History, dataDate: string): SalesSummary | null {
   return history.sales.find((row) => row.dataDate === addDays(dataDate, -1)) ?? null;
 }
@@ -187,7 +193,7 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
       const plans = fillPlans(aggregateSubscription(subscription.rows, deps.appAppleId));
       const eventSummary = aggregateEvents(events.rows, deps.appAppleId);
       const reviewSummary = summarizeReviews(reviewResponse.reviews, dataDate);
-      const history = await deps.history(monthStart(dataDate), dataDate);
+      const history = await deps.history(historyStart(dataDate), dataDate);
       await deps.saveSales(dataDate, salesSummary);
       await deps.saveSubscription(dataDate, plans);
       await deps.saveEvents(dataDate, eventSummary);

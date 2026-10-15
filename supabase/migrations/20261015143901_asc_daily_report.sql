@@ -154,7 +154,7 @@ comment on table kpi.asc_report_posts is
 -- ---------------------------------------------------------------------
 -- service_role だけが呼ぶ入口。秘密も本文の控えも置かない。
 -- 待ち時間は Edge Function の nextClaim と同じ。失敗の attempt 1 は 30 秒、
--- その後倍々で、上限 30 分。
+-- その後倍々で、上限 30 分。reserved は 30 分を過ぎたら取り直す。posted は取り直さない。
 -- ---------------------------------------------------------------------
 
 create or replace function public.asc_daily_report_rpc(p_op text, p_body jsonb)
@@ -215,15 +215,23 @@ begin
             attempt = kpi.asc_report_posts.attempt + 1,
             reserved_at = pg_catalog.now(),
             updated_at = pg_catalog.now()
-        where kpi.asc_report_posts.status = 'failed'
-          and kpi.asc_report_posts.updated_at <= pg_catalog.now() - pg_catalog.make_interval(
-            secs => least(
-              1800,
-              (30 * pg_catalog.power(
-                2,
-                least(greatest(kpi.asc_report_posts.attempt - 1, 0), 6)
-              ))::integer
+        where (
+            kpi.asc_report_posts.status = 'failed'
+            and kpi.asc_report_posts.updated_at <= pg_catalog.now() - pg_catalog.make_interval(
+              secs => least(
+                1800,
+                (30 * pg_catalog.power(
+                  2,
+                  least(greatest(kpi.asc_report_posts.attempt - 1, 0), 6)
+                ))::integer
+              )
             )
+          )
+          or (
+            -- reserved のまま 30 分を過ぎた行は、投稿済みと確認できないので取り直す。
+            -- posted はここには入らない。期限内の reserved も残し、二重投稿を止める。
+            kpi.asc_report_posts.status = 'reserved'
+            and kpi.asc_report_posts.updated_at <= pg_catalog.now() - pg_catalog.make_interval(secs => 1800)
           )
       returning 1
     )

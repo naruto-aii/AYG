@@ -437,3 +437,7 @@ verify_jwt = false
 # データベースからの通知。合言葉は関数の中で確かめる。
 [functions.userlog-notify]
 verify_jwt = false
+
+# 日次レポート。cron は x-store-import-secret で確認する。JWT は付けない。
+[functions.asc-daily-report]
+verify_jwt = false

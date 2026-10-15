@@ -1,5 +1,6 @@
-import { authorizeStoreImport, gunzipText, json, parseTsv } from "../_shared/store_import.ts";
-import { pemToPkcs8, signAppleJwt } from "../_shared/store_live.ts";
+import { pemToPkcs8, signAppleJwt } from "./apple_jwt.ts";
+import { configuredParentSkus, parentSkusToUse } from "./sku.ts";
+import { authorizeStoreImport, gunzipText, json, parseTsv } from "./text.ts";
 import {
   addDays,
   pacificDateString,
@@ -277,6 +278,10 @@ function liveDeps(): ReportDeps {
   return {
     now: () => new Date(),
     appAppleId: required("ASC_APP_APPLE_ID"),
+    knownParentSkus: [...configuredParentSkus],
+    rememberParentSkus: async (skus, dataDate) => {
+      await rpc("save_parent_skus", { skus, data_date: dataDate });
+    },
     backoff,
     getPost: async (reportType, dataDate) => {
       const body = await rpc("get_post", { report_type: reportType, data_date: dataDate }) as {
@@ -421,10 +426,20 @@ function mapHistory(value: unknown): History {
   };
 }
 
+async function loadParentSkus(): Promise<string[]> {
+  const body = await rpc("list_parent_skus", {}) as { skus?: unknown };
+  const stored = Array.isArray(body.skus)
+    ? body.skus.filter((sku): sku is string => typeof sku === "string")
+    : [];
+  return parentSkusToUse(configuredParentSkus, stored);
+}
+
 Deno.serve(async (request) => {
   if (!authorizeStoreImport(request)) return json({ ok: false }, 401);
   try {
-    const result = await runAscDailyReport(liveDeps());
+    const deps = liveDeps();
+    deps.knownParentSkus = await loadParentSkus();
+    const result = await runAscDailyReport(deps);
     return json({
       ok: true,
       flash_posted: result.flashPosted,

@@ -12,6 +12,7 @@ import {
   formatHeadingDate,
   latestRowsForDate,
   nextClaim,
+  observedParentSkus,
   oneLineExcerpt,
   ongoingAnalyticsRequestBody,
   pacificDateString,
@@ -24,14 +25,8 @@ import {
   type StoredPost,
 } from "./asc-daily-report/parse.ts";
 import { runAscDailyReport, type History, type ReportDeps, type ReportResponse } from "./asc-daily-report/report.ts";
-
-// store_import.ts は静的 import しない。Deno 2.9 の型検査が、既存の Blob と Uint8Array
-// の不一致で止まる。実行時は同じ parseTsv / gunzipText を使う。既存ファイルは直さない。
-const storeImport = await import(new URL("./_shared/store_import.ts", import.meta.url).href) as {
-  parseTsv: (text: string) => Record<string, string>[];
-  gunzipText: (bytes: Uint8Array) => Promise<string>;
-};
-const { parseTsv, gunzipText } = storeImport;
+import { configuredParentSkus, parentSkusToUse } from "./asc-daily-report/sku.ts";
+import { gunzipText, parseTsv } from "./asc-daily-report/text.ts";
 
 const appId = "111";
 const appSku = "calonavi";
@@ -573,6 +568,51 @@ Deno.test("refund rows use Apple's signs and in-app rows use the parent SKU", ()
   assertEquals(linked.newDownloads, 1);
 });
 
+Deno.test("a renewal-only file still counts yen when the parent SKU is already known", () => {
+  const renewalOnly = [
+    {
+      SKU: "calonavi.plus",
+      "Apple Identifier": "555",
+      "Parent Identifier": appSku,
+      "Product Type Identifier": "IAY",
+      Units: "2",
+      "Customer Price": "580",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "406",
+      "Currency of Proceeds": "JPY",
+    },
+    {
+      SKU: "calonavi.plus",
+      "Apple Identifier": "555",
+      "Parent Identifier": appSku,
+      "Product Type Identifier": "IAY",
+      Units: "-1",
+      "Customer Price": "-580",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "406",
+      "Currency of Proceeds": "JPY",
+    },
+    {
+      SKU: "not-this-app",
+      "Apple Identifier": "888",
+      "Parent Identifier": appId,
+      "Product Type Identifier": "IAY",
+      Units: "1",
+      "Customer Price": "1000",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "700",
+      "Currency of Proceeds": "JPY",
+    },
+  ];
+  assertEquals(observedParentSkus(renewalOnly, appId), []);
+  assertEquals(aggregateSales(renewalOnly, appId).salesCents, 0);
+  assertEquals(aggregateSales(renewalOnly, appId).proceedsCents, 0);
+  const kept = aggregateSales(renewalOnly, appId, parentSkusToUse(configuredParentSkus, [appSku]));
+  assertEquals(kept.salesCents, 58_000);
+  assertEquals(kept.proceedsCents, 40_600);
+  assertEquals(configuredParentSkus.includes("com.narutoaii.ayg"), true);
+});
+
 Deno.test("ongoing request is prepared and not repeated", async () => {
   const body = ongoingAnalyticsRequestBody(appId);
   const data = body.data as { attributes: { accessType: string }; relationships: { app: { data: { id: string } } } };
@@ -604,6 +644,9 @@ Deno.test("ongoing request is prepared and not repeated", async () => {
 Deno.test("the scheduled entry does not create an ongoing request", async () => {
   const source = await Deno.readTextFile(new URL("./asc-daily-report/index.ts", import.meta.url));
   assertEquals(source.includes("createOngoingAnalyticsRequest"), false);
+  const imports = source.split("\n").filter((line) => line.includes(" from "));
+  assertEquals(imports.some((line) => line.includes("store_import.ts")), false);
+  assertEquals(imports.some((line) => line.includes("store_live.ts")), false);
 });
 
 type Memory = {
@@ -613,6 +656,7 @@ type Memory = {
   reviews: History["reviews"];
   analytics: History["analytics"];
   posts: Map<string, StoredPost>;
+  knownSkus: string[];
 };
 
 function emptyHistory(): History {
@@ -620,7 +664,7 @@ function emptyHistory(): History {
 }
 
 function memory(): Memory {
-  return { ...emptyHistory(), posts: new Map() };
+  return { ...emptyHistory(), posts: new Map(), knownSkus: [] };
 }
 
 function key(reportType: string, dataDate: string): string {
@@ -701,6 +745,13 @@ function depsFor(store: Memory, nowMs: { value: number }, slack: string[]): Repo
       discovery: [{ processingDate: "2026-10-17", rows: parseTsv(discoveryTsv) }],
       downloads: [{ processingDate: "2026-10-17", rows: parseTsv(downloadTsv) }],
     }),
+    knownParentSkus: [],
+    rememberParentSkus: (skus) => {
+      for (const sku of skus) {
+        if (!store.knownSkus.includes(sku)) store.knownSkus.push(sku);
+      }
+      return Promise.resolve();
+    },
     postSlack: (text) => {
       const reserved = store.posts.get(key(text.startsWith("📊") ? "flash" : "acquisition", text.startsWith("📊") ? flashDate : "2026-10-14"));
       assertEquals(reserved?.status, "reserved");
@@ -775,6 +826,84 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   assertEquals(second.acquisitionPosted, []);
   assertEquals(slack.length, 2);
   assertEquals(store.posts.get(`flash:${flashDate}`)?.status, "posted");
+  assertEquals(store.knownSkus, [appSku]);
+});
+
+Deno.test("a renewal-only day posts yen from a saved parent SKU", async () => {
+  const store = memory();
+  const slack: string[] = [];
+  const deps = depsFor(store, { value: Date.parse(nowIso) }, slack);
+  deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
+  deps.knownParentSkus = [appSku];
+  deps.fetchSalesReport = (kind, dataDate) => {
+    if (dataDate !== flashDate) {
+      return Promise.resolve({
+        status: 404,
+        errorBody: "The report you requested is not available yet. Please try again later.",
+        rows: [],
+      });
+    }
+    if (kind !== "SALES") return Promise.resolve(reportFor(kind, flashDate, "ready"));
+    return Promise.resolve({
+      status: 200,
+      errorBody: "",
+      rows: [
+        {
+          SKU: "calonavi.plus",
+          "Apple Identifier": "555",
+          "Parent Identifier": appSku,
+          "Product Type Identifier": "IAY",
+          Units: "2",
+          "Customer Price": "580",
+          "Customer Currency": "JPY",
+          "Developer Proceeds": "406",
+          "Currency of Proceeds": "JPY",
+        },
+        {
+          SKU: "calonavi.plus",
+          "Apple Identifier": "555",
+          "Parent Identifier": appSku,
+          "Product Type Identifier": "IAY",
+          Units: "-1",
+          "Customer Price": "-580",
+          "Customer Currency": "JPY",
+          "Developer Proceeds": "406",
+          "Currency of Proceeds": "JPY",
+        },
+      ],
+    });
+  };
+  const result = await runAscDailyReport(deps);
+  assertEquals(result.flashPosted, [flashDate]);
+  assertEquals(slack[0].includes("売上 ¥580（前日 — / 今月 ¥580）"), true);
+  assertEquals(slack[0].includes("手取り ¥406（前日 — / 今月 ¥406）"), true);
+  assertEquals(slack[0].includes("新規DL 0（前日 — / 今月 0）"), true);
+  assertEquals(store.knownSkus, []);
+});
+
+Deno.test("finish is retried after Slack so one failure does not post twice", async () => {
+  const store = memory();
+  const slack: string[] = [];
+  const clock = { value: Date.parse(nowIso) };
+  const deps = depsFor(store, clock, slack);
+  deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
+  const original = deps.finish;
+  let failures = 4;
+  deps.finish = (reportType, dataDate, status, at) => {
+    if (failures > 0) {
+      failures -= 1;
+      return Promise.reject(new Error("finish"));
+    }
+    return original(reportType, dataDate, status, at);
+  };
+  const result = await runAscDailyReport(deps);
+  assertEquals(failures, 0);
+  assertEquals(result.flashPosted, [flashDate]);
+  assertEquals(slack.length, 1);
+  assertEquals(store.posts.get(`flash:${flashDate}`)?.status, "posted");
+  clock.value += reservationLeaseMs + 1_000;
+  await runAscDailyReport(deps);
+  assertEquals(slack.length, 1);
 });
 
 Deno.test("a missing report does not post or reserve the day", async () => {

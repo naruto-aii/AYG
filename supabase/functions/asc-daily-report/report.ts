@@ -2,6 +2,7 @@ import {
   addDays,
   aggregateEvents,
   aggregateSales,
+  observedParentSkus,
   aggregateSubscription,
   buildAnalytics,
   candidateAcquisitionDates,
@@ -79,6 +80,8 @@ export type ReportDeps = {
   fetchReviews: () => Promise<ReviewsResponse>;
   fetchAnalytics: () => Promise<AnalyticsBundle>;
   postSlack: (text: string) => Promise<boolean>;
+  knownParentSkus: readonly string[];
+  rememberParentSkus: (skus: string[], dataDate: string) => Promise<void>;
   backoff: Backoff;
 };
 
@@ -141,6 +144,29 @@ function sum<T>(rows: T[], pick: (row: T) => number): number {
   return rows.reduce((total, row) => total + pick(row), 0);
 }
 
+async function finishReliably(
+  deps: ReportDeps,
+  reportType: "flash" | "acquisition",
+  dataDate: string,
+  status: "posted" | "failed",
+): Promise<boolean> {
+  // Slack 成功のあとに完了更新が一度失敗すると、予約期限のあと二重投稿になる。
+  // 成功時は失敗時より多くやり直す。成功した投稿を failed には戻さない。
+  const attempts = status === "posted" ? 5 : 3;
+  let wait = deps.backoff.initialMs;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      await deps.finish(reportType, dataDate, status, deps.now().getTime());
+      return true;
+    } catch {
+      if (attempt === attempts - 1) return false;
+      await deps.backoff.sleep(wait);
+      wait *= 2;
+    }
+  }
+  return false;
+}
+
 async function publish(
   deps: ReportDeps,
   reportType: "flash" | "acquisition",
@@ -156,7 +182,8 @@ async function publish(
   } catch {
     status = "failed";
   }
-  await deps.finish(reportType, dataDate, status, deps.now().getTime());
+  const finished = await finishReliably(deps, reportType, dataDate, status);
+  if (!finished) return "failed";
   return status;
 }
 
@@ -189,7 +216,9 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
       ) {
         continue;
       }
-      const salesSummary = aggregateSales(sales.rows, deps.appAppleId);
+      const salesSummary = aggregateSales(sales.rows, deps.appAppleId, deps.knownParentSkus);
+      const seenSkus = observedParentSkus(sales.rows, deps.appAppleId);
+      if (seenSkus.length > 0) await deps.rememberParentSkus(seenSkus, dataDate);
       const plans = fillPlans(aggregateSubscription(subscription.rows, deps.appAppleId));
       const eventSummary = aggregateEvents(events.rows, deps.appAppleId);
       const reviewSummary = summarizeReviews(reviewResponse.reviews, dataDate);

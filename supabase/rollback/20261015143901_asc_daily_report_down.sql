@@ -9,3 +9,4 @@ drop table if exists kpi.asc_daily_reviews;
 drop table if exists kpi.asc_daily_sub_events;
 drop table if exists kpi.asc_daily_subscription;
 drop table if exists kpi.asc_daily_sales;
+drop table if exists kpi.asc_parent_skus;

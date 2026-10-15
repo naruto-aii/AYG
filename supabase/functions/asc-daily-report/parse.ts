@@ -271,14 +271,28 @@ function appSkus(rows: Record<string, string>[], appAppleId: string): Set<string
   return skus;
 }
 
+/// アプリ行（Apple Identifier がアプリの Apple ID）の SKU。アプリ内課金の行は含めない。
+export function observedParentSkus(rows: Record<string, string>[], appAppleId: string): string[] {
+  return [...appSkus(rows, appAppleId)];
+}
+
 /// Parent Identifier は親アプリの SKU。Apple ID とは比べない。
-function salesRowForApp(row: Record<string, string>, appAppleId: string, skus: Set<string>): boolean {
+/// knownParentSkus は設定と、以前のファイルで見た SKU。アプリ行が無い日も使う。
+function salesRowForApp(
+  row: Record<string, string>,
+  appAppleId: string,
+  skus: Set<string>,
+): boolean {
   if (sameId(cell(row, "Apple Identifier"), appAppleId)) return true;
   const parent = cell(row, "Parent Identifier").trim();
   return parent !== "" && skus.has(parent);
 }
 
-export function aggregateSales(rows: Record<string, string>[], appAppleId: string): SalesSummary {
+export function aggregateSales(
+  rows: Record<string, string>[],
+  appAppleId: string,
+  knownParentSkus: readonly string[] = [],
+): SalesSummary {
   const summary: SalesSummary = {
     newDownloads: 0,
     redownloads: 0,
@@ -287,6 +301,10 @@ export function aggregateSales(rows: Record<string, string>[], appAppleId: strin
     nonJpyCustomerRows: 0,
   };
   const skus = appSkus(rows, appAppleId);
+  for (const sku of knownParentSkus) {
+    const trimmed = sku.trim();
+    if (trimmed) skus.add(trimmed);
+  }
   for (const row of rows) {
     if (!salesRowForApp(row, appAppleId, skus)) continue;
     const units = numberCell(row, "Units");

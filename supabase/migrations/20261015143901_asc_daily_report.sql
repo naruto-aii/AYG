@@ -151,6 +151,21 @@ comment on table kpi.asc_analytics_daily is
 comment on table kpi.asc_report_posts is
   'Slack 投稿の予約。投稿前に行を入れ、同じ日付を二重に送らない。';
 
+-- アプリ行で一度見た親 SKU。秘密ではない。設定の定数と合わせて Parent Identifier に使う。
+create table kpi.asc_parent_skus (
+  sku text primary key,
+  first_seen_on date,
+  constraint asc_parent_skus_length_check check (char_length(sku) between 1 and 200)
+);
+
+alter table kpi.asc_parent_skus enable row level security;
+
+revoke all on table kpi.asc_parent_skus from public, anon, authenticated;
+grant select, insert, update, delete on table kpi.asc_parent_skus to service_role;
+
+comment on table kpi.asc_parent_skus is
+  '売上ファイルのアプリ行から見た SKU。アプリ行が無い日の Parent Identifier に使う。';
+
 -- ---------------------------------------------------------------------
 -- service_role だけが呼ぶ入口。秘密も本文の控えも置かない。
 -- 待ち時間は Edge Function の nextClaim と同じ。失敗の attempt 1 は 30 秒、
@@ -173,6 +188,7 @@ declare
   v_count integer;
   v_updated integer;
   v_result jsonb;
+  v_sku text;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'not authenticated';
@@ -461,6 +477,39 @@ begin
         where data_date between (p_body->>'from')::date and (p_body->>'to')::date
       ), '[]'::jsonb)
     );
+  end if;
+
+  if p_op = 'list_parent_skus' then
+    return pg_catalog.jsonb_build_object(
+      'skus', coalesce((
+        select pg_catalog.jsonb_agg(sku order by sku)
+        from kpi.asc_parent_skus
+      ), '[]'::jsonb)
+    );
+  end if;
+
+  if p_op = 'save_parent_skus' then
+    if pg_catalog.jsonb_typeof(p_body->'skus') is distinct from 'array' then
+      raise exception 'invalid skus';
+    end if;
+    for v_sku in
+      select pg_catalog.btrim(value)
+      from pg_catalog.jsonb_array_elements_text(p_body->'skus') as listed(value)
+    loop
+      if v_sku is null or char_length(v_sku) = 0 or char_length(v_sku) > 200 then
+        continue;
+      end if;
+      insert into kpi.asc_parent_skus (sku, first_seen_on)
+      values (
+        v_sku,
+        case
+          when p_body->>'data_date' is null or p_body->>'data_date' = '' then null
+          else (p_body->>'data_date')::date
+        end
+      )
+      on conflict (sku) do nothing;
+    end loop;
+    return pg_catalog.jsonb_build_object('ok', true);
   end if;
 
   raise exception 'unknown op';

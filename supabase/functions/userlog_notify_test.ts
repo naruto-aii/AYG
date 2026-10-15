@@ -279,6 +279,86 @@ Deno.test("store trial uses the transaction offer and the webhook passed in", as
   assertEquals(posts[0].includes("orig-a"), false);
 });
 
+const installLogin = (installId: string, occurredAt = "2026-10-15T01:00:00.000Z") => ({
+  kind: "install_login",
+  source_id: installId,
+  user_id: userId,
+  install_id: installId,
+  occurred_at: occurredAt,
+});
+
+Deno.test("the same user and install posts one login", async () => {
+  const memory: Memory = new Map();
+  const posts: string[] = [];
+  const seen: string[] = [];
+  const notify = deps(memory, posts);
+  const installId = "12121212-1212-4121-8121-121212121212";
+  notify.loadContext = (_userId, install) => {
+    seen.push(install ?? "");
+    return Promise.resolve({ displayName: null, excluded: false });
+  };
+  const first = await handleUserlogNotify(post(installLogin(installId)), notify);
+  const second = await handleUserlogNotify(post(installLogin(installId)), notify);
+  assertEquals(first.status, 200);
+  assertEquals(second.status, 200);
+  assertEquals(posts.length, 1);
+  assertEquals(posts[0].includes("種類: ログイン"), true);
+  assertEquals(seen, [installId]);
+  assertEquals(memory.get(`${userId}|login|${installId}`), "sent");
+});
+
+Deno.test("a new install posts another login", async () => {
+  const memory: Memory = new Map();
+  const posts: string[] = [];
+  const notify = deps(memory, posts);
+  const firstInstall = "13131313-1313-4131-8131-131313131313";
+  const secondInstall = "14141414-1414-4141-8141-141414141414";
+  await handleUserlogNotify(post(installLogin(firstInstall)), notify);
+  const again = await handleUserlogNotify(post(installLogin(secondInstall, "2026-10-15T02:00:00.000Z")), notify);
+  assertEquals(again.status, 200);
+  assertEquals(posts.length, 2);
+  assertEquals(memory.get(`${userId}|login|${firstInstall}`), "sent");
+  assertEquals(memory.get(`${userId}|login|${secondInstall}`), "sent");
+});
+
+Deno.test("a login already recorded for the install is not posted again", async () => {
+  const installId = "15151515-1515-4151-8151-151515151515";
+  const memory: Memory = new Map([[`${userId}|login|${installId}`, "sent"]]);
+  const posts: string[] = [];
+  const response = await handleUserlogNotify(post(installLogin(installId)), deps(memory, posts));
+  assertEquals(response.status, 200);
+  assertEquals(posts.length, 0);
+});
+
+Deno.test("session kind remains a login during rollout", async () => {
+  const memory: Memory = new Map();
+  const posts: string[] = [];
+  const sessionId = "16161616-1616-4161-8161-161616161616";
+  const response = await handleUserlogNotify(post({
+    kind: "session",
+    source_id: sessionId,
+    user_id: userId,
+    occurred_at: "2026-10-15T03:00:00.000Z",
+  }), deps(memory, posts));
+  assertEquals(response.status, 200);
+  assertEquals(posts.length, 1);
+  assertEquals(posts[0].includes("種類: ログイン"), true);
+  assertEquals(memory.get(`${userId}|login|${sessionId}`), "sent");
+});
+
+Deno.test("install login rejects a source that is not the install", async () => {
+  const posts: string[] = [];
+  const response = await handleUserlogNotify(post({
+    kind: "install_login",
+    source_id: "17171717-1717-4171-8171-171717171717",
+    user_id: userId,
+    install_id: "18181818-1818-4181-8181-181818181818",
+    occurred_at: "2026-10-15T04:00:00.000Z",
+  }), deps(new Map(), posts));
+  assertEquals(response.status, 400);
+  assertEquals(posts.length, 0);
+});
+
 Deno.test("a wrong secret does not post", async () => {
   const posts: string[] = [];
   const response = await handleUserlogNotify(post(install, "n".repeat(32)), deps(new Map(), posts));

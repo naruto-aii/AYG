@@ -43,6 +43,13 @@ type Inbound =
     userId: string | null;
     occurredAt: string;
   }
+  | {
+    kind: "install_login";
+    sourceId: string;
+    userId: string;
+    installId: string;
+    occurredAt: string;
+  }
   | { kind: "store"; sourceId: string };
 
 export type NotifyDeps = {
@@ -107,6 +114,19 @@ export function parseInbound(body: unknown): Inbound | null {
   if (record.kind === "session") {
     return { kind: "session", sourceId, userId, occurredAt: when };
   }
+  if (record.kind === "install_login") {
+    const installId = record.install_id == null ? sourceId : uuidOrNull(record.install_id);
+    if (!userId || !installId || installId !== sourceId) {
+      return null;
+    }
+    return {
+      kind: "install_login",
+      sourceId,
+      userId,
+      installId,
+      occurredAt: when,
+    };
+  }
   if (record.kind === "app_event" && typeof record.event_name === "string") {
     const installId = record.install_id == null ? null : uuidOrNull(record.install_id);
     if (record.install_id != null && installId == null) {
@@ -151,6 +171,16 @@ export async function jobsForInbound(body: unknown, deps: Pick<NotifyDeps, "load
     return [{
       userId: inbound.userId,
       installId: null,
+      checkpointType: "login",
+      sourceId: inbound.sourceId,
+      occurredAt: inbound.occurredAt,
+      scrubbed: false,
+    }];
+  }
+  if (inbound.kind === "install_login") {
+    return [{
+      userId: inbound.userId,
+      installId: inbound.installId,
       checkpointType: "login",
       sourceId: inbound.sourceId,
       occurredAt: inbound.occurredAt,

@@ -78,16 +78,32 @@ begin
   insert into public.app_events (event_id, user_id, event_name, occurred_at, install_id)
   values (v_other, v_uid, 'app_open', timestamptz '2026-10-14 21:00:00+00', v_install);
   if (select count(*) from public.app_events where event_id = v_other) <> 1 then
-    raise exception 'unrelated app_events insert failed';
+    raise exception 'same install app_events insert failed';
   end if;
   if (select last_value from public.userlog_test_http_calls) <> v_calls then
-    raise exception 'unrelated app event called the webhook';
+    raise exception 'the same user and install notified again';
   end if;
 
+  select last_value into v_calls from public.userlog_test_http_calls;
   insert into auth.sessions (id, user_id, created_at)
   values (v_session, v_uid, timestamptz '2026-10-14 20:18:00+00');
   if (select count(*) from auth.sessions where id = v_session) <> 1 then
-    raise exception 'session insert was rolled back when the webhook failed';
+    raise exception 'session insert was rolled back';
+  end if;
+  if (select last_value from public.userlog_test_http_calls) <> v_calls then
+    raise exception 'auth.sessions called the webhook';
+  end if;
+  if exists (
+    select 1
+    from pg_trigger t
+    join pg_class c on c.oid = t.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'auth'
+      and c.relname = 'sessions'
+      and t.tgname = 'userlog_auth_sessions_insert'
+      and not t.tgisinternal
+  ) then
+    raise exception 'auth.sessions still has the userlog trigger';
   end if;
 
   insert into public.store_server_notifications (

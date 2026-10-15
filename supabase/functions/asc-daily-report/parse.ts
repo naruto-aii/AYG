@@ -276,8 +276,16 @@ export function observedParentSkus(rows: Record<string, string>[], appAppleId: s
   return [...appSkus(rows, appAppleId)];
 }
 
+/// 同じ実行の残りの日付からも見えるよう、見つけた SKU をその場で足す。
+export function addParentSkus(known: string[], seen: readonly string[]): void {
+  for (const sku of seen) {
+    const trimmed = sku.trim();
+    if (trimmed && !known.includes(trimmed)) known.push(trimmed);
+  }
+}
+
 /// Parent Identifier は親アプリの SKU。Apple ID とは比べない。
-/// knownParentSkus は設定と、以前のファイルで見た SKU。アプリ行が無い日も使う。
+/// knownParentSkus は保存済みの SKU と、この実行で既に見た SKU。アプリ行が無い日も使う。
 function salesRowForApp(
   row: Record<string, string>,
   appAppleId: string,
@@ -589,6 +597,7 @@ export type FlashView = {
   monthSales: SalesSummary;
   monthEvents: EventSummary;
   monthReviewCount: number;
+  salesConfirmed?: boolean;
 };
 
 function monthLine(today: number, previous: number | null, month: number, format?: (value: number) => string): string {
@@ -600,13 +609,21 @@ function monthLine(today: number, previous: number | null, month: number, format
 
 export function formatFlashMessage(view: FlashView): string {
   const date = formatHeadingDate(view.dataDate);
-  const salesLines = [
-    `新規DL ${monthLine(view.sales.newDownloads, view.previousSales?.newDownloads ?? null, view.monthSales.newDownloads)}`,
-    `再DL ${monthLine(view.sales.redownloads, view.previousSales?.redownloads ?? null, view.monthSales.redownloads)}`,
-    `売上 ${monthLine(view.sales.salesCents, view.previousSales?.salesCents ?? null, view.monthSales.salesCents, formatYenFromCents)}`,
-    `手取り ${monthLine(view.sales.proceedsCents, view.previousSales?.proceedsCents ?? null, view.monthSales.proceedsCents, formatYenFromCents)}`,
-    "売上は顧客通貨が JPY の行だけ、手取りは受取通貨が JPY の行だけです。他の通貨は円にしていません。",
-  ];
+  const salesLines = view.salesConfirmed === false
+    ? [
+      `新規DL ${monthLine(view.sales.newDownloads, view.previousSales?.newDownloads ?? null, view.monthSales.newDownloads)}`,
+      `再DL ${monthLine(view.sales.redownloads, view.previousSales?.redownloads ?? null, view.monthSales.redownloads)}`,
+      "売上未確定",
+      "手取り未確定",
+      "親 SKU がまだ無いので、円は確定していません。",
+    ]
+    : [
+      `新規DL ${monthLine(view.sales.newDownloads, view.previousSales?.newDownloads ?? null, view.monthSales.newDownloads)}`,
+      `再DL ${monthLine(view.sales.redownloads, view.previousSales?.redownloads ?? null, view.monthSales.redownloads)}`,
+      `売上 ${monthLine(view.sales.salesCents, view.previousSales?.salesCents ?? null, view.monthSales.salesCents, formatYenFromCents)}`,
+      `手取り ${monthLine(view.sales.proceedsCents, view.previousSales?.proceedsCents ?? null, view.monthSales.proceedsCents, formatYenFromCents)}`,
+      "売上は顧客通貨が JPY の行だけ、手取りは受取通貨が JPY の行だけです。他の通貨は円にしていません。",
+    ];
   const planLines = view.plans.map((plan) => {
     const previous = view.previousPlans.find((row) => row.plan === plan.plan) ?? null;
     const paidDelta = formatDelta(plan.activePaid, previous ? previous.activePaid : null);

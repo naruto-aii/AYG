@@ -1,6 +1,7 @@
 import {
   addDays,
   aggregateEvents,
+  addParentSkus,
   aggregateSales,
   observedParentSkus,
   aggregateSubscription,
@@ -80,7 +81,7 @@ export type ReportDeps = {
   fetchReviews: () => Promise<ReviewsResponse>;
   fetchAnalytics: () => Promise<AnalyticsBundle>;
   postSlack: (text: string) => Promise<boolean>;
-  knownParentSkus: readonly string[];
+  knownParentSkus: string[];
   rememberParentSkus: (skus: string[], dataDate: string) => Promise<void>;
   backoff: Backoff;
 };
@@ -216,9 +217,11 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
       ) {
         continue;
       }
-      const salesSummary = aggregateSales(sales.rows, deps.appAppleId, deps.knownParentSkus);
       const seenSkus = observedParentSkus(sales.rows, deps.appAppleId);
+      addParentSkus(deps.knownParentSkus, seenSkus);
+      if (deps.knownParentSkus.length === 0) continue;
       if (seenSkus.length > 0) await deps.rememberParentSkus(seenSkus, dataDate);
+      const salesSummary = aggregateSales(sales.rows, deps.appAppleId, deps.knownParentSkus);
       const plans = fillPlans(aggregateSubscription(subscription.rows, deps.appAppleId));
       const eventSummary = aggregateEvents(events.rows, deps.appAppleId);
       const reviewSummary = summarizeReviews(reviewResponse.reviews, dataDate);

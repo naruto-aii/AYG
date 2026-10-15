@@ -57,6 +57,9 @@ void main() {
       'ワークアウトの種目と開始と終了と消費カロリー',
       'アクティブエネルギーの数値、運動の検索語、テンプレートの名前と中身、メモの文面、端末の機種、インストールごとの番号は残しません。',
       '医療上の注意は、利用規約に書いています。',
+      '最終更新日: 公開する日',
+      'Slack Technologies, LLC（米国',
+      '退会後も、ワークアウトの種目、開始、終了、消費カロリーと、体重の記録（記録元を含む）は、利用者IDと切り離した番号を付けて残します。',
     ];
     const forbidden = [
       '社長確認',
@@ -70,6 +73,7 @@ void main() {
       'サービス改善のための分析',
       '医療上の診断・治療・予防・栄養指導を目的としません',
       '初回起動時に、ログインの前に',
+      '30日以内に削除',
     ];
     String? first;
     for (final path in ['legal/privacy.html', 'docs/legal/privacy.html']) {
@@ -86,6 +90,14 @@ void main() {
 
     final terms = File('legal/terms.html').readAsStringSync();
     expect(terms, contains('医療行為、診断、治療、予防、栄養指導の代替ではありません。'));
+
+    const usagePurpose =
+        '使いにくい画面を直すこと、およびどの機能がカロナビ+の利用につながっているかを見るために使う場合があります。';
+    final publishedTerms = File('docs/legal/terms.html').readAsStringSync();
+    expect(publishedTerms, contains(usagePurpose));
+    expect(publishedTerms, contains('最終更新日: 公開する日'));
+    expect(publishedTerms, isNot(contains('サービス改善のための分析')));
+    expect(publishedTerms, isNot(contains('30日以内に削除')));
 
     String? deletion;
     for (final path in [

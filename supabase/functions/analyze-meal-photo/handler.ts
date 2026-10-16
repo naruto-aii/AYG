@@ -7,7 +7,11 @@ import {
   type FoodCollectionRow,
 } from "../ai-food-collection.ts";
 import { hasAiDataConsent } from "../_shared/ai_data_consent.ts";
-import { checkGate, GateCheckError, gateRowsExist } from "../_shared/gate_check.ts";
+import {
+  plusFromEntitlementOrGrant,
+  readComplimentaryPlus,
+} from "../_shared/complimentary_plus_gate.ts";
+import { checkGate, GateCheckError } from "../_shared/gate_check.ts";
 import { jpegBase64WithinEdge } from "./image.ts";
 import {
   checkPhotoCaps,
@@ -433,7 +437,9 @@ export function liveDeps(
         `${base}/rest/v1/calonavi_plus_entitlements?user_id=eq.${userId}` +
         `&status=eq.active&expires_at=gt.${cutoff}&select=user_id&limit=1`;
       const result = await authedGet(url, serviceKey, fetchImpl);
-      return gateRowsExist(result);
+      return plusFromEntitlementOrGrant(result, () =>
+        readComplimentaryPlus(base, serviceKey, userId, fetchImpl)
+      );
     },
     hasConsent(userId) {
       return hasAiDataConsent({ base, serviceKey, userId, fetchImpl });

@@ -7,7 +7,11 @@ import {
   type PhotoAiEnv,
 } from "../analyze-meal-photo/policy.ts";
 import type { FetchLike, PhotoAiUsage } from "../analyze-meal-photo/provider.ts";
-import { checkGate, GateCheckError, gateRowsExist } from "../_shared/gate_check.ts";
+import {
+  plusFromEntitlementOrGrant,
+  readComplimentaryPlus,
+} from "../_shared/complimentary_plus_gate.ts";
+import { checkGate, GateCheckError } from "../_shared/gate_check.ts";
 import { normalizeFoodName, type FoodRow, type MeasuredDish } from "./match.ts";
 import { cookRecipesFromDb, recipeStamp, selectCookPlans, type CookRecipe } from "./select.ts";
 
@@ -485,7 +489,9 @@ export function liveDeps(
         `${base}/rest/v1/calonavi_plus_entitlements?user_id=eq.${userId}` +
         `&status=eq.active&expires_at=gt.${cutoff}&select=user_id&limit=1`;
       const result = await authedFetch(url, serviceKey, fetchImpl);
-      return gateRowsExist(result);
+      return plusFromEntitlementOrGrant(result, () =>
+        readComplimentaryPlus(base, serviceKey, userId, fetchImpl)
+      );
     },
     async dailyCount(userId, since) {
       if (!base || !serviceKey) {

@@ -14,7 +14,25 @@
     </script>
   </head>
   <body>
-    <main class="shell">
+    <div id="gate" class="gate" hidden>
+      <form id="gate-form" class="gate-card">
+        <p class="kicker">試作 · 本番には出していない</p>
+        <h1 id="gate-title">VPを開く</h1>
+        <p id="gate-copy"></p>
+        <p id="gate-error" class="banner" hidden></p>
+        <label id="gate-token-label">合言葉（SETUP_TOKEN）
+          <input id="gate-token" name="token" type="password" autocomplete="off" />
+        </label>
+        <label>パスワード
+          <input id="gate-password" name="password" type="password" autocomplete="current-password" />
+        </label>
+        <label id="gate-confirm-label">パスワード（もう一度）
+          <input id="gate-confirm" name="confirm" type="password" autocomplete="new-password" />
+        </label>
+        <button id="gate-submit" type="submit">開く</button>
+      </form>
+    </div>
+    <main class="shell" id="app">
       <section class="stage-wrap" id="stage" data-state="idle">
         <canvas id="avatar" aria-label="VP"></canvas>
         <p id="aizuchi" class="aizuchi" hidden>うん</p>

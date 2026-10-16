@@ -155,7 +155,7 @@ export function createAvatar(canvas) {
       shader.uniforms.uNod.value = sample.nod;
       shader.uniforms.uTurn.value = sample.turn;
       shader.uniforms.uGaze.value.set(sample.gazeX, sample.gazeY);
-      if (mesh.userData.lids && shader.uniforms.uBlink) shader.uniforms.uBlink.value = sample.blink;
+      if (mesh.userData.blink && shader.uniforms.uBlink) shader.uniforms.uBlink.value = sample.blink;
       if (mesh.userData.mouth && shader.uniforms.uOpen) shader.uniforms.uOpen.value = sample.mouth;
     }
     return sample;
@@ -190,15 +190,14 @@ export function createAvatar(canvas) {
   Promise.all([
     fetch("./avatar/layout.json").then((response) => response.json()),
     loadTexture("./avatar/source.jpg"),
-    loadTexture("./avatar/eyelids.png"),
     loadTexture("./avatar/mouth-open.png"),
+    loadTexture("./avatar/blink-skin.png"),
   ])
-    .then(([layout, source, eyelids, mouth]) => {
+    .then(([layout, source, mouth, skin]) => {
       const [red, green, blue] = layout.background;
       renderer.setClearColor(new THREE.Color(red / 255, green / 255, blue / 255), 1);
       const layers = [
-        { texture: prepare(source), sway: 0.009, breath: 0.006, depth: 0.2, head: 1, order: 1 },
-        { texture: prepare(eyelids), sway: 0.009, breath: 0.006, depth: 0.2, head: 1, order: 2, lids: true },
+        { texture: prepare(source), sway: 0.009, breath: 0.006, depth: 0.2, head: 1, order: 1, blink: true },
         { texture: prepare(mouth), sway: 0.009, breath: 0.006, depth: 0.2, head: 1, order: 3, mouth: true },
       ];
       const mouthBox = new THREE.Vector4(
@@ -207,41 +206,90 @@ export function createAvatar(canvas) {
         (layout.mouth.x + layout.mouth.w) / 1024,
         1 - layout.mouth.y / 1024,
       );
-      const boxes = (layout.eyes || []).slice(0, 2).map((eye) => new THREE.Vector4(
-        (eye.x - 8) / 1024,
-        1 - (eye.y + eye.h + 8) / 1024,
-        (eye.x + eye.w + 8) / 1024,
-        1 - (eye.y - 6) / 1024,
-      ));
+      const [lidL, lidR] = layout.blink;
+      const lidOpen = (eye) => new THREE.Vector4(eye.x0, eye.x1, eye.y0, eye.curve);
+      const lidShut = (eye) => new THREE.Vector4(eye.a, eye.b, eye.c, 0);
+      prepare(skin);
+      skin.magFilter = THREE.LinearFilter;
+      skin.minFilter = THREE.LinearFilter;
+      skin.generateMipmaps = false;
+      skin.wrapS = THREE.ClampToEdgeWrapping;
+      skin.wrapT = THREE.ClampToEdgeWrapping;
       for (const layer of layers) {
         const uniforms = makeUniforms(layer);
         const material = deformMaterial(layer.texture, uniforms);
-        if (layer.lids) {
+        if (layer.blink) {
           const previous = material.onBeforeCompile;
           material.onBeforeCompile = (shader) => {
             previous(shader);
             shader.uniforms.uBlink = { value: 0 };
-            shader.uniforms.uEyeA = { value: boxes[0] || new THREE.Vector4() };
-            shader.uniforms.uEyeB = { value: boxes[1] || new THREE.Vector4() };
+            shader.uniforms.uSkin = { value: skin };
+            shader.uniforms.uLidL = { value: lidOpen(lidL) };
+            shader.uniforms.uLidLs = { value: lidShut(lidL) };
+            shader.uniforms.uLidR = { value: lidOpen(lidR) };
+            shader.uniforms.uLidRs = { value: lidShut(lidR) };
             shader.fragmentShader = shader.fragmentShader
               .replace(
-                "#include <common>",
-                `#include <common>
+                "#include <map_pars_fragment>",
+                `#include <map_pars_fragment>
                 uniform float uBlink;
-                uniform vec4 uEyeA;
-                uniform vec4 uEyeB;
-                float lidMask(vec2 uv, vec4 eye) {
-                  float insideX = step(eye.x, uv.x) * step(uv.x, eye.z);
-                  float threshold = mix(eye.w, eye.y, clamp(uBlink, 0.0, 1.0));
-                  return insideX * smoothstep(threshold - 0.02, threshold + 0.008, uv.y);
+                uniform sampler2D uSkin;
+                uniform vec4 uLidL;
+                uniform vec4 uLidLs;
+                uniform vec4 uLidR;
+                uniform vec4 uLidRs;
+                float lidRamp(float e0, float e1, float x) {
+                  return smoothstep(0.0, 1.0, (x - e0) / (e1 - e0));
+                }
+                vec3 blinkEye(vec3 color, float px, float py, vec4 openLid, vec4 shutLid) {
+                  if (px < openLid.x || px > openLid.y) return color;
+                  float n = (px - (openLid.x + openLid.y) * 0.5) / max((openLid.y - openLid.x) * 0.5, 1.0);
+                  float uy = openLid.z + openLid.w * n * n;
+                  float cy = max(shutLid.x + shutLid.y * n + shutLid.z * n * n, uy + 1.0);
+                  float shift = (cy - uy) * uBlink;
+                  float seam = uy - 10.0;
+                  float dest0 = uy - 6.0 + shift;
+                  float dest1 = uy + 2.2 + shift;
+                  if (py < uy - 16.0) {
+                    float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+                    if (lum < 0.33) return color;
+                  }
+                  if (py < seam - 0.3 || py > dest1 + 2.8) return color;
+                  float feather = lidRamp(openLid.x, openLid.x + 5.0, px) * lidRamp(openLid.y, openLid.y - 5.0, px);
+                  vec3 skin = texture2D(uSkin, vec2(px / 1024.0, 0.5)).rgb;
+                  float cover = feather;
+                  vec3 col;
+                  if (py < dest0) {
+                    float g = clamp((py - seam) / max(dest0 - seam, 1.0), 0.0, 1.0);
+                    col = skin * (1.0 - 0.04 * g * g);
+                    if (py < seam + 8.0 && dot(color, vec3(0.2126, 0.7152, 0.0722)) > 0.55) {
+                      col = mix(color, col, lidRamp(seam - 1.0, seam + 8.0, py));
+                    } else if (py < seam + 4.0) {
+                      cover *= lidRamp(seam - 1.5, seam + 4.0, py);
+                    }
+                  } else {
+                    float srcY = py - shift;
+                    col = texture2D(map, vec2(px / 1024.0, 1.0 - srcY / 1024.0)).rgb;
+                    if (py > dest1 - 3.0) {
+                      float k = clamp((dest1 + 1.2 - py) / 4.0, 0.0, 1.0);
+                      vec3 base = (uBlink < 0.96 && py < cy - 2.0) ? color : skin;
+                      col = mix(base, col, k);
+                      cover *= clamp((dest1 + 2.0 - py) / 3.6, 0.0, 1.0);
+                    }
+                  }
+                  return mix(color, col, cover);
                 }`,
               )
               .replace(
-                "#include <alphatest_fragment>",
-                `#include <alphatest_fragment>
-                float lid = max(lidMask(vMapUv, uEyeA), lidMask(vMapUv, uEyeB));
-                if (lid < 0.04) discard;
-                diffuseColor.a *= lid;`,
+                "#include <map_fragment>",
+                `vec4 sampledDiffuseColor = texture2D(map, vMapUv);
+                if (uBlink > 0.001) {
+                  float px = vMapUv.x * 1024.0;
+                  float py = (1.0 - vMapUv.y) * 1024.0;
+                  sampledDiffuseColor.rgb = blinkEye(sampledDiffuseColor.rgb, px, py, uLidL, uLidLs);
+                  sampledDiffuseColor.rgb = blinkEye(sampledDiffuseColor.rgb, px, py, uLidR, uLidRs);
+                }
+                diffuseColor *= sampledDiffuseColor;`,
               );
             material.userData.shader = shader;
           };
@@ -278,7 +326,7 @@ export function createAvatar(canvas) {
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2, 32, 40), material);
         mesh.position.z = layer.order * 0.02;
         mesh.renderOrder = layer.order;
-        mesh.userData.lids = Boolean(layer.lids);
+        mesh.userData.blink = Boolean(layer.blink);
         mesh.userData.mouth = Boolean(layer.mouth);
         root.add(mesh);
         meshes.push(mesh);

@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createAuth } from "./auth.mjs";
+import { createAuthStore } from "./auth-store.mjs";
 import { handleRequest } from "./handler.mjs";
 import { createRepo } from "./repo.mjs";
 
@@ -103,6 +105,7 @@ export function createApp(options = {}) {
     anthropicBase: options.anthropicBase ?? process.env.VP_ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
     cursorBase: options.cursorBase ?? process.env.VP_CURSOR_BASE_URL ?? "https://api.cursor.com",
     repo: options.repo ?? nodeRepo(options.repoRoot ?? repoRoot),
+    auth: options.auth === false ? null : options.auth ?? null,
   };
   return http.createServer(async (req, res) => {
     try {
@@ -146,7 +149,11 @@ export function startServer(options = {}) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const repo = nodeRepo();
   repo.warm().catch(() => {});
-  startServer({ repo }).then(({ url }) => {
+  const auth = createAuth({
+    setupToken: process.env.SETUP_TOKEN ?? "",
+    store: createAuthStore(),
+  });
+  startServer({ repo, auth }).then(({ url }) => {
     console.log(`VP音声通話 ${url}`);
   });
 }

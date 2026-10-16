@@ -355,6 +355,10 @@ async function minutes(request, deps) {
 
 export async function handleRequest(request, deps) {
   const url = new URL(request.url);
+  if (deps.auth) {
+    const gated = await deps.auth.handle(request);
+    if (gated) return gated;
+  }
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,

@@ -647,15 +647,100 @@ renderEstimate();
 renderCost(null);
 setMode("idle");
 
-fetch("/api/health")
-  .then((response) => response.json())
-  .then((health) => {
-    if (!health.hasAnthropicKey) {
-      els.banner.hidden = false;
-      els.banner.textContent = "中継に ANTHROPIC_API_KEY がありません。会話の返事は返せません。";
+const gate = {
+  root: document.querySelector("#gate"),
+  form: document.querySelector("#gate-form"),
+  title: document.querySelector("#gate-title"),
+  copy: document.querySelector("#gate-copy"),
+  error: document.querySelector("#gate-error"),
+  tokenLabel: document.querySelector("#gate-token-label"),
+  token: document.querySelector("#gate-token"),
+  password: document.querySelector("#gate-password"),
+  confirmLabel: document.querySelector("#gate-confirm-label"),
+  confirm: document.querySelector("#gate-confirm"),
+  submit: document.querySelector("#gate-submit"),
+  app: document.querySelector("#app"),
+};
+
+function showHealth() {
+  fetch("/api/health")
+    .then((response) => response.json())
+    .then((health) => {
+      if (!health.hasAnthropicKey) {
+        els.banner.hidden = false;
+        els.banner.textContent = "中継に ANTHROPIC_API_KEY がありません。会話の返事は返せません。";
+      }
+    })
+    .catch(() => {});
+}
+
+function showGate(data) {
+  gate.app.hidden = true;
+  gate.root.hidden = false;
+  const setup = data.mode === "setup";
+  gate.title.textContent = data.reset ? "パスワードを設定し直す" : setup ? "最初のパスワード" : "VPを開く";
+  gate.copy.textContent = data.locked
+    ? `間違えた回数が多いので、約${Math.ceil((data.retryAfterSec || 0) / 60)}分ロックしています。`
+    : data.mode === "unconfigured"
+      ? "サーバーに SETUP_TOKEN がありません。Vercel の環境変数へ入れてから、開き直してください。"
+      : data.reset
+        ? "合言葉を入れ替えたので、新しいパスワードを設定できます。設定すると、前のパスワードは使えなくなります。"
+        : setup
+          ? "初めて開くときだけ、合言葉とパスワードを決めてください。決めたあとは、この画面は出ません。"
+          : "パスワードを入れてください。";
+  gate.tokenLabel.hidden = !setup;
+  gate.confirmLabel.hidden = !setup;
+  gate.password.autocomplete = setup ? "new-password" : "current-password";
+  gate.submit.hidden = data.mode === "unconfigured" || data.locked;
+  gate.submit.textContent = setup ? "このパスワードにする" : "開く";
+}
+
+function openApp() {
+  gate.root.hidden = true;
+  gate.app.hidden = false;
+  showHealth();
+}
+
+gate.form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  gate.error.hidden = true;
+  const setup = !gate.tokenLabel.hidden;
+  if (setup && gate.password.value !== gate.confirm.value) {
+    gate.error.hidden = false;
+    gate.error.textContent = "パスワードが一致しません。";
+    return;
+  }
+  const response = await fetch(setup ? "/api/auth/setup" : "/api/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(setup
+      ? { token: gate.token.value, password: gate.password.value }
+      : { password: gate.password.value }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    gate.error.hidden = false;
+    gate.error.textContent = data.message || "開けませんでした。";
+    if (response.status === 429 || response.status === 403) {
+      const status = await fetch("/api/auth/status").then((res) => res.json());
+      showGate(status);
     }
+    return;
+  }
+  openApp();
+});
+
+fetch("/api/auth/status")
+  .then(async (response) => {
+    if (response.status === 404) {
+      showHealth();
+      return;
+    }
+    const data = await response.json();
+    if (data.authed) openApp();
+    else showGate(data);
   })
-  .catch(() => {});
+  .catch(() => showHealth());
 
 window.__vp = {
   get mode() {

@@ -215,9 +215,9 @@ export function nextClaim(
   return { action: "reclaim", attempt: post.attempt + 1 };
 }
 
-export function pacificDateString(instant: Date): string {
+function calendarDate(instant: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -227,6 +227,14 @@ export function pacificDateString(instant: Date): string {
   return `${pick("year")}-${pick("month")}-${pick("day")}`;
 }
 
+export function pacificDateString(instant: Date): string {
+  return calendarDate(instant, "America/Los_Angeles");
+}
+
+export function japanDateString(instant: Date): string {
+  return calendarDate(instant, "Asia/Tokyo");
+}
+
 export function addDays(isoDate: string, days: number): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
@@ -234,6 +242,12 @@ export function addDays(isoDate: string, days: number): string {
 
 export function monthStart(isoDate: string): string {
   return `${isoDate.slice(0, 7)}-01`;
+}
+
+/// 日次ファイルに時刻は無い。太平洋時間の 24 時間のうち、夏は 16 時間、冬は 17 時間が
+/// 日本時間の翌日に当たる。ファイル全体を、その日本時間の日付として扱う。
+export function japanDateForPacificReport(reportDate: string): string {
+  return addDays(reportDate, 1);
 }
 
 export function candidateFlashDates(now: Date): string[] {
@@ -257,11 +271,11 @@ export function formatHeadingDate(isoDate: string): string {
   return `${month}/${day}（${weekday}）`;
 }
 
-/// リリース日（日本時間 2026-10-15）より前のレポート日は取り込まない。
-/// 保存する日付は Apple のレポート日（太平洋時間の暦日）なので、この文字列より前は書かない。
+/// 保存する日付は日本時間。この日より前は取り込まない。
 export const releaseDate = "2026-10-15";
 
-/// 日次ファイルは、その太平洋時間の暦日が終わったあと、日本時間の翌朝 5:00 まで確定しない。
+/// 引数は Apple に渡す太平洋時間のレポート日。
+/// そのファイルは、太平洋時間の暦日が終わったあと、日本時間の翌朝 5:00 まで確定しない。
 /// Apple は未生成の日にも「There were no sales for the date specified.」を返す。
 /// 公式の「翌日 8:00 太平洋時間まで」より、日本向けの「日本時間 5:00」の方が遅い。
 export function reportSettled(dataDate: string, now: Date): boolean {
@@ -457,7 +471,7 @@ export function summarizeReviews(reviews: ReviewInput[], dataDate: string): Revi
   const stars: [number, number, number, number, number] = [0, 0, 0, 0, 0];
   const matched = reviews.filter((review) => {
     const instant = new Date(review.createdDate);
-    return !Number.isNaN(instant.getTime()) && pacificDateString(instant) === dataDate;
+    return !Number.isNaN(instant.getTime()) && japanDateString(instant) === dataDate;
   }).sort((left, right) => new Date(right.createdDate).getTime() - new Date(left.createdDate).getTime());
   for (const review of matched) {
     const rating = Math.round(review.rating);
@@ -706,8 +720,8 @@ export function formatFlashMessage(view: FlashView): string {
     averageRating: view.reviews.averageRating,
   });
   return [
-    `📊 カロナビ日次レポート｜${date}分　_太平洋時間の暦日_`,
-    "（App Store の集計日。太平洋時間の 0:00〜23:59）",
+    `📊 カロナビ日次レポート｜${date}分　_日本時間_`,
+    "（売上と課金は Apple の日次ファイル。時刻が無いので、太平洋時間の 24 時間の多くがかかる日本時間の日付で出しています）",
     "",
     "■ 獲得",
     ...salesLines,
@@ -736,8 +750,8 @@ export function formatAcquisitionMessage(input: {
   const previousConversion = input.previous ? formatPercent(input.previous.conversionRate) : null;
   const conversionDelta = previousConversion == null ? "前日 —" : `前日 ${previousConversion}`;
   return [
-    `📈 カロナビ集客｜${date}分　_太平洋時間の暦日_`,
-    "（Analytics。集計日の 3 日後以降に、出ている日だけ投稿）",
+    `📈 カロナビ集客｜${date}分　_日本時間_`,
+    "（Analytics も太平洋時間の日付。速報と同じく日本時間の翌日として、ファイルの 3 日後以降に出します）",
     "",
     `表示回数 ${input.today.impressions.toLocaleString("en-US")}（${impressions}）`,
     `製品ページ閲覧 ${input.today.productPageViews.toLocaleString("en-US")}（${pages}）`,

@@ -2,6 +2,7 @@ import { pemToPkcs8, signAppleJwt } from "./apple_jwt.ts";
 import { authorizeStoreImport, gunzipText, json, parseTsv } from "./text.ts";
 import {
   addDays,
+  japanDateString,
   pacificDateString,
   planOngoingAnalyticsRequest,
   postWithBackoff,
@@ -142,7 +143,7 @@ function reviewFrom(row: Record<string, unknown>): ReviewInput | null {
 }
 
 async function readReviewPages(kind: "admin" | "reports"): Promise<ReviewsResponse> {
-  const cutoff = addDays(pacificDateString(new Date()), -14);
+  const cutoff = addDays(japanDateString(new Date()), -14);
   let path = `/v1/apps/${required("ASC_APP_APPLE_ID")}/customerReviews?sort=-createdDate&limit=200`;
   const reviews: ReviewInput[] = [];
   for (let page = 0; page < 10 && path; page++) {
@@ -155,7 +156,7 @@ async function readReviewPages(kind: "admin" | "reports"): Promise<ReviewsRespon
     const oldest = batch
       .map((review) => new Date(review.createdDate))
       .filter((instant) => !Number.isNaN(instant.getTime()))
-      .map((instant) => pacificDateString(instant))
+      .map((instant) => japanDateString(instant))
       .sort()[0];
     const next = typeof body?.links?.next === "string" ? body.links.next : "";
     if (!next || (oldest !== undefined && oldest < cutoff)) {

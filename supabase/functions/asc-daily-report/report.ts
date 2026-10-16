@@ -13,6 +13,7 @@ import {
   formatAcquisitionMessage,
   formatFlashMessage,
   latestRowsForDate,
+  japanDateForPacificReport,
   monthStart,
   nextClaim,
   releaseDate,
@@ -223,22 +224,23 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
     return reviewsPromise;
   };
 
-  for (const dataDate of candidateFlashDates(now)) {
+  for (const reportDate of candidateFlashDates(now)) {
+    const dataDate = japanDateForPacificReport(reportDate);
     if (dataDate < releaseDate) continue;
     const existing = await deps.getPost("flash", dataDate);
     if (nextClaim(existing, nowMs).action === "skip") continue;
     try {
-      const sales = await fetchReady(deps, "SALES", dataDate);
-      const subscription = await fetchReady(deps, "SUBSCRIPTION", dataDate);
-      const events = await fetchReady(deps, "SUBSCRIPTION_EVENT", dataDate);
+      const sales = await fetchReady(deps, "SALES", reportDate);
+      const subscription = await fetchReady(deps, "SUBSCRIPTION", reportDate);
+      const events = await fetchReady(deps, "SUBSCRIPTION_EVENT", reportDate);
       const reviewResponse = await reviews();
       const reviewsReady = reviewResponse.status >= 200 &&
         reviewResponse.status < 300 &&
         reviewResponse.complete;
       if (
-        reportBlocksPost(sales, dataDate, now) ||
-        reportBlocksPost(subscription, dataDate, now) ||
-        reportBlocksPost(events, dataDate, now) ||
+        reportBlocksPost(sales, reportDate, now) ||
+        reportBlocksPost(subscription, reportDate, now) ||
+        reportBlocksPost(events, reportDate, now) ||
         !reviewsReady
       ) {
         continue;
@@ -293,15 +295,16 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
     bundle = { state: "error" };
   }
   if (bundle.state === "ready") {
-    for (const dataDate of candidateAcquisitionDates(now)) {
+    for (const reportDate of candidateAcquisitionDates(now)) {
+      const dataDate = japanDateForPacificReport(reportDate);
       if (dataDate < releaseDate) continue;
       const existing = await deps.getPost("acquisition", dataDate);
       if (nextClaim(existing, deps.now().getTime()).action === "skip") continue;
-      const discoveryRows = latestRowsForDate(bundle.discovery, dataDate, deps.appAppleId);
-      const downloadRows = latestRowsForDate(bundle.downloads, dataDate, deps.appAppleId);
+      const discoveryRows = latestRowsForDate(bundle.discovery, reportDate, deps.appAppleId);
+      const downloadRows = latestRowsForDate(bundle.downloads, reportDate, deps.appAppleId);
       if (!discoveryRows || !downloadRows) continue;
       const summary = buildAnalytics(summarizeDiscovery(discoveryRows), summarizeDownloads(downloadRows));
-      const history = await deps.history(addDays(dataDate, -1), dataDate);
+      const history = await deps.history(historyStart(dataDate), dataDate);
       await deps.saveAnalytics(dataDate, summary);
       const text = formatAcquisitionMessage({
         dataDate,

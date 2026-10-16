@@ -1,5 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  addDays,
   aggregateEvents,
   aggregateSales,
   aggregateSubscription,
@@ -11,6 +12,8 @@ import {
   flashComment,
   formatFlashMessage,
   formatHeadingDate,
+  japanDateForPacificReport,
+  japanDateString,
   latestRowsForDate,
   nextClaim,
   observedParentSkus,
@@ -32,7 +35,8 @@ import { gunzipText, parseTsv } from "./asc-daily-report/text.ts";
 
 const appId = "111";
 const appSku = "calonavi";
-const flashDate = "2026-10-16";
+const reportDate = "2026-10-16";
+const flashDate = "2026-10-17";
 const nowIso = "2026-10-18T21:00:00Z";
 const reservationLeaseMs = 30 * 60 * 1000;
 
@@ -400,7 +404,7 @@ Deno.test("a later analytics instance replaces the same date", () => {
   assertEquals(rows?.[0].Counts, "5");
 });
 
-Deno.test("reviews use the Pacific day and keep one redacted line", () => {
+Deno.test("reviews use the Japan day and keep one redacted line", () => {
   const summary = summarizeReviews([
     {
       rating: 5,
@@ -418,7 +422,7 @@ Deno.test("reviews use the Pacific day and keep one redacted line", () => {
       rating: 1,
       title: "",
       body: "別の日",
-      createdDate: "2026-10-17T08:00:00Z",
+      createdDate: "2026-10-16T14:00:00Z",
     },
   ], flashDate);
   assertEquals(summary.reviewCount, 2);
@@ -771,7 +775,7 @@ function depsFor(store: Memory, nowMs: { value: number }, slack: string[]): Repo
       return Promise.resolve();
     },
     postSlack: (text) => {
-      const reserved = store.posts.get(key(text.startsWith("📊") ? "flash" : "acquisition", text.startsWith("📊") ? flashDate : "2026-10-15"));
+      const reserved = store.posts.get(key(text.startsWith("📊") ? "flash" : "acquisition", text.startsWith("📊") ? flashDate : "2026-10-16"));
       assertEquals(reserved?.status, "reserved");
       slack.push(text);
       return Promise.resolve(true);
@@ -784,7 +788,7 @@ function reportFor(
   dataDate: string,
   mode: "ready" | "missing" | "empty",
 ): ReportResponse {
-  if (dataDate !== flashDate || mode === "missing") {
+  if (dataDate !== reportDate || mode === "missing") {
     return {
       status: 404,
       errorBody: "The report you requested is not available yet. Please try again later.",
@@ -802,7 +806,7 @@ function reportFor(
 Deno.test("a complete day posts once in Japanese and a second run does not", async () => {
   const store = memory();
   store.sales.push({
-    dataDate: "2026-10-15",
+    dataDate: "2026-10-16",
     newDownloads: 9,
     redownloads: 1,
     salesCents: 0,
@@ -814,10 +818,10 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   const deps = depsFor(store, clock, slack);
   const first = await runAscDailyReport(deps);
   assertEquals(first.flashPosted, [flashDate]);
-  assertEquals(first.acquisitionPosted, ["2026-10-15"]);
+  assertEquals(first.acquisitionPosted, ["2026-10-16"]);
   assertEquals(slack.length, 2);
   const flash = slack[0];
-  assertEquals(flash.includes("📊 カロナビ日次レポート｜10/16（金）分　_太平洋時間の暦日_"), true);
+  assertEquals(flash.includes("📊 カロナビ日次レポート｜10/17（土）分　_日本時間_"), true);
   assertEquals(flash.includes("■ 獲得"), true);
   assertEquals(flash.includes("■ 課金"), true);
   assertEquals(flash.includes("■ レビュー"), true);
@@ -834,7 +838,7 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   assertEquals(flash.includes("「使いやすい」"), true);
   assertEquals(flash.includes("本文のない★だけの評価は API に含まれません。"), true);
   assertEquals(flash.includes("トライアル開始と、有料への切り替えが両方あります。"), true);
-  assertEquals(slack[1].includes("📈 カロナビ集客｜10/15（木）分　_太平洋時間の暦日_"), true);
+  assertEquals(slack[1].includes("📈 カロナビ集客｜10/16（金）分　_日本時間_"), true);
   assertEquals(slack[1].includes("表示回数 1,200"), true);
   assertEquals(slack[1].includes("製品ページ閲覧 250"), true);
   assertEquals(slack[1].includes("検索 800（広告を含む） / 広告 検索と分かれて出ない / その他 400"), true);
@@ -887,7 +891,7 @@ function appRow(): Record<string, string> {
   };
 }
 
-Deno.test("a SKU seen on 10/15 is used for billing-only 10/16 in the same run", async () => {
+Deno.test("a SKU seen in the PT 10/15 file is used for the billing-only PT 10/16 file", async () => {
   const store = memory();
   const slack: string[] = [];
   const known: string[] = [];
@@ -903,7 +907,7 @@ Deno.test("a SKU seen on 10/15 is used for billing-only 10/16 in the same run", 
         rows: [],
       });
     }
-    if (kind !== "SALES") return Promise.resolve(reportFor(kind, flashDate, "ready"));
+    if (kind !== "SALES") return Promise.resolve(reportFor(kind, reportDate, "ready"));
     return Promise.resolve({
       status: 200,
       errorBody: "",
@@ -911,15 +915,15 @@ Deno.test("a SKU seen on 10/15 is used for billing-only 10/16 in the same run", 
     });
   };
   deps.postSlack = (text) => {
-    const date = text.includes("10/15") ? "2026-10-15" : "2026-10-16";
+    const date = text.includes("10/16") ? "2026-10-16" : "2026-10-17";
     assertEquals(store.posts.get(`flash:${date}`)?.status, "reserved");
     slack.push(text);
     return Promise.resolve(true);
   };
   const result = await runAscDailyReport(deps);
-  assertEquals(result.flashPosted, ["2026-10-15", "2026-10-16"]);
+  assertEquals(result.flashPosted, ["2026-10-16", "2026-10-17"]);
   assertEquals(known.includes(appSku), true);
-  const fourth = slack.find((text) => text.includes("10/16"));
+  const fourth = slack.find((text) => text.includes("10/17"));
   assertEquals(fourth?.includes("売上 ¥580"), true);
   assertEquals(fourth?.includes("手取り ¥406"), true);
   assertEquals(fourth?.includes("売上未確定"), false);
@@ -933,14 +937,14 @@ Deno.test("billing-only days stay unposted until a parent SKU is known", async (
   deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
   deps.fetchReviews = () => Promise.resolve({ status: 200, errorBody: "", complete: true, reviews: [] });
   deps.fetchSalesReport = (kind, dataDate) => {
-    if (dataDate !== flashDate) {
+    if (dataDate !== reportDate) {
       return Promise.resolve({
         status: 404,
         errorBody: "The report you requested is not available yet. Please try again later.",
         rows: [],
       });
     }
-    if (kind !== "SALES") return Promise.resolve(reportFor(kind, flashDate, "ready"));
+    if (kind !== "SALES") return Promise.resolve(reportFor(kind, reportDate, "ready"));
     return Promise.resolve({ status: 200, errorBody: "", rows: billingRows() });
   };
   const first = await runAscDailyReport(deps);
@@ -969,14 +973,14 @@ Deno.test("a renewal-only day posts yen from a saved parent SKU", async () => {
   deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
   deps.knownParentSkus = [appSku];
   deps.fetchSalesReport = (kind, dataDate) => {
-    if (dataDate !== flashDate) {
+    if (dataDate !== reportDate) {
       return Promise.resolve({
         status: 404,
         errorBody: "The report you requested is not available yet. Please try again later.",
         rows: [],
       });
     }
-    if (kind !== "SALES") return Promise.resolve(reportFor(kind, flashDate, "ready"));
+    if (kind !== "SALES") return Promise.resolve(reportFor(kind, reportDate, "ready"));
     return Promise.resolve({
       status: 200,
       errorBody: "",
@@ -1057,7 +1061,7 @@ Deno.test("an empty sales file waits for a parent SKU, then posts zeros", async 
   const slack: string[] = [];
   const deps = depsFor(store, { value: Date.parse(nowIso) }, slack);
   deps.fetchSalesReport = (kind, dataDate) => {
-    if (kind === "SALES" && dataDate === flashDate) {
+    if (kind === "SALES" && dataDate === reportDate) {
       return Promise.resolve({ status: 404, errorBody: "There were no sales for the date specified.", rows: [] });
     }
     return Promise.resolve(reportFor(kind, dataDate, "ready"));
@@ -1092,7 +1096,7 @@ Deno.test("sales retries before the day is treated as missing", async () => {
   deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
   let salesCalls = 0;
   deps.fetchSalesReport = (kind, dataDate) => {
-    if (kind === "SALES" && dataDate === flashDate) {
+    if (kind === "SALES" && dataDate === reportDate) {
       salesCalls += 1;
       if (salesCalls < 3) return Promise.resolve({ status: 503, errorBody: "", rows: [] });
     }
@@ -1133,21 +1137,21 @@ Deno.test("the first day of the month compares with the previous month", async (
   };
   deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
   deps.fetchSalesReport = (kind, dataDate) => {
-    if (dataDate !== "2026-11-01") {
+    if (dataDate !== "2026-10-31") {
       return Promise.resolve({
         status: 404,
         errorBody: "The report you requested is not available yet. Please try again later.",
         rows: [],
       });
     }
-    return Promise.resolve(reportFor(kind, flashDate, "ready"));
+    return Promise.resolve(reportFor(kind, reportDate, "ready"));
   };
   deps.fetchReviews = () => Promise.resolve({
     status: 200,
     errorBody: "",
     complete: true,
     reviews: [
-      { rating: 5, title: "", body: "月初", createdDate: "2026-11-01T19:00:00Z" },
+      { rating: 5, title: "", body: "月初", createdDate: "2026-11-01T02:00:00Z" },
     ],
   });
   deps.postSlack = (text) => {
@@ -1283,9 +1287,12 @@ Deno.test("the comment follows the numbers", () => {
   }), "大きな動きはありません。");
 });
 
-Deno.test("the report date is Apple's Pacific day", () => {
+Deno.test("a Pacific report file is labeled as the next Japan date", () => {
   assertEquals(pacificDateString(new Date(nowIso)), "2026-10-18");
-  assertEquals(formatHeadingDate(flashDate), "10/16（金）");
+  assertEquals(japanDateString(new Date("2026-10-14T15:00:00Z")), "2026-10-15");
+  assertEquals(japanDateString(new Date("2026-10-14T14:59:00Z")), "2026-10-14");
+  assertEquals(japanDateForPacificReport("2026-10-14"), "2026-10-15");
+  assertEquals(formatHeadingDate(flashDate), "10/17（土）");
   assertEquals(reportSettled("2026-10-15", new Date("2026-10-16T10:59:00Z")), false);
   assertEquals(reportSettled("2026-10-15", new Date("2026-10-16T19:59:00Z")), false);
   assertEquals(reportSettled("2026-10-15", new Date("2026-10-16T20:00:00Z")), true);
@@ -1333,7 +1340,9 @@ Deno.test("days before the release date are not fetched or posted", async () => 
   };
   const result = await runAscDailyReport(deps);
   assertEquals(result.flashPosted, []);
-  assertEquals(asked.some((date) => date < releaseDate), false);
+  assertEquals(asked.some((date) => addDays(date, 1) < releaseDate), false);
+  assertEquals(asked.includes("2026-10-13"), false);
+  assertEquals(asked.includes("2026-10-14"), true);
   assertEquals(store.sales, []);
   assertEquals(slack, []);
 });
@@ -1341,7 +1350,7 @@ Deno.test("days before the release date are not fetched or posted", async () => 
 Deno.test("a no-sales response before the report is final is not stored as zero", async () => {
   const store = memory();
   const slack: string[] = [];
-  const deps = depsFor(store, { value: Date.parse("2026-10-16T10:59:00Z") }, slack);
+  const deps = depsFor(store, { value: Date.parse("2026-10-15T10:00:00Z") }, slack);
   deps.knownParentSkus = [appSku];
   deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
   deps.fetchSalesReport = () => Promise.resolve({
@@ -1358,4 +1367,35 @@ Deno.test("a no-sales response before the report is final is not stored as zero"
   const headerOnly = await runAscDailyReport(deps);
   assertEquals(headerOnly.flashPosted, []);
   assertEquals(store.sales, []);
+});
+
+Deno.test("the settled PT 10/14 file is stored as Japan 10/15 and the later file waits", async () => {
+  const store = memory();
+  const slack: string[] = [];
+  const deps = depsFor(store, { value: Date.parse("2026-10-16T10:59:00Z") }, slack);
+  deps.knownParentSkus = [appSku];
+  deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
+  deps.fetchSalesReport = (kind, dataDate) => {
+    if (dataDate === "2026-10-14" && kind === "SALES") {
+      return Promise.resolve({ status: 200, errorBody: "", rows: [appRow()] });
+    }
+    if (dataDate === "2026-10-14") return Promise.resolve(reportFor(kind, reportDate, "ready"));
+    return Promise.resolve({
+      status: 404,
+      errorBody: "There were no sales for the date specified.",
+      rows: [],
+    });
+  };
+  deps.postSlack = (text) => {
+    assertEquals(store.posts.get("flash:2026-10-15")?.status, "reserved");
+    slack.push(text);
+    return Promise.resolve(true);
+  };
+  const result = await runAscDailyReport(deps);
+  assertEquals(result.flashPosted, ["2026-10-15"]);
+  assertEquals(store.sales.map((row) => row.dataDate), ["2026-10-15"]);
+  assertEquals(store.sales[0]?.newDownloads, 1);
+  assertEquals(store.posts.has("flash:2026-10-16"), false);
+  assertEquals(slack[0].includes("📊 カロナビ日次レポート｜10/15（木）分　_日本時間_"), true);
+  assertEquals(slack[0].includes("新規DL 1"), true);
 });

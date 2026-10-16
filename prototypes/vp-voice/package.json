@@ -1,0 +1,9 @@
+{
+  "name": "vp-voice",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node relay/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

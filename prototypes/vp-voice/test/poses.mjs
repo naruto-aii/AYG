@@ -129,14 +129,56 @@ async function main() {
     await pose("document.querySelector('#avatar').dataset.pose='idle'; document.querySelector('#avatar').dataset.blink='1'; document.querySelector('#avatar').dataset.mouth='0'");
     await shot("pose-blink.png");
 
-    await pose("document.querySelector('#avatar').dataset.pose='idle'; document.querySelector('#avatar').dataset.blink=''; document.querySelector('#avatar').dataset.mouth=''");
-    for (let index = 0; index < 36; index += 1) {
-      if (index === 12) await pose("document.querySelector('#avatar').dataset.pose='speaking'; document.querySelector('#avatar').dataset.mouth=''");
-      if (index === 24) await pose("document.querySelector('#avatar').dataset.pose='listening'");
-      const result = await page.send("Page.captureScreenshot", { format: "jpeg", quality: 70 });
-      await fs.writeFile(path.join(outDir, "frames", `f${String(index).padStart(2, "0")}.jpg`), Buffer.from(result.data, "base64"));
-      await sleep(90);
+    await pose("document.querySelector('#avatar').dataset.pose='idle'; document.querySelector('#avatar').dataset.blink=''; document.querySelector('#avatar').dataset.mouth=''; document.querySelector('#avatar').dataset.manual='1'");
+    const frameDir = path.join(outDir, "frames60");
+    await fs.rm(frameDir, { recursive: true, force: true });
+    await fs.mkdir(frameDir, { recursive: true });
+    const trace = [];
+    const frameCount = Number(process.env.POSE_FRAMES || 300);
+    for (let index = 0; index < frameCount; index += 1) {
+      const result = await page.send("Runtime.evaluate", {
+        expression: `(() => {
+          const canvas = document.querySelector('#avatar');
+          const t = ${index} / 60;
+          if (t < 1.5) canvas.dataset.pose = 'idle';
+          else if (t < 3.25) canvas.dataset.pose = 'speaking';
+          else canvas.dataset.pose = 'listening';
+          canvas.dataset.blink = '';
+          canvas.dataset.mouth = '';
+          if (${index} === 196) window.__vp.nod();
+          const sample = window.__vp.renderAt(t);
+          return { blink: sample.blink, mouth: sample.mouth, url: canvas.toDataURL('image/jpeg', 0.86) };
+        })()`,
+        returnByValue: true,
+      });
+      const value = result.result?.value;
+      if (!value?.url) throw new Error(`フレームを取れません: ${JSON.stringify(result).slice(0, 400)}`);
+      const jpeg = value.url.slice(value.url.indexOf(",") + 1);
+      await fs.writeFile(path.join(frameDir, `f${String(index).padStart(4, "0")}.jpg`), Buffer.from(jpeg, "base64"));
+      if (index % 15 === 0) trace.push(`${index}:${value.blink.toFixed(2)}/${value.mouth.toFixed(2)}`);
     }
+    console.log("trace", trace.join(" "));
+    const videoPath = path.join(outDir, "vp-smooth.mp4");
+    const ffmpegLog = [];
+    await new Promise((resolve, reject) => {
+      const encoder = spawn("ffmpeg", [
+        "-y",
+        "-framerate", "60",
+        "-i", path.join(frameDir, "f%04d.jpg"),
+        "-frames:v", String(frameCount),
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-crf", "18",
+        "-movflags", "+faststart",
+        videoPath,
+      ], { stdio: ["ignore", "pipe", "pipe"] });
+      encoder.stdout.on("data", (chunk) => ffmpegLog.push(chunk.toString()));
+      encoder.stderr.on("data", (chunk) => ffmpegLog.push(chunk.toString()));
+      encoder.on("error", reject);
+      encoder.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg ${code}\n${ffmpegLog.join("").slice(-800)}`))));
+    });
+    const video = await fs.stat(videoPath);
+    console.log("video", video.size);
     page.close();
     browser.close();
     console.log("shots ok", app.url);

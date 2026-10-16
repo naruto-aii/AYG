@@ -61,12 +61,14 @@ const els = {
 
 const avatar = createAvatar(els.canvas);
 const speech = createSpeech({
-  onSpeaking(active) {
+  onSpeaking(active, text, rate) {
     if (active) {
+      avatar.setSpeech(text ? { text, rate } : null);
       session.speakUntil = Math.max(session.speakUntil || 0, Date.now() + 900);
       setMode("speaking");
       return;
     }
+    avatar.setSpeech(null);
     const wait = (session.speakUntil || 0) - Date.now();
     if (wait > 0) {
       setTimeout(() => {
@@ -663,4 +665,10 @@ window.__vp = {
     return session.yen;
   },
   session,
+  renderAt(time) {
+    return avatar.renderAt(time);
+  },
+  nod() {
+    avatar.nod();
+  },
 };

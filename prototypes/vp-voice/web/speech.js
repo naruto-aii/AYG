@@ -23,6 +23,25 @@ export function pullSentences(buffer, flush) {
   return { sentences, rest };
 }
 
+const VOWELS = [
+  [0.82, "あかさたなはまやらわがざだばぱぁゃアカサタナハマヤラワガザダバパァャ"],
+  [0.22, "いきしちにひみりぎじぢびぴぃイキシチニヒミリギジヂビピィ"],
+  [0.34, "うくすつぬふむゆるぐずづぶぷぅゅウクスツヌフムユルグズヅブプゥュ"],
+  [0.5, "えけせてねへめれげぜでべぺぇエケセテネヘメレゲゼデベペェ"],
+  [0.68, "おこそとのほもよろをごぞどぼぽぉょをオコソトノホモヨロヲゴゾドボポォョ"],
+];
+
+export function mouthOpenness(text, index) {
+  const ch = String(text || "")[index] || "";
+  if (!ch) return 0.08;
+  if (ch === "ん" || ch === "ン") return 0.14;
+  if ("、。！？!?… ".includes(ch)) return 0.05;
+  for (const [open, row] of VOWELS) {
+    if (row.includes(ch)) return open;
+  }
+  return 0.46;
+}
+
 export function createSpeech({ onSpeaking } = {}) {
   const synth = typeof window !== "undefined" ? window.speechSynthesis : null;
   let queue = [];
@@ -64,7 +83,7 @@ export function createSpeech({ onSpeaking } = {}) {
       if (voice) utterance.voice = voice;
       const mine = token;
       utterance.onstart = () => {
-        if (mine === token && !options.quiet) onSpeaking?.(true);
+        if (mine === token && !options.quiet) onSpeaking?.(true, text, utterance.rate);
       };
       utterance.onend = () => {
         if (mine === token && !options.quiet) onSpeaking?.(false);

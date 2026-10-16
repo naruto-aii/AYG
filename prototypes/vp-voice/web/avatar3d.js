@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createMotion, stepMotion } from "./motion.js";
 
 const DEFORM = `
 uniform float uTime;
@@ -19,8 +20,8 @@ transformed.x += sin(uTime * 1.25 + uv.y * 6.0) * uSway * side * tip;
 transformed.y += cos(uTime * 0.9 + uv.x * 3.0) * uSway * tip * 0.25;
 float chest = smoothstep(0.55, 0.12, uv.y) * (1.0 - smoothstep(0.0, 0.42, abs(uv.x - 0.5)));
 transformed.y += sin(uTime * 1.2) * uBreath * chest;
-transformed.x += uTurn * uDepth * 0.01;
 float head = smoothstep(0.30, 0.50, uv.y);
+transformed.x += uTurn * 0.04 * head;
 float ang = uNod * uHead * head * 0.28;
 float cs = cos(ang);
 float sn = sin(ang);
@@ -79,6 +80,8 @@ export function createAvatar(canvas) {
     antialias: true,
     alpha: false,
     premultipliedAlpha: false,
+    preserveDrawingBuffer: true,
+    powerPreference: "high-performance",
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NoToneMapping;
@@ -91,18 +94,39 @@ export function createAvatar(canvas) {
   scene.add(root);
 
   const meshes = [];
+  const motion = createMotion();
+  const sample = { blink: 0, mouth: 0, nod: 0, turn: 0, gazeX: 0, gazeY: 0 };
+  const motionInput = {
+    time: 0,
+    dt: 0,
+    now: 0,
+    mode: "idle",
+    forcedBlink: "",
+    forcedMouth: "",
+    speech: null,
+    manual: false,
+    nodAt: -10,
+  };
   let mode = "idle";
-  let nod = 0;
-  let blink = 0;
-  let nextBlink = performance.now() + 1100;
+  let nodAt = -10;
+  let simTime = 0;
+  let lastNow = performance.now();
   let frame = 0;
-  const clock = new THREE.Clock();
+  let speechLine = null;
+  let appliedW = 0;
+  let appliedH = 0;
+  let appliedRatio = 0;
 
   function resize() {
-    const width = canvas.clientWidth || 640;
-    const height = canvas.clientHeight || 720;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    if (canvas.width !== Math.floor(width * ratio)) renderer.setSize(width, height, false);
+    const width = Math.max(1, Math.floor(canvas.clientWidth || 640));
+    const height = Math.max(1, Math.floor(canvas.clientHeight || 720));
+    const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+    if (width === appliedW && height === appliedH && ratio === appliedRatio) return;
+    appliedW = width;
+    appliedH = height;
+    appliedRatio = ratio;
+    renderer.setPixelRatio(ratio);
+    renderer.setSize(width, height, false);
     const aspect = width / Math.max(height, 1);
     const viewHeight = aspect < 0.9 ? 1.62 : 1.9;
     const viewWidth = viewHeight * aspect;
@@ -113,57 +137,53 @@ export function createAvatar(canvas) {
     camera.updateProjectionMatrix();
   }
 
-  function loop() {
-    frame = requestAnimationFrame(loop);
-    const time = clock.getElapsedTime();
-    const now = performance.now();
-    resize();
-    const forcedBlink = canvas.dataset.blink;
-    const forcedMouth = canvas.dataset.mouth;
-    const active = canvas.dataset.pose || mode;
-
-    let blinkAmount = 0;
-    if (forcedBlink != null && forcedBlink !== "") {
-      blinkAmount = Math.min(1, Math.max(0, Number(forcedBlink)));
-    } else {
-      if (blink === 0 && now > nextBlink) blink = 0.01;
-      if (blink > 0) {
-        blink += 0.18;
-        const phase = blink < 1 ? blink : Math.max(0, 2 - blink);
-        blinkAmount = Math.min(1, phase);
-        if (blink >= 2) {
-          blink = 0;
-          nextBlink = now + 1600 + Math.random() * 2800;
-        }
-      }
-    }
-
-    let mouth = 0;
-    if (forcedMouth != null && forcedMouth !== "") mouth = Number(forcedMouth);
-    else if (active === "speaking") {
-      mouth = Math.max(0, 0.25 + Math.sin(time * 14) * 0.45 + Math.sin(time * 7.4) * 0.3);
-    }
-
-    let nodAmount = Math.sin(time * 0.5) * 0.06;
-    if (nod > 0) {
-      nod = Math.max(0, nod - 0.028);
-      nodAmount += Math.sin(nod * Math.PI) * 0.85;
-    }
-    if (active === "listening") nodAmount += Math.max(0, Math.sin(time * 2.3)) * 0.55;
-    if (active === "thinking") nodAmount -= 0.2;
-    const turn = Math.sin(time * 0.38) * (active === "listening" ? 0.4 : 0.75);
-
+  function advance(dt, now) {
+    motionInput.time = simTime;
+    motionInput.dt = dt;
+    motionInput.now = now;
+    motionInput.mode = canvas.dataset.pose || mode;
+    motionInput.forcedBlink = canvas.dataset.blink ?? "";
+    motionInput.forcedMouth = canvas.dataset.mouth ?? "";
+    motionInput.speech = speechLine;
+    motionInput.manual = canvas.dataset.manual === "1";
+    motionInput.nodAt = nodAt;
+    stepMotion(motion, motionInput, sample);
     for (const mesh of meshes) {
       const shader = mesh.material.userData.shader;
       if (!shader) continue;
-      shader.uniforms.uTime.value = time;
-      shader.uniforms.uNod.value = nodAmount;
-      shader.uniforms.uTurn.value = turn;
-      if (mesh.userData.lids && shader.uniforms.uBlink) shader.uniforms.uBlink.value = blinkAmount;
-      if (mesh.userData.mouth) mesh.material.opacity = mouth;
+      shader.uniforms.uTime.value = simTime;
+      shader.uniforms.uNod.value = sample.nod;
+      shader.uniforms.uTurn.value = sample.turn;
+      shader.uniforms.uGaze.value.set(sample.gazeX, sample.gazeY);
+      if (mesh.userData.lids && shader.uniforms.uBlink) shader.uniforms.uBlink.value = sample.blink;
+      if (mesh.userData.mouth && shader.uniforms.uOpen) shader.uniforms.uOpen.value = sample.mouth;
     }
-    canvas.dataset.blinkAmount = blinkAmount.toFixed(2);
-    canvas.dataset.mouthAmount = mouth.toFixed(2);
+    return sample;
+  }
+
+  function renderAt(time) {
+    if (time + 1e-4 < simTime) {
+      const fresh = createMotion(motion.random);
+      Object.assign(motion, fresh);
+      nodAt = -10;
+      simTime = 0;
+    }
+    const dt = time > simTime ? Math.min(0.05, time - simTime) : 1 / 60;
+    simTime = time;
+    if (appliedW === 0) resize();
+    advance(dt, performance.now());
+    renderer.render(scene, camera);
+    return { blink: sample.blink, mouth: sample.mouth };
+  }
+
+  function loop(now) {
+    frame = requestAnimationFrame(loop);
+    if (canvas.dataset.manual === "1") return;
+    const dt = Math.min(0.05, Math.max(0, (now - lastNow) / 1000));
+    lastNow = now;
+    simTime += dt;
+    if (appliedW === 0) resize();
+    advance(dt, now);
     renderer.render(scene, camera);
   }
 
@@ -177,10 +197,16 @@ export function createAvatar(canvas) {
       const [red, green, blue] = layout.background;
       renderer.setClearColor(new THREE.Color(red / 255, green / 255, blue / 255), 1);
       const layers = [
-        { texture: prepare(source), sway: 0.014, breath: 0.01, depth: 0.2, head: 1, order: 1 },
-        { texture: prepare(eyelids), sway: 0.014, breath: 0.01, depth: 0.85, head: 1, order: 2, lids: true },
-        { texture: prepare(mouth), sway: 0.014, breath: 0.01, depth: 0.7, head: 1, order: 3, mouth: true },
+        { texture: prepare(source), sway: 0.009, breath: 0.006, depth: 0.2, head: 1, order: 1 },
+        { texture: prepare(eyelids), sway: 0.009, breath: 0.006, depth: 0.2, head: 1, order: 2, lids: true },
+        { texture: prepare(mouth), sway: 0.009, breath: 0.006, depth: 0.2, head: 1, order: 3, mouth: true },
       ];
+      const mouthBox = new THREE.Vector4(
+        layout.mouth.x / 1024,
+        1 - (layout.mouth.y + layout.mouth.h) / 1024,
+        (layout.mouth.x + layout.mouth.w) / 1024,
+        1 - layout.mouth.y / 1024,
+      );
       const boxes = (layout.eyes || []).slice(0, 2).map((eye) => new THREE.Vector4(
         (eye.x - 8) / 1024,
         1 - (eye.y + eye.h + 8) / 1024,
@@ -207,7 +233,7 @@ export function createAvatar(canvas) {
                 float lidMask(vec2 uv, vec4 eye) {
                   float insideX = step(eye.x, uv.x) * step(uv.x, eye.z);
                   float threshold = mix(eye.w, eye.y, clamp(uBlink, 0.0, 1.0));
-                  return insideX * smoothstep(threshold - 0.01, threshold + 0.003, uv.y);
+                  return insideX * smoothstep(threshold - 0.02, threshold + 0.008, uv.y);
                 }`,
               )
               .replace(
@@ -220,12 +246,40 @@ export function createAvatar(canvas) {
             material.userData.shader = shader;
           };
         }
+        if (layer.mouth) {
+          const previous = material.onBeforeCompile;
+          material.onBeforeCompile = (shader) => {
+            previous(shader);
+            shader.uniforms.uOpen = { value: 0 };
+            shader.uniforms.uMouth = { value: mouthBox };
+            shader.fragmentShader = shader.fragmentShader
+              .replace(
+                "#include <common>",
+                `#include <common>
+                uniform float uOpen;
+                uniform vec4 uMouth;`,
+              )
+              .replace(
+                "#include <map_fragment>",
+                `float open = clamp(uOpen, 0.0, 1.0);
+                vec2 srcUv = vMapUv;
+                float midY = (uMouth.y + uMouth.w) * 0.5;
+                float midX = (uMouth.x + uMouth.z) * 0.5;
+                srcUv.y = midY + (vMapUv.y - midY) / max(open, 0.045);
+                srcUv.x = midX + (vMapUv.x - midX) / mix(0.62, 1.0, open);
+                vec4 sampledDiffuseColor = texture2D(map, srcUv);
+                sampledDiffuseColor.a *= smoothstep(0.02, 0.14, open);
+                if (sampledDiffuseColor.a < 0.02) discard;
+                diffuseColor *= sampledDiffuseColor;`,
+              );
+            material.userData.shader = shader;
+          };
+        }
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2, 32, 40), material);
         mesh.position.z = layer.order * 0.02;
         mesh.renderOrder = layer.order;
         mesh.userData.lids = Boolean(layer.lids);
         mesh.userData.mouth = Boolean(layer.mouth);
-        if (layer.mouth) material.opacity = 0;
         root.add(mesh);
         meshes.push(mesh);
       }
@@ -236,15 +290,25 @@ export function createAvatar(canvas) {
     });
 
   resize();
-  loop();
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver(() => resize());
+    observer.observe(canvas);
+  }
+  loop(performance.now());
 
   return {
     setMode(next) {
       mode = next || "idle";
     },
-    nod() {
-      nod = 1;
+    setSpeech(info) {
+      speechLine = info && info.text
+        ? { text: String(info.text), at: performance.now(), rate: info.rate || 1.06 }
+        : null;
     },
+    nod() {
+      nodAt = simTime;
+    },
+    renderAt,
     dispose() {
       cancelAnimationFrame(frame);
       renderer.dispose();

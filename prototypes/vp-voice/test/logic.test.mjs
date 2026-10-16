@@ -10,7 +10,8 @@ import {
   cappedMeetingYen,
   designedMeetingYen,
 } from "../web/cost.js";
-import { pullSentences } from "../web/speech.js";
+import { createMotion, speechEnvelope, stepMotion } from "../web/motion.js";
+import { mouthOpenness, pullSentences } from "../web/speech.js";
 import { compressMessages } from "../relay/history.mjs";
 import { createRepo, isDenied, redact } from "../relay/repo.mjs";
 
@@ -37,6 +38,61 @@ test("文の区切りで読み上げを分けられる", () => {
   assert.equal(first.rest, "まだ続く");
   const flushed = pullSentences(first.rest, true);
   assert.deepEqual(flushed.sentences, ["まだ続く"]);
+});
+
+test("まばたきと口は時間で途中を通る", () => {
+  const fine = createMotion(() => 0);
+  const coarse = createMotion(() => 0);
+  const out = {};
+  const blinks = [];
+  for (let frame = 1; frame <= 60; frame += 1) {
+    stepMotion(fine, {
+      time: frame / 60,
+      dt: 1 / 60,
+      mode: "idle",
+      forcedBlink: "",
+      forcedMouth: "",
+      manual: true,
+      nodAt: -10,
+    }, out);
+    blinks.push(out.blink);
+  }
+  const mid = blinks.filter((value) => value > 0.15 && value < 0.85);
+  assert.ok(mid.length >= 8, `mid blinks ${mid.length}`);
+  stepMotion(coarse, {
+    time: 0.6,
+    dt: 0.6,
+    mode: "idle",
+    forcedBlink: "",
+    forcedMouth: "",
+    manual: true,
+    nodAt: -10,
+  }, out);
+  assert.equal(out.blink, blinks[35]);
+
+  const speaking = createMotion(() => 0);
+  const mouths = [];
+  let previous = 0;
+  for (let frame = 1; frame <= 60; frame += 1) {
+    stepMotion(speaking, {
+      time: frame / 60,
+      dt: 1 / 60,
+      mode: "speaking",
+      forcedBlink: "",
+      forcedMouth: "",
+      manual: true,
+      nodAt: -10,
+    }, out);
+    assert.ok(out.mouth - previous < 0.28, `mouth jump ${out.mouth - previous}`);
+    previous = out.mouth;
+    mouths.push(out.mouth);
+  }
+  const distinct = new Set(mouths.map((value) => value.toFixed(2)));
+  assert.ok(distinct.size >= 8, `mouth steps ${distinct.size}`);
+  assert.ok(Math.max(...mouths) < 0.85);
+  assert.equal(mouthOpenness("あ", 0) > mouthOpenness("い", 0), true);
+  assert.equal(mouthOpenness("ん", 0) < mouthOpenness("あ", 0), true);
+  assert.ok(speechEnvelope(0.2) > 0 && speechEnvelope(0.2) < 1);
 });
 
 test("古い会話は要約に潰す", () => {

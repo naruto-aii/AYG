@@ -20,6 +20,7 @@ const TYPES = {
   ".png": "image/png",
   ".woff2": "font/woff2",
   ".txt": "text/plain; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
 };
 
 export function nodeRepo(root = repoRoot) {

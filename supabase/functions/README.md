@@ -130,3 +130,9 @@ where s.checkpoint_type = 'login';
 deno test --allow-env --config supabase/functions/deno.json supabase/functions/userlog_notify_test.ts
 bash supabase/tests/run_userlog_notifications_test.sh
 ```
+
+付与表（課金ではないカロナビ+）は本番の DB では試さない。
+
+```sh
+bash supabase/tests/run_complimentary_plus_test.sh
+```

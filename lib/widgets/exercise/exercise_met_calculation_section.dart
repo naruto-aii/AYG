@@ -818,7 +818,7 @@ class _ExerciseMetCalculationSectionState
     if (notesController == null) {
       return const SizedBox.shrink();
     }
-    final plus = widget.controller.subscriptionRepository.isPlusActive;
+    final plus = widget.controller.hasCalonaviPlusAccess;
     if (!plus) {
       return Align(
         alignment: Alignment.centerLeft,

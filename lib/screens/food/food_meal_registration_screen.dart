@@ -116,7 +116,7 @@ class _FoodMealRegistrationScreenState
         items: drafts,
         loggedAt: _loggedAt,
         sourceTemplateId: widget.sourceTemplateId,
-        memo: widget.controller.subscriptionRepository.isPlusActive
+        memo: widget.controller.hasCalonaviPlusAccess
             ? _memoController.text
             : null,
       );
@@ -168,7 +168,7 @@ class _FoodMealRegistrationScreenState
   }
 
   Widget _memoField() {
-    final plus = widget.controller.subscriptionRepository.isPlusActive;
+    final plus = widget.controller.hasCalonaviPlusAccess;
     if (!plus) {
       return Align(
         alignment: Alignment.centerLeft,
@@ -411,7 +411,9 @@ Future<bool?> openFoodMealRegistrationFromTemplate({
 
   return Navigator.of(context).push<bool>(
     MaterialPageRoute<bool>(
-      settings: const RouteSettings(name: 'food_meal_registration_screen_MaterialPageRoute_0'),
+      settings: const RouteSettings(
+        name: 'food_meal_registration_screen_MaterialPageRoute_0',
+      ),
       builder: (context) => FoodMealRegistrationScreen(
         controller: controller,
         mealGroupName: template.name,
@@ -431,7 +433,9 @@ Future<bool?> openFoodMealRegistrationFromTemplatePicker({
 }) async {
   final template = await Navigator.of(context).push<MealTemplate>(
     MaterialPageRoute<MealTemplate>(
-      settings: const RouteSettings(name: 'food_meal_registration_screen_MaterialPageRoute_1'),
+      settings: const RouteSettings(
+        name: 'food_meal_registration_screen_MaterialPageRoute_1',
+      ),
       builder: (context) => MealTemplatePickerScreen(controller: controller),
     ),
   );

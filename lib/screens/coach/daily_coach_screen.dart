@@ -77,7 +77,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     if (controller == null) {
       return false;
     }
-    return !controller.subscriptionRepository.isPlusActive;
+    return !controller.hasCalonaviPlusAccess;
   }
 
   @override
@@ -86,6 +86,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     _wasPlusBlocked = _plusBlocked;
     _plusSubscription = widget.controller?.subscriptionRepository.plusChanges
         .listen(_onPlusChanged);
+    widget.controller?.addListener(_onControllerPlus);
     if (_plusBlocked) {
       return;
     }
@@ -95,11 +96,15 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     });
   }
 
-  void _onPlusChanged(bool active) {
+  void _onControllerPlus() {
+    _onPlusChanged(false);
+  }
+
+  void _onPlusChanged(bool _) {
     if (!mounted) {
       return;
     }
-    final blocked = !active;
+    final blocked = _plusBlocked;
     final opened = _wasPlusBlocked && !blocked;
     _wasPlusBlocked = blocked;
     if (!opened) {
@@ -119,6 +124,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
 
   @override
   void dispose() {
+    widget.controller?.removeListener(_onControllerPlus);
     _plusSubscription?.cancel();
     _disposeAmounts();
     super.dispose();
@@ -165,7 +171,9 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
       return;
     }
     await showDialog<void>(
-      routeSettings: const RouteSettings(name: 'daily_coach_screen_showDialog_0'),
+      routeSettings: const RouteSettings(
+        name: 'daily_coach_screen_showDialog_0',
+      ),
       context: context,
       builder: (context) => AlertDialog(
         content: const Text(AppStrings.coachFeatureBody),
@@ -374,7 +382,10 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
           if (_plusBlocked) ...[
             const DesignCard(
               key: Key('coach_beta_notice'),
-              child: Text(AppStrings.coachBetaNotice, style: AppTypography.bodyS),
+              child: Text(
+                AppStrings.coachBetaNotice,
+                style: AppTypography.bodyS,
+              ),
             ),
             const SizedBox(height: 16),
             DesignButton(
@@ -491,7 +502,9 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
                   : () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'daily_coach_screen_MaterialPageRoute_0'),
+                          settings: const RouteSettings(
+                            name: 'daily_coach_screen_MaterialPageRoute_0',
+                          ),
                           builder: (context) => WeightRecordScreen(
                             controller: widget.controller!,
                           ),

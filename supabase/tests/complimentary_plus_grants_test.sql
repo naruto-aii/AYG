@@ -1,5 +1,30 @@
 -- 本番には流さない。付与は社長役の3ログインだけ、それ以外の有料判定は変えない。
 
+do $$
+declare
+  column_n integer;
+begin
+  select count(*) into column_n
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'kpi_excluded_users'
+    and column_name in (
+      'id', 'user_id', 'install_id', 'email', 'reason', 'added_at', 'provider', 'provider_id'
+    );
+  if column_n <> 8 then
+    raise exception 'kpi_excluded_users does not match production columns: %', column_n;
+  end if;
+  begin
+    insert into public.kpi_excluded_users (provider, reason)
+    values ('apple', 'shape_check');
+    raise exception 'provider without provider_id was accepted';
+  exception
+    when check_violation then
+      null;
+  end;
+end
+$$;
+
 insert into public.users (id, email, deleted_at) values
   ('00000000-0000-4000-8000-000000000001', 'fixture-apple@example.test', null),
   ('00000000-0000-4000-8000-000000000002', 'fixture-google-one@example.test', null),
@@ -20,7 +45,8 @@ insert into auth.identities (user_id, provider, provider_id) values
 
 insert into public.kpi_excluded_users (provider, provider_id, reason) values
   ('apple', 'fixture-apple', 'president_apple'),
-  ('google', 'fixture-google-1', 'president_google_one');
+  ('google', 'fixture-google-1', 'president_google_one'),
+  ('google', 'fixture-deleted', 'president_dead');
 insert into public.kpi_excluded_users (email, reason) values
   ('fixture-google-two@example.test', 'president_email'),
   ('fixture-deleted@example.test', 'president_deleted_email');
@@ -69,7 +95,7 @@ begin
   end if;
 
   select count(*) into kpi_n from public.kpi_excluded_users;
-  if kpi_n <> 6 then
+  if kpi_n <> 7 then
     raise exception 'kpi exclusion rows changed: %', kpi_n;
   end if;
 

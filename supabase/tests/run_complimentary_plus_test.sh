@@ -22,6 +22,38 @@ psql_cmd -f supabase/tests/complimentary_plus_bootstrap.sql
 psql_cmd -f supabase/migrations/20261016093000_complimentary_plus_grants.sql
 psql_cmd -f supabase/tests/complimentary_plus_grants_test.sql
 
+expect_abort() {
+  local file="$1"
+  local needle="$2"
+  local output
+  local code
+  set +e
+  output="$(psql_cmd -f "$file" 2>&1)"
+  code=$?
+  set -e
+  if [[ "$code" -eq 0 ]]; then
+    echo "expected $file to abort" >&2
+    exit 1
+  fi
+  if [[ "$output" != *"$needle"* ]]; then
+    echo "unexpected abort from $file: $output" >&2
+    exit 1
+  fi
+  local grants
+  grants="$(psql_cmd -tA -c "select count(*) from public.calonavi_plus_complimentary_grants")"
+  if [[ "$grants" != "3" ]]; then
+    echo "$file changed the grant count: $grants" >&2
+    exit 1
+  fi
+}
+
+expect_abort \
+  supabase/tests/complimentary_plus_ambiguous_email.sql \
+  "more than one live user"
+expect_abort \
+  supabase/tests/complimentary_plus_count_abort.sql \
+  "complimentary grant count must be 3"
+
 entitlements="$(psql_cmd -tA -c "select count(*) from public.calonavi_plus_entitlements")"
 notices="$(psql_cmd -tA -c "select count(*) from public.store_server_notifications")"
 psql_cmd -f supabase/rollback/20261016093000_complimentary_plus_grants_down.sql

@@ -177,6 +177,16 @@ void main() {
     expect(bootstrap, contains('add column if not exists provider text'));
     expect(bootstrap, contains('kpi_excluded_users_provider_pair'));
     expect(bootstrap, isNot(contains('collect_excluded_user_ids')));
+    for (final path in const [
+      'supabase/functions/analyze-meal-photo/handler.ts',
+      'supabase/functions/cook-coach/handler.ts',
+      'supabase/functions/lookup-food-text/handler.ts',
+    ]) {
+      final source = File(path).readAsStringSync();
+      expect(source, contains('plusFromEntitlementOrGrant'), reason: path);
+      expect(source, contains('readComplimentaryPlus'), reason: path);
+      expect(source, contains('calonavi_plus_entitlements'), reason: path);
+    }
     expect(manual.toLowerCase(), isNot(contains('calonavi_plus_entitlements')));
     expect(manual.toLowerCase(), isNot(contains('store_server_notifications')));
 

@@ -22,21 +22,54 @@ export function resetSessions() {
   sessions.clear();
 }
 
-function sessionFor(id) {
+function emptySession() {
+  return {
+    yen: 0,
+    usage: emptyUsage(),
+    saving: false,
+    draft: null,
+    agents: [],
+  };
+}
+
+function normalizeSession(record) {
+  const base = emptySession();
+  if (!record || typeof record !== "object") return base;
+  const usage = record.usage && typeof record.usage === "object" ? record.usage : base.usage;
+  return {
+    yen: Number(record.yen) || 0,
+    usage: {
+      input: Number(usage.input) || 0,
+      output: Number(usage.output) || 0,
+      cacheWrite: Number(usage.cacheWrite) || 0,
+      cacheRead: Number(usage.cacheRead) || 0,
+    },
+    saving: Boolean(record.saving),
+    draft: typeof record.draft === "string" ? record.draft : null,
+    agents: Array.isArray(record.agents) ? record.agents.map((item) => ({ ...item })) : [],
+  };
+}
+
+async function sessionFor(id, deps) {
   const key = String(id || "").trim();
   if (!/^[A-Za-z0-9-]{8,80}$/.test(key)) {
     throw new Error("sessionId が不正です");
   }
-  if (!sessions.has(key)) {
-    sessions.set(key, {
-      yen: 0,
-      usage: emptyUsage(),
-      saving: false,
-      draft: null,
-      agents: [],
-    });
+  if (deps?.sessions) {
+    const stored = await deps.sessions.read(key);
+    const record = stored ? normalizeSession(stored) : emptySession();
+    sessions.set(key, record);
+    return record;
   }
+  if (!sessions.has(key)) sessions.set(key, emptySession());
   return sessions.get(key);
+}
+
+async function remember(id, deps) {
+  if (!deps?.sessions) return;
+  const key = String(id || "").trim();
+  const record = sessions.get(key);
+  if (record) await deps.sessions.write(key, record);
 }
 
 function publicError(error, secrets) {
@@ -163,7 +196,7 @@ async function chat(request, deps) {
   let messages;
   let session;
   try {
-    session = sessionFor(body.sessionId);
+    session = await sessionFor(body.sessionId, deps);
     messages = compressMessages(body.messages);
   } catch (error) {
     return json({ message: publicError(error, [deps.apiKey, deps.cursorKey]) }, 400);
@@ -225,6 +258,11 @@ async function chat(request, deps) {
         if (error?.name === "AbortError") return;
         send({ type: "error", message: publicError(error, [deps.apiKey, deps.cursorKey]) });
       } finally {
+        try {
+          await remember(body.sessionId, deps);
+        } catch (error) {
+          console.error("vp-voice", error?.name || "error");
+        }
         controller.close();
       }
     },
@@ -233,7 +271,7 @@ async function chat(request, deps) {
   return new Response(stream, {
     headers: {
       "content-type": "text/event-stream; charset=utf-8",
-      "cache-control": "no-cache",
+      "cache-control": "no-cache, no-transform",
       "access-control-allow-origin": "*",
     },
   });
@@ -242,10 +280,11 @@ async function chat(request, deps) {
 async function updateDraft(request, deps) {
   try {
     const body = await readJson(request);
-    const session = sessionFor(body.sessionId);
+    const session = await sessionFor(body.sessionId, deps);
     const text = String(body.text || "").trim().slice(0, 2000);
     if (!text) return json({ message: "依頼文が空です" }, 400);
     session.draft = text;
+    await remember(body.sessionId, deps);
     return json({ ok: true });
   } catch (error) {
     return json({ message: publicError(error, [deps.apiKey, deps.cursorKey]) }, 400);
@@ -261,7 +300,7 @@ async function launch(request, deps) {
   }
   let session;
   try {
-    session = sessionFor(body.sessionId);
+    session = await sessionFor(body.sessionId, deps);
   } catch (error) {
     return json({ message: publicError(error, []) }, 400);
   }
@@ -280,6 +319,7 @@ async function launch(request, deps) {
     });
     session.agents.push({ instruction, url: agent.url, id: agent.id });
     session.draft = null;
+    await remember(body.sessionId, deps);
     return json({ ok: true, url: agent.url, id: agent.id, instruction });
   } catch (error) {
     return json({ message: publicError(error, [deps.apiKey, deps.cursorKey]) }, 502);
@@ -295,7 +335,7 @@ async function minutes(request, deps) {
   }
   let session;
   try {
-    session = sessionFor(body.sessionId);
+    session = await sessionFor(body.sessionId, deps);
   } catch (error) {
     return json({ message: publicError(error, []) }, 400);
   }
@@ -341,6 +381,7 @@ async function minutes(request, deps) {
     elapsedSec: Number(body.elapsedSec) || 0,
     saving: session.saving,
   });
+  await remember(body.sessionId, deps);
   return json({
     points,
     decisions,

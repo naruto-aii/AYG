@@ -2,10 +2,12 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import fsSync from "node:fs";
 import { createAuth } from "./auth.mjs";
 import { createAuthStore } from "./auth-store.mjs";
 import { handleRequest } from "./handler.mjs";
 import { createRepo } from "./repo.mjs";
+import { createSessionStore } from "./session-store.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const prototypeRoot = path.resolve(here, "..");
@@ -98,6 +100,26 @@ async function serveStatic(req, res) {
   }
 }
 
+export function detectRepoRoot() {
+  if (fsSync.existsSync(path.join(repoRoot, "pubspec.yaml"))) return repoRoot;
+  return prototypeRoot;
+}
+
+export function createRuntime(env = process.env) {
+  return {
+    apiKey: env.ANTHROPIC_API_KEY ?? "",
+    cursorKey: env.CURSOR_API_KEY ?? "",
+    anthropicBase: env.VP_ANTHROPIC_BASE_URL ?? "https://api.anthropic.com",
+    cursorBase: env.VP_CURSOR_BASE_URL ?? "https://api.cursor.com",
+    repo: nodeRepo(env.VP_REPO_ROOT || detectRepoRoot()),
+    auth: createAuth({
+      setupToken: () => String(env.SETUP_TOKEN ?? ""),
+      store: createAuthStore(env),
+    }),
+    sessions: createSessionStore(env),
+  };
+}
+
 export function createApp(options = {}) {
   const deps = {
     apiKey: options.apiKey ?? process.env.ANTHROPIC_API_KEY ?? "",
@@ -106,6 +128,7 @@ export function createApp(options = {}) {
     cursorBase: options.cursorBase ?? process.env.VP_CURSOR_BASE_URL ?? "https://api.cursor.com",
     repo: options.repo ?? nodeRepo(options.repoRoot ?? repoRoot),
     auth: options.auth === false ? null : options.auth ?? null,
+    sessions: options.sessions === false ? null : options.sessions ?? null,
   };
   return http.createServer(async (req, res) => {
     try {
@@ -147,13 +170,9 @@ export function startServer(options = {}) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const repo = nodeRepo();
-  repo.warm().catch(() => {});
-  const auth = createAuth({
-    setupToken: process.env.SETUP_TOKEN ?? "",
-    store: createAuthStore(),
-  });
-  startServer({ repo, auth }).then(({ url }) => {
+  const runtime = createRuntime();
+  runtime.repo.warm().catch(() => {});
+  startServer(runtime).then(({ url }) => {
     console.log(`VP音声通話 ${url}`);
   });
 }

@@ -32,6 +32,37 @@ Chrome で http://127.0.0.1:8787 を開きます。待ち受けは `127.0.0.1` �
 
 同じ処理の入口を `supabase/functions/vp-voice/index.ts` に置いてあります。リポジトリ直下の `supabase/functions` には入れていません。デプロイしません。手元で Edge Function として動かすときも、鍵は `ANTHROPIC_API_KEY` と `CURSOR_API_KEY` という環境変数名で読みます。リポジトリを読ませるときは `VP_REPO_ROOT` に作業ツリーのパスを入れます。
 
+## Vercel
+
+プロジェクトはまだ作っていません。デプロイもしていません。出すときは、このリポジトリの Root Directory を `prototypes/vp-voice` にしてください。
+
+| 設定 | 値 |
+| --- | --- |
+| Root Directory | `prototypes/vp-voice` |
+| Framework Preset | Other |
+| Node.js | 22.x |
+| Build Command | `node scripts/stage-public.mjs`（`web/` を `public/` にコピーするだけ） |
+| 関数 | `api/` 以下の各パス。Node.js。`maxDuration` は 120 秒。中身は `relay/http.mjs` を呼ぶだけです |
+| Fluid Compute | オン（新規プロジェクトの標準） |
+| Plan | Hobby で足ります。1回の返事は 120 秒以内で、Hobby の上限は 300 秒です。30分の打ち合わせは、この関数を30分動かし続けるのではなく、短い呼び出しの繰り返しです |
+| メモリ | `vercel.json` には書きません。Fluid Compute ではダッシュボードの指定です。Hobby は 2GB / 1 vCPU 固定です |
+
+環境変数は、値をリポジトリにもブラウザにもログにも書きません。名前だけ読みます。常設の `APP_PASSWORD` はありません。
+
+| 名前 | 用途 |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | Claude の鍵。必須 |
+| `CURSOR_API_KEY` | 承認した依頼を Cursor に出す鍵。打ち合わせだけなら空でよい |
+| `SETUP_TOKEN` | 最初のパスワードを決めるとき、または忘れて入れ替えるときの合言葉。必須 |
+| `BLOB_READ_WRITE_TOKEN` | パスワードのハッシュと、打ち合わせの下書きを残す非公開 Blob。本番と Preview では必須。`vercel dev` では空でよく、そのときは手元の `data/` に書きます |
+| `VP_ANTHROPIC_BASE_URL` | 任意。Claude の送り先。空なら `https://api.anthropic.com` |
+| `VP_CURSOR_BASE_URL` | 任意。Cursor の送り先。空なら `https://api.cursor.com` |
+| `VP_REPO_ROOT` | 任意。リポジトリを読む起点。空なら、デプロイの中で見つかる範囲です |
+
+本番と Preview で Blob の鍵が無いときは、一時ディスクにパスワードを書かず、設定できないようにしてあります。`/api/auth/status` と `/api/auth/setup` と `/api/auth/login` だけは、ログイン前でも届きます。それ以外の `/api/*` は、署名付き Cookie が無いと 401 です。間違いは 5 回で 15 分ロックします。Cursor への送信は、これまでどおり声の「それでいい」と画面の承認が揃ったときだけです。下書きは Blob（手元では `data/sessions/`）に残すので、関数のインスタンスが変わっても承認を通せます。
+
+サイト上でリポジトリを読む範囲は、デプロイに入ったファイルだけです。Root Directory の外にあるカロナビ本体は同梱しません。秘密のファイルを配信物に混ぜないためです。
+
 ## できること
 
 - 日本語の自由な会話。聞き取りと読み上げはブラウザの Web Speech API。追加の音声APIは使いません。
@@ -96,3 +127,4 @@ Cursor への起動は、テストの中の模擬サーバーだけを見ます�
 - 概算の円は 1ドル150円の固定です。請求はドルで、キャッシュが外れると少し増えます。
 - パスワードを忘れると、`SETUP_TOKEN` を入れ替えるまで戻せません。入れ替えてから設定し終えるまでは、新しい合言葉を知っている人がパスワードを決められます。
 - `127.0.0.1` 以外へ公開すると、パスワードを通った人が Claude の鍵を消費できます。中継自体に利用者ごとのアカウントはありません。
+- Vercel に出したとき、VP が読めるリポジトリはデプロイに入ったファイルだけです。カロナビ本体のソースは含まれません。

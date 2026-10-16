@@ -45,10 +45,14 @@ export function createFileStore(file) {
   };
 }
 
-export function createBlobStore(token, fetchImpl = globalThis.fetch) {
+export function canUseLocalFile(env) {
+  return !(env.VERCEL && env.VERCEL_ENV !== "development");
+}
+
+export function createBlobStore(token, fetchImpl = globalThis.fetch, pathname = PATHNAME) {
   const storeId = storeIdFromToken(token);
   if (!storeId) throw new Error("BLOB_READ_WRITE_TOKEN からストアを判別できません");
-  const blobUrl = `https://${storeId}.private.blob.vercel-storage.com/${PATHNAME}`;
+  const blobUrl = `https://${storeId}.private.blob.vercel-storage.com/${pathname}`;
 
   async function read() {
     const response = await fetchImpl(`${blobUrl}?cache=0`, {
@@ -70,7 +74,7 @@ export function createBlobStore(token, fetchImpl = globalThis.fetch) {
       "x-cache-control-max-age": "60",
     };
     if (etag) headers["x-if-match"] = etag;
-    const response = await fetchImpl(`${API}/?pathname=${encodeURIComponent(PATHNAME)}`, {
+    const response = await fetchImpl(`${API}/?pathname=${encodeURIComponent(pathname)}`, {
       method: "PUT",
       headers,
       body: JSON.stringify(record),
@@ -110,7 +114,7 @@ export function createFailingStore(message) {
 
 export function createAuthStore(env = process.env, fetchImpl = globalThis.fetch) {
   if (env.BLOB_READ_WRITE_TOKEN) return createBlobStore(env.BLOB_READ_WRITE_TOKEN, fetchImpl);
-  if (env.VERCEL) {
+  if (!canUseLocalFile(env)) {
     return createFailingStore("BLOB_READ_WRITE_TOKEN がありません。パスワードを残す場所がありません。");
   }
   const file = env.VP_AUTH_FILE || path.resolve(path.dirname(new URL(import.meta.url).pathname), "../data/auth.json");

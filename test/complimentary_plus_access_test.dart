@@ -148,10 +148,35 @@ void main() {
     expect(executable, isNot(contains('store_server_notifications')));
     expect(executable, isNot(contains('userlog')));
     expect(executable, isNot(contains('@')));
+    expect(manual.toLowerCase(), contains('begin;'));
+    expect(manual.toLowerCase(), contains('commit;'));
     expect(manual, contains("reason like 'president\\_%'"));
-    expect(manual, contains('u.deleted_at is null'));
+    expect(
+      'u.deleted_at is null'.allMatches(manual).length,
+      greaterThanOrEqualTo(2),
+    );
+    expect(
+      'live.deleted_at is null'.allMatches(manual).length,
+      greaterThanOrEqualTo(1),
+    );
+    expect(manual, contains(') = 1'));
+    expect(manual, contains('candidate_n <> 3'));
+    expect(manual, contains('grant_n <> 3'));
+    expect(manual, contains('more than one live user'));
     expect(manual, contains('on conflict (provider, provider_id) do nothing'));
     expect(manual, isNot(contains('@')));
+    final bootstrap = File(
+      'supabase/tests/complimentary_plus_bootstrap.sql',
+    ).readAsStringSync();
+    expect(
+      bootstrap,
+      contains(
+        'added_at timestamptz not null default timezone(\'utc\', now())',
+      ),
+    );
+    expect(bootstrap, contains('add column if not exists provider text'));
+    expect(bootstrap, contains('kpi_excluded_users_provider_pair'));
+    expect(bootstrap, isNot(contains('collect_excluded_user_ids')));
     expect(manual.toLowerCase(), isNot(contains('calonavi_plus_entitlements')));
     expect(manual.toLowerCase(), isNot(contains('store_server_notifications')));
 

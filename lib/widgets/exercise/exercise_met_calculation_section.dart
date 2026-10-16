@@ -816,6 +816,26 @@ class _ExerciseMetCalculationSectionState
     if (notesController == null) {
       return const SizedBox.shrink();
     }
+    final plus = widget.controller.hasCalonaviPlusAccess;
+    if (!plus) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: () async {
+            final allowed = await ensureCalonaviPlus(
+              context,
+              widget.controller,
+              message: '運動のメモは、カロナビ+です。',
+              feature: PlusFunnelFeature.memo,
+            );
+            if (allowed && mounted) {
+              setState(() {});
+            }
+          },
+          child: const Text('メモを付ける'),
+        ),
+      );
+    }
     return DesignFieldCard(
       icon: _icon(AppIcons.pen),
       label: 'メモ',

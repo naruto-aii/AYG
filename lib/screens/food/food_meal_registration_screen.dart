@@ -114,7 +114,9 @@ class _FoodMealRegistrationScreenState
         items: drafts,
         loggedAt: _loggedAt,
         sourceTemplateId: widget.sourceTemplateId,
-        memo: _memoController.text,
+        memo: widget.controller.hasCalonaviPlusAccess
+            ? _memoController.text
+            : null,
       );
       if (!mounted) {
         return;
@@ -164,6 +166,26 @@ class _FoodMealRegistrationScreenState
   }
 
   Widget _memoField() {
+    final plus = widget.controller.hasCalonaviPlusAccess;
+    if (!plus) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: () async {
+            final allowed = await ensureCalonaviPlus(
+              context,
+              widget.controller,
+              message: '食品のメモは、カロナビ+です。',
+              feature: PlusFunnelFeature.memo,
+            );
+            if (allowed && mounted) {
+              setState(() {});
+            }
+          },
+          child: const Text('メモを付ける'),
+        ),
+      );
+    }
     return TextField(
       controller: _memoController,
       maxLength: AppController.foodMemoMaxLength,
@@ -387,7 +409,9 @@ Future<bool?> openFoodMealRegistrationFromTemplate({
 
   return Navigator.of(context).push<bool>(
     MaterialPageRoute<bool>(
-      settings: const RouteSettings(name: 'food_meal_registration_screen_MaterialPageRoute_0'),
+      settings: const RouteSettings(
+        name: 'food_meal_registration_screen_MaterialPageRoute_0',
+      ),
       builder: (context) => FoodMealRegistrationScreen(
         controller: controller,
         mealGroupName: template.name,
@@ -407,7 +431,9 @@ Future<bool?> openFoodMealRegistrationFromTemplatePicker({
 }) async {
   final template = await Navigator.of(context).push<MealTemplate>(
     MaterialPageRoute<MealTemplate>(
-      settings: const RouteSettings(name: 'food_meal_registration_screen_MaterialPageRoute_1'),
+      settings: const RouteSettings(
+        name: 'food_meal_registration_screen_MaterialPageRoute_1',
+      ),
       builder: (context) => MealTemplatePickerScreen(controller: controller),
     ),
   );

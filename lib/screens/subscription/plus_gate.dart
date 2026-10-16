@@ -20,7 +20,7 @@ Future<bool> ensureCalonaviPlus(
   required String message,
   PlusFunnelFeature? feature,
 }) async {
-  if (controller.subscriptionRepository.isPlusActive) {
+  if (controller.hasCalonaviPlusAccess) {
     return true;
   }
   await presentCalonaviPlusDialog(
@@ -99,4 +99,5 @@ Future<void> presentCalonaviPlusDialog(
       'choice': 'close',
     });
   }
+  return controller.hasCalonaviPlusAccess;
 }

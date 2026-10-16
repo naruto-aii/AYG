@@ -54,6 +54,8 @@ import '../services/weight_for_target.dart';
 import '../utils/local_date.dart';
 import '../models/workout_template.dart';
 import '../repositories/authentication_repository.dart';
+import '../repositories/complimentary_plus_repository.dart';
+import '../services/complimentary_plus.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
 import '../repositories/contracts/blocked_food_creator_repository_base.dart';
 import '../repositories/contracts/food_rating_repository_base.dart';
@@ -142,6 +144,7 @@ class AppController extends ChangeNotifier {
     PendingRecordStore? pendingRecords,
     Future<bool> Function(String userId)? termsAgreedFor,
     ServerPlusStore? serverPlusStore,
+    ComplimentaryPlusRepository? complimentaryPlus,
   }) : _termsAgreedFor =
            termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
@@ -173,6 +176,8 @@ class AppController extends ChangeNotifier {
        _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
        _pendingRecords = pendingRecords ?? PendingRecordStore(),
        _serverPlusStore = serverPlusStore ?? ServerPlusStore.memory(),
+       _complimentaryPlus =
+           complimentaryPlus ?? const NoOpComplimentaryPlusRepository(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -213,6 +218,18 @@ class AppController extends ChangeNotifier {
   final PlusFunnelRepository? _plusFunnelRepository;
   final ReviewPromptStore _reviewPromptStore;
   final PendingRecordStore _pendingRecords;
+  final ComplimentaryPlusRepository _complimentaryPlus;
+  bool _complimentaryPlusActive = false;
+  String? _complimentaryPlusUserId;
+
+  /// 機能を開いてよいか。ストアの加入か、課金ではない付与。
+  ///
+  /// 購入・復元の成否は [SubscriptionRepository.isPlusActive] のまま。
+  /// ここを true にしても加入行は作らない。
+  bool get hasCalonaviPlusAccess => calonaviPlusAccess(
+    storePlus: _subscriptionRepository.isPlusActive,
+    complimentary: _complimentaryPlusActive,
+  );
 
   PendingRecordStore get pendingRecords => _pendingRecords;
 
@@ -511,6 +528,8 @@ class AppController extends ChangeNotifier {
 
   Future<void> _handleAuthStateChanged(AuthUser? user) async {
     if (user == null) {
+      _complimentaryPlusUserId = null;
+      await _setComplimentaryPlus(false);
       _resetSyncState();
       _clearServerPlus();
       unawaited(setLockScreenMealPaid(false));
@@ -583,6 +602,7 @@ class AppController extends ChangeNotifier {
     final userId = authUser.id.toLowerCase();
     await Analytics.service?.setCurrentUser(userId);
     _subscriptionRepository.bindStoreAccountToken(userId);
+    await refreshComplimentaryPlus();
 
     if (_isSyncInProgress && !replaceInFlight) {
       return;
@@ -1961,6 +1981,9 @@ class AppController extends ChangeNotifier {
     if (trimmed == null || trimmed.isEmpty) {
       return null;
     }
+    if (!hasCalonaviPlusAccess) {
+      return null;
+    }
     if (trimmed.length <= foodMemoMaxLength) {
       return trimmed;
     }
@@ -1971,6 +1994,9 @@ class AppController extends ChangeNotifier {
   String? storedExerciseNotes(String? notes) {
     final trimmed = notes?.trim();
     if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    if (!hasCalonaviPlusAccess) {
       return null;
     }
     return trimmed;
@@ -1989,7 +2015,7 @@ class AppController extends ChangeNotifier {
     double? consumedAmount,
     DateTime? loggedAt,
   }) async {
-    if (!_subscriptionRepository.isPlusActive) {
+    if (!hasCalonaviPlusAccess) {
       return false;
     }
     final amount = consumedAmount ?? source.consumedAmount;
@@ -2026,6 +2052,9 @@ class AppController extends ChangeNotifier {
       'has_memo': memo != null && memo.isNotEmpty,
       'memo_length': memo?.length ?? 0,
     });
+    if (!hasCalonaviPlusAccess) {
+      return false;
+    }
     final stored = storedFoodMemo(memo);
     await updateFood(entry.copyWith(memo: stored, clearMemo: stored == null));
     return true;
@@ -3823,7 +3852,7 @@ class AppController extends ChangeNotifier {
     final existing = await repository.getAll(currentOwnerUserId);
     return !SubscriptionCatalog.workoutTemplateCreateRequiresPlus(
       savedCount: existing.length,
-      isPlus: _subscriptionRepository.isPlusActive,
+      isPlus: hasCalonaviPlusAccess,
     );
   }
 
@@ -3836,7 +3865,7 @@ class AppController extends ChangeNotifier {
     final existing = await repository.getAll(currentOwnerUserId);
     return !SubscriptionCatalog.mealTemplateCreateRequiresPlus(
       savedCount: existing.length,
-      isPlus: _subscriptionRepository.isPlusActive,
+      isPlus: hasCalonaviPlusAccess,
     );
   }
 
@@ -4040,6 +4069,10 @@ class AppController extends ChangeNotifier {
   /// 同じ購入が別のアカウントに付いているときは、端末が有料でも通さない。
   /// 購入の送信が無いテストだけ、端末の有料表示のままにする。
   Future<bool> ensurePaidShortcutsReady() async {
+    if (_complimentaryPlusActive) {
+      await setLockScreenMealPaid(true);
+      return true;
+    }
     if (_shortcutsUseServer) {
       await syncPlusEntitlementToServer();
     }
@@ -4072,10 +4105,44 @@ class AppController extends ChangeNotifier {
         'changed': before != active,
       });
     }
+    await refreshComplimentaryPlus();
     await _applyPaidEntitlement();
     if (_shortcutsUseServer && isAuthenticated) {
       await syncPlusEntitlementToServer();
     }
+  }
+
+  /// 課金ではない付与を読み直す。失敗しても、ストアの加入は変えない。
+  Future<void> refreshComplimentaryPlus() async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      _complimentaryPlusUserId = null;
+      await _setComplimentaryPlus(false);
+      return;
+    }
+    if (_complimentaryPlusUserId != userId) {
+      _complimentaryPlusUserId = userId;
+      await _setComplimentaryPlus(false);
+    }
+    final next = await _complimentaryPlus.current();
+    if (_authenticationRepository?.currentUser?.id != userId) {
+      return;
+    }
+    if (next == null) {
+      return;
+    }
+    await _setComplimentaryPlus(next);
+  }
+
+  Future<void> _setComplimentaryPlus(bool next) async {
+    if (_complimentaryPlusActive == next) {
+      return;
+    }
+    _complimentaryPlusActive = next;
+    notifyListeners();
+    try {
+      await _applyPaidEntitlement();
+    } catch (_) {}
   }
 
   void _listenForPaidEntitlement() {
@@ -4388,7 +4455,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _applyPaidEntitlement() async {
-    await setLockScreenMealPaid(_widgetPaid);
+    await setLockScreenMealPaid(_widgetPaid || _complimentaryPlusActive);
   }
 
   void _clearServerPlus() {

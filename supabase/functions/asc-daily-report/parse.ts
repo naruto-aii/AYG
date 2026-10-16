@@ -257,14 +257,65 @@ export function formatHeadingDate(isoDate: string): string {
   return `${month}/${day}（${weekday}）`;
 }
 
-function sameId(value: string, appAppleId: string): boolean {
-  return value.trim() !== "" && value.trim() === appAppleId.trim();
+/// リリース日（日本時間 2026-10-15）より前のレポート日は取り込まない。
+/// 保存する日付は Apple のレポート日（太平洋時間の暦日）なので、この文字列より前は書かない。
+export const releaseDate = "2026-10-15";
+
+/// 日次ファイルは、その太平洋時間の暦日が終わったあと、日本時間の翌朝 5:00 まで確定しない。
+/// Apple は未生成の日にも「There were no sales for the date specified.」を返す。
+/// 公式の「翌日 8:00 太平洋時間まで」より、日本向けの「日本時間 5:00」の方が遅い。
+export function reportSettled(dataDate: string, now: Date): boolean {
+  return now.getTime() >= zonedInstant(addDays(dataDate, 2), 5, 0, "Asia/Tokyo");
+}
+
+function zonedParts(instant: Date, timeZone: string): { y: number; m: number; d: number; h: number; min: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const pick = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? "NaN");
+  let hour = pick("hour");
+  if (hour === 24) hour = 0;
+  return { y: pick("year"), m: pick("month"), d: pick("day"), h: hour, min: pick("minute") };
+}
+
+function zonedInstant(isoDate: string, hour: number, minute: number, timeZone: string): number {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  let utc = Date.UTC(year, month - 1, day, hour, minute);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const got = zonedParts(new Date(utc), timeZone);
+    const delta = Date.UTC(year, month - 1, day, hour, minute) - Date.UTC(got.y, got.m - 1, got.d, got.h, got.min);
+    if (delta === 0) return utc;
+    utc += delta;
+  }
+  return utc;
+}
+
+function integerText(value: string): string | null {
+  const trimmed = value.trim();
+  if (!/^\d{1,18}(?:\.0+)?$/.test(trimmed)) return null;
+  return trimmed.replace(/\.0+$/, "").replace(/^0+(?=\d)/, "");
+}
+
+function sameAppleId(value: string, appAppleId: string): boolean {
+  const left = value.trim();
+  const right = appAppleId.trim();
+  if (left === "" || right === "") return false;
+  if (left === right) return true;
+  const leftId = integerText(left);
+  const rightId = integerText(right);
+  return leftId !== null && leftId === rightId;
 }
 
 function appSkus(rows: Record<string, string>[], appAppleId: string): Set<string> {
   const skus = new Set<string>();
   for (const row of rows) {
-    if (!sameId(cell(row, "Apple Identifier"), appAppleId)) continue;
+    if (!sameAppleId(cell(row, "Apple Identifier"), appAppleId)) continue;
     const sku = cell(row, "SKU").trim();
     if (sku) skus.add(sku);
   }
@@ -291,9 +342,12 @@ function salesRowForApp(
   appAppleId: string,
   skus: Set<string>,
 ): boolean {
-  if (sameId(cell(row, "Apple Identifier"), appAppleId)) return true;
+  if (sameAppleId(cell(row, "Apple Identifier"), appAppleId)) return true;
   const parent = cell(row, "Parent Identifier").trim();
-  return parent !== "" && skus.has(parent);
+  if (parent !== "" && skus.has(parent)) return true;
+  // アプリ行の SKU は Parent Identifier に入らない。既知の親 SKU と一致する行もアプリ本体。
+  const sku = cell(row, "SKU").trim();
+  return sku !== "" && skus.has(sku);
 }
 
 export function aggregateSales(
@@ -353,7 +407,7 @@ export function aggregateSubscription(
 ): PlanSummary[] {
   const totals = new Map<PlanName, PlanSummary>();
   for (const row of rows) {
-    if (!sameId(cell(row, "App Apple ID"), appAppleId)) continue;
+    if (!sameAppleId(cell(row, "App Apple ID"), appAppleId)) continue;
     const plan = planOf(cell(row, "Standard Subscription Duration"));
     const current = totals.get(plan) ?? { plan, activePaid: 0, activeTrials: 0 };
     current.activePaid += sumNamed(row, paidActiveColumns);
@@ -378,7 +432,7 @@ function offerType(row: Record<string, string>): string {
 export function aggregateEvents(rows: Record<string, string>[], appAppleId: string): EventSummary {
   const summary: EventSummary = { trialStarts: 0, paidConversions: 0, cancellations: 0 };
   for (const row of rows) {
-    if (!sameId(cell(row, "App Apple ID"), appAppleId)) continue;
+    if (!sameAppleId(cell(row, "App Apple ID"), appAppleId)) continue;
     const event = cell(row, "Event").trim().toLowerCase();
     const quantity = numberCell(row, "Quantity");
     const freeTrial = offerType(row) === "free trial";
@@ -447,7 +501,7 @@ export function latestRowsForDate(
   let found: Record<string, string>[] | null = null;
   for (const instance of sorted) {
     const rows = instance.rows.filter((row) =>
-      cell(row, "Date") === dataDate && sameId(cell(row, "App Apple Identifier"), appAppleId)
+      cell(row, "Date") === dataDate && sameAppleId(cell(row, "App Apple Identifier"), appAppleId)
     );
     if (rows.length > 0) found = rows;
   }

@@ -18,6 +18,8 @@ import {
   ongoingAnalyticsRequestBody,
   pacificDateString,
   postWithBackoff,
+  releaseDate,
+  reportSettled,
   summarizeDiscovery,
   summarizeDownloads,
   summarizeReviews,
@@ -31,7 +33,7 @@ import { gunzipText, parseTsv } from "./asc-daily-report/text.ts";
 const appId = "111";
 const appSku = "calonavi";
 const flashDate = "2026-10-16";
-const nowIso = "2026-10-17T21:00:00Z";
+const nowIso = "2026-10-18T21:00:00Z";
 const reservationLeaseMs = 30 * 60 * 1000;
 
 const salesHeader = [
@@ -278,12 +280,12 @@ function discoveryRow(fields: Record<string, string>): string {
 
 const discoveryTsv = [
   discoveryHeader,
-  discoveryRow({ Date: "2026-10-14", "App Apple Identifier": appId, Event: "Impression", "Page Type": "No page", "Source Type": "App Store search", Counts: "800", "Unique Counts": "500" }),
-  discoveryRow({ Date: "2026-10-14", "App Apple Identifier": appId, Event: "Impression", "Page Type": "No page", "Source Type": "App Store browse", Counts: "300", "Unique Counts": "200" }),
-  discoveryRow({ Date: "2026-10-14", "App Apple Identifier": appId, Event: "Impression", "Page Type": "No page", "Source Type": "Web referrer", Counts: "100", "Unique Counts": "80" }),
-  discoveryRow({ Date: "2026-10-14", "App Apple Identifier": appId, Event: "Page view", "Page Type": "Product page", "Source Type": "App Store search", Counts: "250" }),
-  discoveryRow({ Date: "2026-10-14", "App Apple Identifier": appId, Event: "Page view", "Page Type": "Store sheet", "Source Type": "App referrer", Counts: "40" }),
-  discoveryRow({ Date: "2026-10-14", "App Apple Identifier": "999", Event: "Impression", "Page Type": "No page", "Source Type": "App Store search", Counts: "1000" }),
+  discoveryRow({ Date: "2026-10-15", "App Apple Identifier": appId, Event: "Impression", "Page Type": "No page", "Source Type": "App Store search", Counts: "800", "Unique Counts": "500" }),
+  discoveryRow({ Date: "2026-10-15", "App Apple Identifier": appId, Event: "Impression", "Page Type": "No page", "Source Type": "App Store browse", Counts: "300", "Unique Counts": "200" }),
+  discoveryRow({ Date: "2026-10-15", "App Apple Identifier": appId, Event: "Impression", "Page Type": "No page", "Source Type": "Web referrer", Counts: "100", "Unique Counts": "80" }),
+  discoveryRow({ Date: "2026-10-15", "App Apple Identifier": appId, Event: "Page view", "Page Type": "Product page", "Source Type": "App Store search", Counts: "250" }),
+  discoveryRow({ Date: "2026-10-15", "App Apple Identifier": appId, Event: "Page view", "Page Type": "Store sheet", "Source Type": "App referrer", Counts: "40" }),
+  discoveryRow({ Date: "2026-10-15", "App Apple Identifier": "999", Event: "Impression", "Page Type": "No page", "Source Type": "App Store search", Counts: "1000" }),
 ].join("\n");
 
 const downloadHeader = [
@@ -307,10 +309,10 @@ function downloadRow(fields: Record<string, string>): string {
 
 const downloadTsv = [
   downloadHeader,
-  downloadRow({ Date: "2026-10-14", "App Apple Identifier": appId, "Download Type": "First-time Download", "Source Type": "App Store search", "Page Type": "Product page", Counts: "80" }),
-  downloadRow({ Date: "2026-10-14", "App Apple Identifier": appId, "Download Type": "Redownload", "Source Type": "App Store browse", "Page Type": "Product page", Counts: "20" }),
-  downloadRow({ Date: "2026-10-14", "App Apple Identifier": appId, "Download Type": "Auto-update", "Source Type": "App Store browse", "Page Type": "No Page", Counts: "500" }),
-  downloadRow({ Date: "2026-10-14", "App Apple Identifier": "999", "Download Type": "First-time Download", Counts: "70" }),
+  downloadRow({ Date: "2026-10-15", "App Apple Identifier": appId, "Download Type": "First-time Download", "Source Type": "App Store search", "Page Type": "Product page", Counts: "80" }),
+  downloadRow({ Date: "2026-10-15", "App Apple Identifier": appId, "Download Type": "Redownload", "Source Type": "App Store browse", "Page Type": "Product page", Counts: "20" }),
+  downloadRow({ Date: "2026-10-15", "App Apple Identifier": appId, "Download Type": "Auto-update", "Source Type": "App Store browse", "Page Type": "No Page", Counts: "500" }),
+  downloadRow({ Date: "2026-10-15", "App Apple Identifier": "999", "Download Type": "First-time Download", Counts: "70" }),
 ].join("\n");
 
 async function gzip(text: string): Promise<Uint8Array> {
@@ -349,12 +351,12 @@ Deno.test("gzip subscription and event TSVs keep plans, trials, and cancellation
 Deno.test("gzip analytics TSV counts impressions, product pages, sources, and conversion", async () => {
   const discoveryRows = latestRowsForDate(
     [{ processingDate: "2026-10-17", rows: await rowsFromGzip(discoveryTsv) }],
-    "2026-10-14",
+    "2026-10-15",
     appId,
   ) ?? [];
   const downloadRows = latestRowsForDate(
     [{ processingDate: "2026-10-17", rows: await rowsFromGzip(downloadTsv) }],
-    "2026-10-14",
+    "2026-10-15",
     appId,
   ) ?? [];
   const discovery = summarizeDiscovery(discoveryRows);
@@ -377,7 +379,7 @@ Deno.test("a later analytics instance replaces the same date", () => {
     {
       processingDate: "2026-10-16",
       rows: [discoveryRow({
-        Date: "2026-10-14",
+        Date: "2026-10-15",
         "App Apple Identifier": appId,
         Event: "Impression",
         "Page Type": "No page",
@@ -393,7 +395,7 @@ Deno.test("a later analytics instance replaces the same date", () => {
         return row;
       }),
     },
-  ], "2026-10-14", appId);
+  ], "2026-10-15", appId);
   assertEquals(rows?.length, 1);
   assertEquals(rows?.[0].Counts, "5");
 });
@@ -769,7 +771,7 @@ function depsFor(store: Memory, nowMs: { value: number }, slack: string[]): Repo
       return Promise.resolve();
     },
     postSlack: (text) => {
-      const reserved = store.posts.get(key(text.startsWith("📊") ? "flash" : "acquisition", text.startsWith("📊") ? flashDate : "2026-10-14"));
+      const reserved = store.posts.get(key(text.startsWith("📊") ? "flash" : "acquisition", text.startsWith("📊") ? flashDate : "2026-10-15"));
       assertEquals(reserved?.status, "reserved");
       slack.push(text);
       return Promise.resolve(true);
@@ -812,7 +814,7 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   const deps = depsFor(store, clock, slack);
   const first = await runAscDailyReport(deps);
   assertEquals(first.flashPosted, [flashDate]);
-  assertEquals(first.acquisitionPosted, ["2026-10-14"]);
+  assertEquals(first.acquisitionPosted, ["2026-10-15"]);
   assertEquals(slack.length, 2);
   const flash = slack[0];
   assertEquals(flash.includes("📊 カロナビ日次レポート｜10/16（金）分　_太平洋時間の暦日_"), true);
@@ -832,7 +834,7 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   assertEquals(flash.includes("「使いやすい」"), true);
   assertEquals(flash.includes("本文のない★だけの評価は API に含まれません。"), true);
   assertEquals(flash.includes("トライアル開始と、有料への切り替えが両方あります。"), true);
-  assertEquals(slack[1].includes("📈 カロナビ集客｜10/14（水）分　_太平洋時間の暦日_"), true);
+  assertEquals(slack[1].includes("📈 カロナビ集客｜10/15（木）分　_太平洋時間の暦日_"), true);
   assertEquals(slack[1].includes("表示回数 1,200"), true);
   assertEquals(slack[1].includes("製品ページ閲覧 250"), true);
   assertEquals(slack[1].includes("検索 800（広告を含む） / 広告 検索と分かれて出ない / その他 400"), true);
@@ -885,16 +887,16 @@ function appRow(): Record<string, string> {
   };
 }
 
-Deno.test("a SKU seen on 10/3 is used for billing-only 10/4 in the same run", async () => {
+Deno.test("a SKU seen on 10/15 is used for billing-only 10/16 in the same run", async () => {
   const store = memory();
   const slack: string[] = [];
   const known: string[] = [];
-  const deps = depsFor(store, { value: Date.parse("2026-10-05T21:00:00Z") }, slack);
+  const deps = depsFor(store, { value: Date.parse(nowIso) }, slack);
   deps.knownParentSkus = known;
   deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
   deps.fetchReviews = () => Promise.resolve({ status: 200, errorBody: "", complete: true, reviews: [] });
   deps.fetchSalesReport = (kind, dataDate) => {
-    if (dataDate !== "2026-10-03" && dataDate !== "2026-10-04") {
+    if (dataDate !== "2026-10-15" && dataDate !== "2026-10-16") {
       return Promise.resolve({
         status: 404,
         errorBody: "The report you requested is not available yet. Please try again later.",
@@ -905,19 +907,19 @@ Deno.test("a SKU seen on 10/3 is used for billing-only 10/4 in the same run", as
     return Promise.resolve({
       status: 200,
       errorBody: "",
-      rows: dataDate === "2026-10-03" ? [appRow()] : billingRows(),
+      rows: dataDate === "2026-10-15" ? [appRow()] : billingRows(),
     });
   };
   deps.postSlack = (text) => {
-    const date = text.includes("10/3") ? "2026-10-03" : "2026-10-04";
+    const date = text.includes("10/15") ? "2026-10-15" : "2026-10-16";
     assertEquals(store.posts.get(`flash:${date}`)?.status, "reserved");
     slack.push(text);
     return Promise.resolve(true);
   };
   const result = await runAscDailyReport(deps);
-  assertEquals(result.flashPosted, ["2026-10-03", "2026-10-04"]);
+  assertEquals(result.flashPosted, ["2026-10-15", "2026-10-16"]);
   assertEquals(known.includes(appSku), true);
-  const fourth = slack.find((text) => text.includes("10/4"));
+  const fourth = slack.find((text) => text.includes("10/16"));
   assertEquals(fourth?.includes("売上 ¥580"), true);
   assertEquals(fourth?.includes("手取り ¥406"), true);
   assertEquals(fourth?.includes("売上未確定"), false);
@@ -927,11 +929,11 @@ Deno.test("a SKU seen on 10/3 is used for billing-only 10/4 in the same run", as
 Deno.test("billing-only days stay unposted until a parent SKU is known", async () => {
   const store = memory();
   const slack: string[] = [];
-  const deps = depsFor(store, { value: Date.parse("2026-10-05T21:00:00Z") }, slack);
+  const deps = depsFor(store, { value: Date.parse(nowIso) }, slack);
   deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
   deps.fetchReviews = () => Promise.resolve({ status: 200, errorBody: "", complete: true, reviews: [] });
   deps.fetchSalesReport = (kind, dataDate) => {
-    if (dataDate !== "2026-10-04") {
+    if (dataDate !== flashDate) {
       return Promise.resolve({
         status: 404,
         errorBody: "The report you requested is not available yet. Please try again later.",
@@ -944,20 +946,20 @@ Deno.test("billing-only days stay unposted until a parent SKU is known", async (
   const first = await runAscDailyReport(deps);
   assertEquals(first.flashPosted, []);
   assertEquals(slack, []);
-  assertEquals(store.posts.has("flash:2026-10-04"), false);
-  assertEquals(store.sales.some((row) => row.dataDate === "2026-10-04"), false);
+  assertEquals(store.posts.has(`flash:${flashDate}`), false);
+  assertEquals(store.sales.some((row) => row.dataDate === flashDate), false);
   deps.knownParentSkus.push(appSku);
   deps.postSlack = (text) => {
-    assertEquals(store.posts.get("flash:2026-10-04")?.status, "reserved");
+    assertEquals(store.posts.get(`flash:${flashDate}`)?.status, "reserved");
     slack.push(text);
     return Promise.resolve(true);
   };
   const second = await runAscDailyReport(deps);
-  assertEquals(second.flashPosted, ["2026-10-04"]);
+  assertEquals(second.flashPosted, [flashDate]);
   assertEquals(slack.length, 1);
   assertEquals(slack[0].includes("売上 ¥580"), true);
   assertEquals(slack[0].includes("売上未確定"), false);
-  assertEquals(store.posts.get("flash:2026-10-04")?.status, "posted");
+  assertEquals(store.posts.get(`flash:${flashDate}`)?.status, "posted");
 });
 
 Deno.test("a renewal-only day posts yen from a saved parent SKU", async () => {
@@ -1105,17 +1107,17 @@ Deno.test("sales retries before the day is treated as missing", async () => {
 Deno.test("the first day of the month compares with the previous month", async () => {
   const store = memory();
   store.sales.push({
-    dataDate: "2026-09-30",
+    dataDate: "2026-10-31",
     newDownloads: 4,
     redownloads: 2,
     salesCents: 10_000,
     proceedsCents: 7_000,
     nonJpyCustomerRows: 0,
   });
-  store.subscriptions.push({ dataDate: "2026-09-30", plan: "monthly", activePaid: 10, activeTrials: 2 });
-  store.events.push({ dataDate: "2026-09-30", trialStarts: 1, paidConversions: 1, cancellations: 1 });
+  store.subscriptions.push({ dataDate: "2026-10-31", plan: "monthly", activePaid: 10, activeTrials: 2 });
+  store.events.push({ dataDate: "2026-10-31", trialStarts: 1, paidConversions: 1, cancellations: 1 });
   store.reviews.push({
-    dataDate: "2026-09-30",
+    dataDate: "2026-10-31",
     reviewCount: 3,
     averageRating: 5,
     stars: [0, 0, 0, 0, 3],
@@ -1123,7 +1125,7 @@ Deno.test("the first day of the month compares with the previous month", async (
   });
   const asked: Array<{ from: string; to: string }> = [];
   const slack: string[] = [];
-  const deps = depsFor(store, { value: Date.parse("2026-10-02T20:00:00Z") }, slack);
+  const deps = depsFor(store, { value: Date.parse("2026-11-02T21:00:00Z") }, slack);
   const history = deps.history;
   deps.history = (from, to) => {
     asked.push({ from, to });
@@ -1131,7 +1133,7 @@ Deno.test("the first day of the month compares with the previous month", async (
   };
   deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
   deps.fetchSalesReport = (kind, dataDate) => {
-    if (dataDate !== "2026-10-01") {
+    if (dataDate !== "2026-11-01") {
       return Promise.resolve({
         status: 404,
         errorBody: "The report you requested is not available yet. Please try again later.",
@@ -1145,17 +1147,17 @@ Deno.test("the first day of the month compares with the previous month", async (
     errorBody: "",
     complete: true,
     reviews: [
-      { rating: 5, title: "", body: "月初", createdDate: "2026-10-01T19:00:00Z" },
+      { rating: 5, title: "", body: "月初", createdDate: "2026-11-01T19:00:00Z" },
     ],
   });
   deps.postSlack = (text) => {
-    assertEquals(store.posts.get("flash:2026-10-01")?.status, "reserved");
+    assertEquals(store.posts.get("flash:2026-11-01")?.status, "reserved");
     slack.push(text);
     return Promise.resolve(true);
   };
   const result = await runAscDailyReport(deps);
-  assertEquals(result.flashPosted, ["2026-10-01"]);
-  assertEquals(asked.some((range) => range.from <= "2026-09-30" && range.to >= "2026-10-01"), true);
+  assertEquals(result.flashPosted, ["2026-11-01"]);
+  assertEquals(asked.some((range) => range.from <= "2026-10-31" && range.to >= "2026-11-01"), true);
   const flash = slack[0];
   assertEquals(flash.includes("新規DL 10（前日 +6 / 今月 10）"), true);
   assertEquals(flash.includes("再DL 4（前日 +2 / 今月 4）"), true);
@@ -1282,6 +1284,78 @@ Deno.test("the comment follows the numbers", () => {
 });
 
 Deno.test("the report date is Apple's Pacific day", () => {
-  assertEquals(pacificDateString(new Date(nowIso)), "2026-10-17");
+  assertEquals(pacificDateString(new Date(nowIso)), "2026-10-18");
   assertEquals(formatHeadingDate(flashDate), "10/16（金）");
+  assertEquals(reportSettled("2026-10-15", new Date("2026-10-16T10:59:00Z")), false);
+  assertEquals(reportSettled("2026-10-15", new Date("2026-10-16T19:59:00Z")), false);
+  assertEquals(reportSettled("2026-10-15", new Date("2026-10-16T20:00:00Z")), true);
+});
+
+Deno.test("an app row counts by SKU and a decimal Apple ID still matches", () => {
+  const bySku = aggregateSales([
+    {
+      SKU: appSku,
+      "Apple Identifier": "999",
+      "Product Type Identifier": "1F",
+      Units: "5",
+      "Customer Price": "0",
+      "Customer Currency": "JPY",
+      "Developer Proceeds (per unit)": "0",
+      "Currency of Proceeds": "JPY",
+    },
+  ], appId, [appSku]);
+  assertEquals(bySku.newDownloads, 5);
+  const byDecimal = aggregateSales([
+    {
+      SKU: "other",
+      "Apple Identifier": `${appId}.0`,
+      "Product Type Identifier": "1",
+      Units: "3",
+      "Customer Price": "0",
+      "Customer Currency": "JPY",
+      "Developer Proceeds": "0",
+      "Currency of Proceeds": "JPY",
+    },
+  ], appId);
+  assertEquals(byDecimal.newDownloads, 3);
+  assertEquals(observedParentSkus([{ "Apple Identifier": `${appId}.0`, SKU: appSku }], appId), [appSku]);
+});
+
+Deno.test("days before the release date are not fetched or posted", async () => {
+  const store = memory();
+  const slack: string[] = [];
+  const asked: string[] = [];
+  const deps = depsFor(store, { value: Date.parse(nowIso) }, slack);
+  deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
+  deps.fetchSalesReport = (kind, dataDate) => {
+    asked.push(dataDate);
+    return Promise.resolve(reportFor(kind, dataDate, "missing"));
+  };
+  const result = await runAscDailyReport(deps);
+  assertEquals(result.flashPosted, []);
+  assertEquals(asked.some((date) => date < releaseDate), false);
+  assertEquals(store.sales, []);
+  assertEquals(slack, []);
+});
+
+Deno.test("a no-sales response before the report is final is not stored as zero", async () => {
+  const store = memory();
+  const slack: string[] = [];
+  const deps = depsFor(store, { value: Date.parse("2026-10-16T10:59:00Z") }, slack);
+  deps.knownParentSkus = [appSku];
+  deps.fetchAnalytics = () => Promise.resolve({ state: "not_created" });
+  deps.fetchSalesReport = () => Promise.resolve({
+    status: 404,
+    errorBody: "There were no sales for the date specified.",
+    rows: [],
+  });
+  const missing = await runAscDailyReport(deps);
+  assertEquals(missing.flashPosted, []);
+  assertEquals(slack, []);
+  assertEquals(store.sales, []);
+  assertEquals(store.posts.size, 0);
+  deps.fetchSalesReport = () => Promise.resolve({ status: 200, errorBody: "", rows: [] });
+  const headerOnly = await runAscDailyReport(deps);
+  assertEquals(headerOnly.flashPosted, []);
+  assertEquals(store.sales, []);
 });

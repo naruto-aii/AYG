@@ -15,6 +15,8 @@ import {
   latestRowsForDate,
   monthStart,
   nextClaim,
+  releaseDate,
+  reportSettled,
   summarizeDiscovery,
   summarizeDownloads,
   summarizeReviews,
@@ -109,19 +111,40 @@ async function fetchReady(
   return { state: "missing", rows: [] };
 }
 
+/// 行が無いファイルは、確定時刻の前は 0 として保存しない。未生成の日も同じ応答になる。
+function reportBlocksPost(
+  fetched: { state: "ready" | "empty" | "missing"; rows: Record<string, string>[] },
+  dataDate: string,
+  now: Date,
+): boolean {
+  if (fetched.state === "missing") return true;
+  const blank = fetched.state === "empty" || fetched.rows.length === 0;
+  return blank && !reportSettled(dataDate, now);
+}
+
 function historyStart(dataDate: string): string {
   const previous = addDays(dataDate, -1);
   const start = monthStart(dataDate);
-  return previous < start ? previous : start;
+  const from = previous < start ? previous : start;
+  return from < releaseDate ? releaseDate : from;
+}
+
+function previousDate(dataDate: string): string | null {
+  const previous = addDays(dataDate, -1);
+  return previous < releaseDate ? null : previous;
 }
 
 function previousSales(history: History, dataDate: string): SalesSummary | null {
-  return history.sales.find((row) => row.dataDate === addDays(dataDate, -1)) ?? null;
+  const previous = previousDate(dataDate);
+  if (!previous) return null;
+  return history.sales.find((row) => row.dataDate === previous) ?? null;
 }
 
 function monthSales(history: History, dataDate: string, today: SalesSummary): SalesSummary {
   const start = monthStart(dataDate);
-  const prior = history.sales.filter((row) => row.dataDate >= start && row.dataDate < dataDate);
+  const prior = history.sales.filter((row) =>
+    row.dataDate >= start && row.dataDate >= releaseDate && row.dataDate < dataDate
+  );
   return {
     newDownloads: sum(prior, (row) => row.newDownloads) + today.newDownloads,
     redownloads: sum(prior, (row) => row.redownloads) + today.redownloads,
@@ -133,7 +156,9 @@ function monthSales(history: History, dataDate: string, today: SalesSummary): Sa
 
 function monthEvents(history: History, dataDate: string, today: EventSummary): EventSummary {
   const start = monthStart(dataDate);
-  const prior = history.events.filter((row) => row.dataDate >= start && row.dataDate < dataDate);
+  const prior = history.events.filter((row) =>
+    row.dataDate >= start && row.dataDate >= releaseDate && row.dataDate < dataDate
+  );
   return {
     trialStarts: sum(prior, (row) => row.trialStarts) + today.trialStarts,
     paidConversions: sum(prior, (row) => row.paidConversions) + today.paidConversions,
@@ -199,6 +224,7 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
   };
 
   for (const dataDate of candidateFlashDates(now)) {
+    if (dataDate < releaseDate) continue;
     const existing = await deps.getPost("flash", dataDate);
     if (nextClaim(existing, nowMs).action === "skip") continue;
     try {
@@ -210,9 +236,9 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
         reviewResponse.status < 300 &&
         reviewResponse.complete;
       if (
-        sales.state === "missing" ||
-        subscription.state === "missing" ||
-        events.state === "missing" ||
+        reportBlocksPost(sales, dataDate, now) ||
+        reportBlocksPost(subscription, dataDate, now) ||
+        reportBlocksPost(events, dataDate, now) ||
         !reviewsReady
       ) {
         continue;
@@ -238,14 +264,16 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
         events: eventSummary,
         reviews: reviewSummary,
         previousSales: previous,
-        previousPlans: history.subscriptions.filter((row) => row.dataDate === addDays(dataDate, -1)),
-        previousEvents: history.events.find((row) => row.dataDate === addDays(dataDate, -1)) ?? null,
-        previousReviewCount: history.reviews.find((row) => row.dataDate === addDays(dataDate, -1))?.reviewCount ??
+        previousPlans: history.subscriptions.filter((row) => row.dataDate === previousDate(dataDate)),
+        previousEvents: history.events.find((row) => row.dataDate === previousDate(dataDate)) ?? null,
+        previousReviewCount: history.reviews.find((row) => row.dataDate === previousDate(dataDate))?.reviewCount ??
           null,
         monthSales: monthSales(history, dataDate, salesSummary),
         monthEvents: monthEvents(history, dataDate, eventSummary),
         monthReviewCount: sum(
-          history.reviews.filter((row) => row.dataDate >= monthStart(dataDate) && row.dataDate < dataDate),
+          history.reviews.filter((row) =>
+            row.dataDate >= monthStart(dataDate) && row.dataDate >= releaseDate && row.dataDate < dataDate
+          ),
           (row) => row.reviewCount,
         ) + reviewSummary.reviewCount,
       });
@@ -266,6 +294,7 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
   }
   if (bundle.state === "ready") {
     for (const dataDate of candidateAcquisitionDates(now)) {
+      if (dataDate < releaseDate) continue;
       const existing = await deps.getPost("acquisition", dataDate);
       if (nextClaim(existing, deps.now().getTime()).action === "skip") continue;
       const discoveryRows = latestRowsForDate(bundle.discovery, dataDate, deps.appAppleId);
@@ -277,7 +306,7 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
       const text = formatAcquisitionMessage({
         dataDate,
         today: summary,
-        previous: history.analytics.find((row) => row.dataDate === addDays(dataDate, -1)) ?? null,
+        previous: history.analytics.find((row) => row.dataDate === previousDate(dataDate)) ?? null,
       });
       const outcome = await publish(deps, "acquisition", dataDate, text, deps.now().getTime());
       if (outcome === "failed") break;

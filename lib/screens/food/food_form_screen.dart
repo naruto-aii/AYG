@@ -131,6 +131,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   final Map<MacroField, String> _nutritionScaleOrigin = {};
   bool _manualQuantityChanged = false;
   bool _ignoreQuantityScale = false;
+  bool _barcodePer100g = false;
   FoodUnitType _unitType = FoodUnitType.serving;
   List<FoodFormSuggestion> _formSuggestions = const [];
   final _nameSearchHandle = CombinedFoodSearchHandle();
@@ -149,6 +150,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   ///
   /// 量の欄は摂取量だけを変え、単位・基準量・基準あたりの栄養は残す。
   bool get _preservesBaseConsumption {
+    if (_barcodePer100g) {
+      return true;
+    }
     if (_usesSavedFoodBaseModel) {
       return false;
     }
@@ -473,13 +477,20 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     if (result.name != null) {
       _nameController.text = result.name!;
     }
+    final amount = BarcodeFoodAmount.fromPackage(result.packageGrams);
     setState(() {
       _sourceType = FoodEntrySource.openFoodFacts;
       _fromSavedFoodSelection = false;
       _selectedSavedFoodId = null;
       _sourceFoodOwnerUserId = null;
-      _baseAmount = 1;
-      _unitType = FoodUnitType.serving;
+      _barcodePer100g = true;
+      _baseAmount = amount.baseGrams;
+      _unitType = FoodUnitType.g;
+      _ignoreQuantityScale = true;
+      _quantityController.text = SavedFoodBaseServingFormat.formatQuantity(
+        amount.consumedGrams,
+      );
+      _ignoreQuantityScale = false;
     });
     _macroInput.applyExternalValues(
       kcal: result.kcalPerUnit,

@@ -113,13 +113,15 @@ void main() {
       name: 'ジョギング、えー、30分',
       quantity: '',
     );
-    expect(filled.spoken, 'ジョギング30分を登録しました');
+    expect(filled.spoken, '何kmですか？');
+    expect(filled.activityId, 'jogging');
 
     final restarted = planSiriExercise(
       context: context(const []),
       name: 'ジョ、ジョギングを30分',
       quantity: '',
     );
-    expect(restarted.spoken, 'ジョギング30分を登録しました');
+    expect(restarted.spoken, '何kmですか？');
+    expect(restarted.activityId, 'jogging');
   });
 }

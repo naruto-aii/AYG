@@ -141,6 +141,11 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return null;
     }
 
+    final preserved = _preservedIfUnchanged();
+    if (preserved != null) {
+      return preserved;
+    }
+
     final grossAndNet = _resolveGrossAndNetKcal();
     if (grossAndNet == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -206,6 +211,84 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       sourceKey: _metState.sourceKey,
       notes: widget.controller.storedExerciseNotes(notes),
     );
+  }
+
+  /// 種目・量・kcal の欄を変えていなければ、保存済みの数をそのまま返す。
+  ExerciseEntry? _preservedIfUnchanged() {
+    final entry = widget.entry;
+    if (entry == null || !_calcInputsMatch(entry)) {
+      return null;
+    }
+    final notes = _notesController.text.trim();
+    return entry.copyWith(
+      name: _nameController.text.trim(),
+      loggedAt: _loggedAt,
+      sets: _showsLoadFields
+          ? _parseOptionalInt(_setsController)
+          : entry.sets,
+      liftWeightKg: _showsLoadFields
+          ? _parseOptionalDouble(_liftWeightController)
+          : entry.liftWeightKg,
+      notes: notes,
+      clearNotes: notes.isEmpty,
+    );
+  }
+
+  bool _calcInputsMatch(ExerciseEntry entry) {
+    if (entry.activityId != _metState.activityId) {
+      return false;
+    }
+    final activity = MetActivityCatalog.findById(entry.activityId);
+    final unit = activity?.quantityUnit ?? ExerciseQuantityUnit.durationMin;
+    final openedAs =
+        activity?.intensityById(entry.intensity)?.id ??
+        activity?.defaultIntensityId ??
+        entry.intensity;
+    final currentIntensity =
+        activity?.intensityById(_metState.intensity)?.id ?? _metState.intensity;
+    if (currentIntensity != openedAs && currentIntensity != entry.intensity) {
+      return false;
+    }
+    switch (unit) {
+      case ExerciseQuantityUnit.distanceKm:
+        if (!_sameNumber(
+          entry.distanceKm,
+          _parseOptionalDouble(_distanceController),
+        )) {
+          return false;
+        }
+        break;
+      case ExerciseQuantityUnit.durationMin:
+        final minutes = int.tryParse(_durationController.text.trim());
+        if (minutes != entry.durationMin) {
+          return false;
+        }
+        break;
+      case ExerciseQuantityUnit.reps:
+        if (_parseOptionalInt(_repsController) != entry.reps) {
+          return false;
+        }
+        break;
+    }
+    final grossText = double.tryParse(_burnedKcalController.text.trim());
+    if (!_sameNumber(entry.effectiveGrossKcal, grossText)) {
+      return false;
+    }
+    final storedIncluded =
+        entry.calculationSource !=
+        ExerciseCalculationSource.lifestyleIncluded;
+    if (_metState.includeInRemaining != storedIncluded &&
+        _metState.activityId != null) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _sameNumber(double? stored, double? current) {
+    if (stored == null || current == null) {
+      return stored == null && current == null;
+    }
+    return (stored - current).abs() < 1e-9;
   }
 
   /// 保存直前に MET 入力から gross/net を再計算（編集時の古い値混在を防ぐ）。

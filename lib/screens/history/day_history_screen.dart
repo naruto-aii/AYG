@@ -14,6 +14,7 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../../utils/history_grouping.dart';
+import '../../utils/kcal_display.dart';
 import '../../utils/local_date.dart';
 import '../../utils/record_clock.dart';
 import '../../widgets/history/history_tab_body.dart';
@@ -209,26 +210,15 @@ class DayHistoryScreen extends StatelessWidget {
               );
 
         final daySummary = controller.summaryForDay(day);
-        final double intakeKcal;
-        final double burnKcal;
-        if (daySummary != null) {
-          intakeKcal = daySummary.intakeKcal;
-          burnKcal = daySummary.exerciseBurnKcal;
-        } else {
-          final foodKcal = foodItems.fold<double>(
-            0,
-            (sum, e) => sum + (e.kcalPerUnit == null ? 0 : e.totalKcal),
-          );
-          final alcoholKcal = alcoholItems.fold<double>(
-            0,
-            (sum, e) => sum + e.totalCalories,
-          );
-          intakeKcal = foodKcal + alcoholKcal;
-          burnKcal = exerciseItems.fold<double>(
-            0,
-            (sum, e) => sum + e.effectiveNetKcal,
-          );
-        }
+        final intakeShown = displayedIntakeKcal(
+          foods: foodItems,
+          alcohol: alcoholItems,
+        );
+        final burnShown = displayedBurnKcal(
+          exercises: exerciseItems,
+          healthExcessKcal:
+              daySummary?.remainingBreakdown?.healthActivityExcessKcal ?? 0,
+        );
 
         Widget section({
           required String icon,
@@ -281,19 +271,19 @@ class DayHistoryScreen extends StatelessWidget {
                     Expanded(
                       child: StatItem(
                         label: '摂取',
-                        value: intakeKcal.toStringAsFixed(0),
+                        value: intakeShown.toString(),
                       ),
                     ),
                     Expanded(
                       child: StatItem(
                         label: '消費',
-                        value: '+${burnKcal.toStringAsFixed(0)}',
+                        value: '+$burnShown',
                       ),
                     ),
                     Expanded(
                       child: StatItem(
                         label: '差',
-                        value: (intakeKcal - burnKcal).toStringAsFixed(0),
+                        value: (intakeShown - burnShown).toString(),
                       ),
                     ),
                   ],

@@ -51,6 +51,7 @@ import '../models/calculation/landing_guidance.dart';
 import '../models/calculation/weight_sample.dart';
 import '../models/weight_entry.dart';
 import '../services/weight_for_target.dart';
+import '../utils/kcal_display.dart';
 import '../utils/local_date.dart';
 import '../utils/record_clock.dart';
 import '../models/workout_template.dart';
@@ -393,6 +394,7 @@ class AppController extends ChangeNotifier {
   NutritionSettings? nutritionSettings;
   HealthProfileData healthPrefill = HealthProfileData.empty;
   HealthSnapshot healthSnapshot = HealthSnapshot.empty;
+  List<HealthWorkoutRecord> healthWorkouts = const [];
   AppSettings appSettings = const AppSettings();
   DailySummary? summary;
   final List<FoodEntry> foodEntries = [];
@@ -413,6 +415,19 @@ class AppController extends ChangeNotifier {
 
   bool get isHealthRepositoryAvailable =>
       _healthRepository?.isAvailable ?? false;
+
+  /// 運動の計算に使う体重。最新の体重記録、無ければプロフィール。
+  double? get exerciseWeightKg {
+    final selected = currentWeightSelection.kg;
+    if (selected > 0) {
+      return selected;
+    }
+    final profileKg = profile?.weightKg;
+    if (profileKg != null && profileKg > 0) {
+      return profileKg;
+    }
+    return null;
+  }
 
   /// 計算に使用している体重。測定時刻が新しい方。
   WeightSelection get currentWeightSelection => selectWeight(
@@ -1143,6 +1158,7 @@ class AppController extends ChangeNotifier {
     nutritionSettings = null;
     healthPrefill = HealthProfileData.empty;
     healthSnapshot = HealthSnapshot.empty;
+    healthWorkouts = const [];
     appSettings = const AppSettings();
     _onboardingOpenedAt = null;
     _onboardingEventsSent = false;
@@ -1190,6 +1206,7 @@ class AppController extends ChangeNotifier {
     }
 
     await _reloadWeightEntries();
+    await _reloadHealthWorkouts();
 
     refreshDailySummary();
   }
@@ -1279,6 +1296,7 @@ class AppController extends ChangeNotifier {
       );
     }
     await _reloadWeightEntries();
+    await _reloadHealthWorkouts();
 
     final currentProfile = profile;
     if (currentProfile != null) {
@@ -1431,6 +1449,21 @@ class AppController extends ChangeNotifier {
       return;
     }
     await _pendingRecords.markDelete(kind, id);
+  }
+
+  Future<void> _reloadHealthWorkouts() async {
+    final repository = _healthRepository;
+    if (repository == null) {
+      return;
+    }
+    try {
+      healthWorkouts = await repository.loadWorkoutRecords();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[AYG] health workouts load failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
   }
 
   Future<void> _reloadWeightEntries() async {
@@ -1794,6 +1827,7 @@ class AppController extends ChangeNotifier {
       alcoholEntries: List.unmodifiable(alcoholEntries),
       referenceDate: day,
       weightSamples: calculationWeightSamples(),
+      healthWorkouts: healthWorkouts,
     );
     _persistAutoTargetAnchor(day);
     notifyListeners();
@@ -1830,6 +1864,7 @@ class AppController extends ChangeNotifier {
       alcoholEntries: List.unmodifiable(alcoholEntries),
       referenceDate: isToday ? now : requestedDay,
       weightSamples: calculationWeightSamples(),
+      healthWorkouts: healthWorkouts,
     );
   }
 
@@ -4681,7 +4716,7 @@ class AppController extends ChangeNotifier {
     await gateway.publishCatalog(
       SiriVoiceCodec.encodeCatalog(
         ownerUserId: currentOwnerUserId,
-        weightKg: profile?.weightKg,
+        weightKg: exerciseWeightKg,
         officialFoodsEnabled: official,
         supabaseUrl: SupabaseConfig.url,
         supabaseAnonKey: SupabaseConfig.anonKey,
@@ -4907,10 +4942,30 @@ class AppController extends ChangeNotifier {
     }
     final summaryDay = _summaryDay;
     final remaining = current.remainingKcal;
+    final day = summaryDay ?? DateTime.now();
+    final dayFood = filterLoggedOnLocalDay(
+      entries: foodEntries,
+      referenceDate: day,
+      readLoggedAt: (entry) => entry.loggedAt,
+    );
+    final dayAlcohol = filterLoggedOnLocalDay(
+      entries: alcoholEntries,
+      referenceDate: day,
+      readLoggedAt: (entry) => entry.consumedAt,
+    );
+    final dayExercise = filterLoggedOnLocalDay(
+      entries: exerciseEntries,
+      referenceDate: day,
+      readLoggedAt: (entry) => entry.loggedAt,
+    );
     return MealWidgetFigures(
       remainingKcal: remaining < 0 ? 0 : remaining.round(),
-      intakeKcal: current.intakeKcal.round(),
-      burnKcal: current.exerciseBurnKcal.round(),
+      intakeKcal: displayedIntakeKcal(foods: dayFood, alcohol: dayAlcohol),
+      burnKcal: displayedBurnKcal(
+        exercises: dayExercise,
+        healthExcessKcal:
+            current.remainingBreakdown?.healthActivityExcessKcal ?? 0,
+      ),
       targetKcal: current.targetKcal.round(),
       overageKcal: current.isCalorieOverage
           ? current.calorieOverageKcal.round()
@@ -4945,7 +5000,7 @@ class AppController extends ChangeNotifier {
   WidgetExercisePattern _withWidgetNetKcal(WidgetExercisePattern item) {
     final entry = widgetExerciseEntry(
       pattern: item,
-      weightKg: profile?.weightKg,
+      weightKg: exerciseWeightKg,
       id: 'widget-kcal',
       loggedAt: DateTime.now(),
     );

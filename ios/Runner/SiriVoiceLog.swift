@@ -575,6 +575,9 @@ enum SiriVoiceStore {
     let met = intensity.map { LockScreenMealStore.number($0["met"]) }
       ?? LockScreenMealStore.number(activity["met"])
     if parsed.unit == "minutes" {
+      if (activity["unit"] as? String) == "distanceKm" {
+        return 0
+      }
       if met <= 1 {
         return 0
       }
@@ -1709,12 +1712,20 @@ enum SiriVoiceStore {
       )
     }
     let unit = activity["unit"] as? String ?? ""
-    let minutesOk = unit == "distanceKm" && amount.unit == "minutes"
+    if isDistance && amount.unit == "minutes" {
+      return Plan(
+        spoken: "何キロですか？",
+        asksConfirmation: false,
+        asksAmount: true,
+        record: activity,
+        pendingName: speakName,
+        pendingQuantity: ""
+      )
+    }
     let spokenFits = (unit == "durationMin" && amount.unit == "minutes")
       || (unit == "distanceKm" && amount.unit == "kilometers")
-      || minutesOk
     if !spokenFits {
-      let label = unit == "distanceKm" ? "kmか分" : "分"
+      let label = unit == "distanceKm" ? "km" : "分"
       return stop("\(speakName)は\(label)で指定してください")
     }
     let lifestyle = (activity["lifestyleIncluded"] as? Bool) == true

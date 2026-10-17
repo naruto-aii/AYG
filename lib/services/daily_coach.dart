@@ -6,6 +6,7 @@ import 'personal_coach_planner.dart';
 import '../models/exercise_entry.dart';
 import '../models/exercise_quantity_unit.dart';
 import '../services/exercise_calorie_calculator.dart';
+import '../services/exercise_duration.dart';
 import '../utils/local_date.dart';
 import '../utils/meal_slot.dart';
 import '../utils/record_clock.dart';
@@ -513,6 +514,17 @@ _ExercisePlan? _exercisePlan({
     if (distance != null) {
       return distance;
     }
+    if (practice.longestMinutes <= 0) {
+      final kilometers = _kilometersWithoutDuration(
+        practice: practice,
+        overageKcal: overageKcal,
+        weightKg: weight,
+        factor: factor,
+      );
+      if (kilometers != null) {
+        return kilometers;
+      }
+    }
   }
   if (practice.longestMinutes > 0) {
     final timed = _durationMessage(
@@ -697,7 +709,8 @@ _Practice? _bestPractice(List<ExerciseEntry> exercises, DateTime now) {
     var latest = group.first.loggedAt;
     ExerciseEntry? longestDistance;
     for (final entry in group) {
-      if (entry.durationMin > longestMinutes) {
+      if (!distanceDurationIsPlaceholder(entry) &&
+          entry.durationMin > longestMinutes) {
         longestMinutes = entry.durationMin;
         final recordedMet = entry.metValue;
         if (recordedMet != null && recordedMet > 1) {
@@ -773,6 +786,40 @@ _ExercisePlan _noviceMessage({
     perMinute: perMinute,
     capMinutes: 20,
     paceKmh: speed,
+  );
+}
+
+/// 距離の kcal なのに分が無い記録。1分とは扱わず、距離のまま提案する。
+_ExercisePlan? _kilometersWithoutDuration({
+  required _Practice practice,
+  required double overageKcal,
+  required double weightKg,
+  required double factor,
+}) {
+  final perKm = factor * weightKg;
+  if (perKm <= 0 || practice.longestKm <= 0) {
+    return null;
+  }
+  final needed = overageKcal / perKm;
+  final cap = practice.longestKm * 1.5;
+  final today = math.min(needed, cap);
+  final scaled = (today * 10).round() / 10;
+  if (scaled <= 0) {
+    return null;
+  }
+  final recovered = (perKm * scaled).round();
+  final rest = math.max(0, overageKcal.round() - recovered);
+  final name = practice.activity.displayName;
+  final distance = _formatKm(scaled);
+  final base = '今日は$name${distance}km（約${recovered}kcal）がおすすめです。';
+  final message = rest <= 0
+      ? base
+      : '$base残り約${rest}kcalは明日以降の食事で調整しましょう。';
+  return _ExercisePlan(
+    message,
+    activityId: practice.activity.id,
+    amount: scaled,
+    unit: CoachExerciseUnit.kilometers,
   );
 }
 

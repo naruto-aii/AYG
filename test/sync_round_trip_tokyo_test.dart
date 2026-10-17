@@ -678,8 +678,8 @@ void main() {
         'ownerUserId': _uid,
         'loggedAt': '2026-10-09T00:00:00.000',
         'activityId': 'walk_brisk',
-        'amount': 30,
-        'quantityUnit': 'minutes',
+        'amount': 5,
+        'quantityUnit': 'kilometers',
         'weightKg': 72,
       },
     ]);

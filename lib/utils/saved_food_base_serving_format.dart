@@ -32,7 +32,26 @@ class SavedFoodBaseServingFormat {
     if (unit.isEmpty || baseAmount <= 0) {
       return unsetLabel;
     }
-    return '${formatQuantity(baseAmount)}$unitあたり';
+    return '${joinQuantityAndUnit(baseAmount, unit)}あたり';
+  }
+
+  /// 数量と単位を並べる。単位が「1食分」のとき「1501食分」にしない。
+  static String joinQuantityAndUnit(double amount, String unit) {
+    return joinQuantityTextAndUnit(formatQuantity(amount), unit);
+  }
+
+  static String joinQuantityTextAndUnit(String quantityText, String unit) {
+    final label = unit.trim();
+    if (label == '1食分') {
+      return '$quantityText食分';
+    }
+    if (label == '1人前') {
+      return '$quantityText人前';
+    }
+    if (label.isNotEmpty && RegExp(r'^[0-9０-９]').hasMatch(label)) {
+      return '$quantityText × $label';
+    }
+    return '$quantityText$label';
   }
 
   static String formatSavedFood(SavedFood food) {

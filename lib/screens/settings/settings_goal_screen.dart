@@ -9,7 +9,6 @@ import '../../services/daily_calorie_target_planner.dart';
 import '../../services/weight_for_target.dart';
 import '../../models/macro_field.dart';
 import '../../models/nutrition_settings.dart';
-import '../../services/nutrition_value_calculator.dart';
 import '../../widgets/nutrition/calorie_target_editor.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -21,6 +20,7 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/design/goal_card.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../utils/goal_validation_warnings.dart';
+import '../../utils/recorded_number.dart';
 
 class SettingsGoalScreen extends StatefulWidget {
   const SettingsGoalScreen({super.key, required this.controller});
@@ -50,7 +50,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     final settings = widget.controller.nutritionSettings;
     _goalType = goal.type;
     _calorieMode = settings?.calorieTargetMode ?? CalorieTargetMode.automatic;
-    _targetWeightController.text = goal.targetWeightKg.toStringAsFixed(1);
+    _targetWeightController.text = formatRecordedNumber(goal.targetWeightKg);
     _targetDate = goal.targetDate;
     _targetWeightController.addListener(_onDraftChanged);
     widget.controller.addListener(_onDraftChanged);
@@ -67,10 +67,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
     if (value == null) {
       return;
     }
-    _controllerFor(field).text = NutritionValueCalculator.formatForField(
-      field,
-      value,
-    );
+    _controllerFor(field).text = formatRecordedNumber(value);
   }
 
   TextEditingController _controllerFor(MacroField field) {

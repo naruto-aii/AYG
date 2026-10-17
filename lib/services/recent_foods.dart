@@ -3,6 +3,7 @@ import '../models/food_unit_type.dart';
 import '../utils/food_search_normalizer.dart';
 import '../utils/local_date.dart';
 import '../utils/record_clock.dart';
+import '../utils/saved_food_base_serving_format.dart';
 
 /// 直近3日（今日を含む）に登録した食品。同じ食品は最新の1件だけ。
 class RecentFood {
@@ -59,5 +60,8 @@ String formatFoodAmount(FoodEntry entry) {
   final text = amount == amount.roundToDouble()
       ? amount.toStringAsFixed(0)
       : amount.toStringAsFixed(1);
-  return '$text${entry.unitType.label}';
+  return SavedFoodBaseServingFormat.joinQuantityTextAndUnit(
+    text,
+    entry.unitType.label,
+  );
 }

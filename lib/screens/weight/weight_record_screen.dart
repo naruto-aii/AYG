@@ -7,6 +7,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/local_date.dart';
 import '../../utils/record_clock.dart';
+import '../../utils/recorded_number.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
@@ -45,9 +46,11 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
     final entry = widget.entry;
     _weightController = TextEditingController(
       text:
-          entry?.weightKg.toStringAsFixed(1) ??
-          widget.initialWeightKg?.toStringAsFixed(1) ??
-          '',
+          entry != null
+          ? formatRecordedNumber(entry.weightKg)
+          : widget.initialWeightKg != null
+          ? formatRecordedNumber(widget.initialWeightKg!)
+          : '',
     );
     final rawRecordedAt =
         entry?.recordedAt ?? widget.initialRecordedAt ?? DateTime.now();

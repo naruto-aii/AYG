@@ -10,6 +10,7 @@ import '../../repositories/health_repository.dart';
 import '../../services/daily_calorie_target_planner.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/weight_for_target.dart';
+import '../../utils/recorded_number.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
@@ -71,7 +72,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
     super.initState();
     final current = _currentWeightKg;
     if (current != null) {
-      _targetWeightController.text = current.toStringAsFixed(1);
+      _targetWeightController.text = formatRecordedNumber(current);
     }
     _targetDate = DateTime.now().add(_defaultHorizon);
     _targetWeightController.addListener(_onInputChanged);

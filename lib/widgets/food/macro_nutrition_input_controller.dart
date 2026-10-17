@@ -5,6 +5,7 @@ import '../../models/macro_field.dart';
 import '../../services/macro_nutrition_consistency_policy.dart';
 import '../../services/nutrition_value_calculator.dart';
 import '../../utils/macro_display.dart';
+import '../../utils/recorded_number.dart';
 
 /// 食事フォームの kcal / P / F / C 入力状態を管理する。
 ///
@@ -526,8 +527,13 @@ class MacroNutritionInputController extends ChangeNotifier {
     required MacroFieldSource source,
     bool reveal = true,
   }) {
-    final rounded = _round(field, value);
-    final text = NutritionValueCalculator.formatForField(field, rounded);
+    final preserve =
+        source == MacroFieldSource.loaded ||
+        source == MacroFieldSource.external;
+    final rounded = preserve ? value : _round(field, value);
+    final text = preserve
+        ? formatRecordedNumber(rounded)
+        : NutritionValueCalculator.formatForField(field, rounded);
     final current = _parseField(field);
     final sameValue =
         current.isValid && (current.value! - rounded).abs() < 0.001;

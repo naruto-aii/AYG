@@ -382,6 +382,15 @@ class ParsedPhotoAmount {
 /// 量の文から、倍率にならない単位を取る。読めなければ 1 食分。
 ParsedPhotoAmount parsePhotoAmount(String raw) {
   final text = raw.trim().toLowerCase();
+  final serving = RegExp(
+    r'^(\d+(?:\.\d+)?)\s*(人前|人分|食分)$',
+  ).firstMatch(text);
+  if (serving != null) {
+    final amount = double.tryParse(serving.group(1)!);
+    if (amount != null && amount > 0) {
+      return ParsedPhotoAmount(amount: amount, unit: FoodUnitType.serving);
+    }
+  }
   final match = RegExp(
     r'^(\d+(?:\.\d+)?)\s*(g|ｇ|グラム|ml|ｍｌ|ミリリットル|個)$',
   ).firstMatch(text);

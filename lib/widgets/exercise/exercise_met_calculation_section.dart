@@ -7,6 +7,7 @@ import '../../models/exercise_category.dart';
 import '../../models/exercise_quantity_unit.dart';
 import '../../services/analytics/catalog_actions.dart';
 import '../../services/exercise_calorie_calculator.dart';
+import '../../services/exercise_duration.dart';
 import '../../services/usage_record.dart';
 import '../../services/exercise_weight_resolver.dart';
 import '../../models/workout_template.dart';
@@ -708,7 +709,7 @@ class _ExerciseMetCalculationSectionState
       case ExerciseQuantityUnit.distanceKm:
         return _numberField(
           fieldKey: ExerciseMetCalculationSection.distanceFieldKey,
-          label: '距離（km）',
+          label: exerciseQuantityPrompt(ExerciseQuantityUnit.distanceKm),
           suffix: 'km',
           controller: _distanceController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -724,7 +725,7 @@ class _ExerciseMetCalculationSectionState
       case ExerciseQuantityUnit.reps:
         return _numberField(
           fieldKey: ExerciseMetCalculationSection.repsFieldKey,
-          label: '回数',
+          label: exerciseQuantityPrompt(ExerciseQuantityUnit.reps),
           suffix: '回',
           controller: _repsController,
           keyboardType: TextInputType.number,
@@ -741,7 +742,7 @@ class _ExerciseMetCalculationSectionState
       case ExerciseQuantityUnit.durationMin:
         return _numberField(
           fieldKey: ExerciseMetCalculationSection.durationFieldKey,
-          label: '実施時間（分）',
+          label: exerciseQuantityPrompt(ExerciseQuantityUnit.durationMin),
           suffix: '分',
           controller: widget.durationController,
           keyboardType: TextInputType.number,

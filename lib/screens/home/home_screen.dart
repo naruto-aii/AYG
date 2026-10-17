@@ -22,6 +22,7 @@ import '../../theme/app_typography.dart';
 import '../../utils/calorie_ring_progress.dart';
 import '../../utils/local_date.dart';
 import '../../utils/record_clock.dart';
+import '../../utils/kcal_display.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/announcements/home_announcements_entry.dart';
 import '../../widgets/brand/app_logo.dart';
@@ -133,7 +134,12 @@ class HomeScreen extends StatelessWidget {
                 _quickAdd(context, profile.weightKg),
               ],
               const SizedBox(height: 8),
-              _stats(summary),
+              _stats(
+                summary,
+                foods: todayFood,
+                alcohol: todayAlcohol,
+                exercises: todayExercise,
+              ),
               const SizedBox(height: 4),
               _weightUsage(controller),
               const SizedBox(height: 4),
@@ -195,23 +201,31 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _stats(DailySummary summary) {
+  Widget _stats(
+    DailySummary summary, {
+    required List<FoodEntry> foods,
+    required List<AlcoholEntry> alcohol,
+    required List<ExerciseEntry> exercises,
+  }) {
+    final intake = displayedIntakeKcal(foods: foods, alcohol: alcohol);
+    final burn = displayedBurnKcal(
+      exercises: exercises,
+      healthExcessKcal:
+          summary.remainingBreakdown?.healthActivityExcessKcal ?? 0,
+    );
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
-          child: StatItem(label: '摂取', value: _comma(summary.intakeKcal)),
+          child: StatItem(label: '摂取', value: _comma(intake.toDouble())),
         ),
         Expanded(
-          child: StatItem(
-            label: '消費',
-            value: _comma(summary.exerciseBurnKcal),
-          ),
+          child: StatItem(label: '消費', value: _comma(burn.toDouble())),
         ),
         Expanded(
           child: StatItem(
             label: '差',
-            value: _comma(summary.intakeKcal - summary.exerciseBurnKcal),
+            value: _comma((intake - burn).toDouble()),
           ),
         ),
       ],

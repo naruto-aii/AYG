@@ -673,12 +673,16 @@ SiriVoicePlan resolveSiriAmount({
   }
   final activityId = plan.activityId;
   if (activityId != null) {
+    final distance =
+        MetActivityCatalog.findById(activityId)?.quantityUnit ==
+        ExerciseQuantityUnit.distanceKm;
     return _confirmExercise(
       context,
       activityId: activityId,
       quantityText: amountText,
       spokenName: plan.spokenName ?? '',
-      assumeMinutes: true,
+      assumeMinutes: !distance,
+      assumeKilometers: distance,
     );
   }
   return plan;
@@ -1197,6 +1201,7 @@ SiriVoicePlan _confirmExercise(
   required String quantityText,
   required String spokenName,
   bool assumeMinutes = false,
+  bool assumeKilometers = false,
 }) {
   final activity = MetActivityCatalog.findById(activityId);
   if (activity == null || !activity.searchable) {
@@ -1212,24 +1217,26 @@ SiriVoicePlan _confirmExercise(
   final parsed = _parseExerciseAmount(
     quantityText,
     assumeMinutes: assumeMinutes,
+    assumeKilometers: assumeKilometers,
   );
-  if (parsed == null) {
+  if (parsed == null ||
+      (activity.quantityUnit == ExerciseQuantityUnit.distanceKm &&
+          parsed.unit == SiriQuantityUnit.minutes)) {
     return SiriVoicePlan._(
       status: SiriVoiceStatus.needsAmount,
-      spoken: '何分ですか？',
+      spoken: _exerciseAmountQuestion(activity),
       asksConfirmation: false,
       asksAmount: true,
       activityId: activity.id,
       spokenName: activity.displayName,
-      pendingQuantityText: quantityText,
+      pendingQuantityText: '',
       confident: true,
     );
   }
   final spokenUnitFits = _exerciseUnitFits(activity, parsed.unit);
   if (!spokenUnitFits) {
     final unitLabel = switch (activity.quantityUnit) {
-      ExerciseQuantityUnit.distanceKm =>
-        parsed.unit == SiriQuantityUnit.minutes ? 'km' : 'kmか分',
+      ExerciseQuantityUnit.distanceKm => 'km',
       ExerciseQuantityUnit.durationMin => '分',
       ExerciseQuantityUnit.reps => '回',
     };
@@ -1827,10 +1834,14 @@ SiriQuantity? _parseFoodAmount(
 SiriQuantity? _parseExerciseAmount(
   String quantityText, {
   required bool assumeMinutes,
+  bool assumeKilometers = false,
 }) {
   final parsed = parseSiriQuantity(quantityText);
-  if (parsed != null || !assumeMinutes) {
+  if (parsed != null || (!assumeMinutes && !assumeKilometers)) {
     return parsed;
+  }
+  if (assumeKilometers) {
+    return parseSiriQuantity('$quantityText km');
   }
   return parseSiriQuantity('$quantityText分');
 }
@@ -1841,10 +1852,16 @@ bool _exerciseUnitFits(
 ) {
   return switch (activity.quantityUnit) {
     ExerciseQuantityUnit.durationMin => spoken == SiriQuantityUnit.minutes,
-    ExerciseQuantityUnit.distanceKm =>
-      spoken == SiriQuantityUnit.kilometers ||
-          spoken == SiriQuantityUnit.minutes,
+    ExerciseQuantityUnit.distanceKm => spoken == SiriQuantityUnit.kilometers,
     ExerciseQuantityUnit.reps => false,
+  };
+}
+
+String _exerciseAmountQuestion(MetActivityDefinition activity) {
+  return switch (activity.quantityUnit) {
+    ExerciseQuantityUnit.distanceKm => '何kmですか？',
+    ExerciseQuantityUnit.durationMin => '何分ですか？',
+    ExerciseQuantityUnit.reps => '何回ですか？',
   };
 }
 
@@ -2107,35 +2124,6 @@ ExerciseEntry? buildSiriExerciseEntry({
         sourceKey: metSourceKey,
       );
     case ExerciseQuantityUnit.distanceKm:
-      if (unit == SiriQuantityUnit.minutes) {
-        final minutes = amount.round();
-        final estimate = calculator.estimate(
-          met: met,
-          weightKg: weight,
-          durationMinutes: minutes,
-          sourceKey: metSourceKey,
-        );
-        if (estimate == null) {
-          return null;
-        }
-        return ExerciseEntry(
-          id: id,
-          name: activity.displayName,
-          durationMin: minutes,
-          burnedKcal: estimate.grossKcal,
-          loggedAt: loggedAt,
-          category: activity.category,
-          activityId: activity.id,
-          intensity: intensity.id,
-          metValue: met,
-          grossKcal: estimate.grossKcal,
-          netKcal: estimate.netKcal,
-          weightKgSnapshot: weight,
-          calculationSource: estimate.calculationSource,
-          calculationVersion: estimate.calculationVersion,
-          sourceKey: activity.sourceKey,
-        );
-      }
       if (unit != SiriQuantityUnit.kilometers) {
         return null;
       }

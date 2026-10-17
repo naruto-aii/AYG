@@ -275,6 +275,47 @@ export function formatHeadingDate(isoDate: string): string {
   return `${month}/${day}（${weekday}）`;
 }
 
+function zonedParts(instant: Date, timeZone: string): { y: number; m: number; d: number; h: number; min: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const pick = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? "NaN");
+  let hour = pick("hour");
+  if (hour === 24) hour = 0;
+  return { y: pick("year"), m: pick("month"), d: pick("day"), h: hour, min: pick("minute") };
+}
+
+function zonedInstant(isoDate: string, hour: number, minute: number, timeZone: string): number {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  let utc = Date.UTC(year, month - 1, day, hour, minute);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const got = zonedParts(new Date(utc), timeZone);
+    const delta = Date.UTC(year, month - 1, day, hour, minute) - Date.UTC(got.y, got.m - 1, got.d, got.h, got.min);
+    if (delta === 0) return utc;
+    utc += delta;
+  }
+  return utc;
+}
+
+function japanClock(instant: Date): string {
+  const parts = zonedParts(instant, "Asia/Tokyo");
+  return `${parts.m}/${parts.d} ${parts.h}:${String(parts.min).padStart(2, "0")}`;
+}
+
+/// 太平洋時間の 0:00 から翌日 0:00 を、日本時間の時刻に直す。
+/// 夏は 16:00、冬は 17:00。切替え日は始まりと終わりで時刻が変わる。
+export function japanPeriodForPacificReport(reportDate: string): string {
+  const start = new Date(zonedInstant(reportDate, 0, 0, "America/Los_Angeles"));
+  const end = new Date(zonedInstant(addDays(reportDate, 1), 0, 0, "America/Los_Angeles"));
+  return `${japanClock(start)}〜${japanClock(end)}（日本時間）`;
+}
+
 /// 保存する日付は日本時間。この日より前は取り込まない。
 export const releaseDate = "2026-10-15";
 
@@ -683,7 +724,7 @@ function monthLine(today: number, previous: number | null, month: number, format
 }
 
 export function formatFlashMessage(view: FlashView): string {
-  const date = formatHeadingDate(view.dataDate);
+  const period = japanPeriodForPacificReport(addDays(view.dataDate, -1));
   const salesLines = view.salesConfirmed === false
     ? [
       `新規DL ${monthLine(view.sales.newDownloads, view.previousSales?.newDownloads ?? null, view.monthSales.newDownloads)}`,
@@ -727,8 +768,8 @@ export function formatFlashMessage(view: FlashView): string {
     averageRating: view.reviews.averageRating,
   });
   return [
-    `📊 カロナビ日次レポート｜${date}分　_日本時間_${view.correction ? "　訂正" : ""}`,
-    "（売上と課金は Apple の日次ファイル。時刻が無いので、太平洋時間の 24 時間の多くがかかる日本時間の日付で出しています）",
+    `📊 カロナビ日次レポート｜${period}${view.correction ? "　訂正" : ""}`,
+    "（売上と課金は Apple の日次ファイル。時刻が無いので、太平洋時間の 0:00 から 24:00 を日本時間で示しています）",
     ...(view.correction ? ["前回の投稿を、Appleの取り直しで上書きしました。"] : []),
     "",
     "■ 獲得",
@@ -752,15 +793,15 @@ export function formatAcquisitionMessage(input: {
   previous: AnalyticsSummary | null;
   correction?: boolean;
 }): string {
-  const date = formatHeadingDate(input.dataDate);
+  const period = japanPeriodForPacificReport(addDays(input.dataDate, -1));
   const impressions = formatDelta(input.today.impressions, input.previous?.impressions ?? null);
   const pages = formatDelta(input.today.productPageViews, input.previous?.productPageViews ?? null);
   const conversion = formatPercent(input.today.conversionRate);
   const previousConversion = input.previous ? formatPercent(input.previous.conversionRate) : null;
   const conversionDelta = previousConversion == null ? "前日 —" : `前日 ${previousConversion}`;
   return [
-    `📈 カロナビ集客｜${date}分　_日本時間_${input.correction ? "　訂正" : ""}`,
-    "（Analytics も太平洋時間の日付。速報と同じく日本時間の翌日として、ファイルの 3 日後以降に出します）",
+    `📈 カロナビ集客｜${period}${input.correction ? "　訂正" : ""}`,
+    "（Analytics も太平洋時間の 0:00 から 24:00 です。ファイルの 3 日後以降に出します）",
     ...(input.correction ? ["前回の投稿を、Appleの取り直しで上書きしました。"] : []),
     "",
     `表示回数 ${input.today.impressions.toLocaleString("en-US")}（${impressions}）`,

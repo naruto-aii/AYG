@@ -12,6 +12,7 @@ import {
   flashComment,
   formatFlashMessage,
   formatHeadingDate,
+  japanPeriodForPacificReport,
   japanDateForPacificReport,
   japanDateString,
   latestRowsForDate,
@@ -828,7 +829,7 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   assertEquals(first.acquisitionPosted, ["2026-10-16"]);
   assertEquals(slack.length, 2);
   const flash = slack[0];
-  assertEquals(flash.includes("📊 カロナビ日次レポート｜10/17（土）分　_日本時間_"), true);
+  assertEquals(flash.includes("📊 カロナビ日次レポート｜10/16 16:00〜10/17 16:00（日本時間）"), true);
   assertEquals(flash.includes("■ 獲得"), true);
   assertEquals(flash.includes("■ 課金"), true);
   assertEquals(flash.includes("■ レビュー"), true);
@@ -845,7 +846,7 @@ Deno.test("a complete day posts once in Japanese and a second run does not", asy
   assertEquals(flash.includes("「使いやすい」"), true);
   assertEquals(flash.includes("本文のない★だけの評価は API に含まれません。"), true);
   assertEquals(flash.includes("トライアル開始と、有料への切り替えが両方あります。"), true);
-  assertEquals(slack[1].includes("📈 カロナビ集客｜10/16（金）分　_日本時間_"), true);
+  assertEquals(slack[1].includes("📈 カロナビ集客｜10/15 16:00〜10/16 16:00（日本時間）"), true);
   assertEquals(slack[1].includes("表示回数 1,200"), true);
   assertEquals(slack[1].includes("製品ページ閲覧 250"), true);
   assertEquals(slack[1].includes("検索 800（広告を含む） / 広告 検索と分かれて出ない / その他 400"), true);
@@ -922,7 +923,7 @@ Deno.test("a SKU seen in the PT 10/15 file is used for the billing-only PT 10/16
     });
   };
   deps.postSlack = (text) => {
-    const date = text.includes("10/16") ? "2026-10-16" : "2026-10-17";
+    const date = text.includes("10/17") ? "2026-10-17" : "2026-10-16";
     assertEquals(store.posts.get(`flash:${date}`)?.status, "reserved");
     slack.push(text);
     return Promise.resolve(true);
@@ -1290,6 +1291,33 @@ Deno.test("the comment follows the numbers", () => {
   }), "大きな動きはありません。");
 });
 
+Deno.test("the heading converts the Pacific day into Japan time, including DST boundaries", () => {
+  assertEquals(japanPeriodForPacificReport("2026-10-15"), "10/15 16:00〜10/16 16:00（日本時間）");
+  assertEquals(japanPeriodForPacificReport("2026-07-15"), "7/15 16:00〜7/16 16:00（日本時間）");
+  assertEquals(japanPeriodForPacificReport("2026-01-15"), "1/15 17:00〜1/16 17:00（日本時間）");
+  assertEquals(japanPeriodForPacificReport("2026-03-07"), "3/7 17:00〜3/8 17:00（日本時間）");
+  assertEquals(japanPeriodForPacificReport("2026-03-08"), "3/8 17:00〜3/9 16:00（日本時間）");
+  assertEquals(japanPeriodForPacificReport("2026-03-09"), "3/9 16:00〜3/10 16:00（日本時間）");
+  assertEquals(japanPeriodForPacificReport("2026-11-01"), "11/1 16:00〜11/2 17:00（日本時間）");
+  assertEquals(japanPeriodForPacificReport("2026-11-02"), "11/2 17:00〜11/3 17:00（日本時間）");
+  const corrected = formatFlashMessage({
+    dataDate: "2026-10-16",
+    correction: true,
+    sales: { newDownloads: 0, redownloads: 0, salesCents: 0, proceedsCents: 0, nonJpyCustomerRows: 0 },
+    plans: [],
+    events: { trialStarts: 0, paidConversions: 0, cancellations: 0 },
+    reviews: { reviewCount: 0, averageRating: null, stars: [0, 0, 0, 0, 0], excerpt: "" },
+    previousSales: null,
+    previousPlans: [],
+    previousEvents: null,
+    previousReviewCount: null,
+    monthSales: { newDownloads: 0, redownloads: 0, salesCents: 0, proceedsCents: 0, nonJpyCustomerRows: 0 },
+    monthEvents: { trialStarts: 0, paidConversions: 0, cancellations: 0 },
+    monthReviewCount: 0,
+  });
+  assertEquals(corrected.startsWith("📊 カロナビ日次レポート｜10/15 16:00〜10/16 16:00（日本時間）　訂正"), true);
+});
+
 Deno.test("a Pacific report file is labeled as the next Japan date", () => {
   assertEquals(pacificDateString(new Date(nowIso)), "2026-10-18");
   assertEquals(japanDateString(new Date("2026-10-14T15:00:00Z")), "2026-10-15");
@@ -1409,7 +1437,7 @@ Deno.test("the settled PT 10/14 file is stored as Japan 10/15 and the later file
   assertEquals(store.sales.map((row) => row.dataDate), ["2026-10-15"]);
   assertEquals(store.sales[0]?.newDownloads, 1);
   assertEquals(store.posts.has("flash:2026-10-16"), false);
-  assertEquals(slack[0].includes("📊 カロナビ日次レポート｜10/15（木）分　_日本時間_"), true);
+  assertEquals(slack[0].includes("📊 カロナビ日次レポート｜10/14 16:00〜10/15 16:00（日本時間）"), true);
   assertEquals(slack[0].includes("新規DL 1"), true);
 });
 
@@ -1489,7 +1517,7 @@ Deno.test("later sales rows do not confirm an empty sales file when subscription
   assertEquals(store.sales.some((row) => row.dataDate === "2026-10-15"), false);
   assertEquals(store.subscriptions.some((row) => row.dataDate === "2026-10-15"), false);
   assertEquals(store.posts.has("flash:2026-10-15"), false);
-  assertEquals(slack[0].includes("10/16（金）"), true);
+  assertEquals(slack[0].includes("📊 カロナビ日次レポート｜10/15 16:00〜10/16 16:00（日本時間）"), true);
 });
 
 Deno.test("both empty files become zero only after a later day has product rows", async () => {
@@ -1545,7 +1573,7 @@ Deno.test("a posted day is fetched again and corrected once when the numbers cha
   const second = await runAscDailyReport(deps);
   assertEquals(second.flashPosted, [flashDate]);
   assertEquals(slack.length, 2);
-  assertEquals(slack[1].includes("訂正"), true);
+  assertEquals(slack[1].includes("📊 カロナビ日次レポート｜10/16 16:00〜10/17 16:00（日本時間）　訂正"), true);
   assertEquals(slack[1].includes("新規DL 12"), true);
   assertEquals(slack[1].includes("前回の投稿を、Appleの取り直しで上書きしました。"), true);
   assertEquals(store.sales.find((row) => row.dataDate === flashDate)?.newDownloads, 12);

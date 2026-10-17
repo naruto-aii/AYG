@@ -343,6 +343,63 @@ void main() {
     expect(store, isNot(contains('revocationReloadAt')));
   });
 
+  test('the widget extension stays clear of app-only APIs', () {
+    final project = File(
+      'ios/Runner.xcodeproj/project.pbxproj',
+    ).readAsStringSync();
+    final phase = project.indexOf(
+      'A1B702333333333333333002 /* Sources */ = {',
+    );
+    final files = project.substring(
+      phase,
+      project.indexOf('runOnlyForDeploymentPostprocessing', phase),
+    );
+    expect(files, contains('LockScreenMealWidget.swift in Sources'));
+    expect(files, contains('LockScreenMealStore.swift in Sources'));
+    expect(files, contains('AnalyticsEventWriter.swift in Sources'));
+    expect('in Sources'.allMatches(files), hasLength(3));
+    expect(files, isNot(contains('SiriVoiceLog.swift')));
+
+    const banned = [
+      'ForegroundContinuableIntent',
+      'needsToContinueInForegroundError',
+      'requestToContinueInForeground',
+      'UIApplication',
+      'Product.purchase',
+      'AppStore.sync',
+      'AppStore.requestReview',
+    ];
+    for (final path in [
+      'ios/LockScreenMealWidget/LockScreenMealWidget.swift',
+      'ios/LockScreenMeal/LockScreenMealStore.swift',
+      'ios/LockScreenMeal/AnalyticsEventWriter.swift',
+    ]) {
+      final source = File(path).readAsStringSync();
+      for (final symbol in banned) {
+        expect(source, isNot(contains(symbol)), reason: '$path contains $symbol');
+      }
+    }
+
+    final widget = File(
+      'ios/LockScreenMealWidget/LockScreenMealWidget.swift',
+    ).readAsStringSync();
+    final register = widget.substring(
+      widget.indexOf('struct RegisterMealWidgetIntent'),
+      widget.indexOf('struct OpenCalonaviPlusIntent'),
+    );
+    expect(register, contains('static var openAppWhenRun = false'));
+    expect(register, contains('!access.allowsRegister'));
+    expect(register, contains('access.widgetResult'));
+    expect(register, contains('return .result()'));
+    expect(register, isNot(contains('.register(')));
+    final opener = widget.substring(
+      widget.indexOf('struct OpenCalonaviPlusIntent'),
+      widget.indexOf('struct CalonaviWidgetBundle'),
+    );
+    expect(opener, contains('static var openAppWhenRun = true'));
+    expect(opener, isNot(contains('.register(')));
+  });
+
   test('grant channel keeps the old paid payload and adds source', () async {
     SharedPreferences.setMockInitialValues({});
     final calls = <MethodCall>[];

@@ -567,7 +567,10 @@ private struct LockCapsule: View {
 
 /// ホームとロック画面のボタン。ショートカットや Siri には出さない。
 /// 食事と運動の音声登録は、アプリ本体の別の App Intent。
-struct RegisterMealWidgetIntent: AppIntent, ForegroundContinuableIntent {
+/// ウィジェット拡張では、アプリを前面に続ける API は使えない。
+/// 無料・期限切れ・返金はここでは記録せず、鍵の面へ読み直す。
+/// 鍵の面は `OpenCalonaviPlusIntent`（`openAppWhenRun`）がアプリを開く。
+struct RegisterMealWidgetIntent: AppIntent {
   static var title: LocalizedStringResource = "ウィジェットのパターンを登録"
   static var openAppWhenRun = false
   static var isDiscoverable = false
@@ -603,7 +606,7 @@ struct RegisterMealWidgetIntent: AppIntent, ForegroundContinuableIntent {
       }
       PlusEntryCenter.request("widget")
       LockScreenMealStore.reloadWidgets()
-      throw needsToContinueInForegroundError()
+      return .result()
     }
     _ = try WidgetAnalytics.recordPress(
       surface: surface,

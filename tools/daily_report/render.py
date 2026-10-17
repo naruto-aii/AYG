@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 import os
+import tempfile
 from pathlib import Path
 
 import matplotlib
@@ -49,15 +51,109 @@ def bar_points(pairs: list[tuple[str, int | None]]) -> list[tuple[str, int]] | N
     return present
 
 
+# グラフの見出しと、注記に出る英字。payload に無い文字は字形が落ちる。
+_CHART_TEXT = (
+    "初回起動それ以外判定なし初回起動から課金画面まで初回設定食事記録課金画面"
+    "新規DLと再DLデータなし表示・ページ閲覧・転換率セッションと利用時間利用時間（分）"
+    "指標当日前日比前週比注記ASA"
+    "0123456789+-—〜｜・%（）.。、「」：/ ¥★_"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+)
+
+
+def _joined_text(value) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "".join(_joined_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "".join(_joined_text(item) for item in value)
+    return ""
+
+
+def _true_type_face(path: str, text: str) -> str:
+    """CFF の日本語フォントを、使う文字だけの TrueType にする。
+
+    pdf.fonttype = 42 は TrueType として埋め込む。CFF のまま入れると宣言と中身がずれ、
+    画面では字形が落ちて、文字情報だけが残る。
+    """
+    from fontTools.pens.cu2quPen import Cu2QuPen
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+    from fontTools.subset import Options, Subsetter
+    from fontTools.ttLib import TTCollection, TTFont, newTable
+
+    source = Path(path)
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    stamp = f"{source.stat().st_mtime_ns}:{source.stat().st_size}:{digest}"
+    cache = Path(tempfile.gettempdir()) / f"daily-report-glyf-{source.stem}-{digest}.ttf"
+    marker = cache.with_suffix(".stamp")
+    if cache.is_file() and marker.is_file() and marker.read_text(encoding="utf-8") == stamp:
+        return str(cache)
+    if source.suffix.lower() == ".ttc":
+        collection = TTCollection(path)
+        font = collection.fonts[0]
+        for face in collection.fonts:
+            if (face["name"].getDebugName(1) or "") == "Noto Sans CJK JP":
+                font = face
+                break
+    else:
+        font = TTFont(path)
+    if "glyf" in font and "CFF " not in font:
+        return path
+    options = Options()
+    options.layout_features = ["*"]
+    options.desubroutinize = True
+    options.hinting = False
+    options.notdef_outline = True
+    subsetter = Subsetter(options=options)
+    subsetter.populate(text=text)
+    subsetter.subset(font)
+    glyph_set = font.getGlyphSet()
+    glyf = newTable("glyf")
+    glyf.glyphOrder = font.getGlyphOrder()
+    glyf.glyphs = {}
+    for name in font.getGlyphOrder():
+        pen = TTGlyphPen(glyph_set)
+        glyph_set[name].draw(Cu2QuPen(pen, 1.0, reverse_direction=True))
+        glyf.glyphs[name] = pen.glyph()
+    font["glyf"] = glyf
+    font["loca"] = newTable("loca")
+    maxp = font["maxp"]
+    maxp.tableVersion = 0x00010000
+    for name, value in (
+        ("maxZones", 1),
+        ("maxTwilightPoints", 0),
+        ("maxStorage", 0),
+        ("maxFunctionDefs", 0),
+        ("maxInstructionDefs", 0),
+        ("maxStackElements", 0),
+        ("maxSizeOfInstructions", 0),
+        ("maxComponentElements", 0),
+        ("maxComponentDepth", 0),
+    ):
+        setattr(maxp, name, value)
+    for tag in ("CFF ", "VORG", "BASE", "GDEF", "GPOS", "GSUB"):
+        if tag in font:
+            del font[tag]
+    font.sfntVersion = "\x00\x01\x00\x00"
+    font.save(cache)
+    marker.write_text(stamp, encoding="utf-8")
+    return str(cache)
+
+
 def render_pdf(payload: dict, destination: str | Path) -> None:
-    font_path = find_japanese_font()
+    text = _CHART_TEXT + _joined_text(payload)
+    source = find_japanese_font()
+    font_path = _true_type_face(source, text)
     font_manager.fontManager.addfont(font_path)
-    bold_path = font_path.replace("Regular", "Bold")
-    if bold_path != font_path and Path(bold_path).is_file():
-        font_manager.fontManager.addfont(bold_path)
+    bold_source = source.replace("Regular", "Bold")
+    if bold_source != source and Path(bold_source).is_file():
+        font_manager.fontManager.addfont(_true_type_face(bold_source, text))
     family = font_manager.FontProperties(fname=font_path).get_name()
     plt.rcParams["font.family"] = family
     plt.rcParams["axes.unicode_minus"] = False
+    # 42 は TrueType。Type 3 だと日本語が線画になり、PDF から文字を読めない。
+    plt.rcParams["pdf.fonttype"] = 42
     with PdfPages(destination) as pdf:
         _cover(pdf, payload)
         _charts(pdf, _rows(payload.get("series")))

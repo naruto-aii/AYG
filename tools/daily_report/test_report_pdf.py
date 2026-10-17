@@ -1,5 +1,6 @@
 import json
 import unittest
+import warnings
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -71,12 +72,18 @@ class ReportPdfTest(unittest.TestCase):
             ],
         }
         destination = Path(__file__).with_name("_sample_test.pdf")
-        render_pdf(payload, destination)
-        text = "\n".join(page.extract_text() or "" for page in PdfReader(str(destination)).pages)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", UserWarning)
+            render_pdf(payload, destination)
+        missing = [str(item.message) for item in caught if "missing from font" in str(item.message)]
+        self.assertEqual(missing, [])
+        reader = PdfReader(str(destination))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
         self.assertIn("データなし", text)
         self.assertNotIn("インストール 0", text)
         self.assertEqual(text.count("一つのファネルにしていません"), 1)
         self.assertIn("初回起動", text)
+        self.assertFalse(_font_subtypes(reader) & {"/Type3"})
         destination.unlink()
 
     def test_slack_upload_uses_external_url_and_the_given_channel(self):
@@ -122,6 +129,30 @@ class ReportPdfTest(unittest.TestCase):
         self.assertEqual(seen["headers"]["x-daily-report-secret"], "read-secret-for-test")
         self.assertEqual(seen["body"], {"op": "outbox"})
         self.assertNotIn("postgres", seen["url"])
+
+
+def _font_subtypes(reader: PdfReader) -> set[str]:
+    found: set[str] = set()
+    for page in reader.pages:
+        resources = page.get("/Resources")
+        if resources is None:
+            continue
+        fonts = resources.get("/Font")
+        if fonts is None:
+            continue
+        for font in fonts.values():
+            obj = font.get_object()
+            subtype = obj.get("/Subtype")
+            if subtype is not None:
+                found.add(str(subtype))
+            descendants = obj.get("/DescendantFonts")
+            if descendants is None:
+                continue
+            for descendant in descendants:
+                kind = descendant.get_object().get("/Subtype")
+                if kind is not None:
+                    found.add(str(kind))
+    return found
 
 
 if __name__ == "__main__":

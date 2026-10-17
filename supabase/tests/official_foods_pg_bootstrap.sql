@@ -41,8 +41,10 @@ create table if not exists auth.identities (
   id uuid primary key default gen_random_uuid(),
   user_id uuid,
   provider text,
-  identity_data jsonb
+  identity_data jsonb,
+  provider_id text
 );
+alter table auth.identities add column if not exists provider_id text;
 
 create or replace function auth.uid()
 returns uuid

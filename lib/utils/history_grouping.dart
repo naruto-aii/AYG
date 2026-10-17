@@ -1,6 +1,7 @@
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
 import 'local_date.dart';
+import 'record_clock.dart';
 
 /// 履歴画面向けの日付グループ。
 class HistoryDateGroup<T> {
@@ -16,11 +17,11 @@ class HistoryDateGroup<T> {
 }
 
 bool _isSameDay(DateTime a, DateTime b) {
-  return isSameLocalDay(a, b);
+  return isSameLocalDay(civilClock(a), civilClock(b));
 }
 
 DateTime _dateOnly(DateTime value) {
-  return localDayStart(value);
+  return localDayStart(civilClock(value));
 }
 
 String dateLabelFor(DateTime date, {required DateTime referenceDate}) {
@@ -38,7 +39,7 @@ String dateLabelFor(DateTime date, {required DateTime referenceDate}) {
 /// 記録時刻の昇順で並べ替え。
 List<FoodEntry> sortFoodEntriesByLoggedAt(List<FoodEntry> entries) {
   final sorted = List<FoodEntry>.from(entries)
-    ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+    ..sort((a, b) => compareRecordInstants(a.loggedAt, b.loggedAt));
   return sorted;
 }
 
@@ -98,7 +99,9 @@ List<HistoryDateGroup<ExerciseEntry>> groupExerciseEntriesByDate(
           date: date,
           label: dateLabelFor(date, referenceDate: referenceDate),
           items: List<ExerciseEntry>.from(grouped[date]!)
-            ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt)),
+            ..sort(
+              (a, b) => compareRecordInstants(a.loggedAt, b.loggedAt),
+            ),
         ),
       )
       .toList();

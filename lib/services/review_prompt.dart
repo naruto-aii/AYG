@@ -1,5 +1,6 @@
 import '../models/health_profile_data.dart';
 import '../models/weight_entry.dart';
+import '../utils/record_clock.dart';
 
 /// レビューを出すきっかけ。食事・運動・体重・アルコールのどれでも、記録なら数える。
 const reviewPromptStreakDays = 7;
@@ -7,7 +8,8 @@ const reviewPromptStreakDays = 7;
 enum ReviewRecordOrigin { app, widget, siri }
 
 DateTime reviewDay(DateTime value) {
-  return DateTime(value.year, value.month, value.day);
+  final clock = civilClock(value);
+  return DateTime(clock.year, clock.month, clock.day);
 }
 
 /// 手入力の体重だけを記録に数える。ヘルスケアの自動取得は含めない。

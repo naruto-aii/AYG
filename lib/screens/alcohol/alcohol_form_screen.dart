@@ -8,6 +8,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/alcohol_unit.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_field.dart';
@@ -24,11 +25,13 @@ class AlcoholFormScreen extends StatefulWidget {
     required this.controller,
     this.entry,
     this.initialConsumedAt,
+    this.initialBeverageName,
   });
 
   final AppController controller;
   final AlcoholEntry? entry;
   final DateTime? initialConsumedAt;
+  final String? initialBeverageName;
 
   bool get isEditing => entry != null;
 
@@ -51,7 +54,9 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
   void initState() {
     super.initState();
     final entry = widget.entry;
-    _nameController = TextEditingController(text: entry?.beverageName ?? '');
+    _nameController = TextEditingController(
+      text: entry?.beverageName ?? widget.initialBeverageName?.trim() ?? '',
+    );
     _amountController = TextEditingController(
       text: entry?.amount.toString() ?? '',
     );
@@ -67,9 +72,11 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
           ? entry.pureAlcoholGrams.toString()
           : '',
     );
-    _consumedAt =
-        (entry?.consumedAt ?? widget.initialConsumedAt ?? DateTime.now())
-            .toLocal();
+    final rawConsumedAt =
+        entry?.consumedAt ?? widget.initialConsumedAt ?? DateTime.now();
+    _consumedAt = entry == null
+        ? asNewRecordInstant(rawConsumedAt)
+        : rawConsumedAt;
     if (entry != null) {
       _totalCaloriesManuallyEdited =
           (entry.totalCalories - entry.alcoholCalories).abs() > 0.01;
@@ -212,9 +219,10 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
   }
 
   Future<void> _pickConsumedAt() async {
+    final local = civilClock(_consumedAt);
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: _consumedAt,
+      initialDate: local,
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
@@ -224,25 +232,28 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
 
     final pickedTime = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(_consumedAt),
+      initialTime: TimeOfDay.fromDateTime(local),
     );
     if (pickedTime == null || !mounted) {
       return;
     }
 
     setState(() {
-      _consumedAt = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
+      _consumedAt = adoptPickedRecordTime(
+        original: _consumedAt,
+        pickedLocal: DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        ),
       );
     });
   }
 
   String _formatConsumedAt() {
-    final local = _consumedAt.toLocal();
+    final local = civilClock(_consumedAt);
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
     return '${local.year}年${local.month}月${local.day}日'
         '（${weekdays[local.weekday - 1]}）'
@@ -399,7 +410,7 @@ class _AlcoholFormScreenState extends State<AlcoholFormScreen> {
           ),
           const SizedBox(height: 10),
           DesignRowField(
-            label: '純アルコール量 (g)',
+            label: 'アルコールの量（g）',
             labelWidth: 138,
             child: DesignInputBox(
               radius: AppRadius.sm,
@@ -534,7 +545,7 @@ class _ResultCard extends StatelessWidget {
                     size: 18,
                     color: IconCircle.foregroundOf(IconCircleTone.green),
                   ),
-                  label: 'アルコール由来',
+                  label: 'お酒のカロリー',
                   value: result.alcoholCalories.toStringAsFixed(0),
                   unit: 'kcal',
                 ),
@@ -546,11 +557,11 @@ class _ResultCard extends StatelessWidget {
                     size: 18,
                     color: AppColors.iconPrimary,
                   ),
-                  label: '摂取への反映',
+                  label: '今日のカロリーに足される分',
                   value: result.totalCalories.toStringAsFixed(0),
                   unit: 'kcal',
                   note: result.totalCaloriesIsEstimated
-                      ? 'アルコール由来のみの推定値です'
+                      ? '目安のため実際とズレることがあります'
                       : '今日のアルコールとして記録されます',
                 ),
               ),
@@ -586,8 +597,9 @@ class _ResultItem extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: AppTypography.labelS.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 4),

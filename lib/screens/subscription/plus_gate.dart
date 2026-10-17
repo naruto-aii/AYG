@@ -6,6 +6,31 @@ import '../../state/app_controller.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import 'calonavi_plus_flow.dart';
 
+const calonaviPlusFreeForever = '食事・運動・体重の記録は、無料でずっと使えます。';
+
+String calonaviPlusGateTitle(String featureName) =>
+    '$featureNameはカロナビ+の機能です';
+
+String? calonaviPlusFeatureName(PlusFunnelFeature? feature) {
+  return switch (feature) {
+    PlusFunnelFeature.mealTemplateLimit => '食事テンプレート',
+    PlusFunnelFeature.workoutTemplateLimit => '運動テンプレート',
+    PlusFunnelFeature.widget => 'ウィジェット',
+    PlusFunnelFeature.siri => '音声登録',
+    PlusFunnelFeature.coach => '食事の提案',
+    PlusFunnelFeature.recentFoods => '直近3日の食品',
+    PlusFunnelFeature.memo => 'メモ',
+    null => null,
+  };
+}
+
+String withCalonaviPlusFreeForever(String message) {
+  if (message.contains(calonaviPlusFreeForever)) {
+    return message;
+  }
+  return '$message\n$calonaviPlusFreeForever';
+}
+
 /// カロナビ+が無い機能を止める。Siri とウィジェットの判定は呼ばない。
 ///
 /// 案内の表示と「カロナビ+を見る」は記録する。送信に失敗しても操作は止めない。
@@ -14,6 +39,7 @@ Future<bool> ensureCalonaviPlus(
   AppController controller, {
   required String message,
   PlusFunnelFeature? feature,
+  String? featureName,
 }) async {
   if (controller.hasCalonaviPlusAccess) {
     return true;
@@ -25,10 +51,13 @@ Future<bool> ensureCalonaviPlus(
     event: PlusFunnelEvent.gateShown,
     feature: feature,
   );
+  final resolvedName = featureName ?? calonaviPlusFeatureName(feature);
   final openPlus = await showAppConfirmDialog(
     context: context,
-    title: 'こちらは有料の機能です',
-    message: message,
+    title: resolvedName == null
+        ? 'こちらは有料の機能です'
+        : calonaviPlusGateTitle(resolvedName),
+    message: withCalonaviPlusFreeForever(message),
     confirmLabel: 'カロナビ+を見る',
     cancelLabel: '閉じる',
   );

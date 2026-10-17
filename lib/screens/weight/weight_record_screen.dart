@@ -6,6 +6,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
@@ -48,9 +49,11 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
           widget.initialWeightKg?.toStringAsFixed(1) ??
           '',
     );
-    _recordedAt =
-        (entry?.recordedAt ?? widget.initialRecordedAt ?? DateTime.now())
-            .toLocal();
+    final rawRecordedAt =
+        entry?.recordedAt ?? widget.initialRecordedAt ?? DateTime.now();
+    _recordedAt = entry == null
+        ? asNewRecordInstant(rawRecordedAt)
+        : rawRecordedAt;
   }
 
   @override
@@ -123,7 +126,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
   }
 
   Future<void> _pickRecordedAt() async {
-    final local = _recordedAt.toLocal();
+    final local = civilClock(_recordedAt);
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: local,
@@ -141,12 +144,15 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
       return;
     }
     setState(() {
-      _recordedAt = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
+      _recordedAt = adoptPickedRecordTime(
+        original: _recordedAt,
+        pickedLocal: DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        ),
       );
     });
   }
@@ -174,7 +180,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final local = _recordedAt.toLocal();
+    final local = civilClock(_recordedAt);
     final previous = _previous;
     final current = double.tryParse(_weightController.text.trim());
 
@@ -283,10 +289,15 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 10),
+          Text(
+            '記録した体重から、毎日の目標カロリーを計算し直します',
+            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+          ),
           if (widget.controller.useHealthIntegration) ...[
             const SizedBox(height: 10),
             Text(
-              'Health同期がONの場合、Healthの体重を優先して利用します。',
+              'ヘルスケアとつないでいるときは、ヘルスケアの体重を使います',
               style: AppTypography.caption.copyWith(color: AppColors.textMuted),
             ),
           ],

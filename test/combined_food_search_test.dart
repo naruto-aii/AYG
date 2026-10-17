@@ -118,6 +118,87 @@ void main() {
 
     expect(find.text(CombinedFoodSearch.hint), findsNothing);
     expect(find.text(CombinedFoodSearch.emptyMessage), findsOneWidget);
+    expect(find.byKey(const Key('combined-food-search-manual')), findsNothing);
+  });
+
+  testWidgets('empty results can offer manual entry for the typed name', (
+    tester,
+  ) async {
+    final query = TextEditingController();
+    String? manual;
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    addTearDown(query.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(controller: query),
+                CombinedFoodSearch(
+                  controller: controller,
+                  query: query,
+                  debounce: Duration.zero,
+                  searchSaved: (_) async => const [],
+                  searchOfficial: (_) async => const OfficialFoodSearchResult(),
+                  searchPublic: (_) async => const [],
+                  onManualEntry: (value) => manual = value,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), '手作りスープ');
+    await tester.pumpAndSettle();
+
+    expect(find.text('「手作りスープ」を自分で入力する'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('combined-food-search-manual')));
+    expect(manual, '手作りスープ');
+  });
+
+  testWidgets('an alcohol query shows a record row only when wired', (
+    tester,
+  ) async {
+    final query = TextEditingController();
+    var tapped = 0;
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    addTearDown(query.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(controller: query),
+                CombinedFoodSearch(
+                  controller: controller,
+                  query: query,
+                  debounce: Duration.zero,
+                  searchSaved: (_) async => const [],
+                  searchOfficial: (_) async => const OfficialFoodSearchResult(),
+                  searchPublic: (_) async => const [],
+                  onRecordAsAlcohol: () => tapped++,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'ビール');
+    await tester.pumpAndSettle();
+
+    expect(find.text(CombinedFoodSearch.recordAsAlcoholLabel), findsOneWidget);
+    await tester.tap(find.byKey(const Key('combined-food-search-alcohol')));
+    expect(tapped, 1);
+    expect(CombinedFoodSearch.queryLooksLikeAlcohol('wine'), isTrue);
+    expect(CombinedFoodSearch.queryLooksLikeAlcohol('おにぎり'), isFalse);
   });
 
   testWidgets('a failed official search is shown', (tester) async {

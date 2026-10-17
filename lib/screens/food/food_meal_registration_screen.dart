@@ -13,6 +13,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
@@ -56,7 +57,9 @@ class _FoodMealRegistrationScreenState
   void initState() {
     super.initState();
     _items = widget.initialItems.map((item) => item).toList();
-    _loggedAt = (widget.initialLoggedAt ?? DateTime.now()).toLocal();
+    _loggedAt = asNewRecordInstant(
+      widget.initialLoggedAt ?? DateTime.now(),
+    );
     for (final item in _items) {
       _quantityControllers.add(
         TextEditingController(text: item.consumedAmount.toString()),
@@ -140,9 +143,10 @@ class _FoodMealRegistrationScreenState
   }
 
   Future<void> _pickLoggedAt() async {
+    final shown = civilClock(_loggedAt);
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: _loggedAt,
+      initialDate: shown,
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
@@ -151,18 +155,21 @@ class _FoodMealRegistrationScreenState
     }
     final pickedTime = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(_loggedAt),
+      initialTime: TimeOfDay.fromDateTime(shown),
     );
     if (pickedTime == null || !mounted) {
       return;
     }
     setState(() {
-      _loggedAt = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
+      _loggedAt = adoptPickedRecordTime(
+        original: _loggedAt,
+        pickedLocal: DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        ),
       );
     });
   }
@@ -179,6 +186,7 @@ class _FoodMealRegistrationScreenState
               widget.controller,
               message: '食品のメモは、カロナビ+です。',
               feature: PlusFunnelFeature.memo,
+              featureName: 'メモ',
             );
             if (allowed && mounted) {
               setState(() {});
@@ -277,7 +285,7 @@ class _FoodMealRegistrationScreenState
 
   @override
   Widget build(BuildContext context) {
-    final local = _loggedAt.toLocal();
+    final local = civilClock(_loggedAt);
     final totalKcal = _sum((item) => item.kcalPerBase);
 
     return DesignPage(

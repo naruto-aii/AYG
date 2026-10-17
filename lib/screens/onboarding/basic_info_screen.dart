@@ -192,7 +192,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
           Text('基本情報を入力', style: AppTypography.headingXl),
           const SizedBox(height: 4),
           Text(
-            'ユーザー名は、この画面でも設定からでも変えられます。取得できなかった項目は手入力してください',
+            '1日の目標カロリーを出すのに使います。あとから設定で変えられます',
             style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: 12),

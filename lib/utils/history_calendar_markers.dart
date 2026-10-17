@@ -2,6 +2,7 @@ import '../models/alcohol_entry.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
 import 'local_date.dart';
+import 'record_clock.dart';
 
 /// 履歴カレンダー上の日付マーカー（食事・運動・アルコール）。
 class HistoryDayMarkerInfo {
@@ -19,7 +20,7 @@ class HistoryDayMarkerInfo {
 }
 
 DateTime historyLocalDateKey(DateTime loggedAt) {
-  return localDayStart(loggedAt);
+  return localDayStart(civilClock(loggedAt));
 }
 
 /// 食事・運動・アルコール記録日ごとのマーカーを構築する。

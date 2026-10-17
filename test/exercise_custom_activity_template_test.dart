@@ -119,25 +119,17 @@ void main() {
         '180',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(DesignButton, '保存'));
+      final saveAsTemplate = find.byKey(
+        const Key('exercise-save-as-template'),
+      );
+      expect(saveAsTemplate, findsOneWidget);
+      expect(tester.widget<Checkbox>(saveAsTemplate).value, isFalse);
+      expect(find.text('次回のためにテンプレートに入れる'), findsOneWidget);
+      expect(find.text('テンプレートに追加'), findsNothing);
+      await tester.tap(saveAsTemplate);
       await tester.pumpAndSettle();
-
-      expect(find.text('テンプレートに追加'), findsOneWidget);
-      expect(find.textContaining('「オリジナル競技」をテンプレートに追加しますか？'), findsOneWidget);
-      expect(
-        tester
-            .widget<DesignButton>(find.widgetWithText(DesignButton, 'はい'))
-            .showTrailingIcon,
-        isFalse,
-      );
-      expect(
-        tester
-            .widget<DesignButton>(find.widgetWithText(DesignButton, 'いいえ'))
-            .showTrailingIcon,
-        isFalse,
-      );
-
-      await tester.tap(find.widgetWithText(DesignButton, 'はい'));
+      expect(tester.widget<Checkbox>(saveAsTemplate).value, isTrue);
+      await tester.tap(find.widgetWithText(DesignButton, '保存'));
       await tester.pumpAndSettle();
 
       expect(controller.exerciseEntries, hasLength(1));
@@ -217,9 +209,14 @@ void main() {
         '90',
       );
       await tester.pumpAndSettle();
+      expect(find.text('次回のためにテンプレートに入れる'), findsOneWidget);
+      expect(
+        tester
+            .widget<Checkbox>(find.byKey(const Key('exercise-save-as-template')))
+            .value,
+        isFalse,
+      );
       await tester.tap(find.widgetWithText(DesignButton, '保存'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(DesignButton, 'いいえ'));
       await tester.pumpAndSettle();
 
       expect(controller.exerciseEntries, hasLength(1));
@@ -236,7 +233,7 @@ void main() {
       expect(find.widgetWithText(ListTile, 'ランニング'), findsOneWidget);
     });
 
-    testWidgets('dismissing the prompt does not save the entry', (
+    testWidgets('unchecked save stores the entry and not a template', (
       tester,
     ) async {
       final controller = AppController(
@@ -259,16 +256,19 @@ void main() {
         '40',
       );
       await tester.pumpAndSettle();
+      expect(find.text('テンプレートに追加'), findsNothing);
+      expect(
+        tester
+            .widget<Checkbox>(find.byKey(const Key('exercise-save-as-template')))
+            .value,
+        isFalse,
+      );
       await tester.tap(find.widgetWithText(DesignButton, '保存'));
       await tester.pumpAndSettle();
 
-      await tester.tapAt(const Offset(8, 8));
-      await tester.pumpAndSettle();
-
-      expect(find.text('テンプレートに追加'), findsNothing);
-      expect(controller.exerciseEntries, isEmpty);
+      expect(controller.exerciseEntries, hasLength(1));
       expect(await controller.listCustomActivityTemplates(), isEmpty);
-      expect(find.text('運動を追加'), findsOneWidget);
+      expect(find.text('運動を追加'), findsNothing);
     });
   });
 }

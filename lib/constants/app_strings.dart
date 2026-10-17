@@ -40,12 +40,12 @@ class AppStrings {
   static const settingsTitle = '設定';
   static const settingsBasicInfo = '基本情報';
   static const settingsGoal = '目標設定';
-  static const settingsHealthActivity = '活動・ヘルスケア';
-  static const settingsFoodMaster = '保存済み食品';
+  static const settingsHealthActivity = 'ヘルスケア連携';
+  static const settingsFoodMaster = '自分の食品とテンプレート';
   static const settingsAccount = 'アカウント';
   static const settingsLogout = 'ログアウト';
   static const settingsLoggedInAs = 'ログイン中';
-  static const settingsContactOperator = '運営連絡';
+  static const settingsContactOperator = 'お問い合わせ';
   static const settingsSupport = 'サポート';
   static const settingsTokushoho = '特定商取引法に基づく表記';
   static const settingsAccountDeletion = 'アカウント削除';
@@ -130,10 +130,10 @@ class AppStrings {
   static const targetWeightKg = '目標体重 (kg)';
   static const targetDate = '目標日';
   static const activityLevel = '活動量';
-  static const healthIntegration = 'Health連携';
-  static const healthResync = 'Healthから再取得';
-  static const healthUsingActiveEnergy = 'Healthのアクティブエネルギーを使用中';
-  static const healthUnavailableOnDevice = 'この端末では Health 連携に対応していません。';
+  static const healthIntegration = 'ヘルスケア連携';
+  static const healthResync = 'ヘルスケアから再取得';
+  static const healthUsingActiveEnergy = 'ヘルスケアのアクティブエネルギーを使用中';
+  static const healthUnavailableOnDevice = 'この端末ではヘルスケア連携に対応していません。';
   static const webHealthUnavailable = 'この画面ではヘルスケアは使えません';
 
   static const save = '保存';

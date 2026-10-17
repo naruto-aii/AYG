@@ -16,6 +16,7 @@ import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
+import '../utils/record_clock.dart';
 import 'contracts/alcohol_repository_base.dart';
 import 'contracts/exercise_repository_base.dart';
 import 'contracts/food_repository_base.dart';
@@ -715,7 +716,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       'user_id': userId,
       'active_energy_burned_kcal': snapshot.activeEnergyBurnedKcal,
       'weight_kg': snapshot.weightKg,
-      'weight_measured_at': snapshot.weightMeasuredAt?.toIso8601String(),
+      'weight_measured_at': snapshot.weightMeasuredAt == null
+          ? null
+          : encodeRecordTimestamp(snapshot.weightMeasuredAt!),
       'updated_at': DateTime.now().toIso8601String(),
     }, onConflict: 'user_id');
     await _pendingRecords?.acknowledgeTable('health_snapshots');
@@ -1102,7 +1105,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
                     'name': entry.name,
                     'duration_min': entry.durationMin,
                     'burned_kcal': entry.burnedKcal,
-                    'logged_at': entry.loggedAt.toIso8601String(),
+                    'logged_at': encodeRecordTimestamp(entry.loggedAt),
                   },
                 )
                 .toList(),
@@ -1256,7 +1259,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
                     'user_id': userId,
                     'entry_id': entry.id,
                     'weight_kg': entry.weightKg,
-                    'recorded_at': entry.recordedAt.toIso8601String(),
+                    'recorded_at': encodeRecordTimestamp(entry.recordedAt),
                     'source': entry.source.storageValue,
                   },
                 )

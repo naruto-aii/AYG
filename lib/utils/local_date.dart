@@ -1,3 +1,5 @@
+import 'record_clock.dart';
+
 /// ユーザーのローカル日付（カレンダー日）ユーティリティ。
 bool isSameLocalDay(DateTime a, DateTime b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -7,16 +9,12 @@ DateTime localDayStart(DateTime value) {
   return DateTime(value.year, value.month, value.day);
 }
 
-/// 記録の時計がそのカレンダー日か。
+/// 記録の壁時計がそのカレンダー日か。
 ///
-/// 食事の `logged_at` はローカルの壁時計を、オフセット無しの
-/// [DateTime.toIso8601String] で保存している。Supabase の `timestamptz` は
-/// その時計を UTC として返し、[DateTime.parse] は同じ年月日時刻の UTC 値を
-/// 作る。ここで [DateTime.toLocal] すると端末オフセットがもう一度足され、
-/// 夕方以降の記録が翌日へずれてホームの合計だけ 0 に戻る。履歴の行は
-/// 時計の日付のまま残る。合計はその履歴と同じ日付で集計する。
+/// 旧行は UTC の暦を壁時計として読み、新行（マイクロ秒 1 の印）だけ
+/// [DateTime.toLocal] してから日を取る。合計と履歴は同じ壁時計で集計する。
 bool isLoggedOnLocalDay(DateTime loggedAt, DateTime referenceDate) {
-  return isSameLocalDay(loggedAt, referenceDate);
+  return isSameLocalDay(civilClock(loggedAt), civilClock(referenceDate));
 }
 
 List<T> filterLoggedOnLocalDay<T>({

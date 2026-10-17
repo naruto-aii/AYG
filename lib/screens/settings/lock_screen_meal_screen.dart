@@ -19,15 +19,22 @@ import '../meal_template/meal_template_form_screen.dart';
 import 'widget_exercise_pattern_screen.dart';
 
 /// 保存はボタンの中身だけ。ホーム画面とロック画面への追加手順。
-const String widgetPlacementLead =
-    'アプリの中で保存しただけでは、ホーム画面やロック画面に自動では付きません。保存は、ボタンの文字と中身をこのiPhoneに覚えるだけです。';
+const String widgetPlacementLead = '保存しただけでは、ホーム画面には付きません。';
+
+const String widgetSaveSuccessLead =
+    '保存しました。次にiPhoneのホーム画面に置きます（手順↓）';
 
 const String widgetPlacementSteps =
-    'ホーム画面（アプリアイコンのページ）\n'
-    'いちばん左のページを長押し → 左上「編集」→「ウィジェットを追加」→「カロナビ」\n'
+    '1. ホーム画面のいちばん左のページを長押しする\n'
+    '2. 左上「編集」を押す\n'
+    '3. 「ウィジェットを追加」を押す\n'
+    '4. 「カロナビ」を選ぶ\n'
     '\n'
     'ロック画面\n'
-    'ロック画面を長押し →「カスタマイズ」→「ロック画面」→ 時刻の上下の枠をタップ →「カロナビ」→「完了」';
+    '1. ロック画面を長押しする\n'
+    '2. 「カスタマイズ」→「ロック画面」と進む\n'
+    '3. 時刻の上下の枠をタップして「カロナビ」を選ぶ\n'
+    '4. 「完了」を押す';
 
 /// ホームの大ウィジェット5枠と、その1〜3枠目を使うロック画面。
 ///
@@ -228,8 +235,8 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
       routeSettings: const RouteSettings(name: 'lock_screen_meal_screen_showDialog_0'),
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('内容を保存しました'),
-        content: const Text('$widgetPlacementLead\n\n$widgetPlacementSteps'),
+        title: const Text(widgetSaveSuccessLead),
+        content: const Text(widgetPlacementSteps),
         actions: [
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -279,8 +286,7 @@ class _LockScreenMealScreenState extends State<LockScreenMealScreen> {
               children: [
                 const DesignTitleBlock(
                   title: 'ウィジェット',
-                  subtitle:
-                      'ホーム画面の大きなウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。ロック画面の3枠は、ホームの1〜3枠目を種類も含めてそのまま使います。このパターンは食事テンプレートの4件とは別です。',
+                  subtitle: 'ホーム画面のウィジェットに、食事と運動のボタンを入れます。',
                 ),
                 DesignCard(
                   child: Column(

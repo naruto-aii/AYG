@@ -12,8 +12,10 @@ import '../../services/usage_record.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/app_radius.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/nutrition_format.dart';
+import '../design/design_button.dart';
 import '../design/settings_row.dart';
 import '../official_food/official_food_attribution_line.dart';
 
@@ -37,7 +39,7 @@ class CombinedFoodSearchOverrides {
 
 /// 食事登録の「食品を探す」とテンプレートの「食品検索」が共有する検索結果。
 ///
-/// 入力に応じて、保存済み・定番の食品・公開食品を見出し付きでまとめて出す。
+/// 入力に応じて、自分の食品・一般的な食品・みんなが登録した食品を見出し付きでまとめて出す。
 class CombinedFoodSearch extends StatefulWidget {
   const CombinedFoodSearch({
     super.key,
@@ -50,17 +52,54 @@ class CombinedFoodSearch extends StatefulWidget {
     this.onSavedFood,
     this.onOfficialFood,
     this.onPublicFood,
+    this.onManualEntry,
+    this.onRecordAsAlcohol,
     this.handle,
     this.debounce = const Duration(milliseconds: 250),
     this.browseSavedWhenEmpty = false,
   });
 
-  static const hint = '食品名を入れると、保存済み・定番の食品・公開食品から候補が出ます。';
-  static const emptyMessage = '該当する食品が見つかりませんでした';
+  static const hint = '食品名を入れると候補が出ます';
+  static const emptyMessage = '見つかりませんでした。ひらがな・別の言い方でも試せます';
   static const savedBrowseEmpty = '保存済み食品はまだありません';
-  static const savedHeading = '保存済み';
-  static const officialHeading = '定番の食品';
-  static const publicHeading = '公開食品';
+  static const savedHeading = '自分の食品';
+  static const officialHeading = '一般的な食品（食品成分表）';
+  static const publicHeading = 'みんなが登録した食品';
+  static const recordAsAlcoholLabel = 'お酒として記録する';
+
+  /// ビール、ワイン、酒、チューハイなど、お酒として記録する行を出す語。
+  static bool queryLooksLikeAlcohol(String query) {
+    final text = query.trim().toLowerCase();
+    if (text.isEmpty) {
+      return false;
+    }
+    const needles = <String>[
+      'beer',
+      'ビール',
+      'wine',
+      'ワイン',
+      'sake',
+      '酒',
+      'サワー',
+      'チューハイ',
+      '焼酎',
+      'ショウチュー',
+      '高ボール',
+      'ハイボール',
+      'アルコール',
+      '白酒',
+      'スパークリング',
+      'コクテール',
+      'カクテル',
+    ];
+    for (final needle in needles) {
+      if (text.contains(needle.toLowerCase())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static const savedError = '保存済み食品の検索に失敗しました';
   static const officialError = '定番の食品の検索に失敗しました';
   static const publicError = '公開食品の検索に失敗しました';
@@ -76,6 +115,12 @@ class CombinedFoodSearch extends StatefulWidget {
   final ValueChanged<SavedFood>? onSavedFood;
   final ValueChanged<OfficialFoodMatch>? onOfficialFood;
   final ValueChanged<PublicFoodSearchMatch>? onPublicFood;
+
+  /// 空の結果から、入力した名前を自分で記録する。null のときはボタンを出さない。
+  final ValueChanged<String>? onManualEntry;
+
+  /// お酒の検索語のとき、結果の先頭に出す。null のときは行を出さない。
+  final VoidCallback? onRecordAsAlcohol;
 
   /// 公開食品の作成者を結果から外す。
   final CombinedFoodSearchHandle? handle;
@@ -441,9 +486,47 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
       );
     }
 
+    final showAlcohol =
+        widget.onRecordAsAlcohol != null &&
+        CombinedFoodSearch.queryLooksLikeAlcohol(query);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (showAlcohol) ...[
+          Material(
+            color: AppColors.bgSecondary,
+            borderRadius: AppRadius.card,
+            child: InkWell(
+              key: const Key('combined-food-search-alcohol'),
+              onTap: widget.onRecordAsAlcohol,
+              borderRadius: AppRadius.card,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    AppIcon(
+                      AppIcons.alcohol,
+                      size: 24,
+                      color: AppColors.textPrimary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        CombinedFoodSearch.recordAsAlcoholLabel,
+                        style: AppTypography.titleM,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (_loading)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -535,11 +618,26 @@ class _CombinedFoodSearchState extends State<CombinedFoodSearch> {
         if (!_loading && !hasRows && !hasError)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              CombinedFoodSearch.emptyMessage,
-              key: const Key('combined-food-search-empty'),
-              textAlign: TextAlign.center,
-              style: muted,
+            child: Column(
+              children: [
+                Text(
+                  CombinedFoodSearch.emptyMessage,
+                  key: const Key('combined-food-search-empty'),
+                  textAlign: TextAlign.center,
+                  style: muted,
+                ),
+                if (widget.onManualEntry != null) ...[
+                  const SizedBox(height: 12),
+                  DesignButton(
+                    key: const Key('combined-food-search-manual'),
+                    label: '「$query」を自分で入力する',
+                    style: DesignButtonStyle.outline,
+                    showTrailingIcon: false,
+                    height: 48,
+                    onPressed: () => widget.onManualEntry!(query),
+                  ),
+                ],
+              ],
             ),
           ),
       ],

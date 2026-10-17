@@ -90,7 +90,8 @@ void main() {
     await openForm(tester);
 
     expect(find.byKey(FoodFormScreen.firstMealGuideKey), findsOneWidget);
-    expect(find.text('今日の食事を1件登録'), findsOneWidget);
+    expect(find.text('まずは1件、記録してみましょう'), findsOneWidget);
+    expect(find.text('食品名を入れて候補から選ぶだけです'), findsOneWidget);
     expect(find.text('運動'), findsNothing);
     expect(find.text('食事を追加'), findsOneWidget);
     expect(
@@ -112,7 +113,7 @@ void main() {
     expect(find.byKey(FoodFormScreen.firstMealGuideKey), findsNothing);
   });
 
-  testWidgets('closing the first meal guide does not show it again', (
+  testWidgets('closing the first meal guide hides it until the screen reopens', (
     tester,
   ) async {
     final controller = AppController();
@@ -128,9 +129,10 @@ void main() {
     expect(find.text('食事を追加'), findsOneWidget);
     expect(controller.foodEntries, isEmpty);
 
-    await tester.tap(find.text('戻る'));
+    final navigator = Navigator.of(tester.element(find.byType(FoodFormScreen)));
+    navigator.pop();
     await tester.pumpAndSettle();
     await openForm(tester);
-    expect(find.byKey(FoodFormScreen.firstMealGuideKey), findsNothing);
+    expect(find.byKey(FoodFormScreen.firstMealGuideKey), findsOneWidget);
   });
 }

@@ -85,7 +85,7 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
       bodyPadding: const EdgeInsets.symmetric(horizontal: 20),
       header: DesignHeader(leading: const DesignBackButton()),
       bottomBar: DesignButton(
-        label: 'はじめる',
+        label: '保存して食事を記録する',
         loading: _isSaving,
         onPressed: _isSaving ? null : _complete,
       ),

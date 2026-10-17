@@ -8,8 +8,6 @@ import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/macro_display.dart';
-import '../common/app_text_field.dart';
-import '../design/food_parts.dart';
 import 'macro_nutrition_input_controller.dart';
 
 /// kcal / P / F / C 入力欄（Mobile / Web 共通）。
@@ -33,7 +31,7 @@ class MacroNutritionFields extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: controller,
-      builder: (context, _) {
+      builder: (_, _) {
         if (compact) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,25 +64,21 @@ class MacroNutritionFields extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildField(
-              context,
               field: MacroField.kcal,
               label: macroFieldInputLabel(MacroField.kcal),
             ),
             const SizedBox(height: AppSpacing.md),
             _buildField(
-              context,
               field: MacroField.protein,
               label: macroFieldInputLabel(MacroField.protein),
             ),
             const SizedBox(height: AppSpacing.md),
             _buildField(
-              context,
               field: MacroField.fat,
               label: macroFieldInputLabel(MacroField.fat),
             ),
             const SizedBox(height: AppSpacing.md),
             _buildField(
-              context,
               field: MacroField.carb,
               label: macroFieldInputLabel(MacroField.carb),
             ),
@@ -105,65 +99,142 @@ class MacroNutritionFields extends StatelessWidget {
     );
   }
 
-  /// Figma: 栄養素の MiniField。自動計算された欄は文字色で示す。
+  /// Figma: 栄養素の MiniField。自動計算された欄は薄い文字色と「自動」バッジで示す。
   Widget _buildMiniField(MacroField field) {
     final textController = controller.controllerFor(field);
     final isAuto = controller.sourceOf(field) == MacroFieldSource.auto;
+    final unit = field == MacroField.kcal ? 'kcal' : 'g';
 
-    return MiniField(
-      label: isAuto
-          ? '${macroFieldShortLabel(field)}（自動）'
-          : macroFieldShortLabel(field),
-      unit: field == MacroField.kcal ? 'kcal' : 'g',
-      child: TextField(
-        key: ValueKey('macro_field_${field.name}'),
-        controller: textController,
-        readOnly: readOnly,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        onTap: () => controller.onFieldFocus(field),
-        onChanged: (_) => controller.onFieldChanged(field),
-        style: AppTypography.bodyM.copyWith(
-          color: isAuto ? AppColors.textBrand : AppColors.textPrimary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 16,
+          width: double.infinity,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  macroFieldShortLabel(field),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.caption.copyWith(
+                    color: isAuto
+                        ? AppColors.textMuted
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              if (isAuto)
+                const Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: _AutoBadge(),
+                  ),
+                ),
+            ],
+          ),
         ),
-        decoration: const InputDecoration(
-          isDense: true,
-          filled: false,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          disabledBorder: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          hintText: '0',
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.bgSurface,
+            border: Border.all(color: AppColors.borderDefault),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: ValueKey('macro_field_${field.name}'),
+                  controller: textController,
+                  readOnly: readOnly,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onTap: () => controller.onFieldFocus(field),
+                  onChanged: (_) => controller.onFieldChanged(field),
+                  style: AppTypography.bodyM.copyWith(
+                    color: isAuto ? AppColors.textMuted : AppColors.textPrimary,
+                  ),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    hintText: '0',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  unit,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildField(
-    BuildContext context, {
-    required MacroField field,
-    required String label,
-  }) {
+  Widget _buildField({required MacroField field, required String label}) {
     final textController = controller.controllerFor(field);
-    final source = controller.sourceOf(field);
-    final suffix = source == MacroFieldSource.auto ? '（自動）' : null;
+    final isAuto = controller.sourceOf(field) == MacroFieldSource.auto;
 
-    return AppTextField(
+    return TextFormField(
       key: ValueKey('macro_field_${field.name}'),
       controller: textController,
       readOnly: readOnly,
-      label: suffix == null ? label : '$label $suffix',
-      suffixIcon: source == MacroFieldSource.auto
-          ? Icon(
-              Icons.auto_fix_high,
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
-            )
-          : null,
+      style: AppTypography.bodyM.copyWith(
+        color: isAuto ? AppColors.textMuted : AppColors.textPrimary,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        suffix: isAuto ? const _AutoBadge() : null,
+      ),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
       validator: (value) => validator(value, label),
       onTap: () => controller.onFieldFocus(field),
       onChanged: (_) => controller.onFieldChanged(field),
+    );
+  }
+}
+
+class _AutoBadge extends StatelessWidget {
+  const _AutoBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: AppColors.bgSecondary,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '自動',
+        style: AppTypography.caption.copyWith(
+          color: AppColors.textMuted,
+          fontSize: 10,
+          height: 1.1,
+        ),
+      ),
     );
   }
 }

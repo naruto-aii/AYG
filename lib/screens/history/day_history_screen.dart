@@ -15,6 +15,7 @@ import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/history/history_tab_body.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/delete_with_undo.dart';
@@ -39,7 +40,7 @@ class DayHistoryScreen extends StatelessWidget {
   final FoodFormScreenBuilder? foodFormBuilder;
 
   String _formatTime(DateTime time) {
-    final local = time.toLocal();
+    final local = civilClock(time);
     final h = local.hour.toString().padLeft(2, '0');
     final m = local.minute.toString().padLeft(2, '0');
     return '$h:$m';
@@ -171,31 +172,33 @@ class DayHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final day = localDayStart(selectedDay.toLocal());
+    final day = localDayStart(civilClock(selectedDay));
 
     return ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
         final foodItems = sortFoodEntriesByLoggedAt(
           controller.foodEntries
-              .where((entry) => isSameLocalDay(entry.loggedAt, day))
+              .where((entry) => isLoggedOnLocalDay(entry.loggedAt, day))
               .toList(),
         );
         final exerciseItems =
             controller.exerciseEntries
-                .where((entry) => isSameLocalDay(entry.loggedAt, day))
+                .where((entry) => isLoggedOnLocalDay(entry.loggedAt, day))
                 .toList()
-              ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+              ..sort((a, b) => compareRecordInstants(a.loggedAt, b.loggedAt));
         final alcoholItems =
             controller.alcoholEntries
-                .where((entry) => isSameLocalDay(entry.consumedAt, day))
+                .where((entry) => isLoggedOnLocalDay(entry.consumedAt, day))
                 .toList()
-              ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+              ..sort((a, b) => compareRecordInstants(a.consumedAt, b.consumedAt));
         final weightItems =
             controller.weightEntries
-                .where((entry) => isSameLocalDay(entry.recordedAt, day))
+                .where((entry) => isLoggedOnLocalDay(entry.recordedAt, day))
                 .toList()
-              ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+              ..sort(
+                (a, b) => compareRecordInstants(a.recordedAt, b.recordedAt),
+              );
 
         final foodKcal = foodItems.fold<double>(
           0,
@@ -261,19 +264,19 @@ class DayHistoryScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: StatItem(
-                        label: '摂取',
+                        label: '食べた',
                         value: intakeKcal.toStringAsFixed(0),
                       ),
                     ),
                     Expanded(
                       child: StatItem(
-                        label: '消費',
+                        label: '運動で使った',
                         value: '+${burnKcal.toStringAsFixed(0)}',
                       ),
                     ),
                     Expanded(
                       child: StatItem(
-                        label: '差し引き',
+                        label: '差（食べた − 使った）',
                         value: (intakeKcal - burnKcal).toStringAsFixed(0),
                       ),
                     ),

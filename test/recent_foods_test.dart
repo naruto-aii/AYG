@@ -13,11 +13,23 @@ import 'package:ayg/services/nutrition_engine.dart';
 import 'package:ayg/services/open_food_facts_service.dart';
 import 'package:ayg/services/recent_foods.dart';
 import 'package:ayg/state/app_controller.dart';
+import 'package:ayg/utils/record_clock.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mocks/mock_health_repository.dart';
+
+/// 新規の記録は絶対時刻の印を付け、画面の分は壁時計のまま。
+void expectNewRecordMinute(DateTime actual, DateTime wall) {
+  expect(isAbsoluteRecordInstant(actual), isTrue);
+  final shown = civilClock(actual);
+  expect(shown.year, wall.year);
+  expect(shown.month, wall.month);
+  expect(shown.day, wall.day);
+  expect(shown.hour, wall.hour);
+  expect(shown.minute, wall.minute);
+}
 
 void main() {
   final now = DateTime(2026, 10, 4, 12);
@@ -93,7 +105,7 @@ void main() {
       expect(created.consumedAmount, 200);
       expect(created.memo, isNull);
       expect(created.mealGroupId, isNull);
-      expect(created.loggedAt, now);
+      expectNewRecordMinute(created.loggedAt, now);
     },
   );
 
@@ -241,7 +253,13 @@ void main() {
     await tester.ensureVisible(find.text('直近3日の食品'));
     await tester.tap(find.text('直近3日の食品'));
     await tester.pumpAndSettle();
-    expect(find.text('直近3日の食品からの追加は、カロナビ+です。'), findsOneWidget);
+    expect(
+      find.text(
+        '直近3日の食品からの追加は、カロナビ+です。\n'
+        '食事・運動・体重の記録は、無料でずっと使えます。',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('前回と同じ量（200g）で登録しますか？'), findsNothing);
 
     await tester.tap(find.text('閉じる'));
@@ -249,7 +267,13 @@ void main() {
     await tester.ensureVisible(find.text('メモ'));
     await tester.tap(find.text('メモ'));
     await tester.pumpAndSettle();
-    expect(find.text('食品のメモは、カロナビ+です。'), findsOneWidget);
+    expect(
+      find.text(
+        '食品のメモは、カロナビ+です。\n'
+        '食事・運動・体重の記録は、無料でずっと使えます。',
+      ),
+      findsOneWidget,
+    );
   });
 }
 

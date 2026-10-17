@@ -5,6 +5,7 @@ import '../../repositories/subscription_exceptions.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../subscription/calonavi_plus_flow.dart';
+import '../subscription/plus_gate.dart';
 
 /// 無料は4件まで。カロナビ+は何件でも作れる。作ってよいときは true。
 Future<bool> allowWorkoutTemplateCreate(
@@ -23,10 +24,12 @@ Future<bool> allowWorkoutTemplateCreate(
   );
   final openPlus = await showAppConfirmDialog(
     context: context,
-    title: 'こちらは有料の機能です',
-    message: SubscriptionLimitExceededException(
-      SubscriptionLimitKind.workoutTemplate,
-    ).toString(),
+    title: calonaviPlusGateTitle('運動テンプレート'),
+    message: withCalonaviPlusFreeForever(
+      SubscriptionLimitExceededException(
+        SubscriptionLimitKind.workoutTemplate,
+      ).toString(),
+    ),
     confirmLabel: 'カロナビ+を見る',
     cancelLabel: '閉じる',
   );

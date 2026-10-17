@@ -47,7 +47,10 @@ void main() {
     'network timeout 500 429 and 401 stay queued then deliver once',
     () async {
       final isarHarness = await setUpIsarHarness();
-      final clock = _MutableClock(DateTime.utc(2026, 10, 7));
+      // キューの nextAttemptAt は端末の今を使う。試験時計がそれより前だと再送されない。
+      final clock = _MutableClock(
+        DateTime.now().toUtc().add(const Duration(days: 2)),
+      );
       final analytics = await AnalyticsHarness.open(
         isar: isarHarness.isar,
         clock: () => clock.value,
@@ -81,7 +84,7 @@ void main() {
         );
       }
 
-      clock.value = DateTime.utc(2026, 10, 8);
+      clock.value = clock.value.add(const Duration(days: 1));
       analytics.holding.next = const AnalyticsSendResult.success();
       await analytics.service.flush();
       final sent = analytics.holding.delivered

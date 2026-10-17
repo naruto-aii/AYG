@@ -1003,8 +1003,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(memoButton);
       await tester.pumpAndSettle();
-      expect(find.text('こちらは有料の機能です'), findsOneWidget);
-      expect(find.text('運動のメモは、カロナビ+です。'), findsOneWidget);
+      expect(find.text('メモはカロナビ+の機能です'), findsOneWidget);
+      expect(find.textContaining('運動のメモは、カロナビ+です。'), findsOneWidget);
+      expect(
+        find.textContaining('食事・運動・体重の記録は、無料でずっと使えます。'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('plus form shows the exercise memo field and saves it', (

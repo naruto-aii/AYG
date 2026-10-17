@@ -829,6 +829,7 @@ class _ExerciseMetCalculationSectionState
               widget.controller,
               message: '運動のメモは、カロナビ+です。',
               feature: PlusFunnelFeature.memo,
+              featureName: 'メモ',
             );
             if (allowed && mounted) {
               setState(() {});

@@ -104,9 +104,11 @@ enum MealWidgetTimeline {
     )
   }
 
-  /// 今の表示と、次のローカル 0 時の表示。0 時を過ぎたら iOS が次のタイムラインを取りに来る（`.atEnd`）。
-  /// アプリを開かなくても、日付が変わると摂取 0・あと＝目標・リング空に切り替わる。
-  /// 有料期限がタイムラインの途中なら、その時刻で鍵の面に切り替える。
+  /// 今、次のローカル 0 時、加入と StoreKit の期限をエントリに残す。
+  /// 0 時や期限を過ぎると、そのエントリで摂取 0 や鍵の面に切り替わる。
+  /// 有料のあいだは約 15 分後に取り直す（`.after`）。取り直しのたびに
+  /// `getTimeline` が `PlusStoreProbe.live()` を見るので、返金後は鍵の面になる。
+  /// `getTimeline` の中から `reloadTimelines` は呼ばない。
   static func timeline(
     buttons: [LockScreenMealButton],
     now: Date = Date(),
@@ -127,12 +129,15 @@ enum MealWidgetTimeline {
       storeExpiresAt: storeExpiresAt
     )
     let accessNow = LockScreenMealStore.access(store: store, now: now)
-    if store == .revoked || accessNow == .refunded {
-      LockScreenMealStore.reloadAfterRevocation(now: now)
+    let policy: TimelineReloadPolicy
+    if let refresh = WidgetTimelinePlan.refreshAt(access: accessNow, now: now) {
+      policy = .after(refresh)
+    } else {
+      policy = .atEnd
     }
     return Timeline(
       entries: dates.map { entry(buttons: buttons, at: $0, store: store) },
-      policy: .atEnd
+      policy: policy
     )
   }
 }

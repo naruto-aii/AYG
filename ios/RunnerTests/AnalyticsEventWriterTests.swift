@@ -270,36 +270,28 @@ final class ShortcutAccessRulesTests: XCTestCase {
     )
   }
 
-  func testTimelineIncludesNowAndExpiryAndReloadsOnRevocation() {
-    let midnight = now.addingTimeInterval(8 * 3600)
+  func testPaidTimelineRefreshesInFifteenMinutesAndKeepsExpiryDates() {
+    let midnight = now.addingTimeInterval(TimeInterval(8 * 3600))
     let expiry = now.addingTimeInterval(3600)
+    let storeExpiry = now.addingTimeInterval(7200)
     let dates = WidgetTimelinePlan.dates(
       now: now,
       midnight: midnight,
       grantExpiresAt: expiry,
-      storeExpiresAt: now.addingTimeInterval(7200)
+      storeExpiresAt: storeExpiry
     )
     XCTAssertEqual(dates[0], now)
     XCTAssertTrue(dates.contains(midnight))
     XCTAssertTrue(dates.contains(expiry))
-    XCTAssertTrue(dates.contains(now.addingTimeInterval(7200)))
-
-    let suite = "timeline-revoke-\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    LockScreenMealStore.testingDefaults = defaults
-    LockScreenMealStore.revocationReloadAt = nil
-    defer {
-      LockScreenMealStore.testingDefaults = nil
-      LockScreenMealStore.revocationReloadAt = nil
-      defaults.removePersistentDomain(forName: suite)
-    }
-    LockScreenMealStore.reloadAfterRevocation(now: now)
-    XCTAssertEqual(LockScreenMealStore.revocationReloadAt, now)
-    LockScreenMealStore.reloadAfterRevocation(now: now.addingTimeInterval(10))
-    XCTAssertEqual(LockScreenMealStore.revocationReloadAt, now)
-    LockScreenMealStore.reloadAfterRevocation(now: now.addingTimeInterval(61))
-    XCTAssertEqual(LockScreenMealStore.revocationReloadAt, now.addingTimeInterval(61))
+    XCTAssertTrue(dates.contains(storeExpiry))
+    XCTAssertEqual(WidgetTimelinePlan.paidRefreshInterval, TimeInterval(15 * 60))
+    XCTAssertEqual(
+      WidgetTimelinePlan.refreshAt(access: .paid, now: now),
+      now.addingTimeInterval(TimeInterval(15 * 60))
+    )
+    XCTAssertNil(WidgetTimelinePlan.refreshAt(access: .unpaid, now: now))
+    XCTAssertNil(WidgetTimelinePlan.refreshAt(access: .expired, now: now))
+    XCTAssertNil(WidgetTimelinePlan.refreshAt(access: .refunded, now: now))
   }
 }
 

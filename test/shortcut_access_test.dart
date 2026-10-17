@@ -227,8 +227,30 @@ void main() {
     expect(widget, contains('カロナビ+'));
     expect(widget, contains('OpenCalonaviPlusIntent'));
     expect(widget, contains('readGrant().expiresAt'));
-    expect(widget, contains('reloadAfterRevocation'));
     expect(widget, contains('WidgetTimelinePlan.dates'));
+    final timeline = widget.substring(
+      widget.indexOf('static func timeline('),
+      widget.indexOf('struct HomeMealWidget'),
+    );
+    expect(timeline, contains('WidgetTimelinePlan.refreshAt'));
+    expect(timeline, contains('policy = .after(refresh)'));
+    expect(timeline, contains('policy: policy'));
+    expect(timeline, isNot(contains('reload')));
+    var timelineSearch = 0;
+    var timelineProviders = 0;
+    while (true) {
+      final start = widget.indexOf('func getTimeline(', timelineSearch);
+      if (start < 0) {
+        break;
+      }
+      final end = widget.indexOf('\n  }', start);
+      final body = widget.substring(start, end);
+      expect(body, contains('PlusStoreProbe.live()'));
+      expect(body, isNot(contains('reload')));
+      timelineProviders += 1;
+      timelineSearch = end + 1;
+    }
+    expect(timelineProviders, 2);
     expect('Text("タップで記録")'.allMatches(widget), hasLength(1));
     expect(widget, contains('static var openAppWhenRun = true'));
     final lockedFace = widget.indexOf('struct LockedMealFace');
@@ -275,6 +297,25 @@ void main() {
     );
     expect(siri, contains('intent: "log_utterance"'));
     expect(siri, contains('intent: "undo"'));
+    final entryIntent = siri.indexOf('struct LogSpokenEntryIntent');
+    final entryBody = siri.substring(
+      entryIntent,
+      siri.indexOf('struct SiriChoiceEntity'),
+    );
+    expect(entryBody, contains('var utterance: SiriSpokenText?'));
+    expect(entryBody, isNot(contains('var utterance: SiriSpokenText\n')));
+    expect(entryBody, contains('self.utterance = nil'));
+    expect(entryBody, isNot(contains(r'$utterance')));
+    final utteranceGate = entryBody.indexOf('intent: "log_utterance"');
+    expect(entryBody.indexOf('routedEntry()'), greaterThan(utteranceGate));
+    expect(
+      entryBody.indexOf(r'$entryReply.requestValue'),
+      greaterThan(utteranceGate),
+    );
+    expect(
+      entryBody.indexOf('let question = "食事ですか、運動ですか？"'),
+      greaterThan(utteranceGate),
+    );
 
     final project = File(
       'ios/Runner.xcodeproj/project.pbxproj',
@@ -293,6 +334,13 @@ void main() {
     ).readAsStringSync();
     expect(store, isNot(contains('source: "preview", expiresAt: nil')));
     expect(store, contains('static func roundedKcal'));
+    expect(
+      store,
+      contains('static let paidRefreshInterval: TimeInterval = TimeInterval(15 * 60)'),
+    );
+    expect(store, contains('guard access == .paid'));
+    expect(store, isNot(contains('reloadAfterRevocation')));
+    expect(store, isNot(contains('revocationReloadAt')));
   });
 
   test('grant channel keeps the old paid payload and adds source', () async {

@@ -79,17 +79,6 @@ enum LockScreenMealStore {
     )
   }
 
-  /// 返金を知った直後にタイムラインを取り直す。同じ分に何度も取り直さない。
-  static var revocationReloadAt: Date?
-
-  static func reloadAfterRevocation(now: Date = Date()) {
-    if let previous = revocationReloadAt, now.timeIntervalSince(previous) < 60 {
-      return
-    }
-    revocationReloadAt = now
-    reloadWidgets()
-  }
-
   static func access(
     store: PlusStoreSnapshot,
     now: Date = Date()
@@ -755,7 +744,12 @@ enum ShortcutAccessRules {
 }
 
 /// ウィジェットの次の表示時刻。今、次の 0 時、加入の期限、StoreKit の期限。
+/// 有料のあいだは約 15 分で取り直す。取り直しは WidgetKit の `.after` だけ。
+/// `getTimeline` の中から `reloadTimelines` は呼ばない。
 enum WidgetTimelinePlan {
+  /// 返金を次の取り直しで鍵の面にするための間隔。
+  static let paidRefreshInterval: TimeInterval = TimeInterval(15 * 60)
+
   static func dates(
     now: Date,
     midnight: Date,
@@ -775,6 +769,14 @@ enum WidgetTimelinePlan {
     add(grantExpiresAt)
     add(storeExpiresAt)
     return Array(Set(stamps)).sorted().map { Date(timeIntervalSince1970: $0) }
+  }
+
+  /// 有料なら今から [paidRefreshInterval] 後。それ以外は nil（`.atEnd`）。
+  static func refreshAt(access: ShortcutAccess, now: Date) -> Date? {
+    guard access == .paid else {
+      return nil
+    }
+    return now.addingTimeInterval(paidRefreshInterval)
   }
 }
 

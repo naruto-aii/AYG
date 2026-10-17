@@ -80,32 +80,34 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 `asc-daily-report` は、これまでどおり Apple のファイルを取り、集計だけを保存する。集客と速報は分けて投稿しない。数が確定した日は `kpi.daily_report_snapshot` に文面を入れ、`kpi.daily_report_delivery` で同じ日の二重投稿を止める。予約の 30 分と、失敗したあとの待ちは今の速報と同じ。
 
-PDF と Slack への投稿は GitHub Actions `daily-report-pdf` が行う。このワークフローに schedule は付けていない。Actions は `kpi.daily_report_outbox()` を読み、PDF を作って `files.getUploadURLExternal` と `files.completeUploadExternal` で出す。`initial_comment` がまとめのテキスト。channel id は `SLACK_DAILY_REPORT_CHANNEL_ID` から読む。
+登録は `login_result` の `is_new_account` を見ない。`auth.users.created_at` が見出しの期間に入り、`auth.users.deleted_at` と `public.users.deleted_at` が空で、匿名でなく、`kpi.excluded_user_ids` と `kpi.excluded_install_ids` に入らないアカウントを数える。`public.profiles` には作成時刻の列が無く、`updated_at` だけなので使わない。
 
-この変更では関数の配備、マイグレーションの適用、スケジュールの有効化、Slack への投稿はしない。
+PDF と Slack への投稿は GitHub Actions `daily-report-pdf` が行う。このワークフローに schedule は付けていない。Actions はデータベースへつながない。関数の `op=outbox` をヘッダ `x-daily-report-secret` で読み、PDF を作って `files.getUploadURLExternal` と `files.completeUploadExternal` で出す。`initial_comment` がまとめのテキスト。投稿のあと `op=finish` で印を付ける。印が無いと 30 分後に同じ日がもう一度出る。channel id は `SLACK_DAILY_REPORT_CHANNEL_ID` から読む。
 
-追加する秘密（値は git に書かない）:
+この変更では関数の配備、マイグレーションの適用、スケジュールの有効化、Slack への投稿、秘密の登録はしない。
 
-- `DAILY_REPORT_DB_URL` — GitHub Actions secret。読み取りと、投稿済みの印を付ける関数だけ。作り方は下。
-- `SLACK_DAILY_REPORT_CHANNEL_ID` — GitHub Actions secret。既存の `#calonavi-daily-report` の channel id。新しいチャンネルは作らない。
-- `SLACK_DAILY_REPORT_BOT_TOKEN` — 登録済みの Bot token。そのまま使う。
+社長の作業はない。データベースのログインロールも接続文字列も作らない。秘密の値は git、チャット、ログに書かない。
 
-読み取りロール（マイグレーションが `daily_report_reader` を作ったあと、社長が手で行う）:
-
-```sql
-create role daily_report_login login password '<パスワード>';
-grant daily_report_reader to daily_report_login;
-```
-
-`DAILY_REPORT_DB_URL` は、そのログインロールの Postgres 接続文字列。`service_role` は入れない。このロールに渡しているのは `kpi.daily_report_outbox()` の実行と、`kpi.finish_daily_report_delivery(date, text)` の実行だけ。表の中身を直接読む権限も、ほかの関数を呼ぶ権限もない。投稿の成否を書けないと、30 分後に同じ日がもう一度予約され、同じ PDF がもう一度出る。
-
-本番へ出す順番:
+VP が配備のときに行う:
 
 1. `20261017120000_daily_report_bundle.sql` を適用する。
-2. 上のログインロールと、GitHub の二つの secret を作る。
-3. `asc-daily-report` を配備する。この時点では Actions は投稿しない。確定した日は予約されるだけ。
-4. 手動の `workflow_dispatch` で 1 日分を確認する。
-5. 問題がなければ `.github/workflows/daily-report-pdf.yml` の `on` に、日本時間 6:00〜23:30 の 30 分おきになる cron を足す。
+2. `asc-daily-report` を配備する。この時点では Actions は投稿しない。確定した日は予約されるだけ。
+3. 読み取り用の秘密を、値を画面に出さずに Supabase と GitHub の両方へ入れる。ファイルは作ったあと消す。
+
+```sh
+umask 077
+file=$(mktemp)
+trap 'rm -f "$file"' EXIT
+printf 'DAILY_REPORT_READ_SECRET=%s\n' "$(openssl rand -base64 32 | tr -d '\n')" > "$file"
+supabase secrets set --env-file "$file"
+gh secret set DAILY_REPORT_READ_SECRET < <(sed 's/^DAILY_REPORT_READ_SECRET=//' "$file")
+```
+
+`supabase` コマンドが無いときは、先に公式の CLI を入れる。秘密の中身は `echo` しない。SQL にパスワードを渡す方法は、呼び出しの記録に値が残るので使わない。
+
+4. 既存の `#calonavi-daily-report` の channel id をファイルに書き、`gh secret set SLACK_DAILY_REPORT_CHANNEL_ID < "$id_file"` で登録する。ID はコードにもこの文書にも書かない。`SLACK_DAILY_REPORT_BOT_TOKEN` は登録済みのものを使う。
+5. 手動の `workflow_dispatch` で 1 日分を確認する。
+6. 問題がなければ `.github/workflows/daily-report-pdf.yml` の `on` に、日本時間 6:00〜23:30 の 30 分おきになる cron を足す。UTC では `*/30 21-23,0-14 * * *`。
 
 すでに速報または集客として投稿した日は、新しい投稿表には無い。確定していれば、新しい 1 本として 1 回出る。出したくない日は、配備の前に `kpi.daily_report_delivery` へその日を `posted` で入れておく。
 

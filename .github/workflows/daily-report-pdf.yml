@@ -24,7 +24,8 @@ jobs:
       - name: render and post
         working-directory: tools/daily_report
         env:
-          DAILY_REPORT_DB_URL: ${{ secrets.DAILY_REPORT_DB_URL }}
+          DAILY_REPORT_FUNCTION_URL: https://vdzzusqisymtejcjnikb.supabase.co/functions/v1/asc-daily-report
+          DAILY_REPORT_READ_SECRET: ${{ secrets.DAILY_REPORT_READ_SECRET }}
           SLACK_DAILY_REPORT_BOT_TOKEN: ${{ secrets.SLACK_DAILY_REPORT_BOT_TOKEN }}
           SLACK_DAILY_REPORT_CHANNEL_ID: ${{ secrets.SLACK_DAILY_REPORT_CHANNEL_ID }}
           DAILY_REPORT_DATA_DATE: ${{ inputs.data_date }}

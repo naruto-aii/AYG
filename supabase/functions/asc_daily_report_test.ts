@@ -7,7 +7,9 @@ import {
   fileHold,
   formatCombinedMessage,
   formatRate,
+  metricRows,
   pageViewConversion,
+  reportNotes,
   preferStandardReport,
   reportKind,
   usageState,
@@ -76,13 +78,19 @@ Deno.test("利用状況レポートが無い日はデータなしで、0には�
   assertEquals(displayCount("absent", null), "データなし");
   assertEquals(displayCount("pending", null), "データなし");
   assertEquals(displayCount("present", 0), "0");
-  const text = formatCombinedMessage(view({
+  const sample = view({
     installs: pending(),
     uninstalls: pending(),
-  }));
-  assertEquals(text.includes("インストール データなし"), true);
-  assertEquals(text.includes("アンインストール データなし"), true);
+  });
+  const text = formatCombinedMessage(sample);
+  const install = metricRows(sample).find((row) => row.metric === "インストール");
+  const uninstall = metricRows(sample).find((row) => row.metric === "アンインストール");
+  assertEquals(install?.today, "データなし");
+  assertEquals(uninstall?.today, "データなし");
   assertEquals(text.includes("インストール 0"), false);
+  assertEquals(text.includes("詳細はPDFです。"), true);
+  assertEquals(text.includes("一つのファネルにしていません"), false);
+  assertEquals(reportNotes(sample).filter((line) => line.includes("一つのファネルにしていません")).length, 1);
 });
 
 Deno.test("転換率はページ閲覧から新規DLで、表示回数は分母にしない", () => {
@@ -95,14 +103,15 @@ Deno.test("転換率はページ閲覧から新規DLで、表示回数は分母�
   assertEquals(formatRate("absent", null), "データなし");
   assertEquals(pageViewConversion(0, "present", 3, "present").rate, null);
   assertEquals(formatRate("present", null), "—");
-  const text = formatCombinedMessage(view({
+  const sample = view({
     impressions: present(200),
     pageViews: present(40),
     newDownloads: present(10),
-  }));
-  assertEquals(text.includes("転換率 25.0%（ページ閲覧→新規DL"), true);
-  assertEquals(text.includes("一つのファネルにしていません"), true);
-  assertEquals(text.includes("総ダウンロード ÷ 表示回数"), false);
+  });
+  const conversion = metricRows(sample).find((row) => row.metric === "転換率");
+  assertEquals(conversion?.today, "25.0%");
+  assertEquals(formatCombinedMessage(sample).includes("総ダウンロード ÷ 表示回数"), false);
+  assertEquals(reportNotes(sample).some((line) => line.includes("一つのファネルにしていません")), true);
 });
 
 Deno.test("集客ファイルが揃うまで投稿せず、利用状況が無くても売上確定後は投稿できる", () => {
@@ -138,17 +147,13 @@ Deno.test("除外した人と端末は初回起動・登録・トライアルに
     open("i-boss", "u-boss", "2026-10-15T11:00:00.000Z"),
     ads("i-boss", "u-boss", true, "2144888758"),
     open("i-reviewer", "u-reviewer", "2026-10-15T12:00:00.000Z"),
-    event("login_result", "u-keep", "i-keep", "2026-10-15T12:30:00.000Z", {
+    event("login_result", "u-other", "i-other", "2026-10-15T12:30:00.000Z", {
       result: "success",
       is_new_account: true,
     }),
     event("login_result", "u-boss", "i-boss", "2026-10-15T12:40:00.000Z", {
       result: "success",
       is_new_account: true,
-    }),
-    event("login_result", "u-keep", "i-keep", "2026-10-15T12:50:00.000Z", {
-      result: "success",
-      is_new_account: false,
     }),
     event("purchase_result", "u-keep", "i-keep", "2026-10-15T13:00:00.000Z", { result: "success" }),
     event("onboarding_complete", "u-keep", "i-keep", "2026-10-15T13:10:00.000Z", {}),
@@ -175,6 +180,14 @@ Deno.test("除外した人と端末は初回起動・登録・トライアルに
   const counted = countAppActivity({
     events,
     notices,
+    accounts: [
+      { userId: "u-keep", createdAt: "2026-10-15T12:00:00.000Z", deleted: false },
+      { userId: "u-boss", createdAt: "2026-10-15T12:05:00.000Z", deleted: false },
+      { userId: "u-deleted", createdAt: "2026-10-15T12:06:00.000Z", deleted: true },
+      { userId: "u-anon", createdAt: "2026-10-15T12:07:00.000Z", deleted: false, anonymous: true },
+      { userId: "u-old", createdAt: "2026-10-14T12:00:00.000Z", deleted: false },
+      { userId: "u-reviewer-account", createdAt: "2026-10-15T12:08:00.000Z", deleted: false, installIds: ["i-reviewer"] },
+    ],
     onboardingCompleteUsers: new Set(["u-keep", "u-boss"]),
     excludedUserIds: ["u-boss"],
     excludedInstallIds: ["i-reviewer"],
@@ -310,10 +323,12 @@ function view(over: Partial<CombinedView>): CombinedView {
     averageRating: null,
     stars: [0, 0, 0, 0, 0],
     excerpt: "",
+    reviewsReady: true,
     activity: emptyActivity(),
     previous: null,
     week: null,
     nonJpyCustomerRows: 0,
+    series: [],
     ...over,
   };
 }

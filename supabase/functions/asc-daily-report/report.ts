@@ -3,6 +3,7 @@ import {
   combinedPublishable,
   deliveryDecision,
   formatCombinedMessage,
+  pageViewConversion,
   reportPayload,
   salesPoint,
   snapshotHash,
@@ -14,6 +15,7 @@ import {
   type CombinedView,
   type CountPoint,
   type MetricState,
+  type TrendDay,
 } from "./metrics.ts";
 import {
   addDays,
@@ -119,6 +121,9 @@ export type ReportDeps = {
   saveAppActivity: (dataDate: string, startIso: string, endIso: string, row: AppActivity) => Promise<void>;
   saveSnapshot: (row: SnapshotRow) => Promise<void>;
   appActivity: (startIso: string, endIso: string) => Promise<AppActivity>;
+  appActivityWindows: (
+    windows: Array<{ reportDate: string; start: string; end: string }>,
+  ) => Promise<Array<AppActivity & { reportDate: string }>>;
   historyExtra: (from: string, to: string) => Promise<ExtraHistory>;
   knownParentSkus: string[];
   rememberParentSkus: (skus: string[], dataDate: string) => Promise<void>;
@@ -159,6 +164,43 @@ export type RunResult = {
   prepared: string[];
   acquisition: AnalyticsBundle["state"];
 };
+
+function trendDay(
+  reportDate: string,
+  history: History,
+  seriesActivity: Array<AppActivity & { reportDate: string }>,
+): TrendDay {
+  const stored = japanDateForPacificReport(reportDate);
+  const sales = history.sales.find((row) => row.dataDate === stored);
+  const analytics = history.analytics.find((row) => row.dataDate === stored);
+  const activity = seriesActivity.find((row) => row.reportDate === reportDate);
+  const pageViews = analytics ? analytics.productPageViews : null;
+  const newDownloads = sales ? sales.newDownloads : null;
+  const conversion = pageViewConversion(
+    pageViews,
+    analytics ? "present" : "pending",
+    newDownloads,
+    sales ? "present" : "pending",
+  );
+  return {
+    reportDate,
+    label: `${Number(reportDate.slice(5, 7))}/${Number(reportDate.slice(8, 10))}`,
+    newDownloads,
+    redownloads: sales ? sales.redownloads : null,
+    impressions: analytics ? analytics.impressions : null,
+    pageViews,
+    conversion: conversion.rate,
+    firstOpensAsa: activity?.firstOpensAsa ?? 0,
+    firstOpensOther: activity?.firstOpensOther ?? 0,
+    firstOpensUnknown: activity?.firstOpensUnknown ?? 0,
+    firstOpens: activity?.firstOpens ?? 0,
+    onboardingCompletes: activity?.onboardingCompletes ?? 0,
+    firstMeals: activity?.firstMeals ?? 0,
+    paywallOpeners: activity?.paywallOpeners ?? 0,
+    sessions: activity?.sessions ?? 0,
+    sessionDurationSeconds: activity?.sessionDurationSeconds ?? 0,
+  };
+}
 
 type ReportKind = "SALES" | "SUBSCRIPTION" | "SUBSCRIPTION_EVENT";
 
@@ -443,10 +485,25 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
         );
       }
       await deps.saveUsage(dataDate, usage.usage);
-      const bounds = pacificReportBounds(reportDate);
-      const activity = await deps.appActivity(bounds.start.toISOString(), bounds.end.toISOString());
-      await deps.saveAppActivity(dataDate, bounds.start.toISOString(), bounds.end.toISOString(), activity);
-      const from = addDays(dataDate, -7) < releaseDate ? releaseDate : addDays(dataDate, -7);
+      const trendDates: string[] = [];
+      for (let ago = 13; ago >= 0; ago--) trendDates.push(addDays(reportDate, -ago));
+      const windows = trendDates.map((date) => {
+        const bounds = pacificReportBounds(date);
+        return { reportDate: date, start: bounds.start.toISOString(), end: bounds.end.toISOString() };
+      });
+      const seriesActivity = await deps.appActivityWindows(windows);
+      const activity = seriesActivity.find((row) => row.reportDate === reportDate) ??
+        await deps.appActivity(windows[windows.length - 1].start, windows[windows.length - 1].end);
+      for (const row of seriesActivity) {
+        const bounds = pacificReportBounds(row.reportDate);
+        await deps.saveAppActivity(
+          japanDateForPacificReport(row.reportDate),
+          bounds.start.toISOString(),
+          bounds.end.toISOString(),
+          row,
+        );
+      }
+      const from = addDays(dataDate, -13);
       const history = await deps.history(from, dataDate);
       const extra = await deps.historyExtra(from, dataDate);
       const previousDate = addDays(dataDate, -1);
@@ -457,8 +514,10 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
       const weekSales = history.sales.find((row) => row.dataDate === weekDate) ?? null;
       const previousUsage = extra.usage.find((row) => row.dataDate === previousDate);
       const weekUsage = extra.usage.find((row) => row.dataDate === weekDate);
-      const previousActivity = extra.activity.find((row) => row.dataDate === previousDate) ?? null;
-      const weekActivity = extra.activity.find((row) => row.dataDate === weekDate) ?? null;
+      const activityOn = (date: string): AppActivity | null =>
+        seriesActivity.find((row) => row.reportDate === date) ?? null;
+      const previousActivity = activityOn(addDays(reportDate, -1));
+      const weekActivity = activityOn(addDays(reportDate, -7));
       const salesDeltas = (row: SalesSummary | null): Pick<CombinedDeltas, "newDownloads" | "redownloads" | "salesCents" | "proceedsCents"> | null => {
         if (!row) return null;
         return {
@@ -523,6 +582,7 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
         averageRating: reviewSummary.averageRating,
         stars: reviewSummary.stars,
         excerpt: reviewSummary.excerpt,
+        reviewsReady,
         activity,
         previous: {
           newDownloads: previousSalesPart?.newDownloads ?? null,
@@ -549,6 +609,7 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
           activity: weekActivity,
         },
         nonJpyCustomerRows: salesSummary.nonJpyCustomerRows,
+        series: trendDates.map((date) => trendDay(date, history, seriesActivity)),
       };
       const hash = await snapshotHash(view);
       const action = deliveryDecision(existing, deps.now().getTime(), hash, revisingAllowed);

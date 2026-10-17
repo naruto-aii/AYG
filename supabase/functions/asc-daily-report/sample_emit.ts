@@ -1,59 +1,164 @@
 // 見本の文面。本番の整形と同じ関数を使う。投稿はしない。
-import { formatCombinedMessage, reportPayload, type AppActivity, type CombinedView, type CountPoint } from "./metrics.ts";
+// 数字は 2026-10-17 時点の保存済み集計。個人は含まない。
+import { formatCombinedMessage, reportPayload, type AppActivity, type CombinedView, type CountPoint, type TrendDay } from "./metrics.ts";
 
 const pending = (): CountPoint => ({ state: "pending", value: null });
 const present = (value: number): CountPoint => ({ state: "present", value });
 
-function activity(over: Partial<AppActivity>): AppActivity {
+type Day = {
+  date: string;
+  asa: number;
+  other: number;
+  unknown: number;
+  registrations: number;
+  onboarding: number;
+  meals: number;
+  paywall: number;
+  trials: number;
+  sessions: number;
+  duration: number;
+  searches: number;
+  siri: number;
+  widget: number;
+  newDownloads: number | null;
+  redownloads: number | null;
+  impressions: number | null;
+  pageViews: number | null;
+};
+
+function quiet(date: string): Day {
   return {
-    firstOpens: 0,
-    firstOpensAsa: 0,
-    firstOpensOther: 0,
-    firstOpensUnknown: 0,
+    date,
+    asa: 0,
+    other: 0,
+    unknown: 0,
     registrations: 0,
-    onboardingCompletes: 0,
-    firstMeals: 0,
-    paywallOpeners: 0,
-    trialStarts: 0,
+    onboarding: 0,
+    meals: 0,
+    paywall: 0,
+    trials: 0,
     sessions: 0,
-    sessionDurationSeconds: 0,
+    duration: 0,
     searches: 0,
-    siriUses: 0,
-    widgetUses: 0,
-    ...over,
+    siri: 0,
+    widget: 0,
+    newDownloads: null,
+    redownloads: null,
+    impressions: null,
+    pageViews: null,
   };
 }
 
-const day15Activity = activity({
-  firstOpens: 8,
-  firstOpensOther: 8,
-  onboardingCompletes: 8,
-  firstMeals: 2,
-  paywallOpeners: 3,
-  sessions: 23,
-  sessionDurationSeconds: 19015,
-  searches: 150,
-  siriUses: 76,
-});
+const measured: Day[] = [
+  ...["2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13"].map(quiet),
+  {
+    ...quiet("2026-10-14"),
+    other: 4,
+    registrations: 5,
+    onboarding: 4,
+    meals: 1,
+    paywall: 2,
+    trials: 1,
+    sessions: 7,
+    duration: 21120,
+    searches: 51,
+    siri: 41,
+    impressions: 7,
+    pageViews: 11,
+  },
+  {
+    ...quiet("2026-10-15"),
+    other: 8,
+    registrations: 7,
+    onboarding: 8,
+    meals: 2,
+    paywall: 3,
+    sessions: 23,
+    duration: 19015,
+    searches: 150,
+    siri: 76,
+    newDownloads: 14,
+    redownloads: 2,
+  },
+  {
+    ...quiet("2026-10-16"),
+    asa: 31,
+    other: 2,
+    unknown: 1,
+    registrations: 35,
+    onboarding: 33,
+    meals: 12,
+    paywall: 20,
+    trials: 1,
+    sessions: 75,
+    duration: 45791,
+    searches: 1081,
+    siri: 183,
+    widget: 20,
+  },
+];
 
-const day16Activity = activity({
-  firstOpens: 34,
-  firstOpensAsa: 31,
-  firstOpensOther: 2,
-  firstOpensUnknown: 1,
-  onboardingCompletes: 33,
-  firstMeals: 12,
-  paywallOpeners: 20,
-  trialStarts: 1,
-  sessions: 75,
-  sessionDurationSeconds: 45791,
-  searches: 1081,
-  siriUses: 182,
-  widgetUses: 20,
-});
+function byDate(date: string): Day {
+  return measured.find((day) => day.date === date) ?? quiet(date);
+}
+
+function addDays(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function activityOf(day: Day): AppActivity {
+  return {
+    firstOpens: day.asa + day.other + day.unknown,
+    firstOpensAsa: day.asa,
+    firstOpensOther: day.other,
+    firstOpensUnknown: day.unknown,
+    registrations: day.registrations,
+    onboardingCompletes: day.onboarding,
+    firstMeals: day.meals,
+    paywallOpeners: day.paywall,
+    trialStarts: day.trials,
+    sessions: day.sessions,
+    sessionDurationSeconds: day.duration,
+    searches: day.searches,
+    siriUses: day.siri,
+    widgetUses: day.widget,
+  };
+}
+
+function trendOf(day: Day): TrendDay {
+  const conversion = day.pageViews != null && day.pageViews > 0 && day.newDownloads != null
+    ? Math.round((day.newDownloads / day.pageViews) * 10000) / 10000
+    : null;
+  return {
+    reportDate: day.date,
+    label: `${Number(day.date.slice(5, 7))}/${Number(day.date.slice(8, 10))}`,
+    newDownloads: day.newDownloads,
+    redownloads: day.redownloads,
+    impressions: day.impressions,
+    pageViews: day.pageViews,
+    conversion,
+    firstOpensAsa: day.asa,
+    firstOpensOther: day.other,
+    firstOpensUnknown: day.unknown,
+    firstOpens: day.asa + day.other + day.unknown,
+    onboardingCompletes: day.onboarding,
+    firstMeals: day.meals,
+    paywallOpeners: day.paywall,
+    sessions: day.sessions,
+    sessionDurationSeconds: day.duration,
+  };
+}
+
+function seriesEnding(date: string): TrendDay[] {
+  const days: TrendDay[] = [];
+  for (let ago = 13; ago >= 0; ago--) days.push(trendOf(byDate(addDays(date, -ago))));
+  return days;
+}
 
 function base(reportDate: string, over: Partial<CombinedView>): CombinedView {
   const point = pending();
+  const day = byDate(reportDate);
   return {
     reportDate,
     correction: false,
@@ -74,11 +179,7 @@ function base(reportDate: string, over: Partial<CombinedView>): CombinedView {
     crashTotal: point,
     crashesByVersion: null,
     crashesByDevice: null,
-    plans: [
-      { label: "月額", paid: 0, trials: 0 },
-      { label: "半年", paid: 0, trials: 0 },
-      { label: "年額", paid: 0, trials: 0 },
-    ],
+    plans: [],
     appleTrialStarts: point,
     paidConversions: point,
     cancellations: point,
@@ -86,10 +187,34 @@ function base(reportDate: string, over: Partial<CombinedView>): CombinedView {
     averageRating: null,
     stars: [0, 0, 0, 0, 0],
     excerpt: "",
-    activity: activity({}),
-    previous: null,
-    week: null,
+    reviewsReady: false,
+    activity: activityOf(day),
+    previous: {
+      newDownloads: null,
+      redownloads: null,
+      salesCents: null,
+      proceedsCents: null,
+      impressions: null,
+      pageViews: null,
+      installs: null,
+      uninstalls: null,
+      appleSessions: null,
+      activity: activityOf(byDate(addDays(reportDate, -1))),
+    },
+    week: {
+      newDownloads: null,
+      redownloads: null,
+      salesCents: null,
+      proceedsCents: null,
+      impressions: null,
+      pageViews: null,
+      installs: null,
+      uninstalls: null,
+      appleSessions: null,
+      activity: activityOf(byDate(addDays(reportDate, -7))),
+    },
     nonJpyCustomerRows: 0,
+    series: seriesEnding(reportDate),
     ...over,
   };
 }
@@ -97,7 +222,7 @@ function base(reportDate: string, over: Partial<CombinedView>): CombinedView {
 const samples = [
   {
     id: "2026-10-15",
-    note: "太平洋時間 10/15。売上・課金・レビューとアプリ内は、その時点で保存済みの集計。集客と利用状況のファイルはまだ無いのでデータなし。集客が pending のため本番では投稿しない。",
+    note: "太平洋時間 10/15。売上・課金・レビューとアプリ内は、その時点の集計。集客と利用状況のファイルはまだ無いのでデータなし。集客が pending のため本番では投稿しない。",
     view: base("2026-10-15", {
       newDownloads: present(14),
       redownloads: present(2),
@@ -111,28 +236,13 @@ const samples = [
       appleTrialStarts: present(0),
       paidConversions: present(0),
       cancellations: present(0),
-      activity: day15Activity,
+      reviewsReady: true,
     }),
   },
   {
     id: "2026-10-16",
-    note: "太平洋時間 10/16。アプリ内だけ集計がある。Apple のファイルはまだ確定していないのでデータなし。本番では投稿しない。",
-    view: base("2026-10-16", {
-      plans: [],
-      activity: day16Activity,
-      previous: {
-        newDownloads: null,
-        redownloads: null,
-        salesCents: null,
-        proceedsCents: null,
-        impressions: null,
-        pageViews: null,
-        installs: null,
-        uninstalls: null,
-        appleSessions: null,
-        activity: day15Activity,
-      },
-    }),
+    note: "太平洋時間 10/16。アプリ内は集計がある。Apple のファイルはまだ確定していないのでデータなし。レビューも未確定なのでデータなし。本番では投稿しない。",
+    view: base("2026-10-16", {}),
   },
 ];
 

@@ -1,5 +1,5 @@
 import { pemToPkcs8, signAppleJwt } from "./apple_jwt.ts";
-import { authorizeStoreImport, gunzipText, json, parseTsv } from "./text.ts";
+import { authorizeDailyReportRead, authorizeStoreImport, gunzipText, json, parseTsv } from "./text.ts";
 import {
   addDays,
   japanDateString,
@@ -431,6 +431,14 @@ function liveDeps(): ReportDeps {
       const body = await ingest("app_activity", { start: startIso, end: endIso });
       return activityFrom(body);
     },
+    appActivityWindows: async (windows) => {
+      const body = await ingest("app_activity_windows", { windows });
+      const rows = Array.isArray(body) ? body : [];
+      return rows.map((row) => {
+        const record = row && typeof row === "object" ? row as Record<string, unknown> : {};
+        return { reportDate: String(record.report_date ?? ""), ...activityFrom(record) };
+      });
+    },
     historyExtra: async (from, to) => mapExtra(await ingest("history_extra", { from, to })),
   };
 }
@@ -592,7 +600,40 @@ async function loadParentSkus(): Promise<string[]> {
   return storedParentSkus(body.skus);
 }
 
+async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
+  const text = await request.text();
+  if (!text.trim()) return {};
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
 Deno.serve(async (request) => {
+  const body = await readJsonBody(request);
+  if (body.op === "outbox" || body.op === "finish") {
+    if (!authorizeDailyReportRead(request)) return json({ ok: false }, 401);
+    try {
+      if (body.op === "outbox") {
+        const listed = await ingest("outbox", {});
+        const rows = listed && typeof listed === "object" && Array.isArray((listed as { rows?: unknown }).rows)
+          ? (listed as { rows: unknown[] }).rows
+          : [];
+        return json({ ok: true, rows });
+      }
+      const dataDate = typeof body.data_date === "string" ? body.data_date : "";
+      const status = body.status === "posted" || body.status === "failed" ? body.status : "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dataDate) || status === "") return json({ ok: false }, 400);
+      const finished = await ingest("finish", { data_date: dataDate, status });
+      const ok = Boolean(finished && typeof finished === "object" && (finished as { ok?: unknown }).ok === true);
+      return json({ ok });
+    } catch {
+      console.error("asc-daily-report read failed");
+      return json({ ok: false }, 500);
+    }
+  }
   if (!authorizeStoreImport(request)) return json({ ok: false }, 401);
   try {
     const deps = liveDeps();

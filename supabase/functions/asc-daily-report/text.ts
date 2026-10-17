@@ -2,9 +2,9 @@
 // 共有の store_import.ts は Deno 2.9 の型検査で Blob に Uint8Array を渡せない。
 // 既存ファイルは変えず、ここへ必要な部分だけを写す。gzip の中身は ArrayBuffer にして渡す。
 
-export function authorizeStoreImport(request: Request): boolean {
-  const header = request.headers.get("x-store-import-secret") ?? "";
-  const secret = Deno.env.get("STORE_IMPORT_SECRET") ?? "";
+export function authorizeNamedSecret(request: Request, headerName: string, envName: string): boolean {
+  const header = request.headers.get(headerName) ?? "";
+  const secret = Deno.env.get(envName) ?? "";
   if (header.length < 32 || secret.length < 32 || header.length !== secret.length) {
     return false;
   }
@@ -13,6 +13,14 @@ export function authorizeStoreImport(request: Request): boolean {
     mismatch |= header.charCodeAt(i) ^ secret.charCodeAt(i);
   }
   return mismatch === 0;
+}
+
+export function authorizeStoreImport(request: Request): boolean {
+  return authorizeNamedSecret(request, "x-store-import-secret", "STORE_IMPORT_SECRET");
+}
+
+export function authorizeDailyReportRead(request: Request): boolean {
+  return authorizeNamedSecret(request, "x-daily-report-secret", "DAILY_REPORT_READ_SECRET");
 }
 
 export function json(body: unknown, status = 200): Response {

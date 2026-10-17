@@ -4,6 +4,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from publish import call_function
 from render import bar_points, render_pdf
 from slack_post import post_pdf
 
@@ -15,24 +16,67 @@ class ReportPdfTest(unittest.TestCase):
 
     def test_pdf_says_data_missing_and_not_a_zero_install(self):
         payload = {
-            "lines": [
-                "📊 カロナビ日次レポート｜10/15 16:00〜10/16 16:00（日本時間）",
-                "インストール データなし",
-                "転換率 データなし（ページ閲覧→新規DL / 前日 — / 前週 —）",
+            "heading": "📊 カロナビ日次レポート｜10/15 16:00〜10/16 16:00（日本時間）",
+            "summary": ["新規DL 14、再DL 2。売上は ¥0。", "詳細はPDFです。"],
+            "cards": [
+                {"label": "新規DL", "value": "14", "delta": "前日 —"},
+                {"label": "初回起動", "value": "8", "delta": "前日 +4"},
+                {"label": "初回設定完了", "value": "8", "delta": "前日 +4"},
+                {"label": "初めての食事記録", "value": "2", "delta": "前日 +1"},
+                {"label": "トライアル開始", "value": "0", "delta": "前日 -1"},
+                {"label": "売上", "value": "¥0", "delta": "前日 —"},
             ],
-            "charts": {
-                "downloads": {"new": 14, "re": 2},
-                "acquisition": {"impressions": None, "page_views": None, "new_downloads": 14},
-                "first_opens": {"asa": 0, "other": 8, "unknown": 0},
-                "plans": [{"label": "月額", "paid": 0}],
-                "crashes_by_version": None,
-            },
+            "series": [
+                {
+                    "label": "10/14",
+                    "new_downloads": None,
+                    "redownloads": None,
+                    "impressions": 7,
+                    "page_views": 11,
+                    "conversion": None,
+                    "asa": 0,
+                    "other": 4,
+                    "unknown": 0,
+                    "first_opens": 4,
+                    "onboarding": 4,
+                    "meals": 1,
+                    "paywall": 2,
+                    "sessions": 7,
+                    "duration_minutes": 352,
+                },
+                {
+                    "label": "10/15",
+                    "new_downloads": 14,
+                    "redownloads": 2,
+                    "impressions": None,
+                    "page_views": None,
+                    "conversion": None,
+                    "asa": 0,
+                    "other": 8,
+                    "unknown": 0,
+                    "first_opens": 8,
+                    "onboarding": 8,
+                    "meals": 2,
+                    "paywall": 3,
+                    "sessions": 23,
+                    "duration_minutes": 317,
+                },
+            ],
+            "table": [
+                {"section": "インストール", "metric": "インストール", "today": "データなし", "day": "—", "week": "—"},
+                {"section": "集客", "metric": "転換率", "today": "データなし", "day": "—", "week": "—"},
+            ],
+            "notes": [
+                "転換率はページ閲覧から新規DLです。表示・ページ閲覧・新規DLは一つのファネルにしていません。",
+            ],
         }
         destination = Path(__file__).with_name("_sample_test.pdf")
         render_pdf(payload, destination)
         text = "\n".join(page.extract_text() or "" for page in PdfReader(str(destination)).pages)
         self.assertIn("データなし", text)
         self.assertNotIn("インストール 0", text)
+        self.assertEqual(text.count("一つのファネルにしていません"), 1)
+        self.assertIn("初回起動", text)
         destination.unlink()
 
     def test_slack_upload_uses_external_url_and_the_given_channel(self):
@@ -63,6 +107,21 @@ class ReportPdfTest(unittest.TestCase):
         self.assertEqual(completed["initial_comment"], "まとめ")
         self.assertEqual(completed["files"][0]["id"], "F123")
         self.assertNotIn("C0", completed["channel_id"])
+
+    def test_read_endpoint_sends_the_secret_header_and_not_a_database_url(self):
+        seen = {}
+
+        def http(method, url, headers, body):
+            seen["method"] = method
+            seen["url"] = url
+            seen["headers"] = headers
+            seen["body"] = json.loads(body.decode())
+            return 200, {"ok": True, "rows": []}
+
+        call_function("https://example.test/functions/v1/asc-daily-report", "read-secret-for-test", {"op": "outbox"}, http)
+        self.assertEqual(seen["headers"]["x-daily-report-secret"], "read-secret-for-test")
+        self.assertEqual(seen["body"], {"op": "outbox"})
+        self.assertNotIn("postgres", seen["url"])
 
 
 if __name__ == "__main__":

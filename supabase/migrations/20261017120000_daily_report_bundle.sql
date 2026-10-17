@@ -147,13 +147,24 @@ as $$
       where not exists (select 1 from ads a where a.install_id = o.install_id)
     ),
     'registrations', (
-      select count(distinct user_id)
-      from events
-      where event_name = 'login_result'
-        and props->>'result' = 'success'
-        and (props->'is_new_account') = 'true'::jsonb
-        and user_id is not null
-        and occurred_at >= p_start
+      select count(*)
+      from auth.users u
+      where u.created_at >= p_start
+        and u.created_at < p_end
+        and u.deleted_at is null
+        and coalesce(u.is_anonymous, false) = false
+        and not exists (select 1 from kpi.excluded_user_ids x where x.user_id = u.id)
+        and not exists (
+          select 1 from public.users p
+          where p.id = u.id and p.deleted_at is not null
+        )
+        and not exists (
+          select 1 from public.app_events e
+          where e.user_id = u.id
+            and exists (
+              select 1 from kpi.excluded_install_ids i where i.install_id = e.install_id
+            )
+        )
     ),
     'onboarding_completes', (
       select count(*)
@@ -221,6 +232,44 @@ $$;
 revoke all on function kpi.collect_app_activity(timestamptz, timestamptz) from public, anon, authenticated;
 grant execute on function kpi.collect_app_activity(timestamptz, timestamptz) to service_role;
 
+-- 直近14日の推移。規則は collect_app_activity と同じ。
+create function kpi.collect_app_activity_windows(p_windows jsonb)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_item jsonb;
+  v_row jsonb;
+  v_out jsonb := '[]'::jsonb;
+  v_count integer := 0;
+begin
+  if pg_catalog.jsonb_typeof(p_windows) is distinct from 'array' then
+    return '[]'::jsonb;
+  end if;
+  for v_item in select value from pg_catalog.jsonb_array_elements(p_windows)
+  loop
+    v_count := v_count + 1;
+    if v_count > 16 then
+      exit;
+    end if;
+    v_row := kpi.collect_app_activity(
+      (v_item->>'start')::timestamptz,
+      (v_item->>'end')::timestamptz
+    );
+    v_out := v_out || pg_catalog.jsonb_build_array(
+      v_row || pg_catalog.jsonb_build_object('report_date', v_item->>'report_date')
+    );
+  end loop;
+  return v_out;
+end;
+$$;
+
+revoke all on function kpi.collect_app_activity_windows(jsonb) from public, anon, authenticated;
+grant execute on function kpi.collect_app_activity_windows(jsonb) to service_role;
+
 create function kpi.daily_report_outbox()
 returns table (
   data_date date,
@@ -270,19 +319,8 @@ revoke all on function kpi.finish_daily_report_delivery(date, text) from public,
 grant execute on function kpi.daily_report_outbox() to service_role;
 grant execute on function kpi.finish_daily_report_delivery(date, text) to service_role;
 
-do $$
-begin
-  if not exists (select 1 from pg_catalog.pg_roles where rolname = 'daily_report_reader') then
-    create role daily_report_reader nologin;
-  end if;
-end
-$$;
-
-grant usage on schema kpi to daily_report_reader;
-grant execute on function kpi.daily_report_outbox() to daily_report_reader;
-grant execute on function kpi.finish_daily_report_delivery(date, text) to daily_report_reader;
-
 -- Edge Function が service_role で呼ぶ。anon と authenticated には渡さない。
+-- Actions は DB へ直接つながず、関数の outbox / finish を読む。
 create function public.daily_report_ingest_rpc(p_op text, p_body jsonb)
 returns jsonb
 language plpgsql
@@ -486,6 +524,30 @@ begin
     return kpi.collect_app_activity(
       (p_body->>'start')::timestamptz,
       (p_body->>'end')::timestamptz
+    );
+  end if;
+
+  if p_op = 'app_activity_windows' then
+    return kpi.collect_app_activity_windows(p_body->'windows');
+  end if;
+
+  if p_op = 'outbox' then
+    return pg_catalog.jsonb_build_object(
+      'rows', coalesce((
+        select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+          'data_date', data_date,
+          'content_hash', content_hash,
+          'slack_text', slack_text,
+          'payload', payload
+        ) order by data_date)
+        from kpi.daily_report_outbox()
+      ), '[]'::jsonb)
+    );
+  end if;
+
+  if p_op = 'finish' then
+    return pg_catalog.jsonb_build_object(
+      'ok', kpi.finish_daily_report_delivery((p_body->>'data_date')::date, p_body->>'status')
     );
   end if;
 

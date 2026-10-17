@@ -7,6 +7,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/kcal_display.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_page.dart';
@@ -15,9 +16,16 @@ import 'calculation_references_screen.dart';
 
 /// ホームの「あと○kcal」と PFC の計算根拠。
 class DailyCalculationExplanationScreen extends StatelessWidget {
-  const DailyCalculationExplanationScreen({super.key, required this.summary});
+  const DailyCalculationExplanationScreen({
+    super.key,
+    required this.summary,
+    this.shown,
+  });
 
   final DailySummary summary;
+
+  /// ホームと同じ整数。無いときは内訳の生の値をそのまま出す。
+  final DisplayedDayKcal? shown;
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +39,21 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
         children: [
           const DesignTitleBlock(
             title: 'この数値の計算根拠',
-            subtitle:
-                '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
-                '医療上の診断や治療を目的としたものではありません。',
+            subtitle: '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ひとことで', style: AppTypography.titleM),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '年齢・身長・体重から1日に使うカロリーを出し、目標体重に向けて少し減らした（増やした）値が、1日の食事目標です',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
           ),
           if (energy?.unavailableReason != null) ...[
             DesignCard(
@@ -77,10 +97,13 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     ),
                   if (energy.smoothedWeightKg != null)
                     _row(
-                      '平滑した体重',
+                      '最近の体重の平均',
                       '${energy.smoothedWeightKg!.toStringAsFixed(1)} kg（半減期7日）',
                     ),
-                  _row('計算の段階', energy.usesLandingFormula ? '着地の式' : '初期式'),
+                  _row(
+                    '計算の段階',
+                    energy.usesLandingFormula ? '目標日に合わせた計算' : '初期式',
+                  ),
                 ],
                 if (energy != null &&
                     energy.canEstimateRee &&
@@ -123,7 +146,7 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                   if (energy.usesLandingFormula &&
                       energy.rawBalanceKcal != null)
                     _row(
-                      '着地に必要な収支',
+                      '目標日に合わせた計算に必要な収支',
                       '${energy.rawBalanceKcal!.toStringAsFixed(0)} kcal/日',
                     ),
                   if (energy.speedCapKcal != null)
@@ -132,10 +155,7 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                       '${energy.speedCapKcal!.toStringAsFixed(0)} kcal/日',
                     ),
                   if (energy.floorKcal != null)
-                    _row(
-                      '食事の床',
-                      '${energy.floorKcal!.toStringAsFixed(0)} kcal',
-                    ),
+                    _row('下限', '${energy.floorKcal!.toStringAsFixed(0)} kcal'),
                   if (energy.heldForStaleWeight)
                     const Text('体重が古いため、直前の食事目標を維持しています。'),
                   if (energy.dailyStepLimited)
@@ -149,35 +169,50 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     energy.unavailableReason ??
                         '推定安静時消費を算出できません（18歳未満、'
                             'または性別区分が未設定の場合など）。',
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: Theme.of(context).colorScheme.error),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
                 if (remaining != null) ...[
-                  _row(
-                    '当日の追加運動（net）',
-                    '${formatNullableNutrient(remaining.exerciseNetKcal)} kcal',
-                  ),
-                  if (remaining.healthActivityExcessKcal > 0)
+                  if (shown != null) ...[
+                    _row('当日の追加運動（net）', '${shown!.exercise} kcal'),
+                    if (shown!.health > 0)
+                      _row('Health の上乗せ', '${shown!.health} kcal'),
+                    _row('食事摂取', '${shown!.food} kcal'),
+                    _row('アルコール摂取', '${shown!.alcohol} kcal'),
                     _row(
-                      'Health の上乗せ',
-                      '${formatNullableNutrient(remaining.healthActivityExcessKcal)} kcal',
+                      shown!.isOverage ? '超過カロリー' : '残りカロリー',
+                      shown!.isOverage
+                          ? '${shown!.overageShown} kcal超過'
+                          : '${shown!.remainingShown} kcal',
                     ),
-                  _row(
-                    '食事摂取',
-                    '${formatNullableNutrient(remaining.foodKcal)} kcal',
-                  ),
-                  _row(
-                    'アルコール摂取',
-                    '${formatNullableNutrient(remaining.alcoholKcal)} kcal',
-                  ),
-                  _row(
-                    summary.isCalorieOverage ? '超過カロリー' : '残りカロリー',
-                    summary.isCalorieOverage
-                        ? '${summary.calorieOverageKcal.toStringAsFixed(0)} kcal超過'
-                        : '${summary.remainingKcal.toStringAsFixed(0)} kcal',
-                  ),
+                  ] else ...[
+                    _row(
+                      '当日の追加運動（net）',
+                      '${formatNullableNutrient(remaining.exerciseNetKcal)} kcal',
+                    ),
+                    if (remaining.healthActivityExcessKcal > 0)
+                      _row(
+                        'Health の上乗せ',
+                        '${formatNullableNutrient(remaining.healthActivityExcessKcal)} kcal',
+                      ),
+                    _row(
+                      '食事摂取',
+                      '${formatNullableNutrient(remaining.foodKcal)} kcal',
+                    ),
+                    _row(
+                      'アルコール摂取',
+                      '${formatNullableNutrient(remaining.alcoholKcal)} kcal',
+                    ),
+                    _row(
+                      summary.isCalorieOverage ? '超過カロリー' : '残りカロリー',
+                      summary.isCalorieOverage
+                          ? '${summary.calorieOverageKcal.toStringAsFixed(0)} kcal超過'
+                          : '${summary.remainingKcal.toStringAsFixed(0)} kcal',
+                    ),
+                  ],
                 ],
                 _row('計算バージョン', energy?.version ?? '—'),
                 _row(
@@ -249,7 +284,10 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'daily_calculation_explanation_screen_MaterialPageRoute_0'),
+                  settings: const RouteSettings(
+                    name:
+                        'daily_calculation_explanation_screen_MaterialPageRoute_0',
+                  ),
                   builder: (context) => const CalculationReferencesScreen(),
                 ),
               );

@@ -12,6 +12,7 @@ import 'package:ayg/services/lock_screen_meal.dart';
 import 'package:ayg/services/lock_screen_meal_gateway.dart';
 import 'package:ayg/services/share_sheet_client.dart';
 import 'package:ayg/state/app_controller.dart';
+import 'package:ayg/utils/record_clock.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:ayg/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'catalog_plus_repository.dart';
 import 'mocks/mock_authentication_repository.dart';
+
+/// 新規の記録は絶対時刻の印を付け、画面の分は壁時計のまま。
+void expectNewRecordMinute(DateTime actual, DateTime wall) {
+  expect(isAbsoluteRecordInstant(actual), isTrue);
+  final shown = civilClock(actual);
+  expect(shown.year, wall.year);
+  expect(shown.month, wall.month);
+  expect(shown.day, wall.day);
+  expect(shown.hour, wall.hour);
+  expect(shown.minute, wall.minute);
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -332,7 +344,7 @@ void main() {
     await controller.syncLockScreenMeals();
 
     expect(controller.foodEntries, hasLength(1));
-    expect(controller.foodEntries.single.loggedAt, loggedAt);
+    expectNewRecordMinute(controller.foodEntries.single.loggedAt, loggedAt);
     expect(controller.foodEntries.single.mealGroupName, 'いつもの朝');
     expect(gateway.acknowledged, [meal.registrationId]);
 
@@ -610,13 +622,14 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    expect(find.text('ウィジェットはカロナビ+の機能です'), findsOneWidget);
     expect(
-      find.text(
+      find.textContaining(
         'ホーム画面とロック画面のウィジェットから、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
       ),
       findsOneWidget,
     );
+    expect(find.textContaining('食事・運動・体重の記録は、無料でずっと使えます。'), findsOneWidget);
 
     await tester.tap(find.text('カロナビ+を見る'));
     await tester.pumpAndSettle();
@@ -671,8 +684,9 @@ void main() {
     await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
-    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    expect(find.text('音声登録はカロナビ+の機能です'), findsOneWidget);
     expect(find.textContaining('カロナビ+で使えます'), findsNothing);
+    expect(find.textContaining('食事・運動・体重の記録は、無料でずっと使えます。'), findsOneWidget);
     expect(
       find.textContaining(
         '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。',
@@ -744,7 +758,7 @@ void main() {
     await tester.tap(find.text('ウィジェット'));
     await tester.pumpAndSettle();
 
-    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    expect(find.text('ウィジェットはカロナビ+の機能です'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
     await tester.pumpAndSettle();
     expect(find.text('購入を復元'), findsOneWidget);
@@ -756,7 +770,7 @@ void main() {
     await tester.tap(find.text('音声登録'));
     await tester.pumpAndSettle();
 
-    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    expect(find.text('音声登録はカロナビ+の機能です'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
     await tester.pumpAndSettle();
     expect(find.text('購入を復元'), findsOneWidget);
@@ -827,6 +841,7 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.textContaining('さっきの登録を取り消して'), findsOneWidget);
     expect(find.text('ホーム画面'), findsNothing);
     expect(controller.foodEntries, isEmpty);
     expect(controller.exerciseEntries, isEmpty);
@@ -880,7 +895,7 @@ void main() {
     expect(find.text('カロナビ+限定機能'), findsNothing);
     expect(find.text('購入を復元'), findsNothing);
     expect(find.text('ウィジェットの置き方'), findsWidgets);
-    expect(find.textContaining('自動では付きません'), findsWidgets);
+    expect(find.text('保存しただけでは、ホーム画面には付きません。'), findsWidgets);
     expect(find.textContaining('左上「編集」'), findsWidgets);
     expect(find.textContaining('時刻の上下の枠をタップ'), findsWidgets);
     await auth.dispose();
@@ -972,7 +987,7 @@ void main() {
     expect(find.text('ホーム画面'), findsWidgets);
     expect(find.text('ロック画面'), findsWidgets);
     expect(find.text('ウィジェットの置き方'), findsOneWidget);
-    expect(find.textContaining('自動では付きません'), findsOneWidget);
+    expect(find.text('保存しただけでは、ホーム画面には付きません。'), findsOneWidget);
     expect(find.textContaining('左上「編集」'), findsOneWidget);
     expect(find.textContaining('時刻の上下の枠をタップ'), findsOneWidget);
     expect(find.textContaining('有料'), findsNothing);
@@ -1011,9 +1026,9 @@ void main() {
     await tester.tap(find.byKey(const Key('lock-screen-meal-save')));
     await tester.pumpAndSettle();
 
-    expect(find.text('内容を保存しました'), findsOneWidget);
-    expect(find.textContaining('左上「編集」'), findsWidgets);
-    expect(find.textContaining('自動では付きません'), findsWidgets);
+    expect(find.text('保存しました。次にiPhoneのホーム画面に置きます（手順↓）'), findsOneWidget);
+    expect(find.textContaining('1. ホーム画面のいちばん左のページを長押しする'), findsWidgets);
+    expect(find.textContaining('2. 左上「編集」を押す'), findsWidgets);
     await tester.tap(find.text('閉じる'));
     await tester.pumpAndSettle();
 
@@ -1421,7 +1436,10 @@ void main() {
       expect(controller.foodEntries, isEmpty);
       expect(controller.exerciseEntries, hasLength(1));
       expect(controller.exerciseEntries.single.netKcal, 120);
-      expect(controller.exerciseEntries.single.loggedAt, loggedAt);
+      expectNewRecordMinute(
+        controller.exerciseEntries.single.loggedAt,
+        loggedAt,
+      );
       expect(gateway.acknowledged, ['run-1']);
 
       await controller.syncLockScreenMeals();
@@ -1580,7 +1598,7 @@ class _PreviewPlus extends UnavailableSubscriptionRepository {
   bool get isPlusActive => true;
 }
 
-class _MemoryGateway implements LockScreenMealGateway {
+class _MemoryGateway with LockScreenGrantFallback implements LockScreenMealGateway {
   _MemoryGateway({List<PendingLockScreenMeal>? pending})
     : pending = pending ?? [];
 

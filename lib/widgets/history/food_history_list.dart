@@ -5,6 +5,7 @@ import '../../constants/app_strings.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
+import '../../utils/record_clock.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -34,8 +35,9 @@ class FoodHistoryList extends StatelessWidget {
   final VoidCallback? onEmptyAction;
 
   String _formatTime(DateTime time) {
-    final h = time.hour.toString().padLeft(2, '0');
-    final m = time.minute.toString().padLeft(2, '0');
+    final clock = civilClock(time);
+    final h = clock.hour.toString().padLeft(2, '0');
+    final m = clock.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
 

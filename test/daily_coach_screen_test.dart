@@ -5,6 +5,7 @@ import 'package:ayg/data/coach_food_catalog.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/exercise_entry.dart';
 import 'package:ayg/models/food_entry.dart';
+import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
@@ -165,8 +166,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsNothing);
-    expect(find.text('カロナビ+限定機能'), findsOneWidget);
-    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text('パーソナルコーチはカロナビ+の機能です'), findsOneWidget);
+    expect(find.textContaining(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(
+      find.textContaining('食事・運動・体重の記録は、無料でずっと使えます。'),
+      findsOneWidget,
+    );
     expect(find.text('カロナビ+を見る'), findsOneWidget);
     expect(find.text('2回目以降はカロナビ+です。'), findsNothing);
     expect(controller.foodEntries, isEmpty);
@@ -435,7 +440,10 @@ void main() {
     expect(after.registered.map((item) => item.slot), [MealSlot.lunch]);
     for (final plan in after.plans) {
       expect(plan.meals.map((meal) => meal.slot), isNot(contains(MealSlot.lunch)));
-      expect(plan.remainingKcal, controller.summary!.remainingKcal);
+      expect(
+        plan.remainingKcal,
+        controller.displayedSummaryKcal(DateTime.now()).remaining.toDouble(),
+      );
     }
 
     // 15〜21時に夕食を登録したら、今日これからの食事は登録済み。
@@ -531,13 +539,19 @@ void main() {
       controller.foodEntries.map((entry) => entry.id),
       containsAll(savedIds),
     );
-    expect(controller.foodEntries.last.consumedAmount, 1);
+    expect(controller.foodEntries.last.unitType, FoodUnitType.g);
+    expect(controller.foodEntries.last.baseAmount, 100);
+    expect(controller.foodEntries.last.consumedAmount, 150);
+    expect(controller.foodEntries.last.totalKcal, closeTo(234, 0.01));
     await DailyCoachSession(
       controller: controller,
       slotStore: MemoryCoachSlotStore(),
     ).saveMeal(sampleMeal(), grams: const [100]);
-    expect(controller.foodEntries.last.consumedAmount, closeTo(100 / 150, 0.0001));
-    expect(controller.foodEntries.last.totalKcal, closeTo(234 * 100 / 150, 0.01));
+    expect(controller.foodEntries.last.unitType, FoodUnitType.g);
+    expect(controller.foodEntries.last.baseAmount, 100);
+    expect(controller.foodEntries.last.consumedAmount, 100);
+    expect(controller.foodEntries.last.kcalPerBase, closeTo(156, 0.01));
+    expect(controller.foodEntries.last.totalKcal, closeTo(156, 0.01));
   });
 
   testWidgets('a purchase on the coach screen loads the proposal', (

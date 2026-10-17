@@ -1,6 +1,7 @@
 import '../models/calculation/weight_sample.dart';
 import '../models/health_profile_data.dart';
 import '../services/weight_for_target.dart';
+import '../utils/record_clock.dart';
 import 'health_repository.dart';
 
 /// HealthRepository 共通処理。
@@ -15,7 +16,9 @@ class HealthRepositorySupport {
       await repository.saveWeightRecord(
         WeightRecord(
           weightKg: data.weightKg!,
-          recordedAt: data.weightMeasuredAt ?? DateTime.now(),
+          recordedAt: asNewRecordInstant(
+            data.weightMeasuredAt ?? DateTime.now(),
+          ),
           source: WeightSource.health,
         ),
       );

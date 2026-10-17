@@ -15,7 +15,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('FoodFormScreen manual entry', () {
-    testWidgets('reconciles inconsistent values before save', (
+    testWidgets('retyping the auto carb adjusts saved kcal by 4 per gram', (
       WidgetTester tester,
     ) async {
       final controller = AppController(
@@ -88,6 +88,9 @@ void main() {
       expect(controller.foodEntries, hasLength(1));
       expect(controller.foodEntries.first.name, 'テスト食品');
       expect(controller.foodEntries.first.kcalPerUnit, 125);
+      expect(controller.foodEntries.first.proteinPerUnit, 10);
+      expect(controller.foodEntries.first.fatPerUnit, 5);
+      expect(controller.foodEntries.first.carbPerUnit, 10);
       expect(controller.foodEntries.first.sourceType, FoodEntrySource.manual);
     });
   });

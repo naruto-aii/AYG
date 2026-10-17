@@ -158,7 +158,11 @@ enum SiriVoiceStore {
   }
 
   /// 自信が高いときはここで書く。確認が要るときは、はいのあとに `commitConfirmed` する。
-  static func commitStep(_ plan: Plan) -> CommitStep {
+  /// 書く直前に StoreKit を読み直す。質問のあいだに返金されていたら書かない。
+  static func commitStep(_ plan: Plan) async -> CommitStep {
+    if await plusBlockedNow() != nil {
+      return .speak("こちらはカロナビ+の機能です")
+    }
     if plan.asksConfirmation && !plan.records.isEmpty {
       let report = plan.label.isEmpty ? "登録しました" : registeredSpeech(plan.label)
       return .confirm(dialog: plan.spoken, report: report)
@@ -172,9 +176,29 @@ enum SiriVoiceStore {
     return .speak(plan.spoken)
   }
 
-  static func commitConfirmed(_ plan: Plan) {
+  static func commitConfirmed(_ plan: Plan) async -> Bool {
+    if await plusBlockedNow() != nil {
+      return false
+    }
     commitAll(plan.records)
     rememberLast(plan)
+    return true
+  }
+
+  /// 登録の直前。ゲートで見たあとでも、もう一度 Transaction.all を見る。
+  private static func plusBlockedNow() async -> Plan? {
+    let store = await PlusStoreProbe.live()
+    LockScreenMealStore.pendingStore = store
+    let access = LockScreenMealStore.access(store: store)
+    if access.allowsRegister {
+      return nil
+    }
+    LockScreenMealStore.reloadWidgets()
+    return stop(
+      "こちらはカロナビ+の機能です",
+      status: "blocked",
+      reason: access.stopReason
+    )
   }
 
   @available(iOS 16.0, *)
@@ -458,11 +482,12 @@ enum SiriVoiceStore {
   }
 
   private static func blocked() -> Plan? {
-    if !LockScreenMealStore.isPaid() {
+    let access = LockScreenMealStore.access(store: LockScreenMealStore.pendingStore)
+    if !access.allowsRegister {
       return stop(
         "こちらはカロナビ+の機能です",
         status: "blocked",
-        reason: "unpaid"
+        reason: access.stopReason
       )
     }
     if ownerUserId().isEmpty {
@@ -574,6 +599,9 @@ enum SiriVoiceStore {
     let met = intensity.map { LockScreenMealStore.number($0["met"]) }
       ?? LockScreenMealStore.number(activity["met"])
     if parsed.unit == "minutes" {
+      if (activity["unit"] as? String) == "distanceKm" {
+        return 0
+      }
       if met <= 1 {
         return 0
       }
@@ -1708,12 +1736,20 @@ enum SiriVoiceStore {
       )
     }
     let unit = activity["unit"] as? String ?? ""
-    let minutesOk = unit == "distanceKm" && amount.unit == "minutes"
+    if isDistance && amount.unit == "minutes" {
+      return Plan(
+        spoken: "何キロですか？",
+        asksConfirmation: false,
+        asksAmount: true,
+        record: activity,
+        pendingName: speakName,
+        pendingQuantity: ""
+      )
+    }
     let spokenFits = (unit == "durationMin" && amount.unit == "minutes")
       || (unit == "distanceKm" && amount.unit == "kilometers")
-      || minutesOk
     if !spokenFits {
-      let label = unit == "distanceKm" ? "kmか分" : "分"
+      let label = unit == "distanceKm" ? "km" : "分"
       return stop("\(speakName)は\(label)で指定してください")
     }
     let lifestyle = (activity["lifestyleIncluded"] as? Bool) == true
@@ -3212,18 +3248,48 @@ enum SiriAmountLog {
 }
 
 @available(iOS 17.0, *)
+enum SiriPlusDecision {
+  case allow
+  case speak(IntentDialog)
+  case open(IntentDialog)
+}
+
+/// 質問の前に有料かどうかを見る。無料なら聞き返さず、購入画面を開く。
+@available(iOS 17.0, *)
+enum SiriPlusGate {
+  private static var handoff = false
+  static let speech = "こちらはカロナビ+の機能です"
+
+  static func evaluate(intent: String, hasParameter: Bool) async -> SiriPlusDecision {
+    if handoff {
+      handoff = false
+      return .speak(SiriSpeech.dialog(speech))
+    }
+    let store = await PlusStoreProbe.live()
+    LockScreenMealStore.pendingStore = store
+    let access = LockScreenMealStore.access(store: store)
+    if access.allowsRegister {
+      return .allow
+    }
+    SiriAnalytics.started(intent: intent, hasParameter: hasParameter)
+    SiriAnalytics.finished(status: "blocked", stopReason: access.stopReason)
+    PlusEntryCenter.request("siri")
+    handoff = true
+    return .open(SiriSpeech.dialog(speech))
+  }
+}
+
+@available(iOS 17.0, *)
 struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "食事を登録"
   static var description = IntentDescription("食品名と量を登録し、何を登録したかを読み上げます。直前の1件は取り消せます。")
   static var openAppWhenRun = false
 
   /// フレーズには置かない。自由文は AppEnum でも動的な候補でもない。
-  /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
-  @Parameter(
-    title: "食品",
-    requestValueDialog: SiriSpeech.dialog("何を食べましたか？")
-  )
-  var foodName: SiriSpokenText
+  /// 任意なので、perform の有料判定より前にシステムが「何を食べましたか？」と聞かない。
+  /// 空なら、有料と分かったあとで聞き返してから名寄せへ渡す。
+  @Parameter(title: "食品")
+  var foodName: SiriSpokenText?
 
   /// 一覧にある食品だけの一言フレーズ。任意なので、質問に答える言い方では聞かない。
   @Parameter(title: "一覧の食品")
@@ -3287,11 +3353,20 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   var narrowReply3: String?
 
   init() {
-    self.foodName = SiriSpokenText(id: "", text: "")
+    self.foodName = nil
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    SiriAnalytics.started(intent: "log_food", hasParameter: !foodName.text.isEmpty)
+    let givenFood = foodName?.text ?? ""
+    switch await SiriPlusGate.evaluate(intent: "log_food", hasParameter: !givenFood.isEmpty) {
+    case .allow:
+      break
+    case .speak(let dialog):
+      return .result(dialog: dialog)
+    case .open(let dialog):
+      throw needsToContinueInForegroundError(dialog)
+    }
+    SiriAnalytics.started(intent: "log_food", hasParameter: !givenFood.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
       SiriVoiceStore.endDialogue()
       SiriAnalytics.finished(status: "continued", stopReason: "open_app", continued: true)
@@ -3377,7 +3452,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       }
       break
     }
-    switch SiriVoiceStore.commitStep(plan) {
+    switch await SiriVoiceStore.commitStep(plan) {
     case .speak(let text):
       SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(text))
@@ -3389,9 +3464,12 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
       try await requestConfirmation(
         result: .result(dialog: SiriSpeech.dialog(dialog))
       )
-      SiriVoiceStore.commitConfirmed(plan)
+      if await SiriVoiceStore.commitConfirmed(plan) {
+        SiriVoiceStore.endDialogue()
+        return .result(dialog: SiriSpeech.dialog(report))
+      }
       SiriVoiceStore.endDialogue()
-      return .result(dialog: SiriSpeech.dialog(report))
+      return .result(dialog: SiriSpeech.dialog("こちらはカロナビ+の機能です"))
     }
   }
 
@@ -3474,7 +3552,7 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
        !spoken.isEmpty {
       return spoken
     }
-    let current = foodName.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let current = (foodName?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     if !current.isEmpty {
       return current
     }
@@ -3498,12 +3576,10 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   static var openAppWhenRun = false
 
   /// フレーズには置かない。自由文は AppEnum でも動的な候補でもない。
-  /// パラメータなしの言い方では空のまま始まるので、空なら聞き返してから名寄せへ渡す。
-  @Parameter(
-    title: "種目",
-    requestValueDialog: SiriSpeech.dialog("何をしましたか？")
-  )
-  var activityName: SiriSpokenText
+  /// 任意なので、perform の有料判定より前にシステムが「何をしましたか？」と聞かない。
+  /// 空なら、有料と分かったあとで聞き返してから名寄せへ渡す。
+  @Parameter(title: "種目")
+  var activityName: SiriSpokenText?
 
   /// 一覧にある運動だけの一言フレーズ。任意なので、質問に答える言い方では聞かない。
   @Parameter(title: "一覧の運動")
@@ -3567,11 +3643,23 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   var narrowReply3: String?
 
   init() {
-    self.activityName = SiriSpokenText(id: "", text: "")
+    self.activityName = nil
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    SiriAnalytics.started(intent: "log_exercise", hasParameter: !activityName.text.isEmpty)
+    let givenActivity = activityName?.text ?? ""
+    switch await SiriPlusGate.evaluate(
+      intent: "log_exercise",
+      hasParameter: !givenActivity.isEmpty
+    ) {
+    case .allow:
+      break
+    case .speak(let dialog):
+      return .result(dialog: dialog)
+    case .open(let dialog):
+      throw needsToContinueInForegroundError(dialog)
+    }
+    SiriAnalytics.started(intent: "log_exercise", hasParameter: !givenActivity.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
       SiriVoiceStore.endDialogue()
       SiriAnalytics.finished(status: "continued", stopReason: "open_app", continued: true)
@@ -3656,7 +3744,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
       }
       break
     }
-    switch SiriVoiceStore.commitStep(plan) {
+    switch await SiriVoiceStore.commitStep(plan) {
     case .speak(let text):
       SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(text))
@@ -3668,9 +3756,12 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
       try await requestConfirmation(
         result: .result(dialog: SiriSpeech.dialog(dialog))
       )
-      SiriVoiceStore.commitConfirmed(plan)
+      if await SiriVoiceStore.commitConfirmed(plan) {
+        SiriVoiceStore.endDialogue()
+        return .result(dialog: SiriSpeech.dialog(report))
+      }
       SiriVoiceStore.endDialogue()
-      return .result(dialog: SiriSpeech.dialog(report))
+      return .result(dialog: SiriSpeech.dialog("こちらはカロナビ+の機能です"))
     }
   }
 
@@ -3753,7 +3844,7 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
        !spoken.isEmpty {
       return spoken
     }
-    let current = activityName.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let current = (activityName?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     if !current.isEmpty {
       return current
     }
@@ -3777,9 +3868,10 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   static var openAppWhenRun = false
 
   /// フレーズには置かない。自由文は AppEnum でも動的な候補でもない。
-  /// 「カロナビに登録」など値の無い言い方では空のまま。種類を聞いてから自由文を聞く。
+  /// 任意なので、perform の有料判定より前にシステムが「内容」と聞かない。
+  /// 空なら、有料と分かったあとで種類と自由文を聞く。
   @Parameter(title: "内容")
-  var utterance: SiriSpokenText
+  var utterance: SiriSpokenText?
 
   /// 言葉から食事か運動かが決まらないときだけ選ばせる。未指定のまま始め、先に聞かない。
   @Parameter(title: "種類")
@@ -3839,11 +3931,23 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   var entryReply: String?
 
   init() {
-    self.utterance = SiriSpokenText(id: "", text: "")
+    self.utterance = nil
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    SiriAnalytics.started(intent: "log_utterance", hasParameter: !utterance.text.isEmpty)
+    let given = utterance?.text ?? ""
+    switch await SiriPlusGate.evaluate(
+      intent: "log_utterance",
+      hasParameter: !given.isEmpty
+    ) {
+    case .allow:
+      break
+    case .speak(let dialog):
+      return .result(dialog: dialog)
+    case .open(let dialog):
+      throw needsToContinueInForegroundError(dialog)
+    }
+    SiriAnalytics.started(intent: "log_utterance", hasParameter: !given.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
       SiriVoiceStore.endDialogue()
       SiriAnalytics.finished(status: "continued", stopReason: "open_app", continued: true)
@@ -3940,7 +4044,7 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
       }
       break
     }
-    switch SiriVoiceStore.commitStep(plan) {
+    switch await SiriVoiceStore.commitStep(plan) {
     case .speak(let text):
       SiriVoiceStore.endDialogue()
       return .result(dialog: SiriSpeech.dialog(text))
@@ -3952,9 +4056,12 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
       try await requestConfirmation(
         result: .result(dialog: SiriSpeech.dialog(dialog))
       )
-      SiriVoiceStore.commitConfirmed(plan)
+      if await SiriVoiceStore.commitConfirmed(plan) {
+        SiriVoiceStore.endDialogue()
+        return .result(dialog: SiriSpeech.dialog(report))
+      }
       SiriVoiceStore.endDialogue()
-      return .result(dialog: SiriSpeech.dialog(report))
+      return .result(dialog: SiriSpeech.dialog("こちらはカロナビ+の機能です"))
     }
   }
 
@@ -4037,7 +4144,7 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
     kind: SiriSpokenKind?,
     plan: SiriVoiceStore.Plan
   )? {
-    let current = utterance.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let current = (utterance?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     if !current.isEmpty {
       if kind == .meal {
         return (current, kind, await SiriVoiceStore.planFood(name: current, quantity: ""))
@@ -4192,12 +4299,20 @@ struct SiriListedExerciseQuery: EnumerableEntityQuery {
 }
 
 @available(iOS 17.0, *)
-struct UndoLastSpokenEntryIntent: AppIntent {
+struct UndoLastSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "直前の登録を取り消す"
   static var description = IntentDescription("直前に登録した食事か運動を1件取り消します。")
   static var openAppWhenRun = false
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    switch await SiriPlusGate.evaluate(intent: "undo", hasParameter: false) {
+    case .allow:
+      break
+    case .speak(let dialog):
+      return .result(dialog: dialog)
+    case .open(let dialog):
+      throw needsToContinueInForegroundError(dialog)
+    }
     SiriAnalytics.started(intent: "undo", hasParameter: false)
     let plan = await SiriVoiceStore.planUtterance(name: "今登録したやつ消して", quantity: "")
     return .result(dialog: SiriSpeech.dialog(plan.spoken))

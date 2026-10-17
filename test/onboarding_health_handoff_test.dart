@@ -159,7 +159,7 @@ void main() {
       await tester.tap(find.text('はじめる'));
       await tester.pumpAndSettle();
       expect(find.byType(ActivityLevelScreen), findsOneWidget);
-      await tester.tap(find.text('はじめる'));
+      await tester.tap(find.text('保存して食事を記録する'));
       await tester.pumpAndSettle();
       _expectHealthRowOpens(tester, health);
     });

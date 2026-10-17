@@ -373,7 +373,7 @@ class _MemoryReviewPromptStore implements ReviewPromptStore {
   }
 }
 
-class _MealGateway implements LockScreenMealGateway {
+class _MealGateway with LockScreenGrantFallback implements LockScreenMealGateway {
   _MealGateway(this.pending);
 
   List<PendingLockScreenMeal> pending;

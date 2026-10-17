@@ -11,6 +11,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/meal_slot.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
@@ -140,10 +141,14 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
   }
 
   CookCoachMealTarget _targetFromSummary(DailySummary? summary) {
+    final controller = widget.controller;
+    final remaining = controller == null || summary == null
+        ? summary?.remainingKcal ?? 0
+        : controller.displayedSummaryKcal(DateTime.now()).remaining.toDouble();
     return cookCoachMealTarget(
       now: _now,
       slot: _slot,
-      remainingKcal: summary?.remainingKcal ?? 0,
+      remainingKcal: remaining,
       remainingProteinG: summary == null
           ? 0
           : summary.targetProteinG - summary.intakeProteinG,
@@ -282,7 +287,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
         ids = await saveCookCoachDish(
           controller: controller,
           dish: dish,
-          loggedAt: DateTime.now(),
+          loggedAt: asNewRecordInstant(DateTime.now()),
         );
       }
       final store = widget.slotStore;
@@ -386,8 +391,7 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
             ensureCalonaviPlus(
               context,
               controller,
-              message:
-                  '自炊コーチは、カロナビ+です。手元の食材から、この食事の目標に近い料理を出します。',
+              message: '自炊コーチは、カロナビ+です。手元の食材から、この食事の目標に近い料理を出します。',
               feature: PlusFunnelFeature.coach,
             );
           },

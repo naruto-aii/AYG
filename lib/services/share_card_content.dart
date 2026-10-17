@@ -49,11 +49,16 @@ String formatShareCount(num value) {
 ShareCardContent buildMealShareCard({
   required DailySummary summary,
   required DateTime day,
+  int? intakeKcal,
+  int? targetKcal,
+  bool? isOverage,
 }) {
-  final intake = formatShareCount(summary.intakeKcal);
-  final target = formatShareCount(summary.targetKcal);
-  final progress = summary.targetKcal > 0
-      ? (summary.intakeKcal / summary.targetKcal).clamp(0.0, 1.0)
+  final intakeValue = intakeKcal ?? summary.intakeKcal.round();
+  final targetValue = targetKcal ?? summary.targetKcal.round();
+  final intake = formatShareCount(intakeValue);
+  final target = formatShareCount(targetValue);
+  final progress = targetValue > 0
+      ? (intakeValue / targetValue).clamp(0.0, 1.0)
       : 0.0;
   return ShareCardContent(
     dateLabel: _dateLabel(day),
@@ -61,7 +66,7 @@ ShareCardContent buildMealShareCard({
     intakeLabel: intake,
     targetLabel: target,
     progress: progress,
-    isOverage: summary.isCalorieOverage,
+    isOverage: isOverage ?? summary.isCalorieOverage,
     message: [
       '今日は目標${target}kcalのうち${intake}kcalを摂りました。',
       AppStrings.loginTagline,

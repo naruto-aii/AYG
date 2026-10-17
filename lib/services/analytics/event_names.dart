@@ -291,8 +291,8 @@ abstract final class AnalyticsEventNames {
     },
     'restore_tap': {'product_id'},
     'restore_result': {'result'},
-    'gate_shown': {'feature', 'free_count'},
-    'gate_tap': {'feature', 'choice'},
+    'gate_shown': {'feature', 'free_count', 'entry_point'},
+    'gate_tap': {'feature', 'choice', 'entry_point'},
     'entitlement_observed': {
       'status',
       'product_id',

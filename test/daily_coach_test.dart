@@ -459,6 +459,23 @@ void main() {
     );
   });
 
+  test('proposal grams are stored per 100g with the eaten grams', () {
+    final stored = coachFoodEntryAmounts(
+      units: 1,
+      proposedGrams: 100,
+      editedGrams: 200,
+      kcalPerProposed: 156,
+      proteinPerProposed: 2.5,
+      fatPerProposed: 0.3,
+      carbPerProposed: 37.1,
+    );
+    expect(stored, isNotNull);
+    expect(stored!.baseAmount, 100);
+    expect(stored.consumedGrams, 200);
+    expect(stored.kcalPerBase, closeTo(156, 0.001));
+    expect(stored.kcalPerBase * stored.consumedGrams / stored.baseAmount, 312);
+  });
+
   test('edited meal grams scale the stored quantity', () {
     expect(
       coachMealConsumedAmount(units: 1, proposedGrams: 150, editedGrams: 150),

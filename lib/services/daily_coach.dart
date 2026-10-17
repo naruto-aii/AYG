@@ -6,8 +6,10 @@ import 'personal_coach_planner.dart';
 import '../models/exercise_entry.dart';
 import '../models/exercise_quantity_unit.dart';
 import '../services/exercise_calorie_calculator.dart';
+import '../services/exercise_duration.dart';
 import '../utils/local_date.dart';
 import '../utils/meal_slot.dart';
+import '../utils/record_clock.dart';
 
 const coachNutritionMissingMessage = '食品の数値が取れませんでした。';
 
@@ -16,8 +18,10 @@ bool coachLoggedWithinDays(DateTime loggedAt, DateTime now, int days) {
   if (days <= 0) {
     return false;
   }
-  final start = localDayStart(now).subtract(Duration(days: days - 1));
-  final day = DateTime(loggedAt.year, loggedAt.month, loggedAt.day);
+  final start = localDayStart(
+    civilClock(now),
+  ).subtract(Duration(days: days - 1));
+  final day = localDayStart(civilClock(loggedAt));
   return !day.isBefore(start);
 }
 
@@ -108,6 +112,60 @@ double? coachMealConsumedAmount({
     return null;
   }
   return amount;
+}
+
+/// 提案グラム分の栄養を、100gあたりと食べたグラムに直した値。
+class CoachFoodEntryAmounts {
+  const CoachFoodEntryAmounts({
+    required this.baseAmount,
+    required this.consumedGrams,
+    required this.kcalPerBase,
+    required this.proteinPerBase,
+    required this.fatPerBase,
+    required this.carbPerBase,
+  });
+
+  /// 成分表と同じく 100g。
+  final double baseAmount;
+
+  /// 画面に入っているグラム。単位数が 2 なら、その数を掛けたグラム。
+  final double consumedGrams;
+  final double kcalPerBase;
+  final double proteinPerBase;
+  final double fatPerBase;
+  final double carbPerBase;
+}
+
+/// コーチの1品を、100gあたりの栄養と食べたグラムにする。
+///
+/// 合計は「提案分 × 単位数 × 入力グラム / 提案グラム」のまま。
+CoachFoodEntryAmounts? coachFoodEntryAmounts({
+  required int units,
+  required int proposedGrams,
+  required double editedGrams,
+  required double kcalPerProposed,
+  required double proteinPerProposed,
+  required double fatPerProposed,
+  required double carbPerProposed,
+  double baseAmount = 100,
+}) {
+  final portions = coachMealConsumedAmount(
+    units: units,
+    proposedGrams: proposedGrams,
+    editedGrams: editedGrams,
+  );
+  if (portions == null || baseAmount <= 0) {
+    return null;
+  }
+  final perBase = baseAmount / proposedGrams;
+  return CoachFoodEntryAmounts(
+    baseAmount: baseAmount,
+    consumedGrams: portions * proposedGrams,
+    kcalPerBase: kcalPerProposed * perBase,
+    proteinPerBase: proteinPerProposed * perBase,
+    fatPerBase: fatPerProposed * perBase,
+    carbPerBase: carbPerProposed * perBase,
+  );
 }
 
 /// 登録欄の数字。0 以下や空は登録しない。
@@ -456,6 +514,17 @@ _ExercisePlan? _exercisePlan({
     if (distance != null) {
       return distance;
     }
+    if (practice.longestMinutes <= 0) {
+      final kilometers = _kilometersWithoutDuration(
+        practice: practice,
+        overageKcal: overageKcal,
+        weightKg: weight,
+        factor: factor,
+      );
+      if (kilometers != null) {
+        return kilometers;
+      }
+    }
   }
   if (practice.longestMinutes > 0) {
     final timed = _durationMessage(
@@ -640,7 +709,8 @@ _Practice? _bestPractice(List<ExerciseEntry> exercises, DateTime now) {
     var latest = group.first.loggedAt;
     ExerciseEntry? longestDistance;
     for (final entry in group) {
-      if (entry.durationMin > longestMinutes) {
+      if (!distanceDurationIsPlaceholder(entry) &&
+          entry.durationMin > longestMinutes) {
         longestMinutes = entry.durationMin;
         final recordedMet = entry.metValue;
         if (recordedMet != null && recordedMet > 1) {
@@ -652,7 +722,7 @@ _Practice? _bestPractice(List<ExerciseEntry> exercises, DateTime now) {
         longestKm = km;
         longestDistance = entry;
       }
-      if (!entry.loggedAt.isBefore(latest)) {
+      if (compareRecordInstants(entry.loggedAt, latest) >= 0) {
         latest = entry.loggedAt;
       }
     }
@@ -682,7 +752,7 @@ bool _outranks(_Practice next, _Practice current) {
   if (next.longestKm != current.longestKm) {
     return next.longestKm > current.longestKm;
   }
-  return next.latest.isAfter(current.latest);
+  return compareRecordInstants(next.latest, current.latest) > 0;
 }
 
 double? _paceKmh(ExerciseEntry entry) {
@@ -716,6 +786,40 @@ _ExercisePlan _noviceMessage({
     perMinute: perMinute,
     capMinutes: 20,
     paceKmh: speed,
+  );
+}
+
+/// 距離の kcal なのに分が無い記録。1分とは扱わず、距離のまま提案する。
+_ExercisePlan? _kilometersWithoutDuration({
+  required _Practice practice,
+  required double overageKcal,
+  required double weightKg,
+  required double factor,
+}) {
+  final perKm = factor * weightKg;
+  if (perKm <= 0 || practice.longestKm <= 0) {
+    return null;
+  }
+  final needed = overageKcal / perKm;
+  final cap = practice.longestKm * 1.5;
+  final today = math.min(needed, cap);
+  final scaled = (today * 10).round() / 10;
+  if (scaled <= 0) {
+    return null;
+  }
+  final recovered = (perKm * scaled).round();
+  final rest = math.max(0, overageKcal.round() - recovered);
+  final name = practice.activity.displayName;
+  final distance = _formatKm(scaled);
+  final base = '今日は$name${distance}km（約${recovered}kcal）がおすすめです。';
+  final message = rest <= 0
+      ? base
+      : '$base残り約${rest}kcalは明日以降の食事で調整しましょう。';
+  return _ExercisePlan(
+    message,
+    activityId: practice.activity.id,
+    amount: scaled,
+    unit: CoachExerciseUnit.kilometers,
   );
 }
 

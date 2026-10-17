@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'lock_screen_meal.dart';
+import 'shortcut_access.dart';
 
 /// ロック画面の割り当てと、有料フラグの読み書き。
 ///
@@ -14,6 +15,12 @@ abstract class LockScreenMealGateway {
   Future<bool> isPaid();
 
   Future<void> setPaid(bool isPaid);
+
+  /// 期限と付与の種類。ウィジェットと Siri は記録の直前にこれを見る。
+  Future<void> setShortcutGrant(ShortcutGrant grant);
+
+  /// ウィジェットか Siri が残した購入画面の入口。一度だけ取り出す。
+  Future<String?> takeShortcutPlusEntry();
 
   Future<void> publishSnapshot(LockScreenMealSnapshot snapshot);
 
@@ -70,6 +77,27 @@ class LockScreenMealGatewayImpl implements LockScreenMealGateway {
   }
 
   @override
+  Future<void> setShortcutGrant(ShortcutGrant grant) async {
+    final preferences = await _prefs();
+    await preferences.setBool(LockScreenMealPaidFlag.storageKey, grant.allows);
+    await _invoke('setPaid', {
+      'paid': grant.allows,
+      'source': grant.source.wire,
+      if (grant.expiresAt != null)
+        'expiresAt': grant.expiresAt!.toUtc().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<String?> takeShortcutPlusEntry() async {
+    final raw = await _invoke('takePlusEntry');
+    if (raw == 'widget' || raw == 'siri') {
+      return raw as String;
+    }
+    return null;
+  }
+
+  @override
   Future<void> publishSnapshot(LockScreenMealSnapshot snapshot) async {
     final paid = await isPaid();
     await _invoke('writeSnapshot', {
@@ -104,4 +132,15 @@ class LockScreenMealGatewayImpl implements LockScreenMealGateway {
       return null;
     }
   }
+}
+
+/// テストの偽ゲートウェイ用。購入画面の入口は無く、付与は有料フラグへ畳む。
+mixin LockScreenGrantFallback {
+  Future<void> setPaid(bool isPaid);
+
+  Future<void> setShortcutGrant(ShortcutGrant grant) {
+    return setPaid(grant.allows);
+  }
+
+  Future<String?> takeShortcutPlusEntry() async => null;
 }

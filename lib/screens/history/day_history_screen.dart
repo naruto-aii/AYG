@@ -5,6 +5,7 @@ import '../../models/alcohol_entry.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
 import '../../models/weight_entry.dart';
+import '../../services/health_exercise_credit.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -14,7 +15,9 @@ import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/home_parts.dart';
 import '../../utils/history_grouping.dart';
+import '../../utils/kcal_display.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/history/history_tab_body.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/delete_with_undo.dart';
@@ -39,7 +42,7 @@ class DayHistoryScreen extends StatelessWidget {
   final FoodFormScreenBuilder? foodFormBuilder;
 
   String _formatTime(DateTime time) {
-    final local = time.toLocal();
+    final local = civilClock(time);
     final h = local.hour.toString().padLeft(2, '0');
     final m = local.minute.toString().padLeft(2, '0');
     return '$h:$m';
@@ -125,7 +128,9 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'day_history_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => AlcoholFormScreen(
           controller: controller,
           entry: entry,
@@ -142,7 +147,9 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_1'),
+        settings: const RouteSettings(
+          name: 'day_history_screen_MaterialPageRoute_1',
+        ),
         builder: (context) => ExerciseFormScreen(
           controller: controller,
           entry: entry,
@@ -159,7 +166,9 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_2'),
+        settings: const RouteSettings(
+          name: 'day_history_screen_MaterialPageRoute_2',
+        ),
         builder: (context) => WeightRecordScreen(
           controller: controller,
           entry: entry,
@@ -171,45 +180,53 @@ class DayHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final day = localDayStart(selectedDay.toLocal());
+    final day = localDayStart(civilClock(selectedDay));
 
     return ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
         final foodItems = sortFoodEntriesByLoggedAt(
           controller.foodEntries
-              .where((entry) => isSameLocalDay(entry.loggedAt, day))
+              .where((entry) => isLoggedOnLocalDay(entry.loggedAt, day))
               .toList(),
         );
         final exerciseItems =
             controller.exerciseEntries
-                .where((entry) => isSameLocalDay(entry.loggedAt, day))
+                .where((entry) => isLoggedOnLocalDay(entry.loggedAt, day))
                 .toList()
-              ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+              ..sort((a, b) => compareRecordInstants(a.loggedAt, b.loggedAt));
         final alcoholItems =
             controller.alcoholEntries
-                .where((entry) => isSameLocalDay(entry.consumedAt, day))
+                .where((entry) => isLoggedOnLocalDay(entry.consumedAt, day))
                 .toList()
-              ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+              ..sort(
+                (a, b) => compareRecordInstants(a.consumedAt, b.consumedAt),
+              );
         final weightItems =
             controller.weightEntries
-                .where((entry) => isSameLocalDay(entry.recordedAt, day))
+                .where((entry) => isLoggedOnLocalDay(entry.recordedAt, day))
                 .toList()
-              ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+              ..sort(
+                (a, b) => compareRecordInstants(a.recordedAt, b.recordedAt),
+              );
 
-        final foodKcal = foodItems.fold<double>(
-          0,
-          (sum, e) => sum + (e.kcalPerUnit == null ? 0 : e.totalKcal),
+        final daySummary = controller.summaryForDay(day);
+        final intakeShown = displayedIntakeKcal(
+          foods: foodItems,
+          alcohol: alcoholItems,
         );
-        final alcoholKcal = alcoholItems.fold<double>(
-          0,
-          (sum, e) => sum + e.totalCalories,
+        final creditedExercise = const HealthExerciseCredit()
+            .creditedManualExercises(
+              healthActiveEnergyPresent: controller
+                  .healthActiveEnergyPresentOn(day),
+              dayExercises: exerciseItems,
+              healthWorkouts: controller.healthWorkouts,
+            );
+        final burnShown = displayedBurnKcal(
+          exercises: creditedExercise,
+          healthExcessKcal:
+              daySummary?.remainingBreakdown?.healthActivityExcessKcal ?? 0,
         );
-        final burnKcal = exerciseItems.fold<double>(
-          0,
-          (sum, e) => sum + e.effectiveNetKcal,
-        );
-        final intakeKcal = foodKcal + alcoholKcal;
 
         Widget section({
           required String icon,
@@ -262,19 +279,19 @@ class DayHistoryScreen extends StatelessWidget {
                     Expanded(
                       child: StatItem(
                         label: '摂取',
-                        value: intakeKcal.toStringAsFixed(0),
+                        value: intakeShown.toString(),
                       ),
                     ),
                     Expanded(
                       child: StatItem(
                         label: '消費',
-                        value: '+${burnKcal.toStringAsFixed(0)}',
+                        value: '+$burnShown',
                       ),
                     ),
                     Expanded(
                       child: StatItem(
-                        label: '差し引き',
-                        value: (intakeKcal - burnKcal).toStringAsFixed(0),
+                        label: '差',
+                        value: (intakeShown - burnShown).toString(),
                       ),
                     ),
                   ],
@@ -332,7 +349,13 @@ class DayHistoryScreen extends StatelessWidget {
                       time: _formatTime(e.loggedAt),
                       title:
                           '${e.name}（${MetActivityCatalog.quantityLabelFor(e)}）',
-                      value: '+${e.effectiveNetKcal.toStringAsFixed(0)}',
+                      value: displayedExerciseRow(
+                        e.effectiveNetKcal,
+                        overlapped: controller.exerciseRowOverlapsHealth(
+                          e,
+                          day,
+                        ),
+                      ),
                       onTap: () => _openExerciseForm(context, entry: e),
                       onLongPress: () => _confirmDeleteExercise(context, e),
                     ),

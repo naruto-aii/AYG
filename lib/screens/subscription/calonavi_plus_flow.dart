@@ -32,6 +32,7 @@ Future<void> showCalonaviPlus(
   PlusFunnelFeature? feature,
   PlusFunnelRepository? funnel,
   Future<void> Function()? onPlusActive,
+  String? entryPoint,
 }) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
@@ -44,8 +45,43 @@ Future<void> showCalonaviPlus(
         feature: feature,
         funnel: funnel,
         onPlusActive: onPlusActive,
+        entryPoint: entryPoint,
       ),
     ),
+  );
+}
+
+/// ウィジェットか Siri から、今の購入画面を開く。新しい説明画面は足さない。
+///
+/// gate と paywall の entry_point は `widget` か `siri`。
+Future<void> presentShortcutPlus(
+  BuildContext context, {
+  required String entryPoint,
+  required SubscriptionRepository repository,
+  PlusFunnelRepository? funnel,
+  Future<void> Function()? onPlusActive,
+}) {
+  final feature = entryPoint == 'siri'
+      ? PlusFunnelFeature.siri
+      : PlusFunnelFeature.widget;
+  Analytics.emit('gate_shown', {
+    'feature': feature.storageValue,
+    'entry_point': entryPoint,
+  });
+  final recorded = funnel?.record(
+    event: PlusFunnelEvent.gateShown,
+    feature: feature,
+  );
+  if (recorded != null) {
+    unawaited(recorded);
+  }
+  return showCalonaviPlus(
+    context,
+    repository: repository,
+    feature: feature,
+    funnel: funnel,
+    onPlusActive: onPlusActive,
+    entryPoint: entryPoint,
   );
 }
 
@@ -79,6 +115,7 @@ class CalonaviPlusEntryScreen extends StatefulWidget {
     this.feature,
     this.funnel,
     this.onPlusActive,
+    this.entryPoint,
   });
 
   final SubscriptionRepository repository;
@@ -87,6 +124,9 @@ class CalonaviPlusEntryScreen extends StatefulWidget {
 
   /// 購入または復元で有料になったあと、署名付き取引をサーバへ送る。
   final Future<void> Function()? onPlusActive;
+
+  /// ウィジェットと Siri は `widget` / `siri`。無いときは機能か設定から決める。
+  final String? entryPoint;
 
   @override
   State<CalonaviPlusEntryScreen> createState() =>
@@ -244,9 +284,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
     switch (event) {
       case PlusFunnelEvent.paywallOpen:
         Analytics.emit('paywall_open', {
-          'entry_point': widget.feature == null
-              ? 'settings'
-              : 'gate_$featureName',
+          'entry_point': _entryPoint(featureName),
           'products_loaded': _productsReady,
           'load_error': _offerings?.loadFailed ?? true,
         });
@@ -255,9 +293,7 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
       case PlusFunnelEvent.purchaseTap:
         Analytics.emit('purchase_tap', {
           'product_id': planId,
-          'entry_point': widget.feature == null
-              ? 'settings'
-              : 'gate_$featureName',
+          'entry_point': _entryPoint(featureName),
         });
       case PlusFunnelEvent.purchaseSuccess:
       case PlusFunnelEvent.purchaseCancel:
@@ -285,6 +321,14 @@ class _CalonaviPlusEntryScreenState extends State<CalonaviPlusEntryScreen> {
         debugPrintStack(stackTrace: stackTrace);
       }
     }());
+  }
+
+  String _entryPoint(String featureName) {
+    final direct = widget.entryPoint;
+    if (direct == 'widget' || direct == 'siri') {
+      return direct!;
+    }
+    return widget.feature == null ? 'settings' : 'gate_$featureName';
   }
 
   bool get _productsReady {

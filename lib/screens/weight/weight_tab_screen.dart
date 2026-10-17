@@ -9,6 +9,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
@@ -53,19 +54,25 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
 
   List<WeightEntry> get _sorted {
     final entries = [...widget.controller.weightEntries]
-      ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+      ..sort((a, b) => compareRecordInstants(a.recordedAt, b.recordedAt));
     return entries;
   }
 
   List<WeightEntry> _inRange(List<WeightEntry> entries) {
-    final from = DateTime.now().subtract(Duration(days: _range.days));
-    return entries.where((e) => e.recordedAt.isAfter(from)).toList();
+    final from = civilClock(
+      DateTime.now(),
+    ).subtract(Duration(days: _range.days));
+    return entries
+        .where((e) => civilClock(e.recordedAt).isAfter(from))
+        .toList();
   }
 
   void _openRecord({WeightEntry? entry}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'weight_tab_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'weight_tab_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => WeightRecordScreen(
           controller: widget.controller,
           entry: entry,
@@ -80,7 +87,7 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
     await confirmDeleteWithUndo<WeightEntry>(
       context: context,
       title: '削除確認',
-      message: '${formatJapaneseDateWithWeekday(entry.recordedAt)} の記録を削除しますか？',
+      message: '${formatRecordDate(entry.recordedAt)} の記録を削除しますか？',
       snapshot: entry,
       onDelete: () => widget.controller.deleteWeightEntry(entry.id),
       onRestore: (restored) => widget.controller.restoreWeightEntry(restored),
@@ -148,7 +155,7 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
               else
                 for (final entry in visible)
                   WeightRow(
-                    dateLabel: formatJapaneseDateWithWeekday(entry.recordedAt),
+                    dateLabel: formatRecordDate(entry.recordedAt),
                     weight: entry.weightKg.toStringAsFixed(1),
                     fromHealth: entry.source == WeightSource.health,
                     onTap: () => _openRecord(entry: entry),
@@ -214,7 +221,7 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
                     Text(
                       latest == null
                           ? '記録するとここに出ます'
-                          : formatJapaneseDateWithWeekday(latest.recordedAt),
+                          : formatRecordDate(latest.recordedAt),
                       style: AppTypography.caption.copyWith(
                         color: AppColors.textMuted,
                       ),
@@ -260,7 +267,7 @@ class _WeightTabScreenState extends State<WeightTabScreen> {
     }
     final first = ranged.first.recordedAt;
     final last = ranged.last.recordedAt;
-    String label(DateTime date) => '${date.month}/${date.day}';
+    String label(DateTime date) => formatRecordMonthDay(date);
 
     return SizedBox(
       height: 15,

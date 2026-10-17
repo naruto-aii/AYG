@@ -166,7 +166,8 @@ void main() {
         Goal(
           type: GoalType.lose,
           targetWeightKg: 70,
-          targetDate: referenceDate.add(const Duration(days: 30)),
+          // 14日未満は警告ダイアログが出て、この試験の保存が止まらないようにする。
+          targetDate: DateTime.now().add(const Duration(days: 30)),
         ),
       );
 

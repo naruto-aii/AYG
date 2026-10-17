@@ -918,6 +918,46 @@ void main() {
   });
 
   group('ExerciseFormScreen MET edit persistence', () {
+    testWidgets('saving an open exercise without edits keeps stored kcal', (
+      tester,
+    ) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+
+      final loggedAt = DateTime(2026, 8, 1, 18);
+      controller.profile = profile(weightKg: 80);
+      controller.weightEntries.add(
+        weightEntry(id: 'w-now', kg: 90, at: DateTime(2026, 8, 1, 8)),
+      );
+
+      final entry = savedEntry(
+        id: 'ex-keep',
+        loggedAt: loggedAt,
+        grossKcal: 500,
+        netKcal: 400,
+        weightKgSnapshot: 65,
+        activityId: 'swim_lap',
+      );
+      controller.exerciseEntries.add(entry);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ExerciseFormScreen(controller: controller, entry: entry),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('更新'));
+      await tester.pumpAndSettle();
+
+      final saved = controller.exerciseEntries.single;
+      expect(saved.grossKcal, 500);
+      expect(saved.netKcal, 400);
+      expect(saved.durationMin, 30);
+      expect(saved.weightKgSnapshot, 65);
+      expect(saved.burnedKcal, 500);
+    });
+
     testWidgets('input changes do not persist exercise entry until save', (
       tester,
     ) async {

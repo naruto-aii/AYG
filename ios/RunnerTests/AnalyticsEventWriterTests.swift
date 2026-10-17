@@ -132,6 +132,169 @@ final class AnalyticsEventWriterTests: XCTestCase {
   }
 }
 
+final class ShortcutAccessRulesTests: XCTestCase {
+  private let now = Date(timeIntervalSince1970: 1_700_000_000)
+  private var future: Date { now.addingTimeInterval(3600) }
+  private var past: Date { now.addingTimeInterval(-3600) }
+
+  private func decide(
+    _ source: String,
+    _ expiresAt: Date? = nil,
+    _ store: PlusStoreSnapshot = .failed
+  ) -> ShortcutAccess {
+    ShortcutAccessRules.decide(
+      source: source,
+      expiresAt: expiresAt,
+      store: store,
+      now: now
+    )
+  }
+
+  func testFreePaidExpiredRefundedAndComplimentary() {
+    XCTAssertEqual(decide("none"), .unpaid)
+    XCTAssertEqual(decide("none", nil, .none), .unpaid)
+    XCTAssertEqual(decide("store", future), .paid)
+    XCTAssertEqual(decide("store", past), .expired)
+    XCTAssertEqual(decide("store", now), .expired)
+    XCTAssertEqual(decide("store", future, .revoked), .refunded)
+    XCTAssertEqual(decide("revoked", future), .refunded)
+    XCTAssertEqual(decide("complimentary", nil, .revoked), .paid)
+    XCTAssertEqual(decide("preview", nil, .none), .paid)
+    XCTAssertEqual(decide("none", nil, .active(expiresAt: future)), .paid)
+    XCTAssertEqual(decide("none", nil, .active(expiresAt: nil)), .paid)
+    XCTAssertEqual(decide("revoked", nil, .active(expiresAt: future)), .paid)
+    XCTAssertEqual(decide("none", nil, .active(expiresAt: past)), .expired)
+    XCTAssertEqual(decide("store", future, .active(expiresAt: past)), .expired)
+  }
+
+  func testReduceKeepsALivePurchaseAheadOfARefund() {
+    let monthly = "calonavi_plus_monthly"
+    XCTAssertEqual(PlusStoreProbe.reduce([], now: now), .none)
+    XCTAssertEqual(
+      PlusStoreProbe.reduce(
+        [PlusStoreTransaction(productId: monthly, expiresAt: future, revoked: false)],
+        now: now
+      ),
+      .active(expiresAt: future)
+    )
+    XCTAssertEqual(
+      PlusStoreProbe.reduce(
+        [PlusStoreTransaction(productId: monthly, expiresAt: future, revoked: true)],
+        now: now
+      ),
+      .revoked
+    )
+    XCTAssertEqual(
+      PlusStoreProbe.reduce(
+        [
+          PlusStoreTransaction(productId: monthly, expiresAt: future, revoked: true),
+          PlusStoreTransaction(productId: "calonavi_plus_yearly", expiresAt: future, revoked: false),
+        ],
+        now: now
+      ),
+      .active(expiresAt: future)
+    )
+    XCTAssertEqual(
+      PlusStoreProbe.reduce(
+        [PlusStoreTransaction(productId: monthly, expiresAt: past, revoked: false)],
+        now: now
+      ),
+      .none
+    )
+    XCTAssertEqual(
+      PlusStoreProbe.reduce(
+        [PlusStoreTransaction(productId: monthly, expiresAt: nil, revoked: false)],
+        now: now
+      ),
+      .active(expiresAt: nil)
+    )
+    XCTAssertEqual(
+      PlusStoreProbe.reduce(
+        [PlusStoreTransaction(productId: "other", expiresAt: future, revoked: false)],
+        now: now
+      ),
+      .none
+    )
+  }
+
+  func testSavedGrantSurvivesASnapshotWrite() {
+    let suite = "shortcut-access-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    LockScreenMealStore.testingDefaults = defaults
+    defer {
+      LockScreenMealStore.testingDefaults = nil
+      defaults.removePersistentDomain(forName: suite)
+    }
+
+    defaults.set(true, forKey: LockScreenMealStore.paidKey)
+    XCTAssertEqual(LockScreenMealStore.readGrant().source, "none")
+    XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .unpaid)
+    XCTAssertEqual(LockScreenMealStore.access(store: .revoked, now: now), .refunded)
+    XCTAssertEqual(
+      LockScreenMealStore.access(store: .active(expiresAt: future), now: now),
+      .paid
+    )
+    defaults.set("preview", forKey: LockScreenMealStore.sourceKey)
+    XCTAssertEqual(LockScreenMealStore.readGrant().source, "preview")
+    XCTAssertEqual(LockScreenMealStore.access(store: .none, now: now), .paid)
+    defaults.removeObject(forKey: LockScreenMealStore.sourceKey)
+
+    LockScreenMealStore.setGrant(source: "complimentary", expiresAtISO: nil)
+    LockScreenMealStore.write(snapshotJSON: "{}", paid: false)
+    XCTAssertEqual(LockScreenMealStore.readGrant().source, "complimentary")
+    XCTAssertEqual(LockScreenMealStore.access(store: .revoked, now: now), .paid)
+
+    LockScreenMealStore.setGrant(source: "store", expiresAtISO: "2099-01-01T00:00:00Z")
+    XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .paid)
+    LockScreenMealStore.setGrant(source: "store", expiresAtISO: "2000-01-01T00:00:00Z")
+    XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .expired)
+    LockScreenMealStore.setGrant(source: "revoked", expiresAtISO: "2099-01-01T00:00:00Z")
+    XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .refunded)
+    LockScreenMealStore.setGrant(source: "none", expiresAtISO: nil)
+    XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .unpaid)
+  }
+
+  func testWidgetPreviewRoundsEachItemBeforeSumming() {
+    let items: [[String: Any]] = [
+      ["baseAmount": 1, "consumedAmount": 1, "kcalPerBase": 10.4],
+      ["baseAmount": 1, "consumedAmount": 1, "kcalPerBase": 10.4],
+    ]
+    XCTAssertEqual(LockScreenMealStore.foodKcal(items), 20)
+    XCTAssertEqual(
+      LockScreenMealStore.exerciseKcal([
+        ["netKcal": 10.6],
+        ["netKcal": 10.6],
+      ]),
+      22
+    )
+  }
+
+  func testPaidTimelineRefreshesInFifteenMinutesAndKeepsExpiryDates() {
+    let midnight = now.addingTimeInterval(TimeInterval(8 * 3600))
+    let expiry = now.addingTimeInterval(3600)
+    let storeExpiry = now.addingTimeInterval(7200)
+    let dates = WidgetTimelinePlan.dates(
+      now: now,
+      midnight: midnight,
+      grantExpiresAt: expiry,
+      storeExpiresAt: storeExpiry
+    )
+    XCTAssertEqual(dates[0], now)
+    XCTAssertTrue(dates.contains(midnight))
+    XCTAssertTrue(dates.contains(expiry))
+    XCTAssertTrue(dates.contains(storeExpiry))
+    XCTAssertEqual(WidgetTimelinePlan.paidRefreshInterval, TimeInterval(15 * 60))
+    XCTAssertEqual(
+      WidgetTimelinePlan.refreshAt(access: .paid, now: now),
+      now.addingTimeInterval(TimeInterval(15 * 60))
+    )
+    XCTAssertNil(WidgetTimelinePlan.refreshAt(access: .unpaid, now: now))
+    XCTAssertNil(WidgetTimelinePlan.refreshAt(access: .expired, now: now))
+    XCTAssertNil(WidgetTimelinePlan.refreshAt(access: .refunded, now: now))
+  }
+}
+
 final class RegisterDebounceTests: XCTestCase {
   func testADoubleTapWithinThreeSecondsIsDropped() {
     XCTAssertTrue(RegisterDebounce.accepts(lastTapAt: nil, now: 100))

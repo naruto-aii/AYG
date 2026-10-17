@@ -7,7 +7,6 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_button.dart';
-import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/select_card.dart';
 
@@ -64,7 +63,7 @@ class _SettingsHealthActivityScreenState
       if (!granted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
+            content: Text('ヘルスケアのデータを取得できませんでした。取得できない項目は手入力してください。'),
           ),
         );
       }
@@ -85,20 +84,6 @@ class _SettingsHealthActivityScreenState
       _useHealthIntegration = false;
       _isBusy = false;
     });
-  }
-
-  Future<void> _resyncHealth() async {
-    setState(() => _isBusy = true);
-    final success = await widget.controller.resyncHealthData();
-    if (!mounted) {
-      return;
-    }
-    setState(() => _isBusy = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success ? 'Healthデータを再取得しました' : 'Healthデータを取得できませんでした'),
-      ),
-    );
   }
 
   Future<void> _saveActivityLevel() async {
@@ -165,19 +150,6 @@ class _SettingsHealthActivityScreenState
             Text(
               AppStrings.healthUsingActiveEnergy,
               style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
-            ),
-            const SizedBox(height: 14),
-            DesignButton(
-              label: AppStrings.healthResync,
-              style: DesignButtonStyle.outline,
-              showTrailingIcon: false,
-              loading: _isBusy,
-              leading: const DesignIcon(
-                Symbols.sync_rounded,
-                size: 20,
-                color: AppColors.textBrand,
-              ),
-              onPressed: _isBusy ? null : _resyncHealth,
             ),
           ] else ...[
             const SizedBox(height: 22),

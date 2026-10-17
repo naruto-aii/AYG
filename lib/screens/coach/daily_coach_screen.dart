@@ -86,7 +86,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     if (controller == null) {
       return false;
     }
-    return !controller.subscriptionRepository.isPlusActive;
+    return !controller.hasCalonaviPlusAccess;
   }
 
   @override
@@ -95,6 +95,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     _wasPlusBlocked = _plusBlocked;
     _plusSubscription = widget.controller?.subscriptionRepository.plusChanges
         .listen(_onPlusChanged);
+    widget.controller?.addListener(_onControllerPlus);
     if (_plusBlocked) {
       return;
     }
@@ -104,11 +105,15 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
     });
   }
 
-  void _onPlusChanged(bool active) {
+  void _onControllerPlus() {
+    _onPlusChanged(false);
+  }
+
+  void _onPlusChanged(bool _) {
     if (!mounted) {
       return;
     }
-    final blocked = !active;
+    final blocked = _plusBlocked;
     final opened = _wasPlusBlocked && !blocked;
     _wasPlusBlocked = blocked;
     if (!opened) {
@@ -128,6 +133,7 @@ class _DailyCoachScreenState extends State<DailyCoachScreen> {
 
   @override
   void dispose() {
+    widget.controller?.removeListener(_onControllerPlus);
     _plusSubscription?.cancel();
     _disposeAmounts();
     super.dispose();

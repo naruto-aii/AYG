@@ -16,5 +16,11 @@ String formatNullableNutrient(double? value, {int fractionDigits = 0}) {
   if (value == null) {
     return '--';
   }
+  if (!value.isFinite) {
+    return value.toString();
+  }
+  if (fractionDigits == 0) {
+    return value.round().toString();
+  }
   return value.toStringAsFixed(fractionDigits);
 }

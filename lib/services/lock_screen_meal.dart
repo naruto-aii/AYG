@@ -8,7 +8,10 @@ import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../models/meal_template.dart';
 import '../utils/calorie_ring_progress.dart';
+import '../utils/kcal_display.dart';
+import '../utils/record_clock.dart';
 import 'exercise_calorie_calculator.dart';
+import 'shortcut_access.dart';
 
 /// ホームとロック画面のウィジェットが共有する JSON（version 3）。
 ///
@@ -83,7 +86,7 @@ class WidgetExercisePattern {
 /// ウィジェットの日付キー。端末のローカル日付（yyyy-MM-dd）。
 /// Swift の `MealWidgetDay.key` と同じ。
 String mealWidgetDayKey(DateTime value) {
-  final local = value.isUtc ? value.toLocal() : value;
+  final local = civilClock(value);
   final year = local.year.toString().padLeft(4, '0');
   final month = local.month.toString().padLeft(2, '0');
   final day = local.day.toString().padLeft(2, '0');
@@ -300,6 +303,24 @@ class LockScreenMealConfig {
   }
 }
 
+/// ホームと同じ整数を、ウィジェットの残り・摂取・消費にする。
+///
+/// 残りは「目標 + 消費 − 摂取」。負の分は超過に移し、残りは 0。
+/// Siri は残りを読み上げない。ロック画面とホーム画面のウィジェットがこの数字を出す。
+MealWidgetFigures mealWidgetFiguresFromDisplayed(
+  DisplayedDayKcal day, {
+  String? dayKey,
+}) {
+  return MealWidgetFigures(
+    remainingKcal: day.remainingShown,
+    intakeKcal: day.intake,
+    burnKcal: day.burn,
+    targetKcal: day.target,
+    overageKcal: day.isOverage ? day.overageShown : null,
+    day: dayKey,
+  );
+}
+
 /// ウィジェットに出す、今日の残り・摂取・消費。
 ///
 /// 目標と超過は、ウィジェットのカロリーリングをアプリのホームと同じ見た目にするために渡す。
@@ -401,7 +422,13 @@ class LockScreenMealSnapshot {
   final MealWidgetFigures figures;
 }
 
-enum LockScreenMealRegisterStatus { registered, unpaid, unassigned }
+enum LockScreenMealRegisterStatus {
+  registered,
+  unpaid,
+  expired,
+  refunded,
+  unassigned,
+}
 
 class LockScreenMealRegisterResult {
   const LockScreenMealRegisterResult({required this.status, this.meal});
@@ -458,15 +485,16 @@ class LockScreenMealImportPlan {
 abstract final class LockScreenMealRegistrar {
   static LockScreenMealRegisterResult register({
     required bool paid,
+    ShortcutAccess? access,
     required LockScreenMealButtonSnapshot button,
     required String ownerUserId,
     required DateTime loggedAt,
     required String Function() newId,
   }) {
-    if (!paid) {
-      return const LockScreenMealRegisterResult(
-        status: LockScreenMealRegisterStatus.unpaid,
-      );
+    final resolved =
+        access ?? (paid ? ShortcutAccess.paid : ShortcutAccess.unpaid);
+    if (resolved != ShortcutAccess.paid) {
+      return LockScreenMealRegisterResult(status: _denied(resolved));
     }
     if (ownerUserId.trim().isEmpty) {
       return const LockScreenMealRegisterResult(
@@ -539,6 +567,14 @@ abstract final class LockScreenMealRegistrar {
         kind: WidgetPatternKind.meal,
       ),
     );
+  }
+
+  static LockScreenMealRegisterStatus _denied(ShortcutAccess access) {
+    return switch (access) {
+      ShortcutAccess.expired => LockScreenMealRegisterStatus.expired,
+      ShortcutAccess.refunded => LockScreenMealRegisterStatus.refunded,
+      _ => LockScreenMealRegisterStatus.unpaid,
+    };
   }
 
   static LockScreenMealRegisterResult _registerExercise({
@@ -1244,14 +1280,27 @@ bool widgetExerciseWaitsForWeight(
   return weightKg == null || !weightKg.isFinite || weightKg <= 0;
 }
 
-/// 食事の `loggedAt` と同じ、オフセット無しの壁時計。
+/// ウィジェットへ渡す壁時計。新形式はローカル時刻、旧 UTC は暦の数字。
 String formatLockScreenLoggedAt(DateTime loggedAt) {
-  final wall = loggedAt.isUtc ? _wallClock(loggedAt) : loggedAt;
-  return wall.toIso8601String();
+  final wall = civilClock(loggedAt);
+  return DateTime(
+    wall.year,
+    wall.month,
+    wall.day,
+    wall.hour,
+    wall.minute,
+    wall.second,
+    wall.millisecond,
+    wall.microsecond,
+  ).toIso8601String();
 }
 
 DateTime parseLockScreenLoggedAt(String raw) {
   final parsed = DateTime.parse(raw);
+  // 印付きの本当の UTC を暦の数字に落とすと、0:00〜8:59 が前日になる。
+  if (isAbsoluteRecordInstant(parsed)) {
+    return parsed;
+  }
   if (!parsed.isUtc) {
     return parsed;
   }

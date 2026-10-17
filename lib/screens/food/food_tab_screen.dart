@@ -9,6 +9,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/design/design_button.dart';
@@ -56,7 +57,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openHistoryCalendar() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'food_tab_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => HistoryCalendarScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
@@ -101,7 +104,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_1'),
+        settings: const RouteSettings(
+          name: 'food_tab_screen_MaterialPageRoute_1',
+        ),
         builder: (context) => AlcoholFormScreen(
           controller: widget.controller,
           initialConsumedAt: _initialConsumedAtForNewEntry,
@@ -113,7 +118,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openAlcoholEdit(BuildContext context, AlcoholEntry entry) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_2'),
+        settings: const RouteSettings(
+          name: 'food_tab_screen_MaterialPageRoute_2',
+        ),
         builder: (context) =>
             AlcoholFormScreen(controller: widget.controller, entry: entry),
       ),
@@ -137,7 +144,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openTemplates() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_3'),
+        settings: const RouteSettings(
+          name: 'food_tab_screen_MaterialPageRoute_3',
+        ),
         builder: (context) =>
             MealTemplateListScreen(controller: widget.controller),
       ),
@@ -163,8 +172,7 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
     return isSameLocalDay(d, DateTime.now()) ? '今日 $base' : base;
   }
 
-  static String _time(DateTime t) =>
-      '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+  static String _time(DateTime t) => formatRecordMinute(t);
 
   @override
   Widget build(BuildContext context) {
@@ -174,14 +182,16 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
         final day = _selectedDate;
         final foods = sortFoodEntriesByLoggedAt(
           widget.controller.foodEntries
-              .where((e) => isSameLocalDay(e.loggedAt, day))
+              .where((e) => isLoggedOnLocalDay(e.loggedAt, day))
               .toList(),
         );
         final alcohols =
             widget.controller.alcoholEntries
-                .where((e) => isSameLocalDay(e.consumedAt, day))
+                .where((e) => isLoggedOnLocalDay(e.consumedAt, day))
                 .toList()
-              ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+              ..sort(
+                (a, b) => compareRecordInstants(a.consumedAt, b.consumedAt),
+              );
         final isToday = isSameLocalDay(day, DateTime.now());
         final canAdd = canAddRecordOnDay(day);
         final dayWord = isToday ? '今日' : 'この日';
@@ -270,7 +280,10 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
               DesignSectionHeader(icon: AppIcons.meal, title: '$dayWordの食事'),
               const SizedBox(height: 4),
               if (foods.isEmpty)
-                _empty('$dayWordの食事記録はありません')
+                _empty(
+                  'まだ食事が登録されていません。登録はこちら',
+                  onTap: canAdd ? () => _openFoodForm(context) : null,
+                )
               else
                 for (final e in foods)
                   DesignListRow(
@@ -292,7 +305,10 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
               ),
               const SizedBox(height: 4),
               if (alcohols.isEmpty)
-                _empty('$dayWordのアルコール記録はありません')
+                _empty(
+                  'まだお酒が登録されていません。登録はこちら',
+                  onTap: canAdd ? () => _openAlcoholForm(context) : null,
+                )
               else
                 for (final e in alcohols)
                   DesignListRow(
@@ -319,13 +335,19 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
     );
   }
 
-  Widget _empty(String message) {
+  Widget _empty(String message, {VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: AppTypography.bodyS.copyWith(
+            color: AppColors.textMuted,
+            decoration: onTap == null ? null : TextDecoration.underline,
+          ),
+        ),
       ),
     );
   }

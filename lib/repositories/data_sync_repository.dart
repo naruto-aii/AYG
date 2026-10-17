@@ -16,6 +16,7 @@ import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
+import '../utils/record_clock.dart';
 import 'contracts/alcohol_repository_base.dart';
 import 'contracts/exercise_repository_base.dart';
 import 'contracts/food_repository_base.dart';
@@ -27,7 +28,6 @@ import 'contracts/weight_repository_base.dart';
 import '../models/health_profile_data.dart';
 import '../models/sync_failure.dart';
 import '../services/health_workout_sync.dart';
-import '../utils/local_date.dart';
 import 'food_master_repositories.dart';
 import 'health_repository.dart';
 import 'supabase/exercise_entry_row_mapper.dart';
@@ -876,7 +876,9 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
       'user_id': userId,
       'active_energy_burned_kcal': snapshot.activeEnergyBurnedKcal,
       'weight_kg': snapshot.weightKg,
-      'weight_measured_at': snapshot.weightMeasuredAt?.toIso8601String(),
+      'weight_measured_at': snapshot.weightMeasuredAt == null
+          ? null
+          : encodeRecordTimestamp(snapshot.weightMeasuredAt!),
       'updated_at': DateTime.now().toIso8601String(),
     }, onConflict: 'user_id');
     if (!localWriteAllowed(mayWrite)) {
@@ -1501,7 +1503,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
                     'name': entry.name,
                     'duration_min': entry.durationMin,
                     'burned_kcal': entry.burnedKcal,
-                    'logged_at': wallClockToDb(entry.loggedAt),
+                    'logged_at': encodeRecordTimestamp(entry.loggedAt),
                   },
                 )
                 .toList(),
@@ -1645,7 +1647,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
           (row) => WeightEntry(
             id: row['entry_id'] as String,
             weightKg: (row['weight_kg'] as num).toDouble(),
-            recordedAt: wallClockFromDb(row['recorded_at'] as String),
+            recordedAt: DateTime.parse(row['recorded_at'] as String),
             source: _parseWeightSource(row['source'] as String?),
           ),
         )
@@ -1725,7 +1727,7 @@ class SupabaseDataSyncRepository implements DataSyncRepository {
                     'user_id': userId,
                     'entry_id': entry.id,
                     'weight_kg': entry.weightKg,
-                    'recorded_at': wallClockToDb(entry.recordedAt),
+                    'recorded_at': encodeRecordTimestamp(entry.recordedAt),
                     'source': entry.source.storageValue,
                   },
                 )

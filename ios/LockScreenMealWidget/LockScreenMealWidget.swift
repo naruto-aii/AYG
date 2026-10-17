@@ -7,10 +7,11 @@ import WidgetKit
 /// 見た目の仕様は `docs/design/widget/README.md`（モックは同じフォルダの `mockup.html`）。
 /// 色・サイズ・ラベルの文字数ルールを変えるときは、README も同じ値に直す。
 ///
-/// ボタンは `openAppWhenRun = false`。押してもアプリは開かず、割り当てた
-/// テンプレートを1件だけ追記する。未課金のときは追記しない。
-/// 「有料」とは書かない。作成時の説明はアプリ内のポップアップに置く。
-/// このボタンは Siri に出さない。Watch と Live Activity は作らない。
+/// 有料のボタンは `openAppWhenRun = false`。押してもアプリは開かず、割り当てた
+/// テンプレートを1件だけ追記する。
+/// 無料・期限切れ・返金の面は「＋」と「タップで記録」を出さず、鍵と「カロナビ+」にする。
+/// ロック画面は単色なので、色ではなく印と文字で区別する。有料の面は変えない。
+/// その面を押すとアプリが開き、今の購入画面へ進む。このボタンは Siri に出さない。
 
 struct MealWidgetFigures {
   var remaining: Int?
@@ -64,12 +65,31 @@ struct MealWidgetEntry: TimelineEntry {
   let date: Date
   let figures: MealWidgetFigures
   let buttons: [LockScreenMealButton]
+  let locked: Bool
+
+  init(
+    date: Date,
+    figures: MealWidgetFigures,
+    buttons: [LockScreenMealButton],
+    locked: Bool = false
+  ) {
+    self.date = date
+    self.figures = figures
+    self.buttons = buttons
+    self.locked = locked
+  }
 }
 
 enum MealWidgetTimeline {
   /// [date] の時点で見せる数字。保存日が [date] の日と違えば今日の初期状態になる。
-  static func entry(buttons: [LockScreenMealButton], at date: Date = Date()) -> MealWidgetEntry {
+  /// 有料でなければ locked。期限ちょうどは期限切れ（期限より後だけ有料）。
+  static func entry(
+    buttons: [LockScreenMealButton],
+    at date: Date = Date(),
+    store: PlusStoreSnapshot = .failed
+  ) -> MealWidgetEntry {
     let figures = LockScreenMealStore.figures(now: date)
+    let access = LockScreenMealStore.access(store: store, now: date)
     return MealWidgetEntry(
       date: date,
       figures: MealWidgetFigures(
@@ -79,17 +99,45 @@ enum MealWidgetTimeline {
         target: figures.target,
         overage: figures.overage
       ),
-      buttons: buttons
+      buttons: buttons,
+      locked: access.locksWidget
     )
   }
 
-  /// 今の表示と、次のローカル 0 時の表示。0 時を過ぎたら iOS が次のタイムラインを取りに来る（`.atEnd`）。
-  /// アプリを開かなくても、日付が変わると摂取 0・あと＝目標・リング空に切り替わる。
-  static func timeline(buttons: [LockScreenMealButton], now: Date = Date()) -> Timeline<MealWidgetEntry> {
+  /// 今、次のローカル 0 時、加入と StoreKit の期限をエントリに残す。
+  /// 0 時や期限を過ぎると、そのエントリで摂取 0 や鍵の面に切り替わる。
+  /// 有料のあいだは約 15 分後に取り直す（`.after`）。取り直しのたびに
+  /// `getTimeline` が `PlusStoreProbe.live()` を見るので、返金後は鍵の面になる。
+  /// `getTimeline` の中から `reloadTimelines` は呼ばない。
+  static func timeline(
+    buttons: [LockScreenMealButton],
+    now: Date = Date(),
+    store: PlusStoreSnapshot = .failed
+  ) -> Timeline<MealWidgetEntry> {
     let midnight = MealWidgetDay.nextMidnight(after: now)
+    let grantExpiresAt = LockScreenMealStore.readGrant().expiresAt
+    let storeExpiresAt: Date?
+    if case .active(let expiresAt) = store {
+      storeExpiresAt = expiresAt
+    } else {
+      storeExpiresAt = nil
+    }
+    let dates = WidgetTimelinePlan.dates(
+      now: now,
+      midnight: midnight,
+      grantExpiresAt: grantExpiresAt,
+      storeExpiresAt: storeExpiresAt
+    )
+    let accessNow = LockScreenMealStore.access(store: store, now: now)
+    let policy: TimelineReloadPolicy
+    if let refresh = WidgetTimelinePlan.refreshAt(access: accessNow, now: now) {
+      policy = .after(refresh)
+    } else {
+      policy = .atEnd
+    }
     return Timeline(
-      entries: [entry(buttons: buttons, at: now), entry(buttons: buttons, at: midnight)],
-      policy: .atEnd
+      entries: dates.map { entry(buttons: buttons, at: $0, store: store) },
+      policy: policy
     )
   }
 }
@@ -100,7 +148,7 @@ struct HomeMealWidget: Widget {
       HomeMealWidgetView(entry: entry)
     }
     .configurationDisplayName("カロナビ")
-    .description("残りカロリーに加え、食事と運動をワンタッチで登録します。枠は食事と運動を自由に組み合わせられます。")
+    .description("カロナビ+の機能です。残りカロリーに加え、食事と運動をワンタッチで登録します。枠は食事と運動を自由に組み合わせられます。")
     .supportedFamilies([.systemLarge])
     .contentMarginsDisabled()
   }
@@ -108,15 +156,24 @@ struct HomeMealWidget: Widget {
 
 struct HomeMealProvider: TimelineProvider {
   func placeholder(in context: Context) -> MealWidgetEntry {
-    MealWidgetEntry(date: Date(), figures: MealWidgetFigures(), buttons: LockScreenMealButton.homePlaceholders)
+    MealWidgetTimeline.entry(
+      buttons: LockScreenMealButton.homePlaceholders,
+      store: .failed
+    )
   }
 
   func getSnapshot(in context: Context, completion: @escaping (MealWidgetEntry) -> Void) {
-    completion(MealWidgetTimeline.entry(buttons: LockScreenMealStore.homeButtons()))
+    Task {
+      let store = await PlusStoreProbe.live()
+      completion(MealWidgetTimeline.entry(buttons: LockScreenMealStore.homeButtons(), store: store))
+    }
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<MealWidgetEntry>) -> Void) {
-    completion(MealWidgetTimeline.timeline(buttons: LockScreenMealStore.homeButtons()))
+    Task {
+      let store = await PlusStoreProbe.live()
+      completion(MealWidgetTimeline.timeline(buttons: LockScreenMealStore.homeButtons(), store: store))
+    }
   }
 }
 
@@ -126,7 +183,7 @@ struct LockScreenMealWidget: Widget {
       LockMealWidgetView(entry: entry)
     }
     .configurationDisplayName("カロナビ")
-    .description("残りカロリーに加え、ホームの1〜3枠目をワンタッチで登録します。")
+    .description("カロナビ+の機能です。残りカロリーに加え、ホームの1〜3枠目をワンタッチで登録します。")
     .supportedFamilies([.accessoryRectangular])
     .contentMarginsDisabled()
   }
@@ -134,15 +191,24 @@ struct LockScreenMealWidget: Widget {
 
 struct LockMealProvider: TimelineProvider {
   func placeholder(in context: Context) -> MealWidgetEntry {
-    MealWidgetEntry(date: Date(), figures: MealWidgetFigures(), buttons: LockScreenMealButton.lockPlaceholders)
+    MealWidgetTimeline.entry(
+      buttons: LockScreenMealButton.lockPlaceholders,
+      store: .failed
+    )
   }
 
   func getSnapshot(in context: Context, completion: @escaping (MealWidgetEntry) -> Void) {
-    completion(MealWidgetTimeline.entry(buttons: LockScreenMealStore.lockButtons()))
+    Task {
+      let store = await PlusStoreProbe.live()
+      completion(MealWidgetTimeline.entry(buttons: LockScreenMealStore.lockButtons(), store: store))
+    }
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<MealWidgetEntry>) -> Void) {
-    completion(MealWidgetTimeline.timeline(buttons: LockScreenMealStore.lockButtons()))
+    Task {
+      let store = await PlusStoreProbe.live()
+      completion(MealWidgetTimeline.timeline(buttons: LockScreenMealStore.lockButtons(), store: store))
+    }
   }
 }
 
@@ -179,6 +245,21 @@ struct HomeMealWidgetView: View {
   let entry: MealWidgetEntry
 
   var body: some View {
+    Group {
+      if entry.locked {
+        LockedMealFace(surface: "home", tall: true)
+      } else {
+        paidBody
+      }
+    }
+    .foregroundStyle(Color.white)
+    .padding(EdgeInsets(top: 18, leading: 18, bottom: 16, trailing: 18))
+    .containerBackground(for: .widget) {
+      HomeWidgetBackground()
+    }
+  }
+
+  private var paidBody: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(spacing: 6) {
         Circle()
@@ -203,10 +284,10 @@ struct HomeMealWidgetView: View {
       .padding(.top, 12)
       Spacer(minLength: 0)
       Text("タップで記録")
-        .font(MealWidgetFont.medium(11))
-        .foregroundStyle(Color.white.opacity(0.6))
-        .padding(.horizontal, 2)
-        .padding(.bottom, 8)
+          .font(MealWidgetFont.medium(11))
+          .foregroundStyle(Color.white.opacity(0.6))
+          .padding(.horizontal, 2)
+          .padding(.bottom, 8)
       HStack(spacing: 6) {
         ForEach(entry.buttons.prefix(5)) { button in
           Button(intent: RegisterMealWidgetIntent(surface: "home", slot: button.slot, kind: button.kind)) {
@@ -215,11 +296,6 @@ struct HomeMealWidgetView: View {
           .buttonStyle(.plain)
         }
       }
-    }
-    .foregroundStyle(Color.white)
-    .padding(EdgeInsets(top: 18, leading: 18, bottom: 16, trailing: 18))
-    .containerBackground(for: .widget) {
-      HomeWidgetBackground()
     }
   }
 
@@ -387,11 +463,26 @@ private struct HomeTile: View {
 // MARK: - ロック画面（accessoryRectangular）
 
 /// iOS がロック画面を単色で描くため、色は使わない。
-/// 白く塗ったボタンと大きな数字で、どの壁紙でも押す場所とカロリーがすぐ分かるようにする。
+/// 有料は白く塗ったボタンと大きな数字。無料・期限切れは鍵と「カロナビ+」の文字で区別する。
 struct LockMealWidgetView: View {
   let entry: MealWidgetEntry
 
   var body: some View {
+    Group {
+      if entry.locked {
+        LockedMealFace(surface: "lock", tall: false)
+      } else {
+        paidBody
+      }
+    }
+    .foregroundStyle(Color.white)
+    .padding(EdgeInsets(top: 6, leading: 7, bottom: 7, trailing: 7))
+    .containerBackground(for: .widget) {
+      AccessoryWidgetBackground()
+    }
+  }
+
+  private var paidBody: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
         Text(entry.figures.shortHeadline)
@@ -418,11 +509,26 @@ struct LockMealWidgetView: View {
         }
       }
     }
-    .foregroundStyle(Color.white)
-    .padding(EdgeInsets(top: 6, leading: 7, bottom: 7, trailing: 7))
-    .containerBackground(for: .widget) {
-      AccessoryWidgetBackground()
+  }
+}
+
+/// 鍵のかかった面。数字は出さない。
+struct LockedMealFace: View {
+  let surface: String
+  var tall = false
+
+  var body: some View {
+    Button(intent: OpenCalonaviPlusIntent(surface: surface)) {
+      HStack(spacing: tall ? 8 : 4) {
+        Image(systemName: "lock.fill")
+          .font(.system(size: tall ? 16 : 12, weight: .bold))
+        Text("カロナビ+")
+          .font(MealWidgetFont.bold(tall ? 16 : 14))
+      }
+      .foregroundStyle(Color.white)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: tall ? .center : .leading)
     }
+    .buttonStyle(.plain)
   }
 }
 
@@ -461,6 +567,9 @@ private struct LockCapsule: View {
 
 /// ホームとロック画面のボタン。ショートカットや Siri には出さない。
 /// 食事と運動の音声登録は、アプリ本体の別の App Intent。
+/// ウィジェット拡張では、アプリを前面に続ける API は使えない。
+/// 無料・期限切れ・返金はここでは記録せず、鍵の面へ読み直す。
+/// 鍵の面は `OpenCalonaviPlusIntent`（`openAppWhenRun`）がアプリを開く。
 struct RegisterMealWidgetIntent: AppIntent {
   static var title: LocalizedStringResource = "ウィジェットのパターンを登録"
   static var openAppWhenRun = false
@@ -488,8 +597,54 @@ struct RegisterMealWidgetIntent: AppIntent {
   }
 
   func perform() async throws -> some IntentResult {
+    let store = await PlusStoreProbe.live()
+    let access = LockScreenMealStore.access(store: store)
     let pattern = kind == "meal" || kind == "exercise" ? kind : nil
-    _ = try WidgetAnalytics.recordPress(surface: surface, slot: slot, kind: pattern)
+    if !access.allowsRegister {
+      _ = try WidgetAnalytics.recordPress(surface: surface, slot: slot, kind: pattern) {
+        access.widgetResult
+      }
+      PlusEntryCenter.request("widget")
+      LockScreenMealStore.reloadWidgets()
+      return .result()
+    }
+    _ = try WidgetAnalytics.recordPress(
+      surface: surface,
+      slot: slot,
+      kind: pattern,
+      store: store
+    )
+    LockScreenMealStore.reloadWidgets()
+    return .result()
+  }
+}
+
+/// 鍵の面。押すとアプリが開く。有料なら購入画面へは進まず、面だけ更新する。
+struct OpenCalonaviPlusIntent: AppIntent {
+  static var title: LocalizedStringResource = "カロナビ+を開く"
+  static var openAppWhenRun = true
+  static var isDiscoverable = false
+
+  @Parameter(title: "画面")
+  var surface: String
+
+  init() {
+    self.surface = "home"
+  }
+
+  init(surface: String) {
+    self.surface = surface
+  }
+
+  func perform() async throws -> some IntentResult {
+    let store = await PlusStoreProbe.live()
+    let access = LockScreenMealStore.access(store: store)
+    _ = try WidgetAnalytics.recordPress(surface: surface, slot: 0) {
+      access.widgetResult
+    }
+    if !access.allowsRegister {
+      PlusEntryCenter.request("widget")
+    }
     LockScreenMealStore.reloadWidgets()
     return .result()
   }

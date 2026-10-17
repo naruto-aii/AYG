@@ -1,0 +1,31 @@
+name: daily-report-pdf
+
+# スケジュールは付けない。確認が済んだあと、on に cron を足す。
+# 日本時間 6:00〜23:30 の 30 分おきは、UTC で */30 21-23,0-14 * * * になる。
+on:
+  workflow_dispatch:
+    inputs:
+      data_date:
+        description: "出す日本時間の保存日。空なら投稿待ちをすべて出す"
+        required: false
+        type: string
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: daily-report-pdf
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: japanese font
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+      - run: python3 -m pip install -r tools/daily_report/requirements.txt
+      - name: render and post
+        working-directory: tools/daily_report
+        env:
+          DAILY_REPORT_DB_URL: ${{ secrets.DAILY_REPORT_DB_URL }}
+          SLACK_DAILY_REPORT_BOT_TOKEN: ${{ secrets.SLACK_DAILY_REPORT_BOT_TOKEN }}
+          SLACK_DAILY_REPORT_CHANNEL_ID: ${{ secrets.SLACK_DAILY_REPORT_CHANNEL_ID }}
+          DAILY_REPORT_DATA_DATE: ${{ inputs.data_date }}
+        run: python3 publish.py

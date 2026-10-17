@@ -17,3 +17,16 @@ jobs:
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       # integration は手元の Supabase / Docker が要る。無い環境では失敗するので外す。
       - run: flutter test --concurrency=1 --exclude-tags integration
+
+  daily-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.1.4
+      - run: deno test --allow-env --config supabase/functions/deno.json supabase/functions/asc_daily_report_test.ts
+      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+      - run: python3 -m pip install -r tools/daily_report/requirements.txt
+      - run: python3 -m unittest test_report_pdf.py
+        working-directory: tools/daily_report

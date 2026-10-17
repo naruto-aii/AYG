@@ -76,6 +76,46 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 9. `20261007112725_kpi_excluded_users.sql` は本番に適用済み。開発者アカウントは日次集計と退会集計から外す。手順 8 のあと。
 10. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 8 と 9 は適用済み。
 
+## 日次レポート（テキストと PDF）
+
+`asc-daily-report` は、これまでどおり Apple のファイルを取り、集計だけを保存する。集客と速報は分けて投稿しない。数が確定した日は `kpi.daily_report_snapshot` に文面を入れ、`kpi.daily_report_delivery` で同じ日の二重投稿を止める。予約の 30 分と、失敗したあとの待ちは今の速報と同じ。
+
+PDF と Slack への投稿は GitHub Actions `daily-report-pdf` が行う。このワークフローに schedule は付けていない。Actions は `kpi.daily_report_outbox()` を読み、PDF を作って `files.getUploadURLExternal` と `files.completeUploadExternal` で出す。`initial_comment` がまとめのテキスト。channel id は `SLACK_DAILY_REPORT_CHANNEL_ID` から読む。
+
+この変更では関数の配備、マイグレーションの適用、スケジュールの有効化、Slack への投稿はしない。
+
+追加する秘密（値は git に書かない）:
+
+- `DAILY_REPORT_DB_URL` — GitHub Actions secret。読み取りと、投稿済みの印を付ける関数だけ。作り方は下。
+- `SLACK_DAILY_REPORT_CHANNEL_ID` — GitHub Actions secret。既存の `#calonavi-daily-report` の channel id。新しいチャンネルは作らない。
+- `SLACK_DAILY_REPORT_BOT_TOKEN` — 登録済みの Bot token。そのまま使う。
+
+読み取りロール（マイグレーションが `daily_report_reader` を作ったあと、社長が手で行う）:
+
+```sql
+create role daily_report_login login password '<パスワード>';
+grant daily_report_reader to daily_report_login;
+```
+
+`DAILY_REPORT_DB_URL` は、そのログインロールの Postgres 接続文字列。`service_role` は入れない。このロールに渡しているのは `kpi.daily_report_outbox()` の実行と、`kpi.finish_daily_report_delivery(date, text)` の実行だけ。表の中身を直接読む権限も、ほかの関数を呼ぶ権限もない。投稿の成否を書けないと、30 分後に同じ日がもう一度予約され、同じ PDF がもう一度出る。
+
+本番へ出す順番:
+
+1. `20261017120000_daily_report_bundle.sql` を適用する。
+2. 上のログインロールと、GitHub の二つの secret を作る。
+3. `asc-daily-report` を配備する。この時点では Actions は投稿しない。確定した日は予約されるだけ。
+4. 手動の `workflow_dispatch` で 1 日分を確認する。
+5. 問題がなければ `.github/workflows/daily-report-pdf.yml` の `on` に、日本時間 6:00〜23:30 の 30 分おきになる cron を足す。
+
+すでに速報または集客として投稿した日は、新しい投稿表には無い。確定していれば、新しい 1 本として 1 回出る。出したくない日は、配備の前に `kpi.daily_report_delivery` へその日を `posted` で入れておく。
+
+```sh
+deno test --allow-env --config supabase/functions/deno.json supabase/functions/asc_daily_report_test.ts
+python3 -m unittest test_report_pdf.py
+```
+
+後者は `tools/daily_report` で実行する。
+
 ## 利用者チェックポイントの Slack 通知
 
 `userlog-notify` が Slack に出すのは次の 6 種類だけ。

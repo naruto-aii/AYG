@@ -82,6 +82,8 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 登録は `login_result` の `is_new_account` を見ない。`auth.users.created_at` が見出しの期間に入り、`auth.users.deleted_at` と `public.users.deleted_at` が空で、匿名でなく、`kpi.excluded_user_ids` と `kpi.excluded_install_ids` に入らないアカウントを数える。`public.profiles` には作成時刻の列が無く、`updated_at` だけなので使わない。
 
+Siri の回数は `siri_request_started`、人数は `siri_request_started` / `siri_prompt` / `siri_request_finished` / `siri_open_search` の人です。同じ操作の聞き返し・完了・アプリで続けた記録は回数に足しません。`siri_registration_imported` は起動のたびに残るので数えません。ウィジェットの回数は `widget_tap` です。`widget_registration_imported` は、その窓にタップが無いときだけ足します。`widget_presence` と `widget_config_saved` は数えません。検索は `food_search` と `exercise_search` を、2秒以内に続いた別の結果源なら1回にまとめます。セッションは `session_start` だけで、バックグラウンドでは増えません。利用時間は、同じセッションの `session_end` のうちいちばん長い秒数だけです。
+
 PDF と Slack への投稿は GitHub Actions `daily-report-pdf` が行う。このワークフローに schedule は付けていない。Actions はデータベースへつながない。関数の `op=outbox` をヘッダ `x-daily-report-secret` で読み、PDF を作って `files.getUploadURLExternal` と `files.completeUploadExternal` で出す。`initial_comment` がまとめのテキスト。投稿のあと `op=finish` で印を付ける。印が無いと 30 分後に同じ日がもう一度出る。channel id は `SLACK_DAILY_REPORT_CHANNEL_ID` から読む。
 
 この変更では関数の配備、マイグレーションの適用、スケジュールの有効化、Slack への投稿、秘密の登録はしない。

@@ -165,10 +165,14 @@ Deno.test("除外した人と端末は初回起動・登録・トライアルに
     event("paywall_open", "u-boss", "i-boss", "2026-10-15T17:10:00.000Z", {}),
     event("session_start", "u-keep", "i-keep", "2026-10-15T18:00:00.000Z", {}),
     event("session_end", "u-keep", "i-keep", "2026-10-15T18:30:00.000Z", { duration_seconds: 90 }),
-    event("food_search", "u-keep", "i-keep", "2026-10-15T19:00:00.000Z", {}),
+    event("food_search", "u-keep", "i-keep", "2026-10-15T19:00:00.000Z", { source: "saved_food" }),
     event("siri_registration_imported", "u-keep", "i-keep", "2026-10-15T19:10:00.000Z", {}),
+    event("siri_request_started", "u-keep", "i-keep", "2026-10-15T19:11:00.000Z", {}),
+    event("siri_prompt", "u-keep", "i-keep", "2026-10-15T19:11:05.000Z", {}),
+    event("siri_request_finished", "u-keep", "i-keep", "2026-10-15T19:11:20.000Z", { status: "registered" }),
     event("widget_presence", "u-keep", "i-keep", "2026-10-15T19:20:00.000Z", {}),
     event("widget_tap", "u-keep", "i-keep", "2026-10-15T19:30:00.000Z", {}),
+    event("widget_registration_imported", "u-keep", "i-keep", "2026-10-15T19:40:00.000Z", {}),
     event("food_entry_added", "u-boss", "i-boss", "2026-10-14T01:00:00.000Z", {}),
   ];
   const notices: TrialNotice[] = [
@@ -206,8 +210,88 @@ Deno.test("除外した人と端末は初回起動・登録・トライアルに
   assertEquals(counted.sessions, 1);
   assertEquals(counted.sessionDurationSeconds, 90);
   assertEquals(counted.searches, 1);
+  assertEquals(counted.searchUsers, 1);
   assertEquals(counted.siriUses, 1);
+  assertEquals(counted.siriUsers, 1);
   assertEquals(counted.widgetUses, 1);
+  assertEquals(counted.widgetUsers, 1);
+});
+
+Deno.test("検索の同時イベント、Siri の同一操作、セッションの累計は1回にまとめる", () => {
+  const start = new Date("2026-10-16T07:00:00.000Z");
+  const end = new Date("2026-10-17T07:00:00.000Z");
+  const events: ActivityEvent[] = [
+    event("food_search", "u-a", "i-a", "2026-10-16T08:00:00.000Z", { source: "saved_food" }),
+    event("food_search", "u-a", "i-a", "2026-10-16T08:00:00.200Z", { source: "official_food" }),
+    event("food_search", "u-a", "i-a", "2026-10-16T08:00:00.400Z", { source: "public_food" }),
+    event("food_search", "u-a", "i-a", "2026-10-16T08:00:01.000Z", { source: "saved_food" }),
+    event("food_search", "u-b", "i-b", "2026-10-16T09:00:00.000Z", { source: "official_food" }),
+    event("exercise_search", "u-a", "i-a", "2026-10-16T10:00:00.000Z", { source: "saved_exercise" }),
+    event("siri_request_started", "u-a", "i-a", "2026-10-16T11:00:00.000Z", {}),
+    event("siri_prompt", "u-a", "i-a", "2026-10-16T11:00:03.000Z", {}),
+    event("siri_request_finished", "u-a", "i-a", "2026-10-16T11:00:10.000Z", { status: "registered" }),
+    event("siri_open_search", "u-a", "i-a", "2026-10-16T11:02:00.000Z", { reason: "continue" }),
+    event("siri_registration_imported", "u-a", "i-a", "2026-10-16T11:03:00.000Z", {}),
+    event("siri_prompt", "u-c", "i-c", "2026-10-16T12:00:00.000Z", {}),
+    event("widget_presence", "u-a", "i-a", "2026-10-16T12:00:00.000Z", {}),
+    event("widget_config_saved", "u-a", "i-a", "2026-10-16T12:01:00.000Z", {}),
+    event("widget_tap", "u-a", "i-a", "2026-10-16T12:02:00.000Z", {}),
+    event("widget_tap", "u-a", "i-a", "2026-10-16T12:03:00.000Z", {}),
+    event("widget_registration_imported", "u-a", "i-a", "2026-10-16T12:10:00.000Z", {}),
+    event("widget_registration_imported", "u-d", "i-d", "2026-10-16T13:00:00.000Z", {}),
+    event("app_background", "u-a", "i-a", "2026-10-16T14:00:00.000Z", {}),
+    event("session_start", "u-a", "i-a", "2026-10-16T08:00:00.000Z", {}),
+    event("session_end", "u-a", "i-a", "2026-10-16T08:10:00.000Z", { duration_seconds: 30 }),
+    event("session_end", "u-a", "i-a", "2026-10-16T08:40:00.000Z", { duration_seconds: 90 }),
+    event("session_start", "u-a", "i-a", "2026-10-16T15:00:00.000Z", {}),
+    event("session_end", "u-a", "i-a", "2026-10-16T15:05:00.000Z", { duration_seconds: 10 }),
+    event("session_end", "u-a", "i-a", "2026-10-16T15:20:00.000Z", { duration_seconds: 40 }),
+  ];
+  const counted = countAppActivity({
+    events,
+    notices: [],
+    accounts: [],
+    onboardingCompleteUsers: new Set(),
+    excludedUserIds: [],
+    excludedInstallIds: [],
+    start,
+    end,
+  });
+  assertEquals(counted.searches, 4);
+  assertEquals(counted.searchUsers, 2);
+  assertEquals(counted.siriUses, 2);
+  assertEquals(counted.siriUsers, 2);
+  assertEquals(counted.widgetUses, 3);
+  assertEquals(counted.widgetUsers, 2);
+  assertEquals(counted.sessions, 2);
+  assertEquals(counted.sessionDurationSeconds, 130);
+});
+
+Deno.test("表は検索と Siri とウィジェットを回数と人数に分ける", () => {
+  const rows = metricRows(view({
+    activity: {
+      ...emptyActivity(),
+      searches: 4,
+      searchUsers: 2,
+      siriUses: 1,
+      siriUsers: 1,
+      widgetUses: 20,
+      widgetUsers: 1,
+    },
+  }));
+  const today = (metric: string) => rows.find((row) => row.metric === metric)?.today;
+  assertEquals(today("検索（回数）"), "4");
+  assertEquals(today("検索（人数）"), "2");
+  assertEquals(today("Siri（回数）"), "1");
+  assertEquals(today("Siri（人数）"), "1");
+  assertEquals(today("ウィジェット（回数）"), "20");
+  assertEquals(today("ウィジェット（人数）"), "1");
+  const notes = reportNotes(view({})).join("\n");
+  assertEquals(notes.includes("siri_request_started"), true);
+  assertEquals(notes.includes("siri_registration_imported"), true);
+  assertEquals(notes.includes("widget_tap"), true);
+  assertEquals(notes.includes("widget_presence"), true);
+  assertEquals(notes.includes("session_start"), true);
 });
 
 Deno.test("同じ日付の投稿済みは、中身が変わった訂正期間だけ取り直す", () => {
@@ -288,8 +372,11 @@ function emptyActivity(): AppActivity {
     sessions: 0,
     sessionDurationSeconds: 0,
     searches: 0,
+    searchUsers: 0,
     siriUses: 0,
+    siriUsers: 0,
     widgetUses: 0,
+    widgetUsers: 0,
   };
 }
 

@@ -49,8 +49,11 @@ create table kpi.app_activity_daily (
   sessions integer not null,
   session_duration_seconds bigint not null,
   searches integer not null,
+  search_users integer not null,
   siri_uses integer not null,
+  siri_users integer not null,
   widget_uses integer not null,
+  widget_users integer not null,
   fetched_at timestamptz not null default pg_catalog.now()
 );
 
@@ -94,7 +97,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  with events as (
+  with recursive events as (
     select event_name, occurred_at, user_id, install_id, props
     from kpi.app_events
     where occurred_at < p_end
@@ -129,6 +132,105 @@ as $$
     where event_name = 'food_entry_added'
       and user_id is not null
     group by user_id
+  ),
+  search_ordered as (
+    select event_name,
+      coalesce(user_id::text, install_id::text) as actor,
+      occurred_at,
+      coalesce(props->>'source', '') as source,
+      row_number() over (
+        partition by event_name, coalesce(user_id::text, install_id::text)
+        order by occurred_at, coalesce(props->>'source', '')
+      ) as n
+    from events
+    where event_name in ('food_search', 'exercise_search')
+      and occurred_at >= p_start
+      and coalesce(user_id::text, install_id::text) is not null
+  ),
+  search_walk as (
+    select event_name, actor, n, occurred_at, source, 1 as search_id, array[source]::text[] as open_sources
+    from search_ordered
+    where n = 1
+    union all
+    select o.event_name, o.actor, o.n, o.occurred_at, o.source,
+      case
+        when o.occurred_at - w.occurred_at > interval '2 seconds' or o.source = any (w.open_sources)
+        then w.search_id + 1
+        else w.search_id
+      end,
+      case
+        when o.occurred_at - w.occurred_at > interval '2 seconds' or o.source = any (w.open_sources)
+        then array[o.source]::text[]
+        else w.open_sources || o.source
+      end
+    from search_ordered o
+    join search_walk w
+      on w.event_name = o.event_name and w.actor = o.actor and o.n = w.n + 1
+  ),
+  session_timeline as (
+    select
+      coalesce(user_id::text, install_id::text) as actor,
+      occurred_at,
+      event_name,
+      case
+        when event_name = 'session_end'
+          and occurred_at >= p_start
+          and (props->>'duration_seconds') ~ '^[0-9]+(\.[0-9]+)?$'
+        then (props->>'duration_seconds')::numeric
+        else null
+      end as duration
+    from events
+    where event_name in ('session_start', 'session_end')
+      and coalesce(user_id::text, install_id::text) is not null
+  ),
+  session_span as (
+    select actor, duration,
+      sum(case when event_name = 'session_start' then 1 else 0 end) over (
+        partition by actor
+        order by occurred_at, case when event_name = 'session_start' then 0 else 1 end
+      ) as seq
+    from session_timeline
+  ),
+  siri_ordered as (
+    select coalesce(user_id::text, install_id::text) as actor,
+      event_name,
+      occurred_at,
+      row_number() over (
+        partition by coalesce(user_id::text, install_id::text)
+        order by occurred_at, event_name
+      ) as n
+    from events
+    where occurred_at >= p_start
+      and event_name in (
+        'siri_request_started', 'siri_prompt', 'siri_request_finished', 'siri_open_search'
+      )
+      and coalesce(user_id::text, install_id::text) is not null
+  ),
+  siri_walk as (
+    select actor, n, occurred_at, 1 as uses, true as request_open
+    from siri_ordered
+    where n = 1
+    union all
+    select o.actor, o.n, o.occurred_at,
+      w.uses + case
+        when o.occurred_at - w.occurred_at > interval '30 minutes' then 1
+        when o.event_name = 'siri_request_started' then 1
+        when not w.request_open then 1
+        else 0
+      end,
+      true as request_open
+    from siri_ordered o
+    join siri_walk w on w.actor = o.actor and o.n = w.n + 1
+  ),
+  widget_actor as (
+    select coalesce(user_id::text, install_id::text) as actor,
+      count(*) filter (where event_name = 'widget_tap') as taps,
+      count(*) filter (where event_name = 'widget_registration_imported') as imports
+    from events
+    where occurred_at >= p_start
+      and event_name in ('widget_tap', 'widget_registration_imported')
+      and coalesce(user_id::text, install_id::text) is not null
+    group by 1
   )
   select pg_catalog.jsonb_build_object(
     'first_opens', (select count(*) from opens),
@@ -205,26 +307,42 @@ as $$
       where event_name = 'session_start' and occurred_at >= p_start
     ),
     'session_duration_seconds', (
-      select coalesce(pg_catalog.round(sum((props->>'duration_seconds')::numeric)), 0)::bigint
-      from events
-      where event_name = 'session_end'
-        and occurred_at >= p_start
-        and (props->>'duration_seconds') ~ '^[0-9]+(\.[0-9]+)?$'
+      select coalesce(pg_catalog.round(sum(max_duration)), 0)::bigint
+      from (
+        select max(duration) as max_duration
+        from session_span
+        where duration is not null
+        group by actor, seq
+      ) per_session
     ),
     'searches', (
-      select count(*) from events
-      where event_name in ('food_search', 'exercise_search')
-        and occurred_at >= p_start
+      select coalesce(sum(search_id), 0)::bigint
+      from (
+        select max(search_id) as search_id
+        from search_walk
+        group by event_name, actor
+      ) per_actor
+    ),
+    'search_users', (
+      select count(distinct actor) from search_ordered
     ),
     'siri_uses', (
-      select count(*) from events
-      where event_name in ('siri_request_started', 'siri_registration_imported', 'siri_open_search')
-        and occurred_at >= p_start
+      select coalesce(sum(uses), 0)::bigint
+      from (
+        select distinct on (actor) uses
+        from siri_walk
+        order by actor, n desc
+      ) per_actor
+    ),
+    'siri_users', (
+      select count(distinct actor) from siri_ordered
     ),
     'widget_uses', (
-      select count(*) from events
-      where event_name in ('widget_tap', 'widget_registration_imported')
-        and occurred_at >= p_start
+      select coalesce(sum(taps + case when taps = 0 then imports else 0 end), 0)::bigint
+      from widget_actor
+    ),
+    'widget_users', (
+      select count(*) from widget_actor
     )
   );
 $$;
@@ -449,7 +567,8 @@ begin
       data_date, window_start, window_end,
       first_opens, first_opens_asa, first_opens_other, first_opens_unknown,
       registrations, onboarding_completes, first_meals, paywall_openers, trial_starts,
-      sessions, session_duration_seconds, searches, siri_uses, widget_uses, fetched_at
+      sessions, session_duration_seconds, searches, search_users, siri_uses, siri_users,
+      widget_uses, widget_users, fetched_at
     ) values (
       v_date,
       (p_body->>'window_start')::timestamptz,
@@ -466,8 +585,11 @@ begin
       (p_body->>'sessions')::integer,
       (p_body->>'session_duration_seconds')::bigint,
       (p_body->>'searches')::integer,
+      (p_body->>'search_users')::integer,
       (p_body->>'siri_uses')::integer,
+      (p_body->>'siri_users')::integer,
       (p_body->>'widget_uses')::integer,
+      (p_body->>'widget_users')::integer,
       pg_catalog.now()
     )
     on conflict (data_date) do update
@@ -485,8 +607,11 @@ begin
           sessions = excluded.sessions,
           session_duration_seconds = excluded.session_duration_seconds,
           searches = excluded.searches,
+          search_users = excluded.search_users,
           siri_uses = excluded.siri_uses,
+          siri_users = excluded.siri_users,
           widget_uses = excluded.widget_uses,
+          widget_users = excluded.widget_users,
           fetched_at = pg_catalog.now();
     return pg_catalog.jsonb_build_object('ok', true);
   end if;
@@ -586,8 +711,11 @@ begin
           'sessions', sessions,
           'session_duration_seconds', session_duration_seconds,
           'searches', searches,
+          'search_users', search_users,
           'siri_uses', siri_uses,
-          'widget_uses', widget_uses
+          'siri_users', siri_users,
+          'widget_uses', widget_uses,
+          'widget_users', widget_users
         ) order by data_date)
         from kpi.app_activity_daily
         where data_date between (p_body->>'from')::date and (p_body->>'to')::date

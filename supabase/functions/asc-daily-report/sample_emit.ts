@@ -1,5 +1,6 @@
 // 見本の文面。本番の整形と同じ関数を使う。投稿はしない。
-// 数字は 2026-10-17 時点の保存済み集計。個人は含まない。
+// 数字は 2026-10-17 時点の集計。個人は含まない。
+// 検索・Siri・ウィジェット・利用時間は、その日の kpi.app_events を件数だけ数えた。
 import { formatCombinedMessage, reportPayload, type AppActivity, type CombinedView, type CountPoint, type TrendDay } from "./metrics.ts";
 
 const pending = (): CountPoint => ({ state: "pending", value: null });
@@ -18,8 +19,11 @@ type Day = {
   sessions: number;
   duration: number;
   searches: number;
+  searchUsers: number;
   siri: number;
+  siriUsers: number;
   widget: number;
+  widgetUsers: number;
   newDownloads: number | null;
   redownloads: number | null;
   impressions: number | null;
@@ -40,8 +44,11 @@ function quiet(date: string): Day {
     sessions: 0,
     duration: 0,
     searches: 0,
+    searchUsers: 0,
     siri: 0,
+    siriUsers: 0,
     widget: 0,
+    widgetUsers: 0,
     newDownloads: null,
     redownloads: null,
     impressions: null,
@@ -60,9 +67,11 @@ const measured: Day[] = [
     paywall: 2,
     trials: 1,
     sessions: 7,
-    duration: 21120,
-    searches: 51,
-    siri: 41,
+    duration: 4576,
+    searches: 17,
+    searchUsers: 2,
+    siri: 0,
+    siriUsers: 0,
     impressions: 7,
     pageViews: 11,
   },
@@ -74,9 +83,11 @@ const measured: Day[] = [
     meals: 2,
     paywall: 3,
     sessions: 23,
-    duration: 19015,
-    searches: 150,
-    siri: 76,
+    duration: 8616,
+    searches: 50,
+    searchUsers: 3,
+    siri: 0,
+    siriUsers: 0,
     newDownloads: 14,
     redownloads: 2,
   },
@@ -91,10 +102,13 @@ const measured: Day[] = [
     paywall: 20,
     trials: 1,
     sessions: 75,
-    duration: 45791,
-    searches: 1081,
-    siri: 183,
+    duration: 17797,
+    searches: 373,
+    searchUsers: 20,
+    siri: 1,
+    siriUsers: 1,
     widget: 20,
+    widgetUsers: 1,
   },
 ];
 
@@ -121,8 +135,11 @@ function activityOf(day: Day): AppActivity {
     sessions: day.sessions,
     sessionDurationSeconds: day.duration,
     searches: day.searches,
+    searchUsers: day.searchUsers,
     siriUses: day.siri,
+    siriUsers: day.siriUsers,
     widgetUses: day.widget,
+    widgetUsers: day.widgetUsers,
   };
 }
 

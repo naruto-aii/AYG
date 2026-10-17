@@ -153,7 +153,7 @@ def _charts(pdf: PdfPages, series: list[dict]) -> None:
 
     figure, axes = plt.subplots(2, 1, figsize=(8.27, 11.69))
     figure.patch.set_facecolor(PAPER)
-    figure.subplots_adjust(left=0.1, right=0.9, top=0.93, bottom=0.08, hspace=0.38)
+    figure.subplots_adjust(left=0.1, right=0.8, top=0.93, bottom=0.08, hspace=0.38)
     _acquisition(axes[0], labels, series)
     _sessions(axes[1], labels, series)
     pdf.savefig(figure)

@@ -524,8 +524,11 @@ function activityBody(row: AppActivity): Record<string, unknown> {
     sessions: row.sessions,
     session_duration_seconds: row.sessionDurationSeconds,
     searches: row.searches,
+    search_users: row.searchUsers,
     siri_uses: row.siriUses,
+    siri_users: row.siriUsers,
     widget_uses: row.widgetUses,
+    widget_users: row.widgetUsers,
   };
 }
 
@@ -544,8 +547,11 @@ function activityFrom(value: unknown): AppActivity {
     sessions: asNumber(row.sessions),
     sessionDurationSeconds: asNumber(row.session_duration_seconds),
     searches: asNumber(row.searches),
+    searchUsers: asNumber(row.search_users),
     siriUses: asNumber(row.siri_uses),
+    siriUsers: asNumber(row.siri_users),
     widgetUses: asNumber(row.widget_uses),
+    widgetUsers: asNumber(row.widget_users),
   };
 }
 

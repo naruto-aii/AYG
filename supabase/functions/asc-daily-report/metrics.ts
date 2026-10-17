@@ -214,8 +214,11 @@ export type AppActivity = {
   sessions: number;
   sessionDurationSeconds: number;
   searches: number;
+  searchUsers: number;
   siriUses: number;
+  siriUsers: number;
   widgetUses: number;
+  widgetUsers: number;
 };
 
 function inWindow(iso: string, startMs: number, endMs: number): boolean {
@@ -337,15 +340,12 @@ export function countAppActivity(input: {
     if (!inWindow(notice.signedAt, startMs, endMs)) continue;
     trials.add(notice.originalTransactionId || notice.notificationUuid);
   }
-  let sessionDurationSeconds = 0;
-  for (const event of events) {
-    if (event.name !== "session_end" || !inWindow(event.occurredAt, startMs, endMs)) continue;
-    const raw = event.props.duration_seconds;
-    const value = typeof raw === "number" ? raw : Number(raw);
-    if (Number.isFinite(value) && value >= 0) sessionDurationSeconds += value;
-  }
   const countName = (names: readonly string[]) =>
     events.filter((event) => names.includes(event.name) && inWindow(event.occurredAt, startMs, endMs)).length;
+  const foodSearches = countClusteredSearches(events, "food_search", startMs, endMs);
+  const exerciseSearches = countClusteredSearches(events, "exercise_search", startMs, endMs);
+  const siri = countSiriUsage(events, startMs, endMs);
+  const widget = countWidgetUsage(events, startMs, endMs);
   return {
     firstOpens: opens.length,
     firstOpensAsa: asa,
@@ -357,11 +357,156 @@ export function countAppActivity(input: {
     paywallOpeners: paywallOpeners.size,
     trialStarts: trials.size,
     sessions: countName(["session_start"]),
-    sessionDurationSeconds: Math.round(sessionDurationSeconds),
-    searches: countName(["food_search", "exercise_search"]),
-    siriUses: countName(["siri_request_started", "siri_registration_imported", "siri_open_search"]),
-    widgetUses: countName(["widget_tap", "widget_registration_imported"]),
+    sessionDurationSeconds: sessionDurationSeconds(events, startMs, endMs),
+    searches: foodSearches.uses + exerciseSearches.uses,
+    searchUsers: new Set([...foodSearches.users, ...exerciseSearches.users]).size,
+    siriUses: siri.uses,
+    siriUsers: siri.users,
+    widgetUses: widget.uses,
+    widgetUsers: widget.users,
   };
+}
+
+/// 食品検索は保存・公式・みんなの食品が同時に出る。2秒以内の別ソースは1回。
+const searchClusterGapMs = 2000;
+/// 同じ Siri 操作の完了から、アプリで続けるまでの間隔。
+const siriRequestGapMs = 30 * 60 * 1000;
+
+function actorKey(event: ActivityEvent): string | null {
+  if (event.userId) return `user:${event.userId}`;
+  if (event.installId) return `install:${event.installId}`;
+  return null;
+}
+
+function durationSeconds(props: Record<string, unknown>): number | null {
+  const raw = props.duration_seconds;
+  const value = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(value) || value < 0) return null;
+  return value;
+}
+
+/// session_end の秒数はセッション開始からの累計。バックグラウンドのたびに増えるので、同じセッションは最大だけ。
+function sessionDurationSeconds(events: ActivityEvent[], startMs: number, endMs: number): number {
+  const byActor = new Map<string, Array<{ at: number; start: boolean; duration: number | null }>>();
+  for (const event of events) {
+    if (event.name !== "session_start" && event.name !== "session_end") continue;
+    const actor = actorKey(event);
+    if (!actor) continue;
+    const at = Date.parse(event.occurredAt);
+    if (Number.isNaN(at) || at >= endMs) continue;
+    const row = byActor.get(actor) ?? [];
+    row.push({
+      at,
+      start: event.name === "session_start",
+      duration: event.name === "session_end" ? durationSeconds(event.props) : null,
+    });
+    byActor.set(actor, row);
+  }
+  let total = 0;
+  for (const rows of byActor.values()) {
+    rows.sort((left, right) => left.at - right.at || Number(right.start) - Number(left.start));
+    let seq = 0;
+    const maxBySeq = new Map<number, number>();
+    for (const row of rows) {
+      if (row.start) {
+        seq += 1;
+        continue;
+      }
+      if (row.at < startMs || row.duration == null) continue;
+      const current = maxBySeq.get(seq) ?? 0;
+      if (row.duration > current) maxBySeq.set(seq, row.duration);
+    }
+    for (const value of maxBySeq.values()) total += value;
+  }
+  return Math.round(total);
+}
+
+function countClusteredSearches(
+  events: ActivityEvent[],
+  name: string,
+  startMs: number,
+  endMs: number,
+): { uses: number; users: Set<string> } {
+  const byActor = new Map<string, ActivityEvent[]>();
+  const users = new Set<string>();
+  for (const event of events) {
+    if (event.name !== name || !inWindow(event.occurredAt, startMs, endMs)) continue;
+    const actor = actorKey(event);
+    if (!actor) continue;
+    users.add(actor);
+    const list = byActor.get(actor) ?? [];
+    list.push(event);
+    byActor.set(actor, list);
+  }
+  let uses = 0;
+  for (const list of byActor.values()) {
+    list.sort((left, right) => {
+      const gap = Date.parse(left.occurredAt) - Date.parse(right.occurredAt);
+      if (gap !== 0) return gap;
+      return String(left.props.source ?? "").localeCompare(String(right.props.source ?? ""));
+    });
+    let open = new Set<string>();
+    let last = Number.NEGATIVE_INFINITY;
+    for (const event of list) {
+      const at = Date.parse(event.occurredAt);
+      const source = String(event.props.source ?? "");
+      if (open.size === 0 || at - last > searchClusterGapMs || open.has(source)) {
+        uses += 1;
+        open = new Set([source]);
+      } else {
+        open.add(source);
+      }
+      last = at;
+    }
+  }
+  return { uses, users };
+}
+
+function countSiriUsage(events: ActivityEvent[], startMs: number, endMs: number): { uses: number; users: number } {
+  const names = new Set(["siri_request_started", "siri_prompt", "siri_request_finished", "siri_open_search"]);
+  const byActor = new Map<string, ActivityEvent[]>();
+  for (const event of events) {
+    if (!names.has(event.name) || !inWindow(event.occurredAt, startMs, endMs)) continue;
+    const actor = actorKey(event);
+    if (!actor) continue;
+    const list = byActor.get(actor) ?? [];
+    list.push(event);
+    byActor.set(actor, list);
+  }
+  let uses = 0;
+  for (const list of byActor.values()) {
+    list.sort((left, right) => Date.parse(left.occurredAt) - Date.parse(right.occurredAt));
+    let open = false;
+    let last = Number.NEGATIVE_INFINITY;
+    for (const event of list) {
+      const at = Date.parse(event.occurredAt);
+      if (at - last > siriRequestGapMs) open = false;
+      const startsRequest = event.name === "siri_request_started" || !open;
+      if (startsRequest) uses += 1;
+      open = true;
+      last = at;
+    }
+  }
+  return { uses, users: byActor.size };
+}
+
+function countWidgetUsage(events: ActivityEvent[], startMs: number, endMs: number): { uses: number; users: number } {
+  const taps = new Map<string, number>();
+  const imports = new Map<string, number>();
+  for (const event of events) {
+    if (!inWindow(event.occurredAt, startMs, endMs)) continue;
+    const actor = actorKey(event);
+    if (!actor) continue;
+    if (event.name === "widget_tap") taps.set(actor, (taps.get(actor) ?? 0) + 1);
+    if (event.name === "widget_registration_imported") imports.set(actor, (imports.get(actor) ?? 0) + 1);
+  }
+  let uses = 0;
+  for (const count of taps.values()) uses += count;
+  for (const [actor, count] of imports) {
+    if (!taps.has(actor)) uses += count;
+  }
+  const users = new Set([...taps.keys(), ...imports.keys()]);
+  return { uses, users: users.size };
 }
 
 export type CountPoint = { state: MetricState; value: number | null };
@@ -549,7 +694,12 @@ export function reportNotes(view: CombinedView): string[] {
     "利用端末数は行ごとの合計です。同じ端末が複数行にあると重なります。",
     "トライアル開始はストア通知の無料トライアルだけです。アプリの購入成功は使いません。",
     "本文のない星だけの評価は API に含まれません。レビューの日付は日本時間の暦日です。",
-    "利用時間は session_end に記録された秒数の合計です。",
+    "セッションは session_start だけで、バックグラウンドでは増えません。",
+    "利用時間は、同じセッションの session_end でいちばん長い秒数だけを足します。",
+    "検索は food_search と exercise_search を、2秒以内の別の結果源なら1回にまとめます。",
+    "Siriの回数は siri_request_started です。siri_prompt と siri_request_finished と siri_open_search は同じ操作なので足しません。",
+    "siri_registration_imported と widget_presence は起動のたびなので数えません。ウィジェットの回数は widget_tap です。",
+    "タップが無いときだけ widget_registration_imported を足します。人数は、その操作をした人です。",
   ];
   if (view.nonJpyCustomerRows > 0) {
     notes.push(`円以外の顧客通貨の行が ${view.nonJpyCustomerRows.toLocaleString("en-US")} 件あります。円にはしていません。`);
@@ -644,9 +794,12 @@ export function metricRows(view: CombinedView): MetricRow[] {
       durationDelta(activity.sessionDurationSeconds, previous?.sessionDurationSeconds ?? null),
       durationDelta(activity.sessionDurationSeconds, week?.sessionDurationSeconds ?? null),
     ),
-    countRow("アプリ内", "検索", activity.searches, previous?.searches ?? null, week?.searches ?? null),
-    countRow("アプリ内", "Siri", activity.siriUses, previous?.siriUses ?? null, week?.siriUses ?? null),
-    countRow("アプリ内", "ウィジェット", activity.widgetUses, previous?.widgetUses ?? null, week?.widgetUses ?? null),
+    countRow("アプリ内", "検索（回数）", activity.searches, previous?.searches ?? null, week?.searches ?? null),
+    countRow("アプリ内", "検索（人数）", activity.searchUsers, previous?.searchUsers ?? null, week?.searchUsers ?? null),
+    countRow("アプリ内", "Siri（回数）", activity.siriUses, previous?.siriUses ?? null, week?.siriUses ?? null),
+    countRow("アプリ内", "Siri（人数）", activity.siriUsers, previous?.siriUsers ?? null, week?.siriUsers ?? null),
+    countRow("アプリ内", "ウィジェット（回数）", activity.widgetUses, previous?.widgetUses ?? null, week?.widgetUses ?? null),
+    countRow("アプリ内", "ウィジェット（人数）", activity.widgetUsers, previous?.widgetUsers ?? null, week?.widgetUsers ?? null),
   ];
 }
 

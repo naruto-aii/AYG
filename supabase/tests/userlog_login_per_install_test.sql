@@ -2,7 +2,7 @@
 
 begin;
 
-select plan(28);
+select plan(40);
 
 select hasnt_trigger(
   'auth',
@@ -11,33 +11,33 @@ select hasnt_trigger(
   'auth.sessions has no userlog trigger'
 );
 
-select has_trigger(
+select hasnt_trigger(
   'public',
   'app_events',
   'userlog_app_events_login_insert',
-  'app_events has the install login trigger'
+  'app_events has no login trigger'
 );
 
 select ok(
   (
-    select pg_get_triggerdef(t.oid) ilike '%for each statement%'
-      and pg_get_triggerdef(t.oid) ilike '%referencing new table%'
+    select pg_get_triggerdef(t.oid) ilike '%onboarding_complete%'
+      and pg_get_triggerdef(t.oid) not ilike '%app_install_first_open%'
     from pg_trigger t
     join pg_class c on c.oid = t.tgrelid
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public'
       and c.relname = 'app_events'
-      and t.tgname = 'userlog_app_events_login_insert'
+      and t.tgname = 'userlog_app_events_insert'
       and not t.tgisinternal
   ),
-  'login trigger reads one insert as a batch'
+  'app_events notifies registration only'
 );
 
 select has_trigger(
   'public',
   'app_events',
   'userlog_app_events_insert',
-  'install and onboarding trigger remains'
+  'registration trigger remains'
 );
 
 do $pair$
@@ -71,8 +71,8 @@ select is(
       and body ->> 'user_id' = 'a1111111-1111-4111-8111-111111111111'
       and body ->> 'source_id' = 'b1111111-1111-4111-8111-111111111111'
   ),
-  1,
-  'the same user and install notifies once'
+  0,
+  'app_open does not notify'
 );
 
 do $new_install$
@@ -96,8 +96,8 @@ select is(
       and body ->> 'user_id' = 'a1111111-1111-4111-8111-111111111111'
       and body ->> 'source_id' = 'b2222222-2222-4222-8222-222222222222'
   ),
-  1,
-  'a new install id notifies'
+  0,
+  'another install id does not notify'
 );
 
 select is(
@@ -108,8 +108,8 @@ select is(
       and body ->> 'user_id' = 'a1111111-1111-4111-8111-111111111111'
       and body ->> 'source_id' = 'b1111111-1111-4111-8111-111111111111'
   ),
-  1,
-  'the first install was not notified again'
+  0,
+  'the first install was not notified'
 );
 
 do $other_user$
@@ -133,8 +133,8 @@ select is(
       and body ->> 'user_id' = 'a9999999-9999-4999-8999-999999999999'
       and body ->> 'source_id' = 'b1111111-1111-4111-8111-111111111111'
   ),
-  1,
-  'another user on the same install notifies once'
+  0,
+  'another user on the same install does not notify'
 );
 
 do $batch_same$
@@ -173,8 +173,8 @@ select is(
       and body ->> 'user_id' = 'ab111111-1111-4111-8111-111111111111'
       and body ->> 'source_id' = 'bb111111-1111-4111-8111-111111111111'
   ),
-  1,
-  'one insert with several rows for a new pair notifies once'
+  0,
+  'one insert with several rows does not notify'
 );
 
 do $batch_seen$
@@ -206,8 +206,8 @@ select is(
       and body ->> 'user_id' = 'ab111111-1111-4111-8111-111111111111'
       and body ->> 'source_id' = 'bb111111-1111-4111-8111-111111111111'
   ),
-  1,
-  'a later batch for an already-seen pair does not notify'
+  0,
+  'a later batch does not notify'
 );
 
 do $batch_mixed$
@@ -245,8 +245,8 @@ select is(
     where body ->> 'kind' = 'install_login'
       and body ->> 'user_id' = 'ab222222-2222-4222-8222-222222222222'
   ),
-  2,
-  'one insert with two new pairs notifies twice'
+  0,
+  'one insert with two new pairs does not notify'
 );
 
 do $nulls$
@@ -288,7 +288,6 @@ select is(
 
 do $remap$
 begin
-  alter table public.app_events disable trigger userlog_app_events_login_insert;
   insert into public.app_events (event_id, user_id, event_name, occurred_at, install_id)
   values
     (
@@ -326,7 +325,6 @@ begin
     ('a4444444-4444-4444-8444-444444444444', 'login', 'd3333333-3333-4333-8333-333333333333', 'sent'),
     ('a5555555-5555-4555-8555-555555555555', 'login', 'd4444444-4444-4444-8444-444444444444', 'sent'),
     ('a5555555-5555-4555-8555-555555555555', 'login', 'd5555555-5555-4555-8555-555555555555', 'sent');
-  alter table public.app_events enable trigger userlog_app_events_login_insert;
   perform userlog.remap_login_installs();
 end
 $remap$;
@@ -660,6 +658,176 @@ select lives_ok(
   $sql$,
   'a partitioned table statement trigger sees the whole insert'
 );
+
+do $kept$
+begin
+  delete from public.userlog_test_http_log;
+  update public.userlog_test_mode set fail = false;
+  insert into public.app_events (event_id, user_id, event_name, occurred_at, install_id)
+  values (
+    'c9000000-0000-4000-8000-000000000001',
+    'a9000000-0000-4000-8000-000000000001',
+    'onboarding_complete',
+    timestamptz '2026-10-17 00:00:00+00',
+    'b9000000-0000-4000-8000-000000000001'
+  );
+  insert into public.app_events (event_id, user_id, event_name, occurred_at, install_id)
+  values (
+    'c9000000-0000-4000-8000-000000000002',
+    'a9000000-0000-4000-8000-000000000001',
+    'app_install_first_open',
+    timestamptz '2026-10-17 00:01:00+00',
+    'b9000000-0000-4000-8000-000000000001'
+  );
+  insert into public.store_server_notifications (
+    notification_uuid, notification_type, subtype, verification_status, received_at
+  ) values
+    ('c9000000-0000-4000-8000-000000000011', 'EXPIRED', 'VOLUNTARY', 'verified', timestamptz '2026-10-17 00:02:00+00'),
+    ('c9000000-0000-4000-8000-000000000012', 'REFUND', null, 'verified', timestamptz '2026-10-17 00:03:00+00'),
+    ('c9000000-0000-4000-8000-000000000013', 'DID_RENEW', null, 'verified', timestamptz '2026-10-17 00:04:00+00'),
+    (
+      'c9000000-0000-4000-8000-000000000014',
+      'DID_CHANGE_RENEWAL_STATUS',
+      'AUTO_RENEW_DISABLED',
+      'verified',
+      timestamptz '2026-10-17 00:05:00+00'
+    );
+  insert into public.account_deletion_stats (
+    deleted_on, plus_status, plan, account_age_bucket, deletions
+  ) values ('2026-10-17', 'never', 'none', '0-1d', 1);
+  insert into public.account_deletion_stats (
+    deleted_on, plus_status, plan, account_age_bucket, deletions
+  ) values ('2026-10-17', 'never', 'none', '0-1d', 1)
+  on conflict (deleted_on, plus_status, plan, account_age_bucket)
+  do update set deletions = public.account_deletion_stats.deletions + 1;
+end
+$kept$;
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'kind' = 'app_event'
+      and body ->> 'event_name' = 'onboarding_complete'
+      and body ->> 'source_id' = 'c9000000-0000-4000-8000-000000000001'
+  ),
+  1,
+  'registration notifies once'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'event_name' = 'app_install_first_open'
+  ),
+  0,
+  'install does not notify'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'source_id' = 'c9000000-0000-4000-8000-000000000011'
+  ),
+  0,
+  'expiry does not notify'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'source_id' = 'c9000000-0000-4000-8000-000000000012'
+  ),
+  0,
+  'refund does not notify'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'kind' = 'store'
+      and body ->> 'source_id' = 'c9000000-0000-4000-8000-000000000013'
+  ),
+  1,
+  'a renewal still notifies'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'kind' = 'store'
+      and body ->> 'source_id' = 'c9000000-0000-4000-8000-000000000014'
+  ),
+  1,
+  'auto-renew off still notifies'
+);
+
+select ok(
+  exists (
+    select 1
+    from public.userlog_test_http_log
+    where body ->> 'kind' = 'account_deletion'
+      and body ->> 'plan' = 'none'
+      and body ->> 'account_age_bucket' = '0-1d'
+      and body ->> 'plus_status' = 'never'
+      and body ->> 'deleted_on' = '2026-10-17'
+      and not (body ? 'user_id')
+      and not (body ? 'display_name')
+  ),
+  'a new deletion row notifies without a user id'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.userlog_test_http_log
+    where body ->> 'kind' = 'account_deletion'
+      and body ->> 'account_age_bucket' = '0-1d'
+  ),
+  1,
+  'raising the deletion count does not notify again'
+);
+
+select ok(
+  (
+    select pg_get_constraintdef(oid) like '%''cancel''%'
+      and pg_get_constraintdef(oid) like '%''expired''%'
+      and pg_get_constraintdef(oid) like '%''refund''%'
+      and pg_get_constraintdef(oid) not like '%account_deletion%'
+      and pg_get_constraintdef(oid) not like '%trial_cancel%'
+    from pg_constraint
+    where conname = 'userlog_notifications_sent_type'
+  ),
+  'the sent checkpoint types stay the same'
+);
+
+select is(
+  public.userlog_account_deletion_claim('2026-10-17', 'active', 'calonavi_plus_monthly', '8-30d'),
+  'claimed',
+  'the first deletion claim is taken'
+);
+
+select is(
+  public.userlog_account_deletion_claim('2026-10-17', 'active', 'calonavi_plus_monthly', '8-30d'),
+  'duplicate',
+  'the same deletion is not claimed twice'
+);
+
+set role anon;
+
+select throws_ok(
+  $$select public.userlog_account_deletion_claim('2026-10-18', 'never', 'none', '2-7d')$$,
+  '42501',
+  'permission denied for function userlog_account_deletion_claim',
+  'anon cannot claim a deletion'
+);
+
+reset role;
 
 select * from finish();
 

@@ -112,6 +112,26 @@ async function loadContext(userId: string | null, installId: string | null) {
 }
 
 async function claim(job: NotifyJob): Promise<string> {
+  if (job.checkpointType === "account_deletion") {
+    const key = job.accountDeletion;
+    if (!key) {
+      throw new Error("claim_shape");
+    }
+    const response = await rest("rpc/userlog_account_deletion_claim", {
+      p_deleted_on: key.deletedOn,
+      p_plus_status: key.plusStatus,
+      p_plan: key.plan,
+      p_age_bucket: key.ageBucket,
+    });
+    if (!response.ok) {
+      throw new Error(`claim_${response.status}`);
+    }
+    const value = await response.json();
+    if (typeof value !== "string") {
+      throw new Error("claim_shape");
+    }
+    return value;
+  }
   const response = await rest("rpc/userlog_claim", {
     p_user_id: job.userId,
     p_checkpoint_type: job.checkpointType,
@@ -128,6 +148,24 @@ async function claim(job: NotifyJob): Promise<string> {
 }
 
 async function finish(job: NotifyJob, status: "sent" | "failed", error: string | null): Promise<void> {
+  if (job.checkpointType === "account_deletion") {
+    const key = job.accountDeletion;
+    if (!key) {
+      throw new Error("finish_shape");
+    }
+    const response = await rest("rpc/userlog_account_deletion_finish", {
+      p_deleted_on: key.deletedOn,
+      p_plus_status: key.plusStatus,
+      p_plan: key.plan,
+      p_age_bucket: key.ageBucket,
+      p_status: status,
+      p_error: error,
+    });
+    if (!response.ok) {
+      throw new Error(`finish_${response.status}`);
+    }
+    return;
+  }
   const response = await rest("rpc/userlog_finish", {
     p_user_id: job.userId,
     p_checkpoint_type: job.checkpointType,

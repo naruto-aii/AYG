@@ -40,6 +40,15 @@ create table if not exists public.app_events (
   install_id uuid
 );
 
+create table if not exists public.account_deletion_stats (
+  deleted_on date not null,
+  plus_status text not null,
+  plan text not null,
+  account_age_bucket text not null,
+  deletions integer not null default 0,
+  primary key (deleted_on, plus_status, plan, account_age_bucket)
+);
+
 create table if not exists public.store_server_notifications (
   notification_uuid uuid primary key,
   notification_type text not null,

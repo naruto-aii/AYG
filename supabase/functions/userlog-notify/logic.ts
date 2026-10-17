@@ -14,7 +14,7 @@ export type CheckpointType = typeof checkpointTypes[number];
 const labels: Record<CheckpointType, string> = {
   install: "インストール",
   login: "ログイン",
-  onboarding_complete: "初回登録完了",
+  onboarding_complete: "新規会員登録",
   trial_start: "無料トライアル開始",
   paid_start: "有料開始",
   cancel: "解約",
@@ -23,6 +23,18 @@ const labels: Record<CheckpointType, string> = {
 };
 
 const excludedSuffix = "（集計対象外）";
+
+export const trialCancelLabel = "トライアル解約";
+export const subscriptionCancelLabel = "サブスク解約";
+
+const ageBucketLabels: Record<string, string> = {
+  "0-1d": "0〜1日",
+  "2-7d": "2〜7日",
+  "8-30d": "8〜30日",
+  "31-90d": "31〜90日",
+  "91d+": "91日以上",
+  unknown: "不明",
+};
 
 export type OfferFields = {
   offerType: number | null;
@@ -47,11 +59,15 @@ export type StoreCheckpoint = {
   type: CheckpointType;
   sourceId: string;
   occurredAt: string;
+  slackLabel?: string;
 };
 
-export function checkpointLabel(type: CheckpointType, excluded: boolean): string {
-  const label = labels[type];
+export function withExcluded(label: string, excluded: boolean): string {
   return excluded ? `${label}${excludedSuffix}` : label;
+}
+
+export function checkpointLabel(type: CheckpointType, excluded: boolean): string {
+  return withExcluded(labels[type], excluded);
 }
 
 export function formatMention(raw: string): string {
@@ -116,6 +132,23 @@ export function slackText(input: {
     `表示名: ${safeName(input.displayName)}`,
     `種類: ${input.label}`,
     `時刻: ${formatJst(input.occurredAt)}`,
+  ].join("\n");
+}
+
+export function accountDeletionText(input: {
+  mention: string;
+  plan: string;
+  ageBucket: string;
+  deletedOn: string;
+}): string {
+  const plan = input.plan === "none" ? "なし" : input.plan;
+  const period = ageBucketLabels[input.ageBucket] ?? input.ageBucket;
+  return [
+    input.mention,
+    "種類: アカウント削除",
+    `プラン: ${plan}`,
+    `使った期間: ${period}`,
+    `日付: ${input.deletedOn}`,
   ].join("\n");
 }
 
@@ -219,6 +252,25 @@ export function isCancel(row: Pick<StoreNotice, "notificationType" | "subtype">)
   return row.notificationType === "DID_CHANGE_RENEWAL_STATUS" && row.subtype === "AUTO_RENEW_DISABLED";
 }
 
+export function cancelSlackLabel(current: StoreNotice, history: StoreNotice[]): string {
+  if (!current.originalTransactionId) {
+    return subscriptionCancelLabel;
+  }
+  const related = history.filter((row) => sameTransaction(row, current.originalTransactionId!));
+  const startedAsTrial = related.some((row) =>
+    isInitialBuy(row.notificationType, row.subtype) &&
+    isFreeTrialOffer(readOffer(row)) &&
+    !isEarlier(current, row)
+  );
+  if (!startedAsTrial) {
+    return subscriptionCancelLabel;
+  }
+  const renewedBeforeOff = related.some((row) =>
+    row.notificationType === "DID_RENEW" && isEarlier(row, current)
+  );
+  return renewedBeforeOff ? subscriptionCancelLabel : trialCancelLabel;
+}
+
 export function isScrubbed(row: StoreNotice): boolean {
   return row.verificationStatus === "verified" &&
     row.userId == null &&
@@ -271,13 +323,15 @@ export function classifyStore(current: StoreNotice, history: StoreNotice[]): Sto
   const occurredAt = noticeTime(current);
   const sourceEvent = current.notificationUuid;
   if (isCancel(current)) {
-    return { type: "cancel", sourceId: sourceEvent, occurredAt };
+    return {
+      type: "cancel",
+      sourceId: sourceEvent,
+      occurredAt,
+      slackLabel: cancelSlackLabel(current, history),
+    };
   }
-  if (current.notificationType === "EXPIRED") {
-    return { type: "expired", sourceId: sourceEvent, occurredAt };
-  }
-  if (current.notificationType === "REFUND") {
-    return { type: "refund", sourceId: sourceEvent, occurredAt };
+  if (current.notificationType === "EXPIRED" || current.notificationType === "REFUND") {
+    return null;
   }
   if (isInitialBuy(current.notificationType, current.subtype)) {
     const offer = readOffer(current);

@@ -8,11 +8,11 @@ class AppStrings {
 
   static const appTitle = 'カロナビ';
 
-  /// 有料案内に出す Siri の話し方。この2文だけ。
+  /// 有料案内に出す Siri の話し方。登録できる言い方だけ。この2文だけ。
   static const siriVoiceFoodPhrase =
-      '食事：Hey Siri、カロナビで、食事にささみを300グラム。登録した内容を読み上げます。';
+      '食事：Hey Siri、カロナビで食事を記録。Siriの短い質問に、食べたものと量を答えます。登録した内容を読み上げます。';
   static const siriVoiceExercisePhrase =
-      '運動：Hey Siri、カロナビで、運動にジョギングを30分。「さっきの登録を取り消して」で直前を消せます。';
+      '運動：Hey Siri、カロナビで運動を記録。Siriの短い質問に、した運動と量を答えます。登録した内容を読み上げます。';
   static const siriVoicePaidGuidance =
       '$siriVoiceFoodPhrase\n$siriVoiceExercisePhrase';
 

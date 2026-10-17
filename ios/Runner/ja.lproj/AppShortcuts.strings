@@ -1,0 +1,12 @@
+"${applicationName}で食事を記録" = "${applicationName}で食事を記録";
+"${applicationName}で食事を登録" = "${applicationName}で食事を登録";
+"${applicationName}で運動を記録" = "${applicationName}で運動を記録";
+"${applicationName}で運動を登録" = "${applicationName}で運動を登録";
+"${applicationName}に登録" = "${applicationName}に登録";
+"${applicationName}登録" = "${applicationName}登録";
+"${applicationName}で登録" = "${applicationName}で登録";
+"${applicationName}で記録" = "${applicationName}で記録";
+"${applicationName}で今登録したやつ消して" = "${applicationName}で今登録したやつ消して";
+"${applicationName}でさっきの登録を取り消して" = "${applicationName}でさっきの登録を取り消して";
+"${applicationName}で食事に${food}" = "${applicationName}で食事に${food}";
+"${applicationName}で運動に${activity}" = "${applicationName}で運動に${activity}";

@@ -1,0 +1,13 @@
+{
+  "name": "vp-voice",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node relay/server.mjs",
+    "stage": "node scripts/stage-public.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

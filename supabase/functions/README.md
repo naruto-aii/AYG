@@ -76,6 +76,53 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 9. `20261007112725_kpi_excluded_users.sql` は本番に適用済み。開発者アカウントは日次集計と退会集計から外す。手順 8 のあと。
 10. pg_cron の承認のあと、`20261008090300_app_events_retention_schedule.sql` を適用する。毎日、90 日より古い月を集計してから表ごと消す。手順 8 と 9 は適用済み。
 
+## 日次レポート（テキストと PDF）
+
+`asc-daily-report` は、これまでどおり Apple のファイルを取り、集計だけを保存する。集客と速報は分けて投稿しない。数が確定した日は `kpi.daily_report_snapshot` に文面を入れ、`kpi.daily_report_delivery` で同じ日の二重投稿を止める。予約の 30 分と、失敗したあとの待ちは今の速報と同じ。
+
+登録は `login_result` の `is_new_account` を見ない。`auth.users.created_at` が見出しの期間に入り、`auth.users.deleted_at` と `public.users.deleted_at` が空で、匿名でなく、`kpi.excluded_user_ids` と `kpi.excluded_install_ids` に入らないアカウントを数える。`public.profiles` には作成時刻の列が無く、`updated_at` だけなので使わない。
+
+Siri の回数は `siri_request_started`、人数は `siri_request_started` / `siri_prompt` / `siri_request_finished` / `siri_open_search` の人です。同じ操作の聞き返し・完了・アプリで続けた記録は回数に足しません。`siri_registration_imported` は起動のたびに残るので数えません。ウィジェットの回数は `widget_tap` です。`widget_registration_imported` は、その窓にタップが無いときだけ足します。`widget_presence` と `widget_config_saved` は数えません。検索は `food_search` と `exercise_search` を、2秒以内に続いた別の結果源なら1回にまとめます。セッションは `session_start` だけで、バックグラウンドでは増えません。利用時間は、同じセッションの `session_end` のうちいちばん長い秒数だけです。
+
+PDF と Slack への投稿は GitHub Actions `daily-report-pdf` が行う。`workflow_dispatch` に加え、日本時間 6:00〜23:30 の 30 分おき（UTC `*/30 21-23,0-14 * * *`）で動く。この cron は既定ブランチに入ってから動く。Actions はデータベースへつながない。関数の `op=outbox` をヘッダ `x-daily-report-secret` で読み、PDF を作って `files.getUploadURLExternal` と `files.completeUploadExternal` で出す。`initial_comment` がまとめのテキスト。投稿のあと `op=finish` で印を付ける。印が無いと、予約のままなので次の実行が同じ日を出す。channel id は `SLACK_DAILY_REPORT_CHANNEL_ID` から読む。
+
+数が確定する前は `publishable` が偽で、予約しない。`outbox` は予約中で、文面が確定している日だけ返す。投稿済みで中身が同じ日は、関数が予約しない。
+
+この変更では関数の配備、マイグレーションの適用、Slack への投稿、秘密の登録はしない。
+
+社長の作業はない。データベースのログインロールも接続文字列も作らない。秘密の値は git、チャット、ログに書かない。
+
+VP が配備のときに行う:
+
+1. `20261017120000_daily_report_bundle.sql` を適用する。
+2. `asc-daily-report` を配備する。この時点では Actions は投稿しない。確定した日は予約されるだけ。
+3. 読み取り用の秘密を、値を画面に出さずに Supabase と GitHub の両方へ入れる。ファイルは作ったあと消す。
+
+```sh
+umask 077
+file=$(mktemp)
+trap 'rm -f "$file"' EXIT
+printf 'DAILY_REPORT_READ_SECRET=%s\n' "$(openssl rand -base64 32 | tr -d '\n')" > "$file"
+supabase secrets set --env-file "$file"
+gh secret set DAILY_REPORT_READ_SECRET < <(sed 's/^DAILY_REPORT_READ_SECRET=//' "$file")
+```
+
+`supabase` コマンドが無いときは、先に公式の CLI を入れる。秘密の中身は `echo` しない。SQL にパスワードを渡す方法は、呼び出しの記録に値が残るので使わない。
+
+4. 既存の `#calonavi-daily-report` の channel id をファイルに書き、`gh secret set SLACK_DAILY_REPORT_CHANNEL_ID < "$id_file"` で登録する。ID はコードにもこの文書にも書かない。`SLACK_DAILY_REPORT_BOT_TOKEN` は登録済みのものを使う。
+5. 秘密を入れてから、既定ブランチの `workflow_dispatch` で 1 日分を確認する。cron はファイルに入っている。秘密が無い実行は投稿せずに終了する。
+
+本番の pg_cron `asc-daily-report` は外さない。配備したあとの関数は Webhook を呼ばず、集計と予約だけを行う。文字だけの投稿は、この配備で止まる。
+
+すでに速報または集客として投稿した日は、新しい投稿表には無い。確定していれば、新しい形式で 1 回出る。訂正期間は保存日の 3 日で、そのあいだに別の `content_hash` で `posted` を入れると訂正として出る。出したくない日は、関数が snapshot を保存したあと、その `content_hash` と同じ値で `posted` にする。
+
+```sh
+deno test --allow-env --config supabase/functions/deno.json supabase/functions/asc_daily_report_test.ts
+python3 -m unittest test_report_pdf.py
+```
+
+後者は `tools/daily_report` で実行する。
+
 ## 利用者チェックポイントの Slack 通知
 
 `userlog-notify` が Slack に出すのは次の 6 種類だけ。

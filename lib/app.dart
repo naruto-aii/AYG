@@ -13,6 +13,7 @@ import 'screens/legal/terms_agreement_screen.dart';
 import 'screens/onboarding/basic_info_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
 import 'services/analytics/analytics.dart';
+import 'services/app_update_prompt.dart';
 import 'services/analytics/analytics_runtime.dart';
 import 'services/analytics/analytics_service.dart';
 import 'services/analytics/catalog_actions.dart';
@@ -49,6 +50,7 @@ class AygApp extends StatefulWidget {
 
 class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final _updatePrompt = AppUpdatePrompt();
   bool _wasAuthenticated = false;
 
   FlutterExceptionHandler? _previousFlutterError;
@@ -137,11 +139,26 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
       await AnalyticsRuntime.ads?.captureOnce();
     }
     await _resumePaidFeatures();
+    await widget.controller.refreshHealthDataQuietly(trigger: 'launch');
+    await _checkAppUpdate();
   }
 
   Future<void> _onResume() async {
     await AnalyticsRuntime.lifecycle?.onForeground();
     await _resumePaidFeatures();
+    await widget.controller.refreshHealthDataQuietly(trigger: 'resume');
+    await _checkAppUpdate();
+  }
+
+  Future<void> _checkAppUpdate() async {
+    final version = await readCurrentAppVersion();
+    if (!mounted || version == null) {
+      return;
+    }
+    await _updatePrompt.present(
+      navigator: _navigatorKey.currentState,
+      currentVersion: version,
+    );
   }
 
   Future<void> _resumePaidFeatures() async {

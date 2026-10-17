@@ -21,6 +21,7 @@ import '../../repositories/plus_funnel_repository.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../services/ai_food_lookup_client.dart';
 import '../../services/photo_meal_client.dart';
+import '../alcohol/alcohol_form_screen.dart';
 import '../../services/public_food_meal_add_flow.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -33,6 +34,7 @@ import '../../constants/app_strings.dart';
 import '../../demo/demo_ai.dart';
 import '../../demo/demo_meal_photo.dart';
 import '../../utils/nutrition_format.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/common/compact_macro_display.dart';
 import '../../utils/saved_food_base_serving_format.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
@@ -105,6 +107,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _barcodeController = TextEditingController();
   final _nameController = TextEditingController();
+  final _nameFocus = FocusNode();
+  bool _preferManualTab = false;
   final _quantityController = TextEditingController();
   final _saveServingQuantityController = TextEditingController(text: '100');
   final _saveServingUnitController = TextEditingController();
@@ -122,6 +126,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   String? _sourceFoodOwnerUserId;
   int? _sourceSavedFoodVersion;
   double _baseAmount = 1;
+  double? _quantityScaleOrigin;
+  double _baseScaleOrigin = 1;
+  final Map<MacroField, String> _nutritionScaleOrigin = {};
+  bool _manualQuantityChanged = false;
+  bool _ignoreQuantityScale = false;
   FoodUnitType _unitType = FoodUnitType.serving;
   List<FoodFormSuggestion> _formSuggestions = const [];
   final _nameSearchHandle = CombinedFoodSearchHandle();
@@ -148,13 +157,22 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   void initState() {
     super.initState();
     _macroInput = MacroNutritionInputController();
-    _showFirstMealGuide = widget.guideFirstMeal && widget.entry == null;
-    if (_showFirstMealGuide) {
+    _showFirstMealGuide =
+        widget.entry == null && widget.controller.foodEntries.isEmpty;
+    if (widget.entry == null && widget.controller.shouldOfferFirstMealGuide) {
       widget.controller.finishFirstMealGuide();
     }
+    if (widget.entry == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _nameFocus.requestFocus();
+        }
+      });
+    }
     final entry = widget.entry;
-    _loggedAt = (entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now())
-        .toLocal();
+    final rawLoggedAt =
+        entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now();
+    _loggedAt = entry == null ? asNewRecordInstant(rawLoggedAt) : rawLoggedAt;
     _sourceType = entry?.sourceType ?? FoodEntrySource.manual;
     _nameController.text = entry?.name ?? widget.initialQuery?.trim() ?? '';
     _selectedSavedFoodId = entry?.savedFoodId;
@@ -177,6 +195,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     _quantityController.text = entry != null
         ? entry.consumedAmount.toString()
         : '1';
+    _captureQuantityScaleOrigin();
+    _quantityController.addListener(_onQuantityEdited);
     _nameController.addListener(_onNameChanged);
     if (!widget.isEditing && _nameController.text.trim().isEmpty) {
       unawaited(_loadInitialSuggestions());
@@ -196,7 +216,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     _suggestionTimer?.cancel();
     _nameController.removeListener(_onNameChanged);
     _barcodeController.dispose();
+    _nameFocus.dispose();
     _nameController.dispose();
+    _quantityController.removeListener(_onQuantityEdited);
     _quantityController.dispose();
     _saveServingQuantityController.dispose();
     _saveServingUnitController.dispose();
@@ -278,9 +300,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       _sourceType = selection.entrySourceType;
       _formSuggestions = const [];
       _nameController.text = selection.name;
+      _ignoreQuantityScale = true;
       _quantityController.text = SavedFoodBaseServingFormat.formatQuantity(
         selection.baseAmount,
       );
+      _ignoreQuantityScale = false;
     });
     _macroInput.applyExternalValues(
       kcal: selection.kcalPerBase,
@@ -288,6 +312,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       fat: selection.fatPerBase,
       carb: selection.carbPerBase,
     );
+    _captureQuantityScaleOrigin();
   }
 
   Future<void> _openBarcodeScanner() async {
@@ -339,14 +364,17 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
     if (result.failure != null) {
       setState(() => _manualInputHighlighted = true);
-      _showMessage(_messageForFailure(result.failure!));
+      _showMessage(
+        _messageForFailure(result.failure!),
+        offerNameSearch: result.failure == OffLookupFailure.notFound,
+      );
       return;
     }
 
     final data = result.data;
     if (data == null) {
       setState(() => _manualInputHighlighted = true);
-      _showMessage('商品が見つかりませんでした。手入力してください。');
+      _showMessage('この商品はまだ登録がありません。商品名で検索するか、パッケージの数字を見て入力してください');
       return;
     }
 
@@ -378,7 +406,38 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
     if (result is SavedFood) {
       _applySavedFoodSelection(result);
+      return;
     }
+    if (result is String && result.trim().isNotEmpty) {
+      _switchToManualEntry(result);
+    }
+  }
+
+  void _switchToManualEntry(String query) {
+    setState(() {
+      _barcodeSectionExpanded = false;
+      _preferManualTab = true;
+      final name = query.trim();
+      if (name.isNotEmpty) {
+        _nameController.text = name;
+      }
+    });
+    _nameFocus.requestFocus();
+  }
+
+  void _recordQueryAsAlcohol() {
+    final name = _nameController.text.trim();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(
+          name: 'food_form_screen_MaterialPageRoute_alcohol',
+        ),
+        builder: (context) => AlcoholFormScreen(
+          controller: widget.controller,
+          initialBeverageName: name,
+        ),
+      ),
+    );
   }
 
   void _applyLookup(FoodLookupResult result) {
@@ -405,19 +464,74 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   String _messageForFailure(OffLookupFailure failure) {
     return switch (failure) {
       OffLookupFailure.configurationError =>
-        'User-Agent（連絡先）が未設定です。設定後に再度お試しください。',
-      OffLookupFailure.notFound => '商品が見つかりませんでした。手入力してください。',
-      OffLookupFailure.rateLimited => 'アクセスが集中しています。しばらくしてからお試しください。',
-      OffLookupFailure.network => '通信に失敗しました。手入力してください。',
-      OffLookupFailure.invalidResponse => '商品情報を読み取れませんでした。手入力してください。',
-      OffLookupFailure.timeout => '通信がタイムアウトしました。手入力してください。',
+        'いまバーコード検索が使えません。商品名で検索してください',
+      OffLookupFailure.notFound =>
+        'この商品はまだ登録がありません。商品名で検索するか、パッケージの数字を見て入力してください',
+      OffLookupFailure.rateLimited =>
+        'アクセスが集中しています。しばらくしてから、商品名で検索してください',
+      OffLookupFailure.network => '通信に失敗しました。商品名で検索してください',
+      OffLookupFailure.invalidResponse =>
+        '商品情報を読み取れませんでした。商品名で検索してください',
+      OffLookupFailure.timeout => '通信がタイムアウトしました。商品名で検索してください',
     };
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  void _showMessage(String message, {bool offerNameSearch = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: offerNameSearch
+            ? SnackBarAction(
+                label: '商品名で探す',
+                onPressed: () {
+                  setState(() {
+                    _barcodeSectionExpanded = false;
+                    _preferManualTab = false;
+                  });
+                  _nameFocus.requestFocus();
+                },
+              )
+            : null,
+      ),
+    );
+  }
+
+  void _captureQuantityScaleOrigin() {
+    _quantityScaleOrigin = double.tryParse(_quantityController.text.trim());
+    _baseScaleOrigin = _baseAmount;
+    _manualQuantityChanged = false;
+    _nutritionScaleOrigin
+      ..clear()
+      ..addEntries(
+        MacroField.values.map(
+          (field) => MapEntry(field, _macroInput.controllerFor(field).text),
+        ),
+      );
+  }
+
+  void _onQuantityEdited() {
+    if (_ignoreQuantityScale) {
+      return;
+    }
+    final origin = _quantityScaleOrigin;
+    final next = double.tryParse(_quantityController.text.trim());
+    if (origin == null || origin <= 0 || next == null || next <= 0) {
+      return;
+    }
+    final same = (next - origin).abs() < 0.0000001;
+    final ratio = same ? 1.0 : next / origin;
+    _macroInput.restoreQuantityScale(
+      baselineText: _nutritionScaleOrigin,
+      ratio: ratio,
+    );
+    setState(() {
+      if (_usesSavedFoodBaseModel) {
+        _baseAmount = _baseScaleOrigin * ratio;
+        _manualQuantityChanged = false;
+      } else {
+        _manualQuantityChanged = !same;
+      }
+    });
   }
 
   double _parseQuantity(String value) {
@@ -449,7 +563,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     final consumedAmount = _parseQuantity(_quantityController.text);
-    final baseAmount = _usesSavedFoodBaseModel ? _baseAmount : 1.0;
+    final baseAmount = _usesSavedFoodBaseModel
+        ? _baseAmount
+        : (_manualQuantityChanged ? consumedAmount : 1.0);
     final unitType = _usesSavedFoodBaseModel ? _unitType : FoodUnitType.serving;
 
     return FoodEntry(
@@ -722,8 +838,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   @override
   Widget build(BuildContext context) {
     final quantityLabel = _usesSavedFoodBaseModel
-        ? '摂取量（${_unitType.label}）'
-        : '数量';
+        ? '食べた量（${_unitType.label}）'
+        : '食べた量（人前・個）';
 
     return DesignPage(
       bottomBar: DesignButton(
@@ -752,10 +868,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('今日の食事を1件登録', style: AppTypography.headingL),
+                    Text('まずは1件、記録してみましょう', style: AppTypography.headingL),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      '食べたものを1件入れて、追加するを押してください。',
+                      '食品名を入れて候補から選ぶだけです',
                       style: AppTypography.bodyL.copyWith(
                         color: AppColors.textPrimary,
                       ),
@@ -890,6 +1006,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               openOfficialFoodDetail(context, widget.controller, match),
           onPublicFood: _pickPublicFood,
           onAiFoodLookup: _openAiLookup,
+          onManualEntry: _switchToManualEntry,
+          onRecordAsAlcohol: _recordQueryAsAlcohol,
         );
       },
     );
@@ -917,6 +1035,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             child: DesignTextInput(
               key: const ValueKey('food_name_field'),
               controller: _nameController,
+              focusNode: _nameFocus,
               hintText: '例）オートミール、鶏むね肉（皮なし）など',
             ),
           ),
@@ -924,7 +1043,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
           if (_usesSavedFoodBaseModel) ...[
             const SizedBox(height: 8),
             Text(
-              '基準: ${widget.controller.formatBaseAmountLabel(baseAmount: _baseAmount, unitType: _unitType)} · '
+              '${widget.controller.formatBaseAmountLabel(baseAmount: _baseAmount, unitType: _unitType)}あたり · '
               '${formatNullableNutrient(_macroInput.parseOptional(MacroField.kcal))}kcal',
               style: AppTypography.bodyS,
             ),
@@ -993,8 +1112,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('食品として保存'),
-              subtitle: const Text('次回から「食品を探す」で選べます'),
+              title: const Text('次回のためにこの食品を保存する'),
+              subtitle: const Text('次から検索ですぐ出ます'),
               value: _saveAsFood,
               onChanged: (value) => setState(() => _saveAsFood = value),
             ),
@@ -1018,7 +1137,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   }
 
   Future<void> _pickLoggedAt() async {
-    final local = _loggedAt.toLocal();
+    final local = civilClock(_loggedAt);
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: local,
@@ -1038,18 +1157,21 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     setState(() {
-      _loggedAt = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
+      _loggedAt = adoptPickedRecordTime(
+        original: _loggedAt,
+        pickedLocal: DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        ),
       );
     });
   }
 
   String _formatLoggedAt() {
-    final local = _loggedAt.toLocal();
+    final local = civilClock(_loggedAt);
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
     // 今年のうちは年を省いて、狭い枠でも日付と時刻が読めるようにする。
     final year = local.year == DateTime.now().year ? '' : '${local.year}年';
@@ -1182,7 +1304,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
           if (_manualInputHighlighted) ...[
             const SizedBox(height: 10),
             Text(
-              '取得できなかった項目があります。手入力のタブから入力してください。',
+              '取得できなかった項目があります。食品名で検索するか、自分で入力してください。',
               style: AppTypography.caption.copyWith(color: AppColors.error),
             ),
           ],

@@ -39,6 +39,7 @@ import 'package:ayg/services/siri_voice_gateway.dart';
 import 'package:ayg/services/siri_voice_log.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/utils/local_date.dart';
+import 'package:ayg/utils/record_clock.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,17 +56,24 @@ const _rounds = 3;
 final _oct8 = DateTime(2026, 10, 8);
 final _oct9 = DateTime(2026, 10, 9);
 
-/// 端末の壁時計（オフセット無し、ミリ秒まで）。
+/// 画面に出す壁時計。新形式はローカル、旧 UTC は暦の数字。印のマイクロ秒は含めない。
 String _wall(DateTime value) {
-  expect(value.isUtc, isFalse, reason: '端末の値は壁時計（ローカル）で持つ');
-  return value.toIso8601String();
+  final civil = civilClock(value);
+  return DateTime(
+    civil.year,
+    civil.month,
+    civil.day,
+    civil.hour,
+    civil.minute,
+    civil.second,
+    civil.millisecond,
+  ).toIso8601String();
 }
 
 /// サーバの値（PostgREST の返す形）を、年月日時刻の文字列にする。
 String _serverWall(String stored) {
   expect(stored.endsWith('+00:00'), isTrue, reason: stored);
-  final body = stored.substring(0, stored.length - 6);
-  return _wall(wallClockFromDb('${body}Z'));
+  return _wall(DateTime.parse(stored));
 }
 
 /// 裏で走っている送信が終わるまで待つ（閉じる前に、実機と同じく最後まで送らせる）。
@@ -333,6 +341,11 @@ Map<String, String> _serverWalls(
     for (final row in server.rows(table))
       row['entry_id'] as String: _serverWall(row[column] as String),
   };
+}
+
+/// PostgREST が返す `timestamptz`。送信側の [encodeRecordTimestamp] と同じ瞬間。
+String _storedTimestamp(DateTime value) {
+  return FakePostgrest.timestamptz(encodeRecordTimestamp(value));
 }
 
 Map<String, String> _localWalls(Map<String, Object?> snapshot, String kind) {
@@ -710,12 +723,12 @@ void main() {
       photoEntry.id: '2026-10-09T00:05:30.000',
       'app-2330': '2026-10-08T23:30:00.000',
       'app-0030': '2026-10-09T00:30:15.250',
-      'W-FOOD-1': '2026-10-08T23:30:12.345',
-      'SIRI-FOOD-1': '2026-10-08T08:21:14.271',
+      'W-FOOD-1': '2026-10-08T23:30:12.000',
+      'SIRI-FOOD-1': '2026-10-08T08:21:14.000',
     };
     const expectedExercise = {
       'ex-app-2330': '2026-10-08T23:30:00.000',
-      'W-EX-1': '2026-10-09T00:30:46.784',
+      'W-EX-1': '2026-10-09T00:30:46.000',
       'SIRI-EX-1': '2026-10-09T00:00:00.000',
     };
 
@@ -738,20 +751,36 @@ void main() {
     for (var round = 0; round < _rounds; round++) {
       await device.syncNow();
       expect(await device.snapshot(), local0, reason: 'round $round');
-      // サーバには端末と同じ年月日時刻が、UTC の印で入る（戻した本番の行と同じ形）。
+      // 画面の壁時計は往復で変わらない。保存形は手入力が壁時計の数字、
+      // ウィジェットと Siri が本当の UTC（印付き）。
       expect(_serverWalls(server, 'food_entries', 'logged_at'), expectedFood,
           reason: 'round $round');
       expect(_serverWalls(server, 'exercise_entries', 'logged_at'),
           expectedExercise,
           reason: 'round $round');
+      // 手入力・写真は壁時計の数字を UTC として送る（印なし）。
+      // ウィジェットと Siri は本当の UTC にミリ秒 0・マイクロ秒 1 の印を付ける。
+      // 端末が日本時間なら 23:30 は 14:30Z、UTC なら 23:30Z になる。
+      final widgetStored = _storedTimestamp(
+        stampRecordInstant(DateTime(2026, 10, 8, 23, 30, 12)),
+      );
+      final siriStored = _storedTimestamp(
+        stampRecordInstant(DateTime(2026, 10, 8, 8, 21, 14)),
+      );
+      expect(widgetStored, contains('.000001'));
+      expect(siriStored, contains('.000001'));
+      if (_oct8.timeZoneOffset == const Duration(hours: 9)) {
+        expect(widgetStored, '2026-10-08T14:30:12.000001+00:00');
+        expect(siriStored, '2026-10-07T23:21:14.000001+00:00');
+      }
       expect(
         server.rows('food_entries').map((r) => r['logged_at']).toSet(),
         {
-          '2026-10-08T23:30:00+00:00',
-          '2026-10-09T00:30:15.25+00:00',
-          '2026-10-08T23:30:12.345+00:00',
-          '2026-10-08T08:21:14.271+00:00',
-          '2026-10-09T00:05:30+00:00',
+          _storedTimestamp(DateTime(2026, 10, 8, 23, 30)),
+          _storedTimestamp(DateTime(2026, 10, 9, 0, 30, 15, 250)),
+          widgetStored,
+          siriStored,
+          _storedTimestamp(DateTime(2026, 10, 9, 0, 5, 30)),
         },
       );
       expect(_serverWalls(server, 'alcohol_entries', 'consumed_at'),
@@ -894,7 +923,7 @@ void main() {
     final first = await device.snapshot();
     expect(_localWalls(first, 'food'), {
       'local-2330': '2026-10-08T23:30:00.000',
-      'SIRI-LOCAL': '2026-10-09T00:00:00.001',
+      'SIRI-LOCAL': '2026-10-09T00:00:00.000',
     });
     for (var round = 0; round < _rounds; round++) {
       device = await device.relaunch(server, queues, online: false);

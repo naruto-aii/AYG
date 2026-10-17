@@ -165,8 +165,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsNothing);
-    expect(find.text('カロナビ+限定機能'), findsOneWidget);
-    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text('パーソナルコーチはカロナビ+の機能です'), findsOneWidget);
+    expect(find.textContaining(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(
+      find.textContaining('食事・運動・体重の記録は、無料でずっと使えます。'),
+      findsOneWidget,
+    );
     expect(find.text('カロナビ+を見る'), findsOneWidget);
     expect(find.text('2回目以降はカロナビ+です。'), findsNothing);
     expect(controller.foodEntries, isEmpty);

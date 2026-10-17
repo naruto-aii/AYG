@@ -8,6 +8,7 @@ import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../models/meal_template.dart';
 import '../utils/calorie_ring_progress.dart';
+import '../utils/record_clock.dart';
 import 'exercise_calorie_calculator.dart';
 
 /// ホームとロック画面のウィジェットが共有する JSON（version 3）。
@@ -1244,10 +1245,19 @@ bool widgetExerciseWaitsForWeight(
   return weightKg == null || !weightKg.isFinite || weightKg <= 0;
 }
 
-/// 食事の `loggedAt` と同じ、オフセット無しの壁時計。
+/// ウィジェットへ渡す壁時計。新形式はローカル時刻、旧 UTC は暦の数字。
 String formatLockScreenLoggedAt(DateTime loggedAt) {
-  final wall = loggedAt.isUtc ? _wallClock(loggedAt) : loggedAt;
-  return wall.toIso8601String();
+  final wall = civilClock(loggedAt);
+  return DateTime(
+    wall.year,
+    wall.month,
+    wall.day,
+    wall.hour,
+    wall.minute,
+    wall.second,
+    wall.millisecond,
+    wall.microsecond,
+  ).toIso8601String();
 }
 
 DateTime parseLockScreenLoggedAt(String raw) {

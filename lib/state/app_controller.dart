@@ -52,6 +52,7 @@ import '../models/calculation/weight_sample.dart';
 import '../models/weight_entry.dart';
 import '../services/weight_for_target.dart';
 import '../utils/local_date.dart';
+import '../utils/record_clock.dart';
 import '../models/workout_template.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/complimentary_plus_repository.dart';
@@ -1263,7 +1264,9 @@ class AppController extends ChangeNotifier {
     healthSnapshot = HealthSnapshot(
       activeEnergyBurnedKcal: data.activeEnergyBurnedKcal,
       weightKg: data.weightKg,
-      weightMeasuredAt: data.weightKg == null ? null : data.weightMeasuredAt,
+      weightMeasuredAt: data.weightKg == null || data.weightMeasuredAt == null
+          ? null
+          : asNewRecordInstant(data.weightMeasuredAt!),
     );
     await _settingsRepository?.saveHealthSnapshot(healthSnapshot);
     unawaited(_fillWidgetExercisesWaitingForWeight());
@@ -1465,7 +1468,7 @@ class AppController extends ChangeNotifier {
         continue;
       }
       if (latestManual == null ||
-          entry.recordedAt.isAfter(latestManual.recordedAt)) {
+          !entry.recordedAt.isBefore(latestManual.recordedAt)) {
         latestManual = entry;
       }
     }
@@ -1477,7 +1480,7 @@ class AppController extends ChangeNotifier {
     final entry = WeightEntry(
       id: generateId(),
       weightKg: weightKg,
-      recordedAt: DateTime.now(),
+      recordedAt: asNewRecordInstant(DateTime.now()),
       source: WeightSource.manual,
     );
     weightEntries.add(entry);
@@ -1656,6 +1659,37 @@ class AppController extends ChangeNotifier {
       return;
     }
     await saveGoalSettings(next);
+  }
+
+  /// 起動と前面復帰で呼ぶ。失敗しても画面は出さない。
+  Future<void> refreshHealthDataQuietly({required String trigger}) async {
+    final started = DateTime.now();
+    void emit(String result, {int weightSamples = 0}) {
+      final elapsed = DateTime.now().difference(started).inMilliseconds;
+      _usage('health_sync_result', {
+        'trigger': trigger,
+        'result': result,
+        'workouts_imported': 0,
+        'weight_samples_imported': weightSamples,
+        'duration_ms': elapsed < 0 ? 0 : elapsed,
+      });
+    }
+
+    final healthRepository = _healthRepository;
+    if (healthRepository == null || !useHealthIntegration) {
+      return;
+    }
+    try {
+      final profileData = await healthRepository.fetchProfileData();
+      await applyHealthProfileData(profileData);
+      final hasWeight = profileData.weightKg != null;
+      final ok = hasWeight || profileData.activeEnergyBurnedKcal != null;
+      emit(ok ? 'success' : 'failed', weightSamples: hasWeight ? 1 : 0);
+    } catch (error, stackTrace) {
+      emit('failed');
+      debugPrint('[AYG] health sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Future<bool> resyncHealthData() async {
@@ -1981,9 +2015,6 @@ class AppController extends ChangeNotifier {
     if (trimmed == null || trimmed.isEmpty) {
       return null;
     }
-    if (!hasCalonaviPlusAccess) {
-      return null;
-    }
     if (trimmed.length <= foodMemoMaxLength) {
       return trimmed;
     }
@@ -1994,9 +2025,6 @@ class AppController extends ChangeNotifier {
   String? storedExerciseNotes(String? notes) {
     final trimmed = notes?.trim();
     if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-    if (!hasCalonaviPlusAccess) {
       return null;
     }
     return trimmed;
@@ -2040,7 +2068,7 @@ class AppController extends ChangeNotifier {
         sourceSavedFoodVersion: source.sourceSavedFoodVersion,
         officialFoodCode: source.officialFoodCode,
         officialFoodName: source.officialFoodName,
-        loggedAt: loggedAt ?? DateTime.now(),
+        loggedAt: asNewRecordInstant(loggedAt ?? DateTime.now()),
       ),
     );
     return true;
@@ -2052,9 +2080,6 @@ class AppController extends ChangeNotifier {
       'has_memo': memo != null && memo.isNotEmpty,
       'memo_length': memo?.length ?? 0,
     });
-    if (!hasCalonaviPlusAccess) {
-      return false;
-    }
     final stored = storedFoodMemo(memo);
     await updateFood(entry.copyWith(memo: stored, clearMemo: stored == null));
     return true;
@@ -4859,7 +4884,10 @@ class AppController extends ChangeNotifier {
     );
     if (plan.entries.isNotEmpty) {
       await addFoodEntriesBatch(
-        plan.entries,
+        [
+          for (final entry in plan.entries)
+            entry.copyWith(loggedAt: asNewRecordInstant(entry.loggedAt)),
+        ],
         origin: ReviewRecordOrigin.widget,
       );
       await _countLockScreenTemplateUses(plan.templateIds);
@@ -4880,7 +4908,7 @@ class AppController extends ChangeNotifier {
           pattern: pattern,
           weightKg: weightKg,
           id: pattern.itemId,
-          loggedAt: record.loggedAt,
+          loggedAt: asNewRecordInstant(record.loggedAt),
         );
         final analyticsOrigin = record.surface == 'lock'
             ? 'lock_widget'
@@ -4889,7 +4917,7 @@ class AppController extends ChangeNotifier {
           final pendingEntry = widgetExercisePendingWeight(
             pattern: pattern,
             id: pattern.itemId,
-            loggedAt: record.loggedAt,
+            loggedAt: asNewRecordInstant(record.loggedAt),
           );
           if (pendingEntry != null &&
               widgetExerciseWaitsForWeight(pattern, weightKg)) {

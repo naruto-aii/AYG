@@ -355,7 +355,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(AiFoodLookupRow.label));
     await tester.pumpAndSettle();
-    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    expect(find.text('AIで探すはカロナビ+の機能です'), findsOneWidget);
     expect(calls, 0);
   });
 

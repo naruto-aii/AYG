@@ -106,7 +106,7 @@ class _SavedFoodListScreenState extends State<SavedFoodListScreen> {
         ),
       ),
     );
-    if (!mounted || result == null) {
+    if (!mounted || result == null || result is String) {
       return;
     }
     Navigator.of(context).pop(result);

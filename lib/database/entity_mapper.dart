@@ -23,6 +23,7 @@ import '../models/saved_food.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
 import '../models/workout_template.dart';
+import '../utils/record_clock.dart';
 import 'entity_enum_codec.dart';
 
 class EntityMapper {
@@ -114,7 +115,7 @@ class EntityMapper {
       ..fatPerUnit = entry.fatPerBase
       ..carbPerUnit = entry.carbPerBase
       ..quantity = entry.quantity
-      ..loggedAt = entry.loggedAt
+      ..loggedAt = persistRecordInstant(entry.loggedAt)
       ..baseAmount = entry.baseAmount
       ..unitTypeIndex = EntityEnumCodec.foodUnitTypeIndex(entry.unitType)
       ..consumedAmount = entry.consumedAmount
@@ -161,7 +162,7 @@ class EntityMapper {
       officialFoodName: entity.officialFoodName,
       memo: entity.memo,
       recordOrigin: entity.recordOrigin,
-      loggedAt: entity.loggedAt,
+      loggedAt: recallRecordInstant(entity.loggedAt),
     );
   }
 
@@ -348,7 +349,7 @@ class EntityMapper {
       ..name = entry.name
       ..durationMin = entry.durationMin
       ..burnedKcal = entry.burnedKcal
-      ..loggedAt = entry.loggedAt
+      ..loggedAt = persistRecordInstant(entry.loggedAt)
       ..categoryKey = entry.category?.id
       ..activityId = entry.activityId
       ..intensity = entry.intensity
@@ -373,7 +374,7 @@ class EntityMapper {
       name: entity.name,
       durationMin: entity.durationMin,
       burnedKcal: entity.burnedKcal,
-      loggedAt: entity.loggedAt,
+      loggedAt: recallRecordInstant(entity.loggedAt),
       category: ExerciseCategoryX.tryParse(entity.categoryKey),
       activityId: entity.activityId,
       intensity: entity.intensity,
@@ -485,7 +486,7 @@ class EntityMapper {
       ..totalCalories = entry.totalCalories
       ..pureAlcoholGrams = entry.pureAlcoholGrams
       ..alcoholCalories = entry.alcoholCalories
-      ..consumedAt = entry.consumedAt;
+      ..consumedAt = persistRecordInstant(entry.consumedAt);
   }
 
   static AlcoholEntry fromAlcoholEntryEntity(AlcoholEntryEntity entity) {
@@ -498,7 +499,7 @@ class EntityMapper {
       totalCalories: entity.totalCalories,
       pureAlcoholGrams: entity.pureAlcoholGrams,
       alcoholCalories: entity.alcoholCalories,
-      consumedAt: entity.consumedAt,
+      consumedAt: recallRecordInstant(entity.consumedAt),
     );
   }
 
@@ -506,7 +507,7 @@ class EntityMapper {
     return WeightEntryEntity()
       ..entryId = entry.id
       ..weightKg = entry.weightKg
-      ..recordedAt = entry.recordedAt
+      ..recordedAt = persistRecordInstant(entry.recordedAt)
       ..sourceIndex = entry.source.index;
   }
 
@@ -514,7 +515,7 @@ class EntityMapper {
     return WeightEntry(
       id: entity.entryId,
       weightKg: entity.weightKg,
-      recordedAt: entity.recordedAt,
+      recordedAt: recallRecordInstant(entity.recordedAt),
       source: WeightSource.values[entity.sourceIndex],
     );
   }
@@ -523,7 +524,9 @@ class EntityMapper {
     return HealthSnapshotEntity()
       ..activeEnergyBurnedKcal = snapshot.activeEnergyBurnedKcal
       ..weightKg = snapshot.weightKg
-      ..weightMeasuredAt = snapshot.weightMeasuredAt
+      ..weightMeasuredAt = snapshot.weightMeasuredAt == null
+          ? null
+          : persistRecordInstant(snapshot.weightMeasuredAt!)
       ..updatedAt = DateTime.now();
   }
 
@@ -531,7 +534,9 @@ class EntityMapper {
     return HealthSnapshot(
       activeEnergyBurnedKcal: entity.activeEnergyBurnedKcal,
       weightKg: entity.weightKg,
-      weightMeasuredAt: entity.weightMeasuredAt,
+      weightMeasuredAt: entity.weightMeasuredAt == null
+          ? null
+          : recallRecordInstant(entity.weightMeasuredAt!),
     );
   }
 

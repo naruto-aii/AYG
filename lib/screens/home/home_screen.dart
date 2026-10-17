@@ -21,6 +21,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/calorie_ring_progress.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/announcements/home_announcements_entry.dart';
 import '../../widgets/brand/app_logo.dart';
@@ -36,6 +37,7 @@ import '../../widgets/layout/active_tab_listenable_builder.dart';
 import '../../widgets/share/share_card_view.dart';
 import '../../widgets/share/share_icon_button.dart';
 import '../alcohol/alcohol_form_screen.dart';
+import '../settings/how_to_use_screen.dart';
 import '../coach/daily_coach_screen.dart';
 import '../food/food_memo_dialog.dart';
 import '../food/recent_foods_screen.dart';
@@ -96,6 +98,15 @@ class HomeScreen extends StatelessWidget {
         return DesignPage(
           header: _Header(
             onShare: () => _shareToday(context),
+            onHelp: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: 'how_to_use'),
+                builder: (context) => HowToUseScreen(
+                  controller: controller,
+                  openFoodFactsService: openFoodFactsService,
+                ),
+              ),
+            ),
             announcements: HomeAnnouncementsEntry(
               repository: announcementRepository,
               readStore: announcementReadStore,
@@ -117,6 +128,10 @@ class HomeScreen extends StatelessWidget {
               ],
               const SizedBox(height: 12),
               _coachEntry(context),
+              if (todayFood.isEmpty) ...[
+                const SizedBox(height: 8),
+                _quickAdd(context, profile.weightKg),
+              ],
               const SizedBox(height: 8),
               _stats(summary),
               const SizedBox(height: 4),
@@ -129,8 +144,10 @@ class HomeScreen extends StatelessWidget {
               ],
               const SizedBox(height: 6),
               _macroCard(summary),
-              const SizedBox(height: 8),
-              _quickAdd(context, profile.weightKg),
+              if (todayFood.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _quickAdd(context, profile.weightKg),
+              ],
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
@@ -183,15 +200,18 @@ class HomeScreen extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
-          child: StatItem(label: '目標', value: _comma(summary.targetKcal)),
-        ),
-        Expanded(
           child: StatItem(label: '摂取', value: _comma(summary.intakeKcal)),
         ),
         Expanded(
           child: StatItem(
-            label: '運動',
-            value: '+${_comma(summary.exerciseBurnKcal)}',
+            label: '消費',
+            value: _comma(summary.exerciseBurnKcal),
+          ),
+        ),
+        Expanded(
+          child: StatItem(
+            label: '差',
+            value: _comma(summary.intakeKcal - summary.exerciseBurnKcal),
           ),
         ),
       ],
@@ -235,7 +255,7 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('目標日には届きません', style: AppTypography.titleM),
+          Text('このペースだと目標日に少し間に合いません', style: AppTypography.titleM),
           const SizedBox(height: 6),
           Text(guidance.message, style: AppTypography.bodyS),
           const SizedBox(height: 10),
@@ -246,7 +266,7 @@ class HomeScreen extends StatelessWidget {
                 onPressed: () => controllerAction(context, action),
                 child: Text(
                   action == guidance.recommended
-                      ? '推奨: ${guidance.labelFor(action)}'
+                      ? 'おすすめ：${guidance.labelFor(action)}'
                       : guidance.labelFor(action),
                 ),
               ),
@@ -311,7 +331,7 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('PFCバランス', style: AppTypography.titleL),
+          Text('たんぱく質・脂質・炭水化物（PFC）', style: AppTypography.titleL),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,7 +393,7 @@ class HomeScreen extends StatelessWidget {
         Expanded(
           child: QuickAddCard(
             icon: AppIcons.meal,
-            label: '食事追加',
+            label: '食事を記録',
             onTap: () => _openFoodForm(context),
           ),
         ),
@@ -381,7 +401,7 @@ class HomeScreen extends StatelessWidget {
         Expanded(
           child: QuickAddCard(
             icon: AppIcons.exercise,
-            label: '運動追加',
+            label: '運動を記録',
             onTap: () => _openExerciseForm(context),
           ),
         ),
@@ -389,7 +409,7 @@ class HomeScreen extends StatelessWidget {
         Expanded(
           child: QuickAddCard(
             icon: AppIcons.scale,
-            label: '体重記録',
+            label: '体重を記録',
             onTap: () => _openWeightRecord(context, currentWeightKg),
           ),
         ),
@@ -451,9 +471,10 @@ class HomeScreen extends StatelessWidget {
     return _sectionCard(
       icon: AppIcons.meal,
       title: '今日の食事',
-      actionLabel: onOpenHistoryCalendar != null ? 'すべて見る' : null,
+      actionLabel: onOpenHistoryCalendar != null ? '過去の記録を見る' : null,
       onAction: onOpenHistoryCalendar,
-      emptyMessage: '登録された食事はありません',
+      emptyMessage: 'まだ食事が登録されていません。登録はこちら',
+      onEmpty: () => _openFoodForm(context),
       rows: [
         for (final entry in entries) ...[
           DesignListRow(
@@ -499,9 +520,10 @@ class HomeScreen extends StatelessWidget {
     return _sectionCard(
       icon: AppIcons.alcohol,
       title: '今日のアルコール',
-      actionLabel: onOpenHistoryCalendar != null ? 'すべて見る' : null,
+      actionLabel: onOpenHistoryCalendar != null ? '過去の記録を見る' : null,
       onAction: onOpenHistoryCalendar,
-      emptyMessage: '登録されたアルコールはありません',
+      emptyMessage: 'まだお酒が登録されていません。登録はこちら',
+      onEmpty: () => _openAlcoholForm(context),
       rows: [
         for (final entry in entries)
           DesignListRow(
@@ -529,7 +551,8 @@ class HomeScreen extends StatelessWidget {
       title: '今日の運動',
       actionLabel: onOpenWorkoutTab != null ? 'すべて見る' : null,
       onAction: onOpenWorkoutTab,
-      emptyMessage: '登録された運動はありません',
+      emptyMessage: 'まだ運動が登録されていません。登録はこちら',
+      onEmpty: () => _openExerciseForm(context),
       rows: [
         for (final entry in entries)
           DesignListRow(
@@ -593,6 +616,7 @@ class HomeScreen extends StatelessWidget {
     required List<Widget> rows,
     String? actionLabel,
     VoidCallback? onAction,
+    VoidCallback? onEmpty,
   }) {
     return DesignCard(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -608,10 +632,18 @@ class HomeScreen extends StatelessWidget {
           if (rows.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 18),
-              child: Text(
-                emptyMessage,
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+              child: GestureDetector(
+                onTap: onEmpty,
+                child: Text(
+                  emptyMessage,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyS.copyWith(
+                    color: AppColors.textMuted,
+                    decoration: onEmpty == null
+                        ? null
+                        : TextDecoration.underline,
+                  ),
+                ),
               ),
             )
           else
@@ -694,9 +726,7 @@ class HomeScreen extends StatelessWidget {
 
   // --- 小物 --------------------------------------------------------------
 
-  static String _time(DateTime time) {
-    return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
-  }
+  static String _time(DateTime time) => formatRecordMinute(time);
 
   static String _comma(double value) {
     final digits = value.round().abs().toString();
@@ -720,28 +750,35 @@ class HomeScreen extends StatelessWidget {
 
   static List<FoodEntry> _todayFood(List<FoodEntry> entries) {
     final now = DateTime.now();
-    return entries.where((e) => isSameLocalDay(e.loggedAt, now)).toList()
-      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+    return entries.where((e) => isLoggedOnLocalDay(e.loggedAt, now)).toList()
+      ..sort((a, b) => compareRecordInstants(a.loggedAt, b.loggedAt));
   }
 
   static List<AlcoholEntry> _todayAlcohol(List<AlcoholEntry> entries) {
     final now = DateTime.now();
-    return entries.where((e) => isSameLocalDay(e.consumedAt, now)).toList()
-      ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+    return entries
+        .where((e) => isLoggedOnLocalDay(e.consumedAt, now))
+        .toList()
+      ..sort((a, b) => compareRecordInstants(a.consumedAt, b.consumedAt));
   }
 
   static List<ExerciseEntry> _todayExercise(List<ExerciseEntry> entries) {
     final now = DateTime.now();
-    return entries.where((e) => isSameLocalDay(e.loggedAt, now)).toList()
-      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+    return entries.where((e) => isLoggedOnLocalDay(e.loggedAt, now)).toList()
+      ..sort((a, b) => compareRecordInstants(a.loggedAt, b.loggedAt));
   }
 }
 
 /// 左にロゴ、右にお知らせと共有。共有ボタンの大きさは変えない。
 class _Header extends StatelessWidget {
-  const _Header({required this.onShare, required this.announcements});
+  const _Header({
+    required this.onShare,
+    required this.onHelp,
+    required this.announcements,
+  });
 
   final VoidCallback onShare;
+  final VoidCallback onHelp;
   final Widget announcements;
 
   @override
@@ -755,6 +792,11 @@ class _Header extends StatelessWidget {
             const AppLogo(markSize: 27.5, titleSize: 20, gap: 14),
             const Spacer(),
             announcements,
+            IconButton(
+              tooltip: '使い方',
+              onPressed: onHelp,
+              icon: const Icon(Icons.help_outline),
+            ),
             ShareIconButton(tooltip: '記録を共有', onPressed: onShare),
           ],
         ),

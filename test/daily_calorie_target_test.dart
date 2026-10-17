@@ -205,7 +205,7 @@ void main() {
         closeTo(result.estimatedMaintenanceKcal! - cap, 0.5),
       );
       expect(result.guidance?.kind, LandingGuidanceKind.exceedsSafeSpeed);
-      expect(result.guidance!.message, contains('この目標日には届きません'));
+      expect(result.guidance!.message, contains('このペースだと目標日に少し間に合いません'));
       expect(result.guidance!.message, contains('安全な速度なら'));
       expect(result.guidance!.suggestedDate, isNotNull);
       expect(

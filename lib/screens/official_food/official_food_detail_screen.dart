@@ -9,6 +9,7 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/nutrition_format.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/official_food/official_food_attribution.dart';
@@ -86,7 +87,7 @@ class _OfficialFoodDetailScreenState extends State<OfficialFoodDetailScreen> {
         match: widget.match,
         entryId: widget.controller.generateId(),
         grams: grams,
-        loggedAt: DateTime.now(),
+        loggedAt: asNewRecordInstant(DateTime.now()),
       );
       await widget.controller.addFood(entry);
       if (!mounted) {

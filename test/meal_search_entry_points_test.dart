@@ -236,7 +236,7 @@ void main() {
     expect(find.text('保存済み食品から選ぶ'), findsNothing);
     expect(find.text('食べたものを記録して、健康な毎日をつくりましょう'), findsNothing);
     expect(find.text('次回以降、保存済み食品から再利用できます'), findsNothing);
-    expect(find.text('次回から「食品を探す」で選べます'), findsOneWidget);
+    expect(find.text('次から検索ですぐ出ます'), findsOneWidget);
     expect(find.text('入力内容をテンプレートとして保存'), findsNothing);
     expect(find.text('手入力'), findsOneWidget);
     expect(find.text('バーコード'), findsOneWidget);
@@ -247,10 +247,10 @@ void main() {
     expectNoLegacyPublicScreen();
     await saveShot(tester, shot, 'meal-add-top');
 
-    await tester.ensureVisible(find.text('食品として保存'));
+    await tester.ensureVisible(find.text('次回のためにこの食品を保存する'));
     await tester.pumpAndSettle();
     expect(find.text('入力内容をテンプレートとして保存'), findsNothing);
-    expect(find.text('食品として保存'), findsOneWidget);
+    expect(find.text('次回のためにこの食品を保存する'), findsOneWidget);
     expect(find.text('バーコードから追加'), findsNothing);
     await saveShot(tester, shot, 'meal-form-bottom');
 
@@ -287,7 +287,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final add = find.text('食事追加');
+    final add = find.text('食事を記録');
     await tester.scrollUntilVisible(add, 200);
     await tester.tap(add);
     await tester.pumpAndSettle();

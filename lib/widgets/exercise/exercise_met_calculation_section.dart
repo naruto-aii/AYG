@@ -8,8 +8,6 @@ import '../../models/exercise_quantity_unit.dart';
 import '../../services/analytics/catalog_actions.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../services/usage_record.dart';
-import '../../repositories/plus_funnel_repository.dart';
-import '../../screens/subscription/plus_gate.dart';
 import '../../services/exercise_weight_resolver.dart';
 import '../../models/workout_template.dart';
 import '../../state/app_controller.dart';
@@ -817,26 +815,6 @@ class _ExerciseMetCalculationSectionState
     final notesController = widget.notesController;
     if (notesController == null) {
       return const SizedBox.shrink();
-    }
-    final plus = widget.controller.hasCalonaviPlusAccess;
-    if (!plus) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton(
-          onPressed: () async {
-            final allowed = await ensureCalonaviPlus(
-              context,
-              widget.controller,
-              message: '運動のメモは、カロナビ+です。',
-              feature: PlusFunnelFeature.memo,
-            );
-            if (allowed && mounted) {
-              setState(() {});
-            }
-          },
-          child: const Text('メモを付ける'),
-        ),
-      );
     }
     return DesignFieldCard(
       icon: _icon(AppIcons.pen),

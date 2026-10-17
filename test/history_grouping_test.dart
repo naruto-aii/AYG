@@ -84,8 +84,7 @@ void main() {
     });
 
     test('keeps a reloaded UTC civil clock on that calendar day', () {
-      // Supabase はオフセット無しで保存した壁時計を UTC として返す。
-      // toLocal() で翌日に送らず、保存された時計の日付のまま束ねる。
+      // 旧行は壁時計を UTC として返す。印が無いので toLocal せず、その日付のまま束ねる。
       final loggedAt = DateTime.utc(2026, 7, 20, 15);
       final entries = [
         FoodEntry(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import 'history_date_navigator.dart';
 
 /// 食事・運動タブ共通の日付ナビ + リスト本体。
@@ -39,6 +40,8 @@ class HistoryTabBody extends StatelessWidget {
 /// 選択日の新規記録用初期日時（現在時刻の時分を選択日に載せる）。
 DateTime initialLoggedAtForSelectedDay(DateTime selectedDay) {
   final now = DateTime.now();
-  final day = selectedDay.toLocal();
-  return DateTime(day.year, day.month, day.day, now.hour, now.minute);
+  final day = civilClock(selectedDay);
+  return asNewRecordInstant(
+    DateTime(day.year, day.month, day.day, now.hour, now.minute),
+  );
 }

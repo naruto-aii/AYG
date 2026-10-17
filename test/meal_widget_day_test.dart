@@ -9,10 +9,16 @@ import 'package:ayg/repositories/authentication_repository.dart';
 import 'package:ayg/services/lock_screen_meal.dart';
 import 'package:ayg/services/lock_screen_meal_gateway.dart';
 import 'package:ayg/state/app_controller.dart';
+import 'package:ayg/utils/record_clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mocks/mock_authentication_repository.dart';
 import 'mocks/mock_health_repository.dart';
+
+DateTime _civilMinute(DateTime value) {
+  final civil = civilClock(value);
+  return DateTime(civil.year, civil.month, civil.day, civil.hour, civil.minute);
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -287,8 +293,10 @@ void main() {
       final byId = {
         for (final FoodEntry entry in controller.foodEntries) entry.id: entry,
       };
-      expect(byId['item-y']!.loggedAt, yesterday);
-      expect(byId['item-t']!.loggedAt, today);
+      expect(isAbsoluteRecordInstant(byId['item-y']!.loggedAt), isTrue);
+      expect(isAbsoluteRecordInstant(byId['item-t']!.loggedAt), isTrue);
+      expect(_civilMinute(byId['item-y']!.loggedAt), _civilMinute(yesterday));
+      expect(_civilMinute(byId['item-t']!.loggedAt), _civilMinute(today));
       await auth.dispose();
     });
   });

@@ -46,7 +46,8 @@ void main() {
       await enterMacro(tester, MacroField.fat, '5');
       await enterMacro(tester, MacroField.carb, '20');
       expect(macroText(tester, MacroField.kcal), '165');
-      expect(find.textContaining('（自動）'), findsOneWidget);
+      expect(find.text('自動'), findsOneWidget);
+      expect(find.textContaining('（自動）'), findsNothing);
     });
 
     testWidgets('case2: kcal F C -> P 12.0', (tester) async {
@@ -150,7 +151,7 @@ void main() {
       expect(macroText(tester, MacroField.kcal), '165');
     });
 
-    testWidgets('deleting field clears stale auto and recalculates', (
+    testWidgets('clearing carb does not refill it and drops session auto kcal', (
       tester,
     ) async {
       await pumpForm(tester);
@@ -161,9 +162,11 @@ void main() {
 
       await tester.enterText(find.byKey(ValueKey('macro_field_carb')), '');
       await tester.pump();
+      expect(macroText(tester, MacroField.carb), isEmpty);
       expect(macroText(tester, MacroField.kcal), isEmpty);
 
       await enterMacro(tester, MacroField.carb, '20');
+      expect(macroText(tester, MacroField.carb), '20');
       expect(macroText(tester, MacroField.kcal), '165');
     });
 

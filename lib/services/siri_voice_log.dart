@@ -10,6 +10,7 @@ import '../models/food_unit_type.dart';
 import '../models/saved_food.dart';
 import '../services/exercise_calorie_calculator.dart';
 import '../utils/food_search_normalizer.dart';
+import '../utils/record_clock.dart';
 import 'food_name_traits.dart';
 import 'lock_screen_meal.dart';
 import 'siri_food_narrow.dart';
@@ -2671,7 +2672,7 @@ DateTime? _loggedAt(Object? raw) {
     return null;
   }
   try {
-    return parseLockScreenLoggedAt(text);
+    return asNewRecordInstant(parseLockScreenLoggedAt(text));
   } on FormatException {
     return null;
   }

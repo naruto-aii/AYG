@@ -108,7 +108,8 @@ WeightSample? _latest(List<WeightSample> samples, WeightSource source) {
     if (sample.source != source) {
       continue;
     }
-    if (best == null || sample.measuredAt.isAfter(best.measuredAt)) {
+    // 新しい記録は秒未満を印に使うので、同じ秒の記録は後から足した方を新しいとする。
+    if (best == null || !sample.measuredAt.isBefore(best.measuredAt)) {
       best = sample;
     }
   }

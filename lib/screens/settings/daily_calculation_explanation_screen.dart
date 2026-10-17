@@ -35,6 +35,20 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                 '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
                 '医療上の診断や治療を目的としたものではありません。',
           ),
+          const SizedBox(height: AppSpacing.md),
+          DesignCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ひとことで', style: AppTypography.titleM),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '年齢・身長・体重から1日に使うカロリーを出し、目標体重に向けて少し減らした（増やした）値が、1日の食事目標です',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
           if (energy?.unavailableReason != null) ...[
             DesignCard(
               child: Text(
@@ -77,10 +91,13 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     ),
                   if (energy.smoothedWeightKg != null)
                     _row(
-                      '平滑した体重',
+                      '最近の体重の平均',
                       '${energy.smoothedWeightKg!.toStringAsFixed(1)} kg（半減期7日）',
                     ),
-                  _row('計算の段階', energy.usesLandingFormula ? '着地の式' : '初期式'),
+                  _row(
+                    '計算の段階',
+                    energy.usesLandingFormula ? '目標日に合わせた計算' : '初期式',
+                  ),
                 ],
                 if (energy != null &&
                     energy.canEstimateRee &&
@@ -123,7 +140,7 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                   if (energy.usesLandingFormula &&
                       energy.rawBalanceKcal != null)
                     _row(
-                      '着地に必要な収支',
+                      '目標日に合わせた計算に必要な収支',
                       '${energy.rawBalanceKcal!.toStringAsFixed(0)} kcal/日',
                     ),
                   if (energy.speedCapKcal != null)
@@ -133,7 +150,7 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     ),
                   if (energy.floorKcal != null)
                     _row(
-                      '食事の床',
+                      '下限',
                       '${energy.floorKcal!.toStringAsFixed(0)} kcal',
                     ),
                   if (energy.heldForStaleWeight)

@@ -28,9 +28,17 @@ void main() {
       await tester.enterText(fields.at(3), '5');
       await tester.pump();
 
-      expect(find.text('純アルコール量 (g)'), findsOneWidget);
+      expect(find.text('アルコールの量（g）'), findsOneWidget);
       expect(find.textContaining('140'), findsWidgets);
-      expect(find.text('摂取への反映'), findsOneWidget);
+      expect(find.text('今日のカロリーに足される分'), findsOneWidget);
+      expect(find.text('お酒のカロリー'), findsOneWidget);
+      expect(find.text('目安のため実際とズレることがあります'), findsOneWidget);
+
+      await tester.enterText(fields.at(4), '200');
+      await tester.pump();
+
+      expect(find.text('目安のため実際とズレることがあります'), findsNothing);
+      expect(find.text('今日のアルコールとして記録されます'), findsOneWidget);
     });
 
     testWidgets('shows manual pure alcohol field for non-ml unit', (
@@ -46,7 +54,7 @@ void main() {
       await tester.enterText(find.byType(TextField).at(2), '缶');
       await tester.pump();
 
-      expect(find.text('純アルコール量 (g)'), findsOneWidget);
+      expect(find.text('アルコールの量（g）'), findsOneWidget);
       expect(find.text('mlで入力すると純アルコール量を自動計算できます'), findsOneWidget);
     });
   });

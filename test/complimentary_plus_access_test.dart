@@ -197,8 +197,7 @@ void main() {
       'supabase/functions/userlog-notify/logic.ts',
       'supabase/functions/userlog-notify/handler.ts',
       'supabase/migrations/20261007112725_kpi_excluded_users.sql',
-      'supabase/migrations/20261015032420_userlog_notifications.sql',
-      'supabase/migrations/20261015065812_userlog_login_per_install.sql',
+      'supabase/migrations/20261017033236_userlog_six_checkpoints.sql',
     ]) {
       expect(
         File(path).readAsStringSync(),

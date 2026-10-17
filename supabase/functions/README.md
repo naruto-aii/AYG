@@ -307,3 +307,56 @@ deno run -A supabase/functions/cook-coach/check_recipes.ts
 - `APPLE_ROOT_CA_BASE64`（または `APPLE_ROOT_CA`）
 
 App Store Server Notifications の URL は、これまでどおり `app-store-notifications` です。無料トライアルは Apple が Apple ID ごとに1回だけ付けます。サーバは2回目を作りません。`SUBSCRIBED`（その1回の無料トライアルを含む）と `DID_RENEW`、`DID_FAIL_TO_RENEW` の `GRACE_PERIOD` は、検証済みの取引の期限が未来なら `calonavi_plus_entitlements.status = active` です。解約（`DID_CHANGE_RENEWAL_STATUS` の `AUTO_RENEW_DISABLED`）は、払った期間が終わるまで `active` のままです。期間が終わると `expires_at > now` を満たさないので有料ではなくなり、同じ取引の `EXPIRED` はその行を `expired` にします。`REFUND` と `REVOKE` は、保存行がその取引かどうかに関係なく `calonavi_plus_revoked_transactions` に transactionId を記録し、その行が同じ ID ならすぐ `inactive` にします。記録した ID は、アプリの `verify-store-transaction` でも通知でも、取り消し日が無い再送では有料に戻しません。別の transactionId の加入は、古い取引の返金では消しません。記録を外して有料に戻せるのは `REFUND_REVERSED` だけです。返金・取り消し・失効・`isUpgraded` は、保存行の `source_transaction_id` が届いた `transactionId` と一致するときだけ、その行を落とします。IDが違えば、期限の長短に関係なく落としません。`source_transaction_id` が null の古い行だけは、同じ期限か猶予日の一致で無効にします。アプリが猶予中の同じ取引を取り消しなしで送り直しても、猶予の期限は短くしません。利用者は、`store_original_transactions` に元の購入があればその行、無ければ取引の `appAccountToken`（購入時の Supabase の user id）です。同じ `notification_uuid` は 1 回だけ処理します。アプリの購入同期は、これまでどおり `verify-store-transaction` に署名付き取引を渡します。
+## 利用者チェックポイントの Slack 通知
+
+`userlog-notify` が Slack に出すのは次の 6 種類だけ。
+
+- 新規会員登録（`app_events` の `onboarding_complete`。文面の旧名は「初回登録完了」）
+- 無料トライアル開始
+- 有料開始（同じ購入が無料トライアルで始まり、そのあと最初の `DID_RENEW`）
+- トライアル解約とサブスク解約（どちらも `DID_CHANGE_RENEWAL_STATUS` / `AUTO_RENEW_DISABLED`。記録の種類は `cancel` のまま。同じ購入がトライアルから始まり、オフより前に `DID_RENEW` がなければ文面は「トライアル解約」、それ以外は「サブスク解約」）
+- アカウント削除（`account_deletion_stats` に行が増えたとき。プランと使った期間の区分だけ。利用者 ID と表示名は出さない）
+
+インストール、ログイン、期限切れ（`EXPIRED`）、返金（`REFUND`）は出さない。ログインは `userlog_app_events_login_insert` を外すだけにする。集計対象外は文面の末尾に「（集計対象外）」を付ける。`app-store-notifications` は変更しない。
+
+既存の表の列・制約・行は変えない。`public.userlog_notifications_sent` の種類制約も変えない。アカウント削除の二重送信は `public.userlog_account_deletion_sent` で止める。トリガーは失敗を飲み、元の INSERT は成功する。この変更では関数を配備せず、マイグレーションも本番へ適用しない。
+
+秘密の名前（値は git に書かない）:
+
+- `SLACK_USERLOG_WEBHOOK_URL` — Incoming Webhook。Edge Function の秘密。
+- `SLACK_USERLOG_MENTION` — 投稿の先頭でメンションする Slack メンバー ID。Edge Function の秘密。
+- `USERLOG_NOTIFY_SECRET` — 32 文字以上。Edge Function の秘密。Vault の `userlog_notify_secret` と同じ値。
+- Vault の `project_url` — 関数の起点。取り込み用と同じ名前。この節には値を書かない。
+
+本番へ出す順番（関数が先。マイグレーションを先にすると、アカウント削除の呼び出しを古い関数が理解できない）:
+
+1. `userlog-notify` を配備する。秘密はすでに入っているものを使う。この時点ではトリガーはまだ切り替えない。配備した関数は、インストール、ログイン、期限切れ、返金が届いても投稿しない。
+2. `20261017033236_userlog_six_checkpoints.sql` を適用する。ログインのトリガーを外し、インストールを新規会員登録のトリガーから外し、期限切れと返金を購入通知の候補から外し、アカウント削除のトリガーを足す。このファイルは過去分を送らない。pg_cron は有効にしない。`userlog.enqueue_backfill()` は実行しない。
+3. 件数だけを見る。
+
+```sql
+select count(*)
+from pg_trigger t
+join pg_class c on c.oid = t.tgrelid
+join pg_namespace n on n.oid = c.relnamespace
+where t.tgname = 'userlog_app_events_login_insert'
+  and not t.tgisinternal;
+
+select c.relname, pg_get_triggerdef(t.oid)
+from pg_trigger t
+join pg_class c on c.oid = t.tgrelid
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and t.tgname in ('userlog_app_events_insert', 'userlog_account_deletion_insert')
+  and not t.tgisinternal
+  and c.relname in ('app_events', 'account_deletion_stats');
+```
+
+ログインのトリガーは 0 件。`app_events` のトリガー条件は `onboarding_complete` だけ。`account_deletion_stats` に挿入トリガーがある。
+
+戻すときは、先に #138 時点（この変更前の main）の `userlog-notify` を配備し直してから、`supabase/rollback/20261017033236_userlog_six_checkpoints_down.sql` を手で流す。コミットは `d84544a8c5ac0c3eea01b00b8b6514311f4fb55f`（ログイン通知をインストールごとに1回にする）。rollback SQL だけだと、新しい関数がインストール、ログイン、期限切れ、返金を捨てるので投稿は戻らない。SQL のあと、ログインのトリガーと、インストール・期限切れ・返金の候補が戻る。アカウント削除用の新しい表は落ちる。`userlog_notifications_sent` の行は残る。通知全体を外すときは、そのあと以前の rollback を流す。pg_net と既存の表は残る。
+
+```sh
+deno test --allow-env --config supabase/functions/deno.json supabase/functions/userlog_notify_test.ts
+bash supabase/tests/run_userlog_notifications_test.sh
+```

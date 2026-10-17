@@ -268,7 +268,7 @@ class _MemoryMealTemplates implements MealTemplateRepositoryBase {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _MemoryGateway implements LockScreenMealGateway {
+class _MemoryGateway with LockScreenGrantFallback implements LockScreenMealGateway {
   LockScreenMealConfig config = LockScreenMealConfig.defaults();
   LockScreenMealConfig? saved;
 

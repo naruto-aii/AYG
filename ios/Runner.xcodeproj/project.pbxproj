@@ -35,6 +35,9 @@
 		A1B702222222222222222004 /* LockScreenMealWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111006 /* LockScreenMealWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1B702222222222222222010 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
 		A1B702222222222222222011 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
+		A1B702222222222222222015 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111013 /* StoreKit.framework */; };
+		A1B702222222222222222016 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111013 /* StoreKit.framework */; };
+		A1B702222222222222222017 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111013 /* StoreKit.framework */; };
 		A1B702222222222222222012 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111011 /* SwiftUI.framework */; };
 		A1B702222222222222222013 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111012 /* AppIntents.framework */; };
 		A1B702222222222222222030 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111030 /* PrivacyInfo.xcprivacy */; };
@@ -130,6 +133,7 @@
 		A1B702111111111111111010 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		A1B702111111111111111011 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		A1B702111111111111111012 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
+		A1B702111111111111111013 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		A1B702111111111111111061 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -139,6 +143,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				78E6EACB9E3695D04F5C95C6 /* Pods_RunnerTests.framework in Frameworks */,
+				A1B702222222222222222017 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,6 +155,7 @@
 				E6BF46FE62C3516E51CDDDC8 /* Pods_Runner.framework in Frameworks */,
 				A1B702222222222222222011 /* WidgetKit.framework in Frameworks */,
 				A1B702222222222222222014 /* AppIntents.framework in Frameworks */,
+				A1B702222222222222222016 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -160,6 +166,7 @@
 				A1B702222222222222222010 /* WidgetKit.framework in Frameworks */,
 				A1B702222222222222222012 /* SwiftUI.framework in Frameworks */,
 				A1B702222222222222222013 /* AppIntents.framework in Frameworks */,
+				A1B702222222222222222015 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -185,6 +192,7 @@
 				A1B702111111111111111010 /* WidgetKit.framework */,
 				A1B702111111111111111011 /* SwiftUI.framework */,
 				A1B702111111111111111012 /* AppIntents.framework */,
+				A1B702111111111111111013 /* StoreKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

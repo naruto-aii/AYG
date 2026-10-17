@@ -15,6 +15,7 @@ import 'food_name_traits.dart';
 import 'lock_screen_meal.dart';
 import 'siri_food_narrow.dart';
 import 'siri_name_match.dart';
+import 'shortcut_access.dart';
 import 'siri_speech_repair.dart';
 
 /// Siri の食事・運動登録。
@@ -267,9 +268,11 @@ class SiriVoiceContext {
     this.remoteUnavailable = false,
     this.searchFoods,
     this.lastLogLabel,
+    this.shortcutAccess,
   });
 
   final bool paid;
+  final ShortcutAccess? shortcutAccess;
   final String ownerUserId;
   final double? weightKg;
   final List<SiriFoodRecord> foods;
@@ -2476,8 +2479,11 @@ SiriVoicePlan _undoPlan(SiriVoiceContext context) {
 }
 
 SiriVoicePlan? _blocked(SiriVoiceContext context) {
-  if (!context.paid) {
-    return _stop(SiriVoiceStatus.unpaid, 'こちらはカロナビ+の機能です');
+  final access =
+      context.shortcutAccess ??
+      (context.paid ? ShortcutAccess.paid : ShortcutAccess.unpaid);
+  if (access != ShortcutAccess.paid) {
+    return _stop(SiriVoiceStatus.unpaid, shortcutPlusSpeech);
   }
   if (context.ownerUserId.trim().isEmpty) {
     return _stop(SiriVoiceStatus.signedOut, 'ログインしてください');

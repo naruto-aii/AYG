@@ -458,11 +458,12 @@ enum SiriVoiceStore {
   }
 
   private static func blocked() -> Plan? {
-    if !LockScreenMealStore.isPaid() {
+    let access = LockScreenMealStore.access(store: LockScreenMealStore.pendingStore)
+    if !access.allowsRegister {
       return stop(
         "こちらはカロナビ+の機能です",
         status: "blocked",
-        reason: "unpaid"
+        reason: access.stopReason
       )
     }
     if ownerUserId().isEmpty {
@@ -3212,6 +3213,38 @@ enum SiriAmountLog {
 }
 
 @available(iOS 17.0, *)
+enum SiriPlusDecision {
+  case allow
+  case speak(IntentDialog)
+  case open(IntentDialog)
+}
+
+/// 質問の前に有料かどうかを見る。無料なら聞き返さず、購入画面を開く。
+@available(iOS 17.0, *)
+enum SiriPlusGate {
+  private static var handoff = false
+  static let speech = "こちらはカロナビ+の機能です"
+
+  static func evaluate(intent: String, hasParameter: Bool) async -> SiriPlusDecision {
+    if handoff {
+      handoff = false
+      return .speak(SiriSpeech.dialog(speech))
+    }
+    let store = await PlusStoreProbe.live()
+    LockScreenMealStore.pendingStore = store
+    let access = LockScreenMealStore.access(store: store)
+    if access.allowsRegister {
+      return .allow
+    }
+    SiriAnalytics.started(intent: intent, hasParameter: hasParameter)
+    SiriAnalytics.finished(status: "blocked", stopReason: access.stopReason)
+    PlusEntryCenter.request("siri")
+    handoff = true
+    return .open(SiriSpeech.dialog(speech))
+  }
+}
+
+@available(iOS 17.0, *)
 struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "食事を登録"
   static var description = IntentDescription("食品名と量を登録し、何を登録したかを読み上げます。直前の1件は取り消せます。")
@@ -3291,6 +3324,14 @@ struct LogSpokenFoodIntent: AppIntent, ForegroundContinuableIntent {
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    switch await SiriPlusGate.evaluate(intent: "log_food", hasParameter: !foodName.text.isEmpty) {
+    case .allow:
+      break
+    case .speak(let dialog):
+      return .result(dialog: dialog)
+    case .open(let dialog):
+      throw needsToContinueInForegroundError(dialog)
+    }
     SiriAnalytics.started(intent: "log_food", hasParameter: !foodName.text.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
       SiriVoiceStore.endDialogue()
@@ -3571,6 +3612,17 @@ struct LogSpokenExerciseIntent: AppIntent, ForegroundContinuableIntent {
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    switch await SiriPlusGate.evaluate(
+      intent: "log_exercise",
+      hasParameter: !activityName.text.isEmpty
+    ) {
+    case .allow:
+      break
+    case .speak(let dialog):
+      return .result(dialog: dialog)
+    case .open(let dialog):
+      throw needsToContinueInForegroundError(dialog)
+    }
     SiriAnalytics.started(intent: "log_exercise", hasParameter: !activityName.text.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
       SiriVoiceStore.endDialogue()
@@ -3843,6 +3895,17 @@ struct LogSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    switch await SiriPlusGate.evaluate(
+      intent: "log_utterance",
+      hasParameter: !utterance.text.isEmpty
+    ) {
+    case .allow:
+      break
+    case .speak(let dialog):
+      return .result(dialog: dialog)
+    case .open(let dialog):
+      throw needsToContinueInForegroundError(dialog)
+    }
     SiriAnalytics.started(intent: "log_utterance", hasParameter: !utterance.text.isEmpty)
     if SiriVoiceStore.consumeContinueSearch() {
       SiriVoiceStore.endDialogue()
@@ -4192,12 +4255,20 @@ struct SiriListedExerciseQuery: EnumerableEntityQuery {
 }
 
 @available(iOS 17.0, *)
-struct UndoLastSpokenEntryIntent: AppIntent {
+struct UndoLastSpokenEntryIntent: AppIntent, ForegroundContinuableIntent {
   static var title: LocalizedStringResource = "直前の登録を取り消す"
   static var description = IntentDescription("直前に登録した食事か運動を1件取り消します。")
   static var openAppWhenRun = false
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    switch await SiriPlusGate.evaluate(intent: "undo", hasParameter: false) {
+    case .allow:
+      break
+    case .speak(let dialog):
+      return .result(dialog: dialog)
+    case .open(let dialog):
+      throw needsToContinueInForegroundError(dialog)
+    }
     SiriAnalytics.started(intent: "undo", hasParameter: false)
     let plan = await SiriVoiceStore.planUtterance(name: "今登録したやつ消して", quantity: "")
     return .result(dialog: SiriSpeech.dialog(plan.spoken))

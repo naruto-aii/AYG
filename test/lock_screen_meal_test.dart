@@ -1598,7 +1598,7 @@ class _PreviewPlus extends UnavailableSubscriptionRepository {
   bool get isPlusActive => true;
 }
 
-class _MemoryGateway implements LockScreenMealGateway {
+class _MemoryGateway with LockScreenGrantFallback implements LockScreenMealGateway {
   _MemoryGateway({List<PendingLockScreenMeal>? pending})
     : pending = pending ?? [];
 

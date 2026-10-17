@@ -10,6 +10,7 @@ import '../models/meal_template.dart';
 import '../utils/calorie_ring_progress.dart';
 import '../utils/record_clock.dart';
 import 'exercise_calorie_calculator.dart';
+import 'shortcut_access.dart';
 
 /// ホームとロック画面のウィジェットが共有する JSON（version 3）。
 ///
@@ -402,7 +403,13 @@ class LockScreenMealSnapshot {
   final MealWidgetFigures figures;
 }
 
-enum LockScreenMealRegisterStatus { registered, unpaid, unassigned }
+enum LockScreenMealRegisterStatus {
+  registered,
+  unpaid,
+  expired,
+  refunded,
+  unassigned,
+}
 
 class LockScreenMealRegisterResult {
   const LockScreenMealRegisterResult({required this.status, this.meal});
@@ -459,15 +466,16 @@ class LockScreenMealImportPlan {
 abstract final class LockScreenMealRegistrar {
   static LockScreenMealRegisterResult register({
     required bool paid,
+    ShortcutAccess? access,
     required LockScreenMealButtonSnapshot button,
     required String ownerUserId,
     required DateTime loggedAt,
     required String Function() newId,
   }) {
-    if (!paid) {
-      return const LockScreenMealRegisterResult(
-        status: LockScreenMealRegisterStatus.unpaid,
-      );
+    final resolved =
+        access ?? (paid ? ShortcutAccess.paid : ShortcutAccess.unpaid);
+    if (resolved != ShortcutAccess.paid) {
+      return LockScreenMealRegisterResult(status: _denied(resolved));
     }
     if (ownerUserId.trim().isEmpty) {
       return const LockScreenMealRegisterResult(
@@ -540,6 +548,14 @@ abstract final class LockScreenMealRegistrar {
         kind: WidgetPatternKind.meal,
       ),
     );
+  }
+
+  static LockScreenMealRegisterStatus _denied(ShortcutAccess access) {
+    return switch (access) {
+      ShortcutAccess.expired => LockScreenMealRegisterStatus.expired,
+      ShortcutAccess.refunded => LockScreenMealRegisterStatus.refunded,
+      _ => LockScreenMealRegisterStatus.unpaid,
+    };
   }
 
   static LockScreenMealRegisterResult _registerExercise({

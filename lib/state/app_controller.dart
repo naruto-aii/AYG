@@ -89,6 +89,7 @@ import '../repositories/usage_record_repository.dart';
 import '../services/usage_record.dart';
 import '../repositories/review_prompt_store.dart';
 import '../services/lock_screen_meal.dart';
+import '../services/shortcut_access.dart';
 import '../services/review_prompt.dart';
 import '../services/lock_screen_meal_gateway.dart';
 import '../services/siri_voice_gateway.dart';
@@ -4127,17 +4128,17 @@ class AppController extends ChangeNotifier {
   /// サーバがこのアカウントの購入を確認したときだけ通す。
   /// 同じ購入が別のアカウントに付いているときは、端末が有料でも通さない。
   /// 購入の送信が無いテストだけ、端末の有料表示のままにする。
+  /// 期限切れはフラグを消さず、期限つきの store として残す。ログアウトだけが消す。
   Future<bool> ensurePaidShortcutsReady() async {
     if (_complimentaryPlusActive) {
-      await setLockScreenMealPaid(true);
+      await _writeCurrentGrant();
       return true;
     }
     if (_shortcutsUseServer) {
       await syncPlusEntitlementToServer();
     }
-    final paid = _widgetPaid;
-    await setLockScreenMealPaid(paid);
-    return paid;
+    await _writeCurrentGrant();
+    return currentShortcutGrant().allows;
   }
 
   /// ストアの加入をフラグへ写す。設定画面からは呼ばない。
@@ -4514,7 +4515,65 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _applyPaidEntitlement() async {
-    await setLockScreenMealPaid(_widgetPaid || _complimentaryPlusActive);
+    await _writeCurrentGrant();
+  }
+
+  /// いまの加入を App Group へ書く。complimentary は StoreKit の返金より先に見る。
+  ShortcutGrant currentShortcutGrant({DateTime? now}) {
+    final clock = now ?? DateTime.now();
+    if (_complimentaryPlusActive) {
+      return const ShortcutGrant.complimentary();
+    }
+    if (_localPreviewPlus) {
+      return const ShortcutGrant.preview();
+    }
+    if (_localPlusRevoked) {
+      return const ShortcutGrant.revoked();
+    }
+    if (_shortcutsUseServer && _widgetPaid) {
+      return ShortcutGrant.store(_serverPlusExpiresAt);
+    }
+    if (!_shortcutsUseServer && _subscriptionRepository.isPlusActive) {
+      return const ShortcutGrant.preview();
+    }
+    final expiry = _serverPlusExpiresAt;
+    if (!_serverPlusBlocked && expiry != null && !expiry.isAfter(clock)) {
+      return ShortcutGrant.store(expiry);
+    }
+    return const ShortcutGrant.none();
+  }
+
+  bool get _localPlusRevoked {
+    if (_subscriptionRepository.isPlusActive) {
+      return false;
+    }
+    return _subscriptionRepository.inactiveEntitlements.any(
+      (record) =>
+          record.revoked &&
+          SubscriptionCatalog.isPlusProduct(record.productId),
+    );
+  }
+
+  Future<void> _writeCurrentGrant() async {
+    await _writeGrant(currentShortcutGrant());
+  }
+
+  Future<void> _writeGrant(ShortcutGrant grant) async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return;
+    }
+    await gateway.setShortcutGrant(grant);
+    await publishLockScreenMealSnapshot();
+  }
+
+  /// ウィジェットか Siri が残した入口。無ければ null。
+  Future<String?> takeShortcutPlusEntry() async {
+    final gateway = _lockScreenMealGateway;
+    if (gateway == null) {
+      return null;
+    }
+    return gateway.takeShortcutPlusEntry();
   }
 
   void _clearServerPlus() {
@@ -4526,14 +4585,13 @@ class AppController extends ChangeNotifier {
 
   /// 有料フラグの入口。設定画面のスイッチからは呼ばない。
   ///
-  /// true のときだけ、ウィジェットと Siri が登録する。
+  /// false はログアウト用で、付与も期限も消す。true は今の加入を書き直す。
   Future<void> setLockScreenMealPaid(bool isPaid) async {
-    final gateway = _lockScreenMealGateway;
-    if (gateway == null) {
+    if (!isPaid) {
+      await _writeGrant(const ShortcutGrant.none());
       return;
     }
-    await gateway.setPaid(isPaid);
-    await publishLockScreenMealSnapshot();
+    await _writeCurrentGrant();
   }
 
   Future<void>? _lockScreenImport;

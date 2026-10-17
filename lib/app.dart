@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'constants/app_strings.dart';
 import 'models/health_profile_data.dart';
@@ -12,6 +13,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/legal/terms_agreement_screen.dart';
 import 'screens/onboarding/basic_info_screen.dart';
 import 'screens/shell/main_shell_screen.dart';
+import 'screens/subscription/calonavi_plus_flow.dart';
 import 'services/analytics/analytics.dart';
 import 'services/app_update_prompt.dart';
 import 'services/analytics/analytics_runtime.dart';
@@ -52,6 +54,10 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _updatePrompt = AppUpdatePrompt();
   bool _wasAuthenticated = false;
+  Future<void>? _shortcutPlus;
+  static const _plusEntryChannel = MethodChannel(
+    'com.narutoaii.ayg/plus_entry',
+  );
 
   FlutterExceptionHandler? _previousFlutterError;
   bool Function(Object, StackTrace)? _previousPlatformError;
@@ -62,6 +68,11 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _wasAuthenticated = widget.controller.isAuthenticated;
     widget.controller.addListener(_popRoutesAfterSignOut);
+    _plusEntryChannel.setMethodCallHandler((call) async {
+      if (call.method == 'open') {
+        await _presentShortcutPlus();
+      }
+    });
     _previousFlutterError = FlutterError.onError;
     FlutterError.onError = (details) {
       CatalogActions.appError(
@@ -96,6 +107,7 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     }
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_popRoutesAfterSignOut);
+    _plusEntryChannel.setMethodCallHandler(null);
     super.dispose();
   }
 
@@ -171,6 +183,40 @@ class _AygAppState extends State<AygApp> with WidgetsBindingObserver {
     }
     await widget.controller.flushUnsentRecords();
     await Analytics.service?.flush();
+    await _presentShortcutPlus();
+  }
+
+  /// ウィジェットか Siri が残した入口で、今の購入画面を出す。
+  Future<void> _presentShortcutPlus() {
+    final current = _shortcutPlus;
+    if (current != null) {
+      return current;
+    }
+    final next = _presentShortcutPlusOnce();
+    _shortcutPlus = next;
+    return next.whenComplete(() {
+      if (identical(_shortcutPlus, next)) {
+        _shortcutPlus = null;
+      }
+    });
+  }
+
+  Future<void> _presentShortcutPlusOnce() async {
+    final entry = await widget.controller.takeShortcutPlusEntry();
+    if (entry == null || !mounted) {
+      return;
+    }
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) {
+      return;
+    }
+    await presentShortcutPlus(
+      navigator.context,
+      entryPoint: entry,
+      repository: widget.controller.subscriptionRepository,
+      funnel: widget.controller.plusFunnelRepository,
+      onPlusActive: widget.controller.syncPlusEntitlementToServer,
+    );
   }
 
   void _popRoutesAfterSignOut() {

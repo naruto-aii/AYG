@@ -530,7 +530,7 @@ class _Weights implements WeightRepositoryBase {
   Future<void> saveWeightRecord(WeightRecord record) async {}
 }
 
-class _Meals implements LockScreenMealGateway {
+class _Meals with LockScreenGrantFallback implements LockScreenMealGateway {
   _Meals(this.ownerUserId);
 
   final String ownerUserId;

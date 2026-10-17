@@ -32,9 +32,17 @@ import WidgetKit
         LockScreenMealStore.write(snapshotJSON: snapshot, paid: paid)
         result(nil)
       case "setPaid":
-        let paid = args?["paid"] as? Bool ?? false
-        LockScreenMealStore.setPaid(paid)
+        if let source = args?["source"] as? String {
+          LockScreenMealStore.setGrant(
+            source: source,
+            expiresAtISO: args?["expiresAt"] as? String
+          )
+        } else {
+          LockScreenMealStore.setPaid(args?["paid"] as? Bool ?? false)
+        }
         result(nil)
+      case "takePlusEntry":
+        result(LockScreenMealStore.takePlusEntry())
       case "readPending":
         result(LockScreenMealStore.readPendingJSON())
       case "acknowledge":
@@ -43,6 +51,15 @@ import WidgetKit
         result(nil)
       default:
         result(FlutterMethodNotImplemented)
+      }
+    }
+    let plusEntry = FlutterMethodChannel(
+      name: "com.narutoaii.ayg/plus_entry",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    PlusEntryCenter.notify = { entry in
+      DispatchQueue.main.async {
+        plusEntry.invokeMethod("open", arguments: entry)
       }
     }
     let siri = FlutterMethodChannel(

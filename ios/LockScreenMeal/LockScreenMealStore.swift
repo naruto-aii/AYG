@@ -1,4 +1,5 @@
 import Foundation
+import StoreKit
 import WidgetKit
 
 /// ロック画面の食事ボタンとアプリが共有する App Group。
@@ -7,8 +8,9 @@ import WidgetKit
 /// 今日の食事を1件追記し、アプリは開かない。Isar へは次回の起動・復帰で
 /// 取り込む。`loggedAt` は押した時刻の壁時計。
 ///
-/// 有料フラグ `lockScreenMealPaid` が true のときだけ追記する。
-/// レシート検証と販売画面は無い。フラグの既定は false。
+/// 記録の直前に、App Group の期限と StoreKit の取引を見る。
+/// 解約しても期限までは追記する。返金と取り消しはそこで止める。
+/// 課金ではない付与（complimentary）は StoreKit が空でも追記する。
 /// JSON の形は Dart の `LockScreenMealCodec`（version 3）と同じ。
 /// ホームは5枠で、枠ごとに食事か運動。ロック画面は保存された3枠を kind のまま読む。
 /// アプリは保存時にホームの1〜3枠目をロックへコピーする。古い `buttons` はロック画面として読む。
@@ -17,14 +19,23 @@ import WidgetKit
 enum LockScreenMealStore {
   static let appGroupId = "group.com.narutoaii.ayg"
   static let paidKey = "lockScreenMealPaid"
+  static let sourceKey = "lockScreenMealAccessSource"
+  static let expiresKey = "lockScreenMealPaidExpiresAt"
+  static let plusEntryKey = "lockScreenMealPlusEntry"
   static let snapshotKey = "lockScreenMealSnapshot"
   static let pendingKey = "lockScreenMealPending"
   static let homeWidgetKind = "HomeMealWidget"
   static let lockWidgetKind = "LockScreenMealWidget"
   static let widgetKind = lockWidgetKind
 
+  /// 単体テストが App Group の代わりに使う。
+  static var testingDefaults: UserDefaults?
+
+  /// この処理のあいだだけ使う StoreKit の結果。Siri が質問の前に入れる。
+  static var pendingStore: PlusStoreSnapshot = .failed
+
   static var defaults: UserDefaults? {
-    UserDefaults(suiteName: appGroupId)
+    testingDefaults ?? UserDefaults(suiteName: appGroupId)
   }
 
   static func isPaid() -> Bool {
@@ -40,6 +51,73 @@ enum LockScreenMealStore {
   static func setPaid(_ paid: Bool) {
     defaults?.set(paid, forKey: paidKey)
     reloadWidgets()
+  }
+
+  /// アプリが書いた加入。source が無い古い true は、次にアプリが開くまで preview として残す。
+  static func setGrant(source: String, expiresAtISO: String?) {
+    defaults?.set(source, forKey: sourceKey)
+    if let expiresAtISO, !expiresAtISO.isEmpty {
+      defaults?.set(expiresAtISO, forKey: expiresKey)
+    } else {
+      defaults?.removeObject(forKey: expiresKey)
+    }
+    let allowed = access(store: .failed) == .paid
+    defaults?.set(allowed, forKey: paidKey)
+    defaults?.synchronize()
+    reloadWidgets()
+  }
+
+  static func readGrant() -> ShortcutGrant {
+    let source = defaults?.string(forKey: sourceKey) ?? ""
+    let expires = parseInstant(defaults?.string(forKey: expiresKey))
+    if !source.isEmpty {
+      return ShortcutGrant(source: source, expiresAt: expires)
+    }
+    if defaults?.bool(forKey: paidKey) == true {
+      return ShortcutGrant(source: "preview", expiresAt: nil)
+    }
+    return ShortcutGrant(source: "none", expiresAt: nil)
+  }
+
+  static func access(
+    store: PlusStoreSnapshot,
+    now: Date = Date()
+  ) -> ShortcutAccess {
+    ShortcutAccessRules.decide(
+      source: readGrant().source,
+      expiresAt: readGrant().expiresAt,
+      store: store,
+      now: now
+    )
+  }
+
+  static func markPlusEntry(_ entry: String) {
+    guard entry == "widget" || entry == "siri" else {
+      return
+    }
+    defaults?.set(entry, forKey: plusEntryKey)
+  }
+
+  static func takePlusEntry() -> String? {
+    let value = defaults?.string(forKey: plusEntryKey)
+    defaults?.removeObject(forKey: plusEntryKey)
+    if value == "widget" || value == "siri" {
+      return value
+    }
+    return nil
+  }
+
+  static func parseInstant(_ raw: String?) -> Date? {
+    guard let raw, !raw.isEmpty else {
+      return nil
+    }
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = formatter.date(from: raw) {
+      return date
+    }
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.date(from: raw)
   }
 
   static func reloadWidgets() {
@@ -148,11 +226,18 @@ enum LockScreenMealStore {
     writePendingArray(pending)
   }
 
-  /// 有料かつパターンの中身があるときだけ、食事か運動を1件追記する。アプリは開かない。
+  /// 有料かつ期限内のときだけ、食事か運動を1件追記する。アプリは開かない。
+  /// 期限切れと返金は追記せず、その理由を返す。
   @discardableResult
-  static func register(surface: String, slot: Int) -> String {
-    guard isPaid() else {
-      return "unpaid"
+  static func register(
+    surface: String,
+    slot: Int,
+    store: PlusStoreSnapshot = .failed,
+    now: Date = Date()
+  ) -> String {
+    let decision = access(store: store, now: now)
+    guard decision.allowsRegister else {
+      return decision.widgetResult
     }
     let owner = ownerUserId()
     let source = surface == "home" ? homeButtons() : lockButtons()
@@ -561,6 +646,162 @@ struct LockScreenMealButton: Identifiable {
 }
 
 /// ウィジェットの同じボタンを続けて押したときの間引き。端末の時計だけで決める。
+enum PlusStoreSnapshot: Equatable {
+  case active(expiresAt: Date?)
+  case revoked
+  case none
+  case failed
+}
+
+struct ShortcutGrant: Equatable {
+  var source: String
+  var expiresAt: Date?
+}
+
+enum ShortcutAccess: Equatable {
+  case paid
+  case unpaid
+  case expired
+  case refunded
+
+  var allowsRegister: Bool { self == .paid }
+
+  var widgetResult: String {
+    switch self {
+    case .paid:
+      return "registered"
+    case .unpaid:
+      return "unpaid"
+    case .expired:
+      return "expired"
+    case .refunded:
+      return "refunded"
+    }
+  }
+
+  var stopReason: String {
+    switch self {
+    case .paid:
+      return "committed"
+    case .unpaid:
+      return "unpaid"
+    case .expired:
+      return "expired"
+    case .refunded:
+      return "refunded"
+    }
+  }
+
+  var locksWidget: Bool { self != .paid }
+}
+
+/// Dart の `decideShortcutAccess` と同じ順。
+enum ShortcutAccessRules {
+  static func decide(
+    source: String,
+    expiresAt: Date?,
+    store: PlusStoreSnapshot,
+    now: Date
+  ) -> ShortcutAccess {
+    if source == "complimentary" || source == "preview" {
+      return .paid
+    }
+    if case .active(let storeExpiry) = store {
+      if let storeExpiry, storeExpiry <= now {
+        return .expired
+      }
+      return .paid
+    }
+    if store == .revoked || source == "revoked" {
+      return .refunded
+    }
+    if let expiresAt {
+      return expiresAt > now ? .paid : .expired
+    }
+    return .unpaid
+  }
+}
+
+struct PlusStoreTransaction: Equatable {
+  var productId: String
+  var expiresAt: Date?
+  var revoked: Bool
+}
+
+enum PlusProduct {
+  static let ids: Set<String> = [
+    "calonavi_plus_monthly",
+    "calonavi_plus_half_year",
+    "calonavi_plus_yearly",
+  ]
+}
+
+enum PlusStoreProbe {
+  /// 期限が残る取引を、返金より先に採る。期限の過ぎた取引は飛ばす。
+  static func reduce(_ rows: [PlusStoreTransaction], now: Date) -> PlusStoreSnapshot {
+    let relevant = rows.filter { PlusProduct.ids.contains($0.productId) }
+    let current = relevant.filter { row in
+      if row.revoked {
+        return false
+      }
+      guard let expiresAt = row.expiresAt else {
+        return true
+      }
+      return expiresAt > now
+    }
+    if !current.isEmpty {
+      if current.contains(where: { $0.expiresAt == nil }) {
+        return .active(expiresAt: nil)
+      }
+      let latest = current.compactMap(\.expiresAt).max()
+      return .active(expiresAt: latest)
+    }
+    if relevant.contains(where: { $0.revoked }) {
+      return .revoked
+    }
+    return .none
+  }
+
+  static func live(now: Date = Date()) async -> PlusStoreSnapshot {
+    guard #available(iOS 15.0, *) else {
+      return .failed
+    }
+    return await collect(now: now)
+  }
+
+  @available(iOS 15.0, *)
+  private static func collect(now: Date) async -> PlusStoreSnapshot {
+    var rows: [PlusStoreTransaction] = []
+    do {
+      for try await result in Transaction.all {
+        guard case .verified(let transaction) = result else {
+          continue
+        }
+        rows.append(
+          PlusStoreTransaction(
+            productId: transaction.productID,
+            expiresAt: transaction.expirationDate,
+            revoked: transaction.revocationDate != nil
+          )
+        )
+      }
+      return reduce(rows, now: now)
+    } catch {
+      return .failed
+    }
+  }
+}
+
+enum PlusEntryCenter {
+  /// アプリ本体だけが入れる。ウィジェットでは nil。
+  static var notify: ((String) -> Void)?
+
+  static func request(_ entry: String) {
+    LockScreenMealStore.markPlusEntry(entry)
+    notify?(entry)
+  }
+}
+
 enum RegisterDebounce {
   /// これより短い間隔の2回目は記録しない（秒）。
   static let window: Double = 3

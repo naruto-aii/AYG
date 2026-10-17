@@ -701,7 +701,7 @@ class _MutableClock {
   DateTime value;
 }
 
-class _Meals implements LockScreenMealGateway {
+class _Meals with LockScreenGrantFallback implements LockScreenMealGateway {
   _Meals(this.userId);
 
   final String userId;

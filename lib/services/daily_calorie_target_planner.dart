@@ -217,8 +217,8 @@ class DailyCalorieTargetPlanner {
       suggestedDate: suggestedDate,
       suggestedWeightKg: suggestedWeight,
       message: date.isEmpty
-          ? 'この目標日には届きません。目標日と目標体重は自動では変えません。'
-          : 'この目標日には届きません。安全な速度なら$dateに届きます。',
+          ? 'このペースだと目標日に少し間に合いません。目標日と目標体重は自動では変えません。'
+          : 'このペースだと目標日に少し間に合いません。安全な速度なら$dateに届きます。',
     );
   }
 

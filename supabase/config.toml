@@ -420,6 +420,16 @@ verify_jwt = true
 [functions.delete-account]
 verify_jwt = true
 
+# 食事写真、食品名、自炊コーチ。JWT は検証する。加入行が無いときだけ付与を見る。本番へはこの変更では配備しない。
+[functions.analyze-meal-photo]
+verify_jwt = true
+
+[functions.lookup-food-text]
+verify_jwt = true
+
+[functions.cook-coach]
+verify_jwt = true
+
 # Apple のサーバー通知は JWT を付けてこない。関数の中で署名を検証する。
 [functions.app-store-notifications]
 verify_jwt = false

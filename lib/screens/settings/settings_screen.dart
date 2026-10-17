@@ -36,7 +36,7 @@ import 'settings_reference_screen.dart';
 ///
 /// 計算とデータの出典、規約3件、ログアウトとアカウント削除は
 /// それぞれ1行にまとめ、中の画面で従来どおり開ける。
-/// 問い合わせは「運営連絡」にまとめてある。
+/// 問い合わせは「お問い合わせ」にまとめてある。
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
@@ -67,13 +67,16 @@ class SettingsScreen extends StatelessWidget {
       controller,
       message: AppStrings.coachBetaNotice,
       feature: PlusFunnelFeature.coach,
+      featureName: '食事の提案',
     );
     if (!allowed || !context.mounted) {
       return;
     }
     await Navigator.of(context).push<CoachSavedKind>(
       MaterialPageRoute<CoachSavedKind>(
-      settings: const RouteSettings(name: 'settings_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'settings_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => DailyCoachScreen(controller: controller),
       ),
     );
@@ -91,9 +94,10 @@ class SettingsScreen extends StatelessWidget {
       );
       final openPlus = await showAppConfirmDialog(
         context: context,
-        title: 'こちらは有料の機能です',
-        message:
-            'ウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
+        title: calonaviPlusGateTitle('ウィジェット'),
+        message: withCalonaviPlusFreeForever(
+          'ウィジェットは、残りカロリーに加え、アプリを開かずに食事と運動を登録します。枠は食事と運動を自由に組み合わせられます。カロナビ+です。',
+        ),
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );
@@ -122,9 +126,8 @@ class SettingsScreen extends StatelessWidget {
       );
       final openPlus = await showAppConfirmDialog(
         context: context,
-        title: 'こちらは有料の機能です',
-        message:
-            AppStrings.siriVoicePaidGuidance,
+        title: calonaviPlusGateTitle('音声登録'),
+        message: withCalonaviPlusFreeForever(AppStrings.siriVoicePaidGuidance),
         confirmLabel: 'カロナビ+を見る',
         cancelLabel: '閉じる',
       );
@@ -169,10 +172,14 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _push(BuildContext context, Widget screen) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'settings_screen_MaterialPageRoute_1'),builder: (context) => screen));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(
+          name: 'settings_screen_MaterialPageRoute_1',
+        ),
+        builder: (context) => screen,
+      ),
+    );
   }
 
   @override
@@ -216,13 +223,24 @@ class SettingsScreen extends StatelessWidget {
             icon: AppIcons.information,
             title: '使い方',
             subtitle: 'はじめての操作と、無料との違い',
-            onTap: () => _push(context, const HowToUseScreen()),
+            onTap: () => _push(
+              context,
+              HowToUseScreen(
+                controller: controller,
+                openFoodFactsService: openFoodFactsService,
+                authenticationRepository: authenticationRepository,
+                healthRepository: healthRepository,
+                hideHealthSettings: hideHealthSettings,
+                showLockScreenMeal: showLockScreenMeal,
+                supportEmail: contactEmail,
+              ),
+            ),
           ),
           const SizedBox(height: _rowGap),
           SettingsRow(
             key: const Key('settings-personal-coach'),
             icon: AppIcons.meal,
-            title: 'パーソナルコーチ (β)',
+            title: '食事の提案（β）',
             subtitle: '残りカロリーに合わせて食事を提案',
             onTap: () => _openPersonalCoach(context),
           ),
@@ -243,7 +261,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.exercise,
-            title: '活動・Health',
+            title: 'ヘルスケア連携',
             subtitle: hideHealthSettings
                 ? AppStrings.webHealthUnavailable
                 : '運動・歩数・ヘルスケア連携の設定',
@@ -260,7 +278,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: _rowGap),
           SettingsRow(
             icon: AppIcons.meal,
-            title: '保存済み食品',
+            title: '自分の食品とテンプレート',
             subtitle: '保存済み食品の登録・管理',
             onTap: () => _push(
               context,

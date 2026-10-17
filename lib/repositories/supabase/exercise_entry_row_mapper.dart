@@ -1,6 +1,7 @@
 import '../../models/exercise_calculation_source.dart';
 import '../../models/exercise_category.dart';
 import '../../models/exercise_entry.dart';
+import '../../utils/record_clock.dart';
 
 class ExerciseEntryRowMapper {
   const ExerciseEntryRowMapper._();
@@ -43,7 +44,7 @@ class ExerciseEntryRowMapper {
       'name': entry.name,
       'duration_min': entry.durationMin,
       'burned_kcal': entry.burnedKcal,
-      'logged_at': entry.loggedAt.toIso8601String(),
+      'logged_at': encodeRecordTimestamp(entry.loggedAt),
       'category_key': entry.category?.id,
       'activity_id': entry.activityId,
       'intensity': entry.intensity,

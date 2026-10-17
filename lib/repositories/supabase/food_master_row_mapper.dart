@@ -10,6 +10,7 @@ import '../../models/food_visibility.dart';
 import '../../models/meal_template.dart';
 import '../../models/moderation_status.dart';
 import '../../models/saved_food.dart';
+import '../../utils/record_clock.dart';
 
 class FoodMasterRowMapper {
   const FoodMasterRowMapper._();
@@ -260,7 +261,7 @@ class FoodMasterRowMapper {
       'source_saved_food_version': entry.sourceSavedFoodVersion,
       'memo': _blankToNull(entry.memo),
       'record_origin': _blankToNull(entry.recordOrigin),
-      'logged_at': entry.loggedAt.toIso8601String(),
+      'logged_at': encodeRecordTimestamp(entry.loggedAt),
     };
   }
 
@@ -328,7 +329,7 @@ class FoodMasterRowMapper {
       'total_calories': entry.totalCalories,
       'pure_alcohol_grams': entry.pureAlcoholGrams,
       'alcohol_calories': entry.alcoholCalories,
-      'consumed_at': entry.consumedAt.toIso8601String(),
+      'consumed_at': encodeRecordTimestamp(entry.consumedAt),
     };
   }
 

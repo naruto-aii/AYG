@@ -52,8 +52,11 @@ import '../models/calculation/weight_sample.dart';
 import '../models/weight_entry.dart';
 import '../services/weight_for_target.dart';
 import '../utils/local_date.dart';
+import '../utils/record_clock.dart';
 import '../models/workout_template.dart';
 import '../repositories/authentication_repository.dart';
+import '../repositories/complimentary_plus_repository.dart';
+import '../services/complimentary_plus.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
 import '../repositories/contracts/blocked_food_creator_repository_base.dart';
 import '../repositories/contracts/food_rating_repository_base.dart';
@@ -138,6 +141,7 @@ class AppController extends ChangeNotifier {
     PlusFunnelRepository? plusFunnelRepository,
     ReviewPromptStore? reviewPromptStore,
     PendingRecordStore? pendingRecords,
+    ComplimentaryPlusRepository? complimentaryPlus,
   }) : _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
        _authenticationRepository = authenticationRepository,
@@ -166,6 +170,8 @@ class AppController extends ChangeNotifier {
        _plusFunnelRepository = plusFunnelRepository,
        _reviewPromptStore = reviewPromptStore ?? const NoOpReviewPromptStore(),
        _pendingRecords = pendingRecords ?? PendingRecordStore(),
+       _complimentaryPlus =
+           complimentaryPlus ?? const NoOpComplimentaryPlusRepository(),
        _savedFoodSearchService = const SavedFoodSearchService(),
        _savedFoodDuplicateService = const SavedFoodDuplicateService(),
        _savedFoodEntryBuilder = const SavedFoodEntryBuilder(),
@@ -204,6 +210,18 @@ class AppController extends ChangeNotifier {
   final PlusFunnelRepository? _plusFunnelRepository;
   final ReviewPromptStore _reviewPromptStore;
   final PendingRecordStore _pendingRecords;
+  final ComplimentaryPlusRepository _complimentaryPlus;
+  bool _complimentaryPlusActive = false;
+  String? _complimentaryPlusUserId;
+
+  /// 機能を開いてよいか。ストアの加入か、課金ではない付与。
+  ///
+  /// 購入・復元の成否は [SubscriptionRepository.isPlusActive] のまま。
+  /// ここを true にしても加入行は作らない。
+  bool get hasCalonaviPlusAccess => calonaviPlusAccess(
+    storePlus: _subscriptionRepository.isPlusActive,
+    complimentary: _complimentaryPlusActive,
+  );
 
   PendingRecordStore get pendingRecords => _pendingRecords;
 
@@ -440,6 +458,8 @@ class AppController extends ChangeNotifier {
 
   Future<void> _handleAuthStateChanged(AuthUser? user) async {
     if (user == null) {
+      _complimentaryPlusUserId = null;
+      await _setComplimentaryPlus(false);
       _resetSyncState();
       _clearInMemoryState();
       notifyListeners();
@@ -468,6 +488,7 @@ class AppController extends ChangeNotifier {
     final userId = authUser.id.toLowerCase();
     await Analytics.service?.setCurrentUser(userId);
     _subscriptionRepository.bindStoreAccountToken(userId);
+    await refreshComplimentaryPlus();
 
     if (_isSyncInProgress) {
       return;
@@ -892,7 +913,9 @@ class AppController extends ChangeNotifier {
     healthSnapshot = HealthSnapshot(
       activeEnergyBurnedKcal: data.activeEnergyBurnedKcal,
       weightKg: data.weightKg,
-      weightMeasuredAt: data.weightKg == null ? null : data.weightMeasuredAt,
+      weightMeasuredAt: data.weightKg == null || data.weightMeasuredAt == null
+          ? null
+          : asNewRecordInstant(data.weightMeasuredAt!),
     );
     await _settingsRepository?.saveHealthSnapshot(healthSnapshot);
     unawaited(_fillWidgetExercisesWaitingForWeight());
@@ -1101,7 +1124,7 @@ class AppController extends ChangeNotifier {
     final entry = WeightEntry(
       id: generateId(),
       weightKg: weightKg,
-      recordedAt: DateTime.now(),
+      recordedAt: asNewRecordInstant(DateTime.now()),
       source: WeightSource.manual,
     );
     weightEntries.add(entry);
@@ -1279,6 +1302,37 @@ class AppController extends ChangeNotifier {
       return;
     }
     await saveGoalSettings(next);
+  }
+
+  /// 起動と前面復帰で呼ぶ。失敗しても画面は出さない。
+  Future<void> refreshHealthDataQuietly({required String trigger}) async {
+    final started = DateTime.now();
+    void emit(String result, {int weightSamples = 0}) {
+      final elapsed = DateTime.now().difference(started).inMilliseconds;
+      _usage('health_sync_result', {
+        'trigger': trigger,
+        'result': result,
+        'workouts_imported': 0,
+        'weight_samples_imported': weightSamples,
+        'duration_ms': elapsed < 0 ? 0 : elapsed,
+      });
+    }
+
+    final healthRepository = _healthRepository;
+    if (healthRepository == null || !useHealthIntegration) {
+      return;
+    }
+    try {
+      final profileData = await healthRepository.fetchProfileData();
+      await applyHealthProfileData(profileData);
+      final hasWeight = profileData.weightKg != null;
+      final ok = hasWeight || profileData.activeEnergyBurnedKcal != null;
+      emit(ok ? 'success' : 'failed', weightSamples: hasWeight ? 1 : 0);
+    } catch (error, stackTrace) {
+      emit('failed');
+      debugPrint('[AYG] health sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Future<bool> resyncHealthData() async {
@@ -1507,7 +1561,7 @@ class AppController extends ChangeNotifier {
     if (trimmed == null || trimmed.isEmpty) {
       return null;
     }
-    if (!_subscriptionRepository.isPlusActive) {
+    if (!hasCalonaviPlusAccess) {
       return null;
     }
     if (trimmed.length <= foodMemoMaxLength) {
@@ -1522,7 +1576,7 @@ class AppController extends ChangeNotifier {
     if (trimmed == null || trimmed.isEmpty) {
       return null;
     }
-    if (!_subscriptionRepository.isPlusActive) {
+    if (!hasCalonaviPlusAccess) {
       return null;
     }
     return trimmed;
@@ -1541,7 +1595,7 @@ class AppController extends ChangeNotifier {
     double? consumedAmount,
     DateTime? loggedAt,
   }) async {
-    if (!_subscriptionRepository.isPlusActive) {
+    if (!hasCalonaviPlusAccess) {
       return false;
     }
     final amount = consumedAmount ?? source.consumedAmount;
@@ -1566,7 +1620,7 @@ class AppController extends ChangeNotifier {
         sourceSavedFoodVersion: source.sourceSavedFoodVersion,
         officialFoodCode: source.officialFoodCode,
         officialFoodName: source.officialFoodName,
-        loggedAt: loggedAt ?? DateTime.now(),
+        loggedAt: asNewRecordInstant(loggedAt ?? DateTime.now()),
       ),
     );
     return true;
@@ -1578,7 +1632,7 @@ class AppController extends ChangeNotifier {
       'has_memo': memo != null && memo.isNotEmpty,
       'memo_length': memo?.length ?? 0,
     });
-    if (!_subscriptionRepository.isPlusActive) {
+    if (!hasCalonaviPlusAccess) {
       return false;
     }
     final stored = storedFoodMemo(memo);
@@ -3318,7 +3372,7 @@ class AppController extends ChangeNotifier {
     final existing = await repository.getAll(currentOwnerUserId);
     return !SubscriptionCatalog.workoutTemplateCreateRequiresPlus(
       savedCount: existing.length,
-      isPlus: _subscriptionRepository.isPlusActive,
+      isPlus: hasCalonaviPlusAccess,
     );
   }
 
@@ -3331,7 +3385,7 @@ class AppController extends ChangeNotifier {
     final existing = await repository.getAll(currentOwnerUserId);
     return !SubscriptionCatalog.mealTemplateCreateRequiresPlus(
       savedCount: existing.length,
-      isPlus: _subscriptionRepository.isPlusActive,
+      isPlus: hasCalonaviPlusAccess,
     );
   }
 
@@ -3534,7 +3588,7 @@ class AppController extends ChangeNotifier {
   /// 開発ビルドのプレビューを含むカロナビ+なら、App Group の有料フラグを
   /// true にしてから通す。リリースで未加入のときは、そのフラグだけを見る。
   Future<bool> ensurePaidShortcutsReady() async {
-    if (_subscriptionRepository.isPlusActive) {
+    if (hasCalonaviPlusAccess) {
       await setLockScreenMealPaid(true);
       return true;
     }
@@ -3563,7 +3617,41 @@ class AppController extends ChangeNotifier {
         'changed': before != active,
       });
     }
+    await refreshComplimentaryPlus();
     await _applyPaidEntitlement();
+  }
+
+  /// 課金ではない付与を読み直す。失敗しても、ストアの加入は変えない。
+  Future<void> refreshComplimentaryPlus() async {
+    final userId = _authenticationRepository?.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      _complimentaryPlusUserId = null;
+      await _setComplimentaryPlus(false);
+      return;
+    }
+    if (_complimentaryPlusUserId != userId) {
+      _complimentaryPlusUserId = userId;
+      await _setComplimentaryPlus(false);
+    }
+    final next = await _complimentaryPlus.current();
+    if (_authenticationRepository?.currentUser?.id != userId) {
+      return;
+    }
+    if (next == null) {
+      return;
+    }
+    await _setComplimentaryPlus(next);
+  }
+
+  Future<void> _setComplimentaryPlus(bool next) async {
+    if (_complimentaryPlusActive == next) {
+      return;
+    }
+    _complimentaryPlusActive = next;
+    notifyListeners();
+    try {
+      await _applyPaidEntitlement();
+    } catch (_) {}
   }
 
   void _listenForPaidEntitlement() {
@@ -3735,7 +3823,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _applyPaidEntitlement() async {
-    await setLockScreenMealPaid(_subscriptionRepository.isPlusActive);
+    await setLockScreenMealPaid(hasCalonaviPlusAccess);
   }
 
   /// 有料フラグの入口。設定画面のスイッチからは呼ばない。
@@ -4094,7 +4182,10 @@ class AppController extends ChangeNotifier {
     );
     if (plan.entries.isNotEmpty) {
       await addFoodEntriesBatch(
-        plan.entries,
+        [
+          for (final entry in plan.entries)
+            entry.copyWith(loggedAt: asNewRecordInstant(entry.loggedAt)),
+        ],
         origin: ReviewRecordOrigin.widget,
       );
       await _countLockScreenTemplateUses(plan.templateIds);
@@ -4115,7 +4206,7 @@ class AppController extends ChangeNotifier {
           pattern: pattern,
           weightKg: weightKg,
           id: pattern.itemId,
-          loggedAt: record.loggedAt,
+          loggedAt: asNewRecordInstant(record.loggedAt),
         );
         final analyticsOrigin = record.surface == 'lock'
             ? 'lock_widget'
@@ -4124,7 +4215,7 @@ class AppController extends ChangeNotifier {
           final pendingEntry = widgetExercisePendingWeight(
             pattern: pattern,
             id: pattern.itemId,
-            loggedAt: record.loggedAt,
+            loggedAt: asNewRecordInstant(record.loggedAt),
           );
           if (pendingEntry != null &&
               widgetExerciseWaitsForWeight(pattern, weightKg)) {

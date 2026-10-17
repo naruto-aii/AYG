@@ -818,7 +818,7 @@ class _ExerciseMetCalculationSectionState
     if (notesController == null) {
       return const SizedBox.shrink();
     }
-    final plus = widget.controller.subscriptionRepository.isPlusActive;
+    final plus = widget.controller.hasCalonaviPlusAccess;
     if (!plus) {
       return Align(
         alignment: Alignment.centerLeft,
@@ -829,6 +829,7 @@ class _ExerciseMetCalculationSectionState
               widget.controller,
               message: '運動のメモは、カロナビ+です。',
               feature: PlusFunnelFeature.memo,
+              featureName: 'メモ',
             );
             if (allowed && mounted) {
               setState(() {});

@@ -76,7 +76,7 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
     if (!granted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
+          content: Text('ヘルスケアのデータを取得できませんでした。取得できない項目は手入力してください。'),
         ),
       );
     }
@@ -108,7 +108,7 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
     if (_useHealthIntegration == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Health連携の利用有無を選択してください')));
+      ).showSnackBar(const SnackBar(content: Text('ヘルスケア連携の利用有無を選択してください')));
       return;
     }
 
@@ -142,7 +142,7 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
           const Center(child: _HealthIllustration(accent: _healthRed)),
           const SizedBox(height: 22),
           Text(
-            'Healthと連携しますか？',
+            'iPhoneのヘルスケアと連携しますか？',
             textAlign: TextAlign.center,
             style: AppTypography.headingM,
           ),
@@ -173,8 +173,8 @@ class _HealthSetupScreenState extends State<HealthSetupScreen> {
           const SizedBox(height: 14),
           _Note(
             text: widget.healthRepository.isAvailable
-                ? 'お使いの端末がHealthに対応していない場合は、\n手動での入力方法をご案内します。'
-                : 'この端末はHealthに対応していません。\n手動での入力方法をご案内します。',
+                ? 'お使いの端末がヘルスケアに対応していない場合は、\n手動での入力方法をご案内します。'
+                : 'この端末はヘルスケアに対応していません。\n手動での入力方法をご案内します。',
           ),
           const SizedBox(height: 24),
         ],

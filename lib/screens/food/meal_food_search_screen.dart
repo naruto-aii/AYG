@@ -5,13 +5,14 @@ import '../../models/public_food_search_match.dart';
 import '../../models/saved_food.dart';
 import '../../services/public_food_meal_add_flow.dart';
 import '../../state/app_controller.dart';
+import '../alcohol/alcohol_form_screen.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/food/combined_food_search.dart';
 import '../../widgets/saved_food/public_food_detail_sheet.dart';
 import '../official_food/official_food_detail_screen.dart';
 
-/// 食事登録の「食品を探す」。保存済み・定番の食品・公開食品をまとめて探す。
+/// 食事登録の「食品を探す」。自分の食品・一般的な食品・みんなが登録した食品をまとめて探す。
 class MealFoodSearchScreen extends StatefulWidget {
   const MealFoodSearchScreen({
     super.key,
@@ -74,7 +75,7 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
         children: [
           const DesignTitleBlock(
             title: '食品を探す',
-            subtitle: '保存済み・定番の食品・公開食品から探せます。',
+            subtitle: '自分の食品・一般的な食品・みんなが登録した食品',
           ),
           DesignSearchField(
             key: const Key('meal-food-search-field'),
@@ -96,6 +97,21 @@ class _MealFoodSearchScreenState extends State<MealFoodSearchScreen> {
             onSavedFood: _pickSaved,
             onOfficialFood: _pickOfficial,
             onPublicFood: _pickPublic,
+            onManualEntry: (query) => Navigator.of(context).pop(query),
+            onRecordAsAlcohol: () {
+              final name = _queryController.text.trim();
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(
+                    name: 'meal_food_search_screen_MaterialPageRoute_0',
+                  ),
+                  builder: (context) => AlcoholFormScreen(
+                    controller: widget.controller,
+                    initialBeverageName: name,
+                  ),
+                ),
+              );
+            },
             browseSavedWhenEmpty: true,
           ),
         ],

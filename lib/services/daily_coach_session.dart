@@ -4,6 +4,7 @@ import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../repositories/coach_nutrition_source.dart';
 import '../state/app_controller.dart';
+import '../utils/record_clock.dart';
 import 'daily_coach.dart';
 
 enum DailyCoachStatus { ready, nutritionMissing }
@@ -157,7 +158,7 @@ class DailyCoachSession {
     if (proposal.components.isEmpty) {
       return const [];
     }
-    final loggedAt = DateTime.now();
+    final loggedAt = asNewRecordInstant(DateTime.now());
     final mealGroupId = controller.generateId();
     final entries = <FoodEntry>[];
     for (var i = 0; i < proposal.components.length; i++) {
@@ -209,7 +210,7 @@ class DailyCoachSession {
       amount: amount,
       weightKg: weight > 0 ? weight : null,
       id: controller.generateId(),
-      loggedAt: DateTime.now(),
+      loggedAt: asNewRecordInstant(DateTime.now()),
     );
     if (entry == null) {
       return false;

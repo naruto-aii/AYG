@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_spacing.dart';
+import '../../utils/record_clock.dart';
 
 /// 記録日時（日付＋時刻）の選択フィールド。
 class LoggedAtPickerField extends StatelessWidget {
@@ -16,7 +17,7 @@ class LoggedAtPickerField extends StatelessWidget {
   final String label;
 
   Future<void> _pick(BuildContext context) async {
-    final local = loggedAt.toLocal();
+    final local = civilClock(loggedAt);
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: local,
@@ -36,18 +37,21 @@ class LoggedAtPickerField extends StatelessWidget {
     }
 
     onChanged(
-      DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
+      adoptPickedRecordTime(
+        original: loggedAt,
+        pickedLocal: DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        ),
       ),
     );
   }
 
   String _format(DateTime value) {
-    final local = value.toLocal();
+    final local = civilClock(value);
     return '${local.year}/${local.month}/${local.day} '
         '${local.hour.toString().padLeft(2, '0')}:'
         '${local.minute.toString().padLeft(2, '0')}';

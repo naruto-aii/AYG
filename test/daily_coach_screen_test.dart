@@ -155,12 +155,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('パーソナルコーチ (β)'));
+    await tester.tap(find.text('食事の提案（β）'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsNothing);
-    expect(find.text('こちらは有料の機能です'), findsOneWidget);
-    expect(find.text(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(find.text('食事の提案はカロナビ+の機能です'), findsOneWidget);
+    expect(find.textContaining(AppStrings.coachBetaNotice), findsOneWidget);
+    expect(
+      find.textContaining('食事・運動・体重の記録は、無料でずっと使えます。'),
+      findsOneWidget,
+    );
     expect(find.text('カロナビ+を見る'), findsOneWidget);
     expect(find.text('2回目以降はカロナビ+です。'), findsNothing);
     expect(controller.foodEntries, isEmpty);
@@ -516,11 +520,11 @@ void main() {
     expect(find.byTooltip('お知らせ'), findsOneWidget);
     expect(find.byKey(const Key('announcement_unread_dot')), findsNothing);
     final remainingTop = tester.getTopLeft(find.text('今日あと')).dy;
-    final coachTop = tester.getTopLeft(find.text('パーソナルコーチ (β)')).dy;
+    final coachTop = tester.getTopLeft(find.text('食事の提案（β）')).dy;
     expect(coachTop, greaterThan(remainingTop));
     expect(tester.widget<DesignButton>(find.byType(DesignButton)).height, 52);
 
-    await tester.tap(find.text('パーソナルコーチ (β)'));
+    await tester.tap(find.text('食事の提案（β）'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DailyCoachScreen), findsOneWidget);
@@ -533,7 +537,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DailyCoachScreen), findsNothing);
 
-    await tester.tap(find.text('パーソナルコーチ (β)'));
+    await tester.tap(find.text('食事の提案（β）'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();

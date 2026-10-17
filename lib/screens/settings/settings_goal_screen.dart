@@ -148,7 +148,9 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
 
     if (warnings.isNotEmpty) {
       final proceed = await showDialog<bool>(
-      routeSettings: const RouteSettings(name: 'settings_goal_screen_showDialog_0'),
+        routeSettings: const RouteSettings(
+          name: 'settings_goal_screen_showDialog_0',
+        ),
         context: context,
         builder: (context) => AlertDialog(
           title: const Text(AppStrings.goalWarningTitle),
@@ -289,7 +291,7 @@ class _SettingsGoalScreenState extends State<SettingsGoalScreen> {
             title: '目標',
             subtitle: '目標体重と目標日から、1日の食事目標を出します。',
           ),
-          Text('目標の方向性', style: AppTypography.titleS),
+          Text('どうしたいですか？', style: AppTypography.titleS),
           const SizedBox(height: 10),
           Row(
             children: [

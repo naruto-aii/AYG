@@ -305,19 +305,16 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
           ),
         ),
       ),
-      bottomBar: Row(
+      bottomBar: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: DesignButton(
-              label: '戻る',
-              style: DesignButtonStyle.outline,
-              showTrailingIcon: false,
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: DesignButton(label: 'はじめる', onPressed: _complete),
+          DesignButton(label: '保存して食事を記録する', onPressed: _complete),
+          const SizedBox(height: 8),
+          DesignButton(
+            label: '戻る',
+            style: DesignButtonStyle.outline,
+            showTrailingIcon: false,
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
         ],
       ),
@@ -339,7 +336,7 @@ class _GoalSetupScreenState extends State<GoalSetupScreen> {
             style: AppTypography.bodyM,
           ),
           const SizedBox(height: 18),
-          Text('目標の方向性', style: AppTypography.titleS),
+          Text('どうしたいですか？', style: AppTypography.titleS),
           const SizedBox(height: 10),
           Row(
             children: [

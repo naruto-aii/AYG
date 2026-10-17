@@ -183,23 +183,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(HowToUseScreen), findsOneWidget);
       expect(find.text('使い方'), findsWidgets);
-      expect(find.textContaining('今日あと'), findsOneWidget);
-      expect(find.text('無料とカロナビ+'), findsOneWidget);
-      expect(find.textContaining('カロナビ+'), findsWidgets);
-      expect(find.text('ウィジェットと、音声登録 (β)'), findsOneWidget);
-      expect(
-        find.textContaining('枠は食事と運動を自由に組み合わせられます'),
-        findsOneWidget,
-      );
+      expect(find.text('食事を記録する'), findsOneWidget);
+      expect(find.text('運動を記録する'), findsOneWidget);
+      expect(find.text('体重を記録する'), findsOneWidget);
+      expect(find.text('記録を見る'), findsOneWidget);
+      expect(find.text('この画面を開く'), findsWidgets);
+      expect(find.text('ウィジェットと、音声登録 (β)'), findsNothing);
       expect(
         find.textContaining('音声登録 (β) は、β版として先行公開'),
         findsNothing,
       );
-      expect(
-        find.textContaining('β版として先行公開している機能で、カロナビ+で使えます'),
-        findsNothing,
-      );
       expect(find.textContaining('写真'), findsNothing);
+      if (!webShell) {
+        expect(find.text('ウィジェット'), findsOneWidget);
+        expect(find.text('音声登録'), findsOneWidget);
+      }
       Navigator.of(tester.element(find.byType(HowToUseScreen))).pop();
       await tester.pumpAndSettle();
     }

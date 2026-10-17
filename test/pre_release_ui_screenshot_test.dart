@@ -70,8 +70,8 @@ void main() {
       tester,
       const HowToUseScreen(),
       File('${directory.path}/how_to_widget_voice.png'),
-      find.text('ウィジェットと、音声登録 (β)'),
-      scrollTo: find.text('ウィジェットと、音声登録 (β)'),
+      find.text('食事を記録する'),
+      scrollTo: find.text('計算の見方'),
     );
     expect(find.textContaining('カロナビ+の機能です'), findsNothing);
 
@@ -116,7 +116,7 @@ void main() {
       find.text('設定'),
       scrollTo: find.text('音声登録 (β)'),
     );
-    expect(find.text('パーソナルコーチ (β)'), findsOneWidget);
+    expect(find.text('食事の提案（β）'), findsOneWidget);
     expect(find.text('音声登録 (β)'), findsOneWidget);
     await authRepository.dispose();
   });

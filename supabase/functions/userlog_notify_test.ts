@@ -1,10 +1,14 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  accountDeletionText,
+  checkpointLabel,
   classifyStore,
   formatJst,
   formatMention,
   isFreeTrialOffer,
   readOffer,
+  subscriptionCancelLabel,
+  trialCancelLabel,
   slackText,
   type StoreNotice,
 } from "./userlog-notify/logic.ts";
@@ -124,7 +128,7 @@ Deno.test("INITIAL_BUY without a trial is a paid start, and only the first post-
   assertEquals(classifyStore(firstRenew, [trial, cancel, firstRenew]), null);
 });
 
-Deno.test("EXPIRED and REFUND are their own checkpoints", () => {
+Deno.test("EXPIRED and REFUND are not posted", () => {
   const expired = notice({
     notificationUuid: "99999999-9999-4999-8999-999999999999",
     notificationType: "EXPIRED",
@@ -134,8 +138,82 @@ Deno.test("EXPIRED and REFUND are their own checkpoints", () => {
     notificationUuid: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     notificationType: "REFUND",
   });
-  assertEquals(classifyStore(expired, [expired])?.type, "expired");
-  assertEquals(classifyStore(refund, [refund])?.type, "refund");
+  assertEquals(classifyStore(expired, [expired]), null);
+  assertEquals(classifyStore(refund, [refund]), null);
+});
+
+Deno.test("a renewal without a stored free trial is not a paid start", () => {
+  const renew = notice({
+    notificationUuid: "abababab-abab-4aba-8aba-abababababab",
+    notificationType: "DID_RENEW",
+    originalTransactionId: "orig-yearly",
+    signedDate: "2026-10-15T05:27:03.000Z",
+    priceMilliunits: 8800000,
+  });
+  assertEquals(classifyStore(renew, [renew]), null);
+});
+
+Deno.test("the first renewal after a free trial is a paid start even when the price column is empty", () => {
+  const trial = notice({
+    notificationUuid: "bcbcbcbc-bcbc-4bcb-8bcb-bcbcbcbcbcbc",
+    notificationType: "SUBSCRIBED",
+    subtype: "INITIAL_BUY",
+    offerType: 1,
+    offerDiscountType: "FREE_TRIAL",
+    priceMilliunits: null,
+    signedDate: "2026-10-15T03:25:22.000Z",
+  });
+  const renew = notice({
+    notificationUuid: "cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd",
+    notificationType: "DID_RENEW",
+    signedDate: "2026-10-18T03:25:21.000Z",
+    priceMilliunits: 800000,
+  });
+  assertEquals(classifyStore(renew, [trial, renew])?.type, "paid_start");
+  assertEquals(classifyStore(renew, [trial, renew])?.sourceId, "orig-a");
+});
+
+Deno.test("turning auto-renew off before the first renewal is a trial cancel", () => {
+  const trial = notice({
+    notificationUuid: "55555555-5555-4555-8555-555555555555",
+    notificationType: "SUBSCRIBED",
+    subtype: "INITIAL_BUY",
+    offerDiscountType: "FREE_TRIAL",
+    signedDate: "2026-10-15T03:25:22.000Z",
+  });
+  const cancel = notice({
+    notificationUuid: "dededede-dede-4ded-8ded-dededededede",
+    notificationType: "DID_CHANGE_RENEWAL_STATUS",
+    subtype: "AUTO_RENEW_DISABLED",
+    signedDate: "2026-10-16T00:00:00.000Z",
+  });
+  const renew = notice({
+    notificationUuid: "efefefef-efef-4efe-8efe-efefefefefef",
+    notificationType: "DID_RENEW",
+    signedDate: "2026-10-18T03:25:21.000Z",
+  });
+  const afterPaid = notice({
+    notificationUuid: "f2f2f2f2-f2f2-42f2-82f2-f2f2f2f2f2f2",
+    notificationType: "DID_CHANGE_RENEWAL_STATUS",
+    subtype: "AUTO_RENEW_DISABLED",
+    signedDate: "2026-10-19T00:00:00.000Z",
+  });
+  const duringTrial = classifyStore(cancel, [trial, cancel]);
+  assertEquals(duringTrial?.type, "cancel");
+  assertEquals(duringTrial?.slackLabel, trialCancelLabel);
+  const afterRenew = classifyStore(afterPaid, [trial, renew, afterPaid]);
+  assertEquals(afterRenew?.type, "cancel");
+  assertEquals(afterRenew?.slackLabel, subscriptionCancelLabel);
+
+  const paidInitial = notice({
+    notificationUuid: "44444444-4444-4444-8444-444444444444",
+    notificationType: "SUBSCRIBED",
+    subtype: "INITIAL_BUY",
+    priceMilliunits: 480000,
+    signedDate: "2026-10-15T03:25:22.000Z",
+  });
+  assertEquals(classifyStore(cancel, [paidInitial, cancel])?.slackLabel, subscriptionCancelLabel);
+  assertEquals(classifyStore(cancel, [cancel])?.slackLabel, subscriptionCancelLabel);
 });
 
 Deno.test("a scrubbed initial purchase without offer data is not guessed", () => {
@@ -195,12 +273,12 @@ function post(body: unknown, header = secret): Request {
   });
 }
 
-const install = {
+const registration = {
   kind: "app_event",
   source_id: eventId,
   user_id: userId,
   install_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-  event_name: "app_install_first_open",
+  event_name: "onboarding_complete",
   occurred_at: "2026-10-14T20:17:00.000Z",
 };
 
@@ -208,34 +286,34 @@ Deno.test("the same checkpoint posts once", async () => {
   const memory: Memory = new Map();
   const posts: string[] = [];
   const notify = deps(memory, posts);
-  const first = await handleUserlogNotify(post(install), notify);
-  const second = await handleUserlogNotify(post(install), notify);
+  const first = await handleUserlogNotify(post(registration), notify);
+  const second = await handleUserlogNotify(post(registration), notify);
   assertEquals(first.status, 200);
   assertEquals(second.status, 200);
   assertEquals(posts.length, 1);
   assertEquals(posts[0].includes("<@U0FAKEOWNER1>"), true);
   assertEquals(posts[0].includes("ユーザーID: 11111111-1111-4111-8111-111111111111"), true);
   assertEquals(posts[0].includes("表示名: 花子"), true);
-  assertEquals(posts[0].includes("種類: インストール"), true);
+  assertEquals(posts[0].includes("種類: 新規会員登録"), true);
   assertEquals(posts[0].includes("時刻: 2026-10-15 05:17 JST"), true);
   assertEquals(posts[0].toLowerCase().includes("test"), false);
-  assertEquals(memory.get(`${userId}|install|${eventId}`), "sent");
+  assertEquals(memory.get(`${userId}|onboarding_complete|${eventId}`), "sent");
 });
 
 Deno.test("a failed webhook does not count as sent, and a retry posts once", async () => {
   const memory: Memory = new Map();
   const posts: string[] = [];
   const failing = deps(memory, posts, false);
-  const failed = await handleUserlogNotify(post(install), failing);
+  const failed = await handleUserlogNotify(post(registration), failing);
   assertEquals(failed.status, 500);
-  assertEquals(memory.get(`${userId}|install|${eventId}`), "failed");
+  assertEquals(memory.get(`${userId}|onboarding_complete|${eventId}`), "failed");
   const retryPosts: string[] = [];
-  const again = await handleUserlogNotify(post(install), deps(memory, retryPosts, true));
+  const again = await handleUserlogNotify(post(registration), deps(memory, retryPosts, true));
   assertEquals(again.status, 200);
   assertEquals(retryPosts.length, 1);
-  assertEquals(memory.get(`${userId}|install|${eventId}`), "sent");
+  assertEquals(memory.get(`${userId}|onboarding_complete|${eventId}`), "sent");
   const extra: string[] = [];
-  await handleUserlogNotify(post(install), deps(memory, extra, true));
+  await handleUserlogNotify(post(registration), deps(memory, extra, true));
   assertEquals(extra.length, 0);
 });
 
@@ -243,14 +321,10 @@ Deno.test("KPI exclusion is appended to the Japanese type", async () => {
   const posts: string[] = [];
   const notify = deps(new Map(), posts);
   notify.loadContext = () => Promise.resolve({ displayName: "開発", excluded: true });
-  const response = await handleUserlogNotify(post({
-    kind: "session",
-    source_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-    user_id: userId,
-    occurred_at: "2026-10-15T01:00:00.000Z",
-  }), notify);
+  const response = await handleUserlogNotify(post(registration), notify);
   assertEquals(response.status, 200);
-  assertEquals(posts[0].includes("種類: ログイン（集計対象外）"), true);
+  assertEquals(posts[0].includes("種類: 新規会員登録（集計対象外）"), true);
+  assertEquals(checkpointLabel("onboarding_complete", true), "新規会員登録（集計対象外）");
 });
 
 Deno.test("store trial uses the transaction offer and the webhook passed in", async () => {
@@ -287,63 +361,29 @@ const installLogin = (installId: string, occurredAt = "2026-10-15T01:00:00.000Z"
   occurred_at: occurredAt,
 });
 
-Deno.test("the same user and install posts one login", async () => {
-  const memory: Memory = new Map();
+Deno.test("install and login payloads are skipped", async () => {
   const posts: string[] = [];
-  const seen: string[] = [];
-  const notify = deps(memory, posts);
-  const installId = "12121212-1212-4121-8121-121212121212";
-  notify.loadContext = (_userId, install) => {
-    seen.push(install ?? "");
-    return Promise.resolve({ displayName: null, excluded: false });
-  };
-  const first = await handleUserlogNotify(post(installLogin(installId)), notify);
-  const second = await handleUserlogNotify(post(installLogin(installId)), notify);
-  assertEquals(first.status, 200);
-  assertEquals(second.status, 200);
-  assertEquals(posts.length, 1);
-  assertEquals(posts[0].includes("種類: ログイン"), true);
-  assertEquals(seen, [installId]);
-  assertEquals(memory.get(`${userId}|login|${installId}`), "sent");
-});
-
-Deno.test("a new install posts another login", async () => {
-  const memory: Memory = new Map();
-  const posts: string[] = [];
-  const notify = deps(memory, posts);
-  const firstInstall = "13131313-1313-4131-8131-131313131313";
-  const secondInstall = "14141414-1414-4141-8141-141414141414";
-  await handleUserlogNotify(post(installLogin(firstInstall)), notify);
-  const again = await handleUserlogNotify(post(installLogin(secondInstall, "2026-10-15T02:00:00.000Z")), notify);
-  assertEquals(again.status, 200);
-  assertEquals(posts.length, 2);
-  assertEquals(memory.get(`${userId}|login|${firstInstall}`), "sent");
-  assertEquals(memory.get(`${userId}|login|${secondInstall}`), "sent");
-});
-
-Deno.test("a login already recorded for the install is not posted again", async () => {
-  const installId = "15151515-1515-4151-8151-151515151515";
-  const memory: Memory = new Map([[`${userId}|login|${installId}`, "sent"]]);
-  const posts: string[] = [];
-  const response = await handleUserlogNotify(post(installLogin(installId)), deps(memory, posts));
-  assertEquals(response.status, 200);
-  assertEquals(posts.length, 0);
-});
-
-Deno.test("session kind remains a login during rollout", async () => {
-  const memory: Memory = new Map();
-  const posts: string[] = [];
-  const sessionId = "16161616-1616-4161-8161-161616161616";
-  const response = await handleUserlogNotify(post({
+  const notify = deps(new Map(), posts);
+  const install = await handleUserlogNotify(post({
+    kind: "app_event",
+    source_id: eventId,
+    user_id: userId,
+    install_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    event_name: "app_install_first_open",
+    occurred_at: "2026-10-14T20:17:00.000Z",
+  }), notify);
+  const login = await handleUserlogNotify(post(installLogin("12121212-1212-4121-8121-121212121212")), notify);
+  const session = await handleUserlogNotify(post({
     kind: "session",
-    source_id: sessionId,
+    source_id: "16161616-1616-4161-8161-161616161616",
     user_id: userId,
     occurred_at: "2026-10-15T03:00:00.000Z",
-  }), deps(memory, posts));
-  assertEquals(response.status, 200);
-  assertEquals(posts.length, 1);
-  assertEquals(posts[0].includes("種類: ログイン"), true);
-  assertEquals(memory.get(`${userId}|login|${sessionId}`), "sent");
+  }), notify);
+  assertEquals(install.status, 200);
+  assertEquals(login.status, 200);
+  assertEquals(session.status, 200);
+  assertEquals(posts.length, 0);
+  assertEquals(await install.json(), { ok: true, skipped: true });
 });
 
 Deno.test("install login rejects a source that is not the install", async () => {
@@ -361,7 +401,7 @@ Deno.test("install login rejects a source that is not the install", async () => 
 
 Deno.test("a wrong secret does not post", async () => {
   const posts: string[] = [];
-  const response = await handleUserlogNotify(post(install, "n".repeat(32)), deps(new Map(), posts));
+  const response = await handleUserlogNotify(post(registration, "n".repeat(32)), deps(new Map(), posts));
   assertEquals(response.status, 401);
   assertEquals(posts.length, 0);
 });
@@ -371,9 +411,89 @@ Deno.test("slack text keeps the display name on one line", () => {
     mention: "<@U0FAKEOWNER1>",
     userId,
     displayName: "花子\n<@UOTHER>",
-    label: "初回登録完了",
+    label: "新規会員登録",
     occurredAt: "2026-10-15T00:00:00.000Z",
   });
   assertEquals(text.includes("\n<@UOTHER>"), false);
-  assertEquals(text.includes("種類: 初回登録完了"), true);
+  assertEquals(text.includes("種類: 新規会員登録"), true);
+});
+
+Deno.test("a trial cancel posts the trial wording and keeps the cancel record", async () => {
+  const posts: string[] = [];
+  const memory: Memory = new Map();
+  const notify = deps(memory, posts);
+  const trial = notice({
+    notificationUuid: "f0f0f0f0-f0f0-40f0-80f0-f0f0f0f0f0f0",
+    notificationType: "SUBSCRIBED",
+    subtype: "INITIAL_BUY",
+    offerDiscountType: "FREE_TRIAL",
+    signedDate: "2026-10-15T03:25:22.000Z",
+  });
+  const cancel = notice({
+    notificationUuid: "f1f1f1f1-f1f1-41f1-81f1-f1f1f1f1f1f1",
+    notificationType: "DID_CHANGE_RENEWAL_STATUS",
+    subtype: "AUTO_RENEW_DISABLED",
+    signedDate: "2026-10-16T00:00:00.000Z",
+  });
+  notify.loadStore = () => Promise.resolve({ current: cancel, history: [trial, cancel] });
+  notify.loadContext = () => Promise.resolve({ displayName: "花子", excluded: true });
+  const response = await handleUserlogNotify(post({
+    kind: "store",
+    source_id: cancel.notificationUuid,
+  }), notify);
+  assertEquals(response.status, 200);
+  assertEquals(posts.length, 1);
+  assertEquals(posts[0].includes("種類: トライアル解約（集計対象外）"), true);
+  assertEquals(posts[0].includes("ユーザーID:"), true);
+  assertEquals(memory.get(`${userId}|cancel|${cancel.notificationUuid}`), "sent");
+  assertEquals([...memory.keys()].some((key) => key.includes("trial_cancel")), false);
+});
+
+Deno.test("account deletion posts the plan and period without a user", async () => {
+  const posts: string[] = [];
+  const memory: Memory = new Map();
+  const notify = deps(memory, posts);
+  let contextCalls = 0;
+  notify.loadContext = () => {
+    contextCalls += 1;
+    return Promise.resolve({ displayName: "花子", excluded: false });
+  };
+  const body = {
+    kind: "account_deletion",
+    deleted_on: "2026-10-17",
+    plus_status: "never",
+    plan: "none",
+    account_age_bucket: "0-1d",
+  };
+  const first = await handleUserlogNotify(post(body), notify);
+  const second = await handleUserlogNotify(post(body), notify);
+  assertEquals(first.status, 200);
+  assertEquals(second.status, 200);
+  assertEquals(posts.length, 1);
+  assertEquals(posts[0], accountDeletionText({
+    mention: "<@U0FAKEOWNER1>",
+    plan: "none",
+    ageBucket: "0-1d",
+    deletedOn: "2026-10-17",
+  }));
+  assertEquals(posts[0].includes("ユーザーID"), false);
+  assertEquals(posts[0].includes("表示名"), false);
+  assertEquals(posts[0].includes(userId), false);
+  assertEquals(posts[0].includes("プラン: なし"), true);
+  assertEquals(posts[0].includes("使った期間: 0〜1日"), true);
+  assertEquals(posts[0].includes("never"), false);
+  assertEquals(contextCalls, 0);
+  assertEquals(memory.get("|account_deletion|2026-10-17|never|none|0-1d"), "sent");
+});
+
+Deno.test("a paid plan deletion keeps the product id", async () => {
+  const text = accountDeletionText({
+    mention: "<@U0FAKEOWNER1>",
+    plan: "calonavi_plus_monthly",
+    ageBucket: "91d+",
+    deletedOn: "2026-10-17",
+  });
+  assertEquals(text.includes("プラン: calonavi_plus_monthly"), true);
+  assertEquals(text.includes("使った期間: 91日以上"), true);
+  assertEquals(text.includes("日付: 2026-10-17"), true);
 });

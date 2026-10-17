@@ -21,6 +21,7 @@ fi
 psql_cmd -f supabase/tests/userlog_notifications_bootstrap.sql
 psql_cmd -f supabase/migrations/20261015032420_userlog_notifications.sql
 psql_cmd -f supabase/migrations/20261015065812_userlog_login_per_install.sql
+psql_cmd -f supabase/migrations/20261017033236_userlog_six_checkpoints.sql
 psql_cmd -f supabase/tests/userlog_notifications_test.sql
 psql_cmd -c "create extension if not exists pgtap;"
 if [[ -n "${DATABASE_URL:-}" ]]; then

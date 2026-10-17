@@ -1,21 +1,32 @@
 import {
+  accountDeletionText,
   authorizeNotify,
   checkpointLabel,
   classifyStore,
   formatMention,
   isScrubbed,
   slackText,
+  withExcluded,
   type CheckpointType,
   type StoreNotice,
 } from "./logic.ts";
 
+export type AccountDeletionFields = {
+  deletedOn: string;
+  plusStatus: string;
+  plan: string;
+  ageBucket: string;
+};
+
 export type NotifyJob = {
   userId: string | null;
   installId: string | null;
-  checkpointType: CheckpointType;
+  checkpointType: CheckpointType | "account_deletion";
   sourceId: string;
   occurredAt: string;
   scrubbed: boolean;
+  slackLabel?: string;
+  accountDeletion?: AccountDeletionFields;
 };
 
 export type SubjectContext = {
@@ -50,7 +61,14 @@ type Inbound =
     installId: string;
     occurredAt: string;
   }
-  | { kind: "store"; sourceId: string };
+  | { kind: "store"; sourceId: string }
+  | {
+    kind: "account_deletion";
+    deletedOn: string;
+    plusStatus: string;
+    plan: string;
+    ageBucket: string;
+  };
 
 export type NotifyDeps = {
   secret: string;
@@ -94,10 +112,38 @@ function occurredAt(value: unknown): string | null {
   return new Date(value).toISOString();
 }
 
+function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function parseAccountDeletion(record: Record<string, unknown>): Inbound | null {
+  const deletedOn = typeof record.deleted_on === "string" ? record.deleted_on : "";
+  const plusStatus = typeof record.plus_status === "string" ? record.plus_status : "";
+  const plan = typeof record.plan === "string" ? record.plan : "";
+  const ageBucket = typeof record.account_age_bucket === "string" ? record.account_age_bucket : "";
+  if (
+    !isIsoDate(deletedOn) ||
+    !/^[a-z]{1,16}$/.test(plusStatus) ||
+    !/^[A-Za-z0-9._-]{1,64}$/.test(plan) ||
+    !/^[0-9A-Za-z+][0-9A-Za-z+-]{0,15}$/.test(ageBucket)
+  ) {
+    return null;
+  }
+  return { kind: "account_deletion", deletedOn, plusStatus, plan, ageBucket };
+}
+
 export function parseInbound(body: unknown): Inbound | null {
   const record = asRecord(body);
   if (!record) {
     return null;
+  }
+  if (record.kind === "account_deletion") {
+    return parseAccountDeletion(record);
   }
   const sourceId = requiredUuid(record.source_id);
   if (!sourceId) {
@@ -150,41 +196,35 @@ export async function jobsForInbound(body: unknown, deps: Pick<NotifyDeps, "load
     return null;
   }
   if (inbound.kind === "app_event") {
-    const checkpointType: CheckpointType | null = inbound.eventName === "app_install_first_open"
-      ? "install"
-      : inbound.eventName === "onboarding_complete"
-      ? "onboarding_complete"
-      : null;
-    if (!checkpointType) {
+    if (inbound.eventName !== "onboarding_complete") {
       return [];
     }
     return [{
       userId: inbound.userId,
       installId: inbound.installId,
-      checkpointType,
+      checkpointType: "onboarding_complete",
       sourceId: inbound.sourceId,
       occurredAt: inbound.occurredAt,
       scrubbed: false,
     }];
   }
-  if (inbound.kind === "session") {
+  if (inbound.kind === "session" || inbound.kind === "install_login") {
+    return [];
+  }
+  if (inbound.kind === "account_deletion") {
     return [{
-      userId: inbound.userId,
+      userId: null,
       installId: null,
-      checkpointType: "login",
-      sourceId: inbound.sourceId,
-      occurredAt: inbound.occurredAt,
+      checkpointType: "account_deletion",
+      sourceId: `${inbound.deletedOn}|${inbound.plusStatus}|${inbound.plan}|${inbound.ageBucket}`,
+      occurredAt: `${inbound.deletedOn}T00:00:00.000Z`,
       scrubbed: false,
-    }];
-  }
-  if (inbound.kind === "install_login") {
-    return [{
-      userId: inbound.userId,
-      installId: inbound.installId,
-      checkpointType: "login",
-      sourceId: inbound.sourceId,
-      occurredAt: inbound.occurredAt,
-      scrubbed: false,
+      accountDeletion: {
+        deletedOn: inbound.deletedOn,
+        plusStatus: inbound.plusStatus,
+        plan: inbound.plan,
+        ageBucket: inbound.ageBucket,
+      },
     }];
   }
   const loaded = await deps.loadStore(inbound.sourceId);
@@ -202,7 +242,30 @@ export async function jobsForInbound(body: unknown, deps: Pick<NotifyDeps, "load
     sourceId: checkpoint.sourceId,
     occurredAt: checkpoint.occurredAt,
     scrubbed: isScrubbed(loaded.current),
+    slackLabel: checkpoint.slackLabel,
   }];
+}
+
+async function checkpointText(
+  job: NotifyJob,
+  mention: string,
+  deps: Pick<NotifyDeps, "loadContext">,
+): Promise<string> {
+  if (job.checkpointType === "account_deletion") {
+    throw new Error("account_deletion");
+  }
+  const context = await deps.loadContext(job.userId, job.installId);
+  const excluded = context.excluded || job.scrubbed;
+  const label = job.slackLabel
+    ? withExcluded(job.slackLabel, excluded)
+    : checkpointLabel(job.checkpointType, excluded);
+  return slackText({
+    mention,
+    userId: job.userId,
+    displayName: context.displayName,
+    label,
+    occurredAt: job.occurredAt,
+  });
 }
 
 export async function handleUserlogNotify(request: Request, deps: NotifyDeps): Promise<Response> {
@@ -248,14 +311,14 @@ export async function handleUserlogNotify(request: Request, deps: NotifyDeps): P
       return json({ ok: false }, 400);
     }
     try {
-      const context = await deps.loadContext(job.userId, job.installId);
-      const text = slackText({
-        mention,
-        userId: job.userId,
-        displayName: context.displayName,
-        label: checkpointLabel(job.checkpointType, context.excluded || job.scrubbed),
-        occurredAt: job.occurredAt,
-      });
+      const text = job.accountDeletion
+        ? accountDeletionText({
+          mention,
+          plan: job.accountDeletion.plan,
+          ageBucket: job.accountDeletion.ageBucket,
+          deletedOn: job.accountDeletion.deletedOn,
+        })
+        : await checkpointText(job, mention, deps);
       const posted = await deps.postSlack(deps.webhookUrl, { text });
       if (!posted.ok) {
         throw new Error("slack");

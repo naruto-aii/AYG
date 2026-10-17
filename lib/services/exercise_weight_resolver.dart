@@ -1,5 +1,6 @@
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
+import '../utils/record_clock.dart';
 
 /// 運動実施日時以前で最も新しい体重を参照する。
 class ExerciseWeightResolver {
@@ -12,9 +13,13 @@ class ExerciseWeightResolver {
   }) {
     final beforeOrAt =
         weightEntries
-            .where((entry) => !entry.recordedAt.isAfter(exerciseLoggedAt))
+            .where(
+              (entry) =>
+                  compareRecordInstants(entry.recordedAt, exerciseLoggedAt) <=
+                  0,
+            )
             .toList()
-          ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+          ..sort((a, b) => compareRecordInstants(b.recordedAt, a.recordedAt));
 
     if (beforeOrAt.isNotEmpty) {
       final latest = beforeOrAt.first;

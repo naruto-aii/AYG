@@ -141,9 +141,10 @@ void main() {
     test('four user values stay even when kcal is not the formula', () {
       final controller = newController();
       enter(controller, MacroField.kcal, '200');
+      controller.onFieldFocus(MacroField.carb);
+      enter(controller, MacroField.carb, '');
       enter(controller, MacroField.protein, '10');
       enter(controller, MacroField.fat, '5');
-      controller.onFieldFocus(MacroField.carb);
       enter(controller, MacroField.carb, '10');
 
       expect(controller.kcalController.text, '200');
@@ -164,6 +165,8 @@ void main() {
     test('editing kcal 300 to 450 scales protein fat carb once', () {
       final controller = newController();
       enter(controller, MacroField.kcal, '300');
+      controller.onFieldFocus(MacroField.carb);
+      enter(controller, MacroField.carb, '');
       enter(controller, MacroField.protein, '20');
       enter(controller, MacroField.fat, '10');
       enter(controller, MacroField.carb, '30');
@@ -236,9 +239,66 @@ void main() {
       controller.dispose();
     });
 
+    test('retyping an auto protein adjusts kcal by 4 kcal per gram', () {
+      final controller = newController();
+      enter(controller, MacroField.kcal, '200');
+      enter(controller, MacroField.fat, '8');
+      enter(controller, MacroField.carb, '20');
+      expect(controller.proteinController.text, '12.0');
+      expect(controller.sourceOf(MacroField.protein), MacroFieldSource.auto);
+
+      controller.onFieldFocus(MacroField.protein);
+      enter(controller, MacroField.protein, '22');
+
+      expect(controller.kcalController.text, '240');
+      expect(controller.proteinController.text, '22');
+      expect(controller.fatController.text, '8');
+      expect(controller.carbController.text, '20');
+      expect(controller.sourceOf(MacroField.protein), MacroFieldSource.user);
+      controller.dispose();
+    });
+
+    test('retyping an auto fat adjusts kcal by 9 kcal per gram', () {
+      final controller = newController();
+      enter(controller, MacroField.kcal, '200');
+      enter(controller, MacroField.protein, '20');
+      enter(controller, MacroField.carb, '12');
+      expect(controller.fatController.text, '8.0');
+      expect(controller.sourceOf(MacroField.fat), MacroFieldSource.auto);
+
+      controller.onFieldFocus(MacroField.fat);
+      enter(controller, MacroField.fat, '10');
+
+      expect(controller.kcalController.text, '218');
+      expect(controller.fatController.text, '10');
+      expect(controller.proteinController.text, '20');
+      expect(controller.carbController.text, '12');
+      controller.dispose();
+    });
+
+    test('retyping an auto carb adjusts kcal by 4 kcal per gram', () {
+      final controller = newController();
+      enter(controller, MacroField.kcal, '200');
+      enter(controller, MacroField.protein, '20');
+      enter(controller, MacroField.fat, '8');
+      expect(controller.carbController.text, '12.0');
+      expect(controller.sourceOf(MacroField.carb), MacroFieldSource.auto);
+
+      controller.onFieldFocus(MacroField.carb);
+      enter(controller, MacroField.carb, '17');
+
+      expect(controller.kcalController.text, '220');
+      expect(controller.carbController.text, '17');
+      expect(controller.proteinController.text, '20');
+      expect(controller.fatController.text, '8');
+      controller.dispose();
+    });
+
     test('editing protein adjusts kcal by delta and leaves fat and carb', () {
       final controller = newController();
       enter(controller, MacroField.kcal, '300');
+      controller.onFieldFocus(MacroField.carb);
+      enter(controller, MacroField.carb, '');
       enter(controller, MacroField.protein, '20');
       enter(controller, MacroField.fat, '10');
       enter(controller, MacroField.carb, '30');

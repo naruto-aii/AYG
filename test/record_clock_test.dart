@@ -1,4 +1,5 @@
 import 'package:ayg/models/alcohol_entry.dart';
+import 'package:ayg/models/calculation/weight_sample.dart';
 import 'package:ayg/models/exercise_entry.dart';
 import 'package:ayg/models/food_entry.dart';
 import 'package:ayg/models/food_unit_type.dart';
@@ -7,6 +8,9 @@ import 'package:ayg/models/health_profile_data.dart';
 import 'package:ayg/models/weight_entry.dart';
 import 'package:ayg/repositories/supabase/exercise_entry_row_mapper.dart';
 import 'package:ayg/repositories/supabase/food_master_row_mapper.dart';
+import 'package:ayg/services/exercise_weight_resolver.dart';
+import 'package:ayg/services/recent_foods.dart';
+import 'package:ayg/services/weight_for_target.dart';
 import 'package:ayg/utils/local_date.dart';
 import 'package:ayg/utils/record_clock.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,21 +33,27 @@ void main() {
     expect(encodeRecordTimestamp(legacy), legacy.toUtc().toIso8601String());
   });
 
-  test('a local value still on the device is sent as wall digits, not shifted', () {
-    final local = DateTime(2026, 7, 20, 20, 15);
-    final sent = encodeRecordInstant(local);
+  test(
+    'a local value still on the device is sent as wall digits, not shifted',
+    () {
+      final local = DateTime(2026, 7, 20, 20, 15);
+      final sent = encodeRecordInstant(local);
 
-    expect(sent.isUtc, isTrue);
-    expect(sent.year, local.year);
-    expect(sent.month, local.month);
-    expect(sent.day, local.day);
-    expect(sent.hour, local.hour);
-    expect(sent.minute, local.minute);
-    expect(encodeRecordTimestamp(local), sent.toUtc().toIso8601String());
-    if (local.timeZoneOffset != Duration.zero) {
-      expect(sent.millisecondsSinceEpoch, isNot(local.toUtc().millisecondsSinceEpoch));
-    }
-  });
+      expect(sent.isUtc, isTrue);
+      expect(sent.year, local.year);
+      expect(sent.month, local.month);
+      expect(sent.day, local.day);
+      expect(sent.hour, local.hour);
+      expect(sent.minute, local.minute);
+      expect(encodeRecordTimestamp(local), sent.toUtc().toIso8601String());
+      if (local.timeZoneOffset != Duration.zero) {
+        expect(
+          sent.millisecondsSinceEpoch,
+          isNot(local.toUtc().millisecondsSinceEpoch),
+        );
+      }
+    },
+  );
 
   test('new meals round-trip the civil minute, name, and count', () {
     final wall = DateTime(2026, 10, 17, 15, 49);
@@ -195,7 +205,8 @@ void main() {
       ];
     }
 
-    String timestamptz(String iso) => DateTime.parse(iso).toUtc().toIso8601String();
+    String timestamptz(String iso) =>
+        DateTime.parse(iso).toUtc().toIso8601String();
 
     List<Map<String, dynamic>> serverRows(List<FoodEntry> entries) {
       return [
@@ -224,10 +235,7 @@ void main() {
         expect(right[i].consumedAmount, left[i].consumedAmount);
         expect(right[i].memo, left[i].memo);
         expect(right[i].loggedAt.toUtc(), left[i].loggedAt.toUtc());
-        expect(
-          civilClock(right[i].loggedAt),
-          civilClock(left[i].loggedAt),
-        );
+        expect(civilClock(right[i].loggedAt), civilClock(left[i].loggedAt));
       }
     }
 
@@ -296,5 +304,83 @@ void main() {
     expect(isAbsoluteRecordInstant(changed), isTrue);
     expect(civilClock(changed).hour, 7);
     expect(civilClock(changed).minute, 10);
+  });
+
+  test('mixed old and new rows keep civil order and the later weight', () {
+    final legacyMorning = DateTime.utc(2026, 10, 17, 8);
+    final freshLater = stampRecordInstant(DateTime(2026, 10, 17, 9));
+    final ordered = [freshLater, legacyMorning]..sort(compareRecordInstants);
+
+    expect(civilClock(ordered.first), civilClock(legacyMorning));
+    expect(civilClock(ordered.last).hour, 9);
+
+    final selection = selectWeight(
+      samples: [
+        WeightSample(
+          kg: 80,
+          measuredAt: legacyMorning,
+          source: WeightSource.manual,
+        ),
+        WeightSample(
+          kg: 70,
+          measuredAt: freshLater,
+          source: WeightSource.manual,
+        ),
+      ],
+      reference: DateTime(2026, 10, 17, 12),
+      fallbackKg: 60,
+    );
+    expect(selection.kg, 70);
+
+    final now = DateTime(2026, 10, 17, 12);
+    final inside = stampRecordInstant(DateTime(2026, 10, 15, 0, 30));
+    final outside = DateTime.utc(2026, 10, 14, 20);
+    expect(foodLoggedWithinRecentWindow(inside, now), isTrue);
+    expect(foodLoggedWithinRecentWindow(outside, now), isFalse);
+
+    final noonLegacy = DateTime.utc(2026, 10, 17, 12);
+    final eveningFresh = stampRecordInstant(DateTime(2026, 10, 17, 18));
+    final foods = recentFoods([
+      FoodEntry(id: 'legacy', name: 'パン', loggedAt: noonLegacy),
+      FoodEntry(id: 'fresh', name: 'パン', loggedAt: eveningFresh),
+      FoodEntry(id: 'outside', name: '味噌汁', loggedAt: outside),
+    ], now);
+    expect(foods.map((item) => item.latest.id), ['fresh']);
+
+    final exerciseAt = DateTime(2026, 10, 17, 11, 30);
+    final exerciseLegacy = DateTime.utc(2026, 10, 17, 11);
+    final exerciseFresh = stampRecordInstant(DateTime(2026, 10, 17, 10));
+    final weight = const ExerciseWeightResolver().resolve(
+      exerciseLoggedAt: exerciseAt,
+      weightEntries: [
+        WeightEntry(
+          id: 'fresh',
+          weightKg: 70,
+          recordedAt: exerciseFresh,
+          source: WeightSource.manual,
+        ),
+        WeightEntry(
+          id: 'legacy',
+          weightKg: 80,
+          recordedAt: exerciseLegacy,
+          source: WeightSource.manual,
+        ),
+      ],
+    );
+    expect(weight?.weightKg, 80);
+
+    if (DateTime.now().timeZoneOffset == const Duration(hours: 9)) {
+      expect(freshLater.isBefore(legacyMorning), isTrue);
+      final rawDay = DateTime(inside.year, inside.month, inside.day);
+      final rawStart = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: 2));
+      expect(rawDay.isBefore(rawStart), isTrue);
+      expect(outside.toLocal().day, 15);
+      expect(eveningFresh.isBefore(noonLegacy), isTrue);
+      expect(exerciseLegacy.isAfter(exerciseAt), isTrue);
+    }
   });
 }

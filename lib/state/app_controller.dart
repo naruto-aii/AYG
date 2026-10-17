@@ -456,7 +456,7 @@ class AppController extends ChangeNotifier {
     for (final entry in weightEntries) {
       if (entry.source == WeightSource.health &&
           ignoreHealthAfter != null &&
-          entry.recordedAt.isAfter(ignoreHealthAfter)) {
+          compareRecordInstants(entry.recordedAt, ignoreHealthAfter) > 0) {
         continue;
       }
       samples.add(
@@ -472,7 +472,7 @@ class AppController extends ChangeNotifier {
       final already = samples.any(
         (sample) =>
             sample.source == WeightSource.health &&
-            sample.measuredAt.isAtSameMomentAs(measuredAt) &&
+            sameCivilSecond(sample.measuredAt, measuredAt) &&
             (sample.kg - snapshotKg).abs() < 0.001,
       );
       if (!already) {
@@ -1300,7 +1300,7 @@ class AppController extends ChangeNotifier {
     final entry = WeightEntry(
       id: generateId(),
       weightKg: weightKg,
-      recordedAt: recordedAt ?? DateTime.now(),
+      recordedAt: recordedAt ?? asNewRecordInstant(DateTime.now()),
       source: WeightSource.manual,
     );
     await _pendingRecords.markUpsert(PendingRecordKind.weight, entry.id);
@@ -1468,7 +1468,8 @@ class AppController extends ChangeNotifier {
         continue;
       }
       if (latestManual == null ||
-          !entry.recordedAt.isBefore(latestManual.recordedAt)) {
+          compareRecordInstants(entry.recordedAt, latestManual.recordedAt) >=
+              0) {
         latestManual = entry;
       }
     }
@@ -1796,6 +1797,39 @@ class AppController extends ChangeNotifier {
     _persistAutoTargetAnchor(day);
     notifyListeners();
     unawaited(publishLockScreenMealSnapshot());
+  }
+
+  /// その日の摂取と消費。今日はホームと同じで、生活活動の上乗せを含む。
+  /// 過去の日には、今日の活動量を足さない。ホームの summary は更新しない。
+  DailySummary? summaryForDay(DateTime day) {
+    final currentProfile = profile;
+    final currentGoal = goal;
+    final settings = nutritionSettings;
+    if (currentProfile == null || currentGoal == null || settings == null) {
+      return null;
+    }
+
+    final requestedDay = localDayStart(civilClock(day));
+    final now = DateTime.now();
+    final isToday = isSameLocalDay(requestedDay, now);
+    final snapshot = isToday
+        ? healthSnapshot
+        : HealthSnapshot(
+            weightKg: healthSnapshot.weightKg,
+            weightMeasuredAt: healthSnapshot.weightMeasuredAt,
+          );
+    return _nutritionEngine.calculateDailySummary(
+      profile: currentProfile,
+      goal: currentGoal,
+      settings: settings,
+      healthSnapshot: snapshot,
+      goalPace: currentGoal.goalPace,
+      foodEntries: List.unmodifiable(foodEntries),
+      exerciseEntries: List.unmodifiable(exerciseEntries),
+      alcoholEntries: List.unmodifiable(alcoholEntries),
+      referenceDate: isToday ? now : requestedDay,
+      weightSamples: calculationWeightSamples(),
+    );
   }
 
   /// 目標画面の「自動」の数字。保存後に今日の画面が出す目標と同じ計算をする。
@@ -4883,13 +4917,10 @@ class AppController extends ChangeNotifier {
       existingEntryIds: foodEntries.map((entry) => entry.id).toSet(),
     );
     if (plan.entries.isNotEmpty) {
-      await addFoodEntriesBatch(
-        [
-          for (final entry in plan.entries)
-            entry.copyWith(loggedAt: asNewRecordInstant(entry.loggedAt)),
-        ],
-        origin: ReviewRecordOrigin.widget,
-      );
+      await addFoodEntriesBatch([
+        for (final entry in plan.entries)
+          entry.copyWith(loggedAt: asNewRecordInstant(entry.loggedAt)),
+      ], origin: ReviewRecordOrigin.widget);
       await _countLockScreenTemplateUses(plan.templateIds);
     }
     final acknowledged = plan.acknowledgeIds.toSet();
@@ -5076,7 +5107,7 @@ class AppController extends ChangeNotifier {
     }
 
     final mealGroupId = generateId();
-    final loggedAt = DateTime.now();
+    final loggedAt = asNewRecordInstant(DateTime.now());
     final entries = _mealTemplateApplyService.buildEntries(
       items: items,
       mealGroupId: mealGroupId,

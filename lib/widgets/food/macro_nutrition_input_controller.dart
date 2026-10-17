@@ -401,9 +401,6 @@ class MacroNutritionInputController extends ChangeNotifier {
       _maybeAutoFillMissing();
       return;
     }
-    if (previousSource == MacroFieldSource.auto) {
-      return;
-    }
     _applyDelta(field, value, baseline);
   }
 
@@ -417,9 +414,7 @@ class MacroNutritionInputController extends ChangeNotifier {
     }
     final previous = baseline.values[field];
     final previousSource = baseline.sources[field]!;
-    if (previous != null &&
-        previousSource != MacroFieldSource.auto &&
-        previousSource != MacroFieldSource.empty) {
+    if (previous != null && previousSource != MacroFieldSource.empty) {
       _restoreField(MacroField.kcal, baseline);
     }
   }

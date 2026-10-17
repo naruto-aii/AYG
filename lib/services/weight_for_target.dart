@@ -4,6 +4,7 @@ import '../models/calculation/weight_sample.dart';
 import '../models/calculation/weight_selection.dart';
 import '../models/health_profile_data.dart';
 import '../utils/local_date.dart';
+import '../utils/record_clock.dart';
 
 export '../models/calculation/weight_selection.dart';
 
@@ -20,10 +21,10 @@ WeightSeries describeWeightSeries({
   int? spanDays;
   if (samples.length >= 2) {
     final sorted = [...samples]
-      ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt));
+      ..sort((a, b) => compareRecordInstants(a.measuredAt, b.measuredAt));
     spanDays = localDayStart(
-      sorted.last.measuredAt,
-    ).difference(localDayStart(sorted.first.measuredAt)).inDays;
+      civilClock(sorted.last.measuredAt),
+    ).difference(localDayStart(civilClock(sorted.first.measuredAt))).inDays;
   }
   final useLanding =
       samples.length >= landingMinSamples &&
@@ -83,7 +84,11 @@ double smoothWeight(List<WeightSample> samples, DateTime reference) {
   var weighted = 0.0;
   var total = 0.0;
   for (final sample in samples) {
-    final ageDays = reference.difference(sample.measuredAt).inMinutes / 1440;
+    final ageDays =
+        civilClock(
+          reference,
+        ).difference(civilClock(sample.measuredAt)).inMinutes /
+        1440;
     final age = ageDays < 0 ? 0.0 : ageDays;
     final weight = math.pow(0.5, age / smoothingHalfLifeDays).toDouble();
     weighted += weight * sample.kg;
@@ -97,8 +102,8 @@ double smoothWeight(List<WeightSample> samples, DateTime reference) {
 
 int calendarAgeDays(DateTime measuredAt, DateTime reference) {
   final days = localDayStart(
-    reference,
-  ).difference(localDayStart(measuredAt)).inDays;
+    civilClock(reference),
+  ).difference(localDayStart(civilClock(measuredAt))).inDays;
   return days < 0 ? 0 : days;
 }
 
@@ -108,8 +113,10 @@ WeightSample? _latest(List<WeightSample> samples, WeightSource source) {
     if (sample.source != source) {
       continue;
     }
-    // 新しい記録は秒未満を印に使うので、同じ秒の記録は後から足した方を新しいとする。
-    if (best == null || !sample.measuredAt.isBefore(best.measuredAt)) {
+    // 新しい記録は秒未満を印に使う。壁時計で同じか新しい方を採る。
+    // 同じ壁時計なら、後から足した方を新しいとする。
+    if (best == null ||
+        compareRecordInstants(sample.measuredAt, best.measuredAt) >= 0) {
       best = sample;
     }
   }
@@ -123,7 +130,7 @@ WeightSample? _newer(WeightSample? manual, WeightSample? health) {
   if (health == null) {
     return manual;
   }
-  if (health.measuredAt.isAfter(manual.measuredAt)) {
+  if (compareRecordInstants(health.measuredAt, manual.measuredAt) > 0) {
     return health;
   }
   return manual;

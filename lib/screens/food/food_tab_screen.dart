@@ -57,7 +57,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openHistoryCalendar() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'food_tab_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => HistoryCalendarScreen(
           controller: widget.controller,
           openFoodFactsService: widget.openFoodFactsService,
@@ -102,7 +104,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_1'),
+        settings: const RouteSettings(
+          name: 'food_tab_screen_MaterialPageRoute_1',
+        ),
         builder: (context) => AlcoholFormScreen(
           controller: widget.controller,
           initialConsumedAt: _initialConsumedAtForNewEntry,
@@ -114,7 +118,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openAlcoholEdit(BuildContext context, AlcoholEntry entry) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_2'),
+        settings: const RouteSettings(
+          name: 'food_tab_screen_MaterialPageRoute_2',
+        ),
         builder: (context) =>
             AlcoholFormScreen(controller: widget.controller, entry: entry),
       ),
@@ -138,7 +144,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
   void _openTemplates() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'food_tab_screen_MaterialPageRoute_3'),
+        settings: const RouteSettings(
+          name: 'food_tab_screen_MaterialPageRoute_3',
+        ),
         builder: (context) =>
             MealTemplateListScreen(controller: widget.controller),
       ),
@@ -181,7 +189,9 @@ class _FoodTabScreenState extends State<FoodTabScreen> {
             widget.controller.alcoholEntries
                 .where((e) => isLoggedOnLocalDay(e.consumedAt, day))
                 .toList()
-              ..sort((a, b) => a.consumedAt.compareTo(b.consumedAt));
+              ..sort(
+                (a, b) => compareRecordInstants(a.consumedAt, b.consumedAt),
+              );
         final isToday = isSameLocalDay(day, DateTime.now());
         final canAdd = canAddRecordOnDay(day);
         final dayWord = isToday ? '今日' : 'この日';

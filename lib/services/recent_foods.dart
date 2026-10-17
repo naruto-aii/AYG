@@ -2,6 +2,7 @@ import '../models/food_entry.dart';
 import '../models/food_unit_type.dart';
 import '../utils/food_search_normalizer.dart';
 import '../utils/local_date.dart';
+import '../utils/record_clock.dart';
 
 /// 直近3日（今日を含む）に登録した食品。同じ食品は最新の1件だけ。
 class RecentFood {
@@ -27,9 +28,9 @@ String recentFoodKey(FoodEntry entry) {
 
 bool foodLoggedWithinRecentWindow(DateTime loggedAt, DateTime now) {
   final start = localDayStart(
-    now,
+    civilClock(now),
   ).subtract(const Duration(days: recentFoodWindowDays - 1));
-  final day = DateTime(loggedAt.year, loggedAt.month, loggedAt.day);
+  final day = localDayStart(civilClock(loggedAt));
   return !day.isBefore(start);
 }
 
@@ -41,12 +42,15 @@ List<RecentFood> recentFoods(List<FoodEntry> entries, DateTime now) {
     }
     final key = recentFoodKey(entry);
     final current = latestByKey[key];
-    if (current == null || entry.loggedAt.isAfter(current.loggedAt)) {
+    if (current == null ||
+        compareRecordInstants(entry.loggedAt, current.loggedAt) > 0) {
       latestByKey[key] = entry;
     }
   }
   final foods = latestByKey.values.map(RecentFood.new).toList()
-    ..sort((a, b) => b.latest.loggedAt.compareTo(a.latest.loggedAt));
+    ..sort(
+      (a, b) => compareRecordInstants(b.latest.loggedAt, a.latest.loggedAt),
+    );
   return foods;
 }
 

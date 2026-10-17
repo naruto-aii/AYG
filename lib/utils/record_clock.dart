@@ -171,3 +171,15 @@ String formatRecordMinute(DateTime value) {
 int compareRecordInstants(DateTime a, DateTime b) {
   return civilClock(a).compareTo(civilClock(b));
 }
+
+/// 壁時計の同じ秒か。新形式の印（マイクロ秒 1）と旧形式（0）も同じ測定とみなす。
+bool sameCivilSecond(DateTime a, DateTime b) {
+  final left = civilClock(a);
+  final right = civilClock(b);
+  return left.year == right.year &&
+      left.month == right.month &&
+      left.day == right.day &&
+      left.hour == right.hour &&
+      left.minute == right.minute &&
+      left.second == right.second;
+}

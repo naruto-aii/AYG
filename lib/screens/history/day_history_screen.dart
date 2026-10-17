@@ -126,7 +126,9 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'day_history_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => AlcoholFormScreen(
           controller: controller,
           entry: entry,
@@ -143,7 +145,9 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_1'),
+        settings: const RouteSettings(
+          name: 'day_history_screen_MaterialPageRoute_1',
+        ),
         builder: (context) => ExerciseFormScreen(
           controller: controller,
           entry: entry,
@@ -160,7 +164,9 @@ class DayHistoryScreen extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'day_history_screen_MaterialPageRoute_2'),
+        settings: const RouteSettings(
+          name: 'day_history_screen_MaterialPageRoute_2',
+        ),
         builder: (context) => WeightRecordScreen(
           controller: controller,
           entry: entry,
@@ -191,7 +197,9 @@ class DayHistoryScreen extends StatelessWidget {
             controller.alcoholEntries
                 .where((entry) => isLoggedOnLocalDay(entry.consumedAt, day))
                 .toList()
-              ..sort((a, b) => compareRecordInstants(a.consumedAt, b.consumedAt));
+              ..sort(
+                (a, b) => compareRecordInstants(a.consumedAt, b.consumedAt),
+              );
         final weightItems =
             controller.weightEntries
                 .where((entry) => isLoggedOnLocalDay(entry.recordedAt, day))
@@ -200,19 +208,27 @@ class DayHistoryScreen extends StatelessWidget {
                 (a, b) => compareRecordInstants(a.recordedAt, b.recordedAt),
               );
 
-        final foodKcal = foodItems.fold<double>(
-          0,
-          (sum, e) => sum + (e.kcalPerUnit == null ? 0 : e.totalKcal),
-        );
-        final alcoholKcal = alcoholItems.fold<double>(
-          0,
-          (sum, e) => sum + e.totalCalories,
-        );
-        final burnKcal = exerciseItems.fold<double>(
-          0,
-          (sum, e) => sum + e.effectiveNetKcal,
-        );
-        final intakeKcal = foodKcal + alcoholKcal;
+        final daySummary = controller.summaryForDay(day);
+        final double intakeKcal;
+        final double burnKcal;
+        if (daySummary != null) {
+          intakeKcal = daySummary.intakeKcal;
+          burnKcal = daySummary.exerciseBurnKcal;
+        } else {
+          final foodKcal = foodItems.fold<double>(
+            0,
+            (sum, e) => sum + (e.kcalPerUnit == null ? 0 : e.totalKcal),
+          );
+          final alcoholKcal = alcoholItems.fold<double>(
+            0,
+            (sum, e) => sum + e.totalCalories,
+          );
+          intakeKcal = foodKcal + alcoholKcal;
+          burnKcal = exerciseItems.fold<double>(
+            0,
+            (sum, e) => sum + e.effectiveNetKcal,
+          );
+        }
 
         Widget section({
           required String icon,
@@ -264,19 +280,19 @@ class DayHistoryScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: StatItem(
-                        label: '食べた',
+                        label: '摂取',
                         value: intakeKcal.toStringAsFixed(0),
                       ),
                     ),
                     Expanded(
                       child: StatItem(
-                        label: '運動で使った',
+                        label: '消費',
                         value: '+${burnKcal.toStringAsFixed(0)}',
                       ),
                     ),
                     Expanded(
                       child: StatItem(
-                        label: '差（食べた − 使った）',
+                        label: '差',
                         value: (intakeKcal - burnKcal).toStringAsFixed(0),
                       ),
                     ),

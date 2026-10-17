@@ -4,6 +4,7 @@ import 'package:ayg/models/health_profile_data.dart';
 import 'package:ayg/models/user_profile.dart';
 import 'package:ayg/repositories/health_repository_support.dart';
 import 'package:ayg/state/app_controller.dart';
+import 'package:ayg/utils/record_clock.dart';
 
 import 'helpers/isar_test_helper.dart';
 import 'mocks/mock_health_repository.dart';
@@ -46,7 +47,13 @@ void main() {
 
       expect(repository.savedWeights, hasLength(1));
       expect(repository.savedWeights.first.source, WeightSource.health);
-      expect(repository.savedWeights.first.recordedAt, measuredAt);
+      final savedAt = repository.savedWeights.first.recordedAt;
+      expect(isAbsoluteRecordInstant(savedAt), isTrue);
+      expect(civilClock(savedAt).year, measuredAt.year);
+      expect(civilClock(savedAt).month, measuredAt.month);
+      expect(civilClock(savedAt).day, measuredAt.day);
+      expect(civilClock(savedAt).hour, measuredAt.hour);
+      expect(civilClock(savedAt).minute, measuredAt.minute);
       expect(repository.savedWorkouts, hasLength(1));
     });
 

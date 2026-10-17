@@ -31,9 +31,7 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
         children: [
           const DesignTitleBlock(
             title: 'この数値の計算根拠',
-            subtitle:
-                '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
-                '医療上の診断や治療を目的としたものではありません。',
+            subtitle: '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。',
           ),
           const SizedBox(height: AppSpacing.md),
           DesignCard(
@@ -149,10 +147,7 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                       '${energy.speedCapKcal!.toStringAsFixed(0)} kcal/日',
                     ),
                   if (energy.floorKcal != null)
-                    _row(
-                      '下限',
-                      '${energy.floorKcal!.toStringAsFixed(0)} kcal',
-                    ),
+                    _row('下限', '${energy.floorKcal!.toStringAsFixed(0)} kcal'),
                   if (energy.heldForStaleWeight)
                     const Text('体重が古いため、直前の食事目標を維持しています。'),
                   if (energy.dailyStepLimited)
@@ -166,8 +161,9 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                     energy.unavailableReason ??
                         '推定安静時消費を算出できません（18歳未満、'
                             'または性別区分が未設定の場合など）。',
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: Theme.of(context).colorScheme.error),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
@@ -266,7 +262,10 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'daily_calculation_explanation_screen_MaterialPageRoute_0'),
+                  settings: const RouteSettings(
+                    name:
+                        'daily_calculation_explanation_screen_MaterialPageRoute_0',
+                  ),
                   builder: (context) => const CalculationReferencesScreen(),
                 ),
               );

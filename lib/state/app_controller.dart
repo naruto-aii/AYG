@@ -58,6 +58,7 @@ import '../models/workout_template.dart';
 import '../repositories/authentication_repository.dart';
 import '../repositories/complimentary_plus_repository.dart';
 import '../services/complimentary_plus.dart';
+import '../services/health_exercise_credit.dart';
 import '../repositories/exceptions/food_master_exceptions.dart';
 import '../repositories/contracts/blocked_food_creator_repository_base.dart';
 import '../repositories/contracts/food_rating_repository_base.dart';
@@ -223,7 +224,11 @@ class AppController extends ChangeNotifier {
   final PendingRecordStore _pendingRecords;
   final ComplimentaryPlusRepository _complimentaryPlus;
   bool _complimentaryPlusActive = false;
+  DateTime? _complimentaryPlusConfirmedAt;
   String? _complimentaryPlusUserId;
+
+  /// 付与の期限をテストが動かす。本番は今。
+  DateTime Function() complimentaryNow = DateTime.now;
 
   /// 機能を開いてよいか。ストアの加入か、課金ではない付与。
   ///
@@ -4217,16 +4222,26 @@ class AppController extends ChangeNotifier {
     }
     if (_complimentaryPlusUserId != userId) {
       _complimentaryPlusUserId = userId;
+      _complimentaryPlusConfirmedAt = null;
       await _setComplimentaryPlus(false);
     }
     final next = await _complimentaryPlus.current();
     if (_authenticationRepository?.currentUser?.id != userId) {
       return;
     }
-    if (next == null) {
-      return;
+    final now = complimentaryNow();
+    final kept = complimentaryGrantAfterRefresh(
+      rpc: next,
+      active: _complimentaryPlusActive,
+      confirmedAt: _complimentaryPlusConfirmedAt,
+      now: now,
+    );
+    if (next == true) {
+      _complimentaryPlusConfirmedAt = now;
+    } else if (!kept) {
+      _complimentaryPlusConfirmedAt = null;
     }
-    await _setComplimentaryPlus(next);
+    await _setComplimentaryPlus(kept);
   }
 
   Future<void> _setComplimentaryPlus(bool next) async {
@@ -4948,9 +4963,39 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  /// 今日の Health アクティブエネルギーが、0 を含めて届いているか。
+  ///
+  /// 過去の日は今日の活動量を足さない。残り計算と同じ。
+  bool healthActiveEnergyPresentOn(DateTime day) {
+    final settings = nutritionSettings;
+    if (settings == null || !settings.useHealthIntegration) {
+      return false;
+    }
+    if (!isSameLocalDay(day, DateTime.now())) {
+      return false;
+    }
+    return healthSnapshot.activeEnergyBurnedKcal != null;
+  }
+
+  /// Health のワークアウトと重なり、消費の一覧に足さない行か。
+  bool exerciseRowOverlapsHealth(ExerciseEntry entry, DateTime day) {
+    return const HealthExerciseCredit().manualIsOverlapped(
+      entry: entry,
+      healthActiveEnergyPresent: healthActiveEnergyPresentOn(day),
+      healthWorkouts: healthWorkouts,
+    );
+  }
+
   /// ホームとウィジェットが出す、その日の整数。残りは目標 + 消費 − 摂取。
+  ///
+  /// 消費の運動は、残り計算が足す行だけ。重なる手入力は含めない。
   DisplayedDayKcal displayedSummaryKcal(DateTime day) {
     final current = summary;
+    final exercises = filterLoggedOnLocalDay(
+      entries: exerciseEntries,
+      referenceDate: day,
+      readLoggedAt: (entry) => entry.loggedAt,
+    );
     return displayedDayKcal(
       targetKcal: current?.targetKcal ?? 0,
       foods: filterLoggedOnLocalDay(
@@ -4963,10 +5008,10 @@ class AppController extends ChangeNotifier {
         referenceDate: day,
         readLoggedAt: (entry) => entry.consumedAt,
       ),
-      exercises: filterLoggedOnLocalDay(
-        entries: exerciseEntries,
-        referenceDate: day,
-        readLoggedAt: (entry) => entry.loggedAt,
+      exercises: const HealthExerciseCredit().creditedManualExercises(
+        healthActiveEnergyPresent: healthActiveEnergyPresentOn(day),
+        dayExercises: exercises,
+        healthWorkouts: healthWorkouts,
       ),
       healthExcessKcal:
           current?.remainingBreakdown?.healthActivityExcessKcal ?? 0,

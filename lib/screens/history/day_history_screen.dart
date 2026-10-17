@@ -5,6 +5,7 @@ import '../../models/alcohol_entry.dart';
 import '../../models/exercise_entry.dart';
 import '../../models/food_entry.dart';
 import '../../models/weight_entry.dart';
+import '../../services/health_exercise_credit.dart';
 import '../../services/open_food_facts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
@@ -214,8 +215,15 @@ class DayHistoryScreen extends StatelessWidget {
           foods: foodItems,
           alcohol: alcoholItems,
         );
+        final creditedExercise = const HealthExerciseCredit()
+            .creditedManualExercises(
+              healthActiveEnergyPresent: controller
+                  .healthActiveEnergyPresentOn(day),
+              dayExercises: exerciseItems,
+              healthWorkouts: controller.healthWorkouts,
+            );
         final burnShown = displayedBurnKcal(
-          exercises: exerciseItems,
+          exercises: creditedExercise,
           healthExcessKcal:
               daySummary?.remainingBreakdown?.healthActivityExcessKcal ?? 0,
         );
@@ -341,7 +349,13 @@ class DayHistoryScreen extends StatelessWidget {
                       time: _formatTime(e.loggedAt),
                       title:
                           '${e.name}（${MetActivityCatalog.quantityLabelFor(e)}）',
-                      value: '+${e.effectiveNetKcal.toStringAsFixed(0)}',
+                      value: displayedExerciseRow(
+                        e.effectiveNetKcal,
+                        overlapped: controller.exerciseRowOverlapsHealth(
+                          e,
+                          day,
+                        ),
+                      ),
                       onTap: () => _openExerciseForm(context, entry: e),
                       onLongPress: () => _confirmDeleteExercise(context, e),
                     ),

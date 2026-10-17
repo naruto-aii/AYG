@@ -228,7 +228,17 @@ final class ShortcutAccessRulesTests: XCTestCase {
     }
 
     defaults.set(true, forKey: LockScreenMealStore.paidKey)
-    XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .paid)
+    XCTAssertEqual(LockScreenMealStore.readGrant().source, "none")
+    XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .unpaid)
+    XCTAssertEqual(LockScreenMealStore.access(store: .revoked, now: now), .refunded)
+    XCTAssertEqual(
+      LockScreenMealStore.access(store: .active(expiresAt: future), now: now),
+      .paid
+    )
+    defaults.set("preview", forKey: LockScreenMealStore.sourceKey)
+    XCTAssertEqual(LockScreenMealStore.readGrant().source, "preview")
+    XCTAssertEqual(LockScreenMealStore.access(store: .none, now: now), .paid)
+    defaults.removeObject(forKey: LockScreenMealStore.sourceKey)
 
     LockScreenMealStore.setGrant(source: "complimentary", expiresAtISO: nil)
     LockScreenMealStore.write(snapshotJSON: "{}", paid: false)
@@ -243,6 +253,53 @@ final class ShortcutAccessRulesTests: XCTestCase {
     XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .refunded)
     LockScreenMealStore.setGrant(source: "none", expiresAtISO: nil)
     XCTAssertEqual(LockScreenMealStore.access(store: .failed, now: now), .unpaid)
+  }
+
+  func testWidgetPreviewRoundsEachItemBeforeSumming() {
+    let items: [[String: Any]] = [
+      ["baseAmount": 1, "consumedAmount": 1, "kcalPerBase": 10.4],
+      ["baseAmount": 1, "consumedAmount": 1, "kcalPerBase": 10.4],
+    ]
+    XCTAssertEqual(LockScreenMealStore.foodKcal(items), 20)
+    XCTAssertEqual(
+      LockScreenMealStore.exerciseKcal([
+        ["netKcal": 10.6],
+        ["netKcal": 10.6],
+      ]),
+      22
+    )
+  }
+
+  func testTimelineIncludesNowAndExpiryAndReloadsOnRevocation() {
+    let midnight = now.addingTimeInterval(8 * 3600)
+    let expiry = now.addingTimeInterval(3600)
+    let dates = WidgetTimelinePlan.dates(
+      now: now,
+      midnight: midnight,
+      grantExpiresAt: expiry,
+      storeExpiresAt: now.addingTimeInterval(7200)
+    )
+    XCTAssertEqual(dates[0], now)
+    XCTAssertTrue(dates.contains(midnight))
+    XCTAssertTrue(dates.contains(expiry))
+    XCTAssertTrue(dates.contains(now.addingTimeInterval(7200)))
+
+    let suite = "timeline-revoke-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    LockScreenMealStore.testingDefaults = defaults
+    LockScreenMealStore.revocationReloadAt = nil
+    defer {
+      LockScreenMealStore.testingDefaults = nil
+      LockScreenMealStore.revocationReloadAt = nil
+      defaults.removePersistentDomain(forName: suite)
+    }
+    LockScreenMealStore.reloadAfterRevocation(now: now)
+    XCTAssertEqual(LockScreenMealStore.revocationReloadAt, now)
+    LockScreenMealStore.reloadAfterRevocation(now: now.addingTimeInterval(10))
+    XCTAssertEqual(LockScreenMealStore.revocationReloadAt, now)
+    LockScreenMealStore.reloadAfterRevocation(now: now.addingTimeInterval(61))
+    XCTAssertEqual(LockScreenMealStore.revocationReloadAt, now.addingTimeInterval(61))
   }
 }
 

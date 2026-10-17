@@ -38,6 +38,7 @@
 		A1B702222222222222222015 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111013 /* StoreKit.framework */; };
 		A1B702222222222222222016 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111013 /* StoreKit.framework */; };
 		A1B702222222222222222017 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111013 /* StoreKit.framework */; };
+		A1B702222222222222222018 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111010 /* WidgetKit.framework */; };
 		A1B702222222222222222012 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111011 /* SwiftUI.framework */; };
 		A1B702222222222222222013 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111012 /* AppIntents.framework */; };
 		A1B702222222222222222030 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B702111111111111111030 /* PrivacyInfo.xcprivacy */; };
@@ -144,6 +145,7 @@
 			files = (
 				78E6EACB9E3695D04F5C95C6 /* Pods_RunnerTests.framework in Frameworks */,
 				A1B702222222222222222017 /* StoreKit.framework in Frameworks */,
+				A1B702222222222222222018 /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

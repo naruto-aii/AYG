@@ -212,6 +212,20 @@ void main() {
     );
   });
 
+  test('a stripped mark within seconds of a legacy evening is not shifted', () {
+    // 日本時間 0:00 の本当の UTC から印を落とし、2秒足しても、旧行の 15:00 と同じ読みにする。
+    // 数秒以内だからと toLocal すると、旧い夕方の記録が翌朝へ動く。
+    final stripped = DateTime.parse('2026-10-16T15:00:02Z');
+    expect(isAbsoluteRecordInstant(stripped), isFalse);
+    expect(civilClock(stripped).hour, 15);
+    expect(civilClock(stripped).minute, 0);
+    expect(civilClock(stripped).second, 2);
+    expect(formatRecordDate(stripped), previousLabel);
+    final marked = stampRecordInstant(walls['0:00']!);
+    expect(isAbsoluteRecordInstant(marked), isTrue);
+    expect(formatRecordMinute(marked), '0:00');
+  });
+
   test('legacy wall-as-UTC morning stays on that wall day', () {
     final legacy = DateTime.parse('2026-10-17T00:00:00+00:00');
     expect(isAbsoluteRecordInstant(legacy), isFalse);

@@ -113,21 +113,23 @@ enum MealWidgetTimeline {
     store: PlusStoreSnapshot = .failed
   ) -> Timeline<MealWidgetEntry> {
     let midnight = MealWidgetDay.nextMidnight(after: now)
-    var stamps = [now.timeIntervalSince1970, midnight.timeIntervalSince1970]
-    func add(_ date: Date?) {
-      guard let date else {
-        return
-      }
-      let stamp = date.timeIntervalSince1970
-      if stamp > now.timeIntervalSince1970 {
-        stamps.append(stamp)
-      }
-    }
-    add(LockScreenMealStore.readGrant().expiresAt)
+    let grantExpiresAt = LockScreenMealStore.readGrant().expiresAt
+    let storeExpiresAt: Date?
     if case .active(let expiresAt) = store {
-      add(expiresAt)
+      storeExpiresAt = expiresAt
+    } else {
+      storeExpiresAt = nil
     }
-    let dates = Array(Set(stamps)).sorted().map { Date(timeIntervalSince1970: $0) }
+    let dates = WidgetTimelinePlan.dates(
+      now: now,
+      midnight: midnight,
+      grantExpiresAt: grantExpiresAt,
+      storeExpiresAt: storeExpiresAt
+    )
+    let accessNow = LockScreenMealStore.access(store: store, now: now)
+    if store == .revoked || accessNow == .refunded {
+      LockScreenMealStore.reloadAfterRevocation(now: now)
+    }
     return Timeline(
       entries: dates.map { entry(buttons: buttons, at: $0, store: store) },
       policy: .atEnd
@@ -238,6 +240,21 @@ struct HomeMealWidgetView: View {
   let entry: MealWidgetEntry
 
   var body: some View {
+    Group {
+      if entry.locked {
+        LockedMealFace(surface: "home", tall: true)
+      } else {
+        paidBody
+      }
+    }
+    .foregroundStyle(Color.white)
+    .padding(EdgeInsets(top: 18, leading: 18, bottom: 16, trailing: 18))
+    .containerBackground(for: .widget) {
+      HomeWidgetBackground()
+    }
+  }
+
+  private var paidBody: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(spacing: 6) {
         Circle()
@@ -261,42 +278,19 @@ struct HomeMealWidgetView: View {
       }
       .padding(.top, 12)
       Spacer(minLength: 0)
-      if entry.locked {
-        Button(intent: OpenCalonaviPlusIntent(surface: "home")) {
-          HStack(spacing: 8) {
-            Image(systemName: "lock.fill")
-              .font(.system(size: 16, weight: .semibold))
-            Text("カロナビ+")
-              .font(MealWidgetFont.bold(16))
-          }
-          .frame(maxWidth: .infinity)
-          .frame(height: 76)
-          .background(
-            Color.white.opacity(0.1),
-            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-          )
-        }
-        .buttonStyle(.plain)
-      } else {
-        Text("タップで記録")
+      Text("タップで記録")
           .font(MealWidgetFont.medium(11))
           .foregroundStyle(Color.white.opacity(0.6))
           .padding(.horizontal, 2)
           .padding(.bottom, 8)
-        HStack(spacing: 6) {
-          ForEach(entry.buttons.prefix(5)) { button in
-            Button(intent: RegisterMealWidgetIntent(surface: "home", slot: button.slot, kind: button.kind)) {
-              HomeTile(label: button.displayLabel)
-            }
-            .buttonStyle(.plain)
+      HStack(spacing: 6) {
+        ForEach(entry.buttons.prefix(5)) { button in
+          Button(intent: RegisterMealWidgetIntent(surface: "home", slot: button.slot, kind: button.kind)) {
+            HomeTile(label: button.displayLabel)
           }
+          .buttonStyle(.plain)
         }
       }
-    }
-    .foregroundStyle(Color.white)
-    .padding(EdgeInsets(top: 18, leading: 18, bottom: 16, trailing: 18))
-    .containerBackground(for: .widget) {
-      HomeWidgetBackground()
     }
   }
 
@@ -469,6 +463,21 @@ struct LockMealWidgetView: View {
   let entry: MealWidgetEntry
 
   var body: some View {
+    Group {
+      if entry.locked {
+        LockedMealFace(surface: "lock", tall: false)
+      } else {
+        paidBody
+      }
+    }
+    .foregroundStyle(Color.white)
+    .padding(EdgeInsets(top: 6, leading: 7, bottom: 7, trailing: 7))
+    .containerBackground(for: .widget) {
+      AccessoryWidgetBackground()
+    }
+  }
+
+  private var paidBody: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
         Text(entry.figures.shortHeadline)
@@ -484,36 +493,37 @@ struct LockMealWidgetView: View {
       .padding(.leading, 2)
       .frame(height: 32, alignment: .bottomLeading)
       Spacer(minLength: 0)
-      if entry.locked {
-        Button(intent: OpenCalonaviPlusIntent(surface: "lock")) {
-          HStack(spacing: 4) {
-            Image(systemName: "lock.fill")
-              .font(.system(size: 12, weight: .bold))
-            Text("カロナビ+")
-              .font(MealWidgetFont.bold(14))
+      let buttons = Array(entry.buttons.prefix(3))
+      let longest = buttons.map { $0.displayLabel.count }.max() ?? 0
+      HStack(spacing: 5) {
+        ForEach(buttons) { button in
+          Button(intent: RegisterMealWidgetIntent(surface: "lock", slot: button.slot, kind: button.kind)) {
+            LockCapsule(label: button.displayLabel, longest: longest)
           }
-          .foregroundStyle(Color.white)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(.plain)
-      } else {
-        let buttons = Array(entry.buttons.prefix(3))
-        let longest = buttons.map { $0.displayLabel.count }.max() ?? 0
-        HStack(spacing: 5) {
-          ForEach(buttons) { button in
-            Button(intent: RegisterMealWidgetIntent(surface: "lock", slot: button.slot, kind: button.kind)) {
-              LockCapsule(label: button.displayLabel, longest: longest)
-            }
-            .buttonStyle(.plain)
-          }
+          .buttonStyle(.plain)
         }
       }
     }
-    .foregroundStyle(Color.white)
-    .padding(EdgeInsets(top: 6, leading: 7, bottom: 7, trailing: 7))
-    .containerBackground(for: .widget) {
-      AccessoryWidgetBackground()
+  }
+}
+
+/// 鍵のかかった面。数字は出さない。
+struct LockedMealFace: View {
+  let surface: String
+  var tall = false
+
+  var body: some View {
+    Button(intent: OpenCalonaviPlusIntent(surface: surface)) {
+      HStack(spacing: tall ? 8 : 4) {
+        Image(systemName: "lock.fill")
+          .font(.system(size: tall ? 16 : 12, weight: .bold))
+        Text("カロナビ+")
+          .font(MealWidgetFont.bold(tall ? 16 : 14))
+      }
+      .foregroundStyle(Color.white)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: tall ? .center : .leading)
     }
+    .buttonStyle(.plain)
   }
 }
 

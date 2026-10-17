@@ -95,14 +95,7 @@ class HomeScreen extends StatelessWidget {
         final todayFood = _todayFood(controller.foodEntries);
         final todayAlcohol = _todayAlcohol(controller.alcoholEntries);
         final todayExercise = _todayExercise(controller.exerciseEntries);
-        final dayKcal = displayedDayKcal(
-          targetKcal: summary.targetKcal,
-          foods: todayFood,
-          alcohol: todayAlcohol,
-          exercises: todayExercise,
-          healthExcessKcal:
-              summary.remainingBreakdown?.healthActivityExcessKcal ?? 0,
-        );
+        final dayKcal = controller.displayedSummaryKcal(DateTime.now());
 
         return DesignPage(
           header: _Header(
@@ -568,7 +561,13 @@ class HomeScreen extends StatelessWidget {
             icon: AppIcons.exercise,
             time: _time(entry.loggedAt),
             title: entry.name,
-            value: '+${entry.effectiveNetKcal.toStringAsFixed(0)}',
+            value: displayedExerciseRow(
+              entry.effectiveNetKcal,
+              overlapped: controller.exerciseRowOverlapsHealth(
+                entry,
+                DateTime.now(),
+              ),
+            ),
             onTap: () => _openExerciseForm(context, entry: entry),
             onLongPress: () => confirmDeleteWithUndo<ExerciseEntry>(
               context: context,
@@ -667,17 +666,7 @@ class HomeScreen extends StatelessWidget {
     if (summary == null) {
       return;
     }
-    final todayFood = _todayFood(controller.foodEntries);
-    final todayAlcohol = _todayAlcohol(controller.alcoholEntries);
-    final todayExercise = _todayExercise(controller.exerciseEntries);
-    final dayKcal = displayedDayKcal(
-      targetKcal: summary.targetKcal,
-      foods: todayFood,
-      alcohol: todayAlcohol,
-      exercises: todayExercise,
-      healthExcessKcal:
-          summary.remainingBreakdown?.healthActivityExcessKcal ?? 0,
-    );
+    final dayKcal = controller.displayedSummaryKcal(DateTime.now());
     final content = buildMealShareCard(
       summary: summary,
       day: DateTime.now(),

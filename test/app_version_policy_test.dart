@@ -7,9 +7,15 @@ import 'package:ayg/services/app_version_policy.dart';
 import 'package:ayg/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
   test('the version policy is one readable row seeded at 0.0.0', () {
     final sql = File(
       'supabase/migrations/20261017030000_app_version_policy.sql',
@@ -294,7 +300,8 @@ void main() {
     await tester.pumpAndSettle();
     await first;
 
-    expect(prompt.recommendedDismissed, isTrue);
+    expect(prompt.dismissedRecommendedVersion, '9.0.0');
+    await prompt.dismissalPersisted;
     expect(find.text('新しいバージョンがあります'), findsNothing);
 
     await prompt.present(
@@ -309,7 +316,7 @@ void main() {
   testWidgets('a required update still shows after recommended was dismissed', (
     tester,
   ) async {
-    final prompt = AppUpdatePrompt()..recommendedDismissed = true;
+    final prompt = AppUpdatePrompt()..dismissedRecommendedVersion = '9.0.0';
     final navigator = await _pumpHost(tester);
 
     final repository = AppVersionPolicyRepository(
@@ -423,6 +430,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('アップデートが必要です'), findsOneWidget);
+  });
+
+  testWidgets('backing out dismisses that recommended version only', (
+    tester,
+  ) async {
+    final prompt = AppUpdatePrompt();
+    final navigator = await _pumpHost(tester);
+    final repository = AppVersionPolicyRepository(
+      load: () async => const AppVersionPolicy(
+        minimum: '0.0.0',
+        recommended: '9.0.0',
+        storeUrl: 'https://apps.apple.com/jp/app/id6814054275',
+      ),
+    );
+
+    final first = prompt.present(
+      navigator: navigator,
+      currentVersion: '1.0.0+2',
+      repository: repository,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('新しいバージョンがあります'), findsOneWidget);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+    await first;
+    await prompt.dismissalPersisted;
+    expect(prompt.dismissedRecommendedVersion, '9.0.0');
+
+    final again = AppUpdatePrompt();
+    await again.present(
+      navigator: navigator,
+      currentVersion: '1.0.0+2',
+      repository: repository,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('新しいバージョンがあります'), findsNothing);
+
+    await again.present(
+      navigator: navigator,
+      currentVersion: '1.0.0+2',
+      repository: AppVersionPolicyRepository(
+        load: () async => const AppVersionPolicy(
+          minimum: '0.0.0',
+          recommended: '9.1.0',
+          storeUrl: 'https://apps.apple.com/jp/app/id6814054275',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('新しいバージョンがあります'), findsOneWidget);
   });
 }
 

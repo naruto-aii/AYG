@@ -2,7 +2,8 @@
 ///
 /// Swift の `ShortcutAccessRules.decide` と同じ順で判定する。
 /// 解約しても、保存した期限の終わりまでは使える。返金・取り消しはそこで止める。
-/// 課金ではない付与（complimentary）と、開発の見本（preview）は StoreKit を見ない。
+/// 課金ではない付与（complimentary）と、アプリが書いた見本（preview）は
+/// StoreKit の取り消しより先に残す。source の無い古い有料フラグは preview にしない。
 enum ShortcutGrantSource { none, store, complimentary, preview, revoked }
 
 extension ShortcutGrantSourceWire on ShortcutGrantSource {
@@ -83,8 +84,23 @@ ShortcutAccess decideShortcutAccess({
   required PlusStoreSnapshot store,
   required DateTime now,
 }) {
-  if (source == ShortcutGrantSource.complimentary ||
-      source == ShortcutGrantSource.preview) {
+  final explicitGrant =
+      source == ShortcutGrantSource.complimentary ||
+      source == ShortcutGrantSource.preview;
+  if (store is PlusStoreRevoked && !explicitGrant) {
+    return ShortcutAccess.refunded;
+  }
+  if (source == ShortcutGrantSource.revoked) {
+    if (store is PlusStoreActive) {
+      final storeExpiry = store.expiresAt;
+      if (storeExpiry != null && !storeExpiry.isAfter(now)) {
+        return ShortcutAccess.expired;
+      }
+      return ShortcutAccess.paid;
+    }
+    return ShortcutAccess.refunded;
+  }
+  if (explicitGrant) {
     return ShortcutAccess.paid;
   }
   if (store is PlusStoreActive) {
@@ -93,9 +109,6 @@ ShortcutAccess decideShortcutAccess({
       return ShortcutAccess.expired;
     }
     return ShortcutAccess.paid;
-  }
-  if (store is PlusStoreRevoked || source == ShortcutGrantSource.revoked) {
-    return ShortcutAccess.refunded;
   }
   if (expiresAt != null) {
     return expiresAt.isAfter(now)

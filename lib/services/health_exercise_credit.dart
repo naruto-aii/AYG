@@ -55,29 +55,51 @@ class HealthExerciseCredit {
     );
   }
 
+  /// 残りと画面の消費に足す手入力。重なる行は除く。
+  List<ExerciseEntry> creditedManualExercises({
+    required bool healthActiveEnergyPresent,
+    required List<ExerciseEntry> dayExercises,
+    required List<HealthWorkoutRecord> healthWorkouts,
+  }) {
+    if (!healthActiveEnergyPresent) {
+      return List<ExerciseEntry>.of(dayExercises);
+    }
+    return [
+      for (final entry in dayExercises)
+        if (!manualIsOverlapped(
+          entry: entry,
+          healthActiveEnergyPresent: true,
+          healthWorkouts: healthWorkouts,
+        ))
+          entry,
+    ];
+  }
+
+  /// Health のワークアウトと重なり、消費に足さない行か。
+  bool manualIsOverlapped({
+    required ExerciseEntry entry,
+    required bool healthActiveEnergyPresent,
+    required List<HealthWorkoutRecord> healthWorkouts,
+  }) {
+    if (!healthActiveEnergyPresent) {
+      return false;
+    }
+    return healthWorkouts.any(
+      (workout) => manualOverlapsWorkout(entry, workout),
+    );
+  }
+
   /// 残りカロリーに足す手入力の net。日で絞ったあとのリストを渡す。
   double creditedManualNetKcal({
     required bool healthActiveEnergyPresent,
     required List<ExerciseEntry> dayExercises,
     required List<HealthWorkoutRecord> healthWorkouts,
   }) {
-    if (!healthActiveEnergyPresent) {
-      return dayExercises.fold<double>(
-        0,
-        (sum, entry) => sum + entry.effectiveNetKcal,
-      );
-    }
-    var sum = 0.0;
-    for (final entry in dayExercises) {
-      final overlaps = healthWorkouts.any(
-        (workout) => manualOverlapsWorkout(entry, workout),
-      );
-      if (overlaps) {
-        continue;
-      }
-      sum += entry.effectiveNetKcal;
-    }
-    return sum;
+    return creditedManualExercises(
+      healthActiveEnergyPresent: healthActiveEnergyPresent,
+      dayExercises: dayExercises,
+      healthWorkouts: healthWorkouts,
+    ).fold<double>(0, (sum, entry) => sum + entry.effectiveNetKcal);
   }
 
   List<ExerciseEntry> exercisesOnDay(

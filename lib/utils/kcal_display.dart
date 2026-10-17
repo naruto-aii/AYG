@@ -28,7 +28,21 @@ int displayedIntakeKcal({
   return displayedFoodKcal(foods) + displayedAlcoholKcal(alcohol);
 }
 
+/// 一覧で、Health と重なって消費に足さない行。数字は出さない。
+const String overlappedExerciseLabel = '重複';
+
+/// 運動の行に出す文字。重なる行は [overlappedExerciseLabel]。それ以外は整数。
+String displayedExerciseRow(double netKcal, {required bool overlapped}) {
+  if (overlapped) {
+    return overlappedExerciseLabel;
+  }
+  return '+${displayedKcal(netKcal)}';
+}
+
 /// 運動の行と同じ整数に、Health の上乗せを 1 行分として足す。
+///
+/// [exercises] は、Health と重なる行を除いたあとのリスト。
+/// 画面の消費は、この整数と Health の整数の和。
 int displayedBurnKcal({
   required Iterable<ExerciseEntry> exercises,
   double healthExcessKcal = 0,

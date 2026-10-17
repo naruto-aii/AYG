@@ -12,3 +12,31 @@ bool calonaviPlusAccess({
 bool complimentaryPlusFromRpc(Object? data) {
   return data == true;
 }
+
+/// 通信失敗のあと、課金ではない付与を端末に残す時間。
+///
+/// これを過ぎたら付与は無しにする。ストアの加入はこの時間を見ない。
+const Duration complimentaryPlusFailureTtl = Duration(minutes: 15);
+
+/// 通信失敗（[rpc] が null）のとき、確認から [ttl] 以内だけ付与を残す。
+///
+/// true / false はサーバの答え。確認時刻が無い失敗は、付与を残さない。
+bool complimentaryGrantAfterRefresh({
+  required bool? rpc,
+  required bool active,
+  required DateTime? confirmedAt,
+  required DateTime now,
+  Duration ttl = complimentaryPlusFailureTtl,
+}) {
+  if (rpc != null) {
+    return rpc;
+  }
+  if (!active || confirmedAt == null) {
+    return false;
+  }
+  final age = now.difference(confirmedAt);
+  if (age.isNegative) {
+    return false;
+  }
+  return age <= ttl;
+}

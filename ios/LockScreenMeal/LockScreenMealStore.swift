@@ -53,7 +53,8 @@ enum LockScreenMealStore {
     reloadWidgets()
   }
 
-  /// アプリが書いた加入。source が無い古い true は、次にアプリが開くまで preview として残す。
+  /// アプリが書いた加入。source が空の古い `lockScreenMealPaid == true` は
+  /// preview にしない。空の source は StoreKit の `Transaction.all` に任せる。
   static func setGrant(source: String, expiresAtISO: String?) {
     defaults?.set(source, forKey: sourceKey)
     if let expiresAtISO, !expiresAtISO.isEmpty {
@@ -69,14 +70,24 @@ enum LockScreenMealStore {
 
   static func readGrant() -> ShortcutGrant {
     let source = defaults?.string(forKey: sourceKey) ?? ""
-    let expires = parseInstant(defaults?.string(forKey: expiresKey))
-    if !source.isEmpty {
-      return ShortcutGrant(source: source, expiresAt: expires)
+    if source.isEmpty {
+      return ShortcutGrant(source: "none", expiresAt: nil)
     }
-    if defaults?.bool(forKey: paidKey) == true {
-      return ShortcutGrant(source: "preview", expiresAt: nil)
+    return ShortcutGrant(
+      source: source,
+      expiresAt: parseInstant(defaults?.string(forKey: expiresKey))
+    )
+  }
+
+  /// 返金を知った直後にタイムラインを取り直す。同じ分に何度も取り直さない。
+  static var revocationReloadAt: Date?
+
+  static func reloadAfterRevocation(now: Date = Date()) {
+    if let previous = revocationReloadAt, now.timeIntervalSince(previous) < 60 {
+      return
     }
-    return ShortcutGrant(source: "none", expiresAt: nil)
+    revocationReloadAt = now
+    reloadWidgets()
   }
 
   static func access(
@@ -300,25 +311,33 @@ enum LockScreenMealStore {
     reloadWidgets()
   }
 
+  /// 画面の `displayedKcal` と同じ。各行を整数にしてから足す。合計を先に丸めない。
+  static func roundedKcal(_ value: Double) -> Int {
+    guard value.isFinite else {
+      return 0
+    }
+    return Int(value.rounded())
+  }
+
   static func foodKcal(_ items: [[String: Any]]) -> Double {
-    var total = 0.0
+    var total = 0
     for item in items {
       let base = number(item["baseAmount"])
       let consumed = number(item["consumedAmount"])
       let kcal = number(item["kcalPerBase"])
       if base > 0, consumed > 0 {
-        total += kcal * consumed / base
+        total += roundedKcal(kcal * consumed / base)
       }
     }
-    return total
+    return Double(total)
   }
 
   static func exerciseKcal(_ items: [[String: Any]]) -> Double {
-    var total = 0.0
+    var total = 0
     for item in items {
-      total += number(item["netKcal"])
+      total += roundedKcal(number(item["netKcal"]))
     }
-    return total
+    return Double(total)
   }
 
   /// JSON の NSNumber と、同じプロセスで入れた Double の両方を読む。
@@ -696,6 +715,10 @@ enum ShortcutAccess: Equatable {
 }
 
 /// Dart の `decideShortcutAccess` と同じ順。
+///
+/// 取り消しは、source の無い古い有料フラグより先に効く。
+/// preview と complimentary は、アプリが source を書いたときだけ有料で、
+/// StoreKit の取り消しより先に残す。空の source はここへ来ない。
 enum ShortcutAccessRules {
   static func decide(
     source: String,
@@ -703,6 +726,18 @@ enum ShortcutAccessRules {
     store: PlusStoreSnapshot,
     now: Date
   ) -> ShortcutAccess {
+    if store == .revoked && source != "complimentary" && source != "preview" {
+      return .refunded
+    }
+    if source == "revoked" {
+      if case .active(let storeExpiry) = store {
+        if let storeExpiry, storeExpiry <= now {
+          return .expired
+        }
+        return .paid
+      }
+      return .refunded
+    }
     if source == "complimentary" || source == "preview" {
       return .paid
     }
@@ -712,13 +747,34 @@ enum ShortcutAccessRules {
       }
       return .paid
     }
-    if store == .revoked || source == "revoked" {
-      return .refunded
-    }
     if let expiresAt {
       return expiresAt > now ? .paid : .expired
     }
     return .unpaid
+  }
+}
+
+/// ウィジェットの次の表示時刻。今、次の 0 時、加入の期限、StoreKit の期限。
+enum WidgetTimelinePlan {
+  static func dates(
+    now: Date,
+    midnight: Date,
+    grantExpiresAt: Date?,
+    storeExpiresAt: Date?
+  ) -> [Date] {
+    var stamps = [now.timeIntervalSince1970, midnight.timeIntervalSince1970]
+    func add(_ date: Date?) {
+      guard let date else {
+        return
+      }
+      let stamp = date.timeIntervalSince1970
+      if stamp > now.timeIntervalSince1970 {
+        stamps.append(stamp)
+      }
+    }
+    add(grantExpiresAt)
+    add(storeExpiresAt)
+    return Array(Set(stamps)).sorted().map { Date(timeIntervalSince1970: $0) }
   }
 }
 

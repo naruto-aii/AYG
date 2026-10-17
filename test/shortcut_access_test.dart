@@ -90,6 +90,14 @@ void main() {
       ShortcutAccess.paid,
     );
     expect(
+      access(
+        source: ShortcutGrantSource.preview,
+        store: const PlusStoreRevoked(),
+      ),
+      ShortcutAccess.paid,
+    );
+    expect(access(store: const PlusStoreRevoked()), ShortcutAccess.refunded);
+    expect(
       access(store: PlusStoreActive(expiresAt: future)),
       ShortcutAccess.paid,
     );
@@ -219,8 +227,19 @@ void main() {
     expect(widget, contains('カロナビ+'));
     expect(widget, contains('OpenCalonaviPlusIntent'));
     expect(widget, contains('readGrant().expiresAt'));
+    expect(widget, contains('reloadAfterRevocation'));
+    expect(widget, contains('WidgetTimelinePlan.dates'));
     expect('Text("タップで記録")'.allMatches(widget), hasLength(1));
     expect(widget, contains('static var openAppWhenRun = true'));
+    final lockedFace = widget.indexOf('struct LockedMealFace');
+    final lockedBody = widget.substring(
+      lockedFace,
+      widget.indexOf('struct ', lockedFace + 1),
+    );
+    expect(lockedBody, contains('lock.fill'));
+    expect(lockedBody, contains('カロナビ+'));
+    expect(lockedBody, isNot(contains('figures')));
+    expect(lockedBody, isNot(contains('kcal')));
 
     final siri = File('ios/Runner/SiriVoiceLog.swift').readAsStringSync();
     final foodGate = siri.indexOf(
@@ -233,8 +252,47 @@ void main() {
       siri.indexOf('SiriPlusGate.evaluate('),
       lessThan(siri.indexOf('promptedActivityName()')),
     );
+    expect(siri, isNot(contains('requestValueDialog')));
+    expect(siri.indexOf('let question = "何を食べましたか？"'), greaterThan(foodGate));
+    expect(
+      siri.indexOf('let question = "何をしましたか？"'),
+      greaterThan(siri.indexOf('intent: "log_exercise"')),
+    );
+    final commit = siri.indexOf('static func commitStep');
+    final commitBody = siri.substring(
+      commit,
+      siri.indexOf('static func commitConfirmed'),
+    );
+    expect(commitBody.indexOf('plusBlockedNow()'), greaterThanOrEqualTo(0));
+    expect(
+      commitBody.indexOf('plusBlockedNow()'),
+      lessThan(commitBody.indexOf('commitAll(plan.records)')),
+    );
+    final probe = siri.indexOf('static func plusBlockedNow');
+    expect(
+      siri.indexOf('PlusStoreProbe.live()', probe),
+      lessThan(siri.indexOf('allowsRegister', probe)),
+    );
     expect(siri, contains('intent: "log_utterance"'));
     expect(siri, contains('intent: "undo"'));
+
+    final project = File(
+      'ios/Runner.xcodeproj/project.pbxproj',
+    ).readAsStringSync();
+    final testsPhase = project.indexOf(
+      '2CAFBE392D4E13294813B049 /* Frameworks */',
+    );
+    final testsFiles = project.substring(
+      testsPhase,
+      project.indexOf('runOnlyForDeploymentPostprocessing', testsPhase),
+    );
+    expect(testsFiles, contains('WidgetKit.framework in Frameworks'));
+
+    final store = File(
+      'ios/LockScreenMeal/LockScreenMealStore.swift',
+    ).readAsStringSync();
+    expect(store, isNot(contains('source: "preview", expiresAt: nil')));
+    expect(store, contains('static func roundedKcal'));
   });
 
   test('grant channel keeps the old paid payload and adds source', () async {

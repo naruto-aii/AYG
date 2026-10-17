@@ -7,6 +7,7 @@ import 'package:ayg/repositories/complimentary_plus_repository.dart';
 import 'package:ayg/repositories/subscription_exceptions.dart';
 import 'package:ayg/repositories/unavailable_subscription_repository.dart';
 import 'package:ayg/services/complimentary_plus.dart';
+import 'package:ayg/services/shortcut_access.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -118,6 +119,92 @@ void main() {
       loader.byUserId['ordinary-2'] = false;
       await controller.refreshComplimentaryPlus();
       expect(controller.hasCalonaviPlusAccess, isFalse);
+    },
+  );
+
+  test('a failed lookup drops complimentary after the ttl and leaves the store', () {
+    final confirmed = DateTime.utc(2026, 10, 17, 9);
+    expect(
+      complimentaryGrantAfterRefresh(
+        rpc: null,
+        active: true,
+        confirmedAt: confirmed,
+        now: confirmed.add(const Duration(minutes: 15)),
+      ),
+      isTrue,
+    );
+    expect(
+      complimentaryGrantAfterRefresh(
+        rpc: null,
+        active: true,
+        confirmedAt: confirmed,
+        now: confirmed.add(const Duration(minutes: 15, seconds: 1)),
+      ),
+      isFalse,
+    );
+    expect(
+      complimentaryGrantAfterRefresh(
+        rpc: null,
+        active: true,
+        confirmedAt: null,
+        now: confirmed,
+      ),
+      isFalse,
+    );
+    expect(
+      complimentaryGrantAfterRefresh(
+        rpc: false,
+        active: true,
+        confirmedAt: confirmed,
+        now: confirmed,
+      ),
+      isFalse,
+    );
+    expect(
+      complimentaryGrantAfterRefresh(
+        rpc: true,
+        active: false,
+        confirmedAt: null,
+        now: confirmed,
+      ),
+      isTrue,
+    );
+  });
+
+  test(
+    'the controller drops a stale complimentary grant without touching store plus',
+    () async {
+      final harness = await IsarTestHarness.create();
+      addTearDown(harness.dispose);
+      final auth = MockAuthenticationRepository(
+        currentUser: const AuthUser(id: 'president-c', email: 'c@example.test'),
+      );
+      final loader = _Scripted(auth)..byUserId['president-c'] = true;
+      final store = _StorePlus(true);
+      final controller = _controller(
+        harness,
+        auth: auth,
+        store: store,
+        complimentary: loader,
+      );
+      addTearDown(controller.dispose);
+      final start = DateTime.utc(2026, 10, 17, 9);
+      controller.complimentaryNow = () => start;
+
+      await controller.refreshComplimentaryPlus();
+      expect(controller.hasCalonaviPlusAccess, isTrue);
+      expect(controller.currentShortcutGrant().source, ShortcutGrantSource.complimentary);
+
+      loader.fail = true;
+      controller.complimentaryNow = () => start.add(const Duration(minutes: 16));
+      await controller.refreshComplimentaryPlus();
+
+      expect(controller.subscriptionRepository.isPlusActive, isTrue);
+      expect(controller.hasCalonaviPlusAccess, isTrue);
+      expect(
+        controller.currentShortcutGrant().source,
+        isNot(ShortcutGrantSource.complimentary),
+      );
     },
   );
 

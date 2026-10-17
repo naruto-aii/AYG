@@ -123,7 +123,7 @@ where n.nspname = 'public'
 
 ログインのトリガーは 0 件。`app_events` のトリガー条件は `onboarding_complete` だけ。`account_deletion_stats` に挿入トリガーがある。
 
-戻すときは `supabase/rollback/20261017033236_userlog_six_checkpoints_down.sql` を手で流す。ログインのトリガーと、インストール・期限切れ・返金の候補が戻る。アカウント削除用の新しい表は落ちる。`userlog_notifications_sent` の行は残る。通知全体を外すときは、そのあと以前の rollback を流す。pg_net と既存の表は残る。
+戻すときは、先に #138 時点（この変更前の main）の `userlog-notify` を配備し直してから、`supabase/rollback/20261017033236_userlog_six_checkpoints_down.sql` を手で流す。コミットは `d84544a8c5ac0c3eea01b00b8b6514311f4fb55f`（ログイン通知をインストールごとに1回にする）。rollback SQL だけだと、新しい関数がインストール、ログイン、期限切れ、返金を捨てるので投稿は戻らない。SQL のあと、ログインのトリガーと、インストール・期限切れ・返金の候補が戻る。アカウント削除用の新しい表は落ちる。`userlog_notifications_sent` の行は残る。通知全体を外すときは、そのあと以前の rollback を流す。pg_net と既存の表は残る。
 
 ```sh
 deno test --allow-env --config supabase/functions/deno.json supabase/functions/userlog_notify_test.ts

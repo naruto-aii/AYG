@@ -200,9 +200,13 @@ export type StoredPost = {
 export function nextClaim(
   post: StoredPost | null,
   nowMs: number,
+  revise = false,
 ): { action: "insert" | "reclaim" | "skip"; attempt: number } {
   if (!post) return { action: "insert", attempt: 1 };
-  if (post.status === "posted") return { action: "skip", attempt: post.attempt };
+  if (post.status === "posted") {
+    if (revise) return { action: "reclaim", attempt: post.attempt + 1 };
+    return { action: "skip", attempt: post.attempt };
+  }
   if (post.status === "reserved") {
     if (nowMs - post.updatedAtMs < reservationLeaseMs) {
       return { action: "skip", attempt: post.attempt };
@@ -274,40 +278,42 @@ export function formatHeadingDate(isoDate: string): string {
 /// 保存する日付は日本時間。この日より前は取り込まない。
 export const releaseDate = "2026-10-15";
 
-/// 引数は Apple に渡す太平洋時間のレポート日。
-/// そのファイルは、太平洋時間の暦日が終わったあと、日本時間の翌朝 5:00 まで確定しない。
-/// Apple は未生成の日にも「There were no sales for the date specified.」を返す。
-/// 公式の「翌日 8:00 太平洋時間まで」より、日本向けの「日本時間 5:00」の方が遅い。
-export function reportSettled(dataDate: string, now: Date): boolean {
-  return now.getTime() >= zonedInstant(addDays(dataDate, 2), 5, 0, "Asia/Tokyo");
+/// 投稿した日は、この日数のあいだ Apple から取り直す。
+export const revisionDays = 3;
+
+export function withinRevision(dataDate: string, now: Date): boolean {
+  return japanDateString(now) <= addDays(dataDate, revisionDays);
 }
 
-function zonedParts(instant: Date, timeZone: string): { y: number; m: number; d: number; h: number; min: number } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(instant);
-  const pick = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? "NaN");
-  let hour = pick("hour");
-  if (hour === 24) hour = 0;
-  return { y: pick("year"), m: pick("month"), d: pick("day"), h: hour, min: pick("minute") };
+export type FileState = "ready" | "empty" | "missing";
+
+/// 製品行があるファイルだけを、その日の数字とする。
+/// 0 件と「売上なし」は、それより新しい日の同じ種類に製品行があるときだけ 0 とみなす。
+/// 期限では確定しない。未生成の日も同じ返事になる。
+export function fileDecision(
+  current: { state: FileState; rows: number },
+  laterProductRows: number,
+): "rows" | "zero" | "hold" {
+  if (current.state === "missing") return "hold";
+  if (current.state === "ready" && current.rows > 0) return "rows";
+  if (laterProductRows > 0) return "zero";
+  return "hold";
 }
 
-function zonedInstant(isoDate: string, hour: number, minute: number, timeZone: string): number {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  let utc = Date.UTC(year, month - 1, day, hour, minute);
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const got = zonedParts(new Date(utc), timeZone);
-    const delta = Date.UTC(year, month - 1, day, hour, minute) - Date.UTC(got.y, got.m - 1, got.d, got.h, got.min);
-    if (delta === 0) return utc;
-    utc += delta;
-  }
-  return utc;
+/// 売上と購読が同じ結論のときだけ投稿する。片方だけ製品行がある日は出さない。
+/// イベントは、製品行があるか、より新しい日で 0 と分かってからにする。
+export function flashReady(
+  sales: "rows" | "zero" | "hold",
+  subscription: "rows" | "zero" | "hold",
+  events: "rows" | "zero" | "hold",
+): boolean {
+  if (sales === "hold" || subscription === "hold" || events === "hold") return false;
+  return sales === subscription;
+}
+
+/// ログに出してよいのは種類、太平洋時間の日付、HTTP ステータス、行数だけ。
+export function reportLogLine(kind: string, reportDate: string, status: number, rows: number): string {
+  return `asc-daily-report ${kind} ${reportDate} status=${status} rows=${rows}`;
 }
 
 function integerText(value: string): string | null {
@@ -666,6 +672,7 @@ export type FlashView = {
   monthEvents: EventSummary;
   monthReviewCount: number;
   salesConfirmed?: boolean;
+  correction?: boolean;
 };
 
 function monthLine(today: number, previous: number | null, month: number, format?: (value: number) => string): string {
@@ -720,8 +727,9 @@ export function formatFlashMessage(view: FlashView): string {
     averageRating: view.reviews.averageRating,
   });
   return [
-    `📊 カロナビ日次レポート｜${date}分　_日本時間_`,
+    `📊 カロナビ日次レポート｜${date}分　_日本時間_${view.correction ? "　訂正" : ""}`,
     "（売上と課金は Apple の日次ファイル。時刻が無いので、太平洋時間の 24 時間の多くがかかる日本時間の日付で出しています）",
+    ...(view.correction ? ["前回の投稿を、Appleの取り直しで上書きしました。"] : []),
     "",
     "■ 獲得",
     ...salesLines,
@@ -742,6 +750,7 @@ export function formatAcquisitionMessage(input: {
   dataDate: string;
   today: AnalyticsSummary;
   previous: AnalyticsSummary | null;
+  correction?: boolean;
 }): string {
   const date = formatHeadingDate(input.dataDate);
   const impressions = formatDelta(input.today.impressions, input.previous?.impressions ?? null);
@@ -750,8 +759,9 @@ export function formatAcquisitionMessage(input: {
   const previousConversion = input.previous ? formatPercent(input.previous.conversionRate) : null;
   const conversionDelta = previousConversion == null ? "前日 —" : `前日 ${previousConversion}`;
   return [
-    `📈 カロナビ集客｜${date}分　_日本時間_`,
+    `📈 カロナビ集客｜${date}分　_日本時間_${input.correction ? "　訂正" : ""}`,
     "（Analytics も太平洋時間の日付。速報と同じく日本時間の翌日として、ファイルの 3 日後以降に出します）",
+    ...(input.correction ? ["前回の投稿を、Appleの取り直しで上書きしました。"] : []),
     "",
     `表示回数 ${input.today.impressions.toLocaleString("en-US")}（${impressions}）`,
     `製品ページ閲覧 ${input.today.productPageViews.toLocaleString("en-US")}（${pages}）`,

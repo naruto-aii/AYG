@@ -12,16 +12,19 @@ import {
   fillPlans,
   formatAcquisitionMessage,
   formatFlashMessage,
+  fileDecision,
+  flashReady,
   latestRowsForDate,
   japanDateForPacificReport,
   monthStart,
   nextClaim,
   releaseDate,
-  reportSettled,
+  reportLogLine,
   summarizeDiscovery,
   summarizeDownloads,
   summarizeReviews,
   withBackoff,
+  withinRevision,
   type AnalyticsInstance,
   type AnalyticsSummary,
   type Backoff,
@@ -64,7 +67,13 @@ export type ReportDeps = {
   now: () => Date;
   appAppleId: string;
   getPost: (reportType: "flash" | "acquisition", dataDate: string) => Promise<StoredPost | null>;
-  claim: (reportType: "flash" | "acquisition", dataDate: string, nowMs: number) => Promise<boolean>;
+  claim: (
+    reportType: "flash" | "acquisition",
+    dataDate: string,
+    nowMs: number,
+    revise?: boolean,
+  ) => Promise<boolean>;
+  log?: (line: string) => void;
   finish: (
     reportType: "flash" | "acquisition",
     dataDate: string,
@@ -97,30 +106,42 @@ export type RunResult = {
 
 type ReportKind = "SALES" | "SUBSCRIPTION" | "SUBSCRIPTION_EVENT";
 
-async function fetchReady(
-  deps: ReportDeps,
-  kind: ReportKind,
-  dataDate: string,
-): Promise<{ state: "ready" | "empty" | "missing"; rows: Record<string, string>[] }> {
-  const response = await withBackoff(
-    () => deps.fetchSalesReport(kind, dataDate),
-    deps.backoff,
-  );
-  const state = classifyUnavailable(response.status, response.errorBody);
-  if (state === "ready") return { state, rows: response.rows };
-  if (state === "empty") return { state, rows: [] };
-  return { state: "missing", rows: [] };
+type FetchedReport = { state: "ready" | "empty" | "missing"; rows: Record<string, string>[] };
+
+function sameSales(stored: SalesSummary, next: SalesSummary): boolean {
+  return stored.newDownloads === next.newDownloads &&
+    stored.redownloads === next.redownloads &&
+    stored.salesCents === next.salesCents &&
+    stored.proceedsCents === next.proceedsCents &&
+    stored.nonJpyCustomerRows === next.nonJpyCustomerRows;
 }
 
-/// 行が無いファイルは、確定時刻の前は 0 として保存しない。未生成の日も同じ応答になる。
-function reportBlocksPost(
-  fetched: { state: "ready" | "empty" | "missing"; rows: Record<string, string>[] },
-  dataDate: string,
-  now: Date,
-): boolean {
-  if (fetched.state === "missing") return true;
-  const blank = fetched.state === "empty" || fetched.rows.length === 0;
-  return blank && !reportSettled(dataDate, now);
+function samePlans(stored: PlanSummary[], next: PlanSummary[]): boolean {
+  const line = (plan: PlanSummary) => `${plan.plan}:${plan.activePaid}:${plan.activeTrials}`;
+  return stored.map(line).sort().join("|") === next.map(line).sort().join("|");
+}
+
+function sameEvents(stored: EventSummary, next: EventSummary): boolean {
+  return stored.trialStarts === next.trialStarts &&
+    stored.paidConversions === next.paidConversions &&
+    stored.cancellations === next.cancellations;
+}
+
+function sameReviews(stored: ReviewSummary, next: ReviewSummary): boolean {
+  return stored.reviewCount === next.reviewCount &&
+    stored.averageRating === next.averageRating &&
+    stored.excerpt === next.excerpt &&
+    stored.stars.join(",") === next.stars.join(",");
+}
+
+function sameAnalytics(stored: AnalyticsSummary, next: AnalyticsSummary): boolean {
+  return stored.impressions === next.impressions &&
+    stored.productPageViews === next.productPageViews &&
+    stored.sourceSearch === next.sourceSearch &&
+    stored.sourceOther === next.sourceOther &&
+    stored.downloads === next.downloads &&
+    stored.conversionRate === next.conversionRate &&
+    stored.searchIncludesAds === next.searchIncludesAds;
 }
 
 function historyStart(dataDate: string): string {
@@ -200,8 +221,9 @@ async function publish(
   dataDate: string,
   text: string,
   nowMs: number,
+  revise = false,
 ): Promise<"posted" | "failed" | "skip"> {
-  const claimed = await deps.claim(reportType, dataDate, nowMs);
+  const claimed = await deps.claim(reportType, dataDate, nowMs, revise);
   if (!claimed) return "skip";
   let status: "posted" | "failed" = "failed";
   try {
@@ -217,34 +239,69 @@ async function publish(
 export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
   const now = deps.now();
   const nowMs = now.getTime();
+  const writeLog = deps.log ?? (() => {});
   const flashPosted: string[] = [];
   let reviewsPromise: Promise<ReviewsResponse> | null = null;
   const reviews = () => {
     reviewsPromise ??= withBackoff(() => deps.fetchReviews(), deps.backoff);
     return reviewsPromise;
   };
+  const cache = new Map<string, FetchedReport>();
+  const dates = candidateFlashDates(now);
 
-  for (const reportDate of candidateFlashDates(now)) {
+  async function load(kind: ReportKind, reportDate: string): Promise<FetchedReport> {
+    const key = `${kind}:${reportDate}`;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const response = await withBackoff(async () => {
+      const result = await deps.fetchSalesReport(kind, reportDate);
+      writeLog(reportLogLine(kind, reportDate, result.status, result.rows.length));
+      return result;
+    }, deps.backoff);
+    const classified = classifyUnavailable(response.status, response.errorBody);
+    let state: FetchedReport["state"] = "missing";
+    if (classified === "ready" || classified === "empty") state = classified;
+    const value: FetchedReport = { state, rows: state === "ready" ? response.rows : [] };
+    cache.set(key, value);
+    return value;
+  }
+
+  async function laterProductRows(kind: ReportKind, reportDate: string): Promise<number> {
+    let rows = 0;
+    for (const later of dates) {
+      if (later <= reportDate) continue;
+      const file = await load(kind, later);
+      if (file.state === "ready") rows += file.rows.length;
+    }
+    return rows;
+  }
+
+  for (const reportDate of dates) {
     const dataDate = japanDateForPacificReport(reportDate);
     if (dataDate < releaseDate) continue;
     const existing = await deps.getPost("flash", dataDate);
-    if (nextClaim(existing, nowMs).action === "skip") continue;
+    const revising = existing?.status === "posted" && withinRevision(dataDate, now);
+    if (!revising && nextClaim(existing, nowMs).action === "skip") continue;
     try {
-      const sales = await fetchReady(deps, "SALES", reportDate);
-      const subscription = await fetchReady(deps, "SUBSCRIPTION", reportDate);
-      const events = await fetchReady(deps, "SUBSCRIPTION_EVENT", reportDate);
+      const sales = await load("SALES", reportDate);
+      const subscription = await load("SUBSCRIPTION", reportDate);
+      const events = await load("SUBSCRIPTION_EVENT", reportDate);
       const reviewResponse = await reviews();
       const reviewsReady = reviewResponse.status >= 200 &&
         reviewResponse.status < 300 &&
         reviewResponse.complete;
-      if (
-        reportBlocksPost(sales, reportDate, now) ||
-        reportBlocksPost(subscription, reportDate, now) ||
-        reportBlocksPost(events, reportDate, now) ||
-        !reviewsReady
-      ) {
-        continue;
-      }
+      const ready = flashReady(
+        fileDecision({ state: sales.state, rows: sales.rows.length }, await laterProductRows("SALES", reportDate)),
+        fileDecision(
+          { state: subscription.state, rows: subscription.rows.length },
+          await laterProductRows("SUBSCRIPTION", reportDate),
+        ),
+        fileDecision(
+          { state: events.state, rows: events.rows.length },
+          await laterProductRows("SUBSCRIPTION_EVENT", reportDate),
+        ),
+      );
+      if (!ready || !reviewsReady) continue;
       const seenSkus = observedParentSkus(sales.rows, deps.appAppleId);
       addParentSkus(deps.knownParentSkus, seenSkus);
       if (deps.knownParentSkus.length === 0) continue;
@@ -254,6 +311,19 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
       const eventSummary = aggregateEvents(events.rows, deps.appAppleId);
       const reviewSummary = summarizeReviews(reviewResponse.reviews, dataDate);
       const history = await deps.history(historyStart(dataDate), dataDate);
+      const storedSales = history.sales.find((row) => row.dataDate === dataDate);
+      const storedEvents = history.events.find((row) => row.dataDate === dataDate);
+      const storedReviews = history.reviews.find((row) => row.dataDate === dataDate);
+      const storedPlans = history.subscriptions.filter((row) => row.dataDate === dataDate);
+      const unchanged = revising &&
+        storedSales !== undefined &&
+        storedEvents !== undefined &&
+        storedReviews !== undefined &&
+        sameSales(storedSales, salesSummary) &&
+        sameEvents(storedEvents, eventSummary) &&
+        sameReviews(storedReviews, reviewSummary) &&
+        samePlans(storedPlans, plans);
+      if (unchanged) continue;
       await deps.saveSales(dataDate, salesSummary);
       await deps.saveSubscription(dataDate, plans);
       await deps.saveEvents(dataDate, eventSummary);
@@ -261,6 +331,7 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
       const previous = previousSales(history, dataDate);
       const text = formatFlashMessage({
         dataDate,
+        correction: revising,
         sales: salesSummary,
         plans,
         events: eventSummary,
@@ -279,7 +350,7 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
           (row) => row.reviewCount,
         ) + reviewSummary.reviewCount,
       });
-      const outcome = await publish(deps, "flash", dataDate, text, nowMs);
+      const outcome = await publish(deps, "flash", dataDate, text, nowMs, revising);
       if (outcome === "failed") break;
       if (outcome === "posted") flashPosted.push(dataDate);
     } catch {
@@ -299,19 +370,23 @@ export async function runAscDailyReport(deps: ReportDeps): Promise<RunResult> {
       const dataDate = japanDateForPacificReport(reportDate);
       if (dataDate < releaseDate) continue;
       const existing = await deps.getPost("acquisition", dataDate);
-      if (nextClaim(existing, deps.now().getTime()).action === "skip") continue;
+      const revising = existing?.status === "posted" && withinRevision(dataDate, now);
+      if (!revising && nextClaim(existing, deps.now().getTime()).action === "skip") continue;
       const discoveryRows = latestRowsForDate(bundle.discovery, reportDate, deps.appAppleId);
       const downloadRows = latestRowsForDate(bundle.downloads, reportDate, deps.appAppleId);
       if (!discoveryRows || !downloadRows) continue;
       const summary = buildAnalytics(summarizeDiscovery(discoveryRows), summarizeDownloads(downloadRows));
       const history = await deps.history(historyStart(dataDate), dataDate);
+      const stored = history.analytics.find((row) => row.dataDate === dataDate);
+      if (revising && stored && sameAnalytics(stored, summary)) continue;
       await deps.saveAnalytics(dataDate, summary);
       const text = formatAcquisitionMessage({
         dataDate,
+        correction: revising,
         today: summary,
         previous: history.analytics.find((row) => row.dataDate === previousDate(dataDate)) ?? null,
       });
-      const outcome = await publish(deps, "acquisition", dataDate, text, deps.now().getTime());
+      const outcome = await publish(deps, "acquisition", dataDate, text, deps.now().getTime(), revising);
       if (outcome === "failed") break;
       if (outcome === "posted") acquisitionPosted.push(dataDate);
     }

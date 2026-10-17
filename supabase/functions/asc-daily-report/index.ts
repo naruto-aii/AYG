@@ -298,10 +298,15 @@ function liveDeps(): ReportDeps {
       };
       return post;
     },
-    claim: async (reportType, dataDate) => {
-      const body = await rpc("claim", { report_type: reportType, data_date: dataDate }) as { result?: string };
+    claim: async (reportType, dataDate, _nowMs, revise) => {
+      const body = await rpc("claim", {
+        report_type: reportType,
+        data_date: dataDate,
+        ...(revise ? { revise: true } : {}),
+      }) as { result?: string };
       return body.result === "claimed";
     },
+    log: (line) => console.log(line),
     finish: async (reportType, dataDate, status) => {
       await rpc("finish", { report_type: reportType, data_date: dataDate, status });
     },

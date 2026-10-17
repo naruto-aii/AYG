@@ -15,7 +15,7 @@ Future<bool> ensureCalonaviPlus(
   required String message,
   PlusFunnelFeature? feature,
 }) async {
-  if (controller.subscriptionRepository.isPlusActive) {
+  if (controller.hasCalonaviPlusAccess) {
     return true;
   }
   if (!context.mounted) {
@@ -58,5 +58,5 @@ Future<bool> ensureCalonaviPlus(
       'choice': 'close',
     });
   }
-  return controller.subscriptionRepository.isPlusActive;
+  return controller.hasCalonaviPlusAccess;
 }

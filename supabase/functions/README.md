@@ -129,3 +129,10 @@ where n.nspname = 'public'
 deno test --allow-env --config supabase/functions/deno.json supabase/functions/userlog_notify_test.ts
 bash supabase/tests/run_userlog_notifications_test.sh
 ```
+
+付与表（課金ではないカロナビ+）は本番の DB では試さない。写真、料理、食品検索は、加入行があるときは付与を見ない。加入の問い合わせが失敗したときは今までどおり 503。付与の問い合わせが失敗したときは、無料の利用者と同じく未加入にする。
+
+```sh
+bash supabase/tests/run_complimentary_plus_test.sh
+deno test --allow-env --config supabase/functions/deno.json supabase/functions/complimentary_plus_gate_test.ts supabase/functions/plus_gate_retry_test.ts
+```

@@ -34,6 +34,7 @@ import '../repositories/supabase/supabase_blocked_food_creator_repository.dart';
 import '../repositories/supabase_authentication_repository.dart';
 import '../repositories/storekit_subscription_repository.dart';
 import '../repositories/coach_proposal_log.dart';
+import '../repositories/complimentary_plus_repository.dart';
 import '../repositories/plus_funnel_repository.dart';
 import '../repositories/review_prompt_store.dart';
 import '../repositories/usage_record_repository.dart';
@@ -218,6 +219,9 @@ Future<void> bootstrapApp() async {
         ? SupabasePlusFunnelRepository()
         : const NoOpPlusFunnelRepository(),
     reviewPromptStore: PreferencesReviewPromptStore(preferences: preferences),
+    complimentaryPlus: SupabaseConfig.isConfigured
+        ? SupabaseComplimentaryPlusRepository()
+        : const NoOpComplimentaryPlusRepository(),
   );
   await controller.initialize();
 

@@ -84,7 +84,7 @@ class WidgetExercisePattern {
 /// ウィジェットの日付キー。端末のローカル日付（yyyy-MM-dd）。
 /// Swift の `MealWidgetDay.key` と同じ。
 String mealWidgetDayKey(DateTime value) {
-  final local = value.isUtc ? value.toLocal() : value;
+  final local = civilClock(value);
   final year = local.year.toString().padLeft(4, '0');
   final month = local.month.toString().padLeft(2, '0');
   final day = local.day.toString().padLeft(2, '0');

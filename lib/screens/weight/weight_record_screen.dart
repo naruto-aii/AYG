@@ -160,12 +160,12 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
   /// この記録より前の、いちばん新しい記録。
   WeightEntry? get _previous {
     final entries = [...widget.controller.weightEntries]
-      ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+      ..sort((a, b) => compareRecordInstants(b.recordedAt, a.recordedAt));
     for (final entry in entries) {
       if (entry.id == widget.entry?.id) {
         continue;
       }
-      if (entry.recordedAt.isBefore(_recordedAt)) {
+      if (compareRecordInstants(entry.recordedAt, _recordedAt) < 0) {
         return entry;
       }
     }
@@ -277,8 +277,8 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
                   const SizedBox(height: 4),
                   Text(
                     current == null
-                        ? formatJapaneseDateWithWeekday(previous.recordedAt)
-                        : '${formatJapaneseDateWithWeekday(previous.recordedAt)}から '
+                        ? formatRecordDate(previous.recordedAt)
+                        : '${formatRecordDate(previous.recordedAt)}から '
                               '${current - previous.weightKg >= 0 ? '+' : ''}'
                               '${(current - previous.weightKg).toStringAsFixed(1)} kg',
                     style: AppTypography.caption.copyWith(

@@ -8,6 +8,7 @@ import '../models/exercise_quantity_unit.dart';
 import '../services/exercise_calorie_calculator.dart';
 import '../utils/local_date.dart';
 import '../utils/meal_slot.dart';
+import '../utils/record_clock.dart';
 
 const coachNutritionMissingMessage = '食品の数値が取れませんでした。';
 
@@ -16,8 +17,10 @@ bool coachLoggedWithinDays(DateTime loggedAt, DateTime now, int days) {
   if (days <= 0) {
     return false;
   }
-  final start = localDayStart(now).subtract(Duration(days: days - 1));
-  final day = DateTime(loggedAt.year, loggedAt.month, loggedAt.day);
+  final start = localDayStart(
+    civilClock(now),
+  ).subtract(Duration(days: days - 1));
+  final day = localDayStart(civilClock(loggedAt));
   return !day.isBefore(start);
 }
 
@@ -652,7 +655,7 @@ _Practice? _bestPractice(List<ExerciseEntry> exercises, DateTime now) {
         longestKm = km;
         longestDistance = entry;
       }
-      if (!entry.loggedAt.isBefore(latest)) {
+      if (compareRecordInstants(entry.loggedAt, latest) >= 0) {
         latest = entry.loggedAt;
       }
     }
@@ -682,7 +685,7 @@ bool _outranks(_Practice next, _Practice current) {
   if (next.longestKm != current.longestKm) {
     return next.longestKm > current.longestKm;
   }
-  return next.latest.isAfter(current.latest);
+  return compareRecordInstants(next.latest, current.latest) > 0;
 }
 
 double? _paceKmh(ExerciseEntry entry) {

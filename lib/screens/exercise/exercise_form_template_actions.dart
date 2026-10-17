@@ -6,6 +6,7 @@ import '../../models/workout_template.dart';
 import '../../services/exercise_calorie_calculator.dart';
 import '../../services/exercise_weight_resolver.dart';
 import '../../state/app_controller.dart';
+import '../../utils/record_clock.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/logged_at_picker_field.dart';
@@ -20,7 +21,9 @@ Future<void> openWorkoutTemplatePicker({
 }) async {
   final template = await Navigator.of(context).push<WorkoutTemplate>(
     MaterialPageRoute<WorkoutTemplate>(
-      settings: const RouteSettings(name: 'exercise_form_template_actions_MaterialPageRoute_0'),
+      settings: const RouteSettings(
+        name: 'exercise_form_template_actions_MaterialPageRoute_0',
+      ),
       builder: (context) => WorkoutTemplatePickerScreen(controller: controller),
     ),
   );
@@ -37,7 +40,9 @@ Future<void> openWorkoutTemplatePicker({
 
   await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'exercise_form_template_actions_MaterialPageRoute_1'),
+      settings: const RouteSettings(
+        name: 'exercise_form_template_actions_MaterialPageRoute_1',
+      ),
       builder: (context) => WorkoutTemplateApplyScreen(
         controller: controller,
         template: bundle.template,
@@ -59,7 +64,9 @@ Future<void> openWorkoutTemplateCreate(
   }
   await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'exercise_form_template_actions_MaterialPageRoute_2'),
+      settings: const RouteSettings(
+        name: 'exercise_form_template_actions_MaterialPageRoute_2',
+      ),
       builder: (context) => WorkoutTemplateFormScreen(controller: controller),
     ),
   );
@@ -94,7 +101,7 @@ class _WorkoutTemplateApplyScreenState
   @override
   void initState() {
     super.initState();
-    _loggedAt = DateTime.now();
+    _loggedAt = asNewRecordInstant(DateTime.now());
     _drafts = widget.items
         .map(
           (item) => WorkoutTemplateApplyDraft(

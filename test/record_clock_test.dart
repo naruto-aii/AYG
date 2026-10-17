@@ -8,11 +8,18 @@ import 'package:ayg/models/health_profile_data.dart';
 import 'package:ayg/models/weight_entry.dart';
 import 'package:ayg/repositories/supabase/exercise_entry_row_mapper.dart';
 import 'package:ayg/repositories/supabase/food_master_row_mapper.dart';
+import 'package:ayg/screens/weight/weight_record_screen.dart';
+import 'package:ayg/screens/weight/weight_tab_screen.dart';
+import 'package:ayg/services/daily_coach.dart';
 import 'package:ayg/services/exercise_weight_resolver.dart';
+import 'package:ayg/services/lock_screen_meal.dart';
 import 'package:ayg/services/recent_foods.dart';
 import 'package:ayg/services/weight_for_target.dart';
+import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/utils/local_date.dart';
 import 'package:ayg/utils/record_clock.dart';
+import 'package:ayg/widgets/design/weight_parts.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -382,5 +389,149 @@ void main() {
       expect(eveningFresh.isBefore(noonLegacy), isTrue);
       expect(exerciseLegacy.isAfter(exerciseAt), isTrue);
     }
+  });
+
+  test('a read-back before 9:00 keeps the wall date, order, and latest', () {
+    DateTime readBack(DateTime wall) {
+      return recallRecordInstant(
+        persistRecordInstant(stampRecordInstant(wall)),
+      );
+    }
+
+    final morning = readBack(DateTime(2026, 10, 17, 0, 30));
+    final edge = readBack(DateTime(2026, 10, 17, 8, 59));
+    final evening = readBack(DateTime(2026, 10, 16, 23));
+    const morningLabel = '2026年10月17日（土）';
+    const eveningLabel = '2026年10月16日（金）';
+
+    expect(isAbsoluteRecordInstant(morning), isTrue);
+    expect(formatRecordDate(morning), morningLabel);
+    expect(formatRecordDate(edge), morningLabel);
+    expect(formatRecordDate(evening), eveningLabel);
+    expect(formatRecordMonthDay(morning), '10/17');
+    expect(formatRecordMonthDay(edge), '10/17');
+    expect(mealWidgetDayKey(morning), '2026-10-17');
+    expect(mealWidgetDayKey(edge), '2026-10-17');
+    expect(
+      coachLoggedWithinDays(morning, DateTime(2026, 10, 17, 12), 1),
+      isTrue,
+    );
+    expect(
+      coachLoggedWithinDays(evening, DateTime(2026, 10, 17, 12), 1),
+      isFalse,
+    );
+
+    final legacyEarly = DateTime.utc(2026, 10, 17, 2);
+    final entries = [
+      WeightEntry(
+        id: 'morning',
+        weightKg: 70,
+        recordedAt: morning,
+        source: WeightSource.manual,
+      ),
+      WeightEntry(
+        id: 'legacy',
+        weightKg: 69,
+        recordedAt: legacyEarly,
+        source: WeightSource.manual,
+      ),
+      WeightEntry(
+        id: 'edge',
+        weightKg: 71,
+        recordedAt: edge,
+        source: WeightSource.manual,
+      ),
+    ]..sort((a, b) => compareRecordInstants(a.recordedAt, b.recordedAt));
+
+    expect(entries.map((entry) => entry.id), ['morning', 'legacy', 'edge']);
+    expect(entries.last.weightKg, 71);
+    expect(formatRecordDate(entries.last.recordedAt), morningLabel);
+
+    WeightEntry? previous;
+    final newestFirst = [...entries]
+      ..sort((a, b) => compareRecordInstants(b.recordedAt, a.recordedAt));
+    for (final entry in newestFirst) {
+      if (entry.id == 'edge') {
+        continue;
+      }
+      if (compareRecordInstants(entry.recordedAt, edge) < 0) {
+        previous = entry;
+        break;
+      }
+    }
+    expect(previous?.id, 'legacy');
+    expect(formatRecordDate(previous!.recordedAt), morningLabel);
+
+    if (DateTime.now().timeZoneOffset == const Duration(hours: 9)) {
+      expect(morning.day, 16);
+      expect(edge.day, 16);
+      expect(formatJapaneseDateWithWeekday(morning), eveningLabel);
+      expect(edge.isBefore(legacyEarly), isTrue);
+    }
+  });
+
+  testWidgets('weight screens show the wall date for a read-back before 9:00', (
+    tester,
+  ) async {
+    DateTime readBack(DateTime wall) {
+      return recallRecordInstant(
+        persistRecordInstant(stampRecordInstant(wall)),
+      );
+    }
+
+    final morning = readBack(DateTime(2026, 10, 17, 0, 30));
+    final edge = readBack(DateTime(2026, 10, 17, 8, 59));
+    final evening = readBack(DateTime(2026, 10, 16, 23));
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    controller.weightEntries.addAll([
+      WeightEntry(
+        id: 'evening',
+        weightKg: 69,
+        recordedAt: evening,
+        source: WeightSource.manual,
+      ),
+      WeightEntry(
+        id: 'morning',
+        weightKg: 70,
+        recordedAt: morning,
+        source: WeightSource.manual,
+      ),
+      WeightEntry(
+        id: 'edge',
+        weightKg: 71,
+        recordedAt: edge,
+        source: WeightSource.manual,
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(home: WeightTabScreen(controller: controller)),
+    );
+    await tester.pump();
+
+    final rows = tester.widgetList<WeightRow>(find.byType(WeightRow)).toList();
+    expect(rows.map((row) => row.weight), ['71.0', '70.0', '69.0']);
+    expect(rows.map((row) => row.dateLabel), [
+      '2026年10月17日（土）',
+      '2026年10月17日（土）',
+      '2026年10月16日（金）',
+    ]);
+    expect(find.text('71.0'), findsWidgets);
+    expect(find.text('2026年10月17日（土）'), findsWidgets);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WeightRecordScreen(
+          controller: controller,
+          entry: controller.weightEntries.firstWhere(
+            (entry) => entry.id == 'edge',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.textContaining('2026年10月17日（土）から'), findsOneWidget);
   });
 }

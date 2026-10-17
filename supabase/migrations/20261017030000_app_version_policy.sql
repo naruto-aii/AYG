@@ -49,6 +49,7 @@ insert into public.app_version_policy (
   '0.0.0',
   '0.0.0',
   'https://apps.apple.com/jp/app/id6814054275'
-);
+)
+on conflict (id) do nothing;
 
 commit;

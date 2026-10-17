@@ -69,3 +69,14 @@ String formatJapaneseDateWithWeekday(DateTime date) {
   final weekday = japaneseWeekdayLabels[date.weekday - 1];
   return '${date.year}年${date.month}月${date.day}日（$weekday）';
 }
+
+/// 記録の壁時計の日付。読み戻した協定世界時も、端末の現地の日にする。
+String formatRecordDate(DateTime value) {
+  return formatJapaneseDateWithWeekday(civilClock(value));
+}
+
+/// グラフ軸の「10/17」。壁時計の月日。
+String formatRecordMonthDay(DateTime value) {
+  final clock = civilClock(value);
+  return '${clock.month}/${clock.day}';
+}

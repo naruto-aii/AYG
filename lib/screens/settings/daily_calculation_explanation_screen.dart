@@ -7,6 +7,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/kcal_display.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_page.dart';
@@ -15,9 +16,16 @@ import 'calculation_references_screen.dart';
 
 /// ホームの「あと○kcal」と PFC の計算根拠。
 class DailyCalculationExplanationScreen extends StatelessWidget {
-  const DailyCalculationExplanationScreen({super.key, required this.summary});
+  const DailyCalculationExplanationScreen({
+    super.key,
+    required this.summary,
+    this.shown,
+  });
 
   final DailySummary summary;
+
+  /// ホームと同じ整数。無いときは内訳の生の値をそのまま出す。
+  final DisplayedDayKcal? shown;
 
   @override
   Widget build(BuildContext context) {
@@ -168,29 +176,43 @@ class DailyCalculationExplanationScreen extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                 ],
                 if (remaining != null) ...[
-                  _row(
-                    '当日の追加運動（net）',
-                    '${formatNullableNutrient(remaining.exerciseNetKcal)} kcal',
-                  ),
-                  if (remaining.healthActivityExcessKcal > 0)
+                  if (shown != null) ...[
+                    _row('当日の追加運動（net）', '${shown!.exercise} kcal'),
+                    if (shown!.health > 0)
+                      _row('Health の上乗せ', '${shown!.health} kcal'),
+                    _row('食事摂取', '${shown!.food} kcal'),
+                    _row('アルコール摂取', '${shown!.alcohol} kcal'),
                     _row(
-                      'Health の上乗せ',
-                      '${formatNullableNutrient(remaining.healthActivityExcessKcal)} kcal',
+                      shown!.isOverage ? '超過カロリー' : '残りカロリー',
+                      shown!.isOverage
+                          ? '${shown!.overageShown} kcal超過'
+                          : '${shown!.remainingShown} kcal',
                     ),
-                  _row(
-                    '食事摂取',
-                    '${formatNullableNutrient(remaining.foodKcal)} kcal',
-                  ),
-                  _row(
-                    'アルコール摂取',
-                    '${formatNullableNutrient(remaining.alcoholKcal)} kcal',
-                  ),
-                  _row(
-                    summary.isCalorieOverage ? '超過カロリー' : '残りカロリー',
-                    summary.isCalorieOverage
-                        ? '${summary.calorieOverageKcal.toStringAsFixed(0)} kcal超過'
-                        : '${summary.remainingKcal.toStringAsFixed(0)} kcal',
-                  ),
+                  ] else ...[
+                    _row(
+                      '当日の追加運動（net）',
+                      '${formatNullableNutrient(remaining.exerciseNetKcal)} kcal',
+                    ),
+                    if (remaining.healthActivityExcessKcal > 0)
+                      _row(
+                        'Health の上乗せ',
+                        '${formatNullableNutrient(remaining.healthActivityExcessKcal)} kcal',
+                      ),
+                    _row(
+                      '食事摂取',
+                      '${formatNullableNutrient(remaining.foodKcal)} kcal',
+                    ),
+                    _row(
+                      'アルコール摂取',
+                      '${formatNullableNutrient(remaining.alcoholKcal)} kcal',
+                    ),
+                    _row(
+                      summary.isCalorieOverage ? '超過カロリー' : '残りカロリー',
+                      summary.isCalorieOverage
+                          ? '${summary.calorieOverageKcal.toStringAsFixed(0)} kcal超過'
+                          : '${summary.remainingKcal.toStringAsFixed(0)} kcal',
+                    ),
+                  ],
                 ],
                 _row('計算バージョン', energy?.version ?? '—'),
                 _row(

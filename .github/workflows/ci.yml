@@ -19,6 +19,6 @@ jobs:
       - run: flutter test --concurrency=1 --exclude-tags integration
       # 記録時刻の往復は、日本時間でないと約9時間のずれを検出できない。
       - name: Tokyo clock round trip
-        run: flutter test --concurrency=1 test/sync_round_trip_tokyo_test.dart test/record_clock_test.dart
+        run: flutter test --concurrency=1 test/sync_round_trip_tokyo_test.dart test/record_clock_test.dart test/record_instant_mark_test.dart
         env:
           TZ: Asia/Tokyo

@@ -393,9 +393,10 @@ void main() {
       ),
     );
 
-    final expectedRemaining = controller.summary!.remainingKcal.toStringAsFixed(
-      0,
-    );
+    final expectedRemaining = controller
+        .displayedSummaryKcal(DateTime.now())
+        .remainingShown
+        .toString();
 
     await tester.pumpWidget(
       MaterialApp(

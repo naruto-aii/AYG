@@ -141,10 +141,14 @@ class _CookCoachScreenState extends State<CookCoachScreen> {
   }
 
   CookCoachMealTarget _targetFromSummary(DailySummary? summary) {
+    final controller = widget.controller;
+    final remaining = controller == null || summary == null
+        ? summary?.remainingKcal ?? 0
+        : controller.displayedSummaryKcal(DateTime.now()).remaining.toDouble();
     return cookCoachMealTarget(
       now: _now,
       slot: _slot,
-      remainingKcal: summary?.remainingKcal ?? 0,
+      remainingKcal: remaining,
       remainingProteinG: summary == null
           ? 0
           : summary.targetProteinG - summary.intakeProteinG,

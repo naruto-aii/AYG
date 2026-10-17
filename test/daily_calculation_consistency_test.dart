@@ -85,9 +85,10 @@ void main() {
     controller.refreshDailySummary();
 
     final summary = controller.summary!;
-    final homeRemaining = summary.isCalorieOverage
-        ? summary.calorieOverageKcal
-        : summary.remainingKcal;
+    final shown = controller.displayedSummaryKcal(DateTime.now());
+    final homeRemaining = shown.isOverage
+        ? shown.overageShown
+        : shown.remainingShown;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -99,7 +100,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining(homeRemaining.toStringAsFixed(0)), findsWidgets);
+    expect(find.textContaining('$homeRemaining'), findsWidgets);
 
     await tester.tap(find.text('この数値の計算根拠'));
     await tester.pumpAndSettle();
@@ -117,10 +118,7 @@ void main() {
     if (summary.isCalorieOverage) {
       expect(find.textContaining('超過'), findsWidgets);
     } else {
-      expect(
-        find.textContaining(summary.remainingKcal.toStringAsFixed(0)),
-        findsWidgets,
-      );
+      expect(find.textContaining('${shown.remainingShown}'), findsWidgets);
     }
 
     expect(summary.remainingKcal, summary.remainingBreakdown!.rawRemainingKcal);

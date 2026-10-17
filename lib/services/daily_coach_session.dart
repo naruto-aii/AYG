@@ -125,7 +125,9 @@ class DailyCoachSession {
       );
     }
 
-    final remaining = summary.remainingKcal;
+    // ホームのリングと同じ整数。生の残りを丸めると、表示中の摂取・消費と 1 kcal ずれる。
+    final shown = controller.displayedSummaryKcal(DateTime.now());
+    final remaining = shown.remaining.toDouble();
     if (!remaining.isFinite) {
       return const DailyCoachLoadResult(
         status: DailyCoachStatus.nutritionMissing,
@@ -133,9 +135,7 @@ class DailyCoachSession {
     }
     if (remaining < 0) {
       final weight = controller.currentWeightSelection.kg;
-      final overage = summary.calorieOverageKcal > 0
-          ? summary.calorieOverageKcal
-          : remaining.abs();
+      final overage = shown.overageShown.toDouble();
       final exercise = buildCoachExerciseProposal(
         overageKcal: overage,
         weightKg: weight > 0 ? weight : null,

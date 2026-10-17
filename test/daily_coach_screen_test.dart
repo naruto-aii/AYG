@@ -440,7 +440,10 @@ void main() {
     expect(after.registered.map((item) => item.slot), [MealSlot.lunch]);
     for (final plan in after.plans) {
       expect(plan.meals.map((meal) => meal.slot), isNot(contains(MealSlot.lunch)));
-      expect(plan.remainingKcal, controller.summary!.remainingKcal);
+      expect(
+        plan.remainingKcal,
+        controller.displayedSummaryKcal(DateTime.now()).remaining.toDouble(),
+      );
     }
 
     // 15〜21時に夕食を登録したら、今日これからの食事は登録済み。

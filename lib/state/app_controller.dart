@@ -4941,36 +4941,35 @@ class AppController extends ChangeNotifier {
       return const MealWidgetFigures();
     }
     final summaryDay = _summaryDay;
-    final remaining = current.remainingKcal;
     final day = summaryDay ?? DateTime.now();
-    final dayFood = filterLoggedOnLocalDay(
-      entries: foodEntries,
-      referenceDate: day,
-      readLoggedAt: (entry) => entry.loggedAt,
+    return mealWidgetFiguresFromDisplayed(
+      displayedSummaryKcal(day),
+      dayKey: summaryDay == null ? null : mealWidgetDayKey(summaryDay),
     );
-    final dayAlcohol = filterLoggedOnLocalDay(
-      entries: alcoholEntries,
-      referenceDate: day,
-      readLoggedAt: (entry) => entry.consumedAt,
-    );
-    final dayExercise = filterLoggedOnLocalDay(
-      entries: exerciseEntries,
-      referenceDate: day,
-      readLoggedAt: (entry) => entry.loggedAt,
-    );
-    return MealWidgetFigures(
-      remainingKcal: remaining < 0 ? 0 : remaining.round(),
-      intakeKcal: displayedIntakeKcal(foods: dayFood, alcohol: dayAlcohol),
-      burnKcal: displayedBurnKcal(
-        exercises: dayExercise,
-        healthExcessKcal:
-            current.remainingBreakdown?.healthActivityExcessKcal ?? 0,
+  }
+
+  /// ホームとウィジェットが出す、その日の整数。残りは目標 + 消費 − 摂取。
+  DisplayedDayKcal displayedSummaryKcal(DateTime day) {
+    final current = summary;
+    return displayedDayKcal(
+      targetKcal: current?.targetKcal ?? 0,
+      foods: filterLoggedOnLocalDay(
+        entries: foodEntries,
+        referenceDate: day,
+        readLoggedAt: (entry) => entry.loggedAt,
       ),
-      targetKcal: current.targetKcal.round(),
-      overageKcal: current.isCalorieOverage
-          ? current.calorieOverageKcal.round()
-          : null,
-      day: summaryDay == null ? null : mealWidgetDayKey(summaryDay),
+      alcohol: filterLoggedOnLocalDay(
+        entries: alcoholEntries,
+        referenceDate: day,
+        readLoggedAt: (entry) => entry.consumedAt,
+      ),
+      exercises: filterLoggedOnLocalDay(
+        entries: exerciseEntries,
+        referenceDate: day,
+        readLoggedAt: (entry) => entry.loggedAt,
+      ),
+      healthExcessKcal:
+          current?.remainingBreakdown?.healthActivityExcessKcal ?? 0,
     );
   }
 

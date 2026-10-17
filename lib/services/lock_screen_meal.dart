@@ -8,6 +8,7 @@ import '../models/food_entry_source.dart';
 import '../models/food_unit_type.dart';
 import '../models/meal_template.dart';
 import '../utils/calorie_ring_progress.dart';
+import '../utils/kcal_display.dart';
 import '../utils/record_clock.dart';
 import 'exercise_calorie_calculator.dart';
 import 'shortcut_access.dart';
@@ -300,6 +301,24 @@ class LockScreenMealConfig {
         : WidgetPatternKind.meal;
     return LockScreenMealButtonConfig(slot: slot, label: label, kind: kind);
   }
+}
+
+/// ホームと同じ整数を、ウィジェットの残り・摂取・消費にする。
+///
+/// 残りは「目標 + 消費 − 摂取」。負の分は超過に移し、残りは 0。
+/// Siri は残りを読み上げない。ロック画面とホーム画面のウィジェットがこの数字を出す。
+MealWidgetFigures mealWidgetFiguresFromDisplayed(
+  DisplayedDayKcal day, {
+  String? dayKey,
+}) {
+  return MealWidgetFigures(
+    remainingKcal: day.remainingShown,
+    intakeKcal: day.intake,
+    burnKcal: day.burn,
+    targetKcal: day.target,
+    overageKcal: day.isOverage ? day.overageShown : null,
+    day: dayKey,
+  );
 }
 
 /// ウィジェットに出す、今日の残り・摂取・消費。
@@ -1278,6 +1297,10 @@ String formatLockScreenLoggedAt(DateTime loggedAt) {
 
 DateTime parseLockScreenLoggedAt(String raw) {
   final parsed = DateTime.parse(raw);
+  // 印付きの本当の UTC を暦の数字に落とすと、0:00〜8:59 が前日になる。
+  if (isAbsoluteRecordInstant(parsed)) {
+    return parsed;
+  }
   if (!parsed.isUtc) {
     return parsed;
   }

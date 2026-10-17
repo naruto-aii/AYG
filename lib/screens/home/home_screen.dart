@@ -95,6 +95,14 @@ class HomeScreen extends StatelessWidget {
         final todayFood = _todayFood(controller.foodEntries);
         final todayAlcohol = _todayAlcohol(controller.alcoholEntries);
         final todayExercise = _todayExercise(controller.exerciseEntries);
+        final dayKcal = displayedDayKcal(
+          targetKcal: summary.targetKcal,
+          foods: todayFood,
+          alcohol: todayAlcohol,
+          exercises: todayExercise,
+          healthExcessKcal:
+              summary.remainingBreakdown?.healthActivityExcessKcal ?? 0,
+        );
 
         return DesignPage(
           header: _Header(
@@ -116,7 +124,7 @@ class HomeScreen extends StatelessWidget {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(child: _ring(summary)),
+              Center(child: _ring(dayKcal)),
               if (controller.hasUnsentRecords) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -134,16 +142,11 @@ class HomeScreen extends StatelessWidget {
                 _quickAdd(context, profile.weightKg),
               ],
               const SizedBox(height: 8),
-              _stats(
-                summary,
-                foods: todayFood,
-                alcohol: todayAlcohol,
-                exercises: todayExercise,
-              ),
+              _stats(dayKcal),
               const SizedBox(height: 4),
               _weightUsage(controller),
               const SizedBox(height: 4),
-              _calculationLink(context, summary),
+              _calculationLink(context, summary, dayKcal),
               if (summary.energyBreakdown?.guidance != null) ...[
                 const SizedBox(height: 8),
                 _guidanceCard(context, summary.energyBreakdown!.guidance!),
@@ -183,36 +186,22 @@ class HomeScreen extends StatelessWidget {
 
   // --- セクション --------------------------------------------------------
 
-  Widget _ring(DailySummary summary) {
-    final target = summary.targetKcal;
+  Widget _ring(DisplayedDayKcal day) {
     return CalorieRing(
-      label: summary.isCalorieOverage ? '超過' : '今日あと',
-      value:
-          (summary.isCalorieOverage
-                  ? summary.calorieOverageKcal
-                  : summary.remainingKcal.clamp(0, double.infinity))
-              .toStringAsFixed(0),
+      label: day.isOverage ? '超過' : '今日あと',
+      value: '${day.isOverage ? day.overageShown : day.remainingShown}',
       progress: calorieRingProgress(
-        intakeKcal: summary.intakeKcal,
-        remainingKcal: summary.remainingKcal,
-        targetKcal: target,
+        intakeKcal: day.intake.toDouble(),
+        remainingKcal: day.remaining.toDouble(),
+        targetKcal: day.target.toDouble(),
       ),
-      progressColor: summary.isCalorieOverage ? AppColors.orange500 : null,
+      progressColor: day.isOverage ? AppColors.orange500 : null,
     );
   }
 
-  Widget _stats(
-    DailySummary summary, {
-    required List<FoodEntry> foods,
-    required List<AlcoholEntry> alcohol,
-    required List<ExerciseEntry> exercises,
-  }) {
-    final intake = displayedIntakeKcal(foods: foods, alcohol: alcohol);
-    final burn = displayedBurnKcal(
-      exercises: exercises,
-      healthExcessKcal:
-          summary.remainingBreakdown?.healthActivityExcessKcal ?? 0,
-    );
+  Widget _stats(DisplayedDayKcal day) {
+    final intake = day.intake;
+    final burn = day.burn;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -304,14 +293,20 @@ class HomeScreen extends StatelessWidget {
     }();
   }
 
-  Widget _calculationLink(BuildContext context, DailySummary summary) {
+  Widget _calculationLink(
+    BuildContext context,
+    DailySummary summary,
+    DisplayedDayKcal day,
+  ) {
     return Center(
       child: InkWell(
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
       settings: const RouteSettings(name: 'home_screen_MaterialPageRoute_0'),
-            builder: (context) =>
-                DailyCalculationExplanationScreen(summary: summary),
+            builder: (context) => DailyCalculationExplanationScreen(
+              summary: summary,
+              shown: day,
+            ),
           ),
         ),
         borderRadius: BorderRadius.circular(999),
@@ -672,7 +667,24 @@ class HomeScreen extends StatelessWidget {
     if (summary == null) {
       return;
     }
-    final content = buildMealShareCard(summary: summary, day: DateTime.now());
+    final todayFood = _todayFood(controller.foodEntries);
+    final todayAlcohol = _todayAlcohol(controller.alcoholEntries);
+    final todayExercise = _todayExercise(controller.exerciseEntries);
+    final dayKcal = displayedDayKcal(
+      targetKcal: summary.targetKcal,
+      foods: todayFood,
+      alcohol: todayAlcohol,
+      exercises: todayExercise,
+      healthExcessKcal:
+          summary.remainingBreakdown?.healthActivityExcessKcal ?? 0,
+    );
+    final content = buildMealShareCard(
+      summary: summary,
+      day: DateTime.now(),
+      intakeKcal: dayKcal.intake,
+      targetKcal: dayKcal.target,
+      isOverage: dayKcal.isOverage,
+    );
     final override = shareCard;
     if (override != null) {
       await override(content);

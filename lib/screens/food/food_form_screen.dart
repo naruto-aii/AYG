@@ -145,6 +145,35 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   bool get _usesSavedFoodBaseModel =>
       _fromSavedFoodSelection || _selectedSavedFoodId != null;
 
+  /// 成分表、または g/ml で基準量がある行。手入力と保存済み食品は含まない。
+  ///
+  /// 量の欄は摂取量だけを変え、単位・基準量・基準あたりの栄養は残す。
+  bool get _preservesBaseConsumption {
+    if (_usesSavedFoodBaseModel) {
+      return false;
+    }
+    final entry = widget.entry;
+    if (entry == null) {
+      return false;
+    }
+    if (entry.sourceType == FoodEntrySource.mextSfct) {
+      return true;
+    }
+    final code = entry.officialFoodCode?.trim();
+    if (code != null && code.isNotEmpty) {
+      return true;
+    }
+    if (entry.sourceType == FoodEntrySource.manual) {
+      return false;
+    }
+    final measured =
+        entry.unitType == FoodUnitType.g || entry.unitType == FoodUnitType.ml;
+    return measured && entry.baseAmount > 0;
+  }
+
+  bool get _showsIntakeAgainstBase =>
+      _usesSavedFoodBaseModel || _preservesBaseConsumption;
+
   bool get _isMobilePlatform {
     if (kIsWeb) {
       return false;
@@ -510,7 +539,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   }
 
   void _onQuantityEdited() {
-    if (_ignoreQuantityScale) {
+    if (_ignoreQuantityScale || _preservesBaseConsumption) {
       return;
     }
     final origin = _quantityScaleOrigin;
@@ -563,13 +592,15 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
 
     final consumedAmount = _parseQuantity(_quantityController.text);
-    final baseAmount = _usesSavedFoodBaseModel
+    final keepsBase = _usesSavedFoodBaseModel || _preservesBaseConsumption;
+    final baseAmount = keepsBase
         ? _baseAmount
         : (_manualQuantityChanged ? consumedAmount : 1.0);
-    final unitType = _usesSavedFoodBaseModel ? _unitType : FoodUnitType.serving;
+    final unitType = keepsBase ? _unitType : FoodUnitType.serving;
+    final original = widget.entry;
 
     return FoodEntry(
-      id: widget.entry?.id ?? widget.controller.generateId(),
+      id: original?.id ?? widget.controller.generateId(),
       name: _nameController.text.trim(),
       kcalPerBase: _macroInput.parseOptional(MacroField.kcal),
       proteinPerBase: _macroInput.parseOptional(MacroField.protein),
@@ -585,9 +616,13 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       savedFoodId: _selectedSavedFoodId,
       sourceFoodOwnerUserId: _sourceFoodOwnerUserId,
       sourceSavedFoodVersion: _sourceSavedFoodVersion,
-      officialFoodCode: widget.entry?.officialFoodCode,
-      officialFoodName: widget.entry?.officialFoodName,
-      memo: widget.isEditing ? widget.entry?.memo : null,
+      officialFoodCode: original?.officialFoodCode,
+      officialFoodName: original?.officialFoodName,
+      mealGroupId: original?.mealGroupId,
+      mealGroupName: original?.mealGroupName,
+      sortOrder: original?.sortOrder,
+      memo: widget.isEditing ? original?.memo : null,
+      recordOrigin: original?.recordOrigin,
       loggedAt: _loggedAt,
     );
   }
@@ -799,7 +834,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   }
 
   Widget? _buildTotalPreview() {
-    if (!_usesSavedFoodBaseModel) {
+    if (!_showsIntakeAgainstBase) {
       return null;
     }
 
@@ -837,7 +872,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final quantityLabel = _usesSavedFoodBaseModel
+    final quantityLabel = _preservesBaseConsumption
+        ? '食べた量 (${_unitType.label})'
+        : _usesSavedFoodBaseModel
         ? '食べた量（${_unitType.label}）'
         : '食べた量（人前・個）';
 
@@ -1040,10 +1077,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
             ),
           ),
           if (!widget.isEditing && !_fromSavedFoodSelection) _nameLookup(),
-          if (_usesSavedFoodBaseModel) ...[
+          if (_showsIntakeAgainstBase) ...[
             const SizedBox(height: 8),
             Text(
-              '${widget.controller.formatBaseAmountLabel(baseAmount: _baseAmount, unitType: _unitType)}あたり · '
+              '${widget.controller.formatBaseAmountLabel(baseAmount: _baseAmount, unitType: _unitType)} · '
               '${formatNullableNutrient(_macroInput.parseOptional(MacroField.kcal))}kcal',
               style: AppTypography.bodyS,
             ),
@@ -1064,8 +1101,9 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                 flex: 2,
                 child: MiniField(
                   label: quantityLabel,
-                  unit: _usesSavedFoodBaseModel ? _unitType.label : null,
+                  unit: _showsIntakeAgainstBase ? _unitType.label : null,
                   child: TextField(
+                    key: const ValueKey('food_quantity_field'),
                     controller: _quantityController,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
@@ -1089,6 +1127,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
               Expanded(
                 flex: 3,
                 child: MiniField(
+                  key: const ValueKey('food_logged_at_field'),
                   label: '記録日時',
                   onTap: _pickLoggedAt,
                   child: Text(

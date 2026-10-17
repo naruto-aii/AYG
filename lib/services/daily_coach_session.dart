@@ -219,25 +219,29 @@ class DailyCoachSession {
       final edited = grams != null && i < grams.length
           ? grams[i]
           : item.grams.toDouble();
-      final consumed = coachMealConsumedAmount(
+      final stored = coachFoodEntryAmounts(
         units: item.units,
         proposedGrams: item.grams,
         editedGrams: edited,
+        kcalPerProposed: item.kcalPerUnit,
+        proteinPerProposed: item.proteinPerUnit,
+        fatPerProposed: item.fatPerUnit,
+        carbPerProposed: item.carbPerUnit,
       );
-      if (consumed == null) {
+      if (stored == null) {
         throw StateError('coach meal amount');
       }
       entries.add(
         FoodEntry(
           id: controller.generateId(),
           name: item.displayName,
-          kcalPerBase: item.kcalPerUnit,
-          proteinPerBase: item.proteinPerUnit,
-          fatPerBase: item.fatPerUnit,
-          carbPerBase: item.carbPerUnit,
-          baseAmount: 1,
-          unitType: FoodUnitType.serving,
-          consumedAmount: consumed,
+          kcalPerBase: stored.kcalPerBase,
+          proteinPerBase: stored.proteinPerBase,
+          fatPerBase: stored.fatPerBase,
+          carbPerBase: stored.carbPerBase,
+          baseAmount: stored.baseAmount,
+          unitType: FoodUnitType.g,
+          consumedAmount: stored.consumedGrams,
           sourceType: FoodEntrySource.mextSfct,
           officialFoodCode: item.foodCode,
           officialFoodName: item.officialName,

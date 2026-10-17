@@ -5,6 +5,7 @@ import 'package:ayg/data/coach_food_catalog.dart';
 import 'package:ayg/models/activity_level.dart';
 import 'package:ayg/models/exercise_entry.dart';
 import 'package:ayg/models/food_entry.dart';
+import 'package:ayg/models/food_unit_type.dart';
 import 'package:ayg/models/goal.dart';
 import 'package:ayg/models/nutrition_settings.dart';
 import 'package:ayg/models/user_profile.dart';
@@ -535,13 +536,19 @@ void main() {
       controller.foodEntries.map((entry) => entry.id),
       containsAll(savedIds),
     );
-    expect(controller.foodEntries.last.consumedAmount, 1);
+    expect(controller.foodEntries.last.unitType, FoodUnitType.g);
+    expect(controller.foodEntries.last.baseAmount, 100);
+    expect(controller.foodEntries.last.consumedAmount, 150);
+    expect(controller.foodEntries.last.totalKcal, closeTo(234, 0.01));
     await DailyCoachSession(
       controller: controller,
       slotStore: MemoryCoachSlotStore(),
     ).saveMeal(sampleMeal(), grams: const [100]);
-    expect(controller.foodEntries.last.consumedAmount, closeTo(100 / 150, 0.0001));
-    expect(controller.foodEntries.last.totalKcal, closeTo(234 * 100 / 150, 0.01));
+    expect(controller.foodEntries.last.unitType, FoodUnitType.g);
+    expect(controller.foodEntries.last.baseAmount, 100);
+    expect(controller.foodEntries.last.consumedAmount, 100);
+    expect(controller.foodEntries.last.kcalPerBase, closeTo(156, 0.01));
+    expect(controller.foodEntries.last.totalKcal, closeTo(156, 0.01));
   });
 
   testWidgets('a purchase on the coach screen loads the proposal', (

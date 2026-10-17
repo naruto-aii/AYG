@@ -113,6 +113,60 @@ double? coachMealConsumedAmount({
   return amount;
 }
 
+/// 提案グラム分の栄養を、100gあたりと食べたグラムに直した値。
+class CoachFoodEntryAmounts {
+  const CoachFoodEntryAmounts({
+    required this.baseAmount,
+    required this.consumedGrams,
+    required this.kcalPerBase,
+    required this.proteinPerBase,
+    required this.fatPerBase,
+    required this.carbPerBase,
+  });
+
+  /// 成分表と同じく 100g。
+  final double baseAmount;
+
+  /// 画面に入っているグラム。単位数が 2 なら、その数を掛けたグラム。
+  final double consumedGrams;
+  final double kcalPerBase;
+  final double proteinPerBase;
+  final double fatPerBase;
+  final double carbPerBase;
+}
+
+/// コーチの1品を、100gあたりの栄養と食べたグラムにする。
+///
+/// 合計は「提案分 × 単位数 × 入力グラム / 提案グラム」のまま。
+CoachFoodEntryAmounts? coachFoodEntryAmounts({
+  required int units,
+  required int proposedGrams,
+  required double editedGrams,
+  required double kcalPerProposed,
+  required double proteinPerProposed,
+  required double fatPerProposed,
+  required double carbPerProposed,
+  double baseAmount = 100,
+}) {
+  final portions = coachMealConsumedAmount(
+    units: units,
+    proposedGrams: proposedGrams,
+    editedGrams: editedGrams,
+  );
+  if (portions == null || baseAmount <= 0) {
+    return null;
+  }
+  final perBase = baseAmount / proposedGrams;
+  return CoachFoodEntryAmounts(
+    baseAmount: baseAmount,
+    consumedGrams: portions * proposedGrams,
+    kcalPerBase: kcalPerProposed * perBase,
+    proteinPerBase: proteinPerProposed * perBase,
+    fatPerBase: fatPerProposed * perBase,
+    carbPerBase: carbPerProposed * perBase,
+  );
+}
+
 /// 登録欄の数字。0 以下や空は登録しない。
 double? parseCoachAmount(String raw) {
   final text = raw.trim().replaceAll(',', '');

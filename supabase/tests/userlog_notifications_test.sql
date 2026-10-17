@@ -65,7 +65,7 @@ begin
   select last_value into v_calls from public.userlog_test_http_calls;
 
   insert into public.app_events (event_id, user_id, event_name, occurred_at, install_id)
-  values (v_event, v_uid, 'app_install_first_open', timestamptz '2026-10-14 20:17:00+00', v_install);
+  values (v_event, v_uid, 'onboarding_complete', timestamptz '2026-10-14 20:17:00+00', v_install);
   if (select count(*) from public.app_events where event_id = v_event) <> 1 then
     raise exception 'app_events insert was rolled back when the webhook failed';
   end if;
@@ -81,7 +81,7 @@ begin
     raise exception 'same install app_events insert failed';
   end if;
   if (select last_value from public.userlog_test_http_calls) <> v_calls then
-    raise exception 'the same user and install notified again';
+    raise exception 'app_open notified';
   end if;
 
   select last_value into v_calls from public.userlog_test_http_calls;
@@ -224,7 +224,7 @@ begin
     select 1 from public.userlog_test_http_log
     where body ->> 'source_id' = v_event::text
   ) then
-    raise exception 'backfill missed a post-release install';
+    raise exception 'backfill missed a post-release registration';
   end if;
   if exists (
     select 1 from public.userlog_test_http_log

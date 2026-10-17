@@ -78,11 +78,17 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 
 ## 利用者チェックポイントの Slack 通知
 
-`userlog-notify` は、インストール、ログイン、初回登録完了、無料トライアル開始、有料開始、解約、期限切れ、返金を Slack の Incoming Webhook へ送る。ログインは、同じ利用者と同じインストール ID の組が `app_events` に初めて出たときだけ送る。アプリは 1 回の INSERT で最大 100 行を書くので、トリガーはその文をまとめて見る。`auth.sessions` の挿入では送らない。この変更では関数を配備せず、マイグレーションも本番へ適用しない。
+`userlog-notify` が Slack に出すのは次の 6 種類だけ。
 
-既存の表とパーティションの列は変えない。送った記録は `public.userlog_notifications_sent` に書く。ログインの一意キーは利用者、`login`、インストール ID。トリガーは失敗を飲み、元の INSERT は成功する。`app-store-notifications` は変更しない。
+- 新規会員登録（`app_events` の `onboarding_complete`。文面の旧名は「初回登録完了」）
+- 無料トライアル開始
+- 有料開始（同じ購入が無料トライアルで始まり、そのあと最初の `DID_RENEW`）
+- トライアル解約とサブスク解約（どちらも `DID_CHANGE_RENEWAL_STATUS` / `AUTO_RENEW_DISABLED`。記録の種類は `cancel` のまま。同じ購入がトライアルから始まり、オフより前に `DID_RENEW` がなければ文面は「トライアル解約」、それ以外は「サブスク解約」）
+- アカウント削除（`account_deletion_stats` に行が増えたとき。プランと使った期間の区分だけ。利用者 ID と表示名は出さない）
 
-関数は `install_login`（`source_id` はインストール ID）を受ける。移行のあいだ、以前の `session` も受ける。
+インストール、ログイン、期限切れ（`EXPIRED`）、返金（`REFUND`）は出さない。ログインは `userlog_app_events_login_insert` を外すだけにする。集計対象外は文面の末尾に「（集計対象外）」を付ける。`app-store-notifications` は変更しない。
+
+既存の表の列・制約・行は変えない。`public.userlog_notifications_sent` の種類制約も変えない。アカウント削除の二重送信は `public.userlog_account_deletion_sent` で止める。トリガーは失敗を飲み、元の INSERT は成功する。この変更では関数を配備せず、マイグレーションも本番へ適用しない。
 
 秘密の名前（値は git に書かない）:
 
@@ -91,40 +97,33 @@ deno test --allow-env --allow-net supabase/functions/app_events_edge_test.ts sup
 - `USERLOG_NOTIFY_SECRET` — 32 文字以上。Edge Function の秘密。Vault の `userlog_notify_secret` と同じ値。
 - Vault の `project_url` — 関数の起点。取り込み用と同じ名前。この節には値を書かない。
 
-公開するときの順番:
+本番へ出す順番（関数が先。マイグレーションを先にすると、アカウント削除の呼び出しを古い関数が理解できない）:
 
-1. Edge Function の秘密 3 つを入れる。`userlog-notify` を配備する。この時点ではデータベースのトリガーはまだ切り替えない。配備した関数は `install_login` と、これまで通り `session` を受ける。
-2. `20261015065812_userlog_login_per_install.sql` を適用する。最初に、インストール ID が 1 つに決まる利用者のログイン行だけ `source_id` をその ID に書き換える。決められない行は残す。そのあと `auth.sessions` の `userlog_auth_sessions_insert` を外し、`app_events` の挿入から初めての組だけを送る。このファイルは過去分を送らない。pg_cron は有効にしない。
-3. トリガーが外れたことと、既存のログイン行 3 件の `source_id` がその利用者の `app_events.install_id` になっていることを確かめる。件数だけを見る。
+1. `userlog-notify` を配備する。秘密はすでに入っているものを使う。この時点ではトリガーはまだ切り替えない。配備した関数は、インストール、ログイン、期限切れ、返金が届いても投稿しない。
+2. `20261017033236_userlog_six_checkpoints.sql` を適用する。ログインのトリガーを外し、インストールを新規会員登録のトリガーから外し、期限切れと返金を購入通知の候補から外し、アカウント削除のトリガーを足す。このファイルは過去分を送らない。pg_cron は有効にしない。`userlog.enqueue_backfill()` は実行しない。
+3. 件数だけを見る。
 
 ```sql
 select count(*)
 from pg_trigger t
 join pg_class c on c.oid = t.tgrelid
 join pg_namespace n on n.oid = c.relnamespace
-where n.nspname = 'auth'
-  and c.relname = 'sessions'
-  and t.tgname = 'userlog_auth_sessions_insert'
+where t.tgname = 'userlog_app_events_login_insert'
   and not t.tgisinternal;
 
-select count(*) as login_rows,
-       count(*) filter (
-         where exists (
-           select 1
-           from public.app_events e
-           where e.user_id = s.user_id
-             and e.install_id::text = s.source_id
-         )
-       ) as rows_with_install
-from public.userlog_notifications_sent s
-where s.checkpoint_type = 'login';
+select c.relname, pg_get_triggerdef(t.oid)
+from pg_trigger t
+join pg_class c on c.oid = t.tgrelid
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and t.tgname in ('userlog_app_events_insert', 'userlog_account_deletion_insert')
+  and not t.tgisinternal
+  and c.relname in ('app_events', 'account_deletion_stats');
 ```
 
-4. 試験用のインストールで確かめる。同じ組は 1 通、別のインストール ID はもう 1 通。
+ログインのトリガーは 0 件。`app_events` のトリガー条件は `onboarding_complete` だけ。`account_deletion_stats` に挿入トリガーがある。
 
-`userlog.enqueue_backfill()` はこの手順では実行しない。実行するとログインは `app_events` の組（2026-10-14 20:17 UTC 以降）になる。`sent` の同じ組は積まない。`failed` はもう一度積める。
-
-戻すときは `supabase/rollback/20261015065812_userlog_login_per_install_down.sql` を手で流す。セッションのトリガーと関数が戻る。書き換えた `source_id` は戻らない。通知全体を外すときは、そのあと `supabase/rollback/20261015032420_userlog_notifications_down.sql` を流す。pg_net と既存の表は残る。関数を出していれば削除する。
+戻すときは、先に #138 時点（この変更前の main）の `userlog-notify` を配備し直してから、`supabase/rollback/20261017033236_userlog_six_checkpoints_down.sql` を手で流す。コミットは `d84544a8c5ac0c3eea01b00b8b6514311f4fb55f`（ログイン通知をインストールごとに1回にする）。rollback SQL だけだと、新しい関数がインストール、ログイン、期限切れ、返金を捨てるので投稿は戻らない。SQL のあと、ログインのトリガーと、インストール・期限切れ・返金の候補が戻る。アカウント削除用の新しい表は落ちる。`userlog_notifications_sent` の行は残る。通知全体を外すときは、そのあと以前の rollback を流す。pg_net と既存の表は残る。
 
 ```sh
 deno test --allow-env --config supabase/functions/deno.json supabase/functions/userlog_notify_test.ts

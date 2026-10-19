@@ -31,6 +31,7 @@ class HealthProfileData {
     this.activeEnergyBurnedKcal,
     this.workouts = const [],
     this.failures = const [],
+    this.sawHealthSample = false,
   });
 
   final DateTime? birthDate;
@@ -45,6 +46,29 @@ class HealthProfileData {
 
   /// 型ごとの失敗。成功して値が無い型はここには入らない。
   final List<HealthReadFailure> failures;
+
+  /// この読み取りに、点・特性・ワークアウトが1つでもあった。
+  ///
+  /// アクティブエネルギーが 0 でも、点が1つでもあれば true。点が無く 0 なだけなら false。
+  final bool sawHealthSample;
+
+  /// 保存してよい実データが、この読み取りかフィールドの値にある。
+  bool get receivedHealthSample {
+    if (sawHealthSample) {
+      return true;
+    }
+    if (birthDate != null ||
+        gender != null ||
+        heightCm != null ||
+        weightKg != null) {
+      return true;
+    }
+    if (workouts.isNotEmpty) {
+      return true;
+    }
+    final kcal = activeEnergyBurnedKcal;
+    return kcal != null && kcal != 0;
+  }
 
   static const empty = HealthProfileData();
 
@@ -66,6 +90,7 @@ class HealthProfileData {
     double? activeEnergyBurnedKcal,
     List<HealthWorkoutRecord>? workouts,
     List<HealthReadFailure>? failures,
+    bool? sawHealthSample,
   }) {
     return HealthProfileData(
       birthDate: birthDate ?? this.birthDate,
@@ -77,6 +102,7 @@ class HealthProfileData {
           activeEnergyBurnedKcal ?? this.activeEnergyBurnedKcal,
       workouts: workouts ?? this.workouts,
       failures: failures ?? this.failures,
+      sawHealthSample: sawHealthSample ?? this.sawHealthSample,
     );
   }
 }

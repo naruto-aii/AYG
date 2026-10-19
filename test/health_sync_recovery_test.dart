@@ -13,10 +13,13 @@ import 'package:ayg/repositories/platform_health_repository.dart';
 import 'package:ayg/screens/settings/settings_health_activity_screen.dart';
 import 'package:ayg/services/analytics/analytics.dart';
 import 'package:ayg/services/analytics/analytics_event.dart';
+import 'package:ayg/services/health_sample_seen_store.dart';
 import 'package:ayg/services/health_sync_result.dart';
 import 'package:ayg/services/lock_screen_meal.dart';
 import 'package:ayg/state/app_controller.dart';
 import 'package:ayg/theme/app_theme.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -90,7 +93,81 @@ void main() {
 
       expect(profile.activeEnergyBurnedKcal, 0);
       expect(profile.failures, isEmpty);
+      expect(profile.receivedHealthSample, isFalse);
       expect(healthSyncResult(profile), 'success_zero');
+      expect(
+        healthSyncResultForInstall(profile, installHasSeenSample: false),
+        'no_sample',
+      );
+    });
+
+    test('a zero-calorie point counts as a real sample', () async {
+      client.responses[HealthDataType.ACTIVE_ENERGY_BURNED] = [
+        _point(
+          type: HealthDataType.ACTIVE_ENERGY_BURNED,
+          unit: HealthDataUnit.KILOCALORIE,
+          value: 0,
+          at: DateTime(2026, 10, 19, 9),
+        ),
+      ];
+
+      final profile = await repository().fetchProfileData();
+
+      expect(profile.activeEnergyBurnedKcal, 0);
+      expect(profile.receivedHealthSample, isTrue);
+      expect(
+        healthSyncResultForInstall(profile, installHasSeenSample: false),
+        'success_zero',
+      );
+    });
+
+    test('a sheet error does not count as asked', () async {
+      client.throwOnAuthorize = true;
+      final repo = repository();
+
+      expect(await repo.ensureReadAuthorization(allowPrompt: true), isTrue);
+      expect(client.authorizationRequests, 1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getBool(PlatformHealthRepository.readAuthorizationAskedKey),
+        isNot(true),
+      );
+
+      client.throwOnAuthorize = false;
+      expect(await repo.ensureReadAuthorization(allowPrompt: true), isTrue);
+      expect(client.authorizationRequests, 2);
+      expect(
+        prefs.getBool(PlatformHealthRepository.readAuthorizationAskedKey),
+        isTrue,
+      );
+    });
+
+    test('a finished sheet is remembered even when it returns false', () async {
+      client.authorizeResult = false;
+      final repo = repository();
+
+      expect(await repo.requestPermissions(), isFalse);
+      expect(await repo.ensureReadAuthorization(allowPrompt: true), isFalse);
+      expect(client.authorizationRequests, 1);
+    });
+
+    test('authorization not determined keeps a stable code', () async {
+      client.responses[HealthDataType.ACTIVE_ENERGY_BURNED] = PlatformException(
+        code: 'HEALTH_ERROR',
+        message: 'Error getting health data: Authorization not determined',
+      );
+
+      final profile = await repository().fetchProfileData();
+
+      expect(profile.readFailed(HealthReadType.activeEnergy), isTrue);
+      expect(
+        profile.failures.map((failure) => failure.code),
+        contains('authorization_not_determined'),
+      );
+      expect(
+        profile.failures.map((failure) => failure.code).join(' '),
+        isNot(contains('Authorization')),
+      );
     });
 
     test('asks once on this install and never from the background', () async {
@@ -133,6 +210,7 @@ void main() {
   group('health refresh leaves recorded data alone', () {
     late IsarTestHarness harness;
     late MockHealthRepository health;
+    late MemoryHealthSampleSeenStore samples;
     late AppController controller;
     late AnalyticsHarness analytics;
 
@@ -143,8 +221,10 @@ void main() {
       analytics = await AnalyticsHarness.open(isar: harness.isar);
       await analytics.service.grantConsent(surface: 'settings');
       health = MockHealthRepository(isAvailable: true);
+      samples = MemoryHealthSampleSeenStore();
       controller = AppController(
         healthRepository: health,
+        healthSampleSeen: samples,
         userRepository: harness.userRepository,
         settingsRepository: harness.settingsRepository,
         foodRepository: harness.foodRepository,
@@ -310,21 +390,144 @@ void main() {
       expect(pending, contains('|0.0|widget_weight_pending|'));
     });
 
-    test('zero energy without a weight sample is success_zero', () async {
+    test(
+      'an empty read before any sample keeps the restored snapshot',
+      () async {
+        health.profileData = const HealthProfileData(activeEnergyBurnedKcal: 0);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(
+          PlatformHealthRepository.readAuthorizationAskedKey,
+          true,
+        );
+        await prefs.setBool('health_sample_seen', true);
+        final before = await _records(harness);
+
+        final ok = await controller.resyncHealthData();
+
+        expect(ok, isFalse);
+        expect(samples.seen, isFalse);
+        expect(controller.lastHealthSyncFailed, isTrue);
+        expect(controller.healthSnapshot.activeEnergyBurnedKcal, 400);
+        expect(controller.healthSnapshot.weightKg, 68);
+        expect(controller.profile!.weightKg, 68);
+        expect(await _records(harness), before);
+        final stored = await harness.settingsRepository.loadHealthSnapshot();
+        expect(stored!.activeEnergyBurnedKcal, 400);
+        expect(stored.weightKg, 68);
+        await analytics.service.settled;
+        final event = await _healthSyncEvent(analytics);
+        expect(event['result'], 'no_sample');
+        expect(event['active_energy_kcal'], 0);
+        expect(event['failures'], isEmpty);
+      },
+    );
+
+    test('zero energy after a real sample is success_zero', () async {
+      samples.seen = true;
       health.profileData = const HealthProfileData(activeEnergyBurnedKcal: 0);
+      final before = await _records(harness);
 
       final ok = await controller.resyncHealthData();
 
       expect(ok, isTrue);
       expect(controller.lastHealthSyncFailed, isFalse);
       expect(controller.healthSnapshot.activeEnergyBurnedKcal, 0);
+      expect(controller.healthSnapshot.weightKg, isNull);
       expect(controller.profile!.weightKg, 68);
+      expect(await _records(harness), before);
       await analytics.service.settled;
       final event = await _healthSyncEvent(analytics);
       expect(event['result'], 'success_zero');
       expect(event['active_energy_kcal'], 0);
       expect(event['failures'], isEmpty);
     });
+
+    test('a thrown import is failed, not success_zero', () async {
+      health.fetchError = StateError('do-not-store-this');
+
+      await controller.refreshHealthDataQuietly(trigger: 'launch');
+      expect(controller.lastHealthSyncFailed, isTrue);
+      expect(controller.healthSnapshot.activeEnergyBurnedKcal, 400);
+      expect(controller.healthSnapshot.weightKg, 68);
+      await analytics.service.settled;
+      final event = await _healthSyncEvent(analytics);
+      expect(event['result'], 'failed');
+      expect(event['active_energy_kcal'], isNull);
+      final failures = event['failures'] as List;
+      expect(failures, hasLength(2));
+      expect(failures.map((failure) => (failure as Map)['code']).toSet(), {
+        'StateError',
+      });
+      expect(failures.toString(), isNot(contains('do-not-store')));
+    });
+
+    test(
+      'authorization not determined asks once, then only re-reads',
+      () async {
+        health.profileData = const HealthProfileData(
+          failures: [
+            HealthReadFailure(
+              type: HealthReadType.activeEnergy,
+              code: 'authorization_not_determined',
+            ),
+            HealthReadFailure(
+              type: HealthReadType.weight,
+              code: 'authorization_not_determined',
+            ),
+          ],
+        );
+        health.onRequestPermissions = () {
+          health.profileData = const HealthProfileData(
+            activeEnergyBurnedKcal: 30,
+            sawHealthSample: true,
+          );
+        };
+
+        await controller.refreshHealthDataQuietly(trigger: 'launch');
+
+        expect(health.requestPermissionsCalled, isTrue);
+        expect(health.fetchCount, 2);
+        expect(controller.healthSnapshot.activeEnergyBurnedKcal, 30);
+        expect(samples.seen, isTrue);
+
+        health.requestPermissionsCalled = false;
+        health.profileData = const HealthProfileData(
+          failures: [
+            HealthReadFailure(
+              type: HealthReadType.activeEnergy,
+              code: 'authorization_not_determined',
+            ),
+          ],
+        );
+        health.onRequestPermissions = null;
+
+        await controller.refreshHealthDataQuietly(trigger: 'resume');
+
+        expect(health.requestPermissionsCalled, isFalse);
+        expect(health.fetchCount, 3);
+      },
+    );
+  });
+
+  test('the seen flag is a backup-excluded file, not preferences', () async {
+    SharedPreferences.setMockInitialValues({});
+    final dir = await Directory.systemTemp.createTemp('health-seen');
+    final excluded = <String>[];
+    final store = FileHealthSampleSeenStore(
+      directory: () async => dir,
+      excludeFromBackup: (path) async {
+        excluded.add(path);
+      },
+    );
+
+    expect(await store.hasSeen(), isFalse);
+    await store.markSeen();
+
+    expect(await store.hasSeen(), isTrue);
+    expect(excluded.single, endsWith('health_sample_seen'));
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getKeys(), isEmpty);
+    await dir.delete(recursive: true);
   });
 
   testWidgets('settings shows a quiet retry only after the last sync failed', (
@@ -345,7 +548,11 @@ void main() {
         ],
       ),
     );
-    final controller = AppController(healthRepository: health);
+    final samples = MemoryHealthSampleSeenStore();
+    final controller = AppController(
+      healthRepository: health,
+      healthSampleSeen: samples,
+    );
     addTearDown(controller.dispose);
     controller.nutritionSettings = const NutritionSettings(
       useHealthIntegration: true,
@@ -370,16 +577,24 @@ void main() {
     );
 
     expect(find.text('活動・Health'), findsOneWidget);
-    expect(find.text('ヘルスケアから取り込めませんでした。'), findsOneWidget);
-    expect(find.text('許可をやり直す'), findsOneWidget);
+    expect(find.text(healthRecoveryMessage), findsOneWidget);
+    expect(find.text(healthRecoveryGuidance), findsOneWidget);
+    expect(
+      find.textContaining('設定 > ヘルスケア > データアクセスとデバイス > カロナビ'),
+      findsOneWidget,
+    );
+    expect(find.text(healthRecoveryReread), findsOneWidget);
+    expect(find.text('許可をやり直す'), findsNothing);
     expect(find.byType(SnackBar), findsNothing);
 
-    await tester.tap(find.text('許可をやり直す'));
+    final fetchesBefore = health.fetchCount;
+    await tester.tap(find.text(healthRecoveryReread));
     await tester.pumpAndSettle();
 
-    expect(health.requestPermissionsCalled, isTrue);
+    expect(health.requestPermissionsCalled, isFalse);
+    expect(health.fetchCount, greaterThan(fetchesBefore));
     expect(find.byType(SnackBar), findsNothing);
-    expect(find.text('ヘルスケアから取り込めませんでした。'), findsOneWidget);
+    expect(find.text(healthRecoveryMessage), findsOneWidget);
   });
 
   testWidgets('settings hides the retry when the last sync did not fail', (
@@ -389,7 +604,10 @@ void main() {
       isAvailable: true,
       profileData: const HealthProfileData(activeEnergyBurnedKcal: 0),
     );
-    final controller = AppController(healthRepository: health);
+    final controller = AppController(
+      healthRepository: health,
+      healthSampleSeen: MemoryHealthSampleSeenStore(seen: true),
+    );
     addTearDown(controller.dispose);
     controller.nutritionSettings = const NutritionSettings(
       useHealthIntegration: true,
@@ -408,8 +626,9 @@ void main() {
     );
 
     expect(find.text('活動・Health'), findsOneWidget);
-    expect(find.text('ヘルスケアから取り込めませんでした。'), findsNothing);
-    expect(find.text('許可をやり直す'), findsNothing);
+    expect(find.text(healthRecoveryMessage), findsNothing);
+    expect(find.text(healthRecoveryGuidance), findsNothing);
+    expect(find.text(healthRecoveryReread), findsNothing);
   });
 }
 
@@ -504,6 +723,8 @@ class _FakeHealth implements HealthDataClient {
   bool? permissionStatus;
   int permissionChecks = 0;
   int authorizationRequests = 0;
+  bool throwOnAuthorize = false;
+  bool authorizeResult = true;
   final Map<HealthDataType, Object> responses = {};
 
   @override
@@ -531,7 +752,10 @@ class _FakeHealth implements HealthDataClient {
   @override
   Future<bool> requestAuthorization(List<HealthDataType> types) async {
     authorizationRequests += 1;
-    return true;
+    if (throwOnAuthorize) {
+      throw StateError('sheet failed');
+    }
+    return authorizeResult;
   }
 }
 

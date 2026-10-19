@@ -1,5 +1,22 @@
 import 'package:flutter/services.dart';
 
+/// HealthKit がまだ許可を決めていないときのエラーか。メッセージは保存しない。
+bool healthReadIsAuthorizationNotDetermined(Object error) {
+  if (error is PlatformException) {
+    if (_looksNotDetermined(error.code) ||
+        _looksNotDetermined(error.message ?? '') ||
+        _looksNotDetermined('${error.details}')) {
+      return true;
+    }
+  }
+  return _looksNotDetermined(error.runtimeType.toString());
+}
+
+bool _looksNotDetermined(String raw) {
+  final text = raw.toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
+  return text.contains('notdetermined');
+}
+
 /// 読み取り失敗のコード。メッセージは載せない（個人情報を含み得るため）。
 String healthReadErrorCode(Object error) {
   if (error is PlatformException) {

@@ -10,6 +10,15 @@ import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/select_card.dart';
 
+/// 直前の取り込みが失敗したとき、またはこの端末でまだ実データが無いとき。
+const healthRecoveryMessage = 'ヘルスケアから取り込めませんでした。';
+
+/// 許可シートは再表示できないので、iPhone のヘルスケアの読み取りを案内する。
+const healthRecoveryGuidance =
+    'iPhoneの「設定 > ヘルスケア > データアクセスとデバイス > カロナビ」で、読み取りをオンにしてください。';
+
+const healthRecoveryReread = 'もう一度取り込む';
+
 class SettingsHealthActivityScreen extends StatefulWidget {
   const SettingsHealthActivityScreen({
     super.key,
@@ -172,7 +181,14 @@ class _SettingsHealthActivityScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ヘルスケアから取り込めませんでした。',
+                        healthRecoveryMessage,
+                        style: AppTypography.bodyS.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        healthRecoveryGuidance,
                         style: AppTypography.bodyS.copyWith(
                           color: AppColors.textMuted,
                         ),
@@ -185,7 +201,7 @@ class _SettingsHealthActivityScreenState
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           foregroundColor: AppColors.textBrand,
                         ),
-                        child: const Text('許可をやり直す'),
+                        child: const Text(healthRecoveryReread),
                       ),
                     ],
                   ),

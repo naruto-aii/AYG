@@ -79,6 +79,7 @@ import '../repositories/sync_step_runner.dart';
 import '../repositories/health_read_error.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
+import '../services/health_sample_seen_store.dart';
 import '../services/health_sync_result.dart';
 import '../repositories/local_session_store.dart';
 import '../services/local_user_data_clearer_base.dart';
@@ -123,6 +124,7 @@ class AppController extends ChangeNotifier {
   AppController({
     NutritionEngine? nutritionEngine,
     HealthRepository? healthRepository,
+    HealthSampleSeenStore? healthSampleSeen,
     AuthenticationRepository? authenticationRepository,
     DataSyncRepository? dataSyncRepository,
     LocalSessionStore? localSessionStore,
@@ -155,6 +157,7 @@ class AppController extends ChangeNotifier {
            termsAgreedFor ?? AiDataConsent.currentAgreementForUser,
        _nutritionEngine = nutritionEngine ?? NutritionEngine(),
        _healthRepository = healthRepository,
+       _healthSampleSeen = healthSampleSeen ?? defaultHealthSampleSeenStore(),
        _authenticationRepository = authenticationRepository,
        _dataSyncRepository = dataSyncRepository,
        _localSessionStore = localSessionStore,
@@ -199,6 +202,10 @@ class AppController extends ChangeNotifier {
 
   final NutritionEngine _nutritionEngine;
   final HealthRepository? _healthRepository;
+  final HealthSampleSeenStore _healthSampleSeen;
+
+  /// 許可が未決定の読み取りに対して、この起動ではシートを一度だけ出す。
+  bool _healthNotDeterminedPrompted = false;
   final AuthenticationRepository? _authenticationRepository;
   final DataSyncRepository? _dataSyncRepository;
   final LocalSessionStore? _localSessionStore;
@@ -381,7 +388,8 @@ class AppController extends ChangeNotifier {
   bool get isSyncInProgress => _isSyncInProgress;
   bool get lastSyncFailed => _lastSyncFailed;
 
-  /// 直前のヘルスケア取り込みが失敗した。起動のトーストには使わない。
+  /// 直前の取り込みが失敗したか、この端末ではまだ実データが無い。
+  /// 設定の案内にだけ使う。起動のトーストには使わない。
   bool get lastHealthSyncFailed => _lastHealthSyncFailed;
   bool _lastHealthSyncFailed = false;
 
@@ -1292,6 +1300,19 @@ class AppController extends ChangeNotifier {
     bool fillPendingExercises = true,
   }) async {
     _usage('profile_updated', {'changed_fields': 'health', 'source': 'health'});
+    final seen = await _healthSampleSeen.hasSeen();
+    final energyFailed = data.readFailed(HealthReadType.activeEnergy);
+    final weightFailed = data.readFailed(HealthReadType.weight);
+    final unconfirmed =
+        !seen && !data.receivedHealthSample && !energyFailed && !weightFailed;
+    if (data.receivedHealthSample) {
+      await _healthSampleSeen.markSeen();
+    }
+    if (unconfirmed) {
+      _lastHealthSyncFailed = true;
+      notifyListeners();
+      return;
+    }
     _lastHealthSyncFailed = healthSyncResult(data) == 'failed';
     final previousSnapshot = healthSnapshot;
     final previousPrefill = healthPrefill;
@@ -1757,14 +1778,11 @@ class AppController extends ChangeNotifier {
     return _syncHealth(trigger: 'manual', rethrowOnError: true);
   }
 
-  /// 設定の回復操作。システムの許可シートを出し直し、取り込みをやり直す。
+  /// 設定の回復操作。読み取りだけやり直す。許可シートは出さない。
   Future<void> retryHealthAccess() async {
     final healthRepository = _healthRepository;
     if (healthRepository == null || !useHealthIntegration) {
       return;
-    }
-    if (_mayPromptForHealthAccess()) {
-      await healthRepository.requestPermissions();
     }
     try {
       await resyncHealthData();
@@ -1779,13 +1797,16 @@ class AppController extends ChangeNotifier {
     required bool rethrowOnError,
   }) async {
     final started = DateTime.now();
-    void emit(HealthProfileData data) {
+    void emit(HealthProfileData data, {required bool installHasSeenSample}) {
       final elapsed = DateTime.now().difference(started).inMilliseconds;
       final weightFailed = data.readFailed(HealthReadType.weight);
       final workoutFailed = data.readFailed(HealthReadType.workout);
       _usage('health_sync_result', {
         'trigger': trigger,
-        'result': healthSyncResult(data),
+        'result': healthSyncResultForInstall(
+          data,
+          installHasSeenSample: installHasSeenSample,
+        ),
         'workouts_imported': workoutFailed ? 0 : data.workouts.length,
         'weight_samples_imported': !weightFailed && data.weightKg != null
             ? 1
@@ -1815,6 +1836,7 @@ class AppController extends ChangeNotifier {
               ),
             ],
           ),
+          installHasSeenSample: true,
         );
         notifyListeners();
       }
@@ -1822,21 +1844,40 @@ class AppController extends ChangeNotifier {
     }
 
     try {
-      await healthRepository.ensureReadAuthorization(
-        allowPrompt: _mayPromptForHealthAccess(),
+      final seenBefore = await _healthSampleSeen.hasSeen();
+      final allowPrompt = _mayPromptForHealthAccess();
+      final prompted = await healthRepository.ensureReadAuthorization(
+        allowPrompt: allowPrompt,
       );
-      final profileData = await healthRepository.fetchProfileData();
+      var profileData = await healthRepository.fetchProfileData();
+      if (allowPrompt &&
+          !prompted &&
+          !_healthNotDeterminedPrompted &&
+          profileData.failures.any(
+            (failure) => failure.code == 'authorization_not_determined',
+          )) {
+        _healthNotDeterminedPrompted = true;
+        await healthRepository.requestPermissions();
+        profileData = await healthRepository.fetchProfileData();
+      }
       await applyHealthProfileData(profileData, fillPendingExercises: false);
-      emit(profileData);
-      return healthSyncResult(profileData) != 'failed';
+      emit(profileData, installHasSeenSample: seenBefore);
+      final result = healthSyncResultForInstall(
+        profileData,
+        installHasSeenSample: seenBefore,
+      );
+      return result == 'success' || result == 'success_zero';
     } catch (error, stackTrace) {
       _lastHealthSyncFailed = true;
+      final code = healthReadErrorCode(error);
       emit(
         HealthProfileData(
           failures: [
-            HealthReadFailure(type: 'sync', code: healthReadErrorCode(error)),
+            HealthReadFailure(type: HealthReadType.activeEnergy, code: code),
+            HealthReadFailure(type: HealthReadType.weight, code: code),
           ],
         ),
+        installHasSeenSample: true,
       );
       notifyListeners();
       debugPrint('[AYG] health sync failed: ${healthReadErrorCode(error)}');

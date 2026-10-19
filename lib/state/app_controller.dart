@@ -76,8 +76,10 @@ import '../repositories/data_sync_repository.dart';
 import '../repositories/pending_record_store.dart';
 import '../repositories/first_meal_guide_store.dart';
 import '../repositories/sync_step_runner.dart';
+import '../repositories/health_read_error.dart';
 import '../repositories/health_repository.dart';
 import '../repositories/health_repository_support.dart';
+import '../services/health_sync_result.dart';
 import '../repositories/local_session_store.dart';
 import '../services/local_user_data_clearer_base.dart';
 import '../config/official_foods_flag.dart';
@@ -378,6 +380,10 @@ class AppController extends ChangeNotifier {
   bool get hasInitialSyncCompleted => _hasInitialSyncCompleted;
   bool get isSyncInProgress => _isSyncInProgress;
   bool get lastSyncFailed => _lastSyncFailed;
+
+  /// 直前のヘルスケア取り込みが失敗した。起動のトーストには使わない。
+  bool get lastHealthSyncFailed => _lastHealthSyncFailed;
+  bool _lastHealthSyncFailed = false;
 
   /// 手元にあるのに、まだ本番へ届いていない記録がある。
   bool get hasUnsentRecords => _hasUnsentRecords;
@@ -1281,34 +1287,75 @@ class AppController extends ChangeNotifier {
     unawaited(_fillWidgetExercisesWaitingForWeight());
   }
 
-  Future<void> applyHealthProfileData(HealthProfileData data) async {
+  Future<void> applyHealthProfileData(
+    HealthProfileData data, {
+    bool fillPendingExercises = true,
+  }) async {
     _usage('profile_updated', {'changed_fields': 'health', 'source': 'health'});
-    healthPrefill = data;
+    _lastHealthSyncFailed = healthSyncResult(data) == 'failed';
+    final previousSnapshot = healthSnapshot;
+    final previousPrefill = healthPrefill;
+    final energyOk = !data.readFailed(HealthReadType.activeEnergy);
+    final weightOk = !data.readFailed(HealthReadType.weight);
+    final nextEnergy = energyOk
+        ? data.activeEnergyBurnedKcal
+        : previousSnapshot.activeEnergyBurnedKcal;
+    final nextWeightKg = weightOk ? data.weightKg : previousSnapshot.weightKg;
+    final DateTime? nextMeasuredAt = !weightOk
+        ? previousSnapshot.weightMeasuredAt
+        : data.weightKg == null || data.weightMeasuredAt == null
+        ? null
+        : asNewRecordInstant(data.weightMeasuredAt!);
+
+    healthPrefill = HealthProfileData(
+      birthDate: data.readFailed(HealthReadType.birthDate)
+          ? previousPrefill.birthDate
+          : data.birthDate,
+      gender: data.readFailed(HealthReadType.gender)
+          ? previousPrefill.gender
+          : data.gender,
+      heightCm: data.readFailed(HealthReadType.height)
+          ? previousPrefill.heightCm
+          : data.heightCm,
+      weightKg: nextWeightKg,
+      weightMeasuredAt: nextMeasuredAt,
+      activeEnergyBurnedKcal: nextEnergy,
+      workouts: data.readFailed(HealthReadType.workout)
+          ? previousPrefill.workouts
+          : data.workouts,
+      failures: data.failures,
+    );
     healthSnapshot = HealthSnapshot(
-      activeEnergyBurnedKcal: data.activeEnergyBurnedKcal,
-      weightKg: data.weightKg,
-      weightMeasuredAt: data.weightKg == null || data.weightMeasuredAt == null
-          ? null
-          : asNewRecordInstant(data.weightMeasuredAt!),
+      activeEnergyBurnedKcal: nextEnergy,
+      weightKg: nextWeightKg,
+      weightMeasuredAt: nextMeasuredAt,
     );
     await _settingsRepository?.saveHealthSnapshot(healthSnapshot);
-    unawaited(_fillWidgetExercisesWaitingForWeight());
+    if (fillPendingExercises) {
+      unawaited(_fillWidgetExercisesWaitingForWeight());
+    }
 
-    if (_healthRepository != null) {
+    final healthRepository = _healthRepository;
+    if (healthRepository != null) {
       await HealthRepositorySupport.persistFetchedProfile(
-        _healthRepository,
-        data,
+        healthRepository,
+        HealthProfileData(
+          weightKg: weightOk ? data.weightKg : null,
+          weightMeasuredAt: weightOk ? data.weightMeasuredAt : null,
+          workouts: data.readFailed(HealthReadType.workout)
+              ? const []
+              : data.workouts,
+        ),
       );
     }
     await _reloadWeightEntries();
     await _reloadHealthWorkouts();
 
     final currentProfile = profile;
-    if (currentProfile != null) {
+    if (weightOk && currentProfile != null) {
+      final selected = currentWeightSelection.kg;
       profile = currentProfile.copyWith(
-        weightKg: currentWeightSelection.kg > 0
-            ? currentWeightSelection.kg
-            : currentProfile.weightKg,
+        weightKg: selected > 0 ? selected : currentProfile.weightKg,
       );
       await _userRepository?.saveProfile(profile!);
     }
@@ -1703,66 +1750,111 @@ class AppController extends ChangeNotifier {
 
   /// 起動と前面復帰で呼ぶ。失敗しても画面は出さない。
   Future<void> refreshHealthDataQuietly({required String trigger}) async {
-    final started = DateTime.now();
-    void emit(String result, {int weightSamples = 0}) {
-      final elapsed = DateTime.now().difference(started).inMilliseconds;
-      _usage('health_sync_result', {
-        'trigger': trigger,
-        'result': result,
-        'workouts_imported': 0,
-        'weight_samples_imported': weightSamples,
-        'duration_ms': elapsed < 0 ? 0 : elapsed,
-      });
-    }
+    await _syncHealth(trigger: trigger, rethrowOnError: false);
+  }
 
+  Future<bool> resyncHealthData() async {
+    return _syncHealth(trigger: 'manual', rethrowOnError: true);
+  }
+
+  /// 設定の回復操作。システムの許可シートを出し直し、取り込みをやり直す。
+  Future<void> retryHealthAccess() async {
     final healthRepository = _healthRepository;
     if (healthRepository == null || !useHealthIntegration) {
       return;
     }
+    if (_mayPromptForHealthAccess()) {
+      await healthRepository.requestPermissions();
+    }
     try {
-      final profileData = await healthRepository.fetchProfileData();
-      await applyHealthProfileData(profileData);
-      final hasWeight = profileData.weightKg != null;
-      final ok = hasWeight || profileData.activeEnergyBurnedKcal != null;
-      emit(ok ? 'success' : 'failed', weightSamples: hasWeight ? 1 : 0);
+      await resyncHealthData();
     } catch (error, stackTrace) {
-      emit('failed');
-      debugPrint('[AYG] health sync failed: $error');
+      debugPrint('[AYG] health sync failed: ${healthReadErrorCode(error)}');
       debugPrintStack(stackTrace: stackTrace);
     }
   }
 
-  Future<bool> resyncHealthData() async {
+  Future<bool> _syncHealth({
+    required String trigger,
+    required bool rethrowOnError,
+  }) async {
     final started = DateTime.now();
-    void emit(String result, {int weightSamples = 0}) {
+    void emit(HealthProfileData data) {
       final elapsed = DateTime.now().difference(started).inMilliseconds;
+      final weightFailed = data.readFailed(HealthReadType.weight);
+      final workoutFailed = data.readFailed(HealthReadType.workout);
       _usage('health_sync_result', {
-        'trigger': 'manual',
-        'result': result,
-        'workouts_imported': 0,
-        'weight_samples_imported': weightSamples,
+        'trigger': trigger,
+        'result': healthSyncResult(data),
+        'workouts_imported': workoutFailed ? 0 : data.workouts.length,
+        'weight_samples_imported': !weightFailed && data.weightKg != null
+            ? 1
+            : 0,
         'duration_ms': elapsed < 0 ? 0 : elapsed,
+        'active_energy_kcal': data.readFailed(HealthReadType.activeEnergy)
+            ? null
+            : data.activeEnergyBurnedKcal,
+        'failures': [for (final failure in data.failures) failure.toProps()],
       });
     }
 
     final healthRepository = _healthRepository;
     if (healthRepository == null || !useHealthIntegration) {
-      emit('failed');
+      if (rethrowOnError) {
+        _lastHealthSyncFailed = true;
+        emit(
+          const HealthProfileData(
+            failures: [
+              HealthReadFailure(
+                type: HealthReadType.activeEnergy,
+                code: 'unavailable',
+              ),
+              HealthReadFailure(
+                type: HealthReadType.weight,
+                code: 'unavailable',
+              ),
+            ],
+          ),
+        );
+        notifyListeners();
+      }
       return false;
     }
 
     try {
+      await healthRepository.ensureReadAuthorization(
+        allowPrompt: _mayPromptForHealthAccess(),
+      );
       final profileData = await healthRepository.fetchProfileData();
-      await applyHealthProfileData(profileData);
-      final hasWeight = profileData.weightKg != null;
-      final ok = hasWeight || profileData.activeEnergyBurnedKcal != null;
-      emit(ok ? 'success' : 'failed', weightSamples: hasWeight ? 1 : 0);
-      return ok;
+      await applyHealthProfileData(profileData, fillPendingExercises: false);
+      emit(profileData);
+      return healthSyncResult(profileData) != 'failed';
     } catch (error, stackTrace) {
-      emit('failed');
-      debugPrint('[AYG] health sync failed: $error');
+      _lastHealthSyncFailed = true;
+      emit(
+        HealthProfileData(
+          failures: [
+            HealthReadFailure(type: 'sync', code: healthReadErrorCode(error)),
+          ],
+        ),
+      );
+      notifyListeners();
+      debugPrint('[AYG] health sync failed: ${healthReadErrorCode(error)}');
       debugPrintStack(stackTrace: stackTrace);
-      rethrow;
+      if (rethrowOnError) {
+        rethrow;
+      }
+      return false;
+    }
+  }
+
+  /// 前面の本体アプリだけが許可シートを出す。背面では出さない。
+  bool _mayPromptForHealthAccess() {
+    try {
+      final state = WidgetsBinding.instance.lifecycleState;
+      return state == null || state == AppLifecycleState.resumed;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -4599,8 +4691,7 @@ class AppController extends ChangeNotifier {
     }
     return _subscriptionRepository.inactiveEntitlements.any(
       (record) =>
-          record.revoked &&
-          SubscriptionCatalog.isPlusProduct(record.productId),
+          record.revoked && SubscriptionCatalog.isPlusProduct(record.productId),
     );
   }
 

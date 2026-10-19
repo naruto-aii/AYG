@@ -150,6 +150,8 @@ abstract final class AnalyticsEventNames {
       'workouts_imported',
       'weight_samples_imported',
       'duration_ms',
+      'active_energy_kcal',
+      'failures',
     },
     'food_search': {
       'source',

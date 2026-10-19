@@ -86,6 +86,15 @@ class _SettingsHealthActivityScreenState
     });
   }
 
+  Future<void> _retryHealth() async {
+    setState(() => _isBusy = true);
+    await widget.controller.retryHealthAccess();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isBusy = false);
+  }
+
   Future<void> _saveActivityLevel() async {
     if (_activityLevel == null) {
       return;
@@ -150,6 +159,38 @@ class _SettingsHealthActivityScreenState
             Text(
               AppStrings.healthUsingActiveEnergy,
               style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
+            ),
+            ListenableBuilder(
+              listenable: widget.controller,
+              builder: (context, _) {
+                if (!widget.controller.lastHealthSyncFailed) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ヘルスケアから取り込めませんでした。',
+                        style: AppTypography.bodyS.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _isBusy ? null : _retryHealth,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          foregroundColor: AppColors.textBrand,
+                        ),
+                        child: const Text('許可をやり直す'),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ] else ...[
             const SizedBox(height: 22),

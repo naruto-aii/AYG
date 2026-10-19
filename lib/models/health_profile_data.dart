@@ -1,5 +1,25 @@
 import '../models/user_profile.dart';
 
+/// 読み取り対象の型名。解析イベントの type にも使う。
+abstract final class HealthReadType {
+  static const birthDate = 'BIRTH_DATE';
+  static const gender = 'GENDER';
+  static const height = 'HEIGHT';
+  static const weight = 'WEIGHT';
+  static const activeEnergy = 'ACTIVE_ENERGY_BURNED';
+  static const workout = 'WORKOUT';
+}
+
+/// 1 型の読み取り失敗。値やメッセージは持たない。
+class HealthReadFailure {
+  const HealthReadFailure({required this.type, required this.code});
+
+  final String type;
+  final String code;
+
+  Map<String, String> toProps() => {'type': type, 'code': code};
+}
+
 /// Health から取得したプロフィール・当日データ。
 class HealthProfileData {
   const HealthProfileData({
@@ -10,6 +30,7 @@ class HealthProfileData {
     this.weightMeasuredAt,
     this.activeEnergyBurnedKcal,
     this.workouts = const [],
+    this.failures = const [],
   });
 
   final DateTime? birthDate;
@@ -22,7 +43,19 @@ class HealthProfileData {
   final double? activeEnergyBurnedKcal;
   final List<HealthWorkoutRecord> workouts;
 
+  /// 型ごとの失敗。成功して値が無い型はここには入らない。
+  final List<HealthReadFailure> failures;
+
   static const empty = HealthProfileData();
+
+  bool readFailed(String type) {
+    for (final failure in failures) {
+      if (failure.type == type) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   HealthProfileData copyWith({
     DateTime? birthDate,
@@ -32,6 +65,7 @@ class HealthProfileData {
     DateTime? weightMeasuredAt,
     double? activeEnergyBurnedKcal,
     List<HealthWorkoutRecord>? workouts,
+    List<HealthReadFailure>? failures,
   }) {
     return HealthProfileData(
       birthDate: birthDate ?? this.birthDate,
@@ -42,6 +76,7 @@ class HealthProfileData {
       activeEnergyBurnedKcal:
           activeEnergyBurnedKcal ?? this.activeEnergyBurnedKcal,
       workouts: workouts ?? this.workouts,
+      failures: failures ?? this.failures,
     );
   }
 }

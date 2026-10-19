@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:isar/isar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/health_profile_data.dart';
 import '../models/user_profile.dart';
 import 'health_characteristics.dart';
+import 'health_data_client.dart';
+import 'health_read_error.dart';
 import 'health_repository.dart';
 import 'local_write_guard.dart';
 import 'health_workout_local_store.dart';
@@ -15,14 +18,20 @@ import 'weight_repository.dart';
 /// Purpose: "Nutrition calculation and fitness tracking."
 class PlatformHealthRepository implements HealthRepository {
   PlatformHealthRepository({
-    Health? health,
+    HealthDataClient? health,
+    Future<SharedPreferences> Function()? preferences,
     required WeightRepository weightRepository,
     required Isar isar,
-  }) : _health = health ?? Health(),
+  }) : _health = health ?? PluginHealthDataClient(),
+       _preferences = preferences ?? SharedPreferences.getInstance,
        _weightRepository = weightRepository,
        _workoutStore = HealthWorkoutLocalStore(isar);
 
-  final Health _health;
+  /// このインストールだけで持つ。設定の同期には載せない。
+  static const readAuthorizationAskedKey = 'health_read_authorization_asked';
+
+  final HealthDataClient _health;
+  final Future<SharedPreferences> Function() _preferences;
   final WeightRepository _weightRepository;
   final HealthWorkoutLocalStore _workoutStore;
 
@@ -49,7 +58,46 @@ class PlatformHealthRepository implements HealthRepository {
       return await _health.requestAuthorization(_readTypes);
     } catch (_) {
       return false;
+    } finally {
+      await _markAuthorizationAsked();
     }
+  }
+
+  @override
+  Future<void> ensureReadAuthorization({required bool allowPrompt}) async {
+    if (!isAvailable || !allowPrompt) {
+      return;
+    }
+    try {
+      if (await _authorizationAsked()) {
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+
+    try {
+      final status = await _health.hasPermissions(_readTypes);
+      // iOS の読み取りは、まだ聞いていないと null か false。true ならシートは出さない。
+      if (status == true) {
+        await _markAuthorizationAsked();
+        return;
+      }
+    } catch (_) {}
+
+    await requestPermissions();
+  }
+
+  Future<bool> _authorizationAsked() async {
+    final preferences = await _preferences();
+    return preferences.getBool(readAuthorizationAskedKey) ?? false;
+  }
+
+  Future<void> _markAuthorizationAsked() async {
+    try {
+      final preferences = await _preferences();
+      await preferences.setBool(readAuthorizationAskedKey, true);
+    } catch (_) {}
   }
 
   @override
@@ -60,29 +108,59 @@ class PlatformHealthRepository implements HealthRepository {
 
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
+    final failures = <HealthReadFailure>[];
 
+    final birthDate = await _read(
+      HealthReadType.birthDate,
+      failures,
+      _fetchBirthDate,
+    );
+    final gender = await _read(HealthReadType.gender, failures, _fetchGender);
+    final heightCm = await _read(
+      HealthReadType.height,
+      failures,
+      _fetchHeightCm,
+    );
+    final weight = await _read(
+      HealthReadType.weight,
+      failures,
+      () => _fetchLatestWeight(startOfDay, now),
+    );
+    final activeEnergyBurnedKcal = await _read(
+      HealthReadType.activeEnergy,
+      failures,
+      () => _fetchActiveEnergyBurnedKcal(startOfDay, now),
+    );
+    final workouts = await _read(
+      HealthReadType.workout,
+      failures,
+      () => _fetchWorkouts(startOfDay, now),
+    );
+
+    return HealthProfileData(
+      birthDate: birthDate,
+      gender: gender,
+      heightCm: heightCm,
+      weightKg: weight?.kg,
+      weightMeasuredAt: weight?.measuredAt,
+      activeEnergyBurnedKcal: activeEnergyBurnedKcal,
+      workouts: workouts ?? const [],
+      failures: List.unmodifiable(failures),
+    );
+  }
+
+  Future<T?> _read<T>(
+    String type,
+    List<HealthReadFailure> failures,
+    Future<T?> Function() action,
+  ) async {
     try {
-      final birthDate = await _fetchBirthDate();
-      final gender = await _fetchGender();
-      final heightCm = await _fetchHeightCm();
-      final weight = await _fetchLatestWeight(startOfDay, now);
-      final activeEnergyBurnedKcal = await _fetchActiveEnergyBurnedKcal(
-        startOfDay,
-        now,
+      return await action();
+    } catch (error) {
+      failures.add(
+        HealthReadFailure(type: type, code: healthReadErrorCode(error)),
       );
-      final workouts = await _fetchWorkouts(startOfDay, now);
-
-      return HealthProfileData(
-        birthDate: birthDate,
-        gender: gender,
-        heightCm: heightCm,
-        weightKg: weight?.kg,
-        weightMeasuredAt: weight?.measuredAt,
-        activeEnergyBurnedKcal: activeEnergyBurnedKcal,
-        workouts: workouts,
-      );
-    } catch (_) {
-      return HealthProfileData.empty;
+      return null;
     }
   }
 

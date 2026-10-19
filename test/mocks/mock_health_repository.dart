@@ -21,6 +21,14 @@ class MockHealthRepository implements HealthRepository {
 
   bool requestPermissionsCalled = false;
   bool fetchProfileDataCalled = false;
+  int ensureReadAuthorizationCalls = 0;
+  bool? lastAllowPrompt;
+
+  @override
+  Future<void> ensureReadAuthorization({required bool allowPrompt}) async {
+    ensureReadAuthorizationCalls += 1;
+    lastAllowPrompt = allowPrompt;
+  }
 
   @override
   Future<HealthProfileData> fetchProfileData() async {

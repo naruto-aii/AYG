@@ -7,6 +7,10 @@ on:
 jobs:
   flutter:
     runs-on: ubuntu-latest
+    env:
+      # 記録時刻のテストは UTC だと 6 件落ちる。後続ステップへ TZ を置いても、
+      # その前の flutter test が落ちると実行されない。ジョブの環境をテストプロセスへ渡す。
+      TZ: Asia/Tokyo
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -16,9 +20,7 @@ jobs:
       # 既存の warning / info はリポジトリに残っている。このジョブは error だけを失敗にする。
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       # integration は手元の Supabase / Docker が要る。無い環境では失敗するので外す。
-      - run: flutter test --concurrency=1 --exclude-tags integration
-      # 記録時刻の往復は、日本時間でないと約9時間のずれを検出できない。
-      - name: Tokyo clock round trip
-        run: flutter test --concurrency=1 test/sync_round_trip_tokyo_test.dart test/record_clock_test.dart test/record_instant_mark_test.dart
+      - name: flutter test
+        run: flutter test --concurrency=1 --exclude-tags integration
         env:
           TZ: Asia/Tokyo

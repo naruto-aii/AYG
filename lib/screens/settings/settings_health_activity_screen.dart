@@ -13,9 +13,9 @@ import '../../widgets/design/select_card.dart';
 /// 直前の取り込みが失敗したとき、またはこの端末でまだ実データが無いとき。
 const healthRecoveryMessage = 'ヘルスケアから取り込めませんでした。';
 
-/// 許可シートは再表示できないので、iPhone のヘルスケアの読み取りを案内する。
+/// 許可シートは再表示できないので、ヘルスケアアプリの読み出しを案内する。
 const healthRecoveryGuidance =
-    'iPhoneの「設定 > ヘルスケア > データアクセスとデバイス > カロナビ」で、読み取りをオンにしてください。';
+    'iPhoneの「ヘルスケア」アプリで、右上のアイコンから「プライバシー > アプリ > カロナビ」を開き、すべてオンにしてください。';
 
 const healthRecoveryReread = 'もう一度取り込む';
 

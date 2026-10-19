@@ -55,12 +55,17 @@ class PlatformHealthRepository implements HealthRepository {
     }
 
     try {
-      final granted = await _health.requestAuthorization(_readTypes);
-      await _markAuthorizationAsked();
-      return granted;
+      return await _requestReadAuthorization();
     } catch (_) {
       return false;
     }
+  }
+
+  /// シートの呼び出しが戻ったときだけ、この端末で聞いたことにする。
+  Future<bool> _requestReadAuthorization() async {
+    final granted = await _health.requestAuthorization(_readTypes);
+    await _markAuthorizationAsked();
+    return granted;
   }
 
   @override
@@ -78,15 +83,20 @@ class PlatformHealthRepository implements HealthRepository {
 
     try {
       final status = await _health.hasPermissions(_readTypes);
-      // iOS の読み取りは、まだ聞いていないと null か false。true ならシートは出さない。
+      // iOS の読み取りは許可したあとも hasPermissions が null のまま。
+      // true のときだけ、シートは出さない。
       if (status == true) {
         await _markAuthorizationAsked();
         return false;
       }
     } catch (_) {}
 
-    await requestPermissions();
-    return true;
+    try {
+      await _requestReadAuthorization();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> _authorizationAsked() async {

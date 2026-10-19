@@ -125,7 +125,7 @@ void main() {
       client.throwOnAuthorize = true;
       final repo = repository();
 
-      expect(await repo.ensureReadAuthorization(allowPrompt: true), isTrue);
+      expect(await repo.ensureReadAuthorization(allowPrompt: true), isFalse);
       expect(client.authorizationRequests, 1);
       final prefs = await SharedPreferences.getInstance();
       expect(
@@ -517,6 +517,7 @@ void main() {
       directory: () async => dir,
       excludeFromBackup: (path) async {
         excluded.add(path);
+        return true;
       },
     );
 
@@ -527,6 +528,39 @@ void main() {
     expect(excluded.single, endsWith('health_sample_seen'));
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getKeys(), isEmpty);
+    await dir.delete(recursive: true);
+  });
+
+  test('a failed backup exclusion does not keep the seen marker', () async {
+    final dir = await Directory.systemTemp.createTemp('health-seen-fail');
+    final store = FileHealthSampleSeenStore(
+      directory: () async => dir,
+      excludeFromBackup: (path) async => false,
+    );
+
+    await store.markSeen();
+
+    expect(await store.hasSeen(), isFalse);
+    expect(File('${dir.path}/health_sample_seen').existsSync(), isFalse);
+
+    await File('${dir.path}/health_sample_seen').writeAsString('1');
+    await store.markSeen();
+    expect(await store.hasSeen(), isFalse);
+
+    await dir.delete(recursive: true);
+  });
+
+  test('a thrown backup exclusion does not keep the seen marker', () async {
+    final dir = await Directory.systemTemp.createTemp('health-seen-throw');
+    final store = FileHealthSampleSeenStore(
+      directory: () async => dir,
+      excludeFromBackup: (path) async => throw StateError('exclude failed'),
+    );
+
+    await store.markSeen();
+
+    expect(await store.hasSeen(), isFalse);
+    expect(File('${dir.path}/health_sample_seen').existsSync(), isFalse);
     await dir.delete(recursive: true);
   });
 
@@ -579,10 +613,8 @@ void main() {
     expect(find.text('活動・Health'), findsOneWidget);
     expect(find.text(healthRecoveryMessage), findsOneWidget);
     expect(find.text(healthRecoveryGuidance), findsOneWidget);
-    expect(
-      find.textContaining('設定 > ヘルスケア > データアクセスとデバイス > カロナビ'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('プライバシー > アプリ > カロナビ'), findsOneWidget);
+    expect(find.textContaining('設定 > ヘルスケア'), findsNothing);
     expect(find.text(healthRecoveryReread), findsOneWidget);
     expect(find.text('許可をやり直す'), findsNothing);
     expect(find.byType(SnackBar), findsNothing);

@@ -24,7 +24,8 @@ class FileHealthSampleSeenStore implements HealthSampleSeenStore {
   final Future<Directory> Function()? directory;
 
   /// テストが記録する。本番は iOS のバックアップ除外チャンネル。
-  final Future<void> Function(String path)? excludeFromBackup;
+  /// true のときだけ印を残す。
+  final Future<bool> Function(String path)? excludeFromBackup;
 
   Future<File?> _file() async {
     try {
@@ -61,17 +62,35 @@ class FileHealthSampleSeenStore implements HealthSampleSeenStore {
         await file.parent.create(recursive: true);
         await file.writeAsString('1', flush: true);
       }
-      final exclude = excludeFromBackup;
-      if (exclude != null) {
-        await exclude(file.path);
-        return;
+      if (!await _excludedFromBackup(file.path)) {
+        await _forget(file);
       }
-      if (kIsWeb || !Platform.isIOS) {
-        return;
+    } catch (_) {
+      await _forget(file);
+    }
+  }
+
+  /// 除外できなかった印は残さない。バックアップで戻ると、空の読み取りが本物の 0 になる。
+  Future<bool> _excludedFromBackup(String path) async {
+    final exclude = excludeFromBackup;
+    if (exclude != null) {
+      return exclude(path);
+    }
+    if (kIsWeb || !Platform.isIOS) {
+      return true;
+    }
+    final excluded = await iosBackupExclusionChannel.invokeMethod<bool>(
+      'excludeFromBackup',
+      {'path': path},
+    );
+    return excluded == true;
+  }
+
+  Future<void> _forget(File file) async {
+    try {
+      if (file.existsSync()) {
+        await file.delete();
       }
-      await iosBackupExclusionChannel.invokeMethod<void>('excludeFromBackup', {
-        'path': file.path,
-      });
     } catch (_) {}
   }
 }

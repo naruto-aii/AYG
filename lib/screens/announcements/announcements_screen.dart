@@ -22,6 +22,15 @@ class AnnouncementsScreen extends StatefulWidget {
 
 class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   List<Announcement>? _items;
+  final _openIds = <String>{};
+
+  void _toggle(String id) {
+    setState(() {
+      if (!_openIds.add(id)) {
+        _openIds.remove(id);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -59,6 +68,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           else
             for (final item in items) ...[
               DesignCard(
+                onTap: () => _toggle(item.id),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -70,8 +80,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         color: AppColors.textMuted,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(item.body, style: AppTypography.bodyS),
+                    if (_openIds.contains(item.id)) ...[
+                      const SizedBox(height: 8),
+                      Text(item.body, style: AppTypography.bodyS),
+                    ],
                   ],
                 ),
               ),

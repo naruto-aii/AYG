@@ -48,7 +48,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('検証中の機能について'), findsOneWidget);
-    expect(find.text('新しい機能のお知らせです。'), findsOneWidget);
+    expect(find.text('新しい機能のお知らせです。'), findsNothing);
     expect(reads.ids, {'a1'});
 
     await tester.tap(find.text('戻る'));
@@ -69,6 +69,72 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('お知らせはありません'), findsOneWidget);
+  });
+
+  testWidgets('notice bodies open and close from the title', (tester) async {
+    final notices = [
+      Announcement(
+        id: 'a1',
+        title: '一つ目',
+        body: '一つ目の本文です。',
+        publishedAt: DateTime(2026, 10, 1),
+      ),
+      Announcement(
+        id: 'a2',
+        title: '二つ目',
+        body: '二つ目の本文です。',
+        publishedAt: DateTime(2026, 10, 2),
+      ),
+      Announcement(
+        id: 'a3',
+        title: '三つ目',
+        body: '三つ目の本文です。',
+        publishedAt: DateTime(2026, 10, 3),
+      ),
+    ];
+    final reads = _MemoryReads();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: AnnouncementsScreen(
+          repository: _FixedAnnouncements(notices),
+          readStore: reads,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('一つ目'), findsOneWidget);
+    expect(find.text('二つ目'), findsOneWidget);
+    expect(find.text('三つ目'), findsOneWidget);
+    expect(find.text('一つ目の本文です。'), findsNothing);
+    expect(find.text('二つ目の本文です。'), findsNothing);
+    expect(find.text('三つ目の本文です。'), findsNothing);
+    expect(reads.ids, {'a1', 'a2', 'a3'});
+
+    await tester.tap(find.text('一つ目'));
+    await tester.pumpAndSettle();
+    expect(find.text('一つ目の本文です。'), findsOneWidget);
+    expect(find.text('二つ目の本文です。'), findsNothing);
+    expect(find.text('三つ目の本文です。'), findsNothing);
+
+    await tester.tap(find.text('二つ目'));
+    await tester.pumpAndSettle();
+    expect(find.text('一つ目の本文です。'), findsOneWidget);
+    expect(find.text('二つ目の本文です。'), findsOneWidget);
+    expect(find.text('三つ目の本文です。'), findsNothing);
+
+    await tester.tap(find.text('一つ目'));
+    await tester.pumpAndSettle();
+    expect(find.text('一つ目の本文です。'), findsNothing);
+    expect(find.text('二つ目の本文です。'), findsOneWidget);
+    expect(find.text('三つ目の本文です。'), findsNothing);
+
+    await tester.tap(find.text('二つ目'));
+    await tester.pumpAndSettle();
+    expect(find.text('一つ目の本文です。'), findsNothing);
+    expect(find.text('二つ目の本文です。'), findsNothing);
+    expect(find.text('三つ目の本文です。'), findsNothing);
   });
 }
 

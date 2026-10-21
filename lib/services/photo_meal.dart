@@ -382,9 +382,7 @@ class ParsedPhotoAmount {
 /// 量の文から、倍率にならない単位を取る。読めなければ 1 食分。
 ParsedPhotoAmount parsePhotoAmount(String raw) {
   final text = raw.trim().toLowerCase();
-  final serving = RegExp(
-    r'^(\d+(?:\.\d+)?)\s*(人前|人分|食分)$',
-  ).firstMatch(text);
+  final serving = RegExp(r'^(\d+(?:\.\d+)?)\s*(人前|人分|食分)$').firstMatch(text);
   if (serving != null) {
     final amount = double.tryParse(serving.group(1)!);
     if (amount != null && amount > 0) {
@@ -459,6 +457,25 @@ Future<FoodEntry> saveConfirmedPhotoMeal({
   );
   await controller.addFood(entry);
   return entry;
+}
+
+/// 確認画面で確定した食品。食事の行にはせず、テンプレートの品目へ渡す。
+class ConfirmedFoodCapture {
+  const ConfirmedFoodCapture({
+    required this.name,
+    required this.amountText,
+    required this.kcal,
+    required this.proteinG,
+    required this.fatG,
+    required this.carbG,
+  });
+
+  final String name;
+  final String amountText;
+  final double kcal;
+  final double proteinG;
+  final double fatG;
+  final double carbG;
 }
 
 /// 長辺を約 1024px の JPEG にする。元のバイトは返さない。

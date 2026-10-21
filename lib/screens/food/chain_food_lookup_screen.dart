@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/ai_food_lookup_client.dart';
+import '../../services/photo_meal.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -19,11 +20,15 @@ class ChainFoodLookupScreen extends StatefulWidget {
     required this.controller,
     required this.loggedAt,
     this.client,
+    this.captureOnly = false,
   });
 
   final AppController controller;
   final DateTime loggedAt;
   final AiFoodLookupClient? client;
+
+  /// true のとき、推定は食事に保存せず確認内容だけ返す。
+  final bool captureOnly;
 
   @override
   State<ChainFoodLookupScreen> createState() => _ChainFoodLookupScreenState();
@@ -43,8 +48,8 @@ class _ChainFoodLookupScreenState extends State<ChainFoodLookupScreen> {
     if (query.isEmpty) {
       return;
     }
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    final picked = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
         settings: const RouteSettings(name: 'chain_food_lookup_results'),
         builder: (context) => AiFoodLookupScreen(
           controller: widget.controller,
@@ -52,10 +57,20 @@ class _ChainFoodLookupScreenState extends State<ChainFoodLookupScreen> {
           loggedAt: widget.loggedAt,
           client: widget.client ?? AiFoodLookupClient.supabase(),
           title: chainFoodLookupTitle,
+          captureOnly: widget.captureOnly,
         ),
       ),
     );
-    if (saved == true && mounted) {
+    if (!mounted || picked == null) {
+      return;
+    }
+    if (widget.captureOnly) {
+      if (picked is ConfirmedFoodCapture) {
+        Navigator.of(context).pop(picked);
+      }
+      return;
+    }
+    if (picked == true) {
       Navigator.of(context).pop(true);
     }
   }

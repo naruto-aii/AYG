@@ -6,8 +6,11 @@ import '../../models/official_food.dart';
 import '../../models/saved_food.dart';
 import '../../repositories/official_food_repository.dart';
 import '../../models/saved_food_entry_selection.dart';
+import '../../services/ai_food_lookup_client.dart';
+import '../../services/photo_meal.dart';
 import '../../services/template_food_pick.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/food/combined_food_search.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/macro_display.dart';
 import '../../utils/nutrition_format.dart';
@@ -34,6 +37,8 @@ class MealTemplateFormScreen extends StatefulWidget {
     this.captureOnly = false,
     this.initialDraft,
     this.officialFoods,
+    this.searchOverrides,
+    this.aiLookup,
   });
 
   final AppController controller;
@@ -43,6 +48,8 @@ class MealTemplateFormScreen extends StatefulWidget {
   final bool captureOnly;
   final MealTemplateDraft? initialDraft;
   final OfficialFoodRepository? officialFoods;
+  final CombinedFoodSearchOverrides? searchOverrides;
+  final AiFoodLookupClient? aiLookup;
 
   bool get isEditing => templateId != null && !captureOnly;
 
@@ -119,7 +126,9 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
     }
 
     final selected = await showModalBottomSheet<SavedFood>(
-      routeSettings: const RouteSettings(name: 'meal_template_form_screen_showModalBottomSheet_0'),
+      routeSettings: const RouteSettings(
+        name: 'meal_template_form_screen_showModalBottomSheet_0',
+      ),
       context: context,
       builder: (context) => SafeArea(
         child: ListView(
@@ -150,10 +159,14 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
   Future<void> _searchFood() async {
     final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute<Object?>(
-      settings: const RouteSettings(name: 'meal_template_form_screen_MaterialPageRoute_0'),
+        settings: const RouteSettings(
+          name: 'meal_template_form_screen_MaterialPageRoute_0',
+        ),
         builder: (context) => TemplateFoodSearchScreen(
           controller: widget.controller,
           officialFoods: widget.officialFoods,
+          searchOverrides: widget.searchOverrides,
+          aiLookup: widget.aiLookup,
         ),
       ),
     );
@@ -186,12 +199,26 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
           ),
         );
       });
+      return;
+    }
+    if (result is ConfirmedFoodCapture) {
+      setState(() {
+        _items.add(
+          templateItemFromConfirmedFood(result, sortOrder: _items.length + 1),
+        );
+      });
+      return;
+    }
+    if (result is String) {
+      await _addManualItem(initialName: result);
     }
   }
 
   Future<double?> _askOfficialAmount(OfficialFoodMatch match) {
     return showDialog<double>(
-      routeSettings: const RouteSettings(name: 'meal_template_form_screen_showDialog_0'),
+      routeSettings: const RouteSettings(
+        name: 'meal_template_form_screen_showDialog_0',
+      ),
       context: context,
       builder: (context) => _OfficialAmountDialog(match: match),
     );
@@ -221,11 +248,16 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
     });
   }
 
-  Future<void> _addManualItem() async {
+  Future<void> _addManualItem({String initialName = ''}) async {
     final draft = await showDialog<MealTemplateItemDraft>(
-      routeSettings: const RouteSettings(name: 'meal_template_form_screen_showDialog_1'),
+      routeSettings: const RouteSettings(
+        name: 'meal_template_form_screen_showDialog_1',
+      ),
       context: context,
-      builder: (context) => _ManualItemDialog(sortOrder: _items.length + 1),
+      builder: (context) => _ManualItemDialog(
+        sortOrder: _items.length + 1,
+        initialName: initialName,
+      ),
     );
     if (draft != null) {
       setState(() => _items.add(draft));
@@ -297,9 +329,9 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(userErrorMessage(error, action: '保存'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userErrorMessage(error, action: '保存'))),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -309,7 +341,9 @@ class _MealTemplateFormScreenState extends State<MealTemplateFormScreen> {
 
   Future<void> _showAddMenu() async {
     final choice = await showModalBottomSheet<String>(
-      routeSettings: const RouteSettings(name: 'meal_template_form_screen_showModalBottomSheet_1'),
+      routeSettings: const RouteSettings(
+        name: 'meal_template_form_screen_showModalBottomSheet_1',
+      ),
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -568,20 +602,27 @@ class _OfficialAmountDialogState extends State<_OfficialAmountDialog> {
 }
 
 class _ManualItemDialog extends StatefulWidget {
-  const _ManualItemDialog({required this.sortOrder});
+  const _ManualItemDialog({required this.sortOrder, this.initialName = ''});
 
   final int sortOrder;
+  final String initialName;
 
   @override
   State<_ManualItemDialog> createState() => _ManualItemDialogState();
 }
 
 class _ManualItemDialogState extends State<_ManualItemDialog> {
-  final _nameController = TextEditingController();
+  late final TextEditingController _nameController;
   final _baseController = TextEditingController(text: '100');
   final _consumedController = TextEditingController(text: '100');
   final _kcalController = TextEditingController();
   FoodUnitType _unitType = FoodUnitType.g;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+  }
 
   @override
   void dispose() {

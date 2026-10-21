@@ -6,6 +6,7 @@ import '../repositories/coach_nutrition_source.dart';
 import '../repositories/coach_slot_store.dart';
 import '../state/app_controller.dart';
 import '../utils/meal_slot.dart';
+import '../utils/record_clock.dart';
 import 'daily_coach.dart';
 import 'personal_coach_planner.dart';
 
@@ -124,7 +125,9 @@ class DailyCoachSession {
       );
     }
 
-    final remaining = summary.remainingKcal;
+    // ホームのリングと同じ整数。生の残りを丸めると、表示中の摂取・消費と 1 kcal ずれる。
+    final shown = controller.displayedSummaryKcal(DateTime.now());
+    final remaining = shown.remaining.toDouble();
     if (!remaining.isFinite) {
       return const DailyCoachLoadResult(
         status: DailyCoachStatus.nutritionMissing,
@@ -132,9 +135,7 @@ class DailyCoachSession {
     }
     if (remaining < 0) {
       final weight = controller.currentWeightSelection.kg;
-      final overage = summary.calorieOverageKcal > 0
-          ? summary.calorieOverageKcal
-          : remaining.abs();
+      final overage = shown.overageShown.toDouble();
       final exercise = buildCoachExerciseProposal(
         overageKcal: overage,
         weightKg: weight > 0 ? weight : null,
@@ -210,7 +211,7 @@ class DailyCoachSession {
     if (proposal.components.isEmpty) {
       return const [];
     }
-    final loggedAt = DateTime.now();
+    final loggedAt = asNewRecordInstant(DateTime.now());
     final mealGroupId = controller.generateId();
     final entries = <FoodEntry>[];
     for (var i = 0; i < proposal.components.length; i++) {
@@ -218,25 +219,29 @@ class DailyCoachSession {
       final edited = grams != null && i < grams.length
           ? grams[i]
           : item.grams.toDouble();
-      final consumed = coachMealConsumedAmount(
+      final stored = coachFoodEntryAmounts(
         units: item.units,
         proposedGrams: item.grams,
         editedGrams: edited,
+        kcalPerProposed: item.kcalPerUnit,
+        proteinPerProposed: item.proteinPerUnit,
+        fatPerProposed: item.fatPerUnit,
+        carbPerProposed: item.carbPerUnit,
       );
-      if (consumed == null) {
+      if (stored == null) {
         throw StateError('coach meal amount');
       }
       entries.add(
         FoodEntry(
           id: controller.generateId(),
           name: item.displayName,
-          kcalPerBase: item.kcalPerUnit,
-          proteinPerBase: item.proteinPerUnit,
-          fatPerBase: item.fatPerUnit,
-          carbPerBase: item.carbPerUnit,
-          baseAmount: 1,
-          unitType: FoodUnitType.serving,
-          consumedAmount: consumed,
+          kcalPerBase: stored.kcalPerBase,
+          proteinPerBase: stored.proteinPerBase,
+          fatPerBase: stored.fatPerBase,
+          carbPerBase: stored.carbPerBase,
+          baseAmount: stored.baseAmount,
+          unitType: FoodUnitType.g,
+          consumedAmount: stored.consumedGrams,
           sourceType: FoodEntrySource.mextSfct,
           officialFoodCode: item.foodCode,
           officialFoodName: item.officialName,
@@ -262,7 +267,7 @@ class DailyCoachSession {
       amount: amount,
       weightKg: weight > 0 ? weight : null,
       id: controller.generateId(),
-      loggedAt: DateTime.now(),
+      loggedAt: asNewRecordInstant(DateTime.now()),
     );
     if (entry == null) {
       return false;

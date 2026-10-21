@@ -147,13 +147,18 @@ enum WidgetAnalytics {
     surface: String,
     slot: Int,
     kind: String? = nil,
+    store: PlusStoreSnapshot = .failed,
     outcome: (() throws -> String)? = nil
   ) rethrows -> String {
     let pattern = AnalyticsEventWriter.widgetPatternKind(
       kind ?? LockScreenMealStore.patternKind(surface: surface, slot: slot)
     )
     do {
-      let result = try outcome?() ?? LockScreenMealStore.register(surface: surface, slot: slot)
+      let result = try outcome?() ?? LockScreenMealStore.register(
+        surface: surface,
+        slot: slot,
+        store: store
+      )
       AnalyticsEventWriter.recordWidgetTap(
         surface: surface,
         slot: slot,

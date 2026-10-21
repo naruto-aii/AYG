@@ -25,7 +25,7 @@ String macroFieldInputLabel(MacroField field) {
 /// Figma の MiniField に入る短いラベル。
 String macroFieldShortLabel(MacroField field) {
   return switch (field) {
-    MacroField.kcal => 'カロリー',
+    MacroField.kcal => 'カロリー（任意）',
     MacroField.protein => AppStrings.macroProtein,
     MacroField.fat => AppStrings.macroFat,
     MacroField.carb => AppStrings.macroCarb,

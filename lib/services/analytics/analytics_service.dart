@@ -565,6 +565,11 @@ class AnalyticsService {
     final unexpected = <String>[];
     for (final entry in props.entries) {
       if (entry.value == null) {
+        if (name == 'health_sync_result' &&
+            entry.key == 'active_energy_kcal' &&
+            allowed.contains(entry.key)) {
+          clean[entry.key] = null;
+        }
         continue;
       }
       if (allowed.contains(entry.key)) {

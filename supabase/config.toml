@@ -420,15 +420,15 @@ verify_jwt = true
 [functions.delete-account]
 verify_jwt = true
 
-# 食事写真の推定。JWT は検証する。写真は保存しない。本番へはこの変更では配備しない。
+# 食事写真の推定。JWT は検証する。写真は保存しない。加入行が無いときだけ付与を見る。本番へはこの変更では配備しない。
 [functions.analyze-meal-photo]
 verify_jwt = true
 
-# 食品名からの推定。JWT は検証する。食品データベースへは書き込まない。本番へはこの変更では配備しない。
+# 食品名からの推定。JWT は検証する。食品データベースへは書き込まない。加入行が無いときだけ付与を見る。本番へはこの変更では配備しない。
 [functions.lookup-food-text]
 verify_jwt = true
 
-# 自炊コーチ。JWT は検証する。食材と料理名は保存しない。本番へはこの変更では配備しない。
+# 自炊コーチ。JWT は検証する。食材と料理名は保存しない。加入行が無いときだけ付与を見る。本番へはこの変更では配備しない。
 [functions.cook-coach]
 verify_jwt = true
 

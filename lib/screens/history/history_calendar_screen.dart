@@ -9,6 +9,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/history_calendar_markers.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../utils/nutrition_format.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_icon.dart';
@@ -80,8 +81,7 @@ class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
 
   String _monthLabel(DateTime month) => '${month.year}年 ${month.month}月';
 
-  static String _time(DateTime t) =>
-      '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+  static String _time(DateTime t) => formatRecordMinute(t);
 
   List<Widget> _dayRows() {
     final day = _selectedDay;
@@ -89,7 +89,7 @@ class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
     void open() => _openDayHistory(day);
 
     for (final e in widget.controller.foodEntries) {
-      if (!isSameLocalDay(e.loggedAt, day)) continue;
+      if (!isLoggedOnLocalDay(e.loggedAt, day)) continue;
       rows.add((
         at: e.loggedAt,
         row: DesignListRow(
@@ -104,7 +104,7 @@ class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
       ));
     }
     for (final e in widget.controller.exerciseEntries) {
-      if (!isSameLocalDay(e.loggedAt, day)) continue;
+      if (!isLoggedOnLocalDay(e.loggedAt, day)) continue;
       rows.add((
         at: e.loggedAt,
         row: DesignListRow(
@@ -117,7 +117,7 @@ class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
       ));
     }
     for (final e in widget.controller.alcoholEntries) {
-      if (!isSameLocalDay(e.consumedAt, day)) continue;
+      if (!isLoggedOnLocalDay(e.consumedAt, day)) continue;
       rows.add((
         at: e.consumedAt,
         row: DesignListRow(
@@ -129,7 +129,7 @@ class _HistoryCalendarScreenState extends State<HistoryCalendarScreen> {
         ),
       ));
     }
-    rows.sort((a, b) => a.at.compareTo(b.at));
+    rows.sort((a, b) => compareRecordInstants(a.at, b.at));
     return [for (final r in rows) r.row];
   }
 

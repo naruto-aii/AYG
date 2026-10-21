@@ -70,7 +70,7 @@ void main() {
   }
 
   Future<void> expectDialogThenPaywall(WidgetTester tester) async {
-    expect(find.text('カロナビ+限定機能'), findsOneWidget);
+    expect(find.textContaining('はカロナビ+の機能です'), findsOneWidget);
     expect(find.textContaining('有料'), findsNothing);
     expect(find.textContaining('課金'), findsNothing);
     expect(find.text(deadEnd), findsNothing);
@@ -267,7 +267,7 @@ void main() {
       };
       await show(tester, MealTemplateListScreen(controller: controller));
       await tapLabel(tester, find.text('テンプレートを作成'));
-      expect(find.text('カロナビ+限定機能'), findsOneWidget);
+      expect(find.text('食事テンプレートはカロナビ+の機能です'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, 'カロナビ+を見る'));
       await tester.pumpAndSettle();
       expect(find.text('登録する食品'), findsOneWidget);

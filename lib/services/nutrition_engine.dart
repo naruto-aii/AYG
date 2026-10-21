@@ -7,6 +7,7 @@ import '../models/daily_summary.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
 import '../models/goal.dart';
+import '../models/health_profile_data.dart';
 import '../models/health_snapshot.dart';
 import '../models/nutrition_settings.dart';
 import '../models/target_macros.dart';
@@ -38,6 +39,7 @@ class NutritionEngine {
     GoalPace goalPace = GoalPace.standard,
     DateTime? referenceDate,
     List<WeightSample> weightSamples = const [],
+    List<HealthWorkoutRecord> healthWorkouts = const [],
   }) {
     final selectedDay = referenceDate ?? DateTime.now();
     final manual = settings.usesManualTargets;
@@ -75,6 +77,8 @@ class NutritionEngine {
         exerciseEntries: exerciseEntries,
         selectedDay: selectedDay,
         healthActivityExcessKcal: _healthExcess(settings, energy),
+        healthActiveEnergyPresent: _healthActiveEnergyPresent(settings, energy),
+        healthWorkouts: healthWorkouts,
       );
       return DailySummary(
         targetKcal: targetKcal,
@@ -155,6 +159,8 @@ class NutritionEngine {
       exerciseEntries: exerciseEntries,
       selectedDay: selectedDay,
       healthActivityExcessKcal: _healthExcess(settings, energy),
+      healthActiveEnergyPresent: _healthActiveEnergyPresent(settings, energy),
+      healthWorkouts: healthWorkouts,
     );
 
     return DailySummary(
@@ -319,6 +325,13 @@ class NutritionEngine {
       bmr: bmr,
       activityLevel: settings.activityLevel!,
     );
+  }
+
+  bool _healthActiveEnergyPresent(
+    NutritionSettings settings,
+    EnergyTargetBreakdown energy,
+  ) {
+    return settings.useHealthIntegration && energy.healthActiveEnergyKcal != null;
   }
 
   /// 連携時だけ。食事目標は変えない。戻す手順は [HealthActivityExcess]。

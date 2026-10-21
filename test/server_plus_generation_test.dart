@@ -376,7 +376,7 @@ class _Plus extends UnavailableSubscriptionRepository {
   Stream<bool> get plusChanges => const Stream.empty();
 }
 
-class _Gateway implements LockScreenMealGateway {
+class _Gateway with LockScreenGrantFallback implements LockScreenMealGateway {
   bool paid = false;
   final history = <bool>[];
 

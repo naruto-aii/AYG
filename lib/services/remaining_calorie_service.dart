@@ -2,7 +2,9 @@ import '../models/alcohol_entry.dart';
 import '../models/calculation/remaining_calorie_breakdown.dart';
 import '../models/exercise_entry.dart';
 import '../models/food_entry.dart';
+import '../models/health_profile_data.dart';
 import '../utils/local_date.dart';
+import 'health_exercise_credit.dart';
 
 /// 日次「あと x kcal」の単一計算源。
 class RemainingCalorieService {
@@ -34,13 +36,21 @@ class RemainingCalorieService {
     required List<ExerciseEntry> exerciseEntries,
     required DateTime selectedDay,
     double healthActivityExcessKcal = 0,
+    bool healthActiveEnergyPresent = false,
+    List<HealthWorkoutRecord> healthWorkouts = const [],
   }) {
     final foodKcal = _sumFoodKcal(foodEntries, selectedDay);
     final alcoholKcal = _sumAlcoholKcal(alcoholEntries, selectedDay);
     final intakeKcal = foodKcal + alcoholKcal;
-    final exerciseNetKcal = sumExerciseNetKcal(
-      exerciseEntries: exerciseEntries,
-      selectedDay: selectedDay,
+    final dayExercise = filterLoggedOnLocalDay(
+      entries: exerciseEntries,
+      referenceDate: selectedDay,
+      readLoggedAt: (entry) => entry.loggedAt,
+    );
+    final exerciseNetKcal = const HealthExerciseCredit().creditedManualNetKcal(
+      healthActiveEnergyPresent: healthActiveEnergyPresent,
+      dayExercises: dayExercise,
+      healthWorkouts: healthWorkouts,
     );
     final raw = calculate(
       baseDailyFoodTargetKcal: baseDailyFoodTargetKcal,

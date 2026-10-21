@@ -45,11 +45,7 @@ class CalculationReferencesScreen extends StatelessWidget {
               children: [
                 Text('推定値について', style: titleStyle),
                 const SizedBox(height: AppSpacing.sm),
-                Text(
-                  '表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。'
-                  '医療上の診断や治療を目的としたものではありません。',
-                  style: bodyStyle,
-                ),
+                Text('表示されるカロリー・栄養素・運動消費量は一般的な式に基づく推定値です。', style: bodyStyle),
               ],
             ),
           ),

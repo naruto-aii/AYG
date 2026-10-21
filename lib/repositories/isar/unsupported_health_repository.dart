@@ -41,6 +41,11 @@ class UnsupportedHealthRepository implements HealthRepository {
   }
 
   @override
+  Future<bool> ensureReadAuthorization({required bool allowPrompt}) async {
+    return false;
+  }
+
+  @override
   Future<void> saveWeightRecord(WeightRecord record) {
     return _weightRepository.saveWeightRecord(record);
   }

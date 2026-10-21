@@ -117,11 +117,12 @@ void main() {
 
       expect(noApp.asksConfirmation, isFalse);
       expect(noApp.spoken, 'アプリ名が無いので登録しません');
-      expect(noKind.spoken, 'ジョギング30分を登録しました');
+      expect(noKind.spoken, '何kmですか？');
+      expect(noKind.asksAmount, isTrue);
       expect(wrongKind.spoken, contains('ささみは見つかりません'));
       expect(wrongKind.status, SiriVoiceStatus.rescue);
       expect(finish(noApp, SiriAnswer.yes).registered, isFalse);
-      expect(finish(noKind, SiriAnswer.yes).exercise!.durationMin, 30);
+      expect(finish(noKind, SiriAnswer.yes).registered, isFalse);
       expect(finish(wrongKind, SiriAnswer.yes).registered, isFalse);
     },
   );
@@ -235,19 +236,27 @@ void main() {
     expect(saved.food, isNull);
   });
 
-  test('jogging minutes use MET and time', () {
+  test('jogging minutes ask for distance instead of using MET', () {
     final plan = planSiriExercise(
       context: context(),
       name: 'Hey Siri、カロナビで、運動にジョギングを30分。',
       quantity: '',
     );
 
-    expect(plan.spoken, 'ジョギング30分を登録しました');
-    final exercise = finish(plan, SiriAnswer.yes).exercise!;
-    expect(exercise.durationMin, 30);
-    expect(exercise.distanceKm, isNull);
-    expect(exercise.metValue, 7.5);
-    expect(exercise.netKcal, closeTo(204.75, 0.001));
+    expect(plan.spoken, '何kmですか？');
+    expect(plan.asksAmount, isTrue);
+    expect(finish(plan, SiriAnswer.yes).registered, isFalse);
+
+    final saved = resolveSiriAmount(
+      context: context(),
+      plan: plan,
+      amountText: '5',
+    );
+    expect(saved.spoken, 'ジョギング5kmを登録しました');
+    final exercise = finish(saved, SiriAnswer.yes).exercise!;
+    expect(exercise.distanceKm, 5);
+    expect(exercise.netKcal, 300);
+    expect(exercise.metValue, isNull);
   });
 
   test('jogging distance uses the published kilometer formula', () {
@@ -605,18 +614,25 @@ void main() {
     expect(finish(plan, SiriAnswer.yes).registered, isFalse);
   });
 
-  test('walking 30 minutes and strength training 20 minutes are logged', () {
+  test('walking 30 minutes asks for distance; strength training uses minutes', () {
     final walk = planSiriExercise(
       context: context(),
       name: 'ウォーキング30分',
       quantity: '',
     );
-    expect(walk.spoken, 'ウォーキング30分を登録しました');
-    final walked = finish(walk, SiriAnswer.yes).exercise!;
+    expect(walk.spoken, '何kmですか？');
+    expect(walk.asksAmount, isTrue);
+    expect(finish(walk, SiriAnswer.yes).registered, isFalse);
+    final answered = resolveSiriAmount(
+      context: context(),
+      plan: walk,
+      amountText: '5',
+    );
+    expect(answered.spoken, 'ウォーキング5kmを登録しました');
+    final walked = finish(answered, SiriAnswer.yes).exercise!;
     expect(walked.activityId, 'walk_brisk');
-    expect(walked.durationMin, 30);
-    expect(walked.distanceKm, isNull);
-    expect(walked.netKcal, closeTo(88.2, 0.001));
+    expect(walked.distanceKm, 5);
+    expect(walked.netKcal, closeTo(150, 0.001));
 
     final weights = planSiriExercise(
       context: context(),
@@ -630,7 +646,7 @@ void main() {
     expect(lifted.netKcal, closeTo(52.5, 0.001));
   });
 
-  test('散歩した asks how many minutes', () {
+  test('散歩した asks how many kilometers', () {
     final plan = planSiriExercise(
       context: context(),
       name: '散歩した',
@@ -638,14 +654,16 @@ void main() {
     );
 
     expect(plan.asksAmount, isTrue);
-    expect(plan.spoken, '何分ですか？');
+    expect(plan.spoken, '何kmですか？');
     final answered = resolveSiriAmount(
       context: context(),
       plan: plan,
       amountText: '15',
     );
-    expect(answered.spoken, 'ウォーキング15分を登録しました');
-    expect(finish(answered, SiriAnswer.yes).exercise!.activityId, 'walk_brisk');
+    expect(answered.spoken, 'ウォーキング15kmを登録しました');
+    final walked = finish(answered, SiriAnswer.yes).exercise!;
+    expect(walked.activityId, 'walk_brisk');
+    expect(walked.distanceKm, 15);
   });
 
   test('a meal template name logs that template', () {

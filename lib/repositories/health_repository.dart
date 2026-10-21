@@ -9,6 +9,14 @@ abstract class HealthRepository {
 
   Future<bool> requestPermissions();
 
+  /// まだ許可が決まっていないときだけ、システムの許可シートを出す。
+  ///
+  /// [allowPrompt] が false のときは出さない。背面や拡張からは true にしない。
+  /// シートを出したら true。出さなかったら false。
+  Future<bool> ensureReadAuthorization({required bool allowPrompt}) async {
+    return false;
+  }
+
   Future<HealthProfileData> fetchProfileData();
 
   Future<void> saveWeightRecord(WeightRecord record);

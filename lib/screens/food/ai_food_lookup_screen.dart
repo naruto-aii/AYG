@@ -50,6 +50,38 @@ Future<bool> openAiFoodLookup({
   return saved == true;
 }
 
+/// カロナビ+のあと、検索語の推定を開く。食事には保存せず、確認した食品を返す。
+Future<ConfirmedFoodCapture?> captureAiFoodLookup({
+  required BuildContext context,
+  required AppController controller,
+  required String query,
+  required DateTime loggedAt,
+  AiFoodLookupClient? client,
+}) async {
+  final allowed = await ensureCalonaviPlus(
+    context,
+    controller,
+    message: 'AIで探すは、カロナビ+です。食品名から、カロリーとPFCの推定を出します。',
+    feature: PlusFunnelFeature.aiFoodLookup,
+  );
+  if (!allowed || !context.mounted) {
+    return null;
+  }
+  final picked = await Navigator.of(context).push<Object?>(
+    MaterialPageRoute<Object?>(
+      settings: const RouteSettings(name: 'ai_food_lookup'),
+      builder: (context) => AiFoodLookupScreen(
+        controller: controller,
+        query: query,
+        loggedAt: loggedAt,
+        client: client ?? AiFoodLookupClient.supabase(),
+        captureOnly: true,
+      ),
+    ),
+  );
+  return picked is ConfirmedFoodCapture ? picked : null;
+}
+
 /// 候補を出して、選んだ1件を写真で登録と同じ確認画面で保存する。
 class AiFoodLookupScreen extends StatefulWidget {
   const AiFoodLookupScreen({
@@ -59,6 +91,7 @@ class AiFoodLookupScreen extends StatefulWidget {
     required this.loggedAt,
     required this.client,
     this.title = aiFoodLookupEstimateTitle,
+    this.captureOnly = false,
   });
 
   final AppController controller;
@@ -66,6 +99,9 @@ class AiFoodLookupScreen extends StatefulWidget {
   final DateTime loggedAt;
   final AiFoodLookupClient client;
   final String title;
+
+  /// true のとき、食事の行を作らず確認内容だけ返す。
+  final bool captureOnly;
 
   @override
   State<AiFoodLookupScreen> createState() => _AiFoodLookupScreenState();
@@ -119,8 +155,8 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
 
   Future<void> _open(AiFoodCandidate candidate) async {
     final result = _result;
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    final picked = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute<Object?>(
         settings: const RouteSettings(name: 'ai_food_lookup_confirm'),
         builder: (context) => PhotoMealConfirmScreen(
           controller: widget.controller,
@@ -128,6 +164,7 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
           hadUserDishName: candidate.name.trim().isNotEmpty,
           title: aiFoodLookupEstimateTitle,
           subtitle: aiFoodLookupEstimateSubtitle,
+          captureOnly: widget.captureOnly,
           analysis: PhotoMealAnalysis(
             usageId: result?.usageId,
             collectionId: candidate.collectionId,
@@ -139,7 +176,16 @@ class _AiFoodLookupScreenState extends State<AiFoodLookupScreen> {
         ),
       ),
     );
-    if (saved == true && mounted) {
+    if (!mounted || picked == null) {
+      return;
+    }
+    if (widget.captureOnly) {
+      if (picked is ConfirmedFoodCapture) {
+        Navigator.of(context).pop(picked);
+      }
+      return;
+    }
+    if (picked == true) {
       Navigator.of(context).pop(true);
     }
   }

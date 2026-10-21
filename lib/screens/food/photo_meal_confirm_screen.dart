@@ -99,6 +99,7 @@ class PhotoMealConfirmScreen extends StatefulWidget {
     this.title = '推定の確認',
     this.subtitle = 'これはAIの推定です。登録の前に確認して、数値を直せます。',
     this.recordEdit,
+    this.captureOnly = false,
   });
 
   final AppController controller;
@@ -110,6 +111,9 @@ class PhotoMealConfirmScreen extends StatefulWidget {
   final String title;
   final String subtitle;
   final Future<void> Function(String usageId, bool edited)? recordEdit;
+
+  /// 食事には保存せず、確認した名前・量・カロリー・PFCだけ返す。
+  final bool captureOnly;
 
   @override
   State<PhotoMealConfirmScreen> createState() => _PhotoMealConfirmScreenState();
@@ -231,16 +235,18 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
     }
     setState(() => _saving = true);
     try {
-      await saveConfirmedPhotoMeal(
-        controller: widget.controller,
-        loggedAt: widget.loggedAt,
-        name: name,
-        amountText: _amountText,
-        kcal: kcal,
-        proteinG: protein,
-        fatG: fat,
-        carbG: carb,
-      );
+      if (!widget.captureOnly) {
+        await saveConfirmedPhotoMeal(
+          controller: widget.controller,
+          loggedAt: widget.loggedAt,
+          name: name,
+          amountText: _amountText,
+          kcal: kcal,
+          proteinG: protein,
+          fatG: fat,
+          carbG: carb,
+        );
+      }
       final edited = photoMealWasEdited(
         original: _estimate,
         name: name,
@@ -271,6 +277,19 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
       if (!mounted) {
         return;
       }
+      if (widget.captureOnly) {
+        Navigator.of(context).pop(
+          ConfirmedFoodCapture(
+            name: name,
+            amountText: _amountText,
+            kcal: kcal,
+            proteinG: protein,
+            fatG: fat,
+            carbG: carb,
+          ),
+        );
+        return;
+      }
       Navigator.of(context).pop(true);
     } catch (error) {
       debugPrint('[AYG] photo meal save failed: $error');
@@ -295,7 +314,7 @@ class _PhotoMealConfirmScreenState extends State<PhotoMealConfirmScreen> {
     final items = _estimate.items;
     return DesignPage(
       bottomBar: DesignButton(
-        label: 'この内容で登録',
+        label: widget.captureOnly ? 'この内容で追加' : 'この内容で登録',
         showTrailingIcon: false,
         loading: _saving,
         onPressed: _saving ? null : _save,

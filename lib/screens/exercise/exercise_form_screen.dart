@@ -11,67 +11,15 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/food_search_normalizer.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/design/design_button.dart';
-import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/icon_circle.dart';
 import '../../widgets/exercise/exercise_met_calculation_section.dart';
 import '../workout_template/workout_template_plus_gate.dart';
 import 'exercise_form_template_actions.dart';
-
-Future<bool?> showSaveCustomActivityTemplateDialog({
-  required BuildContext context,
-  required String activityName,
-}) {
-  return showDialog<bool>(
-      routeSettings: const RouteSettings(name: 'exercise_form_screen_showDialog_0'),
-    context: context,
-    builder: (context) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.screenHorizontal,
-        ),
-        child: DesignCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'テンプレートに追加',
-                style: AppTypography.titleM.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                '「$activityName」をテンプレートに追加しますか？次回から一覧で選べます。',
-                style: AppTypography.bodyL.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              DesignButton(
-                label: 'はい',
-                showTrailingIcon: false,
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              DesignButton(
-                label: 'いいえ',
-                style: DesignButtonStyle.outline,
-                showTrailingIcon: false,
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
 
 class ExerciseFormScreen extends StatefulWidget {
   static const setsFieldKey = Key('exercise-sets');
@@ -109,14 +57,16 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   late final TextEditingController _notesController;
   late DateTime _loggedAt;
   bool _isSaving = false;
+  bool _saveAsTemplate = false;
   ExerciseMetFormState _metState = ExerciseMetFormState();
 
   @override
   void initState() {
     super.initState();
     final entry = widget.entry;
-    _loggedAt = (entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now())
-        .toLocal();
+    final rawLoggedAt =
+        entry?.loggedAt ?? widget.initialLoggedAt ?? DateTime.now();
+    _loggedAt = entry == null ? asNewRecordInstant(rawLoggedAt) : rawLoggedAt;
     _nameController = TextEditingController(
       text: entry?.name ?? widget.initialName?.trim() ?? '',
     );
@@ -191,6 +141,11 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return null;
     }
 
+    final preserved = _preservedIfUnchanged();
+    if (preserved != null) {
+      return preserved;
+    }
+
     final grossAndNet = _resolveGrossAndNetKcal();
     if (grossAndNet == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -256,6 +211,84 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       sourceKey: _metState.sourceKey,
       notes: widget.controller.storedExerciseNotes(notes),
     );
+  }
+
+  /// 種目・量・kcal の欄を変えていなければ、保存済みの数をそのまま返す。
+  ExerciseEntry? _preservedIfUnchanged() {
+    final entry = widget.entry;
+    if (entry == null || !_calcInputsMatch(entry)) {
+      return null;
+    }
+    final notes = _notesController.text.trim();
+    return entry.copyWith(
+      name: _nameController.text.trim(),
+      loggedAt: _loggedAt,
+      sets: _showsLoadFields
+          ? _parseOptionalInt(_setsController)
+          : entry.sets,
+      liftWeightKg: _showsLoadFields
+          ? _parseOptionalDouble(_liftWeightController)
+          : entry.liftWeightKg,
+      notes: notes,
+      clearNotes: notes.isEmpty,
+    );
+  }
+
+  bool _calcInputsMatch(ExerciseEntry entry) {
+    if (entry.activityId != _metState.activityId) {
+      return false;
+    }
+    final activity = MetActivityCatalog.findById(entry.activityId);
+    final unit = activity?.quantityUnit ?? ExerciseQuantityUnit.durationMin;
+    final openedAs =
+        activity?.intensityById(entry.intensity)?.id ??
+        activity?.defaultIntensityId ??
+        entry.intensity;
+    final currentIntensity =
+        activity?.intensityById(_metState.intensity)?.id ?? _metState.intensity;
+    if (currentIntensity != openedAs && currentIntensity != entry.intensity) {
+      return false;
+    }
+    switch (unit) {
+      case ExerciseQuantityUnit.distanceKm:
+        if (!_sameNumber(
+          entry.distanceKm,
+          _parseOptionalDouble(_distanceController),
+        )) {
+          return false;
+        }
+        break;
+      case ExerciseQuantityUnit.durationMin:
+        final minutes = int.tryParse(_durationController.text.trim());
+        if (minutes != entry.durationMin) {
+          return false;
+        }
+        break;
+      case ExerciseQuantityUnit.reps:
+        if (_parseOptionalInt(_repsController) != entry.reps) {
+          return false;
+        }
+        break;
+    }
+    final grossText = double.tryParse(_burnedKcalController.text.trim());
+    if (!_sameNumber(entry.effectiveGrossKcal, grossText)) {
+      return false;
+    }
+    final storedIncluded =
+        entry.calculationSource !=
+        ExerciseCalculationSource.lifestyleIncluded;
+    if (_metState.includeInRemaining != storedIncluded &&
+        _metState.activityId != null) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _sameNumber(double? stored, double? current) {
+    if (stored == null || current == null) {
+      return stored == null && current == null;
+    }
+    return (stored - current).abs() < 1e-9;
   }
 
   /// 保存直前に MET 入力から gross/net を再計算（編集時の古い値混在を防ぐ）。
@@ -389,7 +422,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
     }
 
     var addTemplate = false;
-    if (!widget.isEditing && entry.activityId == 'custom') {
+    if (!widget.isEditing &&
+        entry.activityId == 'custom' &&
+        _saveAsTemplate) {
       final saved = await widget.controller.listCustomActivityTemplates();
       final normalized = FoodSearchNormalizer.normalize(entry.name);
       final exists = saved.any(
@@ -399,23 +434,14 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
         if (!mounted) {
           return;
         }
-        final answer = await showSaveCustomActivityTemplateDialog(
-          context: context,
-          activityName: entry.name,
+        final allowed = await allowWorkoutTemplateCreate(
+          context,
+          widget.controller,
         );
-        if (answer == null || !mounted) {
+        if (!mounted) {
           return;
         }
-        if (answer) {
-          final allowed = await allowWorkoutTemplateCreate(
-            context,
-            widget.controller,
-          );
-          if (!mounted) {
-            return;
-          }
-          addTemplate = allowed;
-        }
+        addTemplate = allowed;
       }
     }
 
@@ -493,7 +519,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
   }
 
   Future<void> _pickLoggedAt() async {
-    final local = _loggedAt.toLocal();
+    final local = civilClock(_loggedAt);
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: local,
@@ -511,18 +537,21 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       return;
     }
     setState(() {
-      _loggedAt = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
+      _loggedAt = adoptPickedRecordTime(
+        original: _loggedAt,
+        pickedLocal: DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        ),
       );
     });
   }
 
   String _formatLoggedAt(DateTime value) {
-    final local = value.toLocal();
+    final local = civilClock(value);
     return '${local.year}/${local.month}/${local.day} '
         '${local.hour.toString().padLeft(2, '0')}:'
         '${local.minute.toString().padLeft(2, '0')}';
@@ -582,6 +611,36 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
       bottomBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (!widget.isEditing && _metState.activityId == 'custom') ...[
+            Row(
+              children: [
+                Checkbox(
+                  key: const Key('exercise-save-as-template'),
+                  value: _saveAsTemplate,
+                  onChanged: _isSaving
+                      ? null
+                      : (value) =>
+                            setState(() => _saveAsTemplate = value ?? false),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _isSaving
+                        ? null
+                        : () => setState(
+                            () => _saveAsTemplate = !_saveAsTemplate,
+                          ),
+                    child: Text(
+                      '次回のためにテンプレートに入れる',
+                      style: AppTypography.bodyS.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           DesignButton(
             label: widget.isEditing ? '更新' : '保存',
             showTrailingIcon: false,

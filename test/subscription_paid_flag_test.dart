@@ -219,7 +219,7 @@ class _PricedPlus extends UnavailableSubscriptionRepository {
   }
 }
 
-class _FlagGateway implements LockScreenMealGateway {
+class _FlagGateway with LockScreenGrantFallback implements LockScreenMealGateway {
   bool paid = false;
 
   @override

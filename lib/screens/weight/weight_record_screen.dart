@@ -6,6 +6,8 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
+import '../../utils/recorded_number.dart';
 import '../../widgets/design/design_button.dart';
 import '../../widgets/design/design_card.dart';
 import '../../widgets/design/design_field.dart';
@@ -44,13 +46,17 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
     final entry = widget.entry;
     _weightController = TextEditingController(
       text:
-          entry?.weightKg.toStringAsFixed(1) ??
-          widget.initialWeightKg?.toStringAsFixed(1) ??
-          '',
+          entry != null
+          ? formatRecordedNumber(entry.weightKg)
+          : widget.initialWeightKg != null
+          ? formatRecordedNumber(widget.initialWeightKg!)
+          : '',
     );
-    _recordedAt =
-        (entry?.recordedAt ?? widget.initialRecordedAt ?? DateTime.now())
-            .toLocal();
+    final rawRecordedAt =
+        entry?.recordedAt ?? widget.initialRecordedAt ?? DateTime.now();
+    _recordedAt = entry == null
+        ? asNewRecordInstant(rawRecordedAt)
+        : rawRecordedAt;
   }
 
   @override
@@ -123,7 +129,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
   }
 
   Future<void> _pickRecordedAt() async {
-    final local = _recordedAt.toLocal();
+    final local = civilClock(_recordedAt);
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: local,
@@ -141,12 +147,15 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
       return;
     }
     setState(() {
-      _recordedAt = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
+      _recordedAt = adoptPickedRecordTime(
+        original: _recordedAt,
+        pickedLocal: DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        ),
       );
     });
   }
@@ -154,12 +163,12 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
   /// この記録より前の、いちばん新しい記録。
   WeightEntry? get _previous {
     final entries = [...widget.controller.weightEntries]
-      ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+      ..sort((a, b) => compareRecordInstants(b.recordedAt, a.recordedAt));
     for (final entry in entries) {
       if (entry.id == widget.entry?.id) {
         continue;
       }
-      if (entry.recordedAt.isBefore(_recordedAt)) {
+      if (compareRecordInstants(entry.recordedAt, _recordedAt) < 0) {
         return entry;
       }
     }
@@ -174,7 +183,7 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final local = _recordedAt.toLocal();
+    final local = civilClock(_recordedAt);
     final previous = _previous;
     final current = double.tryParse(_weightController.text.trim());
 
@@ -271,8 +280,8 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
                   const SizedBox(height: 4),
                   Text(
                     current == null
-                        ? formatJapaneseDateWithWeekday(previous.recordedAt)
-                        : '${formatJapaneseDateWithWeekday(previous.recordedAt)}から '
+                        ? formatRecordDate(previous.recordedAt)
+                        : '${formatRecordDate(previous.recordedAt)}から '
                               '${current - previous.weightKg >= 0 ? '+' : ''}'
                               '${(current - previous.weightKg).toStringAsFixed(1)} kg',
                     style: AppTypography.caption.copyWith(
@@ -283,10 +292,15 @@ class _WeightRecordScreenState extends State<WeightRecordScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 10),
+          Text(
+            '記録した体重から、毎日の目標カロリーを計算し直します',
+            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+          ),
           if (widget.controller.useHealthIntegration) ...[
             const SizedBox(height: 10),
             Text(
-              'Health同期がONの場合、Healthの体重を優先して利用します。',
+              'ヘルスケアとつないでいるときは、ヘルスケアの体重を使います',
               style: AppTypography.caption.copyWith(color: AppColors.textMuted),
             ),
           ],

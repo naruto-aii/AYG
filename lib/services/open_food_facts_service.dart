@@ -22,6 +22,7 @@ class FoodLookupResult {
     this.proteinPerUnit,
     this.fatPerUnit,
     this.carbPerUnit,
+    this.packageGrams,
   });
 
   final String? name;
@@ -29,6 +30,33 @@ class FoodLookupResult {
   final double? proteinPerUnit;
   final double? fatPerUnit;
   final double? carbPerUnit;
+
+  /// 商品の内容量（g）。栄養は 100g あたりなので、1食分にはしない。
+  final double? packageGrams;
+}
+
+/// バーコードの栄養は 100g あたり。保存する基準量と、食べるグラム。
+class BarcodeFoodAmount {
+  const BarcodeFoodAmount({
+    required this.baseGrams,
+    required this.consumedGrams,
+  });
+
+  static const baseGramsPerNutrition = 100.0;
+
+  final double baseGrams;
+  final double consumedGrams;
+
+  factory BarcodeFoodAmount.fromPackage(double? packageGrams) {
+    final consumed =
+        packageGrams != null && packageGrams > 0 && packageGrams < 100000
+        ? packageGrams
+        : baseGramsPerNutrition;
+    return BarcodeFoodAmount(
+      baseGrams: baseGramsPerNutrition,
+      consumedGrams: consumed,
+    );
+  }
 }
 
 class OpenFoodFactsService {
@@ -143,7 +171,32 @@ class OpenFoodFactsService {
       proteinPerUnit: _nutrientValue(nutrimentsMap, 'proteins_100g'),
       fatPerUnit: _nutrientValue(nutrimentsMap, 'fat_100g'),
       carbPerUnit: _nutrientValue(nutrimentsMap, 'carbohydrates_100g'),
+      packageGrams: packageGramsOf(_stringValue(product['quantity'])),
     );
+  }
+
+  /// 「45 g」「45g」「0.045 kg」をグラムにする。読めなければ null。
+  static double? packageGramsOf(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    final text = raw.trim().toLowerCase().replaceAll(',', '.');
+    final match = RegExp(
+      r'(\d+(?:\.\d+)?)\s*(kg|g|キログラム|グラム)',
+    ).firstMatch(text);
+    if (match == null) {
+      return null;
+    }
+    final amount = double.tryParse(match.group(1)!);
+    if (amount == null || amount <= 0) {
+      return null;
+    }
+    final unit = match.group(2);
+    final grams = unit == 'kg' || unit == 'キログラム' ? amount * 1000 : amount;
+    if (!grams.isFinite || grams <= 0 || grams >= 100000) {
+      return null;
+    }
+    return grams;
   }
 
   static String? _stringValue(Object? value) {

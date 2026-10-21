@@ -21,10 +21,27 @@ class MockHealthRepository implements HealthRepository {
 
   bool requestPermissionsCalled = false;
   bool fetchProfileDataCalled = false;
+  int fetchCount = 0;
+  int ensureReadAuthorizationCalls = 0;
+  bool? lastAllowPrompt;
+  bool promptedAuthorization = false;
+  Object? fetchError;
+  void Function()? onRequestPermissions;
+
+  @override
+  Future<bool> ensureReadAuthorization({required bool allowPrompt}) async {
+    ensureReadAuthorizationCalls += 1;
+    lastAllowPrompt = allowPrompt;
+    return promptedAuthorization;
+  }
 
   @override
   Future<HealthProfileData> fetchProfileData() async {
     fetchProfileDataCalled = true;
+    fetchCount += 1;
+    if (fetchError != null) {
+      throw fetchError!;
+    }
     return profileData;
   }
 
@@ -41,6 +58,7 @@ class MockHealthRepository implements HealthRepository {
   @override
   Future<bool> requestPermissions() async {
     requestPermissionsCalled = true;
+    onRequestPermissions?.call();
     return permissionsGranted;
   }
 

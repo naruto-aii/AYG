@@ -150,6 +150,8 @@ abstract final class AnalyticsEventNames {
       'workouts_imported',
       'weight_samples_imported',
       'duration_ms',
+      'active_energy_kcal',
+      'failures',
     },
     'food_search': {
       'source',
@@ -291,8 +293,8 @@ abstract final class AnalyticsEventNames {
     },
     'restore_tap': {'product_id'},
     'restore_result': {'result'},
-    'gate_shown': {'feature', 'free_count'},
-    'gate_tap': {'feature', 'choice'},
+    'gate_shown': {'feature', 'free_count', 'entry_point'},
+    'gate_tap': {'feature', 'choice', 'entry_point'},
     'entitlement_observed': {
       'status',
       'product_id',

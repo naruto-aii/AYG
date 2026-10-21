@@ -312,7 +312,7 @@ void main() {
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pumpAndSettle();
     // 入力（減量・目標体重・目標日）と計算結果が同じ画面に入る位置まで送る。
-    await tester.ensureVisible(find.text('目標の方向性'));
+    await tester.ensureVisible(find.text('どうしたいですか？'));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -190));
     await tester.pumpAndSettle();

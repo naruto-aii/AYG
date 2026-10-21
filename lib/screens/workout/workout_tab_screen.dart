@@ -9,6 +9,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 import '../../widgets/history/history_tab_body.dart';
 import '../../widgets/common/delete_with_undo.dart';
 import '../../widgets/design/design_button.dart';
@@ -140,8 +141,7 @@ class _WorkoutTabScreenState extends State<WorkoutTabScreen> {
     return isSameLocalDay(d, DateTime.now()) ? '今日 $base' : base;
   }
 
-  static String _time(DateTime time) =>
-      '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+  static String _time(DateTime time) => formatRecordMinute(time);
 
   @override
   Widget build(BuildContext context) {
@@ -250,15 +250,19 @@ class _WorkoutTabScreenState extends State<WorkoutTabScreen> {
               if (entries.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  child: Text(
-                    'この日の運動記録はありません',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyS.copyWith(
-                      color: AppColors.textMuted,
+                  child: GestureDetector(
+                    onTap: canAdd ? () => _openExerciseForm(context) : null,
+                    child: Text(
+                      'まだ運動が登録されていません。登録はこちら',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyS.copyWith(
+                        color: AppColors.textMuted,
+                        decoration: canAdd ? TextDecoration.underline : null,
+                      ),
                     ),
                   ),
-                )
-              else
+                ),
+              if (entries.isNotEmpty)
                 for (final entry in entries)
                   DesignListRow(
                     icon: AppIcons.exercise,
@@ -268,6 +272,17 @@ class _WorkoutTabScreenState extends State<WorkoutTabScreen> {
                     onTap: () => _openExerciseForm(context, entry: entry),
                     onLongPress: () => _confirmDeleteExercise(context, entry),
                   ),
+              if (widget.controller.useHealthIntegration)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'ヘルスケアとつないでいるときは、ヘルスケアの活動量を今日の消費に使います',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
               const SizedBox(height: AppSpacing.md),
               Text(
                 '記録は長押しで削除できます。',

@@ -7,9 +7,17 @@ import '../../state/app_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/design/design_button.dart';
-import '../../widgets/design/design_icon.dart';
 import '../../widgets/design/design_page.dart';
 import '../../widgets/design/select_card.dart';
+
+/// 直前の取り込みが失敗したとき、またはこの端末でまだ実データが無いとき。
+const healthRecoveryMessage = 'ヘルスケアから取り込めませんでした。';
+
+/// 許可シートは再表示できないので、ヘルスケアアプリの読み出しを案内する。
+const healthRecoveryGuidance =
+    'iPhoneの「ヘルスケア」アプリで、右上のアイコンから「プライバシー > アプリ > カロナビ」を開き、すべてオンにしてください。';
+
+const healthRecoveryReread = 'もう一度取り込む';
 
 class SettingsHealthActivityScreen extends StatefulWidget {
   const SettingsHealthActivityScreen({
@@ -64,7 +72,7 @@ class _SettingsHealthActivityScreenState
       if (!granted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Healthデータを取得できませんでした。取得できない項目は手入力してください。'),
+            content: Text('ヘルスケアのデータを取得できませんでした。取得できない項目は手入力してください。'),
           ),
         );
       }
@@ -87,18 +95,13 @@ class _SettingsHealthActivityScreenState
     });
   }
 
-  Future<void> _resyncHealth() async {
+  Future<void> _retryHealth() async {
     setState(() => _isBusy = true);
-    final success = await widget.controller.resyncHealthData();
+    await widget.controller.retryHealthAccess();
     if (!mounted) {
       return;
     }
     setState(() => _isBusy = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success ? 'Healthデータを再取得しました' : 'Healthデータを取得できませんでした'),
-      ),
-    );
   }
 
   Future<void> _saveActivityLevel() async {
@@ -166,18 +169,44 @@ class _SettingsHealthActivityScreenState
               AppStrings.healthUsingActiveEnergy,
               style: AppTypography.bodyS.copyWith(color: AppColors.textMuted),
             ),
-            const SizedBox(height: 14),
-            DesignButton(
-              label: AppStrings.healthResync,
-              style: DesignButtonStyle.outline,
-              showTrailingIcon: false,
-              loading: _isBusy,
-              leading: const DesignIcon(
-                Symbols.sync_rounded,
-                size: 20,
-                color: AppColors.textBrand,
-              ),
-              onPressed: _isBusy ? null : _resyncHealth,
+            ListenableBuilder(
+              listenable: widget.controller,
+              builder: (context, _) {
+                if (!widget.controller.lastHealthSyncFailed) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        healthRecoveryMessage,
+                        style: AppTypography.bodyS.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        healthRecoveryGuidance,
+                        style: AppTypography.bodyS.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _isBusy ? null : _retryHealth,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          foregroundColor: AppColors.textBrand,
+                        ),
+                        child: const Text(healthRecoveryReread),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ] else ...[
             const SizedBox(height: 22),

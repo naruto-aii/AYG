@@ -4,6 +4,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/history_grouping.dart';
 import '../../utils/local_date.dart';
+import '../../utils/record_clock.dart';
 
 /// 履歴タブ向けの日付切替バー（前日・翌日・今日へ戻る）。
 class HistoryDateNavigator extends StatelessWidget {
@@ -18,7 +19,7 @@ class HistoryDateNavigator extends StatelessWidget {
   final ValueChanged<DateTime> onSelectedDateChanged;
   final VoidCallback? onOpenCalendar;
 
-  DateTime get _day => localDayStart(selectedDate.toLocal());
+  DateTime get _day => localDayStart(civilClock(selectedDate));
 
   bool get _isToday => isSameLocalDay(_day, DateTime.now());
 

@@ -78,8 +78,8 @@ class _WidgetExercisePatternScreenState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const DesignTitleBlock(
-            title: '運動パターン',
-            subtitle: 'この内容はウィジェット専用です。運動テンプレートの一覧には入りません。',
+            title: '運動ボタン',
+            subtitle: 'ウィジェットの運動ボタンに入る内容です。',
           ),
           if (_items.isEmpty)
             Text(

@@ -48,7 +48,7 @@ class SavedFoodEntryBuilder {
         baseUnit: servingUnitLabel,
       );
     }
-    return '${SavedFoodBaseServingFormat.formatQuantity(baseAmount)}${unitType.label}あたり';
+    return '${SavedFoodBaseServingFormat.joinQuantityAndUnit(baseAmount, unitType.label)}あたり';
   }
 
   /// 食べた数量に応じた記録用栄養素（表示用）。
